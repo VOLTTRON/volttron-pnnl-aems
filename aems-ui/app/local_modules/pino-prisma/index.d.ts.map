@@ -1,0 +1,1 @@
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../modules/pino-prisma/index.ts"],"names":[],"mappings":";AAAA,OAAO,KAAK,MAAM,yBAAyB,CAAC;AAE5C,OAAO,EAAE,SAAS,EAAE,MAAM,aAAa,CAAC;AAExC,QAAA,MAAM,SAAS,YAA4B;IAAE,MAAM,CAAC,EAAE,OAAO,MAAM,EAAE,GAAG,CAAC,CAAA;CAAE,yCAoB1E,CAAC;AAEF,eAAe,SAAS,CAAC"}

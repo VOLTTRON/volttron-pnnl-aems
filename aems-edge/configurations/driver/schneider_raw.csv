@@ -1,0 +1,345 @@
+Reference Point Name,Volttron Point Name,Units,Unit Details,BACnet Object Type,Property,Writable,Index,Write Priority,Notes
+UO10 Binary Output,UO10 Binary Output,Enum,0-1 (default 0),binaryOutput,presentValue,FALSE,94,,
+BO1 Auxiliary Binary Output,BO1 Auxiliary Binary Output,Enum,0-1 (default 1),binaryOutput,presentValue,FALSE,98,,
+UO11 Binary Output,UO11 Binary Output,Enum,0-1 (default 0),binaryOutput,presentValue,FALSE,101,,
+UO12 Binary Output,UO12 Binary Output,Enum,0-1 (default 0),binaryOutput,presentValue,FALSE,102,,
+G Fan Status,G Fan Status,Enum,0-1 (default 0),binaryOutput,presentValue,FALSE,25,,
+Y1 Status,Y1 Status,Enum,0-1 (default 0),binaryOutput,presentValue,FALSE,26,,
+Y2 Status,Y2 Status,Enum,0-1 (default 0),binaryOutput,presentValue,FALSE,27,,
+W1 Status,W1 Status,Enum,0-1 (default 0),binaryOutput,presentValue,FALSE,28,,
+W2/OB Status,W2/OB Status,Enum,0-1 (default 0),binaryOutput,presentValue,FALSE,29,,
+UI16 Binary Input,UI16 Binary Input,Enum,0-1,binaryInput,presentValue,FALSE,29,,
+UI17 Binary Input,UI17 Binary Input,Enum,0-1,binaryInput,presentValue,FALSE,30,,
+UI19 Binary Input,UI19 Binary Input,Enum,0-1,binaryInput,presentValue,FALSE,91,,
+UI20 Binary Input,UI20 Binary Input,Enum,0-1,binaryInput,presentValue,FALSE,94,,
+UI22 Binary Input,UI22 Binary Input,Enum,0-1,binaryInput,presentValue,FALSE,95,,
+UI23 Binary Input,UI23 Binary Input,Enum,0-1,binaryInput,presentValue,FALSE,96,,
+UI24 Binary Input,UI24 Binary Input,Enum,0-1,binaryInput,presentValue,FALSE,97,,
+Filter Alarm,Filter Alarm,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,36,,
+Service Alarm,Service Alarm,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,37,,
+Window Alarm,Window Alarm,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,35,,
+PIR Local Motion,PIR Local Motion,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,32,,
+Dehumidification Status,Dehumidification Status,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,38,,
+Low Battery Alarm,Low Battery Alarm,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,5,,
+Window Contact Installed,Window Contact Installed,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,4,,
+Window Contact Status,Window Contact Status,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,3,,
+Door Contact Installed,Door Contact Installed,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,2,,
+Door Contact Status,Door Contact Status,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,1,,
+Display Long Screen Message,Display Long Screen Message,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,7,,
+Force High Backlight,Force High Backlight,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,6,,
+Fan Lock Alarm,Fan Lock Alarm,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,39,,
+Smart Recovery Status,Smart Recovery Status,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,40,,
+Exception Status,Exception Status,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,10,,
+CO2 Alarm,CO2 Alarm,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,41,,
+Low Fresh Air Alarm,Low Fresh Air Alarm,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,42,,
+Frost Protection Alarm,Frost Protection Alarm,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,43,,
+ZigBee PIR Sensor Installed,ZigBee PIR Sensor Installed,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,200,,
+ZigBee Sensor Motion,ZigBee Sensor Motion,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,201,,
+Clock Alarm,Clock Alarm,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,8,,
+Water Leak,Water Leak,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,44,,
+Water Leak Sensor Installed,Water Leak Sensor Installed,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,45,,
+Water leak sensor status,Water leak sensor status,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,46,,
+Low Temperature,Low Temperature,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,47,,
+Load Shedding Demand,Load Shedding Demand,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,48,,
+Load Shedding Status,Load Shedding Status,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,49,,
+Load Shedding Override,Load Shedding Override,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,50,,
+High Temperature,High Temperature,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,53,,
+Hardware fault,Hardware fault,Enum,0-1 (default 0),binaryValue,presentValue,FALSE,54,,
+Occupied Cool Setpoint,Occupied Cool Setpoint,degreesFahrenheit,(default 71.0),analogValue,presentValue,FALSE,40,,
+Occupied Heat Setpoint,Occupied Heat Setpoint,degreesFahrenheit,(default 73.0),analogValue,presentValue,FALSE,39,,
+Unoccupied Cool Setpoint,Unoccupied Cool Setpoint,degreesFahrenheit,(default 80.0),analogValue,presentValue,FALSE,44,,
+Unoccupied Heat Setpoint,Unoccupied Heat Setpoint,degreesFahrenheit,(default 62.0),analogValue,presentValue,FALSE,43,,
+Heating Setpoint Limit,Heating Setpoint Limit,degreesFahrenheit,(default 90.0),analogValue,presentValue,FALSE,58,,
+Cooling Setpoint Limit,Cooling Setpoint Limit,degreesFahrenheit,(default 54.0),analogValue,presentValue,FALSE,59,,
+Calibrate Room Temperature Sensor,Calibrate Room Temperature Sensor,deltaDegreesFahrenheit,(default 0.0),analogValue,presentValue,FALSE,7,,
+Standby Cool Setpoint,Standby Cool Setpoint,degreesFahrenheit,(default 78.0),analogValue,presentValue,FALSE,42,,
+Standby Heat Setpoint,Standby Heat Setpoint,degreesFahrenheit,(default 69.0),analogValue,presentValue,FALSE,41,,
+Dehumidification Setpoint,Dehumidification Setpoint,percentRelativeHumidity,(default 50.0),analogValue,presentValue,FALSE,71,,
+Calibrate Humidity Sensor,Calibrate Humidity Sensor,percentRelativeHumidity,(default 0.0),analogValue,presentValue,FALSE,8,,
+Dehumidification Hysteresis,Dehumidification Hysteresis,percentRelativeHumidity,(default 5.0),analogValue,presentValue,FALSE,72,,
+Main Password,Main Password,noUnits,(default 0.0),analogValue,presentValue,FALSE,56,,
+COM Address,COM Address,noUnits,(default 254.0),analogValue,presentValue,FALSE,10,,
+Minimum Deadband,Minimum Deadband,deltaDegreesFahrenheit,(default 3.0),analogValue,presentValue,FALSE,63,,
+Heating CPH,Heating CPH,noUnits,(default 4.0),analogValue,presentValue,FALSE,84,,
+Cooling CPH,Cooling CPH,noUnits,(default 4.0),analogValue,presentValue,FALSE,85,,
+Unoccupied Time,Unoccupied Time,hours,(default 0.0),analogValue,presentValue,FALSE,68,,
+Temporary Occupancy Time,Temporary Occupancy Time,hours,(default 2.0),analogValue,presentValue,FALSE,62,,
+Standby Time,Standby Time,hours,(default 0.5),analogValue,presentValue,FALSE,67,,
+Proportional Band,Proportional Band,noUnits,(default 3.0),analogValue,presentValue,FALSE,65,,
+Cooling Demand Limit,Cooling Demand Limit,percent,(default 0.0),analogValue,presentValue,FALSE,89,,
+Heating Demand Limit,Heating Demand Limit,percent,(default 0.0),analogValue,presentValue,FALSE,88,,
+BACnet Stack Poll Rate,BACnet Stack Poll Rate,noUnits,(default 4.0),analogValue,presentValue,FALSE,16,,
+Low Backlight,Low Backlight,percent,(default 60.0),analogValue,presentValue,FALSE,3,,
+Night Backlight,Night Backlight,percent,(default 5.0),analogValue,presentValue,FALSE,4,,
+Standby Temperature Differential,Standby Temperature Differential,deltaDegreesFahrenheit,(default 4.0),analogValue,presentValue,FALSE,46,,
+User Password,User Password,noUnits,(default 0.0),analogValue,presentValue,FALSE,57,,
+User HMI,User HMI,noUnits,(default 1.0),analogValue,presentValue,FALSE,2,,
+Default Heating Setpoint,Default Heating Setpoint,degreesFahrenheit,(default 72.0),analogValue,presentValue,FALSE,45,,
+Anti Short Cycle Time,Anti Short Cycle Time,minutes,(default 2.0),analogValue,presentValue,FALSE,86,,
+Number of Heating Stages,Number of Heating Stages,noUnits,(default 2.0),analogValue,presentValue,FALSE,87,,
+Number of Cooling Stages,Number of Cooling Stages,noUnits,(default 2.0),analogValue,presentValue,FALSE,75,,
+Power-up Delay,Power-up Delay,seconds,(default 10.0),analogValue,presentValue,FALSE,76,,
+Calibrate Outside Temperature Sensor,Calibrate Outside Temperature Sensor,deltaDegreesFahrenheit,(default 0.0),analogValue,presentValue,FALSE,74,,
+Heating Lockout from Outside Air Temperature,Heating Lockout from Outside Air Temperature,degreesFahrenheit,(default 120.0),analogValue,presentValue,FALSE,91,,
+Cooling Lockout,Cooling Lockout,degreesFahrenheit,(default -40.0),analogValue,presentValue,FALSE,93,,
+Supply Air Setpoint,Supply Air Setpoint,degreesFahrenheit,(default 55.0),analogValue,presentValue,FALSE,94,,
+Changeover Setpoint,Changeover Setpoint,degreesFahrenheit,(default 55.0),analogValue,presentValue,FALSE,95,,
+Economizer Minimum Position,Economizer Minimum Position,percent,(default 0.0),analogValue,presentValue,FALSE,78,,
+Economizer Maximum Position,Economizer Maximum Position,percent,(default 100.0),analogValue,presentValue,FALSE,81,,
+Fresh Air Range Upper Limit,Fresh Air Range Upper Limit,cubicFeetPerMinute,(default 0.0),analogValue,presentValue,FALSE,96,,
+Minimum Supply Heat,Minimum Supply Heat,degreesFahrenheit,(default 64.0),analogValue,presentValue,FALSE,97,,
+Supply Heat Lockout,Supply Heat Lockout,degreesFahrenheit,(default 32.0),analogValue,presentValue,FALSE,98,,
+Discharge High Limit,Discharge High Limit,degreesFahrenheit,(default 120.0),analogValue,presentValue,FALSE,99,,
+Discharge Low Limit,Discharge Low Limit,degreesFahrenheit,(default 45.0),analogValue,presentValue,FALSE,20,,
+Minimum Fresh Air,Minimum Fresh Air,cubicFeetPerMinute,(default 0.0),analogValue,presentValue,FALSE,21,,
+Maximum Fresh Air,Maximum Fresh Air,cubicFeetPerMinute,(default 0.0),analogValue,presentValue,FALSE,22,,
+Minimum CO2,Minimum CO2,partsPerMillion,(default 800.0),analogValue,presentValue,FALSE,23,,
+Maximum CO2,Maximum CO2,partsPerMillion,(default 1200.0),analogValue,presentValue,FALSE,24,,
+Lua Parameter A (AV25),Lua Parameter A (AV25),noUnits,(default 0.0),analogValue,presentValue,FALSE,25,,Param. A (AV25)
+Lua Parameter B (AV26),Lua Parameter B (AV26),noUnits,(default 0.0),analogValue,presentValue,FALSE,26,,Param. B (AV26)
+Lua Parameter C (AV27),Lua Parameter C (AV27),noUnits,(default 0.0),analogValue,presentValue,FALSE,27,,Param. C (AV27)
+Lua Parameter D (AV28),Lua Parameter D (AV28),noUnits,(default 0.0),analogValue,presentValue,FALSE,28,,Param. D (AV28)
+Lua Parameter E (AV29),Lua Parameter E (AV29),noUnits,(default 0.0),analogValue,presentValue,FALSE,29,,Param. E (AV29)
+Lua Parameter F (AV30),Lua Parameter F (AV30),noUnits,(default 0.0),analogValue,presentValue,FALSE,30,,Param. F (AV30)
+Lua Parameter G (AV225),Lua Parameter G (AV225),noUnits,(default 0.0),analogValue,presentValue,FALSE,225,,Param. G AV225
+Lua Parameter H (AV226),Lua Parameter H (AV226),noUnits,(default 0.0),analogValue,presentValue,FALSE,226,,Param. H AV226
+Lua Parameter I (AV227),Lua Parameter I (AV227),noUnits,(default 0.0),analogValue,presentValue,FALSE,227,,Param. I AV227
+Lua Parameter J (AV228),Lua Parameter J (AV228),noUnits,(default 0.0),analogValue,presentValue,FALSE,228,,Param. J AV228
+Lua Parameter K (AV229),Lua Parameter K (AV229),noUnits,(default 0.0),analogValue,presentValue,FALSE,229,,Param. K AV229
+Lua Parameter L (AV230),Lua Parameter L (AV230),noUnits,(default 0.0),analogValue,presentValue,FALSE,230,,Param. L AV230
+Keyboard Value,Keyboard Value,noUnits,(default 1.0),analogValue,presentValue,FALSE,92,,
+High balance point,High balance point,degreesFahrenheit,(default 90.0),analogValue,presentValue,FALSE,82,,
+Low balance point,Low balance point,degreesFahrenheit,(default -12.0),analogValue,presentValue,FALSE,83,,
+Ambient Low Temperature Threshold,Ambient Low Temperature Threshold,degreesFahrenheit,(default 40.0),analogValue,presentValue,FALSE,209,,
+Temperature Alarm Hysteresis,Temperature Alarm Hysteresis,deltaDegreesFahrenheit,(default 2.0),analogValue,presentValue,FALSE,210,,
+Load Shedding Offset,Load Shedding Offset,deltaDegreesFahrenheit,(default 4.0),analogValue,presentValue,FALSE,211,,
+UI19 Lua,UI19 Lua,noUnits,(default 0.0),analogValue,presentValue,FALSE,202,,
+UI20 Lua,UI20 Lua,noUnits,(default 0.0),analogValue,presentValue,FALSE,203,,
+UI22 Lua,UI22 Lua,noUnits,(default 0.0),analogValue,presentValue,FALSE,204,,
+UI23 Lua,UI23 Lua,noUnits,(default 0.0),analogValue,presentValue,FALSE,205,,
+UI24 Lua,UI24 Lua,noUnits,(default 0.0),analogValue,presentValue,FALSE,206,,
+Standby Screen Delay,Standby Screen Delay,seconds,(default 150.0),analogValue,presentValue,FALSE,270,,
+Ambient High Temperature Threshold,Ambient High Temperature Threshold,degreesFahrenheit,(default 86.0),analogValue,presentValue,FALSE,275,,
+Refrigeration High Temperature Threshold,Refrigeration High Temperature Threshold,degreesFahrenheit,(default 40.0),analogValue,presentValue,FALSE,276,,
+Refrigeration Low Temperature Threshold,Refrigeration Low Temperature Threshold,degreesFahrenheit,(default 32.0),analogValue,presentValue,FALSE,277,,
+Freezer High Temperature Threshold,Freezer High Temperature Threshold,degreesFahrenheit,(default 0.0),analogValue,presentValue,FALSE,278,,
+Room Temperature,Room Temperature,degreesFahrenheit,(default 73.70000457763672),analogValue,presentValue,FALSE,100,,
+Outdoor Temperature,Outdoor Temperature,degreesFahrenheit,(default 55.0),analogValue,presentValue,FALSE,101,,
+UI22 Supply Temperature,UI22 Supply Temperature,degreesFahrenheit,(default 65.5999984741211),analogValue,presentValue,FALSE,102,,
+Room Humidity,Room Humidity,percentRelativeHumidity,(default 24.0),analogValue,presentValue,FALSE,103,,
+UI20 Remote Temperature,UI20 Remote Temperature,degreesFahrenheit,(default 73.70000457763672),analogValue,presentValue,FALSE,105,,
+CO2 Level,CO2 Level,partsPerMillion,(default 0.0),analogValue,presentValue,FALSE,106,,
+Airflow Level,Airflow Level,cubicFeetPerMinute,(default 0.0),analogValue,presentValue,FALSE,107,,
+UI16 Analog Input,UI16 Analog Input,volts,(default 0.0),analogValue,presentValue,FALSE,111,,
+UI17 Analog Input,UI17 Analog Input,volts,(default 0.0),analogValue,presentValue,FALSE,112,,
+UI19 Analog Input,UI19 Analog Input,volts,(default 0.0),analogValue,presentValue,FALSE,108,,
+UI20 Analog Input,UI20 Analog Input,volts,(default 0.0),analogValue,presentValue,FALSE,113,,
+UI22 Analog Input,UI22 Analog Input,volts,(default 0.0),analogValue,presentValue,FALSE,114,,
+UI23 Analog Input,UI23 Analog Input,volts,(default 0.0),analogValue,presentValue,FALSE,115,,
+UI24 Analog Input,UI24 Analog Input,volts,(default 2.0970001220703125),analogValue,presentValue,FALSE,116,,
+UI16 Temperature,UI16 Temperature,degreesFahrenheit,(default -40.0),analogValue,presentValue,FALSE,117,,
+UI17 Temperature,UI17 Temperature,degreesFahrenheit,(default -40.0),analogValue,presentValue,FALSE,118,,
+UI19 Temperature,UI19 Temperature,degreesFahrenheit,(default -40.0),analogValue,presentValue,FALSE,104,,
+UI20 Temperature,UI20 Temperature,degreesFahrenheit,(default 73.70000457763672),analogValue,presentValue,FALSE,120,,
+UI22 Temperature,UI22 Temperature,degreesFahrenheit,(default 65.5999984741211),analogValue,presentValue,FALSE,121,,
+UI23 Temperature,UI23 Temperature,degreesFahrenheit,(default 55.0),analogValue,presentValue,FALSE,122,,
+UI24 Temperature,UI24 Temperature,degreesFahrenheit,(default -40.0),analogValue,presentValue,FALSE,109,,
+Mixed Air Temperature,Mixed Air Temperature,degreesFahrenheit,(default -40.0),analogValue,presentValue,FALSE,125,,
+Effective Occupancy,Effective Occupancy,State,State count: 4,multiStateInput,presentValue,FALSE,33,,"1=Unoccupied, 2=Override, 3=Standby"
+ZigBee Network Status,ZigBee Network Status,State,State count: 5,multiStateInput,presentValue,FALSE,2,,"1=Pwr on, 2=No NWK, 3=Joined, 4=Online"
+Wireless Device 1 - Sensor Type,Wireless Device 1 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,180,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 2 - Sensor Type,Wireless Device 2 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,181,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 3 - Sensor Type,Wireless Device 3 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,182,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 4 - Sensor Type,Wireless Device 4 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,183,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 5 - Sensor Type,Wireless Device 5 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,184,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 6 - Sensor Type,Wireless Device 6 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,185,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 7 - Sensor Type,Wireless Device 7 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,186,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 8 - Sensor Type,Wireless Device 8 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,187,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 9 - Sensor Type,Wireless Device 9 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,188,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 10 - Sensor Type,Wireless Device 10 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,189,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 11 - Sensor Type,Wireless Device 11 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,190,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 12 - Sensor Type,Wireless Device 12 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,191,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 13 - Sensor Type,Wireless Device 13 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,192,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 14 - Sensor Type,Wireless Device 14 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,193,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 15 - Sensor Type,Wireless Device 15 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,194,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 16 - Sensor Type,Wireless Device 16 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,195,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 17 - Sensor Type,Wireless Device 17 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,196,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 18 - Sensor Type,Wireless Device 18 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,197,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 19 - Sensor Type,Wireless Device 19 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,198,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 20 - Sensor Type,Wireless Device 20 - Sensor Type,State,State count: 8,multiStateInput,presentValue,FALSE,199,,"1=Unknown, 2=Motion, 3=Contact, 4=Water, 5=Temp., 6=Temp./RH, 7=CO2"
+Wireless Device 1 - Status,Wireless Device 1 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,210,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 2 - Status,Wireless Device 2 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,220,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 3 - Status,Wireless Device 3 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,230,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 4 - Status,Wireless Device 4 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,240,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 5 - Status,Wireless Device 5 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,250,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 6 - Status,Wireless Device 6 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,260,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 7 - Status,Wireless Device 7 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,270,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 8 - Status,Wireless Device 8 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,280,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 9 - Status,Wireless Device 9 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,290,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 10 - Status,Wireless Device 10 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,300,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 11 - Status,Wireless Device 11 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,310,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 12 - Status,Wireless Device 12 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,320,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 13 - Status,Wireless Device 13 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,330,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 14 - Status,Wireless Device 14 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,340,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 15 - Status,Wireless Device 15 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,350,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 16 - Status,Wireless Device 16 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,360,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 17 - Status,Wireless Device 17 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,370,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 18 - Status,Wireless Device 18 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,380,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 19 - Status,Wireless Device 19 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,390,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 20 - Status,Wireless Device 20 - Status,State,State count: 7,multiStateInput,presentValue,FALSE,400,,"1=Closed, 2=Opened, 3=No motion, 4=Motion, 5=Normal, 6=Leak"
+Wireless Device 1 - Battery,Wireless Device 1 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,211,,"1=Normal, 2=Low"
+Wireless Device 2 - Battery,Wireless Device 2 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,221,,"1=Normal, 2=Low"
+Wireless Device 3 - Battery,Wireless Device 3 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,231,,"1=Normal, 2=Low"
+Wireless Device 4 - Battery,Wireless Device 4 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,241,,"1=Normal, 2=Low"
+Wireless Device 5 - Battery,Wireless Device 5 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,251,,"1=Normal, 2=Low"
+Wireless Device 6 - Battery,Wireless Device 6 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,261,,"1=Normal, 2=Low"
+Wireless Device 7 - Battery,Wireless Device 7 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,271,,"1=Normal, 2=Low"
+Wireless Device 8 - Battery,Wireless Device 8 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,281,,"1=Normal, 2=Low"
+Wireless Device 9 - Battery,Wireless Device 9 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,291,,"1=Normal, 2=Low"
+Wireless Device 10 - Battery,Wireless Device 10 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,301,,"1=Normal, 2=Low"
+Wireless Device 11 - Battery,Wireless Device 11 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,311,,"1=Normal, 2=Low"
+Wireless Device 12 - Battery,Wireless Device 12 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,321,,"1=Normal, 2=Low"
+Wireless Device 13 - Battery,Wireless Device 13 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,331,,"1=Normal, 2=Low"
+Wireless Device 14 - Battery,Wireless Device 14 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,341,,"1=Normal, 2=Low"
+Wireless Device 15 - Battery,Wireless Device 15 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,351,,"1=Normal, 2=Low"
+Wireless Device 16 - Battery,Wireless Device 16 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,361,,"1=Normal, 2=Low"
+Wireless Device 17 - Battery,Wireless Device 17 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,371,,"1=Normal, 2=Low"
+Wireless Device 18 - Battery,Wireless Device 18 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,381,,"1=Normal, 2=Low"
+Wireless Device 19 - Battery,Wireless Device 19 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,391,,"1=Normal, 2=Low"
+Wireless Device 20 - Battery,Wireless Device 20 - Battery,State,State count: 3,multiStateInput,presentValue,FALSE,401,,"1=Normal, 2=Low"
+Wireless Device 1 - Communication Status,Wireless Device 1 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,212,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 2 - Communication Status,Wireless Device 2 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,222,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 3 - Communication Status,Wireless Device 3 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,232,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 4 - Communication Status,Wireless Device 4 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,242,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 5 - Communication Status,Wireless Device 5 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,252,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 6 - Communication Status,Wireless Device 6 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,262,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 7 - Communication Status,Wireless Device 7 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,272,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 8 - Communication Status,Wireless Device 8 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,282,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 9 - Communication Status,Wireless Device 9 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,292,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 10 - Communication Status,Wireless Device 10 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,302,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 11 - Communication Status,Wireless Device 11 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,312,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 12 - Communication Status,Wireless Device 12 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,322,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 13 - Communication Status,Wireless Device 13 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,332,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 14 - Communication Status,Wireless Device 14 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,342,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 15 - Communication Status,Wireless Device 15 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,352,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 16 - Communication Status,Wireless Device 16 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,362,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 17 - Communication Status,Wireless Device 17 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,372,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 18 - Communication Status,Wireless Device 18 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,382,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 19 - Communication Status,Wireless Device 19 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,392,,"1=Online, 2=Invalid, 3=Offline"
+Wireless Device 20 - Communication Status,Wireless Device 20 - Communication Status,State,State count: 4,multiStateInput,presentValue,FALSE,402,,"1=Online, 2=Invalid, 3=Offline"
+Effective temperature sensor,Effective temperature sensor,State,State count: 23,multiStateInput,presentValue,FALSE,309,,"1=Internal, 2=WL IO, 3=WL 1, 4=WL 2, 5=WL 3, 6=WL 4, 7=WL 5, 8=WL 6, 9=WL 7, 10=WL 8, 11=WL 9, 12=WL 10, 13=WL 11, 14=WL 12, 15=WL 13, 16=WL 14, 17=WL 15, 18=WL 16, 19=WL 17, 20=WL 18, 21=WL 19, 22=WL 20"
+Effective relative humidity sensor,Effective relative humidity sensor,State,State count: 22,multiStateInput,presentValue,FALSE,313,,"1=Internal, 2=WL 1, 3=WL 2, 4=WL 3, 5=WL 4, 6=WL 5, 7=WL 6, 8=WL 7, 9=WL 8, 10=WL 9, 11=WL 10, 12=WL 11, 13=WL 12, 14=WL 13, 15=WL 14, 16=WL 15, 17=WL 16, 18=WL 17, 19=WL 18, 20=WL 19, 21=WL 20"
+Effective System Mode,Effective System Mode,State,State count: 2,multiStateInput,presentValue,FALSE,314,,1=Heat
+Wi-Fi Module Status,Wi-Fi Module Status,State,State count: 7,multiStateInput,presentValue,FALSE,315,,"1=Initializing, 2=Ready, 3=Booting, 4=Resetting, 5=Fail, 6=Testing"
+Wi-Fi Status,Wi-Fi Status,State,State count: 7,multiStateInput,presentValue,FALSE,316,,"1=Associate, 2=Config., 3=Ready, 4=Online, 5=Disconn., 6=Failure"
+BACnet IP Status,BACnet IP Status,State,State count: 2,multiStateInput,presentValue,FALSE,317,,1=Enabled
+SMTP Server Status,SMTP Server Status,State,State count: 4,multiStateInput,presentValue,FALSE,318,,"1=Disabled, 2=Offline, 3=Online"
+Facility Expert Enabled,Facility Expert Enabled,State,State count: 2,multiStateInput,presentValue,FALSE,319,,1=Enabled
+Facility Expert Status,Facility Expert Status,State,State count: 6,multiStateInput,presentValue,FALSE,323,,"1=Offline, 2=Connect., 3=Online, 4=Failure, 5=Unknown"
+CO2 Effective Source,CO2 Effective Source,State,State count: 24,multiStateInput,presentValue,FALSE,324,,"1=Internal, 2=Error, 3=Wired, 4=WL 1, 5=WL 2, 6=WL 3, 7=WL 4, 8=WL 5, 9=WL 6, 10=WL 7, 11=WL 8, 12=WL 9, 13=WL 10, 14=WL 11, 15=WL 12, 16=WL 13, 17=WL 14, 18=WL 15, 19=WL 16, 20=WL 17, 21=WL 18, 22=WL 19, 23=WL 20"
+Time source,Time source,State,State count: 5,multiStateInput,presentValue,FALSE,325,,"1=Local, 2=BACnet, 3=NTP, 4=Cloud"
+Fan Speed Status,Fan Speed Status,State,State count: 4,multiStateInput,presentValue,FALSE,326,,"1=Low, 2=Med, 3=High"
+Wi-Fi Network Signal Strength,Wi-Fi Network Signal Strength,State,State count: 5,multiStateInput,presentValue,FALSE,327,,"1=Weak, 2=Fair, 3=Good, 4=Excellent"
+Temperature Scale,Temperature Scale,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,51,,1=°F
+Display Language,Display Language,State,State count: 23 (default 1),multiStateValue,presentValue,FALSE,4,,"1=French, 2=Spanish, 3=Chinese, 4=Russian, 5=Arabic, 6=Bulgarian, 7=Czech, 8=Danish, 9=Dutch, 10=Finnish, 11=German, 12=Hungarian, 13=Indones., 14=Italian, 15=Norwegian, 16=Polish, 17=Portug., 18=Slovak, 19=Swedish, 20=Turkish, 21=Japanese, 22=Hebrew"
+Fan Mode,Fan Mode,State,State count: 3 (default 2),multiStateValue,presentValue,FALSE,17,,"1=Auto, 2=Smart"
+System Mode,System Mode,State,State count: 4 (default 2),multiStateValue,presentValue,FALSE,16,,"1=Auto, 2=Cool, 3=Heat"
+UI16 Configuration,UI16 Configuration,State,State count: 6 (default 1),multiStateValue,presentValue,FALSE,46,,"1=Rem NSB, 2=Motion NO, 3=Motion NC, 4=Window, 5=Fan lock"
+UI17 Configuration,UI17 Configuration,State,State count: 5 (default 1),multiStateValue,presentValue,FALSE,47,,"1=Door dry, 2=Override, 3=Filter, 4=Service"
+Room Humidity Display,Room Humidity Display,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,70,,1=Enabled
+Dehumidification Lockout,Dehumidification Lockout,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,13,,1=Enabled
+UI19 Configuration,UI19 Configuration,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,49,,1=CO2
+Setpoint Function,Setpoint Function,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,58,,1=Attach SP
+Fan Control in Heating Mode,Fan Control in Heating Mode,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,95,,1=On
+Occupancy Command,Occupancy Command,State,State count: 3 (default 2),multiStateValue,presentValue,FALSE,10,,"1=Occupied, 2=Unocc."
+Network Units,Network Units,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,6,,1=Imperial
+Network Language,Network Language,State,State count: 3 (default 1),multiStateValue,presentValue,FALSE,7,,"1=French, 2=Spanish"
+BACnet Baud Rate,BACnet Baud Rate,State,State count: 7 (default 7),multiStateValue,presentValue,FALSE,8,,"1=19200, 2=38400, 3=57600, 4=76800, 5=115200, 6=Auto"
+Time Format,Time Format,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,5,,1=24 Hours
+Standby Mode Configuration,Standby Mode Configuration,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,11,,1=Offset
+HMI Color,HMI Color,State,State count: 10 (default 1),multiStateValue,presentValue,FALSE,2,,"1=Green, 2=Blue, 3=Grey, 4=Dark grey, 5=Pink, 6=Purple, 7=Red, 8=Orange, 9=Black"
+Main Display,Main Display,State,State count: 3 (default 1),multiStateValue,presentValue,FALSE,3,,"1=Setpoint, 2=T. + set."
+Long Message Background Colour,Long Message Background Colour,State,State count: 11 (default 1),multiStateValue,presentValue,FALSE,1,,"1=Green, 2=Blue, 3=Grey, 4=Dark grey, 5=Pink, 6=Purple, 7=Red, 8=Orange, 9=Black, 10=Default"
+Use Standby Screen,Use Standby Screen,State,State count: 4 (default 1),multiStateValue,presentValue,FALSE,32,,"1=Yes, 2=Occ. only, 3=Screen sav"
+BO1 Auxiliary Output Configuration,BO1 Auxiliary Output Configuration,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,92,,1=NC
+UO9 Configuration,UO9 Configuration,State,State count: 4 (default 4),multiStateValue,presentValue,FALSE,96,,"1=Binary, 2=Relay RC, 3=Relay RH"
+UO10 Configuration,UO10 Configuration,State,State count: 3 (default 1),multiStateValue,presentValue,FALSE,97,,"1=Binary, 2=Relay RC"
+UO11 Configuration,UO11 Configuration,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,98,,1=Binary
+UO12 Configuration,UO12 Configuration,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,99,,1=Binary
+Fan Delay,Fan Delay,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,12,,1=On
+Frost Protection,Frost Protection,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,55,,1=On
+Mechanical Cooling Allowed,Mechanical Cooling Allowed,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,79,,1=On
+Economizer Configuration,Economizer Configuration,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,72,,1=On
+Enable Smart Recovery,Enable Smart Recovery,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,71,,1=On
+Schedule Menu,Schedule Menu,State,State count: 4 (default 2),multiStateValue,presentValue,FALSE,73,,"1=Enabled, 2=Dis.no.clk, 3=En.no.clk"
+French,French,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,101,,1=Enabled
+Spanish,Spanish,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,102,,1=Enabled
+Chinese,Chinese,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,103,,1=Enabled
+Russian,Russian,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,104,,1=Enabled
+Wireless Device 1 - Function,Wireless Device 1 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,210,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 2 - Function,Wireless Device 2 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,220,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 3 - Function,Wireless Device 3 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,230,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 4 - Function,Wireless Device 4 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,240,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 5 - Function,Wireless Device 5 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,250,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 6 - Function,Wireless Device 6 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,260,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 7 - Function,Wireless Device 7 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,270,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 8 - Function,Wireless Device 8 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,280,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 9 - Function,Wireless Device 9 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,290,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 10 - Function,Wireless Device 10 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,300,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Occupancy Source,Occupancy Source,State,State count: 4 (default 1),multiStateValue,presentValue,FALSE,110,,"1=Schedule, 2=Mot. occ., 3=Mot. unoc."
+Mode Button,Mode Button,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,111,,1=Off-Auto
+Control Status,Control Status,State,State count: 3 (default 1),multiStateValue,presentValue,FALSE,112,,"1=Cool, 2=Heat"
+Custom button icon,Custom button icon,State,State count: 17 (default 1),multiStateValue,presentValue,FALSE,114,,"1=No Button, 2=System Mode Heat/Cool, 3=System Mode On/Off, 4=Fan Mode, 5=Override Button, 6=Units Button, 7=Help Button, 8=Language Button, 9=Schedule Button, 10=Lighting Button, 11=Blind Button, 12=Lamp Button, 13=Energy Button, 14=Make Room Button, 15=Setting Button, 16=Timer Button"
+Custom button behavior,Custom button behavior,State,State count: 12 (default 1),multiStateValue,presentValue,FALSE,115,,"1=No function, 2=System mode function, 3=Fan function, 4=Override function, 5=Schedule function, 6=Units function, 7=Help function, 8=Language function, 9=Configuration function, 10=Custom function, 11=Standby function"
+Arabic,Arabic,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,120,,1=Enabled
+Czech,Czech,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,122,,1=Enabled
+Danish,Danish,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,123,,1=Enabled
+Dutch,Dutch,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,124,,1=Enabled
+Finnish,Finnish,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,125,,1=Enabled
+German,German,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,126,,1=Enabled
+Hungarian,Hungarian,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,127,,1=Enabled
+Indonesian,Indonesian,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,128,,1=Enabled
+Italian,Italian,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,129,,1=Enabled
+Norwegian,Norwegian,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,130,,1=Enabled
+Polish,Polish,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,131,,1=Enabled
+Portuguese,Portuguese,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,132,,1=Enabled
+Slovak,Slovak,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,133,,1=Enabled
+Swedish,Swedish,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,134,,1=Enabled
+Turkish,Turkish,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,135,,1=Enabled
+Comfort or economy mode,Comfort or economy mode,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,116,,1=Economy
+Reversing valve operation,Reversing valve operation,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,117,,1=B
+Compressor - auxiliary interlock,Compressor - auxiliary interlock,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,118,,1=On
+Application,Application,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,119,,1=Heatpump
+Schedule Type,Schedule Type,State,State count: 3 (default 1),multiStateValue,presentValue,FALSE,136,,"1=5+2 days, 2=5+1+1 day"
+UI16 Input Type,UI16 Input Type,State,State count: 3 (default 2),multiStateValue,presentValue,FALSE,138,,"1=Binary, 2=Voltage"
+UI17 Input Type,UI17 Input Type,State,State count: 3 (default 2),multiStateValue,presentValue,FALSE,139,,"1=Binary, 2=Voltage"
+UI19 Input Type,UI19 Input Type,State,State count: 3 (default 3),multiStateValue,presentValue,FALSE,140,,"1=Binary, 2=Voltage"
+UI20 Input Type,UI20 Input Type,State,State count: 3 (default 1),multiStateValue,presentValue,FALSE,141,,"1=Binary, 2=Voltage"
+UI22 Input Type,UI22 Input Type,State,State count: 3 (default 1),multiStateValue,presentValue,FALSE,142,,"1=Binary, 2=Voltage"
+UI23 Input Type,UI23 Input Type,State,State count: 3 (default 1),multiStateValue,presentValue,FALSE,143,,"1=Binary, 2=Voltage"
+UI24 Input Type,UI24 Input Type,State,State count: 3 (default 3),multiStateValue,presentValue,FALSE,144,,"1=Binary, 2=Voltage"
+Room Temperature Sensor,Room Temperature Sensor,State,State count: 23 (default 1),multiStateValue,presentValue,FALSE,145,,"1=Internal, 2=WL IO, 3=WL 1, 4=WL 2, 5=WL 3, 6=WL 4, 7=WL 5, 8=WL 6, 9=WL 7, 10=WL 8, 11=WL 9, 12=WL 10, 13=WL 11, 14=WL 12, 15=WL 13, 16=WL 14, 17=WL 15, 18=WL 16, 19=WL 17, 20=WL 18, 21=WL 19, 22=WL 20"
+CO2 Display,CO2 Display,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,146,,1=Enabled
+CO2 Autocalibration,CO2 Autocalibration,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,147,,1=Enabled
+Lock Screen,Lock Screen,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,148,,1=Yes
+Relative humidity sensor,Relative humidity sensor,State,State count: 22 (default 2),multiStateValue,presentValue,FALSE,149,,"1=Internal, 2=WL 1, 3=WL 2, 4=WL 3, 5=WL 4, 6=WL 5, 7=WL 6, 8=WL 7, 9=WL 8, 10=WL 9, 11=WL 10, 12=WL 11, 13=WL 12, 14=WL 13, 15=WL 14, 16=WL 15, 17=WL 16, 18=WL 17, 19=WL 18, 20=WL 19, 21=WL 20"
+CO2 source,CO2 source,State,State count: 22 (default 2),multiStateValue,presentValue,FALSE,150,,"1=Local, 2=WL 1, 3=WL 2, 4=WL 3, 5=WL 4, 6=WL 5, 7=WL 6, 8=WL 7, 9=WL 8, 10=WL 9, 11=WL 10, 12=WL 11, 13=WL 12, 14=WL 13, 15=WL 14, 16=WL 15, 17=WL 16, 18=WL 17, 19=WL 18, 20=WL 19, 21=WL 20"
+Temperature Alarm Enabled,Temperature Alarm Enabled,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,151,,1=On
+ADR Permission,ADR Permission,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,152,,1=On
+Japanese,Japanese,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,155,,1=Enabled
+Hebrew,Hebrew,State,State count: 2 (default 1),multiStateValue,presentValue,FALSE,156,,1=Enabled
+Wireless Device 11 - Function,Wireless Device 11 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,310,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 12 - Function,Wireless Device 12 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,320,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 13 - Function,Wireless Device 13 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,330,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 14 - Function,Wireless Device 14 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,340,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 15 - Function,Wireless Device 15 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,350,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 16 - Function,Wireless Device 16 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,360,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 17 - Function,Wireless Device 17 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,370,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 18 - Function,Wireless Device 18 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,380,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 19 - Function,Wireless Device 19 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,390,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Wireless Device 20 - Function,Wireless Device 20 - Function,State,State count: 9 (default 6),multiStateValue,presentValue,FALSE,400,,"1=Window, 2=Door, 3=Motion, 4=Env. data, 5=Remove, 6=Water, 7=Refrig., 8=Freezer"
+Display the Fan Status icon,Display the Fan Status icon,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,180,,1=Enabled
+Display the System Status icon,Display the System Status icon,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,181,,1=Enabled
+Display the Help button,Display the Help button,State,State count: 2 (default 2),multiStateValue,presentValue,FALSE,182,,1=Enabled
+UI20 Configuration,UI20 Configuration,State,State count: 3 (default 2),multiStateValue,presentValue,FALSE,185,,"1=RS, 2=MAT"
+Occupancy Calendar,Occupancy Calendar,Boolean,,calendar,presentValue,FALSE,1,,

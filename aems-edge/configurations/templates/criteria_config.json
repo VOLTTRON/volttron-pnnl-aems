@@ -1,0 +1,254 @@
+{
+  "_type": "reduce",
+  "path": "units",
+  "value": {
+    "{system}": {
+      "FirstStageCooling": {
+        "curtail": {
+          "device_topic": "{campus}/{building}/{system}",
+          "zonetemperature-setpoint": {
+            "operation": "1/(ZoneTemperature - OccupiedCoolingSetPoint)",
+            "operation_type": "formula",
+            "operation_args": ["OccupiedCoolingSetPoint", "ZoneTemperature"],
+            "minimum": 0,
+            "maximum": 10
+          },
+          "rated-power": {
+            "on_value": {
+              "_type": "value",
+              "sources": ["coolingCapacity", "compressors"],
+              "expression": "coolingCapacity / (compressors || 1)"
+            },
+            "off_value": 0.0,
+            "operation_type": "status",
+            "point_name": "FirstStageCooling"
+          },
+          "room-type": {
+            "_type": "evaluate",
+            "sources": ["zoneBuilding"],
+            "expression": "zoneBuilding",
+            "values": {
+              "corner-office": 1,
+              "office": 3,
+              "empty-office": 7,
+              "conference": 1,
+              "mechanical-room": 9,
+              "computer-lab": 2,
+              "kitchen": 6,
+              "mixed": 4
+            }
+          },
+          "stage": {
+            "value": 1,
+            "operation_type": "constant"
+          },
+          "location": {
+            "value": {
+              "_type": "value",
+              "sources": ["zoneLocation"],
+              "expression": "zoneLocation === 'exterior' ? 1 : 4"
+            },
+            "operation_type": "constant"
+          },
+          "history-zonetemperature": {
+            "comparison_type": "direct",
+            "operation_type": "history",
+            "point_name": "ZoneTemperature",
+            "previous_time": 15,
+            "minimum": 0,
+            "maximum": 10
+          }
+        }
+      },
+      "SecondStageCooling": {
+        "_type": "evaluate",
+        "sources": ["compressors"],
+        "expression": "Boolean(compressors > 1).toString()",
+        "values": {
+          "true": {
+            "curtail": {
+              "device_topic": "{campus}/{building}/{system}",
+              "zonetemperature-setpoint": {
+                "operation": "1/(ZoneTemperature - OccupiedCoolingSetPoint)",
+                "operation_type": "formula",
+                "operation_args": ["OccupiedCoolingSetPoint", "ZoneTemperature"],
+                "minimum": 0,
+                "maximum": 10
+              },
+              "rated-power": {
+                "on_value": {
+                  "_type": "value",
+                  "sources": ["coolingCapacity", "compressors"],
+                  "expression": "coolingCapacity / (compressors || 1)"
+                },
+                "off_value": 0.0,
+                "operation_type": "status",
+                "point_name": "FirstStageCooling"
+              },
+              "room-type": {
+                "_type": "evaluate",
+                "sources": ["zoneBuilding"],
+                "expression": "zoneBuilding",
+                "values": {
+                  "corner-office": 1,
+                  "office": 3,
+                  "empty-office": 7,
+                  "conference": 1,
+                  "mechanical-room": 9,
+                  "computer-lab": 2,
+                  "kitchen": 6,
+                  "mixed": 4
+                }
+              },
+              "stage": {
+                "value": 2,
+                "operation_type": "constant"
+              },
+              "location": {
+                "value": {
+                  "_type": "value",
+                  "sources": ["zoneLocation"],
+                  "expression": "zoneLocation === 'exterior' ? 1 : 4"
+                },
+                "operation_type": "constant"
+              },
+              "history-zonetemperature": {
+                "comparison_type": "direct",
+                "operation_type": "history",
+                "point_name": "ZoneTemperature",
+                "previous_time": 15,
+                "minimum": 0,
+                "maximum": 10
+              }
+            }
+          },
+          "false": {
+            "_type": "remove"
+          }
+        }
+      },
+      "FirstStageHeating": {
+        "curtail": {
+          "device_topic": "{campus}/{building}/{system}",
+          "zonetemperature-setpoint": {
+            "operation": "1/(HeatingTemperatureSetPoint - ZoneTemperature)",
+            "operation_type": "formula",
+            "operation_args": ["OccupiedHeatingSetPoint", "ZoneTemperature"],
+            "minimum": 0,
+            "maximum": 10
+          },
+          "rated-power": {
+            "on_value": { "_type": "value", "sources": ["coolingCapacity"], "expression": "coolingCapacity" },
+            "off_value": 0.0,
+            "operation_type": "status",
+            "point_name": "FirstStageHeating"
+          },
+          "room-type": {
+            "_type": "evaluate",
+            "sources": ["zoneBuilding"],
+            "expression": "zoneBuilding",
+            "values": {
+              "corner-office": 1,
+              "office": 3,
+              "empty-office": 7,
+              "conference": 1,
+              "mechanical-room": 9,
+              "computer-lab": 2,
+              "kitchen": 6,
+              "mixed": 4
+            }
+          },
+          "stage": {
+            "value": 1.0,
+            "operation_type": "constant"
+          },
+          "location": {
+            "value": {
+              "value": {
+                "_type": "value",
+                "sources": ["zoneLocation"],
+                "expression": "zoneLocation === 'exterior' ? 1 : 4"
+              },
+              "operation_type": "constant"
+            },
+            "operation_type": "constant"
+          },
+          "history-zonetemperature": {
+            "comparison_type": "direct",
+            "operation_type": "history",
+            "point_name": "ZoneTemperature",
+            "previous_time": 15,
+            "minimum": 0,
+            "maximum": 10
+          }
+        }
+      },
+      "SecondStageHeating": {
+        "_type": "evaluate",
+        "sources": ["heatPump", "heatPumpBackup"],
+        "expression": "Boolean(heatPump && heatPumpBackup > 0).toString()",
+        "values": {
+          "true": {
+            "curtail": {
+              "device_topic": "{campus}/{building}/{system}",
+              "zonetemperature-setpoint": {
+                "operation": "1/(OccupiedHeatingSetPoint - ZoneTemperature)",
+                "operation_type": "formula",
+                "operation_args": ["OccupiedHeatingSetPoint", "ZoneTemperature"],
+                "minimum": 0,
+                "maximum": 10
+              },
+              "rated-power": {
+                "on_value": { "_type": "value", "sources": ["heatPumpBackup"], "expression": "heatPumpBackup" },
+                "off_value": 0.0,
+                "operation_type": "status",
+                "point_name": "SecondStageHeating"
+              },
+              "room-type": {
+                "_type": "evaluate",
+                "sources": ["zoneBuilding"],
+                "expression": "zoneBuilding",
+                "values": {
+                  "corner-office": 1,
+                  "office": 3,
+                  "empty-office": 7,
+                  "conference": 1,
+                  "mechanical-room": 9,
+                  "computer-lab": 2,
+                  "kitchen": 6,
+                  "mixed": 4
+                }
+              },
+              "stage": {
+                "value": 4.0,
+                "operation_type": "constant"
+              },
+              "location": {
+                "value": {
+                  "value": {
+                    "_type": "value",
+                    "sources": ["zoneLocation"],
+                    "expression": "zoneLocation === 'exterior' ? 1 : 4"
+                  },
+                  "operation_type": "constant"
+                },
+                "operation_type": "constant"
+              },
+              "history-zonetemperature": {
+                "comparison_type": "direct",
+                "operation_type": "history",
+                "point_name": "ZoneTemperature",
+                "previous_time": 15,
+                "minimum": 0,
+                "maximum": 10
+              }
+            }
+          },
+          "false": {
+            "_type": "remove"
+          }
+        }
+      }
+    }
+  }
+}

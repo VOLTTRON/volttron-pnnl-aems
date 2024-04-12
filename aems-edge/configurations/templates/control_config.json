@@ -1,0 +1,134 @@
+{
+  "_type": "reduce",
+  "path": "units",
+  "value": {
+    "{system}": {
+      "FirstStageCooling": {
+        "device_topic": "{campus}/{building}/{system}",
+        "device_status": {
+          "curtail": {
+            "condition": "FirstStageCooling",
+            "device_status_args": ["FirstStageCooling"]
+          }
+        },
+        "curtail_settings": {
+          "point": "OccupiedCoolingSetPoint",
+          "control_method": "offset",
+          "revert_priority": 1,
+          "offset": {
+            "_type": "value",
+            "sources": ["setpointPeakOffset", "compressors"],
+            "expression": "setpointPeakOffset / (compressors || 1)"
+          },
+          "load": {
+            "_type": "value",
+            "sources": ["coolingCapacity", "compressors"],
+            "expression": "coolingCapacity / (compressors || 1)"
+          }
+        }
+      },
+      "SecondStageCooling": {
+        "_type": "evaluate",
+        "sources": ["compressors"],
+        "expression": "Boolean(compressors > 1).toString()",
+        "values": {
+          "true": {
+            "device_topic": "{campus}/{building}/{system}",
+            "device_status": {
+              "curtail": {
+                "condition": "FirstStageCooling",
+                "device_status_args": ["FirstStageCooling"]
+              }
+            },
+            "curtail_settings": {
+              "point": "OccupiedCoolingSetPoint",
+              "control_method": "offset",
+              "revert_priority": 2,
+              "offset": {
+                "_type": "value",
+                "sources": ["setpointPeakOffset", "compressors"],
+                "expression": "setpointPeakOffset / compressors"
+              },
+              "load": {
+                "_type": "value",
+                "sources": ["coolingCapacity", "compressors"],
+                "expression": "coolingCapacity / compressors"
+              }
+            }
+          },
+          "false": {
+            "_type": "remove"
+          }
+        }
+      },
+      "FirstStageHeating": {
+        "_type": "evaluate",
+        "sources": ["heatPump"],
+        "expression": "Boolean(heatPump).toString()",
+        "values": {
+          "true": {
+            "device_topic": "{campus}/{building}/{system}",
+            "device_status": {
+              "curtail": {
+                "condition": "FirstStageHeating",
+                "device_status_args": ["FirstStageHeating"]
+              }
+            },
+            "curtail_settings": {
+              "point": "OccupiedHeatingSetPoint",
+              "control_method": "offset",
+              "revert_priority": 1,
+              "offset": {
+                "_type": "value",
+                "sources": ["setpointPeakOffset", "heatPump"],
+                "expression": "setpointPeakOffset / (heatPump ? 2 : 1)"
+              },
+              "load": {
+                "_type": "value",
+                "sources": ["coolingCapacity"],
+                "expression": "coolingCapacity"
+              }
+            }
+          },
+          "false": {
+            "_type": "remove"
+          }
+        }
+      },
+      "SecondStageHeating": {
+        "_type": "evaluate",
+        "sources": ["heatPump", "heatPumpBackup"],
+        "expression": "Boolean(heatPump && heatPumpBackup > 0).toString()",
+        "values": {
+          "true": {
+            "device_topic": "{campus}/{building}/{system}",
+            "device_status": {
+              "curtail": {
+                "condition": "SecondStageHeating",
+                "device_status_args": ["SecondStageHeating"]
+              }
+            },
+            "curtail_settings": {
+              "point": "OccupiedHeatingSetPoint",
+              "control_method": "offset",
+              "revert_priority": 2,
+              "offset": {
+                "_type": "value",
+                "sources": ["setpointPeakOffset", "heatPump"],
+                "expression": "setpointPeakOffset / (heatPump ? 2 : 1)"
+              },
+              "load": {
+                "_type": "value",
+                "sources": ["heatPumpBackup"],
+                "expression": "heatPumpBackup"
+              }
+            }
+          },
+          "false": {
+            "_type": "remove"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,254 @@
+version: "3.8"
+
+services:
+
+  # Proxy that can be configured for HTTP or HTTPS
+  proxy:
+    command:
+      - --log.level=DEBUG
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=${ADMIN_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/etc/certs/letsencrypt.json
+      - --certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
+    container_name: ${COMPOSE_PROJECT_NAME}-proxy
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    hostname: proxy
+    image: traefik:v2.10
+    ports:
+      - 80:80
+      - 443:443
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./certs/:/etc/certs/
+      - ./certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
+
+  # Simple service for checking proxy
+  whoami:
+    image: traefik/whoami
+    container_name: ${COMPOSE_PROJECT_NAME}-whoami
+    hostname: whoami
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.whoami.rule=Host(`whoami.localhost`)
+      - traefik.http.routers.whoami.entrypoints=web
+      - traefik.http.services.whoami.loadbalancer.server.port=80
+
+  # Application that hosts static files and API
+  app:
+    build:
+      context: ./app
+      dockerfile: ./Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}-app
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      database:
+        condition: service_started
+    environment:
+      - PORT=3000
+      - CLUSTER_TYPE=app
+      - LOG_TRANSPORTS=${LOGGERS}
+      - LOG_FILE_PATH=./data/app.log
+      - DATABASE_HOST=database
+      - DATABASE_PORT=5432
+      - DATABASE_SCHEMA=public
+      - DATABASE_USERNAME=${DATABASE_USERNAME}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_NAME=${DATABASE_NAME}
+      - AUTH_PROVIDERS=${AUTHENTICATION}
+      - PASSWORD_VALIDATE=${PASSWORD_VALIDATE}
+      - PASSWORD_STRENGTH=${PASSWORD_STRENGTH}
+      - PROXY_PROTOCOL=${PROXY_PROTOCOL}
+      - PROXY_HOST=${PROXY_HOST}
+      - PROXY_PORT=${PROXY_PORT}
+      - ONEID_CLIENT_ID=${ONEID_CLIENT_ID}
+      - ONEID_CLIENT_SECRET=${ONEID_CLIENT_SECRET}
+      - ONEID_REDIRECT_URI=${ONEID_REDIRECT_URI}
+      - NOMINATIM_PRIVATE_API_URL=${NOMINATIM_PRIVATE_API_URL}
+    healthcheck:
+      test: "curl --fail http://localhost:3000 || exit 1"
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    hostname: app
+    image: nextapp:${TAG}
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.nextapp.loadbalancer.server.port=3000
+      - traefik.http.routers.nextapp-http.entrypoints=web
+      - traefik.http.routers.nextapp-http.rule=Host(`${COMPOSE_PROJECT_NAME}.localhost`)
+      - traefik.http.routers.nextapp-http.middlewares=nextapp-https
+      - traefik.http.middlewares.nextapp-https.redirectscheme.scheme=https
+      - traefik.http.routers.nextapp.entrypoints=websecure
+      - traefik.http.routers.nextapp.rule=Host(`${COMPOSE_PROJECT_NAME}.localhost`)
+      - traefik.http.routers.nextapp.tls=true
+      - traefik.http.routers.hostname-http.entrypoints=web
+      - traefik.http.routers.hostname-http.rule=Host(`${HOSTNAME}`)
+      - traefik.http.routers.hostname-http.middlewares=nextapp-https
+      - traefik.http.middlewares.hostname-https.redirectscheme.scheme=https
+      - traefik.http.routers.hostname.entrypoints=websecure
+      - traefik.http.routers.hostname.rule=Host(`${HOSTNAME}`)
+      - traefik.http.routers.hostname.tls=true
+      - traefik.http.routers.hostname.tls.certresolver=letsencrypt
+    restart: always
+    volumes:
+      - app-data:/app/data
+      - app-cache:/app/.next/cache
+
+  # Runs application services
+  services:
+    build:
+      context: ./app
+      dockerfile: ./Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}-services
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      database:
+        condition: service_started
+    environment:
+      - CLUSTER_TYPE=services
+      - LOG_TRANSPORTS=${LOGGERS}
+      - LOG_FILE_PATH=./data/services.log
+      - SEED_DATA_PATH=./seed/
+      - DATABASE_HOST=database
+      - DATABASE_PORT=5432
+      - DATABASE_SCHEMA=public
+      - DATABASE_USERNAME=${DATABASE_USERNAME}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_NAME=${DATABASE_NAME}
+      - PASSWORD_VALIDATE=${PASSWORD_VALIDATE}
+      - PASSWORD_STRENGTH=${PASSWORD_STRENGTH}
+      - PROXY_PROTOCOL=${PROXY_PROTOCOL}
+      - PROXY_HOST=${PROXY_HOST}
+      - PROXY_PORT=${PROXY_PORT}
+      - CONFIG_AUTH_URL=${CONFIG_AUTH_URL}
+      - CONFIG_API_URL=${CONFIG_API_URL}
+      - CONFIG_USERNAME=${CONFIG_USERNAME}
+      - CONFIG_PASSWORD=${CONFIG_PASSWORD}
+      - SETUP_FILES=${SETUP_FILES}
+      - SETUP_ILC_FILES=${SETUP_ILC_FILES}
+      - SETUP_TEMPLATE_FILES=${SETUP_TEMPLATE_FILES}
+      - VOLTTRON_CA=${VOLTTRON_CA}
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: "curl http://localhost:3000/api/graphql"
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    hostname: services
+    image: nextapp:${TAG}
+    restart: always
+    volumes:
+      - ./seed/:/app/seed/
+      - ../aems-edge:/app/aems-edge
+      - app-data:/app/data
+
+  # Creates self-signed TLS certs for localhost and domain and runs relational database migrations on startup
+  init:
+    build:
+      context: ./
+      dockerfile: ./init/Dockerfile
+    command: >
+      bash -c '
+        if [ ! -f /etc/certs/mkcert-ca.crt ]; then
+          mkcert create-ca \
+            --key "/etc/certs/mkcert-ca.key" \
+            --cert "/etc/certs/mkcert-ca.crt"
+        fi;
+        if [ ! -f /etc/certs/mkcert-local.crt ]; then
+          mkcert create-cert \
+            --ca-key "/etc/certs/mkcert-ca.key" \
+            --ca-cert "/etc/certs/mkcert-ca.crt" \
+            --key "/etc/certs/mkcert-local.key" \
+            --cert "/etc/certs/mkcert-local.crt" \
+            --domain "${COMPOSE_PROJECT_NAME}.localhost"
+        fi;
+        if [ ! -f /etc/certs/mkcert-hostname.crt ]; then
+          mkcert create-cert \
+            --ca-key "/etc/certs/mkcert-ca.key" \
+            --ca-cert "/etc/certs/mkcert-ca.crt" \
+            --key "/etc/certs/mkcert-hostname.key" \
+            --cert "/etc/certs/mkcert-hostname.crt" \
+            --domain "${HOSTNAME}"
+        fi;
+        cd /app/;
+        yarn migrate;
+      '
+    container_name: ${COMPOSE_PROJECT_NAME}-init
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - DATABASE_HOST=${COMPOSE_PROJECT_NAME}-database
+      - DATABASE_PORT=5432
+      - DATABASE_SCHEMA=public
+      - DATABASE_USERNAME=${DATABASE_USERNAME}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_NAME=${DATABASE_NAME}
+    hostname: init
+    image: init:${TAG}
+    volumes:
+      - ./certs/:/etc/certs/
+      - app-data:/data/
+
+  # Application relational database
+  database:
+    cap_add:
+      - SYS_NICE
+    container_name: ${COMPOSE_PROJECT_NAME}-database
+    environment:
+      - PGUSER=${DATABASE_USERNAME}
+      - POSTGRES_USER=${DATABASE_USERNAME}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_DB=${DATABASE_NAME}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    hostname: database
+    image: postgis/postgis:16-3.4-alpine
+    restart: always
+    volumes:
+      - database-data:/var/lib/postgresql/data
+
+  # Nominatim container for geocoding
+  nominatim:
+    container_name: ${COMPOSE_PROJECT_NAME}-nominatim
+    environment:
+      - PBF_URL=${PBF_URL}
+      - REPLICATION_URL=${REPLICATION_URL}
+      - NOMINATIM_PASSWORD=${DATABASE_PASSWORD}
+      - IMPORT_US_POSTCODES=true
+      - IMPORT_WIKIPEDIA=true
+      - IMPORT_TIGER_ADDRESSES=true
+    hostname: nominatim
+    image: mediagis/nominatim:4.4
+    profiles:
+      - nom
+    restart: unless-stopped
+    shm_size: 1gb
+    volumes:
+      - nominatim-data:/var/lib/postgresql/14/main
+
+volumes:
+  app-data:
+    driver: local
+  app-cache:
+    driver: local
+  database-data:
+    driver: local
+  nominatim-data:
+    driver: local

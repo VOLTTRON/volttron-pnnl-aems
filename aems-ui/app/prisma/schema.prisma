@@ -1,0 +1,393 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions", "views"]
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+generator pothos {
+  provider     = "prisma-pothos-types"
+  prismaUtils  = true
+  clientOutput = "@prisma/client"
+  output       = "../src/generated/pothos/index.ts"
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis()]
+}
+
+enum Log_type {
+  Banner
+  Trace
+  Debug
+  Info
+  Warn
+  Error
+  Fatal
+}
+
+enum Stage_type {
+  Create
+  Read
+  Update
+  Delete
+  Process
+  Complete
+  Fail
+}
+
+enum Holiday_type {
+  Enabled
+  Disabled
+  Custom
+}
+
+model Comment {
+  // key
+  id        Int      @id @default(autoincrement())
+  // fields
+  message   String
+  // metadata
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  // foreign keys
+  userId    String?
+  // direct relations
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // indices
+  @@index([createdAt], map: "comments_createdAt")
+  @@index([updatedAt], map: "comments_updatedAt")
+  @@index([userId], map: "comments_userId")
+}
+
+model User {
+  // key
+  id            String    @id @default(cuid())
+  // fields
+  name          String?   @db.VarChar(1024)
+  email         String    @unique @db.VarChar(512)
+  image         String?
+  emailVerified DateTime?
+  role          String?   @db.VarChar(512)
+  password      String?   @db.VarChar(1024)
+  preferences   Json?     @db.Json
+  // metadata
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  // indirect relations
+  accounts      Account[]
+  sessions      Session[]
+  comments      Comment[]
+
+  // indices
+  @@index([name], map: "users_name")
+  @@index([email], map: "users_email")
+}
+
+model Account {
+  // key
+  id                String   @id @default(cuid())
+  // fields
+  type              String
+  provider          String
+  providerAccountId String
+  refreshToken      String?  @db.Text
+  accessToken       String?  @db.Text
+  expiresAt         Int?
+  tokenType         String?
+  scope             String?
+  idToken           String?  @db.Text
+  sessionState      String?
+  // metadata
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(6)
+  // foreign keys
+  userId            String
+  // direct relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // indices
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  // key
+  id        String   @id @default(cuid())
+  // fields
+  expiresAt DateTime
+  // metadata
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  // foreign keys
+  userId    String
+  // direct relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  // fields
+  identifier String
+  token      String   @unique
+  expiresAt  DateTime
+  // metadata
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+
+  // indices
+  @@unique([identifier, token])
+}
+
+model Log {
+  // key
+  id         Int       @id(map: "Log_pkey") @default(autoincrement())
+  // fields
+  type       Log_type?
+  message    String?   @db.VarChar(1024)
+  expiration DateTime? @db.Timestamptz(6)
+  // metadata
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(6)
+}
+
+model Seed {
+  // fields
+  filename  String   @unique @db.VarChar(1024)
+  timestamp DateTime @db.Timestamptz(6)
+  // metadata
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model Units {
+  // key
+  id                    Int             @id @default(autoincrement())
+  // metadata
+  stage                 Stage_type      @default(Create)
+  message               String?         @db.VarChar(1024)
+  correlation           String?         @db.VarChar(1024)
+  createdAt             DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime        @updatedAt @db.Timestamptz(6)
+  // fields
+  name                  String          @db.VarChar(1024)
+  campus                String          @default("") @db.VarChar(1024)
+  building              String          @default("") @db.VarChar(1024)
+  system                String          @default("") @db.VarChar(1024)
+  timezone              String          @default("local") @db.VarChar(1024)
+  label                 String          @db.VarChar(1024)
+  coolingCapacity       Float           @default(3)
+  compressors           Int             @default(1)
+  coolingLockout        Float           @default(45)
+  optimalStartLockout   Float           @default(20)
+  optimalStartDeviation Float           @default(0.5)
+  earliestStart         Int             @default(60)
+  latestStart           Int             @default(0)
+  zoneLocation          String          @default("exterior")
+  zoneMass              String          @default("medium")
+  zoneOrientation       String          @default("north")
+  zoneBuilding          String          @default("office")
+  heatPump              Boolean         @default(true)
+  heatPumpBackup        Float           @default(0)
+  economizer            Boolean         @default(true)
+  heatPumpLockout       Float           @default(30)
+  coolingPeakOffset     Float           @default(0.5)
+  heatingPeakOffset     Float           @default(-0.5)
+  peakLoadExclude       Boolean         @default(false)
+  economizerSetpoint    Float           @default(45)
+  // foreign keys
+  configurationId       Int?
+  controlId             Int?
+  locationId            Int?
+  // direct relations
+  configuration         Configurations? @relation("Units_configurations", fields: [configurationId], references: [id], onDelete: SetNull)
+  control               Controls?       @relation("Units_controls", fields: [controlId], references: [id], onDelete: SetNull)
+  location              Locations?      @relation("Units_locations", fields: [locationId], references: [id], onDelete: SetNull)
+
+  // indices
+  @@index([label])
+  @@index([stage])
+}
+
+model Configurations {
+  // key
+  id                  Int           @id @default(autoincrement())
+  // metadata
+  stage               Stage_type    @default(Create)
+  message             String?       @db.VarChar(1024)
+  correlation         String?       @db.VarChar(1024)
+  createdAt           DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime      @updatedAt @db.Timestamptz(6)
+  // fields
+  label               String        @db.VarChar(1024)
+  // foreign keys
+  setpointId          Int?
+  mondayScheduleId    Int?
+  tuesdayScheduleId   Int?
+  wednesdayScheduleId Int?
+  thursdayScheduleId  Int?
+  fridayScheduleId    Int?
+  saturdayScheduleId  Int?
+  sundayScheduleId    Int?
+  holidayScheduleId   Int?
+  // direct relations
+  setpoint            Setpoints?    @relation("Configurations_setpoints", fields: [setpointId], references: [id], onDelete: Cascade)
+  mondaySchedule      Schedules?    @relation("Configurations_mondaySchedules", fields: [mondayScheduleId], references: [id], onDelete: Cascade)
+  tuesdaySchedule     Schedules?    @relation("Configurations_tuesdaySchedules", fields: [tuesdayScheduleId], references: [id], onDelete: Cascade)
+  wednesdaySchedule   Schedules?    @relation("Configurations_wednesdaySchedules", fields: [wednesdayScheduleId], references: [id], onDelete: Cascade)
+  thursdaySchedule    Schedules?    @relation("Configurations_thursdaySchedules", fields: [thursdayScheduleId], references: [id], onDelete: Cascade)
+  fridaySchedule      Schedules?    @relation("Configurations_fridaySchedules", fields: [fridayScheduleId], references: [id], onDelete: Cascade)
+  saturdaySchedule    Schedules?    @relation("Configurations_saturdaySchedules", fields: [saturdayScheduleId], references: [id], onDelete: Cascade)
+  sundaySchedule      Schedules?    @relation("Configurations_sundaySchedules", fields: [sundayScheduleId], references: [id], onDelete: Cascade)
+  holidaySchedule     Schedules?    @relation("Configurations_holidaySchedules", fields: [holidayScheduleId], references: [id], onDelete: Cascade)
+  // indirect relations
+  units               Units[]       @relation("Units_configurations")
+  occupancies         Occupancies[] @relation("Occupancies_configurations")
+  holidays            Holidays[]    @relation()
+
+  // indices
+  @@index([label])
+  @@index([stage])
+}
+
+model Occupancies {
+  // key
+  id              Int             @id @default(autoincrement())
+  // metadata
+  stage           Stage_type      @default(Create)
+  message         String?         @db.VarChar(1024)
+  correlation     String?         @db.VarChar(1024)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
+  // fields
+  label           String          @db.VarChar(1024)
+  date            DateTime
+  // foreign keys
+  scheduleId      Int?
+  configurationId Int?
+  // direct relations
+  schedule        Schedules?      @relation("Occupancies_schedules", fields: [scheduleId], references: [id], onDelete: Cascade)
+  configuration   Configurations? @relation("Occupancies_configurations", fields: [configurationId], references: [id], onDelete: Cascade)
+
+  // indices
+  @@index([date])
+  @@index([stage])
+}
+
+model Schedules {
+  // key
+  id                      Int              @id @default(autoincrement())
+  // metadata
+  stage                   Stage_type       @default(Create)
+  message                 String?          @db.VarChar(1024)
+  correlation             String?          @db.VarChar(1024)
+  createdAt               DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime         @updatedAt @db.Timestamptz(6)
+  // fields
+  label                   String           @db.VarChar(1024)
+  startTime               String           @default("08:00")
+  endTime                 String           @default("18:00")
+  occupied                Boolean          @default(true)
+  // foreign keys
+  setpointId              Int?
+  // direct relations
+  setpoint                Setpoints?       @relation("Schedules_setpoints", fields: [setpointId], references: [id], onDelete: Cascade)
+  // indirect relations
+  mondayConfigurations    Configurations[] @relation("Configurations_mondaySchedules")
+  tuesdayConfigurations   Configurations[] @relation("Configurations_tuesdaySchedules")
+  wednesdayConfigurations Configurations[] @relation("Configurations_wednesdaySchedules")
+  thursdayConfigurations  Configurations[] @relation("Configurations_thursdaySchedules")
+  fridayConfigurations    Configurations[] @relation("Configurations_fridaySchedules")
+  saturdayConfigurations  Configurations[] @relation("Configurations_saturdaySchedules")
+  sundayConfigurations    Configurations[] @relation("Configurations_sundaySchedules")
+  holidayConfigurations   Configurations[] @relation("Configurations_holidaySchedules")
+  occupancies             Occupancies[]    @relation("Occupancies_schedules")
+
+  // indices
+  @@index([label])
+  @@index([stage])
+}
+
+model Setpoints {
+  // key
+  id             Int              @id @default(autoincrement())
+  // metadata
+  stage          Stage_type       @default(Create)
+  message        String?          @db.VarChar(1024)
+  correlation    String?          @db.VarChar(1024)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(6)
+  // fields
+  label          String           @db.VarChar(1024)
+  setpoint       Float            @default(70)
+  deadband       Float            @default(4)
+  heating        Float            @default(60)
+  cooling        Float            @default(80)
+  // indirect relations
+  configurations Configurations[] @relation("Configurations_setpoints")
+  schedules      Schedules[]      @relation("Schedules_setpoints")
+
+  // indices
+  @@index([label])
+  @@index([stage])
+}
+
+model Holidays {
+  // key
+  id             Int              @id @default(autoincrement())
+  // metadata
+  stage          Stage_type       @default(Create)
+  message        String?          @db.VarChar(1024)
+  correlation    String?          @db.VarChar(1024)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(6)
+  // fields
+  type           Holiday_type
+  label          String           @db.VarChar(1024)
+  month          Int?
+  day            Int?
+  observance     String?
+  // indirect relations
+  configurations Configurations[] @relation()
+
+  // indices
+  @@index([label])
+  @@index([stage])
+}
+
+model Controls {
+  // key
+  id              Int        @id @default(autoincrement())
+  // metadata
+  stage           Stage_type @default(Create)
+  message         String?    @db.VarChar(1024)
+  correlation     String?    @db.VarChar(1024)
+  createdAt       DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @db.Timestamptz(6)
+  // fields
+  name            String     @db.VarChar(1024)
+  campus          String     @default("") @db.VarChar(1024)
+  building        String     @default("") @db.VarChar(1024)
+  label           String     @db.VarChar(1024)
+  peakLoadExclude Boolean    @default(false)
+  // indirect relations
+  units           Units[]    @relation("Units_controls")
+
+  // indices
+  @@index([label])
+  @@index([stage])
+}
+
+model Locations {
+  // key
+  id        Int      @id @default(autoincrement())
+  // metadata
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  // fields
+  name      String   @db.VarChar(1024)
+  latitude  Float
+  longitude Float
+  // indirect relations
+  units     Units[]  @relation("Units_locations")
+}

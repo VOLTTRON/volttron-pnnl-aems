@@ -1,0 +1,11 @@
+query ReadUsers {
+  readUsers {
+    createdAt
+    email
+    id
+    name
+    preferences
+    role
+    updatedAt
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "campus": "{campus}",
+  "building": "{building}",
+  "power_meter": {
+    "device_topic": "{campus}/{building}/METER",
+    "point": "WholeBuildingPower"
+  },
+  "agent_id": "ILC",
+  "demand_limit": "TRIGGER",
+  "control_time": 15.0,
+  "control_confirm": 5.0,
+  "average_building_power_window": 15.0,
+  "stagger_release": true,
+  "stagger_off_time": false,
+  "demand_threshold": 1.0,
+  "clusters": [
+    {
+      "device_control_config": "config://control_config",
+      "device_criteria_config": "config://criteria_config",
+      "pairwise_criteria_config": "config://pairwise_criteria",
+      "cluster_priority": 1.0
+    }
+  ]
+}

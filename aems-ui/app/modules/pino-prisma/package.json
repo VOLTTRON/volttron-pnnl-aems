@@ -1,0 +1,12 @@
+{
+  "name": "pino-prisma",
+  "version": "0.1.0",
+  "private": true,
+  "license": "SEE LICENSE IN ../../LICENSE.txt",
+  "dependencies": {
+    "@prisma/client": "^5.11.0",
+    "pino-abstract-transport": "^1.1.0"
+  },
+  "devDependencies": {},
+  "packageManager": "yarn@4.1.1"
+}

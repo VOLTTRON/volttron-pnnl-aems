@@ -1,0 +1,30 @@
+{
+  "curtail": {
+    "zonetemperature-setpoint": {
+      "location": 2,
+      "history-zonetemperature": 4,
+      "room-type": 4,
+      "rated-power": 1,
+      "stage": 3
+    },
+    "stage": {
+      "location": 0.6666667,
+      "history-zonetemperature": 0.75,
+      "room-type": 0.75,
+      "rated-power": 1
+    },
+    "history-zonetemperature": {
+      "location": 0.5,
+      "room-type": 1,
+      "rated-power": 0.25
+    },
+    "rated-power": {
+      "location": 1,
+      "room-type": 2
+    },
+    "room-type": {
+      "location": 0.5
+    },
+    "location": {}
+  }
+}

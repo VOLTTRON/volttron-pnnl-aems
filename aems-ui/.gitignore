@@ -1,0 +1,21 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# temp
+.docker_temp_*
+docker-images.**
+
+# editor config
+.idea
+.vscode
+.DS_Store
+
+# certs
+certs/*
+!certs/README.md
+
+# data
+database/*.sql
+osm/*.osm.pbf
+
+# other
+*.bat
