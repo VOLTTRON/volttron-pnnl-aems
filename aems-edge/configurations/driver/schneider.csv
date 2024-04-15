@@ -8,7 +8,8 @@ UO11 Analog Output,UO11 Analog Output,volts,(default 0.0),analogOutput,presentVa
 UO12 Analog Output,UO12 Analog Output,volts,(default 0.0),analogOutput,presentValue,TRUE,124,16,
 UO9 Analog Output,UO9 Analog Output,volts,(default 0.0),analogOutput,presentValue,TRUE,125,16,
 UO10 Analog Output,EconomizerVoltageOutput,volts,(default 0.0),analogOutput,presentValue,TRUE,126,16,
-HeartBeat,HeartBeat,enum,,analogValue,presentValue,TRUE,30,16,
+DR Flag,DemandResponseFlag,enum,,analogValue,presentValue,TRUE,29,8,
+HeartBeat,HeartBeat,enum,,analogValue,presentValue,TRUE,30,8,
 Occupied Heat Setpoint,OccupiedHeatingSetPoint,degreesFahrenheit,(default 72.0),analogValue,presentValue,TRUE,39,16,
 Occupied Cool Setpoint,OccupiedCoolingSetPoint,degreesFahrenheit,(default 75.0),analogValue,presentValue,TRUE,40,16,
 Unoccupied Heat Setpoint,UnoccupiedHeatingSetPoint,degreesFahrenheit,(default 62.0),analogValue,presentValue,TRUE,43,16,
@@ -64,13 +65,12 @@ Effective temperature sensor,Effective temperature sensor,State,State count: 23,
 Effective System Mode,EffectiveSystemMode,State,State count: 2,multiStateInput,presentValue,TRUE,314,16,1=Heat
 Time source,TimeSource,State,State count: 5,multiStateInput,presentValue,TRUE,325,16,"1=Local, 2=BACnet, 3=NTP, 4=Cloud"
 Fan Speed Status,FanSpeedStatus,State,State count: 4,multiStateInput,presentValue,TRUE,326,16,"1=Low, 2=Med, 3=High"
-HMI Color,DisplayColor,State,State count: 10 (default 1),multiStateValue,presentValue,TRUE,2,,"1=Green, 2=Blue, 3=Grey, 4=Dark grey, 5=Pink, 6=Purple, 7=Red, 8=Orange, 9=Black"
 Occupancy Command,OccupancyCommand,State,State count: 3 (default 2),multiStateValue,presentValue,TRUE,10,16,"1=Occupied, 2=Unocc."
 Fan Delay,FanDelay,State,State count: 2 (default 2),multiStateValue,presentValue,TRUE,12,16,1=On
 System Mode,SystemMode,State,State count: 4 (default 4),multiStateValue,presentValue,TRUE,16,16,"1=Auto, 2=Cool, 3=Heat"
 Fan Mode,FanMode,State,State count: 3 (default 2),multiStateValue,presentValue,TRUE,17,16,"1=Auto, 2=Smart"
 Frost Protection,FrostProtection,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,55,16,1=On
-Setpoint Function,SetpointFunction,State,State count: 2 (default 2),multiStateValue,presentValue,TRUE,58,,1=Attach SP
+Setpoint Function,SetpointFunction,State,State count: 2 (default 2),multiStateValue,presentValue,TRUE,58,9,1=Attach SP
 Enable Smart Recovery,EnableSmartRecovery,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,71,9,1=On
 Economizer Configuration,HasEconomizer,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,72,9,1=On
 Mechanical Cooling Allowed,MechanicalCoolingDuringEconomizing,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,79,9,1=On
