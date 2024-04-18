@@ -405,9 +405,17 @@ class ManagerProxy:
 
         self._validate_occupancy_greenlet = self.core.periodic(config.occupancy_validate_frequency,
                                                                self.sync_occupancy_state)
+
+        try:
+            temp_set_points = self.config_get('set_points')
+        except KeyError:
+            _log.info("No set_points in config store using defaults.")
+            self.config_set('set_points', self.cfg.default_setpoints)
+            temp_set_points = self.cfg.default_setpoints
+
         self._validate_setpoints_greenlet = self.core.periodic(
             config.setpoint_validate_frequency,
-            lambda: self.set_temperature_setpoints(self.config_get('set_points'), update_store=False))
+            lambda: self.set_temperature_setpoints(temp_set_points, update_store=False))
 
     def set_location(self, data, update_store: bool = True) -> bool:
         try:
