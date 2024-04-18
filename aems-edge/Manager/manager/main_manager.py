@@ -385,6 +385,18 @@ class ManagerProxy:
         _log.debug(f'{debug_ref}: {self.cfg.system_rpc_path} -- {point} -> {result}')
         return result
 
+    def _set_default_setpoint(self, config: DefaultConfig):
+        try:
+            temp_set_points = self.config_get('set_points')
+        except KeyError:
+            _log.info("No set_points in config store using defaults.")
+            self.config_set('set_points', self.cfg.default_setpoints)
+            temp_set_points = self.cfg.default_setpoints
+
+        self._validate_setpoints_greenlet = self.core.periodic(
+            config.setpoint_validate_frequency,
+            lambda: self.set_temperature_setpoints(temp_set_points, update_store=False))
+
     def update_default_config(self, config: DefaultConfig):
         """
         Updates the configuration for the system.  This is called from the ManagerAgent when the configuration
@@ -406,16 +418,9 @@ class ManagerProxy:
         self._validate_occupancy_greenlet = self.core.periodic(config.occupancy_validate_frequency,
                                                                self.sync_occupancy_state)
 
-        try:
-            temp_set_points = self.config_get('set_points')
-        except KeyError:
-            _log.info("No set_points in config store using defaults.")
-            self.config_set('set_points', self.cfg.default_setpoints)
-            temp_set_points = self.cfg.default_setpoints
 
-        self._validate_setpoints_greenlet = self.core.periodic(
-            config.setpoint_validate_frequency,
-            lambda: self.set_temperature_setpoints(temp_set_points, update_store=False))
+        gevent.spawn_later(1, self._set_default_setpoint, config)
+
 
     def set_location(self, data, update_store: bool = True) -> bool:
         try:
