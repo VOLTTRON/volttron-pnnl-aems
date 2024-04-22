@@ -416,10 +416,7 @@ class ManagerProxy:
 
         self._validate_occupancy_greenlet = self.core.periodic(config.occupancy_validate_frequency,
                                                                self.sync_occupancy_state)
-
-
         gevent.spawn_later(1, self._set_default_setpoint, config)
-
 
     def set_location(self, data, update_store: bool = True) -> bool:
         try:
