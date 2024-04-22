@@ -108,7 +108,7 @@ class ManagerAgent(Agent):
     def update_from_config_store(self, config_name: str, action: str, contents: dict):
         """
         Updates the configuration for each of the manager functions:
-            schedule, termperature_setpoints, holidays, optimal_start,
+            schedule, temperature_setpoints, holidays, optimal_start,
             occupancy_overrides, location
 
         :param config_name: The name of the configuration being updated.
