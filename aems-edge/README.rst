@@ -1,6 +1,6 @@
-================
+============================================
 Autonomous Energy Management Software (AEMS)
-================
+============================================
 
 The AEMS adds intelligent and flexible control for small and medium
 sized commercial buildings' HVAC systems. The AEMS enables energy efficiency measures
@@ -13,7 +13,7 @@ Weather.gov for forecast information.
 
 
 Featured Energy Efficiency Measures
---------------------
+-----------------------------------
 
 1. **Occupied and Unoccupied set points**
 
