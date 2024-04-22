@@ -124,9 +124,10 @@ by this agent. A sample configuration is included with the agent
 
 
 
+
 1. Added pre-commit-config hooks
 2. Yapf formatting for code (see: https://github.com/google/yapf#knobs for customizations)
- a. Run using yapf -r --in-place --style .yapf.format.txt .
+    a. Run using yapf -r --in-place --style .yapf.format.txt .
 
 Using pre-commit
 1. Install pip install pre-commit
