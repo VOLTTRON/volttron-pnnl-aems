@@ -1,13 +1,16 @@
 "use server";
-
+ 
 import { NextApiRequest, NextApiResponse } from "next";
-
+ 
 import { authUser } from "@/auth/server";
 import { logger } from "@/logging";
 import prisma from "@/prisma";
 import { Units } from "@prisma/client";
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+ 
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   const user = await authUser(req);
   if (!user.roles.user) {
     return res.status(401).json(null);
@@ -44,14 +47,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               sundaySchedule: true,
               holidaySchedule: true,
               holidays: { orderBy: [{ createdAt: "desc" }] },
-              occupancies: { include: { schedule: true }, orderBy: [{ date: "desc" }] },
+              occupancies: {
+                include: { schedule: true },
+                orderBy: [{ date: "desc" }],
+              },
             },
           },
           location: true,
         },
-        orderBy: {
-          createdAt: "desc",
-        },
+        orderBy: [{ campus: "asc" }, { building: "asc" }, { name: "asc" }],
       })
       .then((units) => {
         return res.status(200).json(units);
