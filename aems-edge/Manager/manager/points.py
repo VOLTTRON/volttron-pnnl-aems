@@ -71,7 +71,7 @@ class DFPoints(Enum):
         coolingsetpoint (str): The cooling setpoint.
         heatingsetpoint (str): The heating setpoint.
         supplyfanstatus (str): The supply fan status.
-        outdoorairtemperature (str): The outdoor air temperature.
+        outdoortemperature (str): The outdoor air temperature.
         heating (str): The heating status.
         cooling (str): The cooling status.
         occupancy (str): The occupancy status.
@@ -88,7 +88,7 @@ class DFPoints(Enum):
     coolingsetpoint = 'coolingsetpoint'
     heatingsetpoint = 'heatingsetpoint'
     supplyfanstatus = 'supplyfanstatus'
-    outdoorairtemperature = 'outdoorairtemperature'
+    outdoortemperature = 'outdoortemperature'
     heating = 'heating'
     cooling = 'cooling'
     occupancy = 'occupancy'
@@ -100,6 +100,7 @@ class DFPoints(Enum):
     occupiedsetpoint = 'occupiedsetpoint'
     conditioning = 'conditioning'
     tempdiff = 'tempdiff'
+    timediff = 'timediff'
     reversingvalve = 'reversingvalve'
     compressorcommand = 'compressorcommand'
     warmcooladjust = 'warmcooladjust'
@@ -145,7 +146,7 @@ Points.add_item(DFPoints.zonetemperature.name, 'ZoneTemperature')
 Points.add_item(DFPoints.coolingsetpoint.name, 'OccupiedCoolingSetPoint')
 Points.add_item(DFPoints.heatingsetpoint.name, 'OccupiedHeatingSetPoint')
 Points.add_item(DFPoints.supplyfanstatus.name, 'SupplyFanStatus')
-Points.add_item(DFPoints.outdoorairtemperature.name, 'OutdoorAirTemperature')
+Points.add_item(DFPoints.outdoortemperature.name, 'OutdoorAirTemperature')
 Points.add_item(DFPoints.heating.name, 'FirstStageHeating')
 Points.add_item(DFPoints.cooling.name, 'FirstStageCooling')
 Points.add_item(DFPoints.occupancy.name, 'OccupancyCommand')

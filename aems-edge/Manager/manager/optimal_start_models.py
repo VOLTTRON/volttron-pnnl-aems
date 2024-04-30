@@ -36,6 +36,7 @@ from . import OptimalStartConfig
 from .utils import (calculate_prestart_time, ema, get_operating_mode,
                     get_time_target, get_time_temp_diff, offset_time, parse_df,
                     trim)
+from .points import DFPoints as dfpts
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
@@ -146,12 +147,12 @@ class OptimalStartZoneModel(ABC):
         _range = np.linspace(0, 15, 61)
         for j in _range:
             try:
-                min_slope = data[(data['temp_diff'][0] - data['temp_diff']) >= j].index[0]
+                min_slope = data[(data[dfpts.tempdiff.value][0] - data[dfpts.tempdiff.value]) >= j].index[0]
                 df_list.append(data.loc[min_slope])
             except (IndexError, ValueError) as ex:
                 _log.debug('Model error getting heat transfer rate: %s', ex)
                 continue
-        if len(df_list) == 1 and data['temp_diff'][0] > self.t_error:
+        if len(df_list) == 1 and data[dfpts.tempdiff.value][0] > self.t_error:
             df_list.append(data.iloc[-1])
         htr = pd.concat(df_list, axis=1).T
         htr = htr[~htr.index.duplicated(keep='first')]

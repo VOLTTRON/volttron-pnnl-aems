@@ -57,10 +57,15 @@ class Location:
             self.lon = lon
 
             _log.debug(f'Set location to {self}')
+
         except KeyError:
             if location != {}:
                 _log.error(f'Invalid Location passed for data: {location}')
-            self.location = {}
+            self.lat = 0.0
+            self.lon = 0.0
+
+        finally:
+            return self
 
 
 @dataclass
