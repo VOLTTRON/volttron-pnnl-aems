@@ -27,7 +27,7 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-from manager.points import DFPoints as dfpt
+from manager.points import DFPoints as dfpts
 from volttron.platform.agent.utils import format_timestamp
 
 pd.options.mode.chained_assignment = None
@@ -77,13 +77,13 @@ def parse_df(df: pd.DataFrame, condition: str) -> pd.DataFrame:
         return pd.DataFrame()
 
     if condition == 'cooling':
-        data_sort = df[df[dfpt.zonetemperature.value] <= df[dfpt.coolingsetpoint.value]]
-        df[dfpt.tempdiff.value] = df[dfpt.zonetemperature.value] - df[dfpt.coolingsetpoint.value]
+        data_sort = df[df[dfpts.zonetemperature.value] <= df[dfpts.coolingsetpoint.value]]
+        df[dfpts.tempdiff.value] = df[dfpts.zonetemperature.value] - df[dfpts.coolingsetpoint.value]
     else:
-        data_sort = df[df[dfpt.zonetemperature.value] >= df[dfpt.heatingsetpoint.value]]
-        df[dfpt.tempdiff.value] = df[dfpt.heatingsetpoint.value] - df[dfpt.zonetemperature.value]
-    df[dfpt.conditioning.value] = df[condition].rolling(window=10).mean().fillna(value=1, inplace=False)
-    data_sort_mode = df[df[dfpt.conditioning.value] == 0]
+        data_sort = df[df[dfpts.zonetemperature.value] >= df[dfpts.heatingsetpoint.value]]
+        df[dfpts.tempdiff.value] = df[dfpts.heatingsetpoint.value] - df[dfpts.zonetemperature.value]
+    df[dfpts.conditioning.value] = df[condition].rolling(window=10).mean().fillna(value=1, inplace=False)
+    data_sort_mode = df[df[dfpts.conditioning.value] == 0]
     if not data_sort.empty:
         idx = data_sort.index[0]
         df = df.loc[:idx]
@@ -150,9 +150,9 @@ def get_time_temp_diff(htr: pd.DataFrame, target: Error) -> tuple[TimeDiff, Temp
     :rtype: tuple[TimeDiff, TempDiff]
     """
     # htr = htr[htr[dfpt.tempdiff.value] >= target]
-    htr.loc[:, dfpt.timediff.value] = htr.index.to_series().diff().dt.total_seconds() / 60
-    time_diff = htr[dfpt.timediff.value].sum(axis=0)
-    temp_diff = htr[dfpt.tempdiff.value].iloc[0] - htr[dfpt.tempdiff.value].iloc[-1]
+    htr.loc[:, dfpts.timediff.value] = htr.index.to_series().diff().dt.total_seconds() / 60
+    time_diff = htr[dfpts.timediff.value].sum(axis=0)
+    temp_diff = htr[dfpts.tempdiff.value].iloc[0] - htr[dfpts.tempdiff.value].iloc[-1]
     return time_diff, temp_diff
 
 
@@ -168,12 +168,12 @@ def get_time_target(data: pd.DataFrame, target: Error) -> float:
     :rtype: float
     """
     try:
-        idx = data[(data[dfpt.tempdiff.value][0] - data[dfpt.tempdiff.value]) >= target].index[0]
+        idx = data[(data[dfpts.tempdiff.value][0] - data[dfpts.tempdiff.value]) >= target].index[0]
         target_df = data.loc[:idx]
     except IndexError:
         return 0
     _dt = (target_df.index[-1] - target_df.index[0]).total_seconds() / 60
-    temp = target_df[dfpt.tempdiff.value][0] - target_df[dfpt.tempdiff.value][-1]
+    temp = target_df[dfpts.tempdiff.value][0] - target_df[dfpts.tempdiff.value][-1]
 
     return _dt / temp
 
@@ -251,9 +251,9 @@ def get_operating_mode(data: pd.DataFrame) -> Literal['heating', 'cooling', None
     cooling_count = data['cooling'].sum()
     heating_count = data['heating'].sum()
     if cooling_count > 0 and heating_count > 0:
-        if data[dfpt.zonetemperature.value][0] > data[dfpt.coolingsetpoint.value][0]:
+        if data[dfpts.zonetemperature.value][0] > data[dfpts.coolingsetpoint.value][0]:
             mode = 'cooling'
-        elif data[dfpt.zonetemperature.value][0] < data[dfpt.heatingsetpoint.value][0]:
+        elif data[dfpts.zonetemperature.value][0] < data[dfpts.heatingsetpoint.value][0]:
             mode = 'heating'
         return mode
     if cooling_count > 0:
