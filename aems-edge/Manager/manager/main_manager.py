@@ -893,16 +893,11 @@ class ManagerProxy:
         return result
 
     def update_weather_forecast(self):
-
         def parse_rpc_data(weather_results):
             weather_data = []
-
             for oat in weather_results:
-
                 weather_data.append((parser.parse(oat[0]).astimezone(self.cfg.timezone), oat[1]['temperature']))
-
             _log.debug(f'Parsed WEATHER forecast: {weather_data}')
-
             return weather_data
 
         for x in range(10):
