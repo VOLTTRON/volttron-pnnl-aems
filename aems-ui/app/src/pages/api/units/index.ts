@@ -1,12 +1,12 @@
 "use server";
- 
+
 import { NextApiRequest, NextApiResponse } from "next";
- 
+
 import { authUser } from "@/auth/server";
 import { logger } from "@/logging";
 import prisma from "@/prisma";
 import { Units } from "@prisma/client";
- 
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -46,7 +46,7 @@ export default async function handler(
               saturdaySchedule: true,
               sundaySchedule: true,
               holidaySchedule: true,
-              holidays: { orderBy: [{ createdAt: "desc" }] },
+              holidays: { orderBy: [{ day: "asc" }, { month: "asc" }] },
               occupancies: {
                 include: { schedule: true },
                 orderBy: [{ date: "desc" }],
@@ -55,7 +55,12 @@ export default async function handler(
           },
           location: true,
         },
-        orderBy: [{ campus: "asc" }, { building: "asc" }, { name: "asc" }],
+        ...(!user.roles.admin && {
+          where: { users: { some: { id: user.id } } },
+        }),
+        orderBy: {
+          label: "asc",
+        },
       })
       .then((units) => {
         return res.status(200).json(units);

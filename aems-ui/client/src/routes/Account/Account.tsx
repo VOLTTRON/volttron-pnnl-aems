@@ -1,6 +1,14 @@
 import "./style.scss";
 
-import { Button, Card, Checkbox, Icon, InputGroup, Intent, Label } from "@blueprintjs/core";
+import {
+  Button,
+  Card,
+  Checkbox,
+  Icon,
+  InputGroup,
+  Intent,
+  Label,
+} from "@blueprintjs/core";
 
 import { DeepPartial } from "../../utils/types";
 import { Header } from "components";
@@ -8,7 +16,18 @@ import { IconNames } from "@blueprintjs/icons";
 import React from "react";
 import { RootProps } from "routes";
 import { connect } from "react-redux";
-import { flatten, get, isEqual, merge, omit, uniq, xor } from "lodash";
+import {
+  flatten,
+  get,
+  isArray,
+  isEqual,
+  merge,
+  mergeWith,
+  omit,
+  uniq,
+  xor,
+  xorWith,
+} from "lodash";
 import {
   IUser,
   createUser,
@@ -27,6 +46,7 @@ import { zxcvbn, zxcvbnOptions } from "@zxcvbn-ts/core";
 import * as zxcvbnCommonPackage from "@zxcvbn-ts/language-common";
 import * as zxcvbnEnPackage from "@zxcvbn-ts/language-en";
 import { Tooltip2 } from "@blueprintjs/popover2";
+import { IUnit, readUnits, selectReadUnits } from "controllers/units/action";
 
 const options = {
   dictionary: {
@@ -40,6 +60,7 @@ zxcvbnOptions.setOptions(options);
 
 interface AccountProps extends RootProps {
   readUsers: () => void;
+  readUnits: () => void;
   filterUsers: (payload: IFilter) => void;
   createUser: (payload: DeepPartial<IUser>) => void;
   updateUser: (payload: DeepPartial<IUser>) => void;
@@ -48,6 +69,7 @@ interface AccountProps extends RootProps {
   user?: IUser;
   accounts?: IUser[];
   filtered?: IUser[];
+  units?: IUnit[];
 }
 
 interface AccountState {
@@ -56,9 +78,12 @@ interface AccountState {
   role: string;
   password: string;
   verify: string;
+  units: { id: number }[];
   editing: (DeepPartial<IUser> & { password: string; verify: string }) | null;
   show: "create-pw" | "create-pwv" | "edit-pw" | "edit-pwv" | null;
 }
+
+const customizer = (v: any, s: any): any => (isArray(s) ? s : v);
 
 class Account extends React.Component<AccountProps, AccountState> {
   constructor(props: AccountProps) {
@@ -69,6 +94,7 @@ class Account extends React.Component<AccountProps, AccountState> {
       role: "",
       password: "",
       verify: "",
+      units: [],
       editing: null,
       show: null,
     };
@@ -79,25 +105,54 @@ class Account extends React.Component<AccountProps, AccountState> {
     if (this.isAdmin()) {
       this.props.readUsers();
     } else {
-      this.setState({ editing: user ? { id: user.id, password: "", verify: "" } : null });
+      this.setState({
+        editing: user ? { id: user.id, password: "", verify: "" } : null,
+      });
     }
+    this.props.readUnits();
   }
 
   handleChange = (field: keyof AccountState, account?: DeepPartial<IUser>) => {
-    return (value: string) => {
+    return (value: string | number) => {
       const { editing } = this.state;
       switch (field) {
         // @ts-expect-error
         case "role":
-          const role = account === undefined ? this.state.role : get(editing, "role", account?.role ?? "");
+          const role =
+            account === undefined
+              ? this.state.role
+              : get(editing, "role", account?.role ?? "");
           value = xor(role.split(" "), [value]).join(" ");
+        // eslint-disable-next-line no-fallthrough
         case "name":
         case "email":
         case "password":
         case "verify":
           return this.setState(
             // @ts-expect-error
-            account === undefined ? { [field]: value } : { editing: merge(editing, { [field]: value }) }
+            account === undefined
+              ? { [field]: value }
+              : { editing: merge(editing, { [field]: value }) }
+          );
+        case "units":
+          return this.setState(
+            // @ts-expect-error
+            account === undefined
+              ? { units: xorWith(this.state.units, [{ id: value }], isEqual) }
+              : {
+                  editing: mergeWith(
+                    {},
+                    editing,
+                    {
+                      units: xorWith(
+                        editing?.units ?? account.units ?? [],
+                        [{ id: value as number }],
+                        isEqual
+                      ),
+                    },
+                    customizer
+                  ),
+                }
           );
         default:
           throw new Error(`Unhandled field passed to handleChange function.`);
@@ -114,6 +169,7 @@ class Account extends React.Component<AccountProps, AccountState> {
       role: "",
       password: "",
       verify: "",
+      units: [],
       editing: null,
       show: null,
     });
@@ -130,7 +186,10 @@ class Account extends React.Component<AccountProps, AccountState> {
 
   handleSave = () => {
     const { user } = this.props;
-    const account = omit(this.state?.editing, ["verify", ...(this.state?.editing?.password ? [] : ["password"])]);
+    const account = omit(this.state?.editing, [
+      "verify",
+      ...(this.state?.editing?.password ? [] : ["password"]),
+    ]);
     if (this.isAdmin()) {
       if (account) {
         this.props.updateUser(account);
@@ -140,7 +199,9 @@ class Account extends React.Component<AccountProps, AccountState> {
       if (account) {
         this.props.updateCurrent(account);
       }
-      this.setState({ editing: user ? { id: user.id, password: "", verify: "" } : null });
+      this.setState({
+        editing: user ? { id: user.id, password: "", verify: "" } : null,
+      });
     }
   };
 
@@ -157,17 +218,33 @@ class Account extends React.Component<AccountProps, AccountState> {
       return false;
     }
     const errors = this.getErrors(name, email, role, password, verify);
-    const isErrors = errors.email || errors.name || errors.verify || errors.password?.feedback.warning;
+    const isErrors =
+      errors.email ||
+      errors.name ||
+      errors.verify ||
+      errors.password?.feedback.warning;
     return !isErrors;
   }
 
   isSave(account: IUser) {
     const { editing } = this.state;
-    const { name, email, role, password, verify } = merge({ verify: "" }, account, this.state.editing);
+    const { name, email, role, password, verify } = mergeWith(
+      {},
+      account,
+      this.state.editing,
+      customizer
+    );
     const errors = this.getErrors(name, email, role, password, verify);
-    const updated = merge({}, account, editing);
-    const isErrors = errors.email || errors.name || errors.verify || errors.password?.feedback.warning;
-    const isUpdated = !isEqual(merge({ password: "" }, account), omit(updated, ["verify"]));
+    const updated = mergeWith({}, account, editing, customizer);
+    const isErrors =
+      errors.email ||
+      errors.name ||
+      errors.verify ||
+      errors.password?.feedback.warning;
+    const isUpdated = !isEqual(
+      merge({ password: "" }, account),
+      omit(updated, ["verify"])
+    );
     return !isErrors && isUpdated;
   }
 
@@ -181,25 +258,61 @@ class Account extends React.Component<AccountProps, AccountState> {
       .split(" ")
       .map((v) => RoleType.parse(v)?.name)
       .filter((v): v is string => !!v);
-    const grants = uniq(flatten(role.split(" ").map((v) => RoleType.parse(v)?.grants))).filter((v): v is string => !!v);
+    const grants = uniq(
+      flatten(role.split(" ").map((v) => RoleType.parse(v)?.grants))
+    ).filter((v): v is string => !!v);
     return { roles, grants };
   }
 
-  getErrors(name: string, email: string, role: string, password: string | undefined, verify: string) {
-    const errorName = name !== "" && name.length < 2 ? "User name must be specified." : null;
+  getUnits(ids?: { id: number }[]) {
+    const { units } = this.props;
+    return (units?.filter((v) => !!ids?.find((u) => v.id === u.id)) ?? []).sort(
+      (a, b) => a.label.localeCompare(b.label)
+    );
+  }
+
+  getErrors(
+    name: string,
+    email: string,
+    role: string,
+    password: string | undefined,
+    verify: string
+  ) {
+    const errorName =
+      name !== "" && name.length < 2 ? "User name must be specified." : null;
     const errorEmail =
-      email !== "" && !/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/i.test(email) ? "Valid email must be specified." : null;
-    const errorPw = password === "" ? null : zxcvbn(password ?? "", [name, email]);
-    const errorPwv = password === "" || password === verify ? null : "New password and verify password must match.";
-    return { name: errorName, email: errorEmail, password: errorPw, verify: errorPwv };
+      email !== "" && !/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/i.test(email)
+        ? "Valid email must be specified."
+        : null;
+    const errorPw =
+      password === "" ? null : zxcvbn(password ?? "", [name, email]);
+    const errorPwv =
+      password === "" || password === verify
+        ? null
+        : "New password and verify password must match.";
+    return {
+      name: errorName,
+      email: errorEmail,
+      password: errorPw,
+      verify: errorPwv,
+    };
   }
 
   renderAccount(account?: IUser) {
+    const { units } = this.props;
     const { show } = this.state;
-    const { name, email, role, password, verify } = account
-      ? merge({ verify: "" }, account, this.state.editing)
+    const {
+      name,
+      email,
+      role,
+      password,
+      verify,
+      units: unitIds,
+    } = account
+      ? mergeWith({}, account, this.state.editing, customizer)
       : this.state;
     const { roles, grants } = this.parseRole(role);
+    const checked = this.getUnits(unitIds);
     const showPw = account ? "edit-pw" : "create-pw";
     const showPwv = account ? "edit-pwv" : "create-pwv";
     const errors = this.getErrors(name, email, role, password, verify);
@@ -211,14 +324,20 @@ class Account extends React.Component<AccountProps, AccountState> {
             <InputGroup
               type="text"
               value={name}
-              onChange={(e) => this.handleChange("name", account)(e.target.value)}
+              onChange={(e) =>
+                this.handleChange("name", account)(e.target.value)
+              }
               readOnly={!this.isAdmin()}
               intent={errors.name ? Intent.DANGER : undefined}
               rightElement={
                 <div className="icons">
                   {errors.name && (
                     <Tooltip2 content={errors.name}>
-                      <Icon className="icon" icon={IconNames.INFO_SIGN} intent={Intent.DANGER} />
+                      <Icon
+                        className="icon"
+                        icon={IconNames.INFO_SIGN}
+                        intent={Intent.DANGER}
+                      />
                     </Tooltip2>
                   )}
                 </div>
@@ -230,14 +349,20 @@ class Account extends React.Component<AccountProps, AccountState> {
             <InputGroup
               type="text"
               value={email}
-              onChange={(e) => this.handleChange("email", account)(e.target.value)}
+              onChange={(e) =>
+                this.handleChange("email", account)(e.target.value)
+              }
               readOnly={!this.isAdmin()}
               intent={errors.email ? Intent.DANGER : undefined}
               rightElement={
                 <div className="icons">
                   {errors.email && (
                     <Tooltip2 content={errors.email}>
-                      <Icon className="icon" icon={IconNames.INFO_SIGN} intent={Intent.DANGER} />
+                      <Icon
+                        className="icon"
+                        icon={IconNames.INFO_SIGN}
+                        intent={Intent.DANGER}
+                      />
                     </Tooltip2>
                   )}
                 </div>
@@ -252,9 +377,13 @@ class Account extends React.Component<AccountProps, AccountState> {
               type={show === showPw ? "text" : "password"}
               autoComplete="new-password"
               value={password}
-              onChange={(e) => this.handleChange("password", account)(e.target.value)}
+              onChange={(e) =>
+                this.handleChange("password", account)(e.target.value)
+              }
               intent={
-                errors.password && (errors.password.feedback.warning || errors.password.feedback.suggestions.length > 0)
+                errors.password &&
+                (errors.password.feedback.warning ||
+                  errors.password.feedback.suggestions.length > 0)
                   ? errors.password.feedback.warning
                     ? Intent.DANGER
                     : Intent.WARNING
@@ -263,21 +392,33 @@ class Account extends React.Component<AccountProps, AccountState> {
               rightElement={
                 <div className="icons">
                   {errors.password &&
-                    (errors.password.feedback.warning || errors.password.feedback.suggestions.length > 0) && (
+                    (errors.password.feedback.warning ||
+                      errors.password.feedback.suggestions.length > 0) && (
                       <Tooltip2
-                        content={errors.password.feedback.warning || errors.password.feedback.suggestions.join(" \n")}
+                        content={
+                          errors.password.feedback.warning ||
+                          errors.password.feedback.suggestions.join(" \n")
+                        }
                       >
                         <Icon
                           className="icon"
                           icon={IconNames.INFO_SIGN}
-                          intent={errors.password.feedback.warning ? Intent.DANGER : Intent.WARNING}
+                          intent={
+                            errors.password.feedback.warning
+                              ? Intent.DANGER
+                              : Intent.WARNING
+                          }
                         />
                       </Tooltip2>
                     )}
                   <Button
                     minimal
-                    icon={show === showPw ? IconNames.EYE_OFF : IconNames.EYE_OPEN}
-                    onClick={() => this.setState({ show: show === showPw ? null : showPw })}
+                    icon={
+                      show === showPw ? IconNames.EYE_OFF : IconNames.EYE_OPEN
+                    }
+                    onClick={() =>
+                      this.setState({ show: show === showPw ? null : showPw })
+                    }
                   />
                 </div>
               }
@@ -288,19 +429,35 @@ class Account extends React.Component<AccountProps, AccountState> {
             <InputGroup
               type={show === showPwv ? "text" : "password"}
               value={verify}
-              onChange={(e) => this.handleChange("verify", account)(e.target.value)}
-              intent={errors.verify ? Intent.DANGER : errors.verify === undefined ? undefined : Intent.NONE}
+              onChange={(e) =>
+                this.handleChange("verify", account)(e.target.value)
+              }
+              intent={
+                errors.verify
+                  ? Intent.DANGER
+                  : errors.verify === undefined
+                  ? undefined
+                  : Intent.NONE
+              }
               rightElement={
                 <div className="icons">
                   {errors.verify && (
                     <Tooltip2 content={errors.verify}>
-                      <Icon className="icon" icon={IconNames.INFO_SIGN} intent={Intent.DANGER} />
+                      <Icon
+                        className="icon"
+                        icon={IconNames.INFO_SIGN}
+                        intent={Intent.DANGER}
+                      />
                     </Tooltip2>
                   )}
                   <Button
                     minimal
-                    icon={show === showPwv ? IconNames.EYE_OFF : IconNames.EYE_OPEN}
-                    onClick={() => this.setState({ show: show === showPwv ? null : showPwv })}
+                    icon={
+                      show === showPwv ? IconNames.EYE_OFF : IconNames.EYE_OPEN
+                    }
+                    onClick={() =>
+                      this.setState({ show: show === showPwv ? null : showPwv })
+                    }
                   />
                 </div>
               }
@@ -312,12 +469,31 @@ class Account extends React.Component<AccountProps, AccountState> {
             <b>Roles</b>
             {RoleType.values.map((v) => (
               <Checkbox
-                key={`checkbox-${v.name}`}
+                key={`cb-role-${v.name}`}
                 id={v.name}
                 label={`${v.label} Role`}
                 checked={roles.includes(v.name)}
-                indeterminate={!roles.includes(v.name) && grants.includes(v.name)}
+                indeterminate={
+                  !roles.includes(v.name) && grants.includes(v.name)
+                }
                 onChange={() => this.handleChange("role", account)(v.name)}
+                disabled={!this.isAdmin()}
+              />
+            ))}
+          </Label>
+        </div>
+        <div>
+          <Label>
+            <b>Units</b>
+            {units?.map((v) => (
+              <Checkbox
+                key={`cb-unit-${v.id}`}
+                id={String(v.id)}
+                label={v.label}
+                checked={!!checked.find((u) => u.id === v.id)}
+                onChange={() =>
+                  this.handleChange("units", account)(v.id as number)
+                }
                 disabled={!this.isAdmin()}
               />
             ))}
@@ -400,7 +576,12 @@ class Account extends React.Component<AccountProps, AccountState> {
                     onClick={() => this.handleSave()}
                     disabled={!this.isSave(account)}
                   />
-                  <Button icon={IconNames.CROSS} intent={Intent.PRIMARY} minimal onClick={() => this.handleCancel()} />
+                  <Button
+                    icon={IconNames.CROSS}
+                    intent={Intent.PRIMARY}
+                    minimal
+                    onClick={() => this.handleCancel()}
+                  />
                 </div>
               </Card>
             ) : (
@@ -446,10 +627,12 @@ const mapStateToProps = (state: any) => ({
   user: selectUser(state),
   accounts: selectUsers(state),
   filtered: selectFilterUsers(state),
+  units: selectReadUnits(state),
 });
 
 const mapActionToProps = {
   readUsers,
+  readUnits,
   filterUsers,
   createUser,
   updateUser,

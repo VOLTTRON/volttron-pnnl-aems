@@ -8,7 +8,10 @@ import { logger } from "@/logging";
 import prisma from "@/prisma";
 import { Prisma } from "@prisma/client";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   const user = await authUser(req);
   if (!user.roles.user) {
     return res.status(401).json(null);
@@ -50,6 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           createdAt: true,
           updatedAt: true,
           password: false,
+          units: { select: { id: true } },
         },
         where: { id: id },
       })

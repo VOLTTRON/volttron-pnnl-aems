@@ -16,5 +16,6 @@ export const UserObject = builder.prismaObject("User", {
     // indirect relations
     comments: t.relation("comments", { authScopes: { user: true }, nullable: true }),
     accounts: t.relation("accounts", { authScopes: { user: true }, nullable: true }),
+    units: t.relation("units", { authScopes: { user: true }, nullable: true }),
   }),
 });

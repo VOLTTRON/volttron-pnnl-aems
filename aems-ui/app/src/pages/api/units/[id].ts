@@ -8,7 +8,10 @@ import { StageType } from "@/common";
 import { logger } from "@/logging";
 import prisma from "@/prisma";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   const user = await authUser(req);
   if (!user.roles.user) {
     return res.status(401).json(null);
@@ -20,7 +23,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "DELETE") {
     return prisma.units
       .delete({
-        where: { id: parseInt(id) },
+        where: {
+          id: parseInt(id),
+          ...(!user.roles.admin && { users: { some: { id: user.id } } }),
+        },
       })
       .then((unit) => {
         if (!unit) {
@@ -35,7 +41,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } else if (req.method === "GET") {
     return prisma.units
       .findFirst({
-        where: { id: parseInt(id) },
+        where: {
+          id: parseInt(id),
+          ...(!user.roles.admin && { users: { some: { id: user.id } } }),
+        },
         include: {
           configuration: {
             include: {
@@ -49,7 +58,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               sundaySchedule: true,
               holidaySchedule: true,
               holidays: { orderBy: [{ createdAt: "desc" }] },
-              occupancies: { include: { schedule: true }, orderBy: [{ date: "desc" }] },
+              occupancies: {
+                include: { schedule: true },
+                orderBy: [{ date: "desc" }],
+              },
             },
           },
           location: true,
@@ -93,10 +105,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               set(
                 p,
                 `${k}.update`,
-                v.filter((a) => a).map((a) => ({ data: a, where: { id: a.id } }))
+                v
+                  .filter((a) => a)
+                  .map((a) => ({ data: a, where: { id: a.id } }))
               );
             } else if (["location"].includes(k) && isObject(v)) {
-              const location = await prisma.locations.findFirst({ where: v, select: { id: true } });
+              const location = await prisma.locations.findFirst({
+                where: v,
+                select: { id: true },
+              });
               if (location) {
                 set(p, `${k}.connect`, { id: location.id });
               } else {
@@ -120,7 +137,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return prisma.units
       .update({
         data: unit,
-        where: { id: parseInt(id) },
+        where: {
+          id: parseInt(id),
+          ...(!user.roles.admin && { users: { some: { id: user.id } } }),
+        },
       })
       .then((unit) => {
         if (!unit) {

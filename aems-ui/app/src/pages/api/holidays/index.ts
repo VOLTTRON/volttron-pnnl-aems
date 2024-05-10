@@ -7,13 +7,18 @@ import { logger } from "@/logging";
 import prisma from "@/prisma";
 import { Holiday_type, Holidays } from "@prisma/client";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   const user = await authUser(req);
   if (!user.roles.user) {
     return res.status(401).json(null);
   }
   if (req.method === "POST") {
-    const holiday = req.body as Partial<Holidays> & { configurationId?: number };
+    const holiday = req.body as Partial<Holidays> & {
+      configurationId?: number;
+    };
     const { configurationId } = holiday;
     return prisma.holidays
       .create({
@@ -49,9 +54,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
           },
         },
-        orderBy: {
-          createdAt: "desc",
-        },
+        orderBy: [{ day: "asc" }, { month: "asc" }],
       })
       .then((holidays) => {
         return res.status(200).json(holidays);

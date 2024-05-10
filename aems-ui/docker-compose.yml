@@ -11,17 +11,22 @@ services:
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls=true
+      - --entrypoints.websecure.http.tls.certresolver=${CERT_RESOLVER}
       - --providers.file.directory=/etc/traefik/dynamic
       - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
       - --certificatesresolvers.letsencrypt.acme.email=${ADMIN_EMAIL}
       - --certificatesresolvers.letsencrypt.acme.storage=/etc/certs/letsencrypt.json
-      - --certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
     container_name: ${COMPOSE_PROJECT_NAME}-proxy
     depends_on:
       init:
         condition: service_completed_successfully
     hostname: proxy
     image: traefik:v2.10
+    labels:
+      - traefik.tls.stores.default.defaultgeneratedcert.resolver=${CERT_RESOLVER}
+      - traefik.tls.stores.default.defaultgeneratedcert.domain.main=${HOSTNAME}
+      - traefik.tls.stores.default.defaultgeneratedcert.domain.sans=*.${HOSTNAME}
     ports:
       - 80:80
       - 443:443
@@ -30,17 +35,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./certs/:/etc/certs/
       - ./certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
-
-  # Simple service for checking proxy
-  whoami:
-    image: traefik/whoami
-    container_name: ${COMPOSE_PROJECT_NAME}-whoami
-    hostname: whoami
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.whoami.rule=Host(`whoami.localhost`)
-      - traefik.http.routers.whoami.entrypoints=web
-      - traefik.http.services.whoami.loadbalancer.server.port=80
 
   # Application that hosts static files and API
   app:
@@ -84,21 +78,24 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.services.nextapp.loadbalancer.server.port=3000
-      - traefik.http.routers.nextapp-http.entrypoints=web
-      - traefik.http.routers.nextapp-http.rule=Host(`${COMPOSE_PROJECT_NAME}.localhost`)
-      - traefik.http.routers.nextapp-http.middlewares=nextapp-https
-      - traefik.http.middlewares.nextapp-https.redirectscheme.scheme=https
-      - traefik.http.routers.nextapp.entrypoints=websecure
-      - traefik.http.routers.nextapp.rule=Host(`${COMPOSE_PROJECT_NAME}.localhost`)
-      - traefik.http.routers.nextapp.tls=true
+      - traefik.http.routers.ip-address.entrypoints=web,websecure
+      # - traefik.http.routers.ip-address.rule=HostRegexp(`^(?:https?:\/\/)?(?:(?:25[0-5]|(?:2[0-4]|1\d|[1-9]|)\d)\.?\b){4}\/?(.*)$`)
+      - traefik.http.routers.ip-address.rule=HostRegexp(`^(?:https?:\/\/)?localhost\/?(.*)$`)
+      - traefik.http.routers.ip-address.priority=1
+      - traefik.http.routers.ip-address.middlewares=ip-address
+      # - traefik.http.middlewares.ip-address.redirectregex.regex=^(https?:\/\/)?(?:(?:25[0-5]|(?:2[0-4]|1\d|[1-9]|)\d)\.?\b){4}\/?(.*)$
+      - traefik.http.middlewares.ip-address.redirectregex.regex=^(https?:\/\/)?localhost\/?(.*)$
+      - traefik.http.middlewares.ip-address.redirectregex.replacement=$${1}foo.pnnl.gov/$${2}
       - traefik.http.routers.hostname-http.entrypoints=web
       - traefik.http.routers.hostname-http.rule=Host(`${HOSTNAME}`)
-      - traefik.http.routers.hostname-http.middlewares=nextapp-https
+      - traefik.http.routers.hostname-http.priority=2
+      - traefik.http.routers.hostname-http.middlewares=hostname-https
       - traefik.http.middlewares.hostname-https.redirectscheme.scheme=https
       - traefik.http.routers.hostname.entrypoints=websecure
       - traefik.http.routers.hostname.rule=Host(`${HOSTNAME}`)
+      - traefik.http.routers.hostname.priority=3
       - traefik.http.routers.hostname.tls=true
-      - traefik.http.routers.hostname.tls.certresolver=letsencrypt
+      - traefik.http.routers.hostname.tls.certresolver=${CERT_RESOLVER}
     restart: always
     volumes:
       - app-data:/app/data

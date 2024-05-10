@@ -43,5 +43,7 @@ export const UnitsObject = builder.prismaObject("Units", {
     // direct relations
     configuration: t.relation("configuration", { authScopes: { user: true }, nullable: true }),
     // control: t.relation("control", { authScopes: { user: true }, nullable: true }),
+    // indirect relations
+    users: t.relation("users", { authScopes: { user: true }, nullable: true }),
   }),
 });

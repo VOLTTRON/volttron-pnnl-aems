@@ -80,6 +80,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   comments      Comment[]
+  units         Units[]   @relation("Units_users")
 
   // indices
   @@index([name], map: "users_name")
@@ -203,6 +204,8 @@ model Units {
   configuration         Configurations? @relation("Units_configurations", fields: [configurationId], references: [id], onDelete: SetNull)
   control               Controls?       @relation("Units_controls", fields: [controlId], references: [id], onDelete: SetNull)
   location              Locations?      @relation("Units_locations", fields: [locationId], references: [id], onDelete: SetNull)
+  // indirect relations
+  users                 User[]          @relation("Units_users")
 
   // indices
   @@index([label])

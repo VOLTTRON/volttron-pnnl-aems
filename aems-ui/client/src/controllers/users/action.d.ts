@@ -12,6 +12,7 @@ export interface IUser {
   updatedAt: string;
   password?: string;
   token?: string;
+  units?: { id: number }[];
 }
 
 export interface IFilter {
@@ -25,14 +26,19 @@ export function createUser(payload: DeepPartial<IUser>): void;
 export function selectCreateUserError(state: any): any | undefined;
 export function selectCreateUser(state: any): IUser | undefined;
 export function selectCreateUserBusy(state: any): boolean | undefined;
-export function selectCreateUserRequest(state: any): DeepPartial<IUser> | undefined;
+export function selectCreateUserRequest(
+  state: any
+): DeepPartial<IUser> | undefined;
 
 export function readUsers(): void;
 export function selectUsers(state: any): List<IUser> | undefined;
 
 export function filterUsers(payload: IFilter): void;
 export function selectFilterUsers(state: any): List<IUser> | undefined;
-export function selectFilterUsersBusy(): boolean | { type: BusyAuto | BusyUser } | undefined;
+export function selectFilterUsersBusy():
+  | boolean
+  | { type: BusyAuto | BusyUser }
+  | undefined;
 
 export function readUser(payload: string): void;
 export function selectUser(state: any): IUser | undefined;

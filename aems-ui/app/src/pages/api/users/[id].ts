@@ -8,7 +8,10 @@ import { logger } from "@/logging";
 import prisma from "@/prisma";
 import { Prisma } from "@prisma/client";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   const user = await authUser(req);
   if (!user.roles.admin) {
     return res.status(401).json(null);
@@ -19,6 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   if (req.method === "PUT") {
     const user = req.body as Prisma.UserUpdateInput;
+    const units = user.units as { id: number }[] | undefined;
     return prisma.user
       .update({
         select: {
@@ -31,7 +35,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           updatedAt: true,
           password: false,
         },
-        data: pick(user, ["name", "email", "role", "password", "preferences"]),
+        data: {
+          ...pick(user, ["name", "email", "role", "password", "preferences"]),
+          ...(units !== undefined && { units: { connect: units } }),
+        },
         where: { id: id },
       })
       .then((user) => {
@@ -53,6 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           createdAt: true,
           updatedAt: true,
           password: false,
+          units: { select: { id: true } },
         },
         where: { id: id },
       })

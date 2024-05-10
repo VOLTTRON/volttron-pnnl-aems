@@ -9,7 +9,10 @@ import { logger } from "@/logging";
 import prisma from "@/prisma";
 import { Holidays, Occupancies, Schedules, Setpoints } from "@prisma/client";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   const user = await authUser(req);
   if (!user.roles.user) {
     return res.status(401).json(null);
@@ -34,13 +37,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           label,
           ...(setpoint && { setpoint: { create: setpoint } }),
           ...(mondaySchedule && { mondaySchedule: { create: mondaySchedule } }),
-          ...(tuesdaySchedule && { tuesdaySchedule: { create: tuesdaySchedule } }),
-          ...(wednesdaySchedule && { wednesdaySchedule: { create: wednesdaySchedule } }),
-          ...(thursdaySchedule && { thursdaySchedule: { create: thursdaySchedule } }),
+          ...(tuesdaySchedule && {
+            tuesdaySchedule: { create: tuesdaySchedule },
+          }),
+          ...(wednesdaySchedule && {
+            wednesdaySchedule: { create: wednesdaySchedule },
+          }),
+          ...(thursdaySchedule && {
+            thursdaySchedule: { create: thursdaySchedule },
+          }),
           ...(fridaySchedule && { fridaySchedule: { create: fridaySchedule } }),
-          ...(saturdaySchedule && { saturdaySchedule: { create: saturdaySchedule } }),
+          ...(saturdaySchedule && {
+            saturdaySchedule: { create: saturdaySchedule },
+          }),
           ...(sundaySchedule && { sundaySchedule: { create: sundaySchedule } }),
-          ...(holidaySchedule && { holidaySchedule: { create: holidaySchedule } }),
+          ...(holidaySchedule && {
+            holidaySchedule: { create: holidaySchedule },
+          }),
           ...(holidays && { holidays: { create: holidays } }),
           ...(occupancies && { occupancies: { create: occupancies } }),
           ...(isFinite(unitId) && {
@@ -53,7 +66,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .then((configuration) => {
         if (isFinite(unitId)) {
           prisma.units
-            .update({ where: { id: unitId }, data: { stage: StageType.UpdateType.enum } })
+            .update({
+              where: { id: unitId },
+              data: { stage: StageType.UpdateType.enum },
+            })
             .then(() => {
               return res.status(201).json(configuration);
             })
@@ -82,12 +98,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           saturdaySchedule: true,
           sundaySchedule: true,
           holidaySchedule: true,
-          holidays: { orderBy: [{ createdAt: "desc" }] },
-          occupancies: { include: { schedule: true }, orderBy: [{ date: "desc" }] },
+          holidays: { orderBy: [{ day: "asc" }, { month: "asc" }] },
+          occupancies: {
+            include: { schedule: true },
+            orderBy: [{ date: "desc" }],
+          },
           _count: { select: { units: true, occupancies: true } },
         },
         orderBy: {
-          createdAt: "desc",
+          label: "asc",
         },
       })
       .then((configurations) => {

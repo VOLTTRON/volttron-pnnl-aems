@@ -1,10 +1,11 @@
 {
   "name": "aems-client",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "main": "index.js",
   "homepage": "/",
   "proxy": "http://localhost:3000",
   "private": true,
+  "license": "SEE LICENSE IN ../LICENSE",
   "dependencies": {
     "@blueprintjs/core": "^3.53.0",
     "@blueprintjs/datetime": "^3.24.1",

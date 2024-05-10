@@ -39,10 +39,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return prisma.controls
       .findMany({
         include: {
-          units: { orderBy: { id: "asc" } },
+          units: { orderBy: { label: "asc" } },
         },
         orderBy: {
-          createdAt: "desc",
+          label: "asc",
         },
       })
       .then((controls) => {
