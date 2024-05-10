@@ -136,6 +136,10 @@ class OptimalStartManager:
             cls.update_config(config)
         for tag, cls in self.weekend_holiday_models.items():
             cls.update_config(config)
+        # Update the earliest and latest start-time for the optimal start manager
+        self.latest_start_time = config.latest_start_time
+        self.earliest_start_time = config.earliest_start_time
+        _log.debug(f'OPTIMAL START -- earliest_start_time: {self.earliest_start_time} - latest_start_time: {self.latest_start_time}')
 
     def set_up_run(self):
         """
@@ -213,8 +217,8 @@ class OptimalStartManager:
         s_minute = start.minute
         e_hour = end.hour
         e_minute = end.minute
-        occupancy_time = dt.now().replace(hour=s_hour, minute=s_minute)
-        unoccupied_time = dt.now().replace(hour=e_hour, minute=e_minute)
+        occupancy_time = dt.now().replace(hour=s_hour, minute=s_minute, microsecond=0)
+        unoccupied_time = dt.now().replace(hour=e_hour, minute=e_minute, microsecond=0)
 
         # If previous day was weekend or holiday and holiday models exist
         # calculate optimal start time using weekend/holiday models.
@@ -234,9 +238,10 @@ class OptimalStartManager:
 
         self.result['occupancy'] = format_timestamp(occupancy_time)
         active_minutes = self.get_start_time()
+        _log.debug(f'OPTIMAL START -- return value: {active_minutes}')
         self.training_time = active_minutes
         optimal_start_time = occupancy_time - td(minutes=active_minutes)
-        reschedule_time = dt.now() + td(minutes=15)
+        reschedule_time = dt.now().replace(microsecond=0) + td(minutes=15)
         if self.run_schedule is not None:
             self.run_schedule.cancel()
 
@@ -245,7 +250,7 @@ class OptimalStartManager:
             self.run_schedule = self.scheduler_fn(reschedule_time, self.run_method)
             return
 
-        _log.debug('%s - Optimal start result: %s', self.identity, self.result)
+        _log.debug(f'{self.identity} -- optimal start time: {active_minutes} -- result: {self.result}')
         headers = {'Date': format_timestamp(get_aware_utc_now())}
         topic = '/'.join([self.base_record_topic, OPTIMAL_START_TIME])
         self.publish_fn(topic, headers, self.result)
