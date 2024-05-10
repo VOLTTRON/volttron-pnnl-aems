@@ -233,7 +233,6 @@ class DefaultConfig:
                 self.__setattr__(k, v)
         self.validate()
 
-    @lru_cache
     def get_current_day_schedule(self) -> Schedule:
         """
         Returns the current days schedule based on the current day of the week.
