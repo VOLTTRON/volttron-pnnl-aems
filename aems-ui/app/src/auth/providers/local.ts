@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "@node-rs/bcrypt";
 import { pick } from "lodash";
 
 import prisma from "@/prisma";

@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "@node-rs/bcrypt";
 import { isArray } from "lodash";
 import pino from "pino";
 

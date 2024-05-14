@@ -1,6 +1,7 @@
-FROM node:20-alpine AS base
+FROM node:20.12.2-alpine AS base
 # used for healthcheck and starting services
 RUN apk add --no-cache curl
+RUN corepack enable
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -12,8 +13,7 @@ WORKDIR /app
 COPY ./local_modules/ ./local_modules/
 # Install dependencies based on the preferred package manager
 COPY package.json yarn.lock .yarnrc.yml ./
-RUN yarn config set network-timeout 600000 -g
-RUN yarn install --immutable
+RUN yarn install
 
 # Rebuild the source code only when needed
 FROM base AS builder
