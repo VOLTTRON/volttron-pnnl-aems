@@ -92,7 +92,7 @@ input BooleanFilter {
 
 type Comment {
   createdAt: DateTime!
-  id: Int!
+  id: String!
   message: String!
   updatedAt: DateTime!
   user: User
@@ -121,7 +121,7 @@ enum CommentFields {
 
 input CommentFilter {
   createdAt: DateTimeFilter
-  id: IntFilter
+  id: StringFilter
   message: StringFilter
   updatedAt: DateTimeFilter
   user: UserFilter
@@ -138,11 +138,71 @@ input CommentOrderBy {
 }
 
 input CommentUniqueFilter {
-  id: Int
+  id: String
 }
 
 input CommentUpdateInput {
   message: String
+}
+
+type Configurations {
+  correlation: String
+  createdAt: DateTime!
+  id: Int!
+  label: String!
+  message: String
+  stage: StageType!
+  updatedAt: DateTime!
+}
+
+input ConfigurationsAggregate {
+  average: [ConfigurationsFields!]
+  count: [ConfigurationsFields!]
+  maximum: [ConfigurationsFields!]
+  minimum: [ConfigurationsFields!]
+  sum: [ConfigurationsFields!]
+}
+
+enum ConfigurationsFields {
+  correlation
+  createdAt
+  fridayScheduleId
+  holidayScheduleId
+  id
+  label
+  message
+  mondayScheduleId
+  saturdayScheduleId
+  setpointId
+  stage
+  sundayScheduleId
+  thursdayScheduleId
+  tuesdayScheduleId
+  updatedAt
+  wednesdayScheduleId
+}
+
+input ConfigurationsFilter {
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  id: IntFilter
+  message: StringFilter
+  stage: StageTypeFilter
+  updatedAt: DateTimeFilter
+}
+
+input ConfigurationsOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  updatedAt: OrderBy
+}
+
+input ConfigurationsUniqueFilter {
+  id: Int
+}
+
+input ConfigurationsUpdateInput {
+  stage: StageType
 }
 
 """
@@ -171,6 +231,18 @@ input FloatFilter {
   not: FloatFilter
 }
 
+enum HolidayType {
+  Custom
+  Disabled
+  Enabled
+}
+
+input HolidayTypeFilter {
+  equals: HolidayType
+  in: [HolidayType!]
+  not: HolidayTypeFilter
+}
+
 input IntFilter {
   equals: Int
   gt: Int
@@ -189,7 +261,7 @@ scalar JSON
 type Log {
   createdAt: DateTime!
   expiration: DateTime
-  id: Int!
+  id: String!
   message: String
   type: LogType
   updatedAt: DateTime!
@@ -221,7 +293,7 @@ enum LogFields {
 input LogFilter {
   createdAt: DateTimeFilter
   expiration: DateTimeFilter
-  id: IntFilter
+  id: StringFilter
   message: StringFilter
   type: LogTypeFilter
   updatedAt: DateTimeFilter
@@ -253,7 +325,7 @@ input LogTypeFilter {
 }
 
 input LogUniqueFilter {
-  id: Int
+  id: String
 }
 
 input LogUpdateInput {
@@ -282,13 +354,13 @@ type Mutation {
   deleteAccount(id: String!): Account!
 
   """Delete the specified comment."""
-  deleteComment(id: Int!): Comment!
+  deleteComment(id: String!): Comment!
 
   """Delete the currently logged in user."""
   deleteCurrent: User!
 
   """Delete the specified log."""
-  deleteLog(id: Int!): Log!
+  deleteLog(id: String!): Log!
 
   """Delete the specified user."""
   deleteUser(id: String!): User!
@@ -297,13 +369,19 @@ type Mutation {
   updateAccount(id: String!, update: AccountUpdateInput): Account!
 
   """Update the specified comment."""
-  updateComment(id: Int!, update: CommentUpdateInput): Comment!
+  updateComment(id: String!, update: CommentUpdateInput): Comment!
+
+  """Update the specified configurations."""
+  updateConfigurations(id: Int!, update: ConfigurationsUpdateInput): Configurations!
 
   """Update the currently logged in user."""
   updateCurrent(update: UserUpdateInput): User!
 
   """Update the specified log."""
-  updateLog(id: Int!, update: LogUpdateInput): Log!
+  updateLog(id: String!, update: LogUpdateInput): Log!
+
+  """Update the specified units."""
+  updateUnits(id: Int!, update: UnitsUpdateInput): Units!
 
   """Update the specified user."""
   updateUser(id: String!, update: UserUpdateInput): User!
@@ -326,8 +404,14 @@ type Query {
   """Count the number of comments."""
   countComments(where: CommentFilter): Int!
 
+  """Count the number of configurationss."""
+  countConfigurationss(where: ConfigurationsFilter): Int!
+
   """Count the number of logs."""
   countLogs(where: LogFilter): Int!
+
+  """Count the number of unitss."""
+  countUnitss(where: UnitsFilter): Int!
 
   """Count the number of user."""
   countUsers(where: UserFilter): Int!
@@ -338,8 +422,14 @@ type Query {
   """Group a list of comments."""
   groupComments(aggregate: CommentAggregate, by: [CommentFields!]!, where: CommentFilter): [JSON!]!
 
+  """Group a list of configurationss."""
+  groupConfigurationss(aggregate: ConfigurationsAggregate, by: [ConfigurationsFields!]!, where: ConfigurationsFilter): [JSON!]!
+
   """Group a list of logs."""
   groupLogs(aggregate: LogAggregate, by: [LogFields!]!, where: LogFilter): [JSON!]!
+
+  """Group a list of unitss."""
+  groupUnitss(aggregate: UnitsAggregate, by: [UnitsFields!]!, where: UnitsFilter): [JSON!]!
 
   """Group a list of user."""
   groupUsers(aggregate: UserAggregate, by: [UserFields!]!, where: UserFilter): [JSON!]!
@@ -356,6 +446,12 @@ type Query {
   """Read a list of comments."""
   readComments(distinct: [CommentFields!], orderBy: [CommentOrderBy!], paging: PagingInput, where: CommentFilter): [Comment!]!
 
+  """Read a unique configurations."""
+  readConfigurations(where: ConfigurationsUniqueFilter): Configurations!
+
+  """Read a list of configurationss."""
+  readConfigurationss(distinct: [ConfigurationsFields!], orderBy: [ConfigurationsOrderBy!], paging: PagingInput, where: ConfigurationsFilter): [Configurations!]!
+
   """Read the currently logged in user."""
   readCurrent: User!
 
@@ -365,11 +461,33 @@ type Query {
   """Read a list of logs."""
   readLogs(distinct: [LogFields!], orderBy: [LogOrderBy!], paging: PagingInput, where: LogFilter): [Log!]!
 
+  """Read a unique units."""
+  readUnits(where: UnitsUniqueFilter): Units!
+
+  """Read a list of unitss."""
+  readUnitss(distinct: [UnitsFields!], orderBy: [UnitsOrderBy!], paging: PagingInput, where: UnitsFilter): [Units!]!
+
   """Read a unique user."""
   readUser(where: UserUniqueFilter): User!
 
   """Read a list of user."""
   readUsers(distinct: [UserFields!], orderBy: [UserOrderBy!], paging: PagingInput, where: UserFilter): [User!]!
+}
+
+enum StageType {
+  Complete
+  Create
+  Delete
+  Fail
+  Process
+  Read
+  Update
+}
+
+input StageTypeFilter {
+  equals: StageType
+  in: [StageType!]
+  not: StageTypeFilter
 }
 
 input StringFilter {
@@ -387,13 +505,119 @@ enum StringFilterMode {
   Insensitive
 }
 
+type Units {
+  building: String!
+  campus: String!
+  compressors: Int!
+  configuration: Configurations
+  configurationId: Int
+  coolingCapacity: Float!
+  coolingLockout: Float!
+  coolingPeakOffset: Float!
+  correlation: String
+  createdAt: DateTime!
+  earliestStart: Int!
+  economizer: Boolean!
+  economizerSetpoint: Float!
+  heatPump: Boolean!
+  heatPumpBackup: Float!
+  heatPumpLockout: Float!
+  heatingPeakOffset: Float!
+  id: Int!
+  label: String!
+  latestStart: Int!
+  message: String
+  name: String!
+  optimalStartDeviation: Float!
+  optimalStartLockout: Float!
+  peakLoadExclude: Boolean!
+  stage: StageType!
+  system: String!
+  timezone: String!
+  updatedAt: DateTime!
+  users: [User!]
+  zoneBuilding: String!
+  zoneLocation: String!
+  zoneMass: String!
+  zoneOrientation: String!
+}
+
+input UnitsAggregate {
+  average: [UnitsFields!]
+  count: [UnitsFields!]
+  maximum: [UnitsFields!]
+  minimum: [UnitsFields!]
+  sum: [UnitsFields!]
+}
+
+enum UnitsFields {
+  building
+  campus
+  compressors
+  configurationId
+  controlId
+  coolingCapacity
+  coolingLockout
+  coolingPeakOffset
+  correlation
+  createdAt
+  earliestStart
+  economizer
+  economizerSetpoint
+  heatPump
+  heatPumpBackup
+  heatPumpLockout
+  heatingPeakOffset
+  id
+  label
+  latestStart
+  locationId
+  message
+  name
+  optimalStartDeviation
+  optimalStartLockout
+  peakLoadExclude
+  stage
+  system
+  timezone
+  updatedAt
+  zoneBuilding
+  zoneLocation
+  zoneMass
+  zoneOrientation
+}
+
+input UnitsFilter {
+  configurationId: IntFilter
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  id: IntFilter
+  message: StringFilter
+  stage: StageTypeFilter
+  updatedAt: DateTimeFilter
+}
+
+input UnitsOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  updatedAt: OrderBy
+}
+
+input UnitsUniqueFilter {
+  id: Int
+}
+
+input UnitsUpdateInput {
+  stage: StageType
+}
+
 type User {
   accounts: [Account!]
   comments: [Comment!]
   createdAt: DateTime!
-  email: String
-  id: ID!
-  name: String
+  email: String!
+  id: String!
+  name: String!
   preferences: JSON
   role: String
   updatedAt: DateTime!
@@ -409,7 +633,7 @@ input UserAggregate {
 
 input UserCreateInput {
   email: String!
-  name: String
+  name: String!
   password: String
   preferences: String
   role: String

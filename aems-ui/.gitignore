@@ -6,7 +6,7 @@ docker-images.**
 
 # editor config
 .idea
-.vscode
+# .vscode
 .DS_Store
 
 # certs
@@ -15,7 +15,7 @@ certs/*
 
 # data
 database/*.sql
-osm/*.osm.pbf
+*.osm.pbf
 
 # other
 *.bat

@@ -16,6 +16,9 @@ export default async function handler(
     return res.status(401).json(null);
   }
   if (req.method === "POST") {
+    if (!user.roles.admin) {
+      return res.status(401).json(null);
+    }
     const holiday = req.body as Partial<Holidays> & {
       configurationId?: number;
     };

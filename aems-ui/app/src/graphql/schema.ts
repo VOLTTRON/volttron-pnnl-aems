@@ -40,12 +40,13 @@ export const schema = builder.toSchema({});
 if (process.env.NODE_ENV === "development") {
   const schemaAsString = printSchema(lexicographicSortSchema(schema));
   const filename = resolve(process.cwd(), "schema.graphql");
-  readFile(filename).then((current) => {
+  readFile(filename).then(async (current) => {
     const currentAsString = current.toString();
     if (currentAsString !== schemaAsString) {
-      writeFile(filename, schemaAsString)
+      await writeFile(filename, schemaAsString)
         .then(() => logger.info(`Updated schema.graphql`))
         .catch((error) => logger.warn(error, `Failed to update schema.graphql`));
     }
+    await writeFile(resolve(process.cwd(), "schema.graphql.updated"), String(Date.now()));
   });
 }

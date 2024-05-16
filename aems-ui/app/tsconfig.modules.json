@@ -15,6 +15,5 @@
     },
     "outDir": "./local_modules/"
   },
-  "include": ["./modules/**/*.ts", "./modules/**/*.json"],
-  "exclude": ["./modules/*.ts"]
+  "include": ["./modules/**/*.ts", "./modules/**/*.json"]
 }

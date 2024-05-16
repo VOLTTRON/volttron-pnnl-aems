@@ -1,11 +1,11 @@
-import { get, isEmpty, isNil, merge } from "lodash";
+import { get, isEmpty, isNil, merge, uniq } from "lodash";
 
-export interface ConfigType {
-  readonly id: string;
-  readonly parentId: string;
+export interface ConfigType<T extends {}> {
+  readonly id: keyof T;
+  readonly parentId: keyof T;
 }
 
-export class Node<T> {
+export class Node<T extends {}> {
   readonly tree: Tree<T>;
   readonly data?: T;
   readonly children: Node<T>[];
@@ -30,14 +30,29 @@ export class Node<T> {
     return !this.isLeaf();
   }
 
+  getAncestors(): Node<T>[] {
+    return this.parent ? uniq([this, this.parent?.getAncestors()].flat(2)) : [this];
+  }
+
   getAllDescendants(): Node<T>[] {
-    return [this, this.children.map((c) => c.getAllDescendants())].flat(2);
+    return uniq([this, this.children.map((c) => c.getAllDescendants())].flat(2));
+  }
+
+  /**
+   * Check if a node is an ancestor.
+   */
+  isAncestor(node: Node<T>): boolean {
+    const id = createId(get(node, ["data", this.tree.config.id]));
+    if (id === createId(get(this, ["data", this.tree.config.id]))) {
+      return false;
+    }
+    return this.getAncestors()
+      .map((n: Node<T>) => createId(get(n, ["data", this.tree.config.id])))
+      .includes(id);
   }
 
   /**
    * Check if a node is a descendant.
-   * @param {Node} node
-   * @returns true if node is a descendant
    */
   isDescendant(node: Node<T>): boolean {
     const id = createId(get(node, ["data", this.tree.config.id]));
@@ -54,12 +69,12 @@ const createId = (id: any) => {
   return isNil(id) ? "" : `${id}`;
 };
 
-export class Tree<T> {
+export class Tree<T extends {}> {
   readonly root: Node<T>;
-  readonly config: ConfigType;
+  readonly config: ConfigType<T>;
   readonly map: Record<string, Node<T>>;
 
-  constructor(items: any[], config: ConfigType) {
+  constructor(items: T[], config: ConfigType<T>) {
     this.root = new Node(this);
     this.config = config;
     this.map = items.reduce((p, c) => merge(p, { [createId(c[config.id])]: new Node(this, c) }), {});
@@ -102,11 +117,21 @@ export class Tree<T> {
  * let root = tree.root;
  * // Get the children for a node.
  * let children = root.children;
- *
- * @param {Array} items
- * @param {*} config defaults to { id: "id", parentId: "parentId" }
- * @returns the tree
  */
-export const buildTree = <T>(items: T[], config: ConfigType = { id: "id", parentId: "parentId" }): Tree<T> => {
-  return new Tree(items, config);
-};
+interface DefaultConfig {
+  id: any;
+  parentId: any;
+}
+
+export function buildTree<T extends DefaultConfig>(items: T[]): Tree<T>;
+export function buildTree<T extends {}>(items: T[], config?: ConfigType<T>): Tree<T> {
+  if (items.length === 0) {
+    return new Tree<T>([], { id: "id", parentId: "parentId" } as any);
+  } else if (!config && Reflect.has(items[0], "id") && Reflect.has(items[0], "parentId")) {
+    return new Tree(items, { id: "id" as keyof T, parentId: "parentId" as keyof T });
+  } else if (config) {
+    return new Tree(items, config);
+  } else {
+    throw new Error("Invalid configuration");
+  }
+}

@@ -31,6 +31,9 @@ services:
       - 80:80
       - 443:443
       - 8080:8080
+    profiles:
+      - proxy
+    restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./certs/:/etc/certs/
@@ -58,9 +61,11 @@ services:
       - DATABASE_USERNAME=${DATABASE_USERNAME}
       - DATABASE_PASSWORD=${DATABASE_PASSWORD}
       - DATABASE_NAME=${DATABASE_NAME}
+      - OSM_HOST=osm
+      - OSM_PORT=80
       - AUTH_PROVIDERS=${AUTHENTICATION}
-      - PASSWORD_VALIDATE=${PASSWORD_VALIDATE}
       - PASSWORD_STRENGTH=${PASSWORD_STRENGTH}
+      - PASSWORD_VALIDATE=${PASSWORD_VALIDATE}
       - PROXY_PROTOCOL=${PROXY_PROTOCOL}
       - PROXY_HOST=${PROXY_HOST}
       - PROXY_PORT=${PROXY_PORT}
@@ -77,26 +82,24 @@ services:
     image: nextapp:${TAG}
     labels:
       - traefik.enable=true
+      - traefik.http.middlewares.security.headers.browserXssFilter=true
+      - traefik.http.middlewares.security.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.security.headers.forceSTSHeader=true
+      - traefik.http.middlewares.security.headers.frameDeny=true
+      - traefik.http.middlewares.security.headers.referrerPolicy=same-origin
+      - traefik.http.middlewares.security.headers.sslRedirect=true
+      - traefik.http.middlewares.security.headers.stsSeconds=31536000
       - traefik.http.services.nextapp.loadbalancer.server.port=3000
-      - traefik.http.routers.ip-address.entrypoints=web,websecure
-      # - traefik.http.routers.ip-address.rule=HostRegexp(`^(?:https?:\/\/)?(?:(?:25[0-5]|(?:2[0-4]|1\d|[1-9]|)\d)\.?\b){4}\/?(.*)$`)
-      - traefik.http.routers.ip-address.rule=HostRegexp(`^(?:https?:\/\/)?localhost\/?(.*)$`)
-      - traefik.http.routers.ip-address.priority=1
-      - traefik.http.routers.ip-address.middlewares=ip-address
-      # - traefik.http.middlewares.ip-address.redirectregex.regex=^(https?:\/\/)?(?:(?:25[0-5]|(?:2[0-4]|1\d|[1-9]|)\d)\.?\b){4}\/?(.*)$
-      - traefik.http.middlewares.ip-address.redirectregex.regex=^(https?:\/\/)?localhost\/?(.*)$
-      - traefik.http.middlewares.ip-address.redirectregex.replacement=$${1}foo.pnnl.gov/$${2}
       - traefik.http.routers.hostname-http.entrypoints=web
       - traefik.http.routers.hostname-http.rule=Host(`${HOSTNAME}`)
-      - traefik.http.routers.hostname-http.priority=2
       - traefik.http.routers.hostname-http.middlewares=hostname-https
       - traefik.http.middlewares.hostname-https.redirectscheme.scheme=https
       - traefik.http.routers.hostname.entrypoints=websecure
       - traefik.http.routers.hostname.rule=Host(`${HOSTNAME}`)
-      - traefik.http.routers.hostname.priority=3
+      - traefik.http.routers.hostname.middlewares=security
       - traefik.http.routers.hostname.tls=true
       - traefik.http.routers.hostname.tls.certresolver=${CERT_RESOLVER}
-    restart: always
+    restart: unless-stopped
     volumes:
       - app-data:/app/data
       - app-cache:/app/.next/cache
@@ -123,22 +126,11 @@ services:
       - DATABASE_USERNAME=${DATABASE_USERNAME}
       - DATABASE_PASSWORD=${DATABASE_PASSWORD}
       - DATABASE_NAME=${DATABASE_NAME}
-      - PASSWORD_VALIDATE=${PASSWORD_VALIDATE}
       - PASSWORD_STRENGTH=${PASSWORD_STRENGTH}
+      - PASSWORD_VALIDATE=${PASSWORD_VALIDATE}
       - PROXY_PROTOCOL=${PROXY_PROTOCOL}
       - PROXY_HOST=${PROXY_HOST}
       - PROXY_PORT=${PROXY_PORT}
-      - CONFIG_AUTH_URL=${CONFIG_AUTH_URL}
-      - CONFIG_API_URL=${CONFIG_API_URL}
-      - CONFIG_USERNAME=${CONFIG_USERNAME}
-      - CONFIG_PASSWORD=${CONFIG_PASSWORD}
-      - SETUP_FILES=${SETUP_FILES}
-      - SETUP_ILC_FILES=${SETUP_ILC_FILES}
-      - SETUP_TEMPLATE_FILES=${SETUP_TEMPLATE_FILES}
-      - VOLTTRON_CA=${VOLTTRON_CA}
-      - NODE_TLS_REJECT_UNAUTHORIZED=0
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     healthcheck:
       test: "curl http://localhost:3000/api/graphql"
       interval: 10s
@@ -146,11 +138,11 @@ services:
       retries: 120
     hostname: services
     image: nextapp:${TAG}
-    restart: always
+    restart: unless-stopped
     volumes:
+      - app-data:/app/data
       - ./seed/:/app/seed/
       - ../aems-edge:/app/aems-edge
-      - app-data:/app/data
 
   # Creates self-signed TLS certs for localhost and domain and runs relational database migrations on startup
   init:
@@ -163,14 +155,6 @@ services:
           mkcert create-ca \
             --key "/etc/certs/mkcert-ca.key" \
             --cert "/etc/certs/mkcert-ca.crt"
-        fi;
-        if [ ! -f /etc/certs/mkcert-local.crt ]; then
-          mkcert create-cert \
-            --ca-key "/etc/certs/mkcert-ca.key" \
-            --ca-cert "/etc/certs/mkcert-ca.crt" \
-            --key "/etc/certs/mkcert-local.key" \
-            --cert "/etc/certs/mkcert-local.crt" \
-            --domain "${COMPOSE_PROJECT_NAME}.localhost"
         fi;
         if [ ! -f /etc/certs/mkcert-hostname.crt ]; then
           mkcert create-cert \
@@ -217,9 +201,48 @@ services:
       retries: 10
     hostname: database
     image: postgis/postgis:16-3.4-alpine
-    restart: always
+    restart: unless-stopped
     volumes:
+      - ./database/:/docker-entrypoint-initdb.d/
       - database-data:/var/lib/postgresql/data
+
+  # OSM container for loading data
+  osm-setup:
+    command: >
+      bash -c '
+        if [ ! -f /data/database/planet-import-complete ]; then
+          ./run.sh import;
+        fi;
+      '
+    container_name: ${COMPOSE_PROJECT_NAME}-setup
+    entrypoint: ""
+    environment:
+      - DOWNLOAD_PBF=${PBF_URL}
+      - DOWNLOAD_POLY=${POLY_URL}
+    hostname: osm-setup
+    image: overv/openstreetmap-tile-server:2.3.0
+    profiles:
+      - osm
+    volumes:
+      - osm-data:/data/database/
+
+  # OSM container for generating tiles
+  osm:
+    command: "run"
+    container_name: ${COMPOSE_PROJECT_NAME}-osm
+    depends_on:
+      osm-setup:
+        condition: service_completed_successfully
+    environment:
+      - UPDATES=enabled
+      - REPLICATION_URL=${REPLICATION_URL}
+    hostname: osm
+    image: overv/openstreetmap-tile-server:2.3.0
+    profiles:
+      - osm
+    restart: unless-stopped
+    volumes:
+      - osm-data:/data/database/
 
   # Nominatim container for geocoding
   nominatim:
@@ -246,6 +269,8 @@ volumes:
   app-cache:
     driver: local
   database-data:
+    driver: local
+  osm-data:
     driver: local
   nominatim-data:
     driver: local

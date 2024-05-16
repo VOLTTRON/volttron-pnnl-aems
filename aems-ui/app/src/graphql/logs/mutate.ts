@@ -38,7 +38,7 @@ builder.mutationField("updateLog", (t) =>
     authScopes: { admin: true },
     type: "Log",
     args: {
-      id: t.arg({ type: "Int", required: true }),
+      id: t.arg({ type: "String", required: true }),
       update: t.arg({ type: LogUpdate }),
     },
     resolve: async (query, _root, args, _ctx, _info) => {
@@ -58,7 +58,7 @@ builder.mutationField("deleteLog", (t) =>
     authScopes: { admin: true },
     type: "Log",
     args: {
-      id: t.arg({ type: "Int", required: true }),
+      id: t.arg({ type: "String", required: true }),
     },
     resolve: async (query, _root, args, _ctx, _info) => {
       return prisma.log.delete({

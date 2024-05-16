@@ -1,0 +1,43 @@
+{
+  "version": 8,
+  "name": "Streets",
+  "id": "streets",
+  "sources": {
+    "openmapimages": {
+      "type": "raster",
+      "tiles": ["/api/osm/tile/{z}/{x}/{y}/image.png"],
+      "tileSize": 256,
+      "minzoom": 6,
+      "maxzoom": 24
+    }
+  },
+  "sprite": "",
+  "glyphs": "/api/font/{fontstack}/{range}.pbf",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "layout": { "visibility": "visible" },
+      "paint": {
+        "background-color": {
+          "stops": [
+            [6, "rgba(252, 247, 229, 1)"],
+            [10, "rgba(252, 247, 229, 1)"],
+            [14, "rgba(246, 241, 229, 1)"],
+            [15, "rgba(246, 241, 229, 1)"]
+          ]
+        }
+      }
+    },
+    {
+      "id": "image-layer",
+      "type": "raster",
+      "source": "openmapimages",
+      "minzoom": 6,
+      "maxzoom": 24,
+      "paint": {
+        "raster-opacity": 0.6
+      }
+    }
+  ]
+}

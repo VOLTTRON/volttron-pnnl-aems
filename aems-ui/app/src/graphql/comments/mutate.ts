@@ -35,7 +35,7 @@ builder.mutationField("updateComment", (t) =>
     authScopes: { user: true },
     type: "Comment",
     args: {
-      id: t.arg({ type: "Int", required: true }),
+      id: t.arg({ type: "String", required: true }),
       update: t.arg({ type: CommentUpdate }),
     },
     resolve: async (query, _root, args, ctx, _info) => {
@@ -56,7 +56,7 @@ builder.mutationField("deleteComment", (t) =>
     authScopes: { user: true },
     type: "Comment",
     args: {
-      id: t.arg({ type: "Int", required: true }),
+      id: t.arg({ type: "String", required: true }),
     },
     resolve: async (query, _root, args, ctx, _info) => {
       const auth = ctx.authUser;

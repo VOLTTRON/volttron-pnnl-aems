@@ -31,7 +31,7 @@ import React from "react";
 import { RootProps } from "routes";
 import { Schedules } from "./Schedules";
 import { Setpoints } from "./Setpoints";
-import { StageType } from "common";
+import { RoleType, StageType } from "common";
 import { Tooltip2 } from "@blueprintjs/popover2";
 import { Unit } from "./Unit";
 import { connect } from "react-redux";
@@ -39,6 +39,7 @@ import { createConfigurationDefault } from "utils/configuration";
 import { defaultPollInterval } from "controllers/poll/action";
 import { isSetpointValid } from "utils/setpoint";
 import { DeepPartial } from "../../utils/types";
+import { ISetpoint, updateSetpoint } from "controllers/setpoints/action";
 
 interface UnitsProps extends RootProps {
   readUnits: () => void;
@@ -53,6 +54,7 @@ interface UnitsProps extends RootProps {
   updateConfiguration: (payload: DeepPartial<IConfiguration>) => void;
   deleteConfiguration: (payload: number) => void;
   configurations?: IConfiguration[];
+  updateSetpoint: (payload: DeepPartial<ISetpoint>) => void;
 }
 
 interface UnitsState {
@@ -189,6 +191,11 @@ class Units extends React.Component<UnitsProps, UnitsState> {
         return !this.isSave(unit);
     }
   };
+
+  isAdmin() {
+    const { user } = this.props;
+    return RoleType.Admin.granted(...(user?.role.split(" ") ?? [""]));
+  }
 
   renderStatus(unit: IUnit) {
     let icon: IconName = IconNames.ISSUE;
@@ -351,6 +358,7 @@ class Units extends React.Component<UnitsProps, UnitsState> {
                       configurations={configurations}
                       handleChange={this.handleChange}
                       handleCreate={this.handleCreate}
+                      readOnly={!this.isAdmin()}
                     />
                   </Collapse>
                   <Tree
@@ -385,7 +393,12 @@ class Units extends React.Component<UnitsProps, UnitsState> {
                     onNodeClick={(e) => this.setState({ expanded: e.id === expanded ? null : (e.id as string) })}
                   />
                   <Collapse isOpen={expanded === "schedules"}>
-                    <Schedules unit={unit} editing={editing} handleChange={this.handleChange} />
+                    <Schedules
+                      unit={unit}
+                      editing={editing}
+                      handleChange={this.handleChange}
+                      readOnly={!this.isAdmin()}
+                    />
                   </Collapse>
                   <Tree
                     contents={[
@@ -402,7 +415,12 @@ class Units extends React.Component<UnitsProps, UnitsState> {
                     onNodeClick={(e) => this.setState({ expanded: e.id === expanded ? null : (e.id as string) })}
                   />
                   <Collapse isOpen={expanded === "holidays"}>
-                    <Holidays unit={unit} editing={editing} handleChange={this.handleChange} />
+                    <Holidays
+                      unit={unit}
+                      editing={editing}
+                      handleChange={this.handleChange}
+                      readOnly={!this.isAdmin()}
+                    />
                   </Collapse>
                   <Tree
                     contents={[
@@ -457,18 +475,43 @@ class Units extends React.Component<UnitsProps, UnitsState> {
                       unit={unit}
                       editing={editing}
                       handleChange={this.handleChange}
-                      hidden={[
-                        "peakLoadExclude",
-                        "zoneLocation",
-                        "zoneMass",
-                        "zoneOrientation",
-                        "zoneBuilding",
-                        "coolingCapacity",
-                        "compressors",
-                        "heatPumpBackup",
-                        "coolingPeakOffset",
-                        "heatingPeakOffset",
-                      ]}
+                      hidden={
+                        this.isAdmin()
+                          ? [
+                              "peakLoadExclude",
+                              "coolingPeakOffset",
+                              "heatingPeakOffset",
+                              "zoneLocation",
+                              "zoneMass",
+                              "zoneOrientation",
+                              "zoneBuilding",
+                              "coolingCapacity",
+                              "compressors",
+                              "heatPumpBackup",
+                            ]
+                          : [
+                              "location",
+                              "peakLoadExclude",
+                              "coolingPeakOffset",
+                              "heatingPeakOffset",
+                              "zoneLocation",
+                              "zoneMass",
+                              "zoneOrientation",
+                              "zoneBuilding",
+                              "coolingCapacity",
+                              "compressors",
+                              "optimalStartLockout",
+                              "optimalStartDeviation",
+                              "earliestStart",
+                              "latestStart",
+                              "heatPump",
+                              "heatPumpBackup",
+                              "heatPumpLockout",
+                              "economizer",
+                              "economizerSetpoint",
+                              "coolingLockout",
+                            ]
+                      }
                     />
                   </Collapse>
                 </Collapse>
@@ -519,6 +562,7 @@ const mapActionToProps = {
   createConfiguration,
   updateConfiguration,
   deleteConfiguration,
+  updateSetpoint,
 };
 
 export default connect(mapStateToProps, mapActionToProps)(Units);

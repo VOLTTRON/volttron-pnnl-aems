@@ -46,6 +46,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json(error.message);
       });
   } else if (req.method === "PUT") {
+    if (!user.roles.admin) {
+      return res.status(401).json(null);
+    }
     const transform = (v: any) => {
       if (isObject(v)) {
         return Object.entries(v).reduce((p, [k, v]): any => {
@@ -102,6 +105,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json(error.message);
       });
   } else if (req.method === "DELETE") {
+    if (!user.roles.admin) {
+      return res.status(401).json(null);
+    }
     return prisma.configurations
       .delete({
         where: { id: parseInt(id) },

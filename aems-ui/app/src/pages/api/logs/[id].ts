@@ -14,6 +14,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (isArray(id) || isNil(id)) {
     return res.status(400).json("ID must be specified.");
   } else {
+    if (!user.roles.admin) {
+      return res.status(401).json(null);
+    }
     return res.status(404).json(null);
   }
 }

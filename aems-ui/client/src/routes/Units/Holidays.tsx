@@ -120,8 +120,9 @@ export function Holidays(props: {
   unit: IUnit;
   editing: DeepPartial<IUnit> | null;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;
+  readOnly?: boolean;
 }) {
-  const { unit, editing, handleChange } = props;
+  const { unit, editing, handleChange, readOnly } = props;
 
   const dispatch = useDispatch();
   const [deleting, setDeleting] = useState(undefined as DeepPartial<IHoliday> | undefined);
@@ -132,10 +133,12 @@ export function Holidays(props: {
   holidays.forEach((h, i) => (h.index = i));
   return (
     <>
-      <Label>
-        <h3>Create Holiday</h3>
-        <CreateHoliday unit={unit} editing={editing} handleChange={handleChange} holidays={holidays} />
-      </Label>
+      {!readOnly && (
+        <Label>
+          <h3>Create Holiday</h3>
+          <CreateHoliday unit={unit} editing={editing} handleChange={handleChange} holidays={holidays} />
+        </Label>
+      )}
       <Label>
         <h3>Custom Holidays</h3>
         <ul>
@@ -154,6 +157,7 @@ export function Holidays(props: {
                     editing={editing}
                     holiday={holiday}
                     handleChange={handleChange}
+                    readOnly={readOnly}
                   />
                 </li>
               ))
@@ -175,6 +179,7 @@ export function Holidays(props: {
                   editing={editing}
                   holiday={holiday}
                   handleChange={handleChange}
+                  readOnly={readOnly}
                 />
               </li>
             ))}

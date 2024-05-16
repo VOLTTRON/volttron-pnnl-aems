@@ -6,10 +6,10 @@ import { Prisma } from "@prisma/client";
 import { builder } from "../builder";
 import { UnitsUpdate } from "./input";
 
-builder.mutationField("updateUnits", (t) =>
+builder.mutationField("updateUnit", (t) =>
   t.prismaField({
-    description: "Update the specified units.",
-    authScopes: { user: true },
+    description: "Update the specified unit.",
+    authScopes: { admin: true },
     type: "Units",
     args: {
       id: t.arg({ type: "Int", required: true }),

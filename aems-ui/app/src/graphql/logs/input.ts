@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 
-import { builder, DateTimeFilter, IntFilter, LogTypeFilter, StringFilter } from "../builder";
+import { builder, DateTimeFilter, LogTypeFilter, StringFilter } from "../builder";
 
 export const LogFields = builder.enumType("LogFields", {
   values: Object.values(Prisma.LogScalarFieldEnum),
@@ -18,12 +18,12 @@ export const LogAggregate = builder.inputType("LogAggregate", {
 
 export const LogWhereUnique = builder.prismaWhereUnique("Log", {
   fields: {
-    id: "Int",
+    id: "String",
   },
 });
 export const LogWhere = builder.prismaWhere("Log", {
   fields: {
-    id: IntFilter,
+    id: StringFilter,
     type: LogTypeFilter,
     message: StringFilter,
     expiration: DateTimeFilter,

@@ -14,6 +14,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json(null);
   }
   if (req.method === "POST") {
+    if (!user.roles.admin) {
+      return res.status(401).json(null);
+    }
     const schedule = req.body as Partial<Schedules>;
     return prisma.schedules
       .create({

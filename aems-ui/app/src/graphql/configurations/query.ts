@@ -12,9 +12,9 @@ import {
   ConfigurationsWhereUnique,
 } from "./input";
 
-builder.queryField("readConfigurations", (t) =>
+builder.queryField("readConfiguration", (t) =>
   t.prismaField({
-    description: "Read a unique configurations.",
+    description: "Read a unique configuration.",
     authScopes: { user: true },
     type: "Configurations",
     args: {
@@ -33,9 +33,9 @@ builder.queryField("readConfigurations", (t) =>
   })
 );
 
-builder.queryField("readConfigurationss", (t) =>
+builder.queryField("readConfigurations", (t) =>
   t.prismaField({
-    description: "Read a list of configurationss.",
+    description: "Read a list of configurations.",
     authScopes: { user: true },
     type: ["Configurations"],
     args: {
@@ -57,9 +57,9 @@ builder.queryField("readConfigurationss", (t) =>
   })
 );
 
-builder.queryField("countConfigurationss", (t) =>
+builder.queryField("countConfigurations", (t) =>
   t.field({
-    description: "Count the number of configurationss.",
+    description: "Count the number of configurations.",
     authScopes: { user: true },
     type: "Int",
     args: {
@@ -74,9 +74,9 @@ builder.queryField("countConfigurationss", (t) =>
   })
 );
 
-builder.queryField("groupConfigurationss", (t) =>
+builder.queryField("groupConfigurations", (t) =>
   t.field({
-    description: "Group a list of configurationss.",
+    description: "Group a list of configurations.",
     authScopes: { user: true },
     type: ["JSON"],
     args: {

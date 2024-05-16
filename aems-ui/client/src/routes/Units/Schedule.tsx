@@ -20,7 +20,7 @@ export function Schedule(props: {
   unit: IUnit;
   editing: DeepPartial<IUnit> | null;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;
-  readOnly?: Array<"title">;
+  readOnly?: Array<"title" | "occupied" | "unoccupied">;
 }) {
   const { title, path, unit, editing, handleChange, readOnly = ["title"] } = props;
 
@@ -57,7 +57,7 @@ export function Schedule(props: {
           labelRenderer={(v, o) =>
             o?.isHandleTooltip || (v > START_TIME_MIN && v < END_TIME_MAX) ? toTimeFormat(v) : ""
           }
-          disabled={!get(editing, `${path}.occupied`, get(unit, `${path}.occupied`))}
+          disabled={readOnly?.includes("occupied") || !get(editing, `${path}.occupied`, get(unit, `${path}.occupied`))}
           onChange={(v) => {
             const occupied = getValue(`${path}.occupied`);
             const startTime = clamp(
@@ -89,6 +89,7 @@ export function Schedule(props: {
             const label = createScheduleLabel("all", { occupied, startTime, endTime });
             handleChange(`${path}`, editing)({ occupied, label });
           }}
+          disabled={readOnly?.includes("unoccupied")}
         />
       </div>
     </div>

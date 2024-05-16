@@ -9,8 +9,9 @@ export function Schedules(props: {
   unit: IUnit;
   editing: DeepPartial<IUnit> | null;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;
+  readOnly?: boolean;
 }) {
-  const { unit, editing, handleChange } = props;
+  const { unit, editing, handleChange, readOnly } = props;
   return (
     <>
       <Schedule
@@ -19,6 +20,7 @@ export function Schedules(props: {
         unit={unit}
         editing={editing}
         handleChange={handleChange}
+        readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
       />
       <Schedule
         title="Tuesday Schedule"
@@ -26,6 +28,7 @@ export function Schedules(props: {
         unit={unit}
         editing={editing}
         handleChange={handleChange}
+        readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
       />
       <Schedule
         title="Wednesday Schedule"
@@ -33,6 +36,7 @@ export function Schedules(props: {
         unit={unit}
         editing={editing}
         handleChange={handleChange}
+        readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
       />
       <Schedule
         title="Thursday Schedule"
@@ -40,6 +44,7 @@ export function Schedules(props: {
         unit={unit}
         editing={editing}
         handleChange={handleChange}
+        readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
       />
       <Schedule
         title="Friday Schedule"
@@ -47,6 +52,7 @@ export function Schedules(props: {
         unit={unit}
         editing={editing}
         handleChange={handleChange}
+        readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
       />
       <Schedule
         title="Saturday Schedule"
@@ -54,6 +60,7 @@ export function Schedules(props: {
         unit={unit}
         editing={editing}
         handleChange={handleChange}
+        readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
       />
       <Schedule
         title="Sunday Schedule"
@@ -61,6 +68,7 @@ export function Schedules(props: {
         unit={unit}
         editing={editing}
         handleChange={handleChange}
+        readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
       />
       {holidaySchedule && (
         <Schedule
@@ -69,6 +77,7 @@ export function Schedules(props: {
           unit={unit}
           editing={editing}
           handleChange={handleChange}
+          readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
         />
       )}
     </>

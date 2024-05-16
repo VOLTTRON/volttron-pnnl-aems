@@ -16,6 +16,9 @@ export default async function handler(
     return res.status(401).json(null);
   }
   if (req.method === "POST") {
+    if (!user.roles.admin) {
+      return res.status(401).json(null);
+    }
     const unit = req.body as Partial<Units>;
     return prisma.units
       .create({
@@ -55,12 +58,10 @@ export default async function handler(
           },
           location: true,
         },
+        orderBy: [{ campus: "asc" }, { building: "asc" }, { name: "asc" }],
         ...(!user.roles.admin && {
           where: { users: { some: { id: user.id } } },
         }),
-        orderBy: {
-          label: "asc",
-        },
       })
       .then((units) => {
         return res.status(200).json(units);

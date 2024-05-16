@@ -18,6 +18,9 @@ export default async function handler(
     return res.status(401).json(null);
   }
   if (req.method === "POST") {
+    if (!user.roles.admin) {
+      return res.status(401).json(null);
+    }
     const unitId = req.body?.unitId as number;
     const label = (req.body?.label as string) || "";
     const setpoint = req.body?.setpoint as Setpoints;

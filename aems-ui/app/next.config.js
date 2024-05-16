@@ -13,6 +13,10 @@ const nextConfig = {
           source: "/",
           destination: "/index.html",
         },
+        {
+          source: "/api/osm/style.json",
+          destination: "/osm/style.json",
+        },
       ],
       fallback: [
         {

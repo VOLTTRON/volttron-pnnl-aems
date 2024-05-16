@@ -1,0 +1,21 @@
+query ReadLogs($where: LogFilter, $orderBy: [LogOrderBy!], $paging: PagingInput) {
+  readLogs(where: $where, orderBy: $orderBy, paging: $paging) {
+    id
+    type
+    message
+    expiration
+    createdAt
+    updatedAt
+  }
+}
+
+mutation CreateLog($create: LogCreateInput) {
+  createLog(create: $create) {
+    id
+    type
+    message
+    expiration
+    createdAt
+    updatedAt
+  }
+}

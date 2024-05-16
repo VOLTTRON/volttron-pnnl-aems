@@ -40,6 +40,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json(error.message);
       });
   } else if (req.method === "PUT") {
+    if (!user.roles.admin) {
+      return res.status(401).json(null);
+    }
     const location = req.body as Partial<Locations>;
     return prisma.locations
       .update({
@@ -57,6 +60,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json(error.message);
       });
   } else if (req.method === "DELETE") {
+    if (!user.roles.admin) {
+      return res.status(401).json(null);
+    }
     return prisma.locations
       .delete({
         where: { id: parseInt(id) },

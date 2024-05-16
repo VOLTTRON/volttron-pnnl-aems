@@ -15,8 +15,9 @@ export function Holiday(props: {
   editing: DeepPartial<IUnit> | null;
   holiday: DeepPartial<IHoliday>;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;
+  readOnly?: boolean;
 }) {
-  const { path, unit, editing, holiday, handleChange } = props;
+  const { path, unit, editing, holiday, handleChange, readOnly } = props;
   const { id, label, type, month, day, observance } = holiday;
 
   const getValue = useCallback((field: string) => get(editing, field, get(unit, field)), [editing, unit]);
@@ -46,6 +47,7 @@ export function Holiday(props: {
                 onClick={() => {
                   handleChange(path, editing)({ id: id, type: type, action: "delete" });
                 }}
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -71,6 +73,7 @@ export function Holiday(props: {
                     type: getValue(`${path}.type`) === "Enabled" ? "Disabled" : "Enabled",
                   });
                 }}
+                disabled={readOnly}
               />
             </Label>
           </div>

@@ -1,11 +1,47 @@
-query ReadUsers {
-  readUsers {
-    createdAt
-    email
+query ReadUsers($where: UserFilter, $orderBy: [UserOrderBy!]) {
+  readUsers(where: $where, orderBy: $orderBy) {
     id
     name
-    preferences
+    email
     role
+    preferences
+    createdAt
+    updatedAt
+  }
+}
+
+mutation CreateUser($create: UserCreateInput) {
+  createUser(create: $create) {
+    id
+    name
+    email
+    role
+    preferences
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateUser($updateUserId: String!, $update: UserUpdateInput) {
+  updateUser(id: $updateUserId, update: $update) {
+    id
+    name
+    email
+    role
+    preferences
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteUser($deleteUserId: String!) {
+  deleteUser(id: $deleteUserId) {
+    id
+    name
+    email
+    role
+    preferences
+    createdAt
     updatedAt
   }
 }

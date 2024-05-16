@@ -4,7 +4,7 @@ export const CommentObject = builder.prismaObject("Comment", {
   authScopes: { user: true },
   fields: (t) => ({
     // key
-    id: t.exposeInt("id", { authScopes: { user: true } }),
+    id: t.exposeString("id", { authScopes: { user: true } }),
     // fields
     message: t.exposeString("message", { authScopes: { user: true } }),
     // metadata

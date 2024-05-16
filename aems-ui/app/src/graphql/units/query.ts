@@ -6,9 +6,9 @@ import { builder, PagingInput } from "../builder";
 import { transformAggregate } from "../util";
 import { UnitsAggregate, UnitsFields, UnitsOrderBy, UnitsWhere, UnitsWhereUnique } from "./input";
 
-builder.queryField("readUnits", (t) =>
+builder.queryField("readUnit", (t) =>
   t.prismaField({
-    description: "Read a unique units.",
+    description: "Read a unique unit.",
     authScopes: { user: true },
     type: "Units",
     args: {
@@ -27,9 +27,9 @@ builder.queryField("readUnits", (t) =>
   })
 );
 
-builder.queryField("readUnitss", (t) =>
+builder.queryField("readUnits", (t) =>
   t.prismaField({
-    description: "Read a list of unitss.",
+    description: "Read a list of units.",
     authScopes: { user: true },
     type: ["Units"],
     args: {
@@ -51,9 +51,9 @@ builder.queryField("readUnitss", (t) =>
   })
 );
 
-builder.queryField("countUnitss", (t) =>
+builder.queryField("countUnits", (t) =>
   t.field({
-    description: "Count the number of unitss.",
+    description: "Count the number of units.",
     authScopes: { user: true },
     type: "Int",
     args: {
@@ -68,9 +68,9 @@ builder.queryField("countUnitss", (t) =>
   })
 );
 
-builder.queryField("groupUnitss", (t) =>
+builder.queryField("groupUnits", (t) =>
   t.field({
-    description: "Group a list of unitss.",
+    description: "Group a list of units.",
     authScopes: { user: true },
     type: ["JSON"],
     args: {

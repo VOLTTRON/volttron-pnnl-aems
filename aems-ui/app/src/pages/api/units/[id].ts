@@ -1,6 +1,6 @@
 "use server";
 
-import { isArray, isEmpty, isNil, isObject, isString, set } from "lodash";
+import { isArray, isEmpty, isNil, isObject, isString, pick, set } from "lodash";
 import { NextApiRequest, NextApiResponse } from "next";
 
 import { authUser } from "@/auth/server";
@@ -8,10 +8,7 @@ import { StageType } from "@/common";
 import { logger } from "@/logging";
 import prisma from "@/prisma";
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const user = await authUser(req);
   if (!user.roles.user) {
     return res.status(401).json(null);
@@ -21,11 +18,13 @@ export default async function handler(
     return res.status(400).json("ID must be specified.");
   }
   if (req.method === "DELETE") {
+    if (!user.roles.admin) {
+      return res.status(401).json(null);
+    }
     return prisma.units
       .delete({
         where: {
           id: parseInt(id),
-          ...(!user.roles.admin && { users: { some: { id: user.id } } }),
         },
       })
       .then((unit) => {
@@ -105,9 +104,7 @@ export default async function handler(
               set(
                 p,
                 `${k}.update`,
-                v
-                  .filter((a) => a)
-                  .map((a) => ({ data: a, where: { id: a.id } }))
+                v.filter((a) => a).map((a) => ({ data: a, where: { id: a.id } }))
               );
             } else if (["location"].includes(k) && isObject(v)) {
               const location = await prisma.locations.findFirst({
@@ -129,8 +126,16 @@ export default async function handler(
         return v;
       }
     };
-    const unit = await transform(req.body);
-    logger.info({ body: req.body, unit });
+    let unit = await transform(req.body);
+    if (!user.roles.admin) {
+      unit = pick(unit, [
+        "label",
+        "configuration.update.setpoint",
+        "configuration.update.occupancies",
+        "configuration.create.occupancies",
+        "configuration.delete.occupancies",
+      ]);
+    }
     if (!isEmpty(Object.keys(unit))) {
       unit.stage = StageType.UpdateType.enum;
     }
@@ -139,7 +144,6 @@ export default async function handler(
         data: unit,
         where: {
           id: parseInt(id),
-          ...(!user.roles.admin && { users: { some: { id: user.id } } }),
         },
       })
       .then((unit) => {

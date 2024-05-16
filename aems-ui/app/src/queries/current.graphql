@@ -1,0 +1,23 @@
+query ReadCurrent {
+  readCurrent {
+    id
+    name
+    email
+    role
+    preferences
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateCurrent($update: UserUpdateInput) {
+  updateCurrent(update: $update) {
+    id
+    name
+    email
+    role
+    preferences
+    createdAt
+    updatedAt
+  }
+}

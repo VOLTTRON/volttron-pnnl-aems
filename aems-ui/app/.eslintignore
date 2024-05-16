@@ -15,6 +15,7 @@
 
 # generated artifacts
 /src/generated
+schema.graphql.updated
 
 # production
 /build
