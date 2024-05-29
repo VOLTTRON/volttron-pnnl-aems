@@ -678,6 +678,15 @@ class ManagerProxy:
         :rtype:
         """
         is_occupied = self.is_system_occupied()
+        if isinstance(is_occupied, str):
+            _log.debug(f'{self.identity} - Error getting occupancy state: {is_occupied}')
+            _log.debug(f'{self.identity} - cannot sync to occupancy state')
+            return
+
+        if is_occupied is None:
+            _log.debug(f'{self.identity} - Unknown occupancy state!')
+            _log.debug(f'{self.identity} - attempting to sync to correct occupancy state')
+
         _log.debug(f'{self.identity} - Syncing occupancy state override is {self.occupancy_override.current_id}')
         if self.occupancy_override.current_id is not None:
             if not is_occupied:
@@ -699,19 +708,19 @@ class ManagerProxy:
         current_time = dt.time(dt.now()).replace(microsecond=0, second=0)
         is_holiday = self.holiday_manager.is_holiday(dt.now())
         _log.debug(f'{self.identity} - current day is holiday: {is_holiday}')
-        if is_holiday:
+        if is_holiday and (is_occupied or is_occupied is None):
             self.change_occupancy(OccupancyTypes.UNOCCUPIED)
             return
-        if current_schedule.is_always_off() and is_occupied:
+        if current_schedule.is_always_off() and (is_occupied or is_occupied is None):
             _log.debug('Unit is in occupied mode but should be unoccupied! -- always_off')
             self.change_occupancy(OccupancyTypes.UNOCCUPIED)
             return
-        if current_schedule.is_always_on() and not is_occupied:
+        if current_schedule.is_always_on() and (not is_occupied or is_occupied is None):
             _log.debug('Unit is in unoccupied mode but should be occupied! -- always_on')
             self.change_occupancy(OccupancyTypes.OCCUPIED)
             return
 
-        # TODO We need to deal with temporary occupancy becasuse this will undo it.
+        # TODO We need to deal with temporary occupancy because this will undo it.
         if current_schedule.is_always_on() or current_schedule.is_always_off():
             _log.debug('Current schedule is always off or always on')
             return
@@ -721,17 +730,17 @@ class ManagerProxy:
         _earliest = current_schedule.earliest_start
 
         # Change current control to match occupancy schedule
-        if not is_occupied and _start < current_time < _end:
+        if _start < current_time < _end and (not is_occupied or is_occupied is None):
             _log.debug('Unit is in unoccupied mode but should be occupied! -- _start < current_time < _end')
             self.change_occupancy(OccupancyTypes.OCCUPIED)
             e_hour = _end.hour
             e_minute = _end.minute
             unoccupied_time = dt.now().replace(hour=e_hour, minute=e_minute)
             self.end_obj = self.core.schedule(unoccupied_time, self.change_occupancy, OccupancyTypes.UNOCCUPIED)
-        if is_occupied and current_time >= _end:
+        if current_time >= _end and (is_occupied or is_occupied is None):
             _log.debug('Unit is in occupied mode but should be unoccupied! -- current_time >= _end')
             self.change_occupancy(OccupancyTypes.UNOCCUPIED)
-        if is_occupied and current_time < _earliest:
+        if current_time < _earliest and (is_occupied or is_occupied is None):
             _log.debug('Unit is in occupied mode but should be unoccupied! -- current_time < _earliest')
             self.change_occupancy(OccupancyTypes.UNOCCUPIED)
 
@@ -788,8 +797,8 @@ class ManagerProxy:
         _log.debug(f'Update data : {topic}')
         payload = {}
         data, meta = message
-        if Points.outdoorairtemperature.value in data:
-            payload[Points.outdoorairtemperature.value] = data[Points.outdoorairtemperature.value]
+        if Points.outdoortemperature.value in data:
+            payload[Points.outdoortemperature.value] = data[Points.outdoortemperature.value]
         self.data_handler.update_data(payload, header)
 
     def is_system_occupied(self):
@@ -798,19 +807,18 @@ class ManagerProxy:
         :return:
         :rtype:
         """
-        result = None
         try:
             result = self.rpc_get_point(Points.occupancy.value)
-
-            occ_value = self.cfg.occupancy_values[self.cfg.occupancy_current]
-            if result == occ_value:
+            occupied_value = self.cfg.occupancy_values[OccupancyTypes.OCCUPIED.value]
+            unoccupied_value = self.cfg.occupancy_values[OccupancyTypes.UNOCCUPIED.value]
+            if result == occupied_value:
                 return True
-            else:
+            if result == unoccupied_value:
                 return False
         except (RemoteError, gevent.Timeout) as ex:
             _log.warning('Failed to get {}: {}'.format(self.cfg.system_rpc_path, str(ex)))
-
-        return result
+            return str(ex)
+        return None
 
     def do_zone_control(self, point, value):
         """

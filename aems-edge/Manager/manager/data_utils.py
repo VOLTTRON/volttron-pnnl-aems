@@ -249,7 +249,7 @@ class Data:
         :rtype: tuple[dt | None, float | None]
         """
         if not self.df.empty:
-            if Points.outdoorairtemperature.name in self.df.columns:
-                df = self.df[self.df[Points.outdoorairtemperature.name].notna()]
-                return df.index[-1], df[Points.outdoorairtemperature.name].iloc[-1]
+            if Points.outdoortemperature.name in self.df.columns:
+                df = self.df[self.df[Points.outdoortemperature.name].notna()]
+                return df.index[-1], df[Points.outdoortemperature.name].iloc[-1]
         return None, None
