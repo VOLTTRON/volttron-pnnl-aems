@@ -679,13 +679,13 @@ class ManagerProxy:
         """
         is_occupied = self.is_system_occupied()
         if isinstance(is_occupied, str):
-            _log.debug(f'{self.identity} - Error getting occupancy state: {is_occupied}')
-            _log.debug(f'{self.identity} - cannot sync to occupancy state')
+            _log.error(f'{self.identity} - Error getting occupancy state: {is_occupied}')
+            _log.error(f'{self.identity} - cannot sync to occupancy state')
             return
 
         if is_occupied is None:
-            _log.debug(f'{self.identity} - Unknown occupancy state!')
-            _log.debug(f'{self.identity} - attempting to sync to correct occupancy state')
+            _log.warning(f'{self.identity} - Unknown occupancy state!')
+            _log.warning(f'{self.identity} - attempting to sync to correct occupancy state')
 
         _log.debug(f'{self.identity} - Syncing occupancy state override is {self.occupancy_override.current_id}')
         if self.occupancy_override.current_id is not None:
@@ -720,7 +720,6 @@ class ManagerProxy:
             self.change_occupancy(OccupancyTypes.OCCUPIED)
             return
 
-        # TODO We need to deal with temporary occupancy because this will undo it.
         if current_schedule.is_always_on() or current_schedule.is_always_off():
             _log.debug('Current schedule is always off or always on')
             return
@@ -801,7 +800,7 @@ class ManagerProxy:
             payload[Points.outdoortemperature.value] = data[Points.outdoortemperature.value]
         self.data_handler.update_data(payload, header)
 
-    def is_system_occupied(self):
+    def is_system_occupied(self) -> bool | str | None:
         """
         Call driver get_point to get current RTU occupancy status.
         :return:
