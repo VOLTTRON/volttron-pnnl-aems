@@ -742,6 +742,11 @@ class ManagerProxy:
         if current_time < _earliest and (is_occupied or is_occupied is None):
             _log.debug('Unit is in occupied mode but should be unoccupied! -- current_time < _earliest')
             self.change_occupancy(OccupancyTypes.UNOCCUPIED)
+        if _earliest <= current_time <= _start and is_occupied is None:
+            _log.debug(f'Unit is between earliest start time and occupancy start!')
+            _log.debug(f'Set unit to unoccupied mode and restart optimal start')
+            self.change_occupancy(OccupancyTypes.UNOCCUPIED)
+            self.optimal_start.run_schedule = None
 
         # # if we are in a time when we can do optimal start, schedule pre-start calculations
         if self.optimal_start.run_schedule is None:
