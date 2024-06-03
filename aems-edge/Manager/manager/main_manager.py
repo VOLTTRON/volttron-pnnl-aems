@@ -704,10 +704,11 @@ class ManagerProxy:
 
         # what if current_schedule is None
         current_schedule = self.cfg.get_current_day_schedule()
-        _log.debug(f'IS OCCUPIED IS : {is_occupied}')
+        _log.debug(f'{self.identity} - is_occupied : {is_occupied}')
         current_time = dt.time(dt.now()).replace(microsecond=0, second=0)
         is_holiday = self.holiday_manager.is_holiday(dt.now())
         _log.debug(f'{self.identity} - current day is holiday: {is_holiday}')
+        _log.debug(f'{current_schedule} -- current_time: {current_time}')
         if is_holiday and (is_occupied or is_occupied is None):
             self.change_occupancy(OccupancyTypes.UNOCCUPIED)
             return
