@@ -95,6 +95,7 @@ class HolidayManager(AbstractHolidayCalendar):
         """
         self._cache = None
         self.rules = rules
+        self.hdays = pd.to_datetime(self.holidays(start='2023-01-01', end='2099-01-01'))
 
     def create_rules(self, rules: dict[str, dict[str, int | str]]):
         """
