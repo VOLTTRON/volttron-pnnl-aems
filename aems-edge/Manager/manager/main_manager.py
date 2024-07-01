@@ -350,7 +350,7 @@ class ManagerProxy:
         _log.debug(f'{debug_ref}: {topic} {headers} {message}')
         self._p.vip.pubsub.publish('pubsub', topic, headers=headers, message=message).get(timeout=10.0)
 
-    def rpc_set_point(self, point: str, value: Any, _property: str | None = None):
+    def rpc_set_point(self, point: str, value: Any, on_property: str | None = None):
         """
         A helper method to call the RPC method on the actuator agent.
 
@@ -367,7 +367,7 @@ class ManagerProxy:
         debug_ref = f'{inspect.stack()[0][3]}()->{inspect.stack()[1][3]}()'
         _log.debug(f'Calling: {self.cfg.actuator_identity} set_point -- {self.cfg.system_rpc_path}, {point}, {value}')
         result = self._p.vip.rpc.call(self.cfg.actuator_identity, 'set_point', self.cfg.system_rpc_path, point,
-                                      value, _property=_property).get(timeout=10.0)
+                                      value, on_property=on_property).get(timeout=10.0)
         _log.debug(f'{debug_ref}: -> {result}')
         return result
 
@@ -553,8 +553,10 @@ class ManagerProxy:
         if update_store:
             self.config_set('set_points', data)
             for point, value in result.items():
-                control_result = self.do_zone_control(point, value, _property='relinquishDefault')
-
+                control_result = self.do_zone_control(point, value, on_property='relinquishDefault')
+                if isinstance(control_result, str):
+                    _log.error(f'Zone control response {self.identity} - Set {point} to {value} -- {control_result}')
+                    return False
         self.publish(topic, headers=headers, message=data)
         return True
 
@@ -829,16 +831,16 @@ class ManagerProxy:
             return str(ex)
         return None
 
-    def do_zone_control(self, point, value, _property=None):
+    def do_zone_control(self, point, value, on_property=None):
         """
         Makes RPC call to actuator agent to change zone control when zone transition to occupied
             or unoccupied mode.
-        :param rpc_path: str; device path used by actuator agent set_point method
-        :param control: dict; key - str for control point; value - value to set for control
+        :param point: Driver name for point
+        :type point: str
         :return:
         """
         try:
-            result = self.rpc_set_point(point=point, value=value, _property=_property)
+            result = self.rpc_set_point(point=point, value=value, on_property=on_property)
         except (gevent.Timeout, RemoteError) as ex:
             _log.warning(f'Failed to set {self.cfg.system_rpc_path} - {point}  -- to {value}: {str(ex)}', exc_info=True)
             return str(ex)
