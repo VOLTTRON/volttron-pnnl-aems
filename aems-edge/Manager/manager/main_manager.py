@@ -715,20 +715,22 @@ class ManagerProxy:
         is_holiday = self.holiday_manager.is_holiday(dt.now())
         _log.debug(f'{self.identity} - current day is holiday: {is_holiday}')
         _log.debug(f'{current_schedule} -- current_time: {current_time}')
-        if is_holiday and (is_occupied or is_occupied is None):
-            self.change_occupancy(OccupancyTypes.UNOCCUPIED)
+        if is_holiday:
+            if is_occupied or is_occupied is None:
+                _log.debug('Unit is in occupied mode but should be unoccupied! -- holiday')
+                self.change_occupancy(OccupancyTypes.UNOCCUPIED)
             return
-        if current_schedule.is_always_off() and (is_occupied or is_occupied is None):
-            _log.debug('Unit is in occupied mode but should be unoccupied! -- always_off')
-            self.change_occupancy(OccupancyTypes.UNOCCUPIED)
+        if current_schedule.is_always_off():
+            _log.debug('Unit is set to always_off')
+            if is_occupied or is_occupied is None:
+                _log.debug('Unit is in occupied mode but should be unoccupied! -- always_off')
+                self.change_occupancy(OccupancyTypes.UNOCCUPIED)
             return
-        if current_schedule.is_always_on() and (not is_occupied or is_occupied is None):
-            _log.debug('Unit is in unoccupied mode but should be occupied! -- always_on')
-            self.change_occupancy(OccupancyTypes.OCCUPIED)
-            return
-
-        if current_schedule.is_always_on() or current_schedule.is_always_off():
-            _log.debug('Current schedule is always off or always on')
+        if current_schedule.is_always_on():
+            _log.debug('Unit is set to always_on')
+            if not is_occupied or is_occupied is None:
+                _log.debug('Unit is in unoccupied mode but should be occupied! -- always_on')
+                self.change_occupancy(OccupancyTypes.OCCUPIED)
             return
 
         _start = current_schedule.start
