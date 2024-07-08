@@ -552,11 +552,13 @@ class ManagerProxy:
                 return False
         if update_store:
             self.config_set('set_points', data)
-            for point, value in result.items():
-                control_result = self.do_zone_control(point, value, on_property='relinquishDefault')
-                if isinstance(control_result, str):
-                    _log.error(f'Zone control response {self.identity} - Set {point} to {value} -- {control_result}')
-                    return False
+            _log.debug(f'Configuration for set_relinquish_default: {self.cfg.set_relinquish_default}')
+            if self.cfg.set_relinquish_default:
+                for point, value in result.items():
+                    control_result = self.do_zone_control(point, value, on_property='relinquishDefault')
+                    if isinstance(control_result, str):
+                        _log.error(f'Zone control response {self.identity} - Set {point} to {value} -- {control_result}')
+                        return False
         self.publish(topic, headers=headers, message=data)
         return True
 

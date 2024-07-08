@@ -128,7 +128,7 @@ class DefaultConfig:
     local_tz: str = 'UTC'
 
     location: Optional[Location] = None
-
+    set_relinquish_default = False
     default_setpoints: dict[str, float] = field(default_factory=lambda: {
         'UnoccupiedHeatingSetPoint': 65,
         'UnoccupiedCoolingSetPoint': 78,
