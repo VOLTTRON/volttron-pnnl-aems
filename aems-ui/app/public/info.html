@@ -1,5 +1,229 @@
-<div>
-  <h2>Modify this custom info page by editing the <i>info.html</i> file.</h2>
-  <p>This file is located at <i>./app/public/info.html</i>. The server will need to be built and redeployed for
-    changes to take effect.</p>
-</div>
+<!DOCTYPE HTML>
+
+<html>
+
+<head>
+  <title>Autonomous Energy Management Software (AEMS) System Configuration</title>
+</head>
+
+<body>
+
+<h1>Autonomous Energy Management Software (AEMS) System Configuration</h1>
+
+<p>The AEMS system enables supervisory level controls for rooftop units (RTUs) and enables energy efficiency (EE) and grid service control measures to save energy, improve occupant comfort, and give the building operator flexibility and visibility into each RTU's operation. It enforces occupied and unoccupied setpoints and occupancy schedules configured in the AEMS web user interface (UI). If an occupant of the space changes the temperature set points on the thermostat, those values will revert to the values set in the AEMS web UI. Similarly, the AEMS system will enforce the schedules entered in the AEMS web UI to determine the occupancy status for the RTU. If communication between VOLTTRON, the edge device running the AMES UI, and the thermostat is lost, the thermostat will return to a standalone mode. In this mode, the local thermostat schedule is used to determine the occupancy state for the RTU, and the last set points communicated to the thermostat from the AEMS web UI will be used for tempering the space.</p>
+
+<p>The following sections detail the steps for configuring the RTU control using the AEMS web UI (user interface). To use the AEMS software, open a browser and enter the following URL <a href="https://localhost/" title="offisite" target="new">https://localhost/</a> <strong>[NOTE:  The following image contain a different URL, each URL is unique to the specific site].</strong> </p>
+
+<p>Currently, 'User' and 'Administrative' accounts are available within the AEMS, but they effectively have identical privileges. Software updates are underway to enable a 'User' level account that would have limited feature sets (e.g., only the ability to create temporary occupancy overrides).</p>
+
+<figure>
+    <img src="docs/images/fig1.jpg" width="550" alt="Figure 1. AEMS web interface - "Log In" page">
+    <figcaption>Figure 1. AEMS web interface - "Log In" page </figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+
+<p>Next, click "Units" in the upper right corner of the browser to view the RTUs that can be managed from the AEMS (Figure 2): </p>
+
+<figure>
+    <img src="docs/images/fig2.jpg" width="800" alt="Figure 2. AEMS web interface - “Units” page">
+    <figcaption>Figure 2. AEMS web interface - "Units" page</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+
+<p>Click the edit button next to the green check box to access the AEMS Energy Efficiency sub-menus for the RTU. In this example, we have selected the PNNL ROB SCHNEIDER, RTU (Figure 3).</p>
+<figure>
+    <img src="docs/images/fig3.jpg" width="700" alt="Figure 3. AEMS web interface – RTU (Schneider thermostat) configuration">
+    <figcaption>Figure 3. AEMS web interface - RTU (Schneider thermostat) configuration</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+<h2>1.1 Energy Efficiency Features Configuration</h2>
+<p>The AEMS system's EE features allow users to configure occupied and unoccupied setpoints, schedules, holiday schedules, temporary occupancy overrides, optimal start, and other miscellaneous parameters. This section describes how to configure these EE features in the AEMS web UI.</p>
+
+<h3>1.1.1 Setpoint Manager</h3>
+<p>The AEMS system allows users to configure the desired occupied period setpoint for each RTU using an intuitive and easy-to-understand interface (Figure 4).</p>
+<figure>
+    <img src="docs/images/fig4.jpg" width="700" alt="Figure 4. AEMS web interface - setpoint manager">
+    <figcaption>Figure 4. AEMS web interface - setpoint manager</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+
+<p>In the figure, the desired occupied setpoint is set at 75&deg;F, with a 4&deg;F dead band, resulting in an occupied heating setpoint of 73&deg;F and an occupied cooling setpoint of 77&deg;F. The AEMS system will ensure that the dead band is at least 2&deg;F and no more than 6&deg;F. The user can change the desired occupied period setpoint and dead band in 0.5&deg;F resolution.</p>
+
+<p>The AEMS system allows the user to configure the desired unoccupied period temperature setpoints for each RTU. The user can change the unoccupied period setpoints in 0.5&deg;F resolution. If the user selects a value for unoccupied period heating setpoint that is not at least 5&deg;F lower than the desired occupied temperature setpoint, the AEMS system warns the user. Similarly, if the user selects an unoccupied period cooling setpoint value that is not at least 5&deg;F higher than the desired temperature setpoint, the AEMS system will provide a warning. The AEMS system allows the user to configure the unoccupied heating setpoint as low as 55&deg;F, and the unoccupied heating setpoint must be at least 2&deg;F lower than the occupied heating setpoint. Similarly, the AEMS system allows a user to configure the unoccupied cooling setpoint to as high as 80&deg;F, and the unoccupied cooling setpoint must be at least 2&deg;F higher than the occupied cooling setpoint.</p>
+
+<p>To enable the control changes, the user must click the save icon in the right corner of Figure 4. A green check mark indicates that the changes were successfully communicated to the thermostat.</p>
+
+<h3>1.1.2	Schedule Manager</h3>
+<p>The AEMS system allows the user to configure desired schedules for each RTU using an intuitive and easy to understand interface (Figure 5). Since optimal start will be employed to ensure spaces are at the occupied setpoint at the start of the occupancy period, users should ensure that the start time is set to the actual time that the building/zone occupancy begins. </p>
+
+<figure>
+    <img src="docs/images/fig5.jpg" width="700" alt="Figure 5: AEMS web interface - schedule manager">
+    <figcaption>Figure 5: AEMS web interface - schedule manager</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+<p>The AEMS system allows the user to set schedules for each day of the week. Using the schedule information, the AEMS system will dynamically change the setpoint of each RTU to the value that is appropriate based on the occupancy status and other relevant information. During the occupied period, the RTU will be configured to use occupied setpoints. During unoccupied periods, the RTU will use the setback setpoints. The user can set the schedules with 15-minute resolution. Figure 5 shows an RTU that is configured to be unoccupied on Monday and Sunday, occupied from 6:30 a.m. to 6:00 p.m. Tuesday through Friday, and occupied from 8:00 a.m. to 4:00 p.m. on Saturday.</p>
+
+<h3>1.1.3	Temporary Schedule Manager</h3>
+<p>The AEMS system allows users to set temporary occupancy schedules. During periods that are typically unoccupied (i.e., weekends, early mornings, or late evenings), the RTU can be configured to temporarily operate in an occupied mode (i.e., condition the space to maintain the occupied desired temperature setpoint). </p>
+
+<p>To create a temporary occupancy override, first select the date by clicking the calendar object (Figure 6). Here Sunday March 3rd, 2024, is selected from the calendar menu:</p>
+
+<figure>
+    <img src="docs/images/fig6.jpg" width="600" alt="Figure 6. AEMS web interface - temporary occupancy override date selection">
+    <figcaption>Figure 6. AEMS web interface - temporary occupancy override date selection</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+
+<p>Next, enter a name or identifier for the temporary occupancy override (this could correspond to an event name) in the "Occupancy Label" text box. For this example, we have named this temporary occupancy override "AEMS Temporary Occupancy Test".</p>
+
+<figure>
+    <img src="docs/images/fig7.jpg" width="700" alt="Figure 7. AEMS web interface - temporary occupancy override creation">
+    <figcaption>Figure 7. AEMS web interface - temporary occupancy override creation</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+<p>Then, move the slider to the appropriate start time and end time. If the weather is very cold or hot, you may select a start time of 30 minutes prior to the start of the event to ensure the space is comfortable by start of (temporary) occupancy. In this example, we have a start time of 9:30 a.m. and an end time of 6:00 p.m. Next, click the "Create Occupancy" button below the slider. The temporary occupancy override will be added to the list of ""Temporary Occupancies" (Figure 8 boxed in red):</p>
+
+<figure>
+    <img src="docs/images/fig8.jpg" width="700" alt="Figure 8. AEMS web interface - temporary occupancy override (complete)">
+    <figcaption>Figure 8. AEMS web interface - temporary occupancy override (complete)</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+
+<p>Finally, click the save icon in the right corner of the browser. A green check mark indicates that the changes were successfully communicated to the thermostat. If you want to cancel the temporary occupancy override, click the yellow trash button next to the created occupancy override and then the save button at the top right corner. The temporary schedules have no meaning after the date and time for which they are configured as passed. At that time, these schedules should be deleted.</p>
+
+<h3>1.1.4	Holiday Manager</h3>
+<p>The AEMS system allows users to configure holiday schedules. During a configured holiday, the unit will operate in an unoccupied mode unless a temporary occupancy override is enabled for that date. The AEMS software allows the user to select and enable holidays from a list of predefined United States holidays as well as create custom holidays (Figure 9):</p>
+
+<figure>
+    <img src="docs/images/fig9.jpg" width="700" alt="Figure 9. AEMS Web interface - predefined holidays">
+    <figcaption>Figure 9. AEMS Web interface - predefined holidays</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+
+<p>To create a custom holiday, enter a name for the holiday in the "Holiday Label" text box, then select the desired date using the calendar. Figure 10 shows an example of a custom holiday, Boxing Day, that will be observed on December 26th:</p>
+
+<figure>
+    <img src="docs/images/fig10.jpg" width="700" alt="Figure 10. AEMS web interface – select custom holiday">
+    <figcaption>Figure 10. AEMS web interface - select custom holiday</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+
+<p>Next, click the "Create Holiday" button to add the holiday to the "Custom Holiday" list (Figure 11):</p>
+
+<figure>
+    <img src="docs/images/fig11.jpg" width="700" alt="Figure 11. AEMS web interface – create custom holiday">
+    <figcaption>Figure 11. AEMS web interface - create custom holiday</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+
+<p>Finally, click the save icon in the right corner of the web browser. A green check mark indicates that the changes were successfully communicated to the thermostat. If you want to delete the custom holiday, click the yellow trash button next to the custom holiday and then the save button at the top right corner.</p>
+
+<h3>1.1.5	Optimal Start Manager </h3>
+<p>Optimal start is a strategy that aims to minimize energy consumption by estimating the start time of the RTU each morning, so the zone is at the desired temperature when the occupancy begins. Instead of running systems continuously or scheduling the system to come on at the same predefined time each day, optimal start calculates the ideal time to start the RTU based on building thermal characteristics, occupancy patterns, and weather conditions. By pre conditioning spaces to reach comfort temperatures precisely when needed, optimal start reduces energy waste.</p>
+
+<p>The typical approach for schedule management is to set the occupied start time as several hours prior to the actual start of occupancy to ensure the space is at setpoint when occupancy begins. This wastes significant energy, especially when the weather is mild. The AEMS optimal start has a built-in algorithm that learns the RTU's behavior and adjusts the start time to minimize the prestart time while ensuring the space is at desired temperature when occupancy begins. The optimal start configurations for AEMS are under the RTU Configuration submenu (Figure 12):</p>
+
+<figure>
+    <img src="docs/images/fig12.jpg" width="800" alt="Figure 12. AEMS web interface – optimal start">
+    <figcaption>Figure 12. AEMS web interface - optimal start</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+
+<p>The following parameters for optimal start are user configurable:</p>
+<ul>
+    <li>Disable Optimal Start when the Outdoor Temperatures are below: This is also referred to as low-temperature lockout for optimal start. This parameter is used for HP systems with auxiliary electric heat. At low outdoor air temperatures, the HP capacity and efficiency are significantly degraded, which will enable backup electric heat and can result in significant electricity demand.  When the outdoor-air temperature is forecasted to be lower than this value, the RTU will run continuously and not utilize unoccupied set back temperature setpoints.</li>
+    <li>Optimal Start Allowable Zone Temperature Deviation: This determines how far the zone temperature is allowed to deviate from the desired zone setpoint.</li>
+    <li>Earliest Start Time Before Occupancy: This is the maximum number of minutes prior to scheduled occupancy start that the unit can start to meet setpoint.</li>
+    <li>Latest Start Time Before Occupancy &mdash; This is the minimum number of minutes prior to scheduled occupancy start that the unit can start to meet setpoint at scheduled occupancy start.</li>
+</ul>
+
+<p>When changes are made in the AEMS web UI, make sure to click the save icon in the right corner of the web browser. A green check mark indicates that the changes were successfully communicated to the thermostat.</p>
+
+<p>Managing building startup procedures effectively is integral to managing peak electricity demand, enhancing EE, and achieving cost savings. During morning startup when the building is transitioning to occupancy, RTUs will turn on to condition the spaces. When a significant number of the building's RTUs turn on to simultaneously, it could increase the building electricity peak significantly. This is especially true for RTUs/HPs with electric backup.</p>
+
+<p>Morning startup electricity peaks can be managed using ILC. ILC dynamically prioritizes building loads (e.g., building HVAC systems) to reduce peak demand while minimizing effects to building service levels. ILC prioritizes the RTUs based on zone location, cooling/heating capacity, zone type, and zone comfort metrics. The prioritization list will be used to control the RTU space setpoints by decreasing the setpoint by 1&deg;F - 2&deg;F during heating and increasing the setpoint by 1&deg;F - 2&deg;F during cooling. Also, the electric heat can optionally be controlled, and disabled, if additional load reduction is required. For more details of how to configure ILC, refer to Section 1.2.1. For more details on the ILC process, refer to Kim et al. (2016, 2020) and Kim and Katipamula (2017).</p>
+
+<p>Optimal start will run every day when the RTU transitions from an unoccupied state to an occupied state unless the outdoor-air temperature is very low and optimal start is locked out. Optimal start will not run when transitioning from an unoccupied state to a temporary occupancy override. If communication between VOLTTON and the thermostat is lost, the thermostat will fall back into a standalone mode. In this mode, the optimal start signals from the AEMS software cannot be sent to the thermostat and the RTU will start based on the local thermostat occupancy schedule.</p>
+
+<h3>1.1.6	Miscellaneous Parameter Inputs</h3>
+<p>The AEMS system also allows users to configure energy saving lockouts and inputs associated with the economizer systems. These settings are also found in the “RTU Configuration” submenu (Figure 13):</p>
+
+<figure>
+    <img src="docs/images/fig13.jpg" width="800" alt="Figure 13. AEMS web interface – miscellaneous configurations">
+    <figcaption>Figure 13. AEMS web interface - miscellaneous configurations</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+
+<p>The following miscellaneous parameters are configurable:</p>
+<ul>
+    <li>Heat Pump: Select "Yes"' if the RTU is an HP and "No" if the RTU is a packaged air conditioner.</li>
+    <li>Heat Pump Auxiliary Heat Lockout: This parameter setting is available only for HP systems. If the outdoor-air temperature is higher than this value, the AEMS system will disable (lockout) the use of auxiliary heat.</li>
+    <li>Economizer: Select "Yes" if the RTU has an economizer system and "No" if the RTU does not have an economizer or has an economizer that is controlled by the RTU controller.</li>
+    <li>Economizer Switchover Temperature Setpoint - the outdoor-air temperature below which the economizer system will be enabled.</li>
+    <li>Compressor Cooling Lockout Temperature: For RTUs with economizers, if the outdoor-air temperature is lower than this value, the AEMS system will disable (lockout) the use of mechanical cooling.</li>
+</ul>
+
+<p>When changes are made in the AEMS web UI, make sure to click the save icon in the right corner of the web browser. A green check mark indicates that the changes were successfully communicated to the thermostat.</p>
+
+<h2>1.2	Grid Service Features Configuration</h2>
+<p>The following sections describe how to configure the ILC algorithm within the AEMS web UI.</p>
+
+<h3>1.2.1	Intelligent Load Control</h3>
+<p>ILC is an algorithm, or a set of actions, deployed via VOLTTRON, a distributed sensing and controls platform. The ILC process can automatically adjust building energy use by coordinating HVAC systems, lights, and other building functions, while maintaining occupant comfort. In addition to bringing flexibility and responsiveness to building energy consumption, ILC benefits the grid by turning buildings into resources that help balance electricity supply and demand. This will help address some of the challenges of adding intermittent resources such as wind and solar power to the energy supply mix. ILC employs Analytic Hierarchy Process (AHP)—a method of prioritizing actions to achieve the best results. Much of the ILC configuration process is automated; however, the user must provide some information, which is described in this section.</p>
+
+<h3>1.2.2	ILC Configuration</h3>
+<p>To configure ILC, first select the ILC option in the top right corner of the web browser (Figure 14):</p>
+
+<figure>
+    <img src="docs/images/fig14.jpg" width="800" alt="Figure 14. AEMS web interface – ILC configuration">
+    <figcaption>Figure 14. AEMS web interface - ILC configuration</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+
+
+<p>This view exposes the RTUs that are configurable for GSs as well as the global override setting ('Participate in Grid Services'). If the entire building wants to opt out of GSs, set "Participate in Grid Services" to "No" and click the save button to send that information to ILC running on the edge device. Note that if the global override is enabled, the RTUs settings under “Units” will disappear.
+If "Participate in Grid Services" is set to "Yes", you can click on the RTU listed under "Units" to configure the RTU for GSs (Figure 15):</p>
+
+<figure>
+    <img src="docs/images/fig15.jpg" width="700" alt="Figure 15. AEMS web interface – ILC unit configuration for “PNNL ROB SCHNEIDER” RTU">
+    <figcaption>Figure 15. AEMS web interface - ILC unit configuration for "PNNL ROB SCHNEIDER" RTU</figcaption>
+</figure>
+<div style="clear:both;"></div>
+
+
+<p>The following is a list of configurable parameters for ILC:</p>
+<ul>
+    <li>Participate in Grid Services: Device GS override. If this RTU does not want to participate in GSs, select "No"; otherwise, select "Yes".</li>
+    <li>Setpoint Offset During Grid Services - acceptable deviation of the heating or cooling setpoint during peak load management or GS event.</li>
+    <li>Zone Location: Select whether the RTU serves an exterior (perimeter) space or is in the interior of the building.</li>
+    <li>Zone Mass: Estimate of the building construction and thermal mass (i.e., low, medium, or high). If not known, select "Low."</li>
+    <li>Zone Orientation: Zone cardinal orientation.</li>
+    <li>Zone Type: Type of space served by the RTU (e.g., Office, Computer Lab, Mechanical Room).</li>
+    <li>Rated Cooling Capacity: The nominal tonnage of the RTU/HP.</li>
+    <li>Number of Compressors: Number of compressors for the RTU/HP.</li>
+    <li>Heat Pump Electric Backup Capacity: Kilowatt rating for the electric furnace for the RTU/HP.</li>
+</ul>
+
+<p>When changes are made in the AEMS web UI, make sure to click the save icon in the right corner of the web browser. A green check mark indicates that the changes were successfully communicated to ILC.</p>
+
+
+
+
+
+</body>
+
+</html>
