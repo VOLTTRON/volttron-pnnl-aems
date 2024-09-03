@@ -2,9 +2,7 @@
 
 This repository contains two projects: `aems-edge` and `aems-ui`. Below are the instructions for setting up and using each project independently.
 
-============================================
-Autonomous Energy Management Software (AEMS)
-============================================
+## Autonomous Energy Management Software (AEMS)
 
 The AEMS adds intelligent and flexible control for small and medium
 sized commercial buildings' HVAC systems. The AEMS enables energy efficiency measures
