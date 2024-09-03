@@ -2,71 +2,16 @@
 
 This repository contains two projects: `aems-edge` and `aems-ui`. Below are the instructions for setting up and using each project independently.
 
-## aems-edge
+============================================
+Autonomous Energy Management Software (AEMS)
+============================================
 
-### Prerequisites
+The AEMS adds intelligent and flexible control for small and medium
+sized commercial buildings' HVAC systems. The AEMS enables energy efficiency measures
+for thermostatically controlled packaged air conditioners and heat pumps. The
+AEMS contains a web based user interface (aems-ui) to allow a building operator or occupants
+to easily enable energy efficiency and comfort for their building. The second component is the
+aems-edge. The edge software is integrated with the VOLTTRON project and utilizes the BACnet driver
+for device integration, the VOLTTRON Historian for data storage, and the VOLTTRON integrated
+Weather.gov for forecast information.
 
-- Python 3.7 or higher
-- Volttron platform installed
-
-### Installation
-
-1. Clone the `aems-edge` repository:
-
-    ```shell
-    git clone https://github.com/your-username/aems-edge.git
-    ```
-
-2. Install the required Python packages:
-
-    ```shell
-    cd aems-edge
-    pip install -r requirements.txt
-    ```
-
-### Usage
-
-1. Start the Volttron platform:
-
-    ```shell
-    volttron -vv
-    ```
-
-2. Start the `aems-edge` agent:
-
-    ```shell
-    cd aems-edge
-    python3 aems_edge.py
-    ```
-
-## aems-ui
-
-### Prerequisites
-
-- Node.js and npm installed
-
-### Installation
-
-1. Clone the `aems-ui` repository:
-
-    ```shell
-    git clone https://github.com/your-username/aems-ui.git
-    ```
-
-2. Install the required dependencies:
-
-    ```shell
-    cd aems-ui
-    npm install
-    ```
-
-### Usage
-
-1. Start the `aems-ui` development server:
-
-    ```shell
-    cd aems-ui
-    npm start
-    ```
-
-2. Open your web browser and navigate to `http://localhost:3000` to access the `aems-ui` application.
