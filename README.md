@@ -1,7 +1,6 @@
 # Volttron PNNL AEMS
 
-This repository contains two projects: `aems-edge` and `aems-ui`. Below are the instructions for setting up and using each project independently.
-
+This repository contains two projects: `aems-edge` and `aems-ui`.
 ## Autonomous Energy Management Software (AEMS)
 
 The AEMS adds intelligent and flexible control for small and medium
