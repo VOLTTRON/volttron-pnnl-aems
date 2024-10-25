@@ -5,7 +5,7 @@
   "homepage": "/",
   "proxy": "http://localhost:3000",
   "private": true,
-  "license": "SEE LICENSE IN ../LICENSE",
+  "license": "SEE LICENSE IN ../LICENSE.txt",
   "dependencies": {
     "@blueprintjs/core": "^3.53.0",
     "@blueprintjs/datetime": "^3.24.1",

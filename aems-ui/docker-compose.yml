@@ -131,6 +131,14 @@ services:
       - PROXY_PROTOCOL=${PROXY_PROTOCOL}
       - PROXY_HOST=${PROXY_HOST}
       - PROXY_PORT=${PROXY_PORT}
+      - VOLTTRON_CA=${VOLTTRON_CA}
+      - CONFIG_AUTH_URL=${CONFIG_AUTH_URL}
+      - CONFIG_API_URL=${CONFIG_API_URL}
+      - CONFIG_USERNAME=${CONFIG_USERNAME}
+      - CONFIG_PASSWORD=${CONFIG_PASSWORD}
+      - SETUP_FILES=${SETUP_FILES}
+      - SETUP_ILC_FILES=${SETUP_ILC_FILES}
+      - SETUP_TEMPLATE_FILES=${SETUP_TEMPLATE_FILES}
     healthcheck:
       test: "curl http://localhost:3000/api/graphql"
       interval: 10s
