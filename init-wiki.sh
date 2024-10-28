@@ -1,0 +1,1 @@
+# Initialize the Bookstack wiki container using this script.

@@ -1,0 +1,49 @@
+{
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[dockercompose]": {
+    "editor.defaultFormatter": "ms-azuretools.vscode-docker"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[scss]": {
+    "editor.defaultFormatter": "vscode.css-language-features"
+  },
+  "[css]": {
+    "editor.defaultFormatter": "vscode.css-language-features"
+  },
+  "prettier.tabWidth": 2,
+  "prettier.printWidth": 120,
+  "cSpell.words": [
+    "blueprintjs",
+    "clsx",
+    "codegen",
+    "corepack",
+    "datetime",
+    "Geolocate",
+    "keycloak",
+    "maplibre",
+    "mbtiles",
+    "nominatim",
+    "pgoutput",
+    "pino",
+    "pothos",
+    "upsert"
+  ],
+  "typescript.enablePromptUseWorkspaceTsdk": false,
+  "typescript.tsdk": "./app/node_modules/typescript/lib"
+}

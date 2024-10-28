@@ -1,0 +1,884 @@
+type Account {
+  accessToken: String
+  createdAt: DateTime
+  expiresAt: Int
+  id: String
+  idToken: String
+  provider: String
+  providerAccountId: String
+  refreshToken: String
+  scope: String
+  sessionState: String
+  tokenType: String
+  type: String
+  updatedAt: DateTime
+  user: User
+  userId: String
+}
+
+input AccountAggregate {
+  average: [AccountFields!]
+  count: [AccountFields!]
+  maximum: [AccountFields!]
+  minimum: [AccountFields!]
+  sum: [AccountFields!]
+}
+
+input AccountCreateInput {
+  expiresAt: Int
+  idToken: String
+  provider: String!
+  providerAccountId: String!
+  scope: String
+  type: String!
+  user: AccountCreateUserRelationInput!
+}
+
+input AccountCreateUserRelationInput {
+  connect: UserUniqueFilter
+}
+
+enum AccountFields {
+  accessToken
+  createdAt
+  expiresAt
+  id
+  idToken
+  provider
+  providerAccountId
+  refreshToken
+  scope
+  sessionState
+  tokenType
+  type
+  updatedAt
+  userId
+}
+
+input AccountFilter {
+  AND: [AccountFilter!]
+  NOT: AccountFilter
+  OR: [AccountFilter!]
+  createdAt: DateTimeFilter
+  id: StringFilter
+  provider: StringFilter
+  type: StringFilter
+  updatedAt: DateTimeFilter
+  user: UserUniqueFilter
+  userId: StringFilter
+}
+
+input AccountOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  provider: OrderBy
+  type: OrderBy
+  updatedAt: OrderBy
+  user: UserOrderBy
+  userId: OrderBy
+}
+
+input AccountUniqueFilter {
+  id: String
+}
+
+input AccountUpdateInput {
+  expiresAt: Int
+  idToken: String
+  provider: String
+  providerAccountId: String
+  scope: String
+  type: String
+  user: AccountUpdateUserRelationInput
+}
+
+input AccountUpdateUserRelationInput {
+  connect: UserUniqueFilter
+  disconnect: Boolean
+}
+
+type Banner {
+  createdAt: DateTime
+  expiration: DateTime
+  id: String
+  message: String
+  updatedAt: DateTime
+  users: [User!]
+}
+
+input BannerAggregate {
+  average: [BannerFields!]
+  count: [BannerFields!]
+  maximum: [BannerFields!]
+  minimum: [BannerFields!]
+  sum: [BannerFields!]
+}
+
+input BannerCreateInput {
+  expiration: DateTime
+  message: String
+}
+
+enum BannerFields {
+  createdAt
+  expiration
+  id
+  message
+  updatedAt
+}
+
+input BannerFilter {
+  AND: [BannerFilter!]
+  NOT: BannerFilter
+  OR: [BannerFilter!]
+  createdAt: DateTimeFilter
+  expiration: DateTimeFilter
+  id: StringFilter
+  message: StringFilter
+  updatedAt: DateTimeFilter
+}
+
+input BannerOrderBy {
+  createdAt: OrderBy
+  expiration: OrderBy
+  id: OrderBy
+  message: OrderBy
+  updatedAt: OrderBy
+}
+
+input BannerUniqueFilter {
+  id: String
+}
+
+input BannerUpdateInput {
+  expiration: DateTime
+  message: String
+  users: BannerUpdateUsersRelationInput
+}
+
+input BannerUpdateUsersRelationInput {
+  connect: [UserUniqueFilter!]
+  disconnect: [UserUniqueFilter!]
+}
+
+input BooleanFilter {
+  equals: Boolean
+  not: BooleanFilter
+}
+
+type Comment {
+  createdAt: DateTime
+  id: String
+  message: String
+  updatedAt: DateTime
+  user: User
+  userId: String
+}
+
+input CommentAggregate {
+  average: [CommentFields!]
+  count: [CommentFields!]
+  maximum: [CommentFields!]
+  minimum: [CommentFields!]
+  sum: [CommentFields!]
+}
+
+input CommentCreateInput {
+  message: String!
+  user: CommentCreateUserRelationInput
+}
+
+input CommentCreateUserRelationInput {
+  connect: UserUniqueFilter
+}
+
+enum CommentFields {
+  createdAt
+  id
+  message
+  updatedAt
+  userId
+}
+
+input CommentFilter {
+  AND: [CommentFilter!]
+  NOT: CommentFilter
+  OR: [CommentFilter!]
+  createdAt: DateTimeFilter
+  id: StringFilter
+  message: StringFilter
+  updatedAt: DateTimeFilter
+  user: UserUniqueFilter
+  userId: StringFilter
+}
+
+input CommentOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  message: OrderBy
+  updatedAt: OrderBy
+  user: UserOrderBy
+  userId: OrderBy
+}
+
+input CommentUniqueFilter {
+  id: String
+}
+
+input CommentUpdateInput {
+  message: String
+  user: CommentUpdateUserRelationInput
+}
+
+input CommentUpdateUserRelationInput {
+  connect: UserUniqueFilter
+  disconnect: Boolean
+}
+
+input CurrentCreateInput {
+  email: String!
+  image: String
+  name: String
+  password: String
+  preferences: Preferences
+}
+
+input CurrentUpdateInput {
+  email: String
+  image: String
+  name: String
+  password: String
+  preferences: Preferences
+}
+
+"""
+A date-time string at UTC, such as 2007-12-03T10:15:30Z, compliant with the `date-time` format outlined in section 5.6 of the RFC 3339 profile of the ISO 8601 standard for representation of dates and times using the Gregorian calendar.
+"""
+scalar DateTime
+
+input DateTimeFilter {
+  contains: DateTime
+  equals: DateTime
+  gt: DateTime
+  gte: DateTime
+  in: [DateTime!]
+  lt: DateTime
+  lte: DateTime
+  mode: StringFilterMode
+  not: DateTimeFilter
+}
+
+scalar Event
+
+type Feedback {
+  assignee: User
+  assigneeId: String
+  createdAt: DateTime
+  files: [File!]
+  id: String
+  message: String
+  status: FeedbackStatusType
+  updatedAt: DateTime
+  user: User
+  userId: String
+}
+
+input FeedbackCreateInput {
+  files: FeedbackUpdateFilesRelationInput
+  message: String!
+}
+
+enum FeedbackFields {
+  assigneeId
+  createdAt
+  id
+  message
+  status
+  updatedAt
+  userId
+}
+
+input FeedbackFilter {
+  createdAt: DateTimeFilter
+  id: StringFilter
+  message: StringFilter
+  updatedAt: DateTimeFilter
+  user: UserUniqueFilter
+  userId: StringFilter
+}
+
+input FeedbackOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  message: OrderBy
+  status: OrderBy
+  updatedAt: OrderBy
+}
+
+enum FeedbackStatusType {
+  Done
+  InProgress
+  Todo
+}
+
+input FeedbackUniqueFilter {
+  id: String
+}
+
+input FeedbackUpdateFilesRelationInput {
+  connect: [FileUniqueFilter!]
+}
+
+input FeedbackUpdateInput {
+  assigneeId: String
+  status: FeedbackStatusType
+}
+
+type File {
+  contentLength: Int
+  createdAt: DateTime
+  feedback: Feedback
+  feedbackId: String
+  id: String
+  mimeType: String
+  objectKey: String
+  updatedAt: DateTime
+  user: User
+  userId: String
+}
+
+input FileCreateInput {
+  contentLength: Int!
+  mimeType: String!
+  objectKey: String!
+  user: FileCreateUserRelationInput
+}
+
+input FileCreateUserRelationInput {
+  connect: UserUniqueFilter
+}
+
+input FileFilter {
+  feedbackId: StringFilter
+  id: StringFilter
+  user: UserUniqueFilter
+  userId: StringFilter
+}
+
+input FileUniqueFilter {
+  id: String
+}
+
+input FloatFilter {
+  equals: Float
+  gt: Float
+  gte: Float
+  in: [Float!]
+  lt: Float
+  lte: Float
+  not: FloatFilter
+}
+
+input IntFilter {
+  equals: Int
+  gt: Int
+  gte: Int
+  in: [Int!]
+  lt: Int
+  lte: Int
+  not: IntFilter
+}
+
+"""
+The `JSONObject` scalar type represents JSON objects as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
+type Log {
+  createdAt: DateTime
+  id: String
+  message: String
+  type: LogType
+  updatedAt: DateTime
+}
+
+input LogAggregate {
+  average: [LogFields!]
+  count: [LogFields!]
+  maximum: [LogFields!]
+  minimum: [LogFields!]
+  sum: [LogFields!]
+}
+
+input LogCreateInput {
+  message: String
+  type: LogType
+}
+
+enum LogFields {
+  createdAt
+  id
+  message
+  type
+  updatedAt
+}
+
+input LogFilter {
+  AND: [LogFilter!]
+  NOT: LogFilter
+  OR: [LogFilter!]
+  createdAt: DateTimeFilter
+  id: StringFilter
+  message: StringFilter
+  type: LogTypeFilter
+  updatedAt: DateTimeFilter
+}
+
+input LogOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  message: OrderBy
+  type: OrderBy
+  updatedAt: OrderBy
+}
+
+enum LogType {
+  Debug
+  Error
+  Fatal
+  Info
+  Trace
+  Warn
+}
+
+input LogTypeFilter {
+  equals: LogType
+  in: [LogType!]
+  mode: StringFilterMode
+  not: LogTypeFilter
+}
+
+input LogUniqueFilter {
+  id: String
+}
+
+input LogUpdateInput {
+  message: String
+  type: LogType
+}
+
+type Mutation {
+  """Create a new account."""
+  createAccount(create: AccountCreateInput!): Account
+
+  """Create a new banner."""
+  createBanner(create: BannerCreateInput!): Banner
+
+  """Create a new comment."""
+  createComment(create: CommentCreateInput!): Comment
+
+  """Create a new user."""
+  createCurrent(create: CurrentCreateInput!): User
+
+  """Create new feedback."""
+  createFeedback(create: FeedbackCreateInput): Feedback
+
+  """Create a local file record."""
+  createFile(create: FileCreateInput!): File
+
+  """Create a new log."""
+  createLog(create: LogCreateInput!): Log
+
+  """Create a new user."""
+  createUser(create: UserCreateInput!): User
+
+  """Delete the specified account."""
+  deleteAccount(where: AccountUniqueFilter!): Account
+
+  """Delete the specified banner."""
+  deleteBanner(where: BannerUniqueFilter!): Banner
+
+  """Delete the specified comment."""
+  deleteComment(where: CommentUniqueFilter!): Comment
+
+  """Delete the currently logged in user."""
+  deleteCurrent: User
+
+  """Delete the specified log."""
+  deleteLog(where: LogUniqueFilter!): Log
+
+  """Delete the specified user."""
+  deleteUser(where: UserUniqueFilter!): User
+
+  """Update the specified account."""
+  updateAccount(update: AccountUpdateInput!, where: AccountUniqueFilter!): Account
+
+  """Update the specified banner."""
+  updateBanner(update: BannerUpdateInput!, where: BannerUniqueFilter!): Banner
+
+  """Update the specified comment."""
+  updateComment(update: CommentUpdateInput!, where: CommentUniqueFilter!): Comment
+
+  """Update the currently logged in user."""
+  updateCurrent(update: CurrentUpdateInput!): User
+
+  """Update the specified feedback status."""
+  updateFeedback(update: FeedbackUpdateInput!, where: FeedbackUniqueFilter!): Feedback
+
+  """Update the specified log."""
+  updateLog(update: LogUpdateInput!, where: LogUniqueFilter!): Log
+
+  """Update the specified user."""
+  updateUser(update: UserUpdateInput!, where: UserUniqueFilter!): User
+}
+
+enum OrderBy {
+  Asc
+  Desc
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+}
+
+input PagingInput {
+  skip: Int!
+  take: Int!
+}
+
+scalar Preferences
+
+type Query {
+  """Count the number of accounts."""
+  countAccounts(where: AccountFilter): Int
+
+  """Count the number of banners."""
+  countBanners(where: BannerFilter): Int
+
+  """Count the number of comments."""
+  countComments(where: CommentFilter): Int
+
+  """Count the number of logs."""
+  countLogs(where: LogFilter): Int
+
+  """Count the number of user."""
+  countUsers(where: UserFilter): Int
+
+  """Group a list of accounts."""
+  groupAccounts(aggregate: AccountAggregate, by: [AccountFields!]!, where: AccountFilter): [JSON!]
+
+  """Group a list of banners."""
+  groupBanners(aggregate: BannerAggregate, by: [BannerFields!]!, where: BannerFilter): [JSON!]
+
+  """Group a list of comments."""
+  groupComments(aggregate: CommentAggregate, by: [CommentFields!]!, where: CommentFilter): [JSON!]
+
+  """Group a list of logs."""
+  groupLogs(aggregate: LogAggregate, by: [LogFields!]!, where: LogFilter): [JSON!]
+
+  """Group a list of user."""
+  groupUsers(aggregate: UserAggregate, by: [UserFields!]!, where: UserFilter): [JSON!]
+
+  """Paginate through multiple accounts."""
+  pageAccount(after: String, before: String, first: Int, last: Int, where: AccountFilter): QueryPageAccountConnection
+
+  """Paginate through multiple banners."""
+  pageBanner(after: String, before: String, first: Int, last: Int, where: BannerFilter): QueryPageBannerConnection
+
+  """Paginate through multiple comments."""
+  pageComment(after: String, before: String, first: Int, last: Int, where: CommentFilter): QueryPageCommentConnection
+
+  """Paginate through multiple logs."""
+  pageLog(after: String, before: String, first: Int, last: Int, where: LogFilter): QueryPageLogConnection
+
+  """Paginate through multiple users."""
+  pageUser(after: String, before: String, first: Int, last: Int, where: UserFilter): QueryPageUserConnection
+
+  """Read a unique account."""
+  readAccount(where: AccountUniqueFilter!): Account
+
+  """Read a list of accounts."""
+  readAccounts(distinct: [AccountFields!], orderBy: [AccountOrderBy!], paging: PagingInput, where: AccountFilter): [Account!]
+
+  """Read a list of feedback."""
+  readAllFeedback(distinct: [FeedbackFields!], orderBy: [FeedbackOrderBy!], paging: PagingInput, where: FeedbackFilter): [Feedback!]
+
+  """Read a unique banner."""
+  readBanner(where: BannerUniqueFilter!): Banner
+
+  """Read a list of banners."""
+  readBanners(distinct: [BannerFields!], orderBy: [BannerOrderBy!], paging: PagingInput, where: BannerFilter): [Banner!]
+
+  """Read a unique comment."""
+  readComment(where: CommentUniqueFilter!): Comment
+
+  """Read a list of comments."""
+  readComments(distinct: [CommentFields!], orderBy: [CommentOrderBy!], paging: PagingInput, where: CommentFilter): [Comment!]
+
+  """Read the currently logged in user."""
+  readCurrent: User
+
+  """read a unique feedback"""
+  readFeedback(where: FeedbackUniqueFilter!): Feedback
+
+  """Read attached files to specific feedback."""
+  readFeedbackFiles(where: FileFilter): [File!]
+
+  """Read a specific file by its ID"""
+  readFile(where: FileUniqueFilter!): File
+
+  """Read a unique log."""
+  readLog(where: LogUniqueFilter!): Log
+
+  """Read a list of logs."""
+  readLogs(distinct: [LogFields!], orderBy: [LogOrderBy!], paging: PagingInput, where: LogFilter): [Log!]
+
+  """Read a unique user."""
+  readUser(where: UserUniqueFilter!): User
+
+  """Read a list of user."""
+  readUsers(distinct: [UserFields!], orderBy: [UserOrderBy!], paging: PagingInput, where: UserFilter): [User!]
+}
+
+type QueryPageAccountConnection {
+  edges: [QueryPageAccountConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageAccountConnectionEdge {
+  cursor: String!
+  node: Account
+}
+
+type QueryPageBannerConnection {
+  edges: [QueryPageBannerConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageBannerConnectionEdge {
+  cursor: String!
+  node: Banner
+}
+
+type QueryPageCommentConnection {
+  edges: [QueryPageCommentConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageCommentConnectionEdge {
+  cursor: String!
+  node: Comment
+}
+
+type QueryPageLogConnection {
+  edges: [QueryPageLogConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageLogConnectionEdge {
+  cursor: String!
+  node: Log
+}
+
+type QueryPageUserConnection {
+  edges: [QueryPageUserConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageUserConnectionEdge {
+  cursor: String!
+  node: User
+}
+
+input StringFilter {
+  contains: String
+  endsWith: String
+  equals: String
+  in: [String!]
+  mode: StringFilterMode
+  not: StringFilter
+  startsWith: String
+}
+
+enum StringFilterMode {
+  Default
+  Insensitive
+}
+
+type Subscription {
+  """Count the number of accounts."""
+  countAccounts(where: AccountFilter): Int
+
+  """Count the number of banners."""
+  countBanners(where: BannerFilter): Int
+
+  """Count the number of comments."""
+  countComments(where: CommentFilter): Int
+
+  """Count the number of logs."""
+  countLogs(where: LogFilter): Int
+
+  """Count the number of user."""
+  countUsers(where: UserFilter): Int
+
+  """Group a list of accounts."""
+  groupAccounts(aggregate: AccountAggregate, by: [AccountFields!]!, where: AccountFilter): [JSON!]
+
+  """Group a list of banners."""
+  groupBanners(aggregate: BannerAggregate, by: [BannerFields!]!, where: BannerFilter): [JSON!]
+
+  """Group a list of comments."""
+  groupComments(aggregate: CommentAggregate, by: [CommentFields!]!, where: CommentFilter): [JSON!]
+
+  """Group a list of logs."""
+  groupLogs(aggregate: LogAggregate, by: [LogFields!]!, where: LogFilter): [JSON!]
+
+  """Group a list of user."""
+  groupUsers(aggregate: UserAggregate, by: [UserFields!]!, where: UserFilter): [JSON!]
+
+  """Read a unique account."""
+  readAccount(where: AccountUniqueFilter!): Account
+
+  """Read a list of accounts."""
+  readAccounts(distinct: [AccountFields!], orderBy: [AccountOrderBy!], paging: PagingInput, where: AccountFilter): [Account!]
+
+  """Read a unique banner."""
+  readBanner(where: BannerUniqueFilter!): Banner
+
+  """Read a list of banners."""
+  readBanners(distinct: [BannerFields!], orderBy: [BannerOrderBy!], paging: PagingInput, where: BannerFilter): [Banner!]
+
+  """Read a unique comment."""
+  readComment(where: CommentUniqueFilter!): Comment
+
+  """Read a list of comments."""
+  readComments(distinct: [CommentFields!], orderBy: [CommentOrderBy!], paging: PagingInput, where: CommentFilter): [Comment!]
+
+  """Read the currently logged in user."""
+  readCurrent: User
+
+  """Read a unique log."""
+  readLog(where: LogUniqueFilter!): Log
+
+  """Read a list of logs."""
+  readLogs(distinct: [LogFields!], orderBy: [LogOrderBy!], paging: PagingInput, where: LogFilter): [Log!]
+
+  """Read a unique user."""
+  readUser(where: UserUniqueFilter!): User
+
+  """Read a list of user."""
+  readUsers(distinct: [UserFields!], orderBy: [UserOrderBy!], paging: PagingInput, where: UserFilter): [User!]
+}
+
+type User {
+  accounts: [Account!]
+  banners: [Banner!]
+  comments: [Comment!]
+  createdAt: DateTime
+  email: String
+  emailVerified: DateTime
+  id: String
+  image: String
+  name: String
+
+  """[Preferences]"""
+  preferences: Preferences
+  role: String
+  updatedAt: DateTime
+}
+
+input UserAggregate {
+  average: [UserFields!]
+  count: [UserFields!]
+  maximum: [UserFields!]
+  minimum: [UserFields!]
+  sum: [UserFields!]
+}
+
+input UserCreateInput {
+  email: String!
+  emailVerified: DateTime
+  image: String
+  name: String
+  password: String
+  preferences: Preferences
+  role: String
+}
+
+enum UserFields {
+  createdAt
+  email
+  emailVerified
+  id
+  image
+  name
+  preferences
+  role
+  updatedAt
+}
+
+input UserFilter {
+  AND: [UserFilter!]
+  NOT: UserFilter
+  OR: [UserFilter!]
+  createdAt: DateTimeFilter
+  email: StringFilter
+  emailVerified: DateTimeFilter
+  id: StringFilter
+  image: StringFilter
+  name: StringFilter
+  role: StringFilter
+  updatedAt: DateTimeFilter
+}
+
+input UserOrderBy {
+  createdAt: OrderBy
+  email: OrderBy
+  emailVerified: OrderBy
+  id: OrderBy
+  image: OrderBy
+  name: OrderBy
+  role: OrderBy
+  updatedAt: OrderBy
+}
+
+input UserUniqueFilter {
+  id: String
+}
+
+input UserUpdateAccountsRelationInput {
+  connect: [AccountUniqueFilter!]
+  create: [AccountCreateInput!]
+  delete: [AccountUniqueFilter!]
+  disconnect: [AccountUniqueFilter!]
+}
+
+input UserUpdateBannersRelationInput {
+  connect: [BannerUniqueFilter!]
+  create: [BannerCreateInput!]
+  delete: [BannerUniqueFilter!]
+  disconnect: [BannerUniqueFilter!]
+}
+
+input UserUpdateCommentsRelationInput {
+  connect: [CommentUniqueFilter!]
+  create: [CommentCreateInput!]
+  delete: [CommentUniqueFilter!]
+  disconnect: [CommentUniqueFilter!]
+}
+
+input UserUpdateInput {
+  accounts: UserUpdateAccountsRelationInput
+  banners: UserUpdateBannersRelationInput
+  comments: UserUpdateCommentsRelationInput
+  email: String
+  emailVerified: DateTime
+  image: String
+  name: String
+  password: String
+  preferences: Preferences
+  role: String
+}

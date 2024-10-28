@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "module": "NodeNext",
+        "target": "ESNext",
+        "strict": true,
+        "verbatimModuleSyntax": false,
+        "declaration": true,
+        "sourceMap": true,
+        "declarationMap": true,
+        "resolveJsonModule": true,
+        "isolatedModules": false,
+        "incremental": false,
+        "paths": {
+            "@/*": ["./*"]
+        },
+        "outDir": "./build/"
+    },
+    "include": ["**/*.ts", "**/*.json"],
+    "exclude": ["node_modules", "build"]
+}
