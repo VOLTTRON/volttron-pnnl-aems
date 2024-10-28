@@ -1,0 +1,28 @@
+@import "@/app/global.module.scss";
+
+.main {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: baseline;
+  min-height: 100vh;
+  width: 100%;
+  padding: 1em;
+}
+
+.navigation {
+  width: min-content;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.navbar {
+  padding-top: $pt-navbar-height;
+}

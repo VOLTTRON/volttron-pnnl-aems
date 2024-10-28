@@ -1,0 +1,30 @@
+query ReadFile($where: FileUniqueFilter!) {
+  readFile(where: $where) {
+    id
+  }
+}
+
+mutation CreateFile($create: FileCreateInput!) {
+  createFile(create: $create) {
+    objectKey
+    contentLength
+    mimeType
+    createdAt
+    updatedAt
+    id
+    userId
+    feedbackId
+  }
+}
+
+query ReadFeedbackFiles($where: FileFilter!) {
+  readFeedbackFiles(where: $where) {
+    id
+    objectKey
+    mimeType
+    contentLength
+    feedback {
+      id
+    }
+  }
+}

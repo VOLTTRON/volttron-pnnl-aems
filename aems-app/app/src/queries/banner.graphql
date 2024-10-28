@@ -1,0 +1,73 @@
+fragment BannerFields on Banner {
+  id
+  message
+  expiration
+  createdAt
+  updatedAt
+}
+
+query ReadBanner($where: BannerUniqueFilter!) {
+  readBanner(where: $where) {
+    id
+    message
+    expiration
+    createdAt
+    updatedAt
+  }
+}
+
+query ReadBanners($where: BannerFilter, $paging: PagingInput, $orderBy: [BannerOrderBy!], $distinct: [BannerFields!]) {
+  readBanners(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    message
+    expiration
+    createdAt
+    updatedAt
+  }
+}
+
+mutation CreateBanner($create: BannerCreateInput!) {
+  createBanner(create: $create) {
+    id
+    message
+    expiration
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateBanner($where: BannerUniqueFilter!, $update: BannerUpdateInput!) {
+  updateBanner(where: $where, update: $update) {
+    id
+    message
+    expiration
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteBanner($where: BannerUniqueFilter!) {
+  deleteBanner(where: $where) {
+    id
+  }
+}
+
+subscription SubscribeBanner($where: BannerUniqueFilter!) {
+  readBanner(where: $where) {
+    id
+    message
+    expiration
+    createdAt
+    updatedAt
+  }
+}
+
+subscription SubscribeBanners($where: BannerFilter, $orderBy: [BannerOrderBy!], $distinct: [BannerFields!]) {
+  readBanners(where: $where, orderBy: $orderBy, distinct: $distinct) {
+    id
+    message
+    expiration
+    createdAt
+    updatedAt
+  }
+}

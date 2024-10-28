@@ -1,0 +1,31 @@
+{
+  "table": "User",
+  "type": "upsert",
+  "id": "id",
+  "data": [
+    {
+      "id": "1",
+      "name": "Test User",
+      "email": "test-user@pnnl.gov",
+      "password": "BqAgypDisP6FKQ",
+      "role": "user",
+      "preferences": {}
+    },
+    {
+      "id": "2",
+      "name": "Test Admin",
+      "email": "test-admin@pnnl.gov",
+      "password": "niRGMfMjStE3Rt",
+      "role": "admin",
+      "preferences": {}
+    },
+    {
+      "id": "3",
+      "name": "System User",
+      "email": "system-user@pnnl.gov",
+      "password": "wYDzL3W358KqhS",
+      "role": "",
+      "preferences": {}
+    }
+  ]
+}
