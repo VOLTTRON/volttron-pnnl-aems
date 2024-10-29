@@ -1,0 +1,12 @@
+
+.layout {
+    padding-bottom: 2rem;
+    margin: auto;
+    &.without-footer {
+        padding-bottom: 0;
+    }
+    position: relative;
+    min-height: 100vh;
+    max-width: 1200px;
+    text-align: left;
+}

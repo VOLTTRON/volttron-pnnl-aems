@@ -23,5 +23,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.json", ".next/types/**/*.ts", "server.js"],
-  "exclude": ["typings/browser.d.ts", "typings/browser", "node_modules", "modules"]
+  "exclude": ["typings/browser.d.ts", "typings/browser", "node_modules", "modules", ".next"]
 }

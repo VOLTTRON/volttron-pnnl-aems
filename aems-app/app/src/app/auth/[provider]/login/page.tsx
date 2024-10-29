@@ -34,7 +34,7 @@ export default function Page(props: { params: { provider: string } }) {
           if (res.redirected) {
             router.push(res.url);
           } else if (res.ok) {
-            router.push(searchParams.get("redirect") || "/");
+            router.push(searchParams?.get("redirect") || "/");
           } else {
             const body = await res.json();
             console.log("Failed to log in: ", { ...res, body });

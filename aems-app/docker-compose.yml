@@ -95,6 +95,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - NODE_TLS_REJECT_UNAUTHORIZED=0
+      - NOMINATIM_PRIVATE_API_URL=${NOMINATIM_PRIVATE_API_URL}
     healthcheck:
       test: "curl --fail http://localhost:3000 || exit 1"
       interval: 10s
@@ -168,6 +169,14 @@ services:
       - GRAPHQL_PUBSUB=redis
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - VOLTTRON_CA=${VOLTTRON_CA}
+      - CONFIG_AUTH_URL=${CONFIG_AUTH_URL}
+      - CONFIG_API_URL=${CONFIG_API_URL}
+      - CONFIG_USERNAME=${CONFIG_USERNAME}
+      - CONFIG_PASSWORD=${CONFIG_PASSWORD}
+      - SETUP_FILES=${SETUP_FILES}
+      - SETUP_ILC_FILES=${SETUP_ILC_FILES}
+      - SETUP_TEMPLATE_FILES=${SETUP_TEMPLATE_FILES}
     healthcheck:
       test: "curl http://localhost:3000/api/graphql"
       interval: 10s
@@ -182,6 +191,7 @@ services:
       - app-upload:/app/upload/
       - ./certs/:/etc/certs/:ro
       - ./seed/:/app/seed/:ro
+      - ../aems-edge/:/app/aems-edge/:ro
 
   # Creates self-signed TLS certs for localhost and domain and runs relational database migrations on startup
   init:

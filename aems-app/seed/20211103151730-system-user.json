@@ -6,7 +6,7 @@
     {
       "id": "1",
       "name": "Test User",
-      "email": "test-user@pnnl.gov",
+      "email": "test-user@aems.com",
       "password": "BqAgypDisP6FKQ",
       "role": "user",
       "preferences": {}
@@ -14,7 +14,7 @@
     {
       "id": "2",
       "name": "Test Admin",
-      "email": "test-admin@pnnl.gov",
+      "email": "test-admin@aems.com",
       "password": "niRGMfMjStE3Rt",
       "role": "admin",
       "preferences": {}
@@ -22,7 +22,7 @@
     {
       "id": "3",
       "name": "System User",
-      "email": "system-user@pnnl.gov",
+      "email": "system-user@aems.com",
       "password": "wYDzL3W358KqhS",
       "role": "",
       "preferences": {}

@@ -30,6 +30,22 @@ const nextConfig = {
       ];
     },
   }),
+  rewrites: async () => {
+    return {
+      beforeFiles: [
+        {
+          source: "/",
+          destination: "/index.html",
+        },
+      ],
+      fallback: [
+        {
+          source: "/:any",
+          destination: "/index.html",
+        },
+      ],
+    };
+  },
   compiler: {
     styledComponents: true,
   },
