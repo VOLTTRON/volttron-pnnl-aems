@@ -45,9 +45,9 @@ The architecture of AEMS integrates the following elements:
 
 ## Usage
 
-- **Use the web UI to configure RTUs and HPs set points, set schedules
-- **Deploy edge agents to communicate with HVAC systems and execute control strategies.
-- **Enable grid-interaction features for demand response and participate in utility programs.
+- Use the web UI to configure RTUs and HPs set points, set schedules
+- Deploy edge agents to communicate with HVAC systems and execute control strategies.
+- Enable grid-interaction features for demand response and participate in utility programs.
 
 ## Acknowledgements
 This project is developed by PNNL with funding from the U.S. Department of Energy Building Technologies Office, aiming to advance energy management solutions for small and medium-sized buildings.
