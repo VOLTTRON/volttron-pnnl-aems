@@ -45,7 +45,7 @@ The architecture of AEMS integrates the following elements:
 
 ## Usage
 
-- Use the web UI to configure RTUs and HPs set points, set schedules
+- Use the web UI to configure RTUs and HPs set points, set schedules, enable set backs and lock outs.
 - Deploy edge agents to communicate with HVAC systems and execute control strategies.
 - Enable grid-interaction features for demand response and participate in utility programs.
 
