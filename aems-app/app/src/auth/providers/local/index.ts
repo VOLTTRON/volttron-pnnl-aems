@@ -21,7 +21,10 @@ registerProvider({
   },
   authorize: async (values) => {
     // always look up a user and hash passwords to prevent brute force algorithms from determining valid emails by response speed
-    const user = await prisma.user.findUnique({ where: { email: values?.email ?? "" } });
+    let user = await prisma.user.findUnique({ where: { email: values?.email ?? "" } });
+    if (!user) {
+      user = await prisma.user.findFirst({ where: { name: values?.email ?? "" } });
+    }
     const authorized = await bcrypt.compare(values?.password ?? "", user?.password ?? "");
     if (values?.password && user && authorized) {
       return {

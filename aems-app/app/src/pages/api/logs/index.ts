@@ -51,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
   } else if (req.method === "GET" && user.roles.admin) {
     const banners = await prisma.banner.findMany({ where: { expiration: { gt: new Date() } } });
-    const messages = await prisma.log.findMany({});
+    const messages = await prisma.log.findMany({ take: parseInt(process.env.LOG_MESSAGE_COUNT || "100") });
     return res.status(200).json(
       concat(
         banners.map((b) => merge(b, { type: "Banner" })),

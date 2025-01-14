@@ -22,7 +22,7 @@ import {
   updateUnit,
 } from "controllers/units/action";
 import { IconName, IconNames } from "@blueprintjs/icons";
-import { cloneDeep, get, isEqual, isNil, isObject, merge, set } from "lodash";
+import { cloneDeep, get, isEqualWith, isNil, isObject, merge, set } from "lodash";
 
 import { Configuration } from "./Configuration";
 import { Holidays } from "./Holidays";
@@ -175,7 +175,12 @@ class Units extends React.Component<UnitsProps, UnitsState> {
     const { editing } = this.state;
     const temp = merge({}, unit, editing);
     const valid = isSetpointValid(temp.configuration?.setpoint);
-    return valid && !isEqual(unit, temp);
+    return (
+      valid &&
+      !isEqualWith(unit, temp, (_a, _b, k) =>
+        ["createdAt", "updatedAt", "action"].includes(k as any) ? true : undefined
+      )
+    );
   };
 
   isPush = (unit: IUnit) => {
