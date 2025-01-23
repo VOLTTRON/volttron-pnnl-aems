@@ -1,0 +1,103 @@
+fragment UserFields on User {
+  id
+  name
+  email
+  image
+  role
+  emailVerified
+  preferences
+  createdAt
+  updatedAt
+}
+
+query ReadUser($where: UserUniqueFilter!) {
+  readUser(where: $where) {
+    id
+    name
+    email
+    image
+    role
+    emailVerified
+    preferences
+    createdAt
+    updatedAt
+  }
+}
+
+query ReadUsers($where: UserFilter, $paging: PagingInput, $orderBy: [UserOrderBy!], $distinct: [UserFields!]) {
+  readUsers(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    name
+    email
+    image
+    role
+    emailVerified
+    preferences
+    createdAt
+    updatedAt
+  }
+
+  countUsers(where: $where)
+}
+
+mutation CreateUser($create: UserCreateInput!) {
+  createUser(create: $create) {
+    id
+    name
+    email
+    image
+    role
+    emailVerified
+    preferences
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateUser($where: UserUniqueFilter!, $update: UserUpdateInput!) {
+  updateUser(where: $where, update: $update) {
+    id
+    name
+    email
+    image
+    role
+    emailVerified
+    preferences
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteUser($where: UserUniqueFilter!) {
+  deleteUser(where: $where) {
+    id
+  }
+}
+
+subscription SubscribeUser($where: UserUniqueFilter!) {
+  readUser(where: $where) {
+    id
+    name
+    email
+    image
+    role
+    emailVerified
+    preferences
+    createdAt
+    updatedAt
+  }
+}
+
+subscription SubscribeUsers($where: UserFilter, $orderBy: [UserOrderBy!], $distinct: [UserFields!]) {
+  readUsers(where: $where, orderBy: $orderBy, distinct: $distinct) {
+    id
+    name
+    email
+    image
+    role
+    emailVerified
+    preferences
+    createdAt
+    updatedAt
+  }
+}

@@ -21,8 +21,10 @@
 #
 # ===----------------------------------------------------------------------===
 # }}}
+from datetime import timedelta
 import pandas as pd
-from pandas.tseries.holiday import (FR, Holiday, USColumbusDay, USLaborDay,
+from pandas.tseries.offsets import Day
+from pandas.tseries.holiday import (TH, Holiday, USColumbusDay, USLaborDay,
                                     USMartinLutherKingJr, USMemorialDay,
                                     USPresidentsDay, USThanksgivingDay,
                                     after_nearest_workday,
@@ -46,7 +48,7 @@ ALL_HOLIDAYS = {
     'Columbus Day': USColumbusDay,
     'Veterans Day': Holiday('Veterans Day', month=11, day=11, observance=nearest_workday),
     'Thanksgiving': USThanksgivingDay,
-    'Black Friday': Holiday('Black Friday', month=11, day=1, offset=pd.DateOffset(weekday=FR(4))),
+    'Black Friday': Holiday('Black Friday', month=11, day=1, offset=[pd.DateOffset(weekday=TH(4)), Day(1)]),
     'Christmas Eve': Holiday('Christmas Eve', month=12, day=24),
     'Christmas': Holiday('Christmas', month=12, day=25, observance=nearest_workday)
 }

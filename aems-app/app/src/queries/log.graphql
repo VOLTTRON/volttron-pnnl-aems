@@ -1,0 +1,65 @@
+fragment LogFields on Log {
+  id
+  type
+  message
+  createdAt
+  updatedAt
+}
+
+query ReadLog($where: LogUniqueFilter!) {
+  readLog(where: $where) {
+    id
+    type
+    message
+    createdAt
+    updatedAt
+  }
+}
+
+query ReadLogs($where: LogFilter, $paging: PagingInput, $orderBy: [LogOrderBy!], $distinct: [LogFields!]) {
+  readLogs(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    type
+    message
+    createdAt
+    updatedAt
+  }
+
+  countLogs(where: $where)
+}
+
+mutation CreateLog($create: LogCreateInput!) {
+  createLog(create: $create) {
+    id
+    type
+    message
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteLog($where: LogUniqueFilter!) {
+  deleteLog(where: $where) {
+    id
+  }
+}
+
+subscription SubscribeLog($where: LogUniqueFilter!) {
+  readLog(where: $where) {
+    id
+    type
+    message
+    createdAt
+    updatedAt
+  }
+}
+
+subscription SubscribeLogs($where: LogFilter, $orderBy: [LogOrderBy!], $distinct: [LogFields!]) {
+  readLogs(where: $where, orderBy: $orderBy, distinct: $distinct) {
+    id
+    type
+    message
+    createdAt
+    updatedAt
+  }
+}

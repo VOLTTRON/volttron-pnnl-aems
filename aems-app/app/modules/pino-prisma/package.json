@@ -1,0 +1,13 @@
+{
+  "name": "pino-prisma",
+  "description": "Pino Transport for Prisma that utilizes a PostgreSQL database.",
+  "version": "0.1.0",
+  "private": true,
+  "license": "SEE LICENSE IN ../../LICENSE.txt",
+  "dependencies": {
+    "pg": "^8.12.0",
+    "pino-abstract-transport": "^1.1.0"
+  },
+  "devDependencies": {},
+  "packageManager": "yarn@4.1.1"
+}

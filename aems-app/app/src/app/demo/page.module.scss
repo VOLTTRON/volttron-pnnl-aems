@@ -1,0 +1,30 @@
+.page {
+    width: 100%;
+}
+
+.map {
+    aspect-ratio: 16/9;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: left;
+    width: 100%;
+    padding: 0 !important;
+
+    >div {
+        width: 100%;
+
+        >div {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: left;
+            gap: 5px;
+            width: 100%;
+            padding: 5px 10px;
+        }
+    }
+}

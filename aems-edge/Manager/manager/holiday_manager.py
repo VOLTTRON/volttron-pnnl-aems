@@ -27,7 +27,8 @@ from datetime import datetime
 from typing import Optional
 
 import pandas as pd
-from pandas.tseries.holiday import (FR, AbstractHolidayCalendar, Holiday,
+from pandas.tseries.offsets import Day
+from pandas.tseries.holiday import (TH, AbstractHolidayCalendar, Holiday,
                                     USLaborDay, USMemorialDay,
                                     USThanksgivingDay, nearest_workday)
 
@@ -48,7 +49,7 @@ RULES = [
     Holiday('Independence Day', month=7, day=4, observance=nearest_workday),
     USLaborDay,
     USThanksgivingDay,
-    Holiday('Black Friday', month=11, day=1, offset=pd.DateOffset(weekday=FR(4))),
+    Holiday('Black Friday', month=11, day=1, offset=[pd.DateOffset(weekday=TH(4)), Day(1)]),
     Holiday('Christmas Eve', month=12, day=24),
     Holiday('Christmas', month=12, day=25, observance=nearest_workday),
 ]

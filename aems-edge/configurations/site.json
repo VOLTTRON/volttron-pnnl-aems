@@ -1,5 +1,5 @@
 {
-  "campus": "mycampus",
-  "building": "mybuilding",
-  "systems": ["schneider", "tstat10"]
+  "campus": "PNNL",
+  "building": "ROB",
+  "systems": ["schneider", "tstat"]
 }
