@@ -280,6 +280,7 @@ class DefaultConfig:
         :rtype: datetime.time
         """
         try:
+            _log.debug(f'Get get current_time tz consistent: {self.timezone_consistent}')
             if self.timezone_consistent:
                 return datetime.time(datetime.now()).replace(microsecond=0, second=0)
             else:
