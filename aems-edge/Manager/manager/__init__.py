@@ -280,7 +280,7 @@ class DefaultConfig:
         :rtype: datetime.time
         """
         try:
-            _log.debug(f'Get get current_time tz consistent: {self.timezone_consistent}')
+            _log.debug(f'Get get current_time timezone consistent: {self.timezone_consistent}')
             if self.timezone_consistent:
                 return datetime.time(datetime.now()).replace(microsecond=0, second=0)
             else:
@@ -289,6 +289,7 @@ class DefaultConfig:
         except Exception as e:
             _log.error('Schedule determination might be incorrect! Problem parsing timezone!')
             _log.error(e)
+            return datetime.time(datetime.now()).replace(microsecond=0, second=0)
 
     @staticmethod
     def are_timezones_equivalent(cfg_tz):
