@@ -31,7 +31,6 @@ from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Optional
 import pytz
-from docs.source.conf import exclude_patterns
 from tzlocal import get_localzone
 
 from volttron.platform.messaging import topics, utils
