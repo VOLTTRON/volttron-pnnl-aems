@@ -1,14 +1,19 @@
 "use client";
 
 import styles from "./page.module.scss";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Alignment, Button, Card, CardList, Collapse, Intent } from "@blueprintjs/core";
 import { PaletteDemo } from "./palette";
 import { IconNames } from "@blueprintjs/icons";
-import { LoadingContext, LoadingType, NotificationContext, NotificationType } from "../components/providers";
+import { LoadingContext, LoadingType, NotificationContext, NotificationType } from "@/app/components/providers";
 import { Chart } from "./chart";
 import { Locations } from "./locations";
 import { Map } from "./map";
+import { Table } from "@/app/components/common";
+import { useRouter } from "next/navigation";
+import { findBook, findBooks } from "./books";
+
+type Book = typeof findBook extends (isbn: string) => Promise<infer T> ? T & {} : never;
 
 function Section({
   title,
@@ -42,9 +47,16 @@ function Section({
 export default function Page() {
   const [open, setOpen] = useState("");
   const [error, setError] = useState(false);
+  const [books, setBooks] = useState<Book[]>([]);
+
+  const router = useRouter();
 
   const { createLoading, clearLoading } = useContext(LoadingContext);
   const { createNotification } = useContext(NotificationContext);
+
+  useEffect(() => {
+    findBooks().then((v) => setBooks(v));
+  }, []);
 
   function localLoading() {
     setTimeout(() => {
@@ -105,6 +117,26 @@ export default function Page() {
         </Section>
         <Section title="Charts" open={open} setOpen={setOpen}>
           <Chart />
+        </Section>
+        <Section title="Dynamic Routing" open={open} setOpen={setOpen}>
+          <div className={styles.table}>
+            <Table
+              rowKey="isbn"
+              rows={books}
+              columns={[{ field: "title", label: "Title", type: "string" }]}
+              actions={{
+                values: [{ id: "view", icon: IconNames.EYE_OPEN, intent: Intent.PRIMARY }],
+                onClick(id, row) {
+                  switch (id) {
+                    case "view":
+                      return router.push(`/demo/${row.isbn}`);
+                    default:
+                      return;
+                  }
+                },
+              }}
+            />
+          </div>
         </Section>
         <Section title="Nominatim" open={open} setOpen={setOpen}>
           <Locations />

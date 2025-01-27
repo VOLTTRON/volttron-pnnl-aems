@@ -1,5 +1,5 @@
 import { IconNames } from "@blueprintjs/icons";
-import { ComponentLocation, Route, RouteComponent } from "./types";
+import { ComponentLocation, Dynamic, DynamicRoute, Route, RouteComponent, StaticRoute } from "./types";
 import { deepFreeze } from "@/utils/util";
 import { buildTree } from "@/utils/tree";
 
@@ -14,7 +14,7 @@ const components: Partial<Record<ComponentLocation, RouteComponent>> =
       }
     : {};
 
-const routes: Readonly<Route[]> = [
+const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
   {
     id: "home",
     parentId: undefined,
@@ -42,6 +42,28 @@ const routes: Readonly<Route[]> = [
     icon: IconNames.LAB_TEST,
     scope: "user",
     display: true,
+    components: components,
+  },
+  {
+    id: "book",
+    parentId: "demo",
+    path: Dynamic,
+    name: "...",
+    dynamic: true,
+    icon: undefined,
+    scope: "user",
+    display: false,
+    components: components,
+  },
+  {
+    id: "chapter",
+    parentId: "book",
+    path: Dynamic,
+    name: "...",
+    dynamic: true,
+    icon: undefined,
+    scope: "user",
+    display: false,
     components: components,
   },
   {
@@ -115,7 +137,7 @@ const routes: Readonly<Route[]> = [
   },
 ];
 
-export const staticRoutes = buildTree(
+export const staticRoutes = buildTree<Route>(
   deepFreeze(
     routes.map((v) => {
       v.display = hiddenRoutes.includes(v.id) ? false : v.display;

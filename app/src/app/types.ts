@@ -29,6 +29,8 @@ export enum RouteComponent {
   NAVIGATION = "Navigation",
 }
 
+export const Dynamic = Symbol("Dynamic");
+
 /**
  * Route is a data structure that represents a route in the application.
  */
@@ -45,7 +47,7 @@ export interface Route {
    * Path is the URL path that the route will be associated with.
    * The root path must be `/` and all other paths are relative to it and should not include any `/`.
    */
-  path: string;
+  path: string | typeof Dynamic;
   /**
    * Name is a human-readable label for the route.
    */
@@ -54,6 +56,10 @@ export interface Route {
    * Index is a route without an associated page and is used only for organization.
    */
   index?: boolean;
+  /**
+   * Dynamic determines whether the route is dynamic and can be accessed with an id.
+   */
+  dynamic?: boolean;
   /**
    * Scope is a single role that is allowed to access the route.
    */
@@ -72,3 +78,17 @@ export interface Route {
    */
   components?: Partial<Record<ComponentLocation, RouteComponent>>;
 }
+
+export interface StaticRoute extends Route {
+  path: string;
+  dynamic?: false;
+}
+
+export interface DynamicRoute extends Route {
+  path: typeof Dynamic;
+  dynamic: true;
+}
+
+export type RouteResolvers = Record<string, RouteResolver>;
+
+export type RouteResolver = (id: string, ...parentIds: string[]) => Promise<string> | string;

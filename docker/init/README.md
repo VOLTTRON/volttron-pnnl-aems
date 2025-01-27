@@ -1,7 +1,7 @@
 Files, with the extension `.json`, placed in this directory will get seeded at server start.
 Modifying the file date will cause a seed file to get re-processed.
 Files can be safely deleted after being processed.
-JSON should conform to: `./app/src/services/types/Seeder`
+JSON should conform to: [/app/src/services/types#Seeder](../../app/src/services/types.ts)
 
 ```ts
 interface Seeder {

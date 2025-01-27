@@ -35,13 +35,13 @@ RUN mkdir /app
 WORKDIR /app
 
 # Copy local dependencies
-COPY ./app/modules ./modules
+COPY modules ./modules
 # Install dependencies based on the preferred package manager
-COPY ./app/package.json ./app/yarn.lock ./app/.yarnrc.yml ./
+COPY package.json yarn.lock .yarnrc.yml ./
 RUN yarn install
 
 # copy source
-COPY ./app .
+COPY . .
 
 # build
 RUN yarn compile

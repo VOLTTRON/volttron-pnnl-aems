@@ -45,6 +45,7 @@ export const BannerOrderBy = builder.prismaOrderBy("Banner", {
 builder.queryField("pageBanner", (t) =>
   t.prismaConnection({
     description: "Paginate through multiple banners.",
+    authScopes: { user: true},
     type: "Banner",
     cursor: "id",
     args: {
@@ -62,6 +63,7 @@ builder.queryField("pageBanner", (t) =>
 builder.queryField("readBanner", (t) =>
   t.prismaField({
     description: "Read a unique banner.",
+    authScopes: { user: true},
     type: "Banner",
     args: {
       where: t.arg({ type: BannerWhereUnique, required: true }),
@@ -82,6 +84,7 @@ builder.queryField("readBanner", (t) =>
 builder.queryField("readBanners", (t) =>
   t.prismaField({
     description: "Read a list of banners.",
+    authScopes: { user: true},
     type: ["Banner"],
     args: {
       where: t.arg({ type: BannerWhere }),
@@ -108,6 +111,7 @@ builder.queryField("readBanners", (t) =>
 builder.queryField("countBanners", (t) =>
   t.field({
     description: "Count the number of banners.",
+    authScopes: { user: true},
     type: "Int",
     args: {
       where: t.arg({ type: BannerWhere }),
@@ -127,6 +131,7 @@ builder.queryField("countBanners", (t) =>
 builder.queryField("groupBanners", (t) =>
   t.field({
     description: "Group a list of banners.",
+    authScopes: { user: true},
     type: ["JSON"],
     args: {
       by: t.arg({ type: [BannerFields], required: true }),

@@ -9,7 +9,7 @@ import { IconNames } from "@blueprintjs/icons";
 import { Preferences } from "./preferences";
 
 export function NavbarLeft() {
-  const { route } = useContext(RouteContext);
+  const { items } = useContext(RouteContext);
   const router = useRouter();
 
   const callback = useCallback(
@@ -19,16 +19,11 @@ export function NavbarLeft() {
     [router]
   );
 
-  let items = [];
-  if (route) {
-    items.push(route);
-    let parent = route.parent;
-    while (parent) {
-      items.unshift(parent);
-      parent = parent.parent;
-    }
-  }
-  items = items.map((v) => ({ text: v.data?.name, icon: v.data?.icon, onClick: callback(findPath(v)) }));
+  const breadcrumbs = items.map((v, i) => ({
+    text: v.name,
+    icon: v.icon,
+    onClick: callback(findPath(items.slice(0, i + 1))),
+  }));
 
   return (
     <>
@@ -36,7 +31,7 @@ export function NavbarLeft() {
         <h3>{process.env.NEXT_PUBLIC_TITLE}</h3>
       </NavbarHeading>
       <NavbarDivider />
-      <Breadcrumbs items={items} />
+      <Breadcrumbs items={breadcrumbs} />
     </>
   );
 }
