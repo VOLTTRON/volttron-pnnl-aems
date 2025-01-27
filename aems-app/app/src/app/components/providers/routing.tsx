@@ -1,13 +1,14 @@
 "use client";
 
-import { createContext, useEffect } from "react";
+import { createContext, useCallback, useEffect } from "react";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Route } from "../../types";
-import { staticRoutes } from "../../routes";
 import { max } from "lodash";
 import { RoleType } from "@/common";
-import { DefaultNode, DefaultTree } from "@/utils/tree";
+import { DefaultNode, DefaultTree, DefaultType, Node } from "@/utils/tree";
+import { Dynamic, Route, RouteResolver, RouteResolvers } from "@/app/types";
+import { typeofNonNullable } from "@/utils/util";
+import { staticRoutes } from "@/app/routes";
 
 /**
  * Check whether a user is allowed to see a route.
@@ -47,21 +48,62 @@ export const findRedirect = (routes: DefaultTree<Route>, user?: { role?: string 
   return [...routes].find((v) => !v.data?.index && v.data?.display && isGranted(v, user)) ?? routes.findNode("login");
 };
 
+const matchPath = (route: DefaultNode<Route>, part: string) => {
+  const { path, dynamic } = route.data ?? {};
+  if (dynamic) {
+    return /^.+$/.test(part);
+  } else {
+    return path === part;
+  }
+};
+
 /**
  * Find a route object for the specified path.
  *
  * @param routes
  * @param path
+ * @param items
  * @returns the associated route object
  */
-export const findRoute = (routes: DefaultTree<Route>, path: string) => {
+export function findRoute(routes: DefaultTree<Route>, path: string): Node<DefaultType & Route>;
+export function findRoute(
+  routes: DefaultTree<Route>,
+  path: string,
+  items: true
+): { route: Node<DefaultType & Route>; items: Route[] };
+export function findRoute(routes: DefaultTree<Route>, path: string, items?: boolean) {
   let route = routes.root;
-  for (const p of path.split("/")) {
+  const parts = path.split("/");
+  for (const p of parts) {
     if (p) {
-      route = Object.values(route?.children ?? {}).find((v) => v.data?.path === p) ?? route;
+      route = Object.values(route?.children ?? {}).find((v) => matchPath(v, p)) ?? route;
     }
   }
-  return route;
+  if (items) {
+    const items: Route[] = route
+      .getAncestors()
+      .reverse()
+      .map((v) => v.data)
+      .filter(typeofNonNullable)
+      .map((v, i) => ({
+        ...v,
+        path: (v.dynamic ? parts[i] : v.path) as string | typeof Dynamic,
+      }));
+    return { route, items };
+  } else {
+    return route;
+  }
+}
+
+const isRouteNode = (node: DefaultNode<Route> | Route): node is DefaultNode<Route> => "data" in node;
+
+const toPath = (route: DefaultNode<Route> | Route) => {
+  const { path } = isRouteNode(route) ? route.data ?? {} : route;
+  if (path === Dynamic) {
+    return "[id]";
+  } else {
+    return path;
+  }
 };
 
 /**
@@ -70,14 +112,15 @@ export const findRoute = (routes: DefaultTree<Route>, path: string) => {
  * @param route
  * @returns the path string
  */
-export const findPath = (route: DefaultNode<Route>) => {
-  return route
-    .getAncestors()
-    .reverse()
-    .map((v) => v.data?.path)
-    .join("/")
-    .replace(/\/+/, "/");
-};
+export function findPath(route: DefaultNode<Route>): string;
+export function findPath(items: Route[]): string;
+export function findPath(arg: DefaultNode<Route> | Route[]): string {
+  if (Array.isArray(arg)) {
+    return arg.map(toPath).join("/").replace(/\/+/, "/");
+  } else {
+    return arg.getAncestors().reverse().map(toPath).join("/").replace(/\/+/, "/");
+  }
+}
 
 if (process.env.NODE_ENV === "development") {
   const values = [...staticRoutes]
@@ -89,7 +132,7 @@ if (process.env.NODE_ENV === "development") {
   console.log(
     "Client Static Routes:\n" +
       [["[ID]", "[Name]", "[Display]", "[Scope]", "[Path]"], ...values]
-        .map((v) => v.map((w, i) => `${w}`.padEnd(pads[i])).join(" "))
+        .map((v) => v.map((w, i) => `${w?.toString()}`.padEnd(pads[i])).join(" "))
         .join("\n")
   );
 }
@@ -97,18 +140,68 @@ if (process.env.NODE_ENV === "development") {
 export const RouteContext = createContext<{
   routes: DefaultTree<Route>;
   route?: DefaultNode<Route>;
-}>({ routes: staticRoutes });
+  items: Route[];
+  resolvers: Readonly<RouteResolvers>;
+  addResolver?: (id: string, resolver: RouteResolver) => void;
+  removeResolver?: (id: string) => void;
+}>({ routes: staticRoutes, items: [], resolvers: {} });
 
 /**
  * Provider for the current route.
  */
 export function RouteProvider({ children }: { children: React.ReactNode }) {
   const [route, setRoute] = useState(undefined as DefaultNode<Route> | undefined);
+  const [items, setItems] = useState([] as Route[]);
+  const [resolvers, setResolvers] = useState({} as RouteResolvers);
   const pathname = usePathname();
 
   useEffect(() => {
-    setRoute(findRoute(staticRoutes, pathname ?? ""));
-  }, [pathname]);
+    const { route, items } = findRoute(staticRoutes, pathname ?? "", true);
+    setRoute(route);
+    setItems(items);
+    let cancelled = false;
+    const resolve = async () => {
+      let update = false;
+      let paths: string[] = [];
+      for (const v of items) {
+        if (cancelled) {
+          return;
+        } else if (v.id in resolvers) {
+          const result = await resolvers[v.id](String(v.path), ...paths);
+          if (result !== v.path) {
+            v.name = result;
+            update = true;
+          }
+        }
+        paths = [String(v.path), ...paths];
+      }
+      if (!cancelled && update) {
+        console.log("update", items);
+        setItems([...items]);
+      }
+    };
+    resolve();
+    return () => (cancelled = true) && undefined;
+  }, [resolvers, pathname]);
 
-  return <RouteContext.Provider value={{ routes: staticRoutes, route }}>{children}</RouteContext.Provider>;
+  const addResolver = useCallback(
+    (id: string, resolver: RouteResolver) => {
+      setResolvers({ ...resolvers, [id]: resolver });
+    },
+    [resolvers, setResolvers]
+  );
+
+  const removeResolver = useCallback(
+    (id: string) => {
+      const { [id]: _removed, ...rest } = resolvers;
+      setResolvers(rest);
+    },
+    [resolvers, setResolvers]
+  );
+
+  return (
+    <RouteContext.Provider value={{ routes: staticRoutes, route, items, resolvers, addResolver, removeResolver }}>
+      {children}
+    </RouteContext.Provider>
+  );
 }

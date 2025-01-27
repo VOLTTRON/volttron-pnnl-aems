@@ -1,4 +1,13 @@
-import { deepFreeze, parseBoolean, templateFormat, promiseChain, promiseFirst, delay } from "./util";
+import {
+  deepFreeze,
+  parseBoolean,
+  templateFormat,
+  promiseChain,
+  promiseFirst,
+  delay,
+  getDifference,
+  Removed,
+} from "./util";
 
 describe("deepFreeze", () => {
   it("should recursively freeze an object", () => {
@@ -17,6 +26,192 @@ describe("deepFreeze", () => {
     expect(Object.isFrozen(frozenObj)).toBe(true);
     expect(Object.isFrozen(frozenObj.prop2)).toBe(true);
     expect(Object.isFrozen(frozenObj.prop2.nestedProp2)).toBe(true);
+  });
+});
+
+describe("getDifference", () => {
+  it("should return undefined if objects are equal", () => {
+    const obj1 = {
+      prop1: "value1",
+      prop2: {
+        nestedProp1: "nestedValue1",
+      },
+    };
+    const obj2 = {
+      prop1: "value1",
+      prop2: {
+        nestedProp1: "nestedValue1",
+      },
+    };
+    const diff = getDifference(obj1, obj2);
+    expect(diff).toBe(undefined);
+  });
+
+  it("should return the difference between two objects for an updated prop", () => {
+    const obj1 = {
+      prop1: "value1",
+      prop2: {
+        nestedProp1: "nestedValue1",
+      },
+    };
+    const obj2 = {
+      prop1: "value2",
+      prop2: {
+        nestedProp1: "nestedValue1",
+      },
+    };
+    const diff = getDifference(obj1, obj2);
+    expect(diff).toEqual({ prop1: "value2" });
+  });
+
+  it("should return the difference between two objects for an updated nested prop", () => {
+    const obj1 = {
+      prop1: "value1",
+      prop2: {
+        nestedProp1: "nestedValue1",
+      },
+    };
+    const obj2 = {
+      prop1: "value1",
+      prop2: {
+        nestedProp1: "nestedValue2",
+      },
+    };
+    const diff = getDifference(obj1, obj2);
+    expect(diff).toEqual({ prop2: { nestedProp1: "nestedValue2" } });
+  });
+
+  it("should return the difference between two objects for an updated array prop", () => {
+    const obj1 = {
+      prop1: ["value1"],
+    };
+    const obj2 = {
+      prop1: ["value2"],
+    };
+    const diff = getDifference(obj1, obj2);
+    expect(diff).toEqual({ prop1: ["value2"] });
+  });
+
+  it("should return the difference between two objects for a removed object prop", () => {
+    const obj1 = {
+      prop1: "value1",
+      prop2: {
+        nestedProp1: "nestedValue1",
+      },
+    };
+    const obj2 = {
+      prop1: "value1",
+    };
+    const diff = getDifference(obj1, obj2);
+    expect(diff).toEqual({ prop2: Removed });
+  });
+
+  it("should return the difference between two objects for a removed nested prop", () => {
+    const obj1 = {
+      prop1: "value1",
+      prop2: {
+        nestedProp1: "nestedValue1",
+      },
+    };
+    const obj2 = {
+      prop1: "value1",
+      prop2: {},
+    };
+    const diff = getDifference(obj1, obj2);
+    expect(diff).toEqual({ prop2: { nestedProp1: Removed } });
+  });
+
+  it("should return the difference between two objects for an added prop", () => {
+    const obj1 = {
+      prop1: "value1",
+    };
+    const obj2 = {
+      prop1: "value1",
+      prop2: "value2",
+    };
+    const diff = getDifference(obj1, obj2);
+    expect(diff).toEqual({ prop2: "value2" });
+  });
+
+  it("should return the difference between two objects for an added nested prop", () => {
+    const obj1 = {
+      prop1: "value1",
+    };
+    const obj2 = {
+      prop1: "value1",
+      prop2: {
+        nestedProp1: "nestedValue1",
+      },
+    };
+    const diff = getDifference(obj1, obj2);
+    expect(diff).toEqual({ prop2: { nestedProp1: "nestedValue1" } });
+  });
+
+  it("should return the difference between two objects for an updated array value", () => {
+    const obj1 = {
+      prop1: ["value1"],
+    };
+    const obj2 = {
+      prop1: ["value2"],
+    };
+    const diff = getDifference(obj1, obj2);
+    expect(diff).toEqual({ prop1: ["value2"] });
+  });
+
+  it("should return the difference between two objects for a removed array value", () => {
+    const obj1 = {
+      prop1: ["value1"],
+    };
+    const obj2 = {
+      prop1: [],
+    };
+    const diff = getDifference(obj1, obj2);
+    expect(diff).toEqual({ prop1: [Removed] });
+  });
+
+  it("should return the difference between two objects for an added array value", () => {
+    const obj1 = {
+      prop1: [],
+    };
+    const obj2 = {
+      prop1: ["value1"],
+    };
+    const diff = getDifference(obj1, obj2);
+    expect(diff).toEqual({ prop1: ["value1"] });
+  });
+
+  it("should return the difference between two complex objects with updated, added, and removed objects, props, and arrays", () => {
+    const obj1 = {
+      prop1: "value1",
+      prop2: {
+        nestedProp1: "nestedValue1",
+        nestedProp2: {
+          deeplyNestedProp: "deeplyNestedValue",
+        },
+        nestedProp3: ["value1", "value2"],
+      },
+      prop3: ["value1"],
+    };
+    const obj2 = {
+      prop1: "value2",
+      prop2: {
+        nestedProp1: "nestedValue2",
+        nestedProp2: {},
+        nestedProp3: [null, "value2", "value3"],
+      },
+      prop4: "value3",
+    };
+    const diff = getDifference(obj1, obj2);
+    expect(diff).toEqual({
+      prop1: "value2",
+      prop2: {
+        nestedProp1: "nestedValue2",
+        nestedProp2: { deeplyNestedProp: Removed },
+        nestedProp3: [Removed, undefined, "value3"],
+      },
+      prop3: Removed,
+      prop4: "value3",
+    });
   });
 });
 

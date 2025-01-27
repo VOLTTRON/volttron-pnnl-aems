@@ -72,6 +72,7 @@ export default function Page() {
         <Search value={search} onValueChange={setSearch} />
       </ControlGroup>
       <Table
+        rowKey="id"
         rows={feedback}
         sortable={["status", "message", "createdAt", "updatedAt"]}
         columns={[

@@ -93,6 +93,7 @@ export default function Page() {
         </Button>
       </ControlGroup>
       <Table
+        rowKey="id"
         rows={users}
         columns={[
           { field: "name", label: "Name", type: "term" },

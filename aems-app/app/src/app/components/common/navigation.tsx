@@ -23,7 +23,7 @@ function Items({
       {routes.map((v) => {
         if (v.data) {
           const display = !v.data.index && isDisplay(v, current ?? {});
-          if (display && v.children.length > 0) {
+          if (display && v.children.filter((c) => c.data?.display).length > 0) {
             return (
               <MenuItem
                 key={v.data.id}

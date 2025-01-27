@@ -41,13 +41,24 @@ These applications should be installed on the host machine. The `development` ta
   - [Docker](https://www.docker.com/products/container-runtime) - (optional)
   - [Docker-Compose](https://docs.docker.com/compose/install/) - (optional)
 
+### Node.js
+Installing Node.js will require you to first install Node Version Manager (NVM). Instructions can be found on the Node.js website. Once you have installed NVM and restarted your consel, run the following command to install the correct version of Node.js.
+
+```bash
+nvm install 20
+```
+
 ## Development
 
 ### Installing
 
+#### Preferred Method
+
 Download the Skeleton App source code from the repository. It's recommended to use the latest stable release from the master branch.
 
 - [Github](https://stash.pnnl.gov/projects/D3X573/repos/skeleton/browse)
+
+#### Alternative Method
 
 Another option is to use Git subtree. This will allow you to push changes to your own repository yet still pull changes and bug fixes applied to the source skeleton repository.
 
@@ -65,9 +76,9 @@ git subtree pull --prefix=source https://stash.pnnl.gov/scm/~d3x573/skeleton.git
 
 ### Compiling
 
-If dependency or compile errors occur, it is very likely that Node.js or Yarn is out of date. The following commands assumes the user is in the `app` directory of the application.
+If dependency or compile errors occur, it is very likely that Node.js or Yarn is out of date. The following commands assumes the user is in the [app](./app/) directory of the application.
 
-Install the `yarn` package manager.
+Install the `yarn` package manager from the `app`, or `source/app` if using a subtree, directory.
 
 ```bash
 corepack enable
@@ -82,7 +93,7 @@ yarn compile
 
 ### Quality
 
-These should be run regularly to ensure consistent code quality. The following commands assumes the user is in the `app` directory of the application.
+These should be run regularly to ensure consistent code quality. The following commands assumes the user is in the [app](./app/) directory of the application.
 
 ```bash
 yarn test
@@ -91,7 +102,7 @@ yarn lint
 
 ### Initializing
 
-Local development requires an instance of Postgres with a `develop` user (default password of `password`). This user will need to be granted login, super user, and create database roles. The database migrations are not automatically run for development. The following commands assumes the user is in the `app` directory of the application.
+Local development requires an instance of Postgres with a `develop` user (default password of `password`). This user will need to be granted login, super user, and create database roles. The database migrations are not automatically run for development. The following commands assumes the user is in the [app](./app/) directory of the application.
 
 To run any impending database migrations:
 
@@ -109,7 +120,7 @@ yarn migrate:reset
 
 ### Running
 
-To start the app in development mode enter the following command from the `app` directory.
+To start the app in development mode enter the following command from the [app](./app/) directory. Alternatively, the app and services can be started individually using `yarn dev:app` and `yarn dev:services`.
 
 ```bash
 yarn dev
@@ -117,7 +128,7 @@ yarn dev
 
 Type `CTRL-C` to stop the app.
 
-To build and run the app in production mode enter the following commands from the `app` directory.
+To build and run the app in production mode enter the following commands from the [app](./app/) directory. Alternatively, the app and services can be started individually using `yarn start:app` and `yarn start:services`.
 
 ```bash
 yarn build
@@ -126,7 +137,7 @@ yarn start
 
 ### Configuration
 
-The primary configuration file is `./app/.env`. This file should contain all of the application defaults. Changes to development configuration should be made using a new file `./app/.env.local`. App client configuration options must be prefixed with `NEXT_PUBLIC_`. These are the only variables that will be available to client-side code.
+The primary application configuration file is [app/.env](./app/.env). This file should contain all of the application defaults. Changes to development configuration should be made using a new file [app/.env.local](./app/.env.local). App client configuration options must be prefixed with `NEXT_PUBLIC_`. These are the only variables that will be available to client-side code.
 
 > <b>Note:</b> Only configuration that differs from the base configuration file should be specified.
 
@@ -170,7 +181,7 @@ Open Street Map
 - GRAPHQL_PUBSUB: The publish and subscribe provider to use for GraphQL. The defaults available are memory, prisma, and redis.
 - FILE_UPLOAD_PATH: The path to store uploaded files.
 
-### Redis
+#### Redis
 
 - REDIS_HOST: The Redis hostname.
 - REDIS_PORT: The Redis port.
@@ -226,9 +237,9 @@ The following steps will need to be completed to deploy the application.
 
 ## Traefik Reverse Proxy (optional)
 
-If enabling the Traefik reverse proxy the profile `proxy` will need to be enabled. The environment variable `HOSTNAME` will need to be set to something other than localhost for deployments. For testing in development environments the IP address can be utilized. Likewise, any other section of the `.env` file that references localhost will also need to be changed.
+If enabling the Traefik reverse proxy the profile `proxy` will need to be enabled. The environment variable `HOSTNAME` will need to be set to something other than localhost for deployments. For testing in development environments either `localhost` or the IP address can be utilized. Likewise, any other section of the [.env](./.env) file that references `localhost` will also need to be changed.
 
-If the deployed application needs auto-generated public certificates it will need a valid domain name. The application will also need to be reachable from the internet. The following `.env` variables will need to be set: `CERT_RESOLVER=letsencrypt` and `ADMIN_EMAIL` will need to have a valid email specified.
+If the deployed application needs auto-generated public certificates it will need a valid domain name. The application will also need to be reachable from the internet. The following [.env](./.env) variables will need to be set: `CERT_RESOLVER=letsencrypt` and `ADMIN_EMAIL` will need to have a valid email specified.
 
 ## Bookstack Wiki (optional)
 
@@ -236,7 +247,7 @@ The Bookstack wiki container is provided mostly as an example of how to configur
 
 ## Keycloak Authentication (optional)
 
-Keycloak is the only container that requires configuration through their user interface. The other containers are configured by default to use a realm labeled `default`. Individual clients for `app`, and `wiki` if utilized, will need to be configured, and their secrets set in the `.env` file. Keycloak documentation should be consulted for configuration.
+Keycloak is the only container that requires configuration through their user interface. The other containers are configured by default to use a realm labeled `default`. Individual clients for [app](./app/), and `wiki` if utilized, will need to be configured, and their secrets set in the [.env](./.env) file. Keycloak documentation should be consulted for configuration.
 
 ## Nominatim (optional)
 
@@ -253,25 +264,27 @@ osmium merge file1.osm.pbf file2.osm.pbf -o region.osm.pbf
 
 ## Open Street Map Tiles (optional)
 
-Open Street Map tiles (.mbtiles) can be utilized directly by downloading the source `.osm.pbf` file and running the following command (modify the osm.pbf filenames to the downloaded filename). The resulting `.mbtiles` file will then be used by the OSM tile server. Processing the entire planet requires a system with 128GB of memory. Already processed `.mbtiles` files are available, with a paid license, from [https://openmaptiles.com/downloads/planet/](https://openmaptiles.com/downloads/planet/). They can also be found on the internet at various locations (typically not the most up to date).
+Open Street Map tiles (.mbtiles) can be utilized directly by downloading the source `.osm.pbf` file and running the following command (modify the osm.pbf filenames to the downloaded filename). The resulting `.mbtiles` file will then be used by the OSM tile server. Processing the entire planet requires a system with 128GB of memory. Already processed `.mbtiles` files are available, with a paid license, from [https://openmaptiles.com/downloads/planet/](https://openmaptiles.com/downloads/planet/). They can also be found on the internet at various locations (typically not the most up to date). You can place the already processed `planet.mbtiles` file in the [docker/map/mbtiles](./docker/map/mbtiles) directory.
 
 Download the entire planet file using the following command:
 
 ```bash
-docker run --rm -it -v $pwd/map:/download openmaptiles/openmaptiles-tools download-osm planet -- -d /download
+docker run --rm -it -v $pwd/docker/map:/download openmaptiles/openmaptiles-tools download-osm planet -- -d /download
 ```
 
 Convert the planet file to an mbtiles file using the following command:
 
 ```bash
-docker run -it --rm -v $pwd/map:/data ghcr.io/systemed/tilemaker:master /data/planet.osm.pbf --output /data/mbtiles/planet.mbtiles
+docker run -it --rm -v $pwd/docker/map:/data ghcr.io/systemed/tilemaker:master /data/planet.osm.pbf --output /data/mbtiles/planet.mbtiles
 ```
 
 > <b>Note: </b> If using Mapbox-GL it must remain at version 1.x to utilize open-source license. MapLibre is a fork of the 1.x branch and is open source. The OSM contribution message must also remain on the displayed map.
 
 ### Configuration
 
-Configuration for docker compose can be found at `./.env`. The file `./docker-compose.yml` may need to be edited for some deployments. The docker compose definition contains a few optional containers that can be enabled by adding profiles. Proxy (`proxy`) is a Traefik proxy that can server locally signed or valid internet certificates provided by Let's Encrypt. Open Street Map (`map`) is map file service that can be configured to provide Open Street Map tiles. Nominatim (`nom`) is an address lookup and auto-complete service that is configured to utilize the same data and area as the optional map container.
+Default configuration for docker compose can be found at [.env](./.env). Overrides for secrets can be placed in a [.env.secrets](./.env.secrets) file. The [.env.secrets](./.env.secrets) file will need to be set as system environment variables by either using the provided scripts ([secrets.ps1](./secrets.ps1) or [secrets.sh](./secrets.sh)) or some other means prior to building and running the containers. The PowerShell script can also unset all listed variables using the `clear` argument. There are default users with temporary passwords defined for local authentication in the [docker/init/20211103151730-system-user.json](./docker/init/20211103151730-system-user.json) file.
+
+The file [docker-compose.yml](./docker-compose.yml) or [docker/docker-compose.yml](./docker/docker-compose.yml) may need to be edited for some deployments. The docker compose definition contains a few optional containers that can be enabled by adding profiles. Proxy (`proxy`) is a Traefik proxy that can server locally signed or valid internet certificates provided by Let's Encrypt. Open Street Map (`map`) is map file service that can be configured to provide Open Street Map tiles. Nominatim (`nom`) is an address lookup and auto-complete service that is configured to utilize the same data and area as the optional map container.
 
 ### TLS (SSL/HTTPS)
 
@@ -280,8 +293,6 @@ TLS is provided by mkcert certificates and Let's Encrypt. The init container wil
 ### Docker Compose
 
 A Docker compose file is included to manage the docker instances. The docker compose file will work in Windows, Mac, and Linux. By default the web application will be available at [https://localhost](https://localhost). The following commands deploy all of the docker containers.
-
-> <b>Note: </b> If enabling the `map` profile the OSM setup container will need to complete data import before the OSM tile server will start.
 
 Build the docker instances:
 
@@ -317,9 +328,9 @@ docker compose down -v
 
 Follow the below steps to setup Keycloak to allow users to register and manage their own accounts.
 
-1. You will need to set a domain name or IP address as the "HOSTNAME" in the `.env` file. You can optionally set the "KEYCLOAK_DEFAULT_ROLE" to automatically assign a role to newly registered accounts. This change is not retroactive.
+1. You will need to set a domain name or IP address as the "HOSTNAME" in the [.env](./.env) file. You can optionally set the "KEYCLOAK_DEFAULT_ROLE" to automatically assign a role to newly registered accounts. This change is not retroactive.
 2. Navigate to the Keycloak admin page (replacing `localhost` with the previously set variable): [https://localhost/auth/sso/admin/master/console]()
-3. Sign in using the username and password specified in the `.env` file as "KEYCLOAK_ADMIN" and "KEYCLOAK_ADMIN_PASSWORD".
+3. Sign in using the username and password specified in the [.env](./.env) file as "KEYCLOAK_ADMIN" and "KEYCLOAK_ADMIN_PASSWORD".
 4. Click the "Keycloak" drop down to create a new realm.
    ![](docs/setup-keycloak_01.PNG)
 5. Set the "Realm name" to `default` and click "Create".
@@ -328,7 +339,7 @@ Follow the below steps to setup Keycloak to allow users to register and manage t
    ![](docs/setup-keycloak_03.PNG)
 7. Navigate to "Clients" and click "Create client".
    ![](docs/setup-keycloak_04.PNG)
-8. Set the "Client ID" to `app`, optionally set the "Client Name", and click "Next".
+8. Set the "Client ID" to [app](./app/), optionally set the "Client Name", and click "Next".
    ![](docs/setup-keycloak_05.PNG)
 9. Enable "Client authentication" and "Implicit flow" and click "Next".
    ![](docs/setup-keycloak_06.PNG)
@@ -336,7 +347,7 @@ Follow the below steps to setup Keycloak to allow users to register and manage t
     ![](docs/setup-keycloak_07.PNG)
 11. Navigate to the "Credentials" tab and copy the "Client Secret" to your clipboard.
     ![](docs/setup-keycloak_08.PNG)
-12. Assign the copied client secret to the `.env` value for "KEYCLOAK_CLIENT_SECRET".
+12. Assign the copied client secret to the [.env](./.env) value for "KEYCLOAK_CLIENT_SECRET".
 13. Redeploy the app using:
 
 ```bash
@@ -396,31 +407,42 @@ This project utilizes a Gitflow workflow. While this method works well for the d
 ### Workflow
 
 1. Create a new feature branch from the `develop` branch replacing `my-feature` with a short name for your feature.
+
 ```bash
 git checkout -b feature/my-feature develop
 ```
+
 2. Make changes to the feature branch and check in often to prevent loss of work.
+
 ```bash
 git add .
 git commit -m "My feature commit message."
 ```
+
 3. Merge the feature branch into the `develop` branch. Optionally create a pull request.
+
 ```bash
 git checkout develop
 git merge feature/my-feature
 git branch -d feature/my-feature
 git push origin develop
 ```
+
 4. Create a new release branch from the `develop` branch replacing `1.0.0` with the release version.
+
 ```bash
 git checkout -b release/1.0.0 develop
 ```
+
 5. Make changes to the release branch. To update the client version make changes within files matching these filters: `.env*,*.yml,*.json`
+
 ```bash
 git add .
 git commit -m "My release commit message."
 ```
+
 6. Merge the release branch into the `master` and `develop` branches.
+
 ```bash
 git checkout master
 git merge release/1.0.0

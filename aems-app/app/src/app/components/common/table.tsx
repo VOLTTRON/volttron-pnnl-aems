@@ -14,6 +14,7 @@ export enum TupleIndex {
 }
 
 export function Table<T extends {}>({
+  rowKey,
   rows,
   sortable,
   columns,
@@ -25,6 +26,7 @@ export function Table<T extends {}>({
   setSelected,
   tableProps,
 }: {
+  rowKey: keyof T;
   rows: T[];
   sortable?: (keyof T)[];
   columns: ({
@@ -33,13 +35,13 @@ export function Table<T extends {}>({
     type?: ColumnType;
     renderer?: (col: number, row: number, value: any) => React.ReactNode;
   } & (
-      | {
+    | {
         type?: ColumnType;
       }
-      | {
+    | {
         renderer: (col: number, row: number, value: any) => React.ReactNode;
       }
-    ))[];
+  ))[];
   actions?: {
     values: { id: string; icon: IconName; intent?: Intent }[];
     onClick: (
@@ -52,14 +54,18 @@ export function Table<T extends {}>({
   };
   sort?: { field: keyof T; direction: "Asc" | "Desc" };
   setSort?: (sort: { field: keyof T; direction: "Asc" | "Desc" }) => void;
-  selected?: { rows?: number[]; cells?: [number, number][] };
-  onSelected?: (row: number, col: number) => void;
-  setSelected?: (selected: { rows?: number[]; cells?: [number, number][] }) => void;
+  selected?: { rows?: number[]; cells?: [number, number][]; rowKeys?: T[typeof rowKey][] };
+  onSelected?: (row: number, col: number, rowKeys?: T[typeof rowKey]) => void;
+  setSelected?: (selected: { rows?: number[]; cells?: [number, number][]; rowKeys?: T[typeof rowKey][] }) => void;
   tableProps?: HTMLTableProps;
 }) {
-  function handleSelect(row: number, col: number) {
-    onSelected?.(row, col);
-    setSelected?.({ rows: xor(selected?.rows ?? [], [row]), cells: xor(selected?.cells ?? [], [[row, col]]) });
+  function handleSelect(row: number, col: number, rowKeys?: T[typeof rowKey]) {
+    onSelected?.(row, col, rowKeys);
+    setSelected?.({
+      rows: xor(selected?.rows ?? [], [row]),
+      cells: xor(selected?.cells ?? [], [[row, col]]),
+      rowKeys: xor(selected?.rowKeys ?? [], rowKeys ? [rowKeys] : []),
+    });
   }
 
   function renderValue(row: T, field: keyof T, type: ColumnType | undefined) {
@@ -138,10 +144,13 @@ export function Table<T extends {}>({
       </thead>
       <tbody>
         {rows.map((row, r) => (
-          <tr key={r} {...(selected?.rows?.includes(r) && { selected: "true" })}>
+          <tr
+            key={`${row[rowKey] ?? r}`}
+            {...((selected?.rows?.includes(r) || selected?.rowKeys?.includes(row[rowKey])) && { selected: "true" })}
+          >
             {columns.map(({ field, type, renderer }, c) => (
               <td
-                key={c}
+                key={`${c}-${row[rowKey] ?? r}`}
                 {...(selected?.cells?.find((v) => v[TupleIndex.Row] === r && v[TupleIndex.Col] === c) && {
                   selected: true,
                 })}

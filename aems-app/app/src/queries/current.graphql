@@ -57,17 +57,3 @@ mutation DeleteCurrent {
     id
   }
 }
-
-subscription SubscribeCurrent {
-  readCurrent {
-    id
-    name
-    email
-    image
-    role
-    emailVerified
-    preferences
-    createdAt
-    updatedAt
-  }
-}

@@ -4309,7 +4309,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/ws@npm:^8, @types/ws@npm:^8.0.0":
+"@types/ws@npm:^8.0.0":
   version: 8.5.10
   resolution: "@types/ws@npm:8.5.10"
   dependencies:
@@ -7953,15 +7953,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"graphql-ws@npm:^5.16.0":
-  version: 5.16.0
-  resolution: "graphql-ws@npm:5.16.0"
-  peerDependencies:
-    graphql: ">=0.11 <=16"
-  checksum: 10/e56d903920c78fa88966e31940d281f8b35ef8c9f4543255bfe349e47a0e972c6ca746bcb52040b1c6938d22e42560228994399972abc473cfa6bcd183aca709
-  languageName: node
-  linkType: hard
-
 "graphql@npm:^16.9.0":
   version: 16.9.0
   resolution: "graphql@npm:16.9.0"
@@ -10227,17 +10218,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"next-ws@npm:^1.1.1":
-  version: 1.1.1
-  resolution: "next-ws@npm:1.1.1"
-  peerDependencies:
-    next: ">=13.1.1"
-    react: "*"
-    ws: "*"
-  checksum: 10/10a63c3129cad969d1b99c628ac50eb8116942e4ea5bffd9a98628a388b15c99ef2049a2dc174e4831b8045079792b32d3a40bdd5d7b54bf1af846d1d7797978
-  languageName: node
-  linkType: hard
-
 "next@npm:14.2.4":
   version: 14.2.4
   resolution: "next@npm:14.2.4"
@@ -11035,11 +11015,11 @@ __metadata:
 
 "pino-prisma@file:./modules/pino-prisma/build::locator=skeleton%40workspace%3A.":
   version: 0.1.0
-  resolution: "pino-prisma@file:./modules/pino-prisma/build#./modules/pino-prisma/build::hash=f4f736&locator=skeleton%40workspace%3A."
+  resolution: "pino-prisma@file:./modules/pino-prisma/build#./modules/pino-prisma/build::hash=f63ab6&locator=skeleton%40workspace%3A."
   dependencies:
     pg: "npm:^8.12.0"
     pino-abstract-transport: "npm:^1.1.0"
-  checksum: 10/9ec481027521ddb8054142c1627f267f268a85054476b538cc8287c20f57004535324501935ea074714ee009f24c9f4b36bd3285762f3e3abdff7b68f0dd41dc
+  checksum: 10/5972d6ccc43f74afbb90cabd9f95846518dcea82bef229afc13aff2d76cbd26d7b18fd3003d774b0f4c5c27d0d5d48ee30f76d7531c011d27377d2bb4c21831b
   languageName: node
   linkType: hard
 
@@ -12275,7 +12255,6 @@ __metadata:
     "@types/pg": "npm:^8.11.6"
     "@types/react": "npm:^18.2.70"
     "@types/react-dom": "npm:^18.2.22"
-    "@types/ws": "npm:^8"
     "@zxcvbn-ts/core": "npm:^3.0.4"
     "@zxcvbn-ts/language-common": "npm:^3.0.4"
     "@zxcvbn-ts/language-en": "npm:^3.0.2"
@@ -12292,7 +12271,6 @@ __metadata:
     graphql-redis-subscriptions: "npm:^2.6.1"
     graphql-scalars: "npm:^1.23.0"
     graphql-subscriptions: "npm:^2.0.0"
-    graphql-ws: "npm:^5.16.0"
     html2canvas: "npm:^1.4.1"
     ioredis: "npm:^5.4.1"
     jest: "npm:^29.7.0"
@@ -12303,7 +12281,6 @@ __metadata:
     maplibre-gl: "npm:^4.6.0"
     moment: "npm:^2.30.1"
     next: "npm:14.2.4"
-    next-ws: "npm:^1.1.1"
     next-ws-cli: "npm:^1.1.4"
     node-cron: "npm:^3.0.3"
     oslo: "npm:^1.1.3"
@@ -12326,7 +12303,6 @@ __metadata:
     tsconfig-paths: "npm:^4.2.0"
     typescript: "npm:^5.6.2"
     typescript-eslint: "npm:^7.4.0"
-    ws: "npm:^8.18.0"
     xregexp: "npm:^5.1.1"
     xstate: "npm:^5.9.1"
   languageName: unknown
@@ -13773,21 +13749,6 @@ __metadata:
     utf-8-validate:
       optional: true
   checksum: 10/7c511c59e979bd37b63c3aea4a8e4d4163204f00bd5633c053b05ed67835481995f61a523b0ad2b603566f9a89b34cb4965cb9fab9649fbfebd8f740cea57f17
-  languageName: node
-  linkType: hard
-
-"ws@npm:^8.18.0":
-  version: 8.18.0
-  resolution: "ws@npm:8.18.0"
-  peerDependencies:
-    bufferutil: ^4.0.1
-    utf-8-validate: ">=5.0.2"
-  peerDependenciesMeta:
-    bufferutil:
-      optional: true
-    utf-8-validate:
-      optional: true
-  checksum: 10/70dfe53f23ff4368d46e4c0b1d4ca734db2c4149c6f68bc62cb16fc21f753c47b35fcc6e582f3bdfba0eaeb1c488cddab3c2255755a5c3eecb251431e42b3ff6
   languageName: node
   linkType: hard
 

@@ -3,8 +3,8 @@
 import styles from "./page.module.scss";
 import { Button, ControlGroup, Intent } from "@blueprintjs/core";
 import { useContext, useMemo, useState } from "react";
-import { useSubscription } from "@apollo/client";
-import { ReadBannersQuery, StringFilterMode, SubscribeBannersDocument } from "@/generated/graphql-codegen/graphql";
+import { useQuery } from "@apollo/client";
+import { ReadBannersDocument, ReadBannersQuery, StringFilterMode } from "@/generated/graphql-codegen/graphql";
 import { NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { Term, filter } from "@/utils/client";
 import { CreateBanner, DeleteBanner, UpdateBanner } from "./dialog";
@@ -29,7 +29,7 @@ export default function Page() {
   const { route } = useContext(RouteContext);
   const { createNotification } = useContext(NotificationContext);
 
-  const { data } = useSubscription(SubscribeBannersDocument, {
+  const { data } = useQuery(ReadBannersDocument, {
     variables: {
       where: { message: { contains: search, mode: StringFilterMode.Insensitive } },
       orderBy: { [sort.field]: sort.direction },
@@ -72,6 +72,7 @@ export default function Page() {
         </Button>
       </ControlGroup>
       <Table
+        rowKey="id"
         rows={banners}
         columns={[
           { field: "message", label: "Message", type: "term" },
