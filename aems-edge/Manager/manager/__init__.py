@@ -195,7 +195,7 @@ class DefaultConfig:
             self.optimal_start = OptimalStartConfig(**self.optimal_start)
         os.environ['LOCAL_TZ'] = self.local_tz
         self.data_file = self.data_dir / f'{self.system}.csv'
-        self.timezone_consistent = self.are_timezones_equivalent(self.local_tz, get_localzone())
+        self.timezone_consistent = self.are_timezones_equivalent(self.local_tz)
         if not self.timezone_consistent:
             _log.warning(f'Timezone configuration is not consistent.')
             _log.warning(f'Configured: {self.local_tz} -- detected system timezone: {get_localzone()}')
@@ -290,7 +290,7 @@ class DefaultConfig:
             _log.error(e)
 
     @staticmethod
-    def are_timezones_equivalent(tz1, tz2):
+    def are_timezones_equivalent(cfg_tz):
         """
         Check if system and configured timezones are consistent.
 
@@ -300,8 +300,8 @@ class DefaultConfig:
         now = datetime.now()
 
         # Convert the current time to both timezones
-        dt1 = now.astimezone(pytz.timezone(tz1))
-        dt2 = now.astimezone(pytz.timezone(tz2))
+        dt1 = now.astimezone(get_localzone())
+        dt2 = now.astimezone(pytz.timezone(cfg_tz))
 
         # Check if the UTC offsets are the same
         return dt1.utcoffset() == dt2.utcoffset()
