@@ -298,7 +298,7 @@ class DefaultConfig:
         :rtype: bool
         """
         now = datetime.now()
-
+        _log.debug(f'Configured timezone {cfg_tz} -- detected system timezone: {get_localzone()}')
         # Convert the current time to both timezones
         dt1 = now.astimezone(get_localzone())
         dt2 = now.astimezone(pytz.timezone(cfg_tz))
