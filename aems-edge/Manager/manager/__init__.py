@@ -30,8 +30,11 @@ from datetime import datetime, time, timedelta
 from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Optional
+import pytz
+from tzlocal import get_localzone
 
 from volttron.platform.messaging import topics, utils
+from volttron.platform.agent.utils import get_aware_utc_now
 
 from .points import DaysOfWeek, Points, PointValue, SetpointControlType
 
@@ -192,6 +195,10 @@ class DefaultConfig:
             self.optimal_start = OptimalStartConfig(**self.optimal_start)
         os.environ['LOCAL_TZ'] = self.local_tz
         self.data_file = self.data_dir / f'{self.system}.csv'
+        self.timezone_consistent = self.are_timezones_equivalent(self.local_tz)
+        if not self.timezone_consistent:
+            _log.warning(f'Timezone configuration is not consistent.')
+            _log.warning(f'Configured: {self.local_tz} -- detected system timezone: {get_localzone()}')
         self.validate()
 
     def __hash__(self):
@@ -257,3 +264,47 @@ class DefaultConfig:
                 else:
                     raise ValueError(f'Invalid schedule value: {sched}')
         return current_schedule
+
+    def get_current_time(self) -> datetime.time:
+        """
+        Returns the current time based on the object's timezone configuration.
+
+        If the object's timezone configuration is consistent (`timezone_consistent` is True),
+        the local system time is returned with the microsecond and second fields set to 0.
+        Otherwise, the function calculates the current time based on the object's specified timezone,
+        adjusting from UTC if necessary.
+
+        Handles exceptions by logging errors, which might affect schedule determination accuracy.
+
+        :return: The current time adjusted based on the object's timezone configuration.
+        :rtype: datetime.time
+        """
+        try:
+            _log.debug(f'Get get current_time timezone consistent: {self.timezone_consistent}')
+            if self.timezone_consistent:
+                return datetime.time(datetime.now()).replace(microsecond=0, second=0)
+            else:
+                current_time = get_aware_utc_now().astimezone(self.timezone)
+                return datetime.time(current_time).replace(microsecond=0, second=0)
+        except Exception as e:
+            _log.error('Schedule determination might be incorrect! Problem parsing timezone!')
+            _log.error(e)
+            return datetime.time(datetime.now()).replace(microsecond=0, second=0)
+
+    @staticmethod
+    def are_timezones_equivalent(cfg_tz: str):
+        """
+        Check if system and configured timezones are consistent.
+        :param cfg_tz: configured timezone.
+        :type cfg_tz: str
+        :return: return True if system and configured timezones are consistent, False otherwise.
+        :rtype: bool
+        """
+        now = datetime.now()
+        _log.debug(f'Configured timezone {cfg_tz} -- detected system timezone: {get_localzone()}')
+        # Convert the current time to both timezones
+        dt1 = now.astimezone(get_localzone())
+        dt2 = now.astimezone(pytz.timezone(cfg_tz))
+
+        # Check if the UTC offsets are the same
+        return dt1.utcoffset() == dt2.utcoffset()
