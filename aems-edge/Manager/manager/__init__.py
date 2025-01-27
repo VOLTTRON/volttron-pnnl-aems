@@ -292,10 +292,11 @@ class DefaultConfig:
             return datetime.time(datetime.now()).replace(microsecond=0, second=0)
 
     @staticmethod
-    def are_timezones_equivalent(cfg_tz):
+    def are_timezones_equivalent(cfg_tz: str):
         """
         Check if system and configured timezones are consistent.
-
+        :param cfg_tz: configured timezone.
+        :type cfg_tz: str
         :return: return True if system and configured timezones are consistent, False otherwise.
         :rtype: bool
         """
