@@ -508,10 +508,18 @@ class ManagerProxy:
         There are no partial updates, the entire optimal start is replaced.  This function does the following:
 
 
-        :param data:
-        :type data:
-        :return:
-        :rtype:
+        :param config: Optimal start configuration :
+        --
+            latest_start_time: int
+            earliest_start_time: int
+            allowable_setpoint_deviation: float
+            optimal_start_lockout_temperature: float = 30
+            training_period_window: int = 10
+        :type config: OptimalStartConfig | dict
+        :param update_store: True when method is triggered via RPC (store data in config store).
+        :type update_store: bool
+        :return: Return True on success
+        :rtype: bool
         """
         headers = {headers_mod.DATE: format_timestamp(get_aware_utc_now())}
         topic = '/'.join([self.cfg.base_record_topic, OPTIMAL_START])
@@ -531,9 +539,9 @@ class ManagerProxy:
 
     def set_temperature_setpoints(self, data: dict[str, float], update_store: bool = True) -> Union[bool, str]:
         """
-
-        :param data:
-        :type data:
+        Sets the temperature setpoints for the RTU.  Called on periodic and when setpoints are updated.
+        :param data: RTU occupied and unoccupied heating and cooling set points.
+        :type data: dict
         :param update_store: True when method is triggered via RPC (store data in config store).
         :type update_store: bool
         :return: Return True on success and False on failure or error.
@@ -541,7 +549,7 @@ class ManagerProxy:
         """
         headers = {headers_mod.DATE: format_timestamp(get_aware_utc_now())}
         topic = '/'.join([self.cfg.base_record_topic, SET_POINTS])
-        _log.debug(f'SET_TEMPERATURE_SETPOINTS - update_store: {update_store}')
+        _log.debug(f'Update temperature_setpoints - {data} -- update_store: {update_store}')
         result = self.create_setpoints(data)
         if isinstance(result, str):
             return False
@@ -552,13 +560,11 @@ class ManagerProxy:
                 return False
         if update_store:
             self.config_set('set_points', data)
-            _log.debug(f'Configuration for set_relinquish_default: {self.cfg.set_relinquish_default}')
-            if self.cfg.set_relinquish_default:
-                for point, value in result.items():
-                    control_result = self.do_zone_control(point, value, on_property='relinquishDefault')
-                    if isinstance(control_result, str):
-                        _log.error(f'Zone control response {self.identity} - Set {point} to {value} -- {control_result}')
-                        return False
+            for point, value in result.items():
+                control_result = self.do_zone_control(point, value, on_property='relinquishDefault')
+                if isinstance(control_result, str):
+                    _log.error(f'Zone control response {self.identity} - Set {point} to {value} -- {control_result}')
+                    return False
         self.publish(topic, headers=headers, message=data)
         return True
 
@@ -713,7 +719,7 @@ class ManagerProxy:
         # what if current_schedule is None
         current_schedule = self.cfg.get_current_day_schedule()
         _log.debug(f'{self.identity} - is_occupied : {is_occupied}')
-        current_time = dt.time(dt.now()).replace(microsecond=0, second=0)
+        current_time = self.cfg.get_current_time()
         is_holiday = self.holiday_manager.is_holiday(dt.now())
         _log.debug(f'{self.identity} - current day is holiday: {is_holiday}')
         _log.debug(f'{current_schedule} -- current_time: {current_time}')
@@ -916,6 +922,13 @@ class ManagerProxy:
         return result
 
     def update_weather_forecast(self):
+        """
+        Updates the weather forecast by retrieving hourly weather data from a Weather service.
+
+        The method fetches weather data through an RPC call to a specified weather service identity.
+        It processes the data to extract and parse the forecast information,
+        converting timestamps to the configured timezone and retrieving relevant temperature details.
+        """
         def parse_rpc_data(weather_results):
             weather_data = []
             for oat in weather_results:
