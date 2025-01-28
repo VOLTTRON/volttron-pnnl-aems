@@ -114,8 +114,18 @@ export function ViewFeedback({ open, setOpen, icon, feedback }: IViewFeedbackPro
                 <SelectAssignee assignee={assignee} setAssignee={setAssignee} />
               </div>
               <div className={styles.time}>
-                <span>Last updated on {feedback.updatedAt?.toLocaleString()}</span>
-                <span>Created on {feedback.createdAt?.toLocaleString()}</span>
+                <span>
+                  Last updated on{" "}
+                  {feedback.updatedAt
+                    ? new Date(feedback.updatedAt)?.toLocaleString(process.env.NEXT_PUBLIC_LOCALE)
+                    : "unknown"}
+                </span>
+                <span>
+                  Created on{" "}
+                  {feedback.createdAt
+                    ? new Date(feedback.createdAt)?.toLocaleString(process.env.NEXT_PUBLIC_LOCALE)
+                    : "unknown"}
+                </span>
               </div>
             </div>
           </div>

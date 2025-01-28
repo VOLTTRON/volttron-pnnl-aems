@@ -178,7 +178,7 @@ class Log extends React.Component<LogProps, any> {
                 </Card>
               ) : (
                 <Card key={log.id || log.sequence || i} interactive>
-                  <div>[{moment(log.updatedAt).format("y-m-d H:m:s")}]</div>
+                  <div>[{moment(log.updatedAt).format("YYYY-MM-DD HH:mm:ss")}]</div>
                   <div>
                     <b>{log.type}</b>
                   </div>

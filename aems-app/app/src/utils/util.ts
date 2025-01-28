@@ -1,4 +1,10 @@
-import { get } from "lodash";
+import { get, isArray, isEqual, isNil, isObject, range, union } from "lodash";
+import { DeepTyped, DeepPartial } from "./types";
+
+/**
+ * Type guard for non null or undefined value.
+ */
+export const typeofNonNullable = <T>(value: T): value is NonNullable<T> => value !== null && value !== undefined;
 
 /**
  * Type guard for object keys.
@@ -33,6 +39,54 @@ export function deepFreeze<T extends {}>(object: T) {
   }
   return Object.freeze(object);
 }
+
+/**
+ * Marks a value as removed.
+ */
+export const Removed = Symbol("Removed");
+
+const isArrayType = (value: any): value is any[] | null | undefined => isArray(value) || isNil(value);
+
+const isObjectType = (value: any): value is object | null | undefined => isObject(value) || isNil(value);
+
+/**
+ * Get the difference between two values.
+ * The result will be a new value with the differences shown as follows:
+ * - If a property is removed, the value will be `Removed`.
+ * - If a property is added, the value will be the new value.
+ * - If a property is updated, the value will be the new value.
+ * - If a property is unchanged, the value will be `undefined`.
+ * - If a property is an array, the value will be an array of differences.
+ *
+ * @param a the original value
+ * @param b the updated value
+ * @returns the difference between the two values
+ */
+export const getDifference = <A, B>(
+  a: A,
+  b: B
+): (DeepTyped<A, typeof Removed> & DeepPartial<B>) | A | B | typeof Removed | undefined => {
+  if (isEqual(a, b)) {
+    return undefined;
+  } else if (isNil(b)) {
+    return Removed;
+  } else if (isArrayType(a) && isArrayType(b)) {
+    return range(Math.max(a?.length || 0, b?.length || 0)).map((i) => getDifference(a?.[i], b?.[i])) as
+      | (DeepTyped<A, typeof Removed> & DeepPartial<B>)
+      | undefined;
+  } else if (isObjectType(a) && isObjectType(b)) {
+    const diff = {} as (DeepTyped<A, typeof Removed> & DeepPartial<B>) & any;
+    for (const key of union(Object.keys(a ?? {}), Object.keys(b ?? {}))) {
+      const value = getDifference(a?.[key as keyof A], b?.[key as keyof B]);
+      if (value !== undefined) {
+        diff[key] = value;
+      }
+    }
+    return Object.keys(diff).length ? diff : undefined;
+  } else {
+    return b;
+  }
+};
 
 /**
  * Parse a string and return a boolean value.

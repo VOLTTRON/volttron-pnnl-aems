@@ -36,6 +36,8 @@ export interface Context extends BaseContext {
 }
 
 // simple types for importing scalars into graphql codegen.ts
+export type DateType = Date | string;
+
 export type SubscriptionEventType = SubscriptionEvent<SubscriptionTopic>;
 
 export type UserPreferencesType = UserPreferences & Partial<Preferences>;

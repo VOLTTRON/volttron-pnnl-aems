@@ -43,23 +43,3 @@ mutation DeleteLog($where: LogUniqueFilter!) {
     id
   }
 }
-
-subscription SubscribeLog($where: LogUniqueFilter!) {
-  readLog(where: $where) {
-    id
-    type
-    message
-    createdAt
-    updatedAt
-  }
-}
-
-subscription SubscribeLogs($where: LogFilter, $orderBy: [LogOrderBy!], $distinct: [LogFields!]) {
-  readLogs(where: $where, orderBy: $orderBy, distinct: $distinct) {
-    id
-    type
-    message
-    createdAt
-    updatedAt
-  }
-}

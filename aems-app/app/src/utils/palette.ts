@@ -318,7 +318,7 @@ export class Color {
       error("Invalid color values");
     }
     this.name = isString(name) ? name : error(`Invalid color name: ${name}`);
-    this.hex = isHex(hex) ? hex.toLocaleLowerCase() : error(`Invalid color hex: ${hex}`);
+    this.hex = isHex(hex) ? hex.toLocaleLowerCase(process.env.NEXT_PUBLIC_LOCALE) : error(`Invalid color hex: ${hex}`);
   }
 
   static build(builder: JsonColor): Color {
