@@ -10,9 +10,9 @@ const config: CodegenConfig = {
         strictScalars: true,
         scalars: {
           JSON: "any",
-          Preferences: "@/graphql/types#UserPreferencesType",
+          DateTime: "@/graphql/types#DateType",
           Event: "@/graphql/types#SubscriptionEventType",
-          DateTime: "Date",
+          Preferences: "@/graphql/types#UserPreferencesType",
           LogType: "@/graphql/types#LogType",
           FeedbackStatusType: "@/graphql/types#FeedbackStatusType",
         },

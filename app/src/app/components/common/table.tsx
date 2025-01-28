@@ -73,11 +73,11 @@ export function Table<T extends {}>({
       case "term":
         return renderTerm(row, field);
       case "date":
-        return new Date(row[field] as any).toLocaleString();
+        return row[field] ? new Date(row[field] as Date | string).toLocaleString(process.env.NEXT_PUBLIC_LOCALE) : "";
       case "string":
-        return row[field] as string;
+        return row[field] as string | undefined;
       case "element":
-        return row[field] as React.ReactNode;
+        return row[field] as React.ReactNode | undefined;
       default:
         return `${row[field]}`;
     }

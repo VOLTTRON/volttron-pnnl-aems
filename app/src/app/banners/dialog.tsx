@@ -37,7 +37,7 @@ export function CreateBanner({
   useEffect(() => {
     setError("");
     setMessage("");
-    setExpiration(new Date(new Date().getTime() + 1 * 60 * 60 * 1000).toLocaleString());
+    setExpiration(new Date(new Date().getTime() + 1 * 60 * 60 * 1000).toLocaleString(process.env.NEXT_PUBLIC_LOCALE));
   }, [open]);
 
   return (
