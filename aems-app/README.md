@@ -42,6 +42,7 @@ These applications should be installed on the host machine. The `development` ta
   - [Docker-Compose](https://docs.docker.com/compose/install/) - (optional)
 
 ### Node.js
+
 Installing Node.js will require you to first install Node Version Manager (NVM). Instructions can be found on the Node.js website. Once you have installed NVM and restarted your consel, run the following command to install the correct version of Node.js.
 
 ```bash
@@ -282,9 +283,14 @@ docker run -it --rm -v $pwd/docker/map:/data ghcr.io/systemed/tilemaker:master /
 
 ### Configuration
 
-Default configuration for docker compose can be found at [.env](./.env). Overrides for secrets can be placed in a [.env.secrets](./.env.secrets) file. The [.env.secrets](./.env.secrets) file will need to be set as system environment variables by either using the provided scripts ([secrets.ps1](./secrets.ps1) or [secrets.sh](./secrets.sh)) or some other means prior to building and running the containers. The PowerShell script can also unset all listed variables using the `clear` argument. There are default users with temporary passwords defined for local authentication in the [docker/init/20211103151730-system-user.json](./docker/init/20211103151730-system-user.json) file.
+Default configuration for docker compose can be found at [.env](./.env). This file gets interpreted by Docker Compose for use in multiple containers within their individual environment files in the docker directory. Overrides for secrets can be placed in a [.env.secrets](./.env.secrets) file. Another option is to set system environment variables or pass them to Docker Compose. Alternatively, you can add the following arguments when using `docker compose` commands:
+```bash
+--env-file .env --env-file .env.secrets
+```
 
-The file [docker-compose.yml](./docker-compose.yml) or [docker/docker-compose.yml](./docker/docker-compose.yml) may need to be edited for some deployments. The docker compose definition contains a few optional containers that can be enabled by adding profiles. Proxy (`proxy`) is a Traefik proxy that can server locally signed or valid internet certificates provided by Let's Encrypt. Open Street Map (`map`) is map file service that can be configured to provide Open Street Map tiles. Nominatim (`nom`) is an address lookup and auto-complete service that is configured to utilize the same data and area as the optional map container.
+There are default users with temporary passwords defined for local authentication in the [docker/init/20211103151730-system-user.json](./docker/init/20211103151730-system-user.json) file.
+
+The [docker-compose.yml](./docker-compose.yml) or [docker/docker-compose.yml](./docker/docker-compose.yml) files may need to be edited for some deployments. The docker compose definition contains a few optional containers that can be enabled by adding profiles. Proxy (`proxy`) is a Traefik proxy that can server locally signed or valid internet certificates provided by Let's Encrypt. Open Street Map (`map`) is map file service that can be configured to provide Open Street Map tiles. Nominatim (`nom`) is an address lookup and auto-complete service that is configured to utilize the same data and area as the optional map container. Bookstack (`wiki`) is a wiki service that can be configured to utilize the same authentication as the main application. Keycloak (`sso`) is a single sign-on service that can be configured to utilize the same authentication as the main application.
 
 ### TLS (SSL/HTTPS)
 
