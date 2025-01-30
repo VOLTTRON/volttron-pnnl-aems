@@ -60,7 +60,7 @@ import { selectQueryLocationsSearchBusy } from "controllers/locations/action";
 import { BUSY_USER } from "controllers/busy/action";
 
 export function Unit(props: {
-  unit: IUnit;
+  unit: DeepPartial<IUnit> | IUnit;
   editing: DeepPartial<IUnit> | null;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;
   hidden?: Array<string>;
@@ -327,7 +327,7 @@ export function Unit(props: {
         <div />
       </div>
       <div className="row" hidden={hidden?.includes("location")}>
-        <div className="unit">
+        <div>
           <Label>
             <b>Unit Location</b>
             <InputGroup
@@ -343,13 +343,7 @@ export function Unit(props: {
             />
           </Label>
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("location")}>
-        <div className="unit">{renderLocation({}, "Unit Location", `location`)}</div>
-        <div />
-        <div />
+        <div>{renderLocation({}, "Unit Location", `location`)}</div>
       </div>
       <div className="row" hidden={hidden?.includes("peakLoadExclude")}>
         <div className="select">

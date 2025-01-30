@@ -40,6 +40,7 @@ import { defaultPollInterval } from "controllers/poll/action";
 import { isSetpointValid } from "utils/setpoint";
 import { DeepPartial } from "../../utils/types";
 import { ISetpoint, updateSetpoint } from "controllers/setpoints/action";
+import { getCommon } from "utils/util";
 
 interface UnitsProps extends RootProps {
   readUnits: () => void;
@@ -59,6 +60,7 @@ interface UnitsProps extends RootProps {
 
 interface UnitsState {
   editing: DeepPartial<IUnit> | null;
+  editingAll: DeepPartial<IUnit> | null;
   expanded: string | null;
   confirm: (() => void) | null;
 }
@@ -68,6 +70,7 @@ class Units extends React.Component<UnitsProps, UnitsState> {
     super(props);
     this.state = {
       editing: null,
+      editingAll: {},
       expanded: null,
       confirm: null,
     };
@@ -157,6 +160,19 @@ class Units extends React.Component<UnitsProps, UnitsState> {
     }
   };
 
+  handleSaveAll = () => {
+    const { editingAll } = this.state;
+    const { filtered } = this.props;
+    if (editingAll) {
+      filtered?.forEach((unit) => {
+        const temp = merge({ id: unit.id }, editingAll);
+        if (this.isSave(unit, temp)) {
+          this.props.updateUnit(temp);
+        }
+      });
+    }
+  };
+
   handleDelete = (configuration: DeepPartial<IConfiguration>) => {
     const { id } = configuration;
     if (id !== undefined) {
@@ -171,8 +187,8 @@ class Units extends React.Component<UnitsProps, UnitsState> {
     }
   };
 
-  isSave = (unit: IUnit) => {
-    const { editing } = this.state;
+  isSave = (unit: DeepPartial<IUnit> | IUnit, editing?: DeepPartial<IUnit> | null) => {
+    editing = editing ?? this.state.editing;
     const temp = merge({}, unit, editing);
     const valid = isSetpointValid(temp.configuration?.setpoint);
     return (
@@ -276,12 +292,106 @@ class Units extends React.Component<UnitsProps, UnitsState> {
   }
 
   render() {
-    const { filtered, configurations } = this.props;
-    const { editing, expanded } = this.state;
+    const { filtered, configurations, routes } = this.props;
+    const { editingAll, editing, expanded } = this.state;
+    const configRoute = Object.values(routes.map).find((v) => v.data?.name === "configuration")?.data;
+    const defaultUnit = getCommon(filtered ?? ([] as IUnit[]), ["createdAt", "updatedAt", "action"]);
+    console.log({ holidays: filtered?.map((v) => v.configuration?.holidays), defaultUnit });
     return (
       <div className={"units"}>
         {this.renderPrompt()}
         <Header {...this.props} />
+        {defaultUnit && (
+          <div className="list padding">
+            <Card interactive>
+              <div className="row">
+                <div>
+                  <Label>
+                    <h3>Update All Units</h3>
+                  </Label>
+                </div>
+                <div>
+                  <Tooltip2 content="Save" placement={Position.TOP} disabled={!this.isSave(defaultUnit, editingAll)}>
+                    <Button
+                      icon={IconNames.FLOPPY_DISK}
+                      intent={Intent.PRIMARY}
+                      minimal
+                      onClick={() => this.handleSaveAll()}
+                      disabled={!this.isSave(defaultUnit, editingAll)}
+                    />
+                  </Tooltip2>
+                </div>
+              </div>
+              <div>
+                <Tree
+                  contents={[
+                    {
+                      id: "holidays-all",
+                      label: "Holidays",
+                      icon: IconNames.SERIES_CONFIGURATION,
+                      hasCaret: true,
+                      isExpanded: expanded === "holidays-all",
+                    },
+                  ]}
+                  onNodeExpand={(e) => this.setState({ expanded: e.id as string })}
+                  onNodeCollapse={() => this.setState({ expanded: null })}
+                  onNodeClick={(e) => this.setState({ expanded: e.id === expanded ? null : (e.id as string) })}
+                />
+                <Collapse isOpen={expanded === "holidays-all"}>
+                  <Holidays
+                    unit={defaultUnit}
+                    editing={editingAll}
+                    handleChange={this.handleChange}
+                    readOnly={!this.isAdmin()}
+                  />
+                </Collapse>
+                <Tree
+                  contents={[
+                    {
+                      id: "configuration-all",
+                      label: "Configuration",
+                      icon: IconNames.SERIES_CONFIGURATION,
+                      hasCaret: true,
+                      isExpanded: expanded === "configuration-all",
+                    },
+                  ]}
+                  onNodeExpand={(e) => this.setState({ expanded: e.id as string })}
+                  onNodeCollapse={() => this.setState({ expanded: null })}
+                  onNodeClick={(e) => this.setState({ expanded: e.id === expanded ? null : (e.id as string) })}
+                />
+                <Collapse isOpen={expanded === "configuration-all"}>
+                  <Unit
+                    unit={defaultUnit}
+                    editing={editingAll}
+                    handleChange={this.handleChange}
+                    hidden={[
+                      "label",
+                      "peakLoadExclude",
+                      "coolingPeakOffset",
+                      "heatingPeakOffset",
+                      "zoneLocation",
+                      "zoneMass",
+                      "zoneOrientation",
+                      "zoneBuilding",
+                      "coolingCapacity",
+                      "compressors",
+                      "optimalStartLockout",
+                      "optimalStartDeviation",
+                      "earliestStart",
+                      "latestStart",
+                      "heatPump",
+                      "heatPumpBackup",
+                      "heatPumpLockout",
+                      "economizer",
+                      "economizerSetpoint",
+                      "coolingLockout",
+                    ]}
+                  />
+                </Collapse>
+              </div>
+            </Card>
+          </div>
+        )}
         <h1>Units</h1>
         <div className="list">
           {filtered?.map((unit, i) => {
@@ -342,30 +452,34 @@ class Units extends React.Component<UnitsProps, UnitsState> {
                   <div />
                 </div>
                 <Collapse isOpen={true}>
-                  <Tree
-                    contents={[
-                      {
-                        id: "configuration",
-                        label: "Configuration",
-                        icon: IconNames.SERIES_CONFIGURATION,
-                        hasCaret: true,
-                        isExpanded: expanded === "configuration",
-                      },
-                    ]}
-                    onNodeExpand={(e) => this.setState({ expanded: e.id as string })}
-                    onNodeCollapse={() => this.setState({ expanded: null })}
-                    onNodeClick={(e) => this.setState({ expanded: e.id === expanded ? null : (e.id as string) })}
-                  />
-                  <Collapse isOpen={expanded === "configuration"}>
-                    <Configuration
-                      unit={unit}
-                      editing={editing}
-                      configurations={configurations}
-                      handleChange={this.handleChange}
-                      handleCreate={this.handleCreate}
-                      readOnly={!this.isAdmin()}
-                    />
-                  </Collapse>
+                  {!configRoute?.hidden && (
+                    <>
+                      <Tree
+                        contents={[
+                          {
+                            id: "configuration",
+                            label: "Configuration",
+                            icon: IconNames.SERIES_CONFIGURATION,
+                            hasCaret: true,
+                            isExpanded: expanded === "configuration",
+                          },
+                        ]}
+                        onNodeExpand={(e) => this.setState({ expanded: e.id as string })}
+                        onNodeCollapse={() => this.setState({ expanded: null })}
+                        onNodeClick={(e) => this.setState({ expanded: e.id === expanded ? null : (e.id as string) })}
+                      />
+                      <Collapse isOpen={expanded === "configuration"}>
+                        <Configuration
+                          unit={unit}
+                          editing={editing}
+                          configurations={configurations}
+                          handleChange={this.handleChange}
+                          handleCreate={this.handleCreate}
+                          readOnly={!this.isAdmin()}
+                        />
+                      </Collapse>
+                    </>
+                  )}
                   <Tree
                     contents={[
                       {

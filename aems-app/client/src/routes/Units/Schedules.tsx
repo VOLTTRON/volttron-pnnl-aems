@@ -6,7 +6,7 @@ import { DeepPartial } from "../../utils/types";
 const holidaySchedule = parseBoolean(process.env.REACT_APP_HOLIDAY_SCHEDULE ?? "");
 
 export function Schedules(props: {
-  unit: IUnit;
+  unit: DeepPartial<IUnit> | IUnit;
   editing: DeepPartial<IUnit> | null;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;
   readOnly?: boolean;

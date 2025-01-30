@@ -29,7 +29,7 @@ export function Setpoint(props: {
   type: "single" | "separate" | "both";
   title: string;
   path: string;
-  unit: IUnit;
+  unit: DeepPartial<IUnit> | IUnit;
   editing: DeepPartial<IUnit> | null;
   setpoint: DeepPartial<ISetpoint> | undefined;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;

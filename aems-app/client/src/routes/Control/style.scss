@@ -6,17 +6,11 @@
   .error {
     color: $pt-intent-danger;
   }
-  > h1 {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
   .list {
     width: 100%;
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
     padding-bottom: 1rem;
     .row {
       @include sp(div);

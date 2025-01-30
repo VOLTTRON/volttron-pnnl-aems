@@ -11,7 +11,7 @@ import { DeepPartial } from "../../utils/types";
 
 export function Holiday(props: {
   path: string;
-  unit: IUnit;
+  unit: DeepPartial<IUnit> | IUnit;
   editing: DeepPartial<IUnit> | null;
   holiday: DeepPartial<IHoliday>;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;
