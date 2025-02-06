@@ -27,7 +27,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
-from functools import cached_property, lru_cache
+from functools import cached_property
 from pathlib import Path
 from typing import Optional
 import pytz
@@ -40,6 +40,22 @@ from .points import DaysOfWeek, Points, PointValue, SetpointControlType
 
 _log = logging.getLogger(__name__)
 
+DEFAULT_SCHEDULE = {
+    'Monday': {'start': '6:30', 'end': '18:00'},
+    'Tuesday': {'start': '6:30', 'end': '18:00'},
+    'Wednesday': {'start': '6:30', 'end': '18:00'},
+    'Thursday': {'start': '6:30', 'end': '18:00'},
+    'Friday': {'start': '6:30', 'end': '18:00'},
+    'Saturday': 'always_off',
+    'Sunday': 'always_off'
+}
+DEFAULT_SETPOINTS = {
+    'UnoccupiedHeatingSetPoint': 65,
+    'UnoccupiedCoolingSetPoint': 78,
+    'DeadBand': 3,
+    'OccupiedSetPoint': 71
+}
+DEFAULT_OCCUPANCY_VALUES = {'occupied': 2, 'unoccupied': 3}
 
 @dataclass
 class Location:
@@ -58,15 +74,12 @@ class Location:
             lon = round(location['long'], 4)
             self.lat = lat
             self.lon = lon
-
             _log.debug(f'Set location to {self}')
-
         except KeyError:
             if location != {}:
                 _log.error(f'Invalid Location passed for data: {location}')
             self.lat = 0.0
             self.lon = 0.0
-
         finally:
             return self
 
@@ -74,8 +87,9 @@ class Location:
 @dataclass
 class Schedule:
     day: DaysOfWeek
-    start: time = None
-    end: time = None
+    get_current_datetime: callable
+    start: time | None = None
+    end: time | None = None
     always_on: bool = False
     always_off: bool = False
     earliest_start_time: int = 120
@@ -87,12 +101,16 @@ class Schedule:
         return self.always_on
 
     @cached_property
-    def earliest_start(self) -> time:
+    def earliest_start(self) -> time | None:
         if self.always_on or self.always_off:
             return None
-        bastion = datetime.now().replace(hour=self.start.hour, minute=self.start.minute, second=0, microsecond=0)
-        bastion = bastion - timedelta(minutes=self.earliest_start_time)
-        return datetime.time(bastion)
+        earliest_start = self.get_current_datetime().replace(
+            hour=self.start.hour,
+            minute=self.start.minute,
+            second=0,
+            microsecond=0,
+        ) - timedelta(minutes=self.earliest_start_time)
+        return datetime.time(earliest_start)
 
     def __post_init__(self):
         if self.always_on and self.always_off:
@@ -103,7 +121,6 @@ class Schedule:
         else:
             if not self.start or not self.end:
                 raise ValueError('Schedule must have start and end times.')
-
             self.start = time(*[int(x) for x in str(self.start).split(':')])
             self.end = time(*[int(x) for x in str(self.end).split(':')])
             if self.start > self.end:
@@ -126,73 +143,33 @@ class DefaultConfig:
     building: str = ''
     outdoor_temperature_topic: str = ''
     system_status_point: str = 'OccupancyCommand'
-    setpoint_control: int = SetpointControlType(1)
-    setpoint_validate_frequency: int = 90
+    setpoint_control: SetpointControlType = SetpointControlType(1)
+    setpoint_validate_frequency: int = 300
     local_tz: str = 'UTC'
-
     location: Optional[Location] = None
-
-    default_setpoints: dict[str, float] = field(default_factory=lambda: {
-        'UnoccupiedHeatingSetPoint': 65,
-        'UnoccupiedCoolingSetPoint': 78,
-        'DeadBand': 3,
-        'OccupiedSetPoint': 71
-    })
+    default_setpoints: dict[str, float] = field(default_factory=lambda: DEFAULT_SETPOINTS)
     optimal_start: OptimalStartConfig = field(
         default_factory=lambda: OptimalStartConfig(latest_start_time=10,
                                                    earliest_start_time=180,
                                                    allowable_setpoint_deviation=1,
                                                    optimal_start_lockout_temperature=30))
     zone_point_names: dict[str, str] = field(default_factory=dict)
-    schedule: dict[str, dict[str, str]] = field(
-        default_factory=lambda: {
-            'Monday': {
-                'start': '6:30',
-                'end': '18:00'
-            },
-            'Tuesday': {
-                'start': '6:30',
-                'end': '18:00'
-            },
-            'Wednesday': {
-                'start': '6:30',
-                'end': '18:00'
-            },
-            'Thursday': {
-                'start': '6:30',
-                'end': '18:00'
-            },
-            'Friday': {
-                'start': '6:30',
-                'end': '18:00'
-            },
-            'Saturday': 'always_off',
-            'Sunday': 'always_off'
-        })
+    schedule: dict[str, dict[str, str]] = field(default_factory=lambda: DEFAULT_SCHEDULE)
     occupancy_validate_frequency: int = 60
-    occupancy_values: dict[str, int] = field(default_factory=lambda: {'occupied': 1, 'unoccupied': 0})
+    occupancy_values: dict[str, int] = field(default_factory=lambda: DEFAULT_OCCUPANCY_VALUES)
     occupancy_current: str = 'occupied'
     actuator_identity: str = 'platform.driver'
     weather_identity: str = 'platform.weather'
     # Path for data being read from the thermostat and stored in dataframes for csv.
-    data_dir: str = '~/.manager'
-    model_dir: str = '~/.manager/models'
+    data_dir: Path = Path('~/.manager').expanduser()
+    model_dir: Path = Path('~/.manager/models').expanduser()
     data_file: Optional[Path] = None
     setpoint_offset: float = None
 
     def __post_init__(self):
-        for k, v in self.zone_point_names.items():
-            Points.add_item(k, v)
-        if isinstance(self.setpoint_control, int):
-            self.setpoint_control = SetpointControlType(self.setpoint_control)
-        if self.data_dir:
-            self.data_dir = Path(self.data_dir).expanduser()
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        if self.model_dir:
-            self.model_dir = Path(self.model_dir).expanduser()
-        self.model_dir.mkdir(parents=True, exist_ok=True)
-        if isinstance(self.optimal_start, dict):
-            self.optimal_start = OptimalStartConfig(**self.optimal_start)
+        self._initialize_directories()
+        self._initialize_setpoint_control()
+        self._initialize_optimal_start_config()
         os.environ['LOCAL_TZ'] = self.local_tz
         self.data_file = self.data_dir / f'{self.system}.csv'
         self.timezone_consistent = self.are_timezones_equivalent(self.local_tz)
@@ -200,6 +177,20 @@ class DefaultConfig:
             _log.warning(f'Timezone configuration is not consistent.')
             _log.warning(f'Configured: {self.local_tz} -- detected system timezone: {get_localzone()}')
         self.validate()
+
+    def _initialize_directories(self):
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.model_dir.mkdir(parents=True, exist_ok=True)
+
+    def _initialize_setpoint_control(self):
+        if isinstance(self.setpoint_control, int):
+            self.setpoint_control = SetpointControlType(self.setpoint_control)
+        for point_name, value in self.zone_point_names.items():
+            Points.add_item(point_name, value)
+
+    def _initialize_optimal_start_config(self):
+        if isinstance(self.optimal_start, dict):
+            self.optimal_start = OptimalStartConfig(**self.optimal_start)
 
     def __hash__(self):
         return hash(self.__repr__())
@@ -218,11 +209,15 @@ class DefaultConfig:
 
     @property
     def base_device_topic(self) -> utils.Topic:
-        return topics.DEVICES_VALUE(campus=self.campus, building=self.building, unit=self.system, path='', point='all')
+        return topics.DEVICES_VALUE(
+            campus=self.campus, building=self.building, unit=self.system, path='', point='all'
+        )
 
     @property
     def system_rpc_path(self) -> utils.Topic:
-        return topics.RPC_DEVICE_PATH(campus=self.campus, building=self.building, unit=self.system, path='', point='')
+        return topics.RPC_DEVICE_PATH(
+            campus=self.campus, building=self.building, unit=self.system, path='', point=''
+        )
 
     @property
     def base_record_topic(self) -> utils.Topic:
@@ -247,23 +242,48 @@ class DefaultConfig:
         :return: Occupancy schedule for the current day.
         :rtype: Schedule
         """
-        current_day = DaysOfWeek(datetime.now().weekday())
+        current_day = DaysOfWeek(self.get_current_datetime().weekday())
         current_schedule = None
         if self.schedule and current_day.name in self.schedule:
             sched = self.schedule[current_day.name]
             if isinstance(sched, dict):
-                current_schedule = Schedule(current_day,
+                current_schedule = Schedule(current_day, self.get_current_datetime,
                                             earliest_start_time=self.optimal_start.earliest_start_time,
                                             **self.schedule[current_day.name])
             else:
                 _log.debug(f'Using {sched} for {current_day.name}')
                 if sched == 'always_on':
-                    current_schedule = Schedule(current_day, always_on=True)
+                    current_schedule = Schedule(current_day, self.get_current_datetime, always_on=True)
                 elif sched == 'always_off':
-                    current_schedule = Schedule(current_day, always_off=True)
+                    current_schedule = Schedule(current_day, self.get_current_datetime, always_off=True)
                 else:
                     raise ValueError(f'Invalid schedule value: {sched}')
         return current_schedule
+
+    def get_current_datetime(self) -> datetime:
+        """
+        Returns the current datetime based on the object's timezone configuration.
+
+        If the object's timezone configuration is consistent (`timezone_consistent` is True),
+        the local system time is returned with the microsecond and second fields set to 0.
+        Otherwise, the function calculates the current time based on the object's specified timezone,
+        adjusting from UTC if necessary.
+
+        Handles exceptions by logging errors, which might affect schedule determination accuracy.
+
+        :return: The current datetime adjusted based on the object's timezone configuration.
+        :rtype: datetime.time
+        """
+        try:
+            _log.debug(f'The timezone settings are consistent: {self.timezone_consistent}')
+            if self.timezone_consistent:
+                return datetime.now()
+            else:
+                return get_aware_utc_now().astimezone(self.timezone)
+        except Exception as e:
+            _log.error('Schedule determination might be incorrect! Problem parsing timezone!')
+            _log.error(e)
+            return datetime.now()
 
     def get_current_time(self) -> datetime.time:
         """
@@ -279,17 +299,7 @@ class DefaultConfig:
         :return: The current time adjusted based on the object's timezone configuration.
         :rtype: datetime.time
         """
-        try:
-            _log.debug(f'Get get current_time timezone consistent: {self.timezone_consistent}')
-            if self.timezone_consistent:
-                return datetime.time(datetime.now()).replace(microsecond=0, second=0)
-            else:
-                current_time = get_aware_utc_now().astimezone(self.timezone)
-                return datetime.time(current_time).replace(microsecond=0, second=0)
-        except Exception as e:
-            _log.error('Schedule determination might be incorrect! Problem parsing timezone!')
-            _log.error(e)
-            return datetime.time(datetime.now()).replace(microsecond=0, second=0)
+        return datetime.time(self.get_current_datetime()).replace(microsecond=0, second=0)
 
     @staticmethod
     def are_timezones_equivalent(cfg_tz: str):
