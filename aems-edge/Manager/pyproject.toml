@@ -24,6 +24,7 @@ uvicorn = "^0.34.0"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
 httpx = "^0.28.1"
+pytest-cov = "^6.0.0"
 
 [tool.poetry.scripts]
 start-server = "server.start_server:main"
@@ -34,7 +35,8 @@ ignore_patterns = [
     "dist/**",
     "docs/**",
     "build/**",
-    "dist/**"
+    "dist/**",
+    "htmlcov/**"
 ]
 
 [tool.yapf]

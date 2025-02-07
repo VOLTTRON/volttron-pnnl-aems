@@ -43,12 +43,12 @@ jobs:
     - name: Install dependencies
       working-directory: aems-edge/Manager
       run: |
-        poetry install
+        poetry install --with dev
 
     - name: Run Pytest with Coverage
       working-directory: aems-edge/Manager
       run: |
-        poetry run pytest --cov=.
+         poetry run pytest --cov --cov-report html
 
     - name: Upload Coverage Report
       uses: actions/upload-artifact@v4.6.0
