@@ -49,6 +49,8 @@ jobs:
       working-directory: aems-edge/Manager
       run: |
          poetry run pytest --cov --cov-report html
+         poetry run pytest --cov --cov-report term
+
 
     - name: Upload Coverage Report
       uses: actions/upload-artifact@v4.6.0
