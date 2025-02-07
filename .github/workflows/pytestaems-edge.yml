@@ -34,14 +34,16 @@ jobs:
     # install dependencies if cache does not exist
     #----------------------------------------------
     - name: Install dependencies
+      working-directory: aems-edge/Manager
       if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      run: poetry install --no-interaction --no-root
+      run: |
+        poetry install --no-interaction --no-root
 
 
     - name: Install dependencies
       working-directory: aems-edge/Manager
       run: |
-        poetry install
+        poetry install --project
 
     - name: Run Pytest with Coverage
       working-directory: aems-edge/Manager
