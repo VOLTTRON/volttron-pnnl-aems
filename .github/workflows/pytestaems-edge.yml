@@ -43,7 +43,7 @@ jobs:
     - name: Install dependencies
       working-directory: aems-edge/Manager
       run: |
-        poetry install --project
+        poetry install
 
     - name: Run Pytest with Coverage
       working-directory: aems-edge/Manager
