@@ -1,0 +1,48 @@
+name: Python AEMS Edge Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+
+    #----------------------------------------------
+    #       load cached venv if cache exists
+    #----------------------------------------------
+    - name: Load cached venv
+    id: cached-poetry-dependencies
+    uses: actions/cache@v4
+    with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+    #----------------------------------------------
+    # install dependencies if cache does not exist
+    #----------------------------------------------
+    - name: Install dependencies
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install --no-interaction --no-root
+
+
+    - name: Install dependencies
+      working-directory: aems-edge/Manager
+      run: |
+        poetry install
+
+    - name: Run Pytest with Coverage
+      working-directory: aems-edge/Manager
+      run: |
+        poetry run pytest --cov=.
+
+    - name: Upload Coverage Report
+      uses: actions/upload-artifact@v2
+      with:
+        name: coverage-report
+        path: aems-edge/Manager/htmlcov  # Assuming coverage report directory
