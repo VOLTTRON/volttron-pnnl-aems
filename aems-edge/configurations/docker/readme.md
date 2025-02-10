@@ -65,7 +65,7 @@ in it. Edit the docker-compose-aems and verify that the volume for the config su
 the location on the host. Run the docker-compose-aems file
 
 ```bash
-docker compose -f docker-compose-aems up -d;
+docker compose -f docker-compose-aems up -d
 ```
 
 You may view the output log of the container with
