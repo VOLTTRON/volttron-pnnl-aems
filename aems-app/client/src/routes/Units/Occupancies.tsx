@@ -46,7 +46,7 @@ const defaultSchedule: ISchedule = {
 defaultSchedule.label = createScheduleLabel("all", defaultSchedule);
 
 function CreateOccupancy(props: {
-  unit: IUnit;
+  unit: DeepPartial<IUnit> | IUnit;
   editing: DeepPartial<IUnit> | null;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;
 }) {

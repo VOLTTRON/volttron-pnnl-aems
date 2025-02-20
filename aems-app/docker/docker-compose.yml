@@ -127,7 +127,7 @@ services:
       - app-upload:/app/upload/
       - ./certs/:/etc/certs/:ro
       - ./init/:/app/seed/:ro
-      - ../aems-edge/:/app/aems-edge/:ro
+      - ../../aems-edge/:/app/aems-edge/:ro
 
   # Creates self-signed TLS certs for localhost and domain and runs relational database migrations on startup
   init:

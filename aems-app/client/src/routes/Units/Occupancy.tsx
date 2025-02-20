@@ -8,7 +8,7 @@ import { DeepPartial } from "../../utils/types";
 
 export function Occupancy(props: {
   path: string;
-  unit: IUnit;
+  unit: DeepPartial<IUnit> | IUnit;
   editing: DeepPartial<IUnit> | null;
   occupancy: DeepPartial<IOccupancy>;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;

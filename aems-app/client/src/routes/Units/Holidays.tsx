@@ -16,7 +16,7 @@ import { DeepPartial } from "../../utils/types";
 const holidayOrder = HolidayType.values.map((a) => a.label);
 
 function CreateHoliday(props: {
-  unit: IUnit;
+  unit: DeepPartial<IUnit> | IUnit;
   editing: DeepPartial<IUnit> | null;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;
   holidays: IHoliday[];
@@ -117,7 +117,7 @@ function CreateHoliday(props: {
 }
 
 export function Holidays(props: {
-  unit: IUnit;
+  unit: DeepPartial<IUnit> | IUnit;
   editing: DeepPartial<IUnit> | null;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;
   readOnly?: boolean;

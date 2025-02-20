@@ -13,7 +13,7 @@ const route: RouteType = {
   footer: false,
   user: true,
   admin: true,
-  hidden: false,
+  hidden: true,
 };
 
 export default route;

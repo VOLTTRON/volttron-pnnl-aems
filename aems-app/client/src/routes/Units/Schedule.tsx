@@ -17,7 +17,7 @@ import { DeepPartial } from "../../utils/types";
 export function Schedule(props: {
   title: string;
   path: string;
-  unit: IUnit;
+  unit: DeepPartial<IUnit> | IUnit;
   editing: DeepPartial<IUnit> | null;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;
   readOnly?: Array<"title" | "occupied" | "unoccupied">;
