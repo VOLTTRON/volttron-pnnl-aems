@@ -192,7 +192,7 @@ class Units extends React.Component<UnitsProps, UnitsState> {
                 const id = unit.configuration?.holidays?.find((h) => h?.label === holiday?.label)?.id;
                 return { id, type };
               } else {
-                return;
+                return undefined;
               }
             })
             .filter((v) => v),

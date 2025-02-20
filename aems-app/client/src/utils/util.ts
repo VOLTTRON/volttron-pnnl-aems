@@ -1,4 +1,4 @@
-import { every, get, isArray, isEqual, isFunction, isNil, isObject, isRegExp, range, union } from "lodash";
+import { every, get, isArray, isEqual, isNil, isObject, union } from "lodash";
 import { DeepTyped, DeepPartial } from "./types";
 
 /**
