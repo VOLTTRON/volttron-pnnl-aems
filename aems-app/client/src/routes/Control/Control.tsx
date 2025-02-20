@@ -340,7 +340,7 @@ class Control extends React.Component<ControlsProps, ControlsState> {
                 {control.units.map((unit, i) => (
                   <>
                     <Tree
-                      key={`tree-${unit.id}`}
+                      key={`tree-${unit.id ?? i}`}
                       contents={[
                         {
                           id: `unit-${unit.id}`,
@@ -357,8 +357,9 @@ class Control extends React.Component<ControlsProps, ControlsState> {
                         })
                       }
                     />
-                    <Collapse key={`collapse-${unit.id}`} isOpen={expanded === `${control.id}-${unit.id}`}>
+                    <Collapse key={`collapse-${unit.id ?? i}`} isOpen={expanded === `${control.id}-${unit.id}`}>
                       <Unit
+                        key={`unit-${unit.id ?? i}`}
                         unit={unit}
                         editing={editing?.units?.find((v) => v?.id === unit.id) ?? null}
                         handleChange={(f) => this.handleChange(`units[${i}].${f}`, editing)}

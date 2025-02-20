@@ -64,6 +64,7 @@ export function Holiday(props: {
               <Checkbox
                 label="Enabled"
                 checked={getValue(`${path}.type`) === "Enabled"}
+                indeterminate={getValue(`${path}.type`) == null}
                 onClick={() => {
                   handleChange(
                     `${path}`,

@@ -31,7 +31,7 @@ import React from "react";
 import { RootProps } from "routes";
 import { Schedules } from "./Schedules";
 import { Setpoints } from "./Setpoints";
-import { RoleType, StageType } from "common";
+import { HolidayType, RoleType, StageType } from "common";
 import { Tooltip2 } from "@blueprintjs/popover2";
 import { Unit } from "./Unit";
 import { connect } from "react-redux";
@@ -41,6 +41,7 @@ import { isSetpointValid } from "utils/setpoint";
 import { DeepPartial } from "../../utils/types";
 import { ISetpoint, updateSetpoint } from "controllers/setpoints/action";
 import { getCommon } from "utils/util";
+import { Holiday } from "./Holiday";
 
 interface UnitsProps extends RootProps {
   readUnits: () => void;
@@ -66,11 +67,15 @@ interface UnitsState {
 }
 
 class Units extends React.Component<UnitsProps, UnitsState> {
+  private configRouteIsHidden: boolean;
+
   constructor(props: UnitsProps) {
     super(props);
+    const configRoute = Object.values(props.routes.map).find((v) => v.data?.name === "configuration")?.data;
+    this.configRouteIsHidden = !!configRoute?.hidden;
     this.state = {
       editing: null,
-      editingAll: {},
+      editingAll: { configuration: { holidays: HolidayType.values.map(() => ({})) } },
       expanded: null,
       confirm: null,
     };
@@ -78,9 +83,11 @@ class Units extends React.Component<UnitsProps, UnitsState> {
 
   componentDidMount() {
     this.props.readUnits();
-    this.props.readConfigurations();
     this.props.readUnitsPoll(defaultPollInterval);
-    this.props.readConfigurationsPoll(defaultPollInterval);
+    if (!this.configRouteIsHidden) {
+      this.props.readConfigurations();
+      this.props.readConfigurationsPoll(defaultPollInterval);
+    }
   }
 
   componentWillUnmount() {
@@ -157,7 +164,12 @@ class Units extends React.Component<UnitsProps, UnitsState> {
     const { editing } = this.state;
     if (editing) {
       this.props.updateUnit(editing);
+      this.setState({ editing: null, expanded: null });
     }
+  };
+
+  handleClearAll = () => {
+    this.setState({ editingAll: { configuration: { holidays: HolidayType.values.map(() => ({})) } }, expanded: null });
   };
 
   handleSaveAll = () => {
@@ -165,11 +177,35 @@ class Units extends React.Component<UnitsProps, UnitsState> {
     const { filtered } = this.props;
     if (editingAll) {
       filtered?.forEach((unit) => {
-        const temp = merge({ id: unit.id }, editingAll);
-        if (this.isSave(unit, temp)) {
-          this.props.updateUnit(temp);
+        const id = unit.id;
+        const location = {
+          name: editingAll.location?.name,
+          latitude: editingAll.location?.latitude,
+          longitude: editingAll.location?.longitude,
+        };
+        const configuration = {
+          id: unit.configuration?.id,
+          holidays: HolidayType.values
+            .map((holiday, i) => {
+              const type = editingAll.configuration?.holidays?.[i]?.type;
+              if (type) {
+                const id = unit.configuration?.holidays?.find((h) => h?.label === holiday?.label)?.id;
+                return { id, type };
+              } else {
+                return;
+              }
+            })
+            .filter((v) => v),
+        };
+        if (location.name || configuration.holidays.length) {
+          this.props.updateUnit({
+            id,
+            ...(location.name ? { location } : {}),
+            ...(configuration.holidays.length ? { configuration } : {}),
+          });
         }
       });
+      this.handleClearAll();
     }
   };
 
@@ -190,7 +226,7 @@ class Units extends React.Component<UnitsProps, UnitsState> {
   isSave = (unit: DeepPartial<IUnit> | IUnit, editing?: DeepPartial<IUnit> | null) => {
     editing = editing ?? this.state.editing;
     const temp = merge({}, unit, editing);
-    const valid = isSetpointValid(temp.configuration?.setpoint);
+    const valid = temp.configuration?.setpoint ? isSetpointValid(temp.configuration.setpoint) : true;
     return (
       valid &&
       !isEqualWith(unit, temp, (_a, _b, k) =>
@@ -292,11 +328,33 @@ class Units extends React.Component<UnitsProps, UnitsState> {
   }
 
   render() {
-    const { filtered, configurations, routes } = this.props;
+    const { filtered, configurations } = this.props;
     const { editingAll, editing, expanded } = this.state;
-    const configRoute = Object.values(routes.map).find((v) => v.data?.name === "configuration")?.data;
-    const defaultUnit = getCommon(filtered ?? ([] as IUnit[]), ["createdAt", "updatedAt", "action"]);
-    console.log({ holidays: filtered?.map((v) => v.configuration?.holidays), defaultUnit });
+    const copy = cloneDeep(filtered) ?? [];
+    copy.forEach((v) => {
+      v.configuration!.holidays = HolidayType.values.map(
+        (t) => v.configuration?.holidays?.find((h) => h?.label === t.label) ?? {}
+      );
+    });
+    const defaultUnit = {
+      location: filtered
+        ? getCommon(
+            filtered.map((f) => f.location ?? {}),
+            ["createdAt", "updatedAt", "action", "terms"]
+          )
+        : {},
+      configuration: {
+        holidays: HolidayType.values.map((t) =>
+          filtered
+            ? getCommon(
+                filtered.map((f) => f.configuration?.holidays?.find((h) => h?.label === t.label) ?? {}),
+                ["createdAt", "updatedAt", "action", "terms"]
+              )
+            : {}
+        ),
+      },
+    };
+
     return (
       <div className={"units"}>
         {this.renderPrompt()}
@@ -311,15 +369,26 @@ class Units extends React.Component<UnitsProps, UnitsState> {
                   </Label>
                 </div>
                 <div>
-                  <Tooltip2 content="Save" placement={Position.TOP} disabled={!this.isSave(defaultUnit, editingAll)}>
-                    <Button
-                      icon={IconNames.FLOPPY_DISK}
-                      intent={Intent.PRIMARY}
-                      minimal
-                      onClick={() => this.handleSaveAll()}
-                      disabled={!this.isSave(defaultUnit, editingAll)}
-                    />
-                  </Tooltip2>
+                  {this.isSave(defaultUnit, editingAll) ? (
+                    <>
+                      <Tooltip2 content="Save" placement={Position.TOP}>
+                        <Button
+                          icon={IconNames.FLOPPY_DISK}
+                          intent={Intent.PRIMARY}
+                          minimal
+                          onClick={() => this.handleSaveAll()}
+                        />
+                      </Tooltip2>
+                      <Tooltip2 content="Exit" placement={Position.TOP}>
+                        <Button
+                          icon={IconNames.CROSS}
+                          intent={Intent.PRIMARY}
+                          minimal
+                          onClick={() => this.handleClearAll()}
+                        />
+                      </Tooltip2>
+                    </>
+                  ) : null}
                 </div>
               </div>
               <div>
@@ -338,12 +407,24 @@ class Units extends React.Component<UnitsProps, UnitsState> {
                   onNodeClick={(e) => this.setState({ expanded: e.id === expanded ? null : (e.id as string) })}
                 />
                 <Collapse isOpen={expanded === "holidays-all"}>
-                  <Holidays
-                    unit={defaultUnit}
-                    editing={editingAll}
-                    handleChange={this.handleChange}
-                    readOnly={!this.isAdmin()}
-                  />
+                  <Label>
+                    <h3>Predefined Holidays</h3>
+                    <ul>
+                      {defaultUnit?.configuration?.holidays?.map((holiday, i) => (
+                        <li key={holiday?.label ?? i}>
+                          <Holiday
+                            key={holiday?.label}
+                            path={`configuration.holidays.${i}`}
+                            unit={defaultUnit}
+                            editing={editingAll}
+                            holiday={holiday!}
+                            handleChange={this.handleChange}
+                            readOnly={!this.isAdmin()}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </Label>
                 </Collapse>
                 <Tree
                   contents={[
@@ -452,7 +533,7 @@ class Units extends React.Component<UnitsProps, UnitsState> {
                   <div />
                 </div>
                 <Collapse isOpen={true}>
-                  {!configRoute?.hidden && (
+                  {!this.configRouteIsHidden && (
                     <>
                       <Tree
                         contents={[

@@ -110,7 +110,7 @@ export function Unit(props: {
               <MenuItem
                 active={location?.name === (v.display_name ?? v.name)}
                 disabled={modifiers.disabled}
-                key={v.display_name ?? v.name}
+                key={v.name}
                 text={v.display_name ?? v.name}
                 onClick={() => handleClick(v)}
                 onMouseDown={(e) => e.preventDefault()}
@@ -309,305 +309,347 @@ export function Unit(props: {
 
   return (
     <>
-      <div className="row" hidden={hidden?.includes("label")}>
-        <h3> </h3>
-        <div className="unit">
-          <Label>
-            <b>Unit Label</b>
-            <InputGroup
-              type="text"
-              value={getValue(`label`)}
-              onChange={(e) => {
-                handleChange(`label`, editing)(e.target.value);
-              }}
-            />
-          </Label>
+      {hidden?.includes("label") ? null : (
+        <div className="row">
+          <h3> </h3>
+          <div className="unit">
+            <Label>
+              <b>Unit Label</b>
+              <InputGroup
+                type="text"
+                value={getValue(`label`)}
+                onChange={(e) => {
+                  handleChange(`label`, editing)(e.target.value);
+                }}
+              />
+            </Label>
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("location")}>
-        <div>
-          <Label>
-            <b>Unit Location</b>
-            <InputGroup
-              className="tooltip-icon"
-              type="text"
-              value={getValue(`location.name`) ?? "No location set"}
-              readOnly
-              rightElement={
-                <Tooltip2 content={mapUrl}>
-                  <Button icon={IconNames.MAP} onClick={() => window.open(mapUrl, "_blank")} minimal />
-                </Tooltip2>
-              }
-            />
-          </Label>
+      )}
+      {hidden?.includes("location") ? null : (
+        <div className="row">
+          <div>
+            <Label>
+              <b>Unit Location</b>
+              <InputGroup
+                className="tooltip-icon"
+                type="text"
+                value={getValue(`location.name`) ?? "No location set"}
+                readOnly
+                rightElement={
+                  <Tooltip2 content={mapUrl}>
+                    <Button icon={IconNames.MAP} onClick={() => window.open(mapUrl, "_blank")} minimal />
+                  </Tooltip2>
+                }
+              />
+            </Label>
+          </div>
+          <div>{renderLocation({}, "Unit Location", `location`)}</div>
         </div>
-        <div>{renderLocation({}, "Unit Location", `location`)}</div>
-      </div>
-      <div className="row" hidden={hidden?.includes("peakLoadExclude")}>
-        <div className="select">
-          {renderSelect(
-            {},
-            "Participate in Grid Services",
-            [
-              { name: false, label: "Yes" },
-              { name: true, label: "No" },
-            ],
-            `peakLoadExclude`,
-            (v) => (v ? "No" : "Yes")
-          )}
+      )}
+      {hidden?.includes("peakLoadExclude") ? null : (
+        <div className="row">
+          <div className="select">
+            {renderSelect(
+              {},
+              "Participate in Grid Services",
+              [
+                { name: false, label: "Yes" },
+                { name: true, label: "No" },
+              ],
+              `peakLoadExclude`,
+              (v) => (v ? "No" : "Yes")
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("coolingPeakOffset")}>
-        <div className="unit">
-          {renderTemperature(
-            getValue("peakLoadExclude") ? { disabled: true } : {},
-            "Cooling Offset During Grid Services",
-            COOLING_PEAK_OFFSET_MIN,
-            COOLING_PEAK_OFFSET_MAX,
-            1,
-            `coolingPeakOffset`
-          )}
+      )}
+      {hidden?.includes("coolingPeakOffset") ? null : (
+        <div className="row">
+          <div className="unit">
+            {renderTemperature(
+              getValue("peakLoadExclude") ? { disabled: true } : {},
+              "Cooling Offset During Grid Services",
+              COOLING_PEAK_OFFSET_MIN,
+              COOLING_PEAK_OFFSET_MAX,
+              1,
+              `coolingPeakOffset`
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("heatingPeakOffset")}>
-        <div className="unit">
-          {renderTemperature(
-            getValue("peakLoadExclude") ? { disabled: true } : {},
-            "Heating Offset During Grid Services",
-            HEATING_PEAK_OFFSET_MIN,
-            HEATING_PEAK_OFFSET_MAX,
-            1,
-            `heatingPeakOffset`
-          )}
+      )}
+      {hidden?.includes("heatingPeakOffset") ? null : (
+        <div className="row">
+          <div className="unit">
+            {renderTemperature(
+              getValue("peakLoadExclude") ? { disabled: true } : {},
+              "Heating Offset During Grid Services",
+              HEATING_PEAK_OFFSET_MIN,
+              HEATING_PEAK_OFFSET_MAX,
+              1,
+              `heatingPeakOffset`
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("zoneLocation")}>
-        <div className="select">
-          {renderSelect(
-            {},
-            "Zone Location",
-            ZoneType.values.filter((v) => v.type === "location"),
-            `zoneLocation`,
-            (v) => ZoneType.parse(v)?.label || v
-          )}
+      )}
+      {hidden?.includes("zoneLocation") ? null : (
+        <div className="row">
+          <div className="select">
+            {renderSelect(
+              {},
+              "Zone Location",
+              ZoneType.values.filter((v) => v.type === "location"),
+              `zoneLocation`,
+              (v) => ZoneType.parse(v)?.label || v
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("zoneMass")}>
-        <div className="select">
-          {renderSelect(
-            {},
-            "Zone Mass",
-            ZoneType.values.filter((v) => v.type === "mass"),
-            `zoneMass`,
-            (v) => ZoneType.parse(v)?.label || v
-          )}
+      )}
+      {hidden?.includes("zoneMass") ? null : (
+        <div className="row">
+          <div className="select">
+            {renderSelect(
+              {},
+              "Zone Mass",
+              ZoneType.values.filter((v) => v.type === "mass"),
+              `zoneMass`,
+              (v) => ZoneType.parse(v)?.label || v
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("zoneOrientation")}>
-        <div className="select">
-          {renderSelect(
-            {},
-            "Zone Orientation",
-            ZoneType.values.filter((v) => v.type === "orientation"),
-            `zoneOrientation`,
-            (v) => ZoneType.parse(v)?.label || v
-          )}
+      )}
+      {hidden?.includes("zoneOrientation") ? null : (
+        <div className="row">
+          <div className="select">
+            {renderSelect(
+              {},
+              "Zone Orientation",
+              ZoneType.values.filter((v) => v.type === "orientation"),
+              `zoneOrientation`,
+              (v) => ZoneType.parse(v)?.label || v
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("zoneBuilding")}>
-        <div className="select">
-          {renderSelect(
-            {},
-            "Zone Type",
-            ZoneType.values.filter((v) => v.type === "building"),
-            `zoneBuilding`,
-            (v) => ZoneType.parse(v)?.label || v
-          )}
+      )}
+      {hidden?.includes("zoneBuilding") ? null : (
+        <div className="row">
+          <div className="select">
+            {renderSelect(
+              {},
+              "Zone Type",
+              ZoneType.values.filter((v) => v.type === "building"),
+              `zoneBuilding`,
+              (v) => ZoneType.parse(v)?.label || v
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("coolingCapacity")}>
-        <div className="unit">
-          {renderNumeric(
-            {},
-            "Rated Cooling Capacity",
-            COOLING_CAPACITY_MIN,
-            COOLING_CAPACITY_MAX,
-            `coolingCapacity`,
-            <Tag minimal>tons</Tag>,
-            true
-          )}
+      )}
+      {hidden?.includes("coolingCapacity") ? null : (
+        <div className="row">
+          <div className="unit">
+            {renderNumeric(
+              {},
+              "Rated Cooling Capacity",
+              COOLING_CAPACITY_MIN,
+              COOLING_CAPACITY_MAX,
+              `coolingCapacity`,
+              <Tag minimal>tons</Tag>,
+              true
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("compressors")}>
-        <div className="unit">
-          {renderNumeric({}, "Number of Compressors", COMPRESSORS_MIN, COMPRESSORS_MAX, `compressors`)}
+      )}
+      {hidden?.includes("compressors") ? null : (
+        <div className="row">
+          <div className="unit">
+            {renderNumeric({}, "Number of Compressors", COMPRESSORS_MIN, COMPRESSORS_MAX, `compressors`)}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("optimalStartLockout")}>
-        <div className="unit">
-          {renderTemperature(
-            {},
-            "Disable Optimal Start when Outdoor Temperatures are below",
-            OPTIMAL_START_LOCKOUT_MIN,
-            OPTIMAL_START_LOCKOUT_MAX,
-            5,
-            `optimalStartLockout`
-          )}
+      )}
+      {hidden?.includes("optimalStartLockout") ? null : (
+        <div className="row">
+          <div className="unit">
+            {renderTemperature(
+              {},
+              "Disable Optimal Start when Outdoor Temperatures are below",
+              OPTIMAL_START_LOCKOUT_MIN,
+              OPTIMAL_START_LOCKOUT_MAX,
+              5,
+              `optimalStartLockout`
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("optimalStartDeviation")}>
-        <div className="unit">
-          {renderTemperature(
-            {},
-            "Optimal Start Allowable Zone Temperature Deviation",
-            OPTIMAL_START_DEVIATION_MIN,
-            OPTIMAL_START_DEVIATION_MAX,
-            0.5,
-            `optimalStartDeviation`
-          )}
+      )}
+      {hidden?.includes("optimalStartDeviation") ? null : (
+        <div className="row">
+          <div className="unit">
+            {renderTemperature(
+              {},
+              "Optimal Start Allowable Zone Temperature Deviation",
+              OPTIMAL_START_DEVIATION_MIN,
+              OPTIMAL_START_DEVIATION_MAX,
+              0.5,
+              `optimalStartDeviation`
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("earliestStart")}>
-        <div className="unit">
-          {renderDuration(
-            {},
-            "Earliest Start Time Before Occupancy",
-            EARLIEST_START_MIN,
-            EARLIEST_START_MAX,
-            30,
-            `earliestStart`
-          )}
+      )}
+      {hidden?.includes("earliestStart") ? null : (
+        <div className="row">
+          <div className="unit">
+            {renderDuration(
+              {},
+              "Earliest Start Time Before Occupancy",
+              EARLIEST_START_MIN,
+              EARLIEST_START_MAX,
+              30,
+              `earliestStart`
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("latestStart")}>
-        <div className="unit">
-          {renderDuration(
-            {},
-            "Latest Start Time Before Occupancy",
-            LATEST_START_MIN,
-            LATEST_START_MAX,
-            15,
-            `latestStart`
-          )}
+      )}
+      {hidden?.includes("latestStart") ? null : (
+        <div className="row">
+          <div className="unit">
+            {renderDuration(
+              {},
+              "Latest Start Time Before Occupancy",
+              LATEST_START_MIN,
+              LATEST_START_MAX,
+              15,
+              `latestStart`
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("heatPump")}>
-        <div className="select">
-          {renderSelect(
-            {},
-            "Heat Pump",
-            [
-              { name: true, label: "Yes" },
-              { name: false, label: "No" },
-            ],
-            `heatPump`,
-            (v) => (v ? "Yes" : "No")
-          )}
+      )}
+      {hidden?.includes("heatPump") ? null : (
+        <div className="row">
+          <div className="select">
+            {renderSelect(
+              {},
+              "Heat Pump",
+              [
+                { name: true, label: "Yes" },
+                { name: false, label: "No" },
+              ],
+              `heatPump`,
+              (v) => (v ? "Yes" : "No")
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("heatPumpBackup")}>
-        <div className="unit">
-          {renderNumeric(
-            getValue("heatPump") ? {} : { disabled: true },
-            "Heat Pump Electric Backup Capacity",
-            HEAT_PUMP_BACKUP_MIN,
-            HEAT_PUMP_BACKUP_MAX,
-            `heatPumpBackup`,
-            <Tag minimal>kW</Tag>,
-            true
-          )}
+      )}
+      {hidden?.includes("heatPumpBackup") ? null : (
+        <div className="row">
+          <div className="unit">
+            {renderNumeric(
+              getValue("heatPump") ? {} : { disabled: true },
+              "Heat Pump Electric Backup Capacity",
+              HEAT_PUMP_BACKUP_MIN,
+              HEAT_PUMP_BACKUP_MAX,
+              `heatPumpBackup`,
+              <Tag minimal>kW</Tag>,
+              true
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("heatPumpLockout")}>
-        <div className="unit">
-          {renderTemperature(
-            getValue("heatPump") ? {} : { disabled: true },
-            "Heat Pump Auxiliary Heat Lockout",
-            HEAT_PUMP_LOCKOUT_MIN,
-            HEAT_PUMP_LOCKOUT_MAX,
-            8,
-            `heatPumpLockout`
-          )}
+      )}
+      {hidden?.includes("heatPumpLockout") ? null : (
+        <div className="row">
+          <div className="unit">
+            {renderTemperature(
+              getValue("heatPump") ? {} : { disabled: true },
+              "Heat Pump Auxiliary Heat Lockout",
+              HEAT_PUMP_LOCKOUT_MIN,
+              HEAT_PUMP_LOCKOUT_MAX,
+              8,
+              `heatPumpLockout`
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("economizer")}>
-        <div className="select">
-          {renderSelect(
-            {},
-            "Economizer",
-            [
-              { name: true, label: "Yes" },
-              { name: false, label: "No" },
-            ],
-            `economizer`,
-            (v) => (v ? "Yes" : "No")
-          )}
+      )}
+      {hidden?.includes("economizer") ? null : (
+        <div className="row">
+          <div className="select">
+            {renderSelect(
+              {},
+              "Economizer",
+              [
+                { name: true, label: "Yes" },
+                { name: false, label: "No" },
+              ],
+              `economizer`,
+              (v) => (v ? "Yes" : "No")
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("economizerSetpoint")}>
-        <div className="unit">
-          {renderTemperature(
-            getValue("economizer") ? {} : { disabled: true },
-            "Economizer Switchover Temperature Setpoint",
-            ECONOMIZER_SETPOINT_MIN,
-            ECONOMIZER_SETPOINT_MAX,
-            5,
-            `economizerSetpoint`
-          )}
+      )}
+      {hidden?.includes("economizerSetpoint") ? null : (
+        <div className="row">
+          <div className="unit">
+            {renderTemperature(
+              getValue("economizer") ? {} : { disabled: true },
+              "Economizer Switchover Temperature Setpoint",
+              ECONOMIZER_SETPOINT_MIN,
+              ECONOMIZER_SETPOINT_MAX,
+              5,
+              `economizerSetpoint`
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
-      <div className="row" hidden={hidden?.includes("coolingLockout")}>
-        <div className="unit">
-          {renderTemperature(
-            getValue("economizer") ? {} : { disabled: true },
-            "Compressor Cooling Lockout Temperature",
-            COOLING_LOCKOUT_MIN,
-            COOLING_LOCKOUT_MAX,
-            5,
-            `coolingLockout`
-          )}
+      )}
+      {hidden?.includes("coolingLockout") ? null : (
+        <div className="row">
+          <div className="unit">
+            {renderTemperature(
+              getValue("economizer") ? {} : { disabled: true },
+              "Compressor Cooling Lockout Temperature",
+              COOLING_LOCKOUT_MIN,
+              COOLING_LOCKOUT_MAX,
+              5,
+              `coolingLockout`
+            )}
+          </div>
+          <div />
+          <div />
         </div>
-        <div />
-        <div />
-      </div>
+      )}
     </>
   );
 }

@@ -98,46 +98,27 @@ export const getDifference = <A, B>(
   }
 };
 
-function iterateKeys<T extends object>(result: DeepPartial<T>, objects: T[], omit?: string[]): DeepPartial<T> {
-  const keys = union(...objects.map((obj) => objectKeys(obj))).filter((key) => !omit?.includes(key as string));
+/**
+ * Get the common values between a list of objects.
+ *
+ * @param objects
+ * @param omit optional list of properties to omit
+ */
+export function getCommon<T extends object>(objects: T[], omit?: string[]): Partial<T> | undefined {
+  if (objects.length === 0) {
+    return undefined;
+  } else if (objects.length === 1) {
+    return objects[0] as Partial<T>;
+  }
+  const result: Partial<T> = {} as any;
+  const keys = union(...objects.map((obj) => objectKeys(obj))).filter((key) => !omit?.includes(key.toString()));
   for (const key of keys) {
-    type K = typeof key;
-    type R = DeepPartial<T[K] & object>;
     const values = objects.map((o) => o[key]);
-    if (values.every((v) => isArray(v)) && values.every((v) => !isFunction(v))) {
-      const child: R = [] as any;
-      (result as any)[key] = range(Math.min(...values.map((v) => (v as any).length))).map((i) =>
-        iterateKeys(
-          child,
-          values.map((v) => (v as any)[i]),
-          omit
-        )
-      );
-    } else if (values.every((v) => isObject(v)) && values.every((v) => !isFunction(v))) {
-      const child: R = {} as any;
-      (result as any)[key] = iterateKeys(child, values as (T[keyof T & object][]), omit);
-    } else if (every(values, (v) => isEqual(values[0], v))) {
+    if (every(values, (v) => isEqual(values[0], v))) {
       (result as any)[key] = values[0];
     }
   }
   return result;
-}
-
-/**
- * Get the common properties between a list of objects.
- * Arrays must be the same length and have the same values in the same order to be considered equal.
- *
- * @param objects list of objects
- * @param omit optional list of properties to omit
- */
-export function getCommon<T extends object>(objects: T[], omit?: string[]): DeepPartial<T> | undefined {
-  if (objects.length === 0) {
-    return undefined;
-  } else if (objects.length === 1) {
-    return objects[0] as DeepPartial<T>;
-  }
-  const child: DeepPartial<T> = {} as any;
-  return iterateKeys(child, objects, omit);
 }
 
 /**

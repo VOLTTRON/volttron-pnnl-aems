@@ -15,6 +15,10 @@
     }
   }
 
+  .bp3-control.bp3-checkbox input:indeterminate ~ .bp3-control-indicator {
+    background-color: $pt-intent-warning !important;
+  }
+
   .error {
     color: $pt-intent-danger;
   }
