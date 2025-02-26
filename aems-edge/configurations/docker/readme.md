@@ -32,6 +32,9 @@ Source the environment (if not already done)
 
 ### Generate configs
 
+Before running the script to generate the configs, the file schneider.csv should be in the directory
+where the script will be run. The script will copy this file into the configs subdirectory.
+
 ```bash
 usage: generate_configs.py [-h] [-n NUM_CONFIGS] [--output-dir OUTPUT_DIR] [--config-subdir CONFIG_SUBDIR] [--campus CAMPUS] [--building BUILDING] [--prefix PREFIX] [-g GATEWAY_ADDRESS] [-t TIMEZONE]
 
