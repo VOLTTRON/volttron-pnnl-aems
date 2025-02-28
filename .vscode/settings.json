@@ -47,5 +47,5 @@
     "upsert"
   ],
   "typescript.enablePromptUseWorkspaceTsdk": false,
-  "typescript.tsdk": "./app/node_modules/typescript/lib"
+  "typescript.tsdk": "aems-app\\app\\node_modules\\typescript\\lib"
 }
