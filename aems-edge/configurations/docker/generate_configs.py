@@ -9,8 +9,8 @@ import csv
 import configargparse
 
 
-schneider_registry = """
-Reference Point Name,Volttron Point Name,Units,Unit Details,BACnet Object Type,Property,Writable,Index,Write Priority,Notes
+schneider_registry = \
+"""Reference Point Name,Volttron Point Name,Units,Unit Details,BACnet Object Type,Property,Writable,Index,Write Priority,Notes
 Effective Setpoint,EffectiveZoneTemperatureSetPoint,degreesFahrenheit,,analogInput,presentValue,TRUE,329,16,
 PI Heating Demand,HeatingDemand,percent,(default 100.0),analogOutput,presentValue,TRUE,21,16,
 PI Cooling Demand,CoolingDemand,percent,(default 0.0),analogOutput,presentValue,TRUE,22,16,
@@ -95,8 +95,7 @@ UO12 Configuration,UO12 Configuration,State,State count: 2 (default 2),multiStat
 Comfort or economy mode,Comfort or economy mode,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,116,9,1=Economy
 Reversing valve operation,ReversingValveOperation,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,117,9,1=B
 Compressor - auxiliary interlock,CompressorAuxiliaryInterlock,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,118,9,1=On
-Application,Application,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,119,9,1=Heatpump
-"""
+Application,Application,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,119,9,1=Heatpump"""
 
 # TODO: Add a configuration file
 config_file = 'config.ini'
@@ -168,8 +167,28 @@ manager_config_store_template = """{{
 }} """
 
 bacnet_proxy_config_template = """{{
-    device_address: {gateway_prefix}.162/24,
+    device_address: "{gateway_prefix}.4/24",
     object_id: 648
+}}"""
+
+historian_config_template = """{
+    "connection": {
+        "type": "postgresql",
+        "params": {
+            "dbname": "volttron",
+            "host": "127.0.0.1",
+            "port": 5432,
+            "user": "volttron",
+            "password": "volttron"
+        }
+    }
+}"""
+
+weather_config_template = """{{
+     "database_file": "weather.sqlite",
+     "max_size_gb": 1,
+     "poll_locations": [{station}],
+     "poll_interval": 60
 }}"""
 
 platform_config_template = """ # Properties to be added to the root config file
@@ -194,7 +213,6 @@ agents:
   # directory and will be used to install the agent.
   listener:
     source: $VOLTTRON_ROOT/examples/ListenerAgent
-    config: $CONFIG/listener.config
     tag: listener
 
   platform.bacnet_proxy:
@@ -211,19 +229,9 @@ agents:
 {devices_block}
     tag: driver
 
-  # TLDR: If you want to install a Volttron Central Platform agent, you must first install the
-  # Platform Driver before installing VCP agent
-  # Additional: VolttronCentralPlatform requires Bacpypes, which gets installed only when Platform Driver is installed.
-  # This is an unfortunate and not ideal setup, however, this issue will be addresed in a later PR so that VCP Agent
-  # can be installed on its own without having to install Platform Driver first.
-#   platform.agent:
-#     source: $VOLTTRON_ROOT/services/core/VolttronCentralPlatform
-#     config: $CONFIG/vcp.config
-#     tag: vcp
-# 
-#   platform.actuator:
-#     source: $VOLTTRON_ROOT/services/core/ActuatorAgent
-#     tag: actuator
+  platform.actuator:
+    source: $VOLTTRON_ROOT/services/core/ActuatorAgent
+    tag: actuator
 
   platform.historian:
     source: $VOLTTRON_ROOT/services/core/SQLHistorian
@@ -232,18 +240,10 @@ agents:
 
 {manager_agents_block}
 
-#  volttron.central:
-#    source: $VOLTTRON_ROOT/services/core/VolttronCentral
-#    config: $CONFIG/vc.config
-#    tag: vc
+  weather:
+    source: $VOLTTRON_ROOT/services/core/WeatherDotGov
+    config: $CONFIG/weather.config
 
-#  weather:
-#    source: $VOLTTRON_ROOT/examples/DataPublisher
-#    config: $CONFIG/weather.config
-
-#  price:
-#    source: $VOLTTRON_ROOT/examples/DataPublisher
-#    config: $CONFIG/price.config
 """
 
 def generate_device_address(gateway_address, n):
@@ -265,7 +265,7 @@ def generate_device_address(gateway_address, n):
             - device_number: An integer reflecting the input device number, potentially formatted differently
                 within the device address.
     """
-    device_number = n
+    device_number = n + 2
     if '.' in gateway_address:
         gateway_prefix = '.'.join(gateway_address.split('.')[:-1])
         device_number = str(n).zfill(2)
@@ -340,13 +340,11 @@ def generate_platform_driver_configs(num_configs, output_dir, registry_file_path
 
         registry_config_path = Path(os.path.join(output_dir, 'platform.driver', 'registry_configs'))
         if os.path.exists(f'{registry_config_path}/schneider.csv'):
-            print('Registry file already exists!')
             continue
         registry_config_path.mkdir(parents=True, exist_ok=True)
 
         # Now copy the csv file to the correct location
         if registry_file_path:
-            print(f'Registry path: {registry_file_path}')
             shutil.copy(registry_file_path, str(registry_config_path))
         else:
             with io.StringIO(schneider_registry) as csvfile:
@@ -370,6 +368,7 @@ def generate_manager_configs(num_configs, output_dir, prefix, campus, building, 
         with open(os.path.join(str(file_path), filename), 'w') as f:
             f.write(device_config)
 
+
 def generate_bacnet_proxy_config(output_dir, building, gateway_address):
     gateway_prefix = '.'.join(gateway_address.split('.')[:-1])
     bacnet_proxy_config = bacnet_proxy_config_template.format(building=building, gateway_prefix=gateway_prefix)
@@ -377,8 +376,26 @@ def generate_bacnet_proxy_config(output_dir, building, gateway_address):
     with open(os.path.join(output_dir, 'bacnet.proxy.config'), 'w') as f:
         f.write(bacnet_proxy_config)
 
+
+def generate_historian_config(output_dir):
+    with open(os.path.join(output_dir, 'historian.config'), 'w') as f:
+        f.write(historian_config_template)
+
+
+def generate_weather_config(output_dir, station):
+    print(f'Configure weather station: {station}')
+    if station:
+        station = '"station": "{station}"'.format(station=station)
+    else:
+        station = ''
+    weather_config = weather_config_template.format(station=station)
+    with open(os.path.join(output_dir, 'weather.config'), 'w') as f:
+        f.write(weather_config)
+
+
+
 if __name__ == "__main__":
-    # Identfiy arguments to be parsed
+    # Identify arguments to be parsed
     parser = configargparse.ArgParser(default_config_files=['./config.ini'],description='Generate config files for the simulation')
     parser.add('-n', '--num-configs', type=int, help='Number of config files to generate')
     parser.add('--output-dir', help='Output directory for config files')
@@ -388,6 +405,7 @@ if __name__ == "__main__":
     parser.add('--prefix', help='Device prefix', default='rtu')
     parser.add('--bacnet-address', help='bacnet address', default=None)
     parser.add('--registry-file-path', help='registry file path', default="")
+    parser.add('--weather-station', help='weather station', default="")
     parser.add('-g', '--gateway-address', help='Gateway address', default='192.168.0.1')
     parser.add('-t', '--timezone', help='Timezone', default='America/Los_Angeles')
 
@@ -395,9 +413,13 @@ if __name__ == "__main__":
 
     #print(args)
     #print(parser.format_values())
-    shutil.rmtree('configs')
+    if os.path.exists('configs'):
+        shutil.rmtree('configs')
     device_address = args.bacnet_address if args.bacnet_address is not None else args.gateway_address
     generate_platform_driver_configs(args.num_configs, args.output_dir + '/' + args.config_subdir + "/configuration_store", args.registry_file_path, args.prefix, args.campus, args.building, device_address)
     generate_manager_configs(args.num_configs, args.output_dir + '/' + args.config_subdir + "/configuration_store", args.prefix, args.campus, args.building, args.timezone)
     generate_bacnet_proxy_config(args.output_dir + '/' + args.config_subdir, args.building, args.gateway_address)
-    generate_platform_config(args.num_configs, args.output_dir, args.prefix, args.campus, args.building, args.gateway_address)
+    generate_historian_config(args.output_dir + '/' + args.config_subdir)
+    generate_weather_config(args.output_dir + '/' + args.config_subdir, args.weather_station)
+    generate_platform_config(args.num_configs, args.config_subdir, args.prefix, args.campus, args.building, args.gateway_address)
+    shutil.copy('docker-compose-aems.yml', args.config_subdir+'/docker-compose-aems.yml')
