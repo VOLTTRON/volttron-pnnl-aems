@@ -1,0 +1,30 @@
+ARG image_user=amd64
+ARG image_repo=natet/volttron
+ARG image_tag=v-docker-main
+
+FROM ${image_repo}:${image_tag} AS volttron_aems
+
+SHELL [ "bash", "-c" ]
+
+USER $VOLTTRON_USER
+
+# copy over aems repo
+# May replace this with a git clone in the future
+COPY --chown=volttron:volttron volttron-pnnl-aems /code/aems
+
+# Install libraries required for manager agent
+RUN python -m pip install pandas==2.0.1
+RUN python -m pip install numpy==1.26.4 # Force numpy to a version that doesn't break stuff
+
+########################################
+# The following lines should be run from any Dockerfile that
+# is inheriting from this one as this will make the volttron
+# run in the proper location.
+#
+# The user must be root at this point to allow gosu to work
+########################################
+USER root
+WORKDIR ${VOLTTRON_USER_HOME}
+#ENTRYPOINT ["/startup/entrypoint.sh"]
+#CMD ["/startup/bootstart.sh"]
+# CMD ["/bin/bash"]
