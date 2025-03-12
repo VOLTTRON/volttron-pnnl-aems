@@ -56,10 +56,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               saturdaySchedule: true,
               sundaySchedule: true,
               holidaySchedule: true,
-              holidays: { orderBy: [{ createdAt: "desc" }] },
+              holidays: { orderBy: [{ id: "desc" }] },
               occupancies: {
                 include: { schedule: true },
-                orderBy: [{ date: "desc" }],
+                orderBy: [{ date: "desc" }, { id: "desc" }],
               },
             },
           },
