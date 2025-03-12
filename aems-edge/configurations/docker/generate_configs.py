@@ -1,12 +1,18 @@
-#import parseargs
 import os
 import sys
 import shutil
-import argparse as ArgumentParser
 from pathlib import Path
 import io
 import csv
 import configargparse
+
+ADDRESS_OFFSET_DEFAULT = 2
+SCHNEIDER_CSV_NAME = 'schneider.csv'
+MANAGER_CONFIG_FILENAME_TEMPLATE = "manager.{device_name}.config"
+DEVICE_BLOCK_TEMPLATE = '''      devices/{campus}/{building}/{device_name}:
+        file: $CONFIG/configuration_store/platform.driver/devices/{campus}/{building}/{device_name}
+'''
+
 
 
 schneider_registry = \
@@ -208,7 +214,6 @@ config:
 # Agents dictionary to install. The key must be a valid
 # identity for the agent to be installed correctly.
 agents:
-
   # Each agent identity.config file should be in the configs
   # directory and will be used to install the agent.
   listener:
@@ -222,13 +227,12 @@ agents:
 
   platform.driver:
     source: $VOLTTRON_ROOT/services/core/PlatformDriverAgent
+    tag: driver
     config_store:
       registry_configs/schneider.csv:
         file: $CONFIG/configuration_store/platform.driver/registry_configs/schneider.csv
         type: --csv
 {devices_block}
-    tag: driver
-
   platform.actuator:
     source: $VOLTTRON_ROOT/services/core/ActuatorAgent
     tag: actuator
@@ -239,187 +243,368 @@ agents:
     tag: historian
 
 {manager_agents_block}
-
   weather:
     source: $VOLTTRON_ROOT/services/core/WeatherDotGov
     config: $CONFIG/weather.config
 
 """
 
-def generate_device_address(gateway_address, n):
-    """
-    Generates a unique device address based on the provided gateway address and a device number. The function
-    parses the gateway address, determines its format, and appends a properly formatted identifier for the
-    device, ensuring compliance with expected conventions for either IPv4-style or alternative address formats.
 
-    The method ensures consistency by zero-padding the device number when using a dotted address style.
+def get_gateway_prefix(address: str) -> str:
+    """Extract the prefix from an IPv4 address (everything except the last segment)."""
+    return '.'.join(address.split('.')[:-1])
+
+
+def generate_device_address(gateway_address: str, device_index: int, offset: int = ADDRESS_OFFSET_DEFAULT) -> tuple[str, int]:
+    """
+    Generate a unique device address based on a gateway address and device index.
 
     Args:
-        gateway_address: The base address of the gateway, either in IPv4 style (e.g., '192.168.1.1') or in
-            an alternative format.
-        n: An integer representing the device identifier, which is used to generate the device id.
+        gateway_address (str): Base address of the gateway, in IPv4 style (e.g., '192.168.1.1') or another format.
+        device_index (int): Integer representing the device identifier.
+        offset (int): Optional offset added to the device index to generate the final address. Default is 2.
 
     Returns:
-        tuple: A tuple containing:
-            - address: A string representing the full device address created based on the input parameters.
-            - device_number: An integer reflecting the input device number, potentially formatted differently
-                within the device address.
+        Tuple[str, int]: (Full device address, formatted device number or identifier)
     """
-    device_number = n + 2
-    if '.' in gateway_address:
-        gateway_prefix = '.'.join(gateway_address.split('.')[:-1])
-        device_number = str(n).zfill(2)
-        device_address = f"{gateway_prefix}.1{device_number}"
-    else:
-        device_address = f"{gateway_address}:{device_number}"
-    return device_address, device_number
+    def _format_device_number(index: int, ipv4: bool = True) -> str:
+        """Format the device index for inclusion in an address."""
+        return str(index).zfill(2) if ipv4 else str(index)
+
+    formatted_device_index = device_index + offset
+    if '.' in gateway_address:  # IPv4-style address
+        gateway_prefix = get_gateway_prefix(gateway_address)
+        device_number_str = _format_device_number(device_index)
+        full_device_address = f"{gateway_prefix}.1{device_number_str}"
+    else:  # Alternative address style
+        full_device_address = f"{gateway_address}:{formatted_device_index}"
+
+    return full_device_address, formatted_device_index
 
 
-def generate_platform_config_manager_agent_block(num_configs, prefix, campus, building):
-    manager_agent_block_template = '''  manager.{device_name}:
+def generate_platform_config_manager_agent_block(num_configs: int, device_prefix: str, campus: str, building: str) -> str:
+    """
+    Generates a block of configuration for manager agents.
+
+    Args:
+        num_configs: The number of configurations to generate.
+        device_prefix: The prefix for the device names.
+        campus: The campus where the devices are located.
+        building: The building where the devices are located.
+
+    Returns:
+        A string containing the configuration block for the manager agents.
+    """
+
+    manager_agent_block_template = """\
+  manager.{device_name}:
     source: $AEMS/aems-edge/Manager
     config: $CONFIG/configuration_store/manager.{device_name}/devices/{campus}/{building}/manager.{device_name}.config
     tag: {device_name}
-'''
+"""
 
-    manager_agent_section_block = ''
-    for config_num in range(1,num_configs+1):
-        config_num_expanded = str(config_num).zfill(2)
-        device_name = '{}{}'.format(prefix, config_num_expanded)
-        manager_agent_block = manager_agent_block_template.format(device_name=device_name, campus=campus, building=building)
+    manager_agent_section_block = ""
+    for config_num in range(1, num_configs + 1):
+        device_name = f"{device_prefix}{str(config_num).zfill(2)}"
+        manager_agent_block = manager_agent_block_template.format(
+            device_name=device_name, campus=campus, building=building
+        )
         manager_agent_section_block += manager_agent_block
 
     return manager_agent_section_block
 
-def generate_platform_config_platform_driver_devices_block(num_configs, prefix, campus, building):
-    platform_driver_devices_block_template = '''      devices/{campus}/{building}/{device_name}:
-        file: $CONFIG/configuration_store/platform.driver/devices/{campus}/{building}/{device_name}
-'''
 
-    platform_driver_devices_section_block = ''
-    for config_num in range(1,num_configs+1):
-        config_num_expanded = str(config_num).zfill(2)
-        device_name = '{}{}'.format(prefix, config_num_expanded)
-        platform_driver_devices_block = platform_driver_devices_block_template.format(device_name=device_name, campus=campus, building=building)
-        platform_driver_devices_section_block += platform_driver_devices_block
+def generate_platform_config_driver_device_block(num_configs: int, prefix: str, campus: str, building: str) -> str:
+    """Generate a platform driver configuration block for devices.
 
-    return platform_driver_devices_section_block
+    This function creates a configuration block for a specified number of devices.
+    Each device block is generated using a template and includes information about
+    its name, campus, and building.
 
-def generate_platform_config(num_configs, output_dir, prefix, campus, building, gateway_address):
-    '''This function generates the platform config that lists out all the agents and where their configs are located'''
+    Args:
+        num_configs: The number of device configurations to generate.
+        prefix: The prefix to use for naming the devices.
+        campus: The campus where the devices are located.
+        building: The building where the devices are located.
+
+    Returns:
+        A string containing the concatenated configuration blocks for all devices.
+    """
+
+    def _generate_device_block(device_name: str, campus: str, building: str) -> str:
+        """Generate a single device block for the platform driver."""
+        return DEVICE_BLOCK_TEMPLATE.format(device_name=device_name, campus=campus, building=building)
+
+    devices = [
+        _generate_device_block(f"{prefix}{str(i).zfill(2)}", campus, building)
+        for i in range(1, num_configs + 1)
+    ]
+    return ''.join(devices)
+
+
+def generate_platform_config(num_configs: int, output_dir: str, prefix, campus, building, gateway_address):
+    """
+    Generates a platform configuration file for a specified number of configurations, including
+    blocks for manager agents and driver devices. The generated configuration file is saved in
+    a specified output directory.
+
+    The configuration file is constructed by formatting a template with provided information
+    about the campus, building, and gateway address, under a designated prefix for naming.
+
+    Args:
+        num_configs (int): Number of configurations to generate.
+        output_dir (str): Directory path where the configuration file will be saved.
+        prefix: Prefix to use for generated configuration names.
+        campus: Name of the campus for which the configuration is generated.
+        building: Name of the building for which the configuration is generated.
+        gateway_address: Gateway address for the platform configuration.
+
+    """
     manager_agent_block = generate_platform_config_manager_agent_block(num_configs, prefix, campus, building)
-    platform_driver_devices_block = generate_platform_config_platform_driver_devices_block(num_configs, prefix, campus, building)
+    platform_driver_devices_block = generate_platform_config_driver_device_block(num_configs, prefix, campus, building)
 
     platform_config = platform_config_template.format(devices_block=platform_driver_devices_block, manager_agents_block=manager_agent_block)
 
     with open(os.path.join(output_dir, 'platform_config.yml'), 'w') as f:
         f.write(platform_config)
-    
-def generate_platform_driver_configs(num_configs, output_dir, registry_file_path, prefix, campus, building, gateway_address):
-    # TODO: should split this into two parts. First, generate the platform driver config, second,
-    # copy the driver csv file to the correct location.
-    # The configs will go into devices/campus/building and be named <prefix><device_number>
-    # The csv files will go into registry_configs and be named
-    # <building>-<prefix><device_number>.csv
-    # The config needs to be updated with the correct csv file name in the registry_config field.
-    # For now, we will just copy the csv file and call it schneider.csv since all the devices for
-    # this first iteration are going to use the same csv file.
 
 
-    for config_num in range(1,num_configs+1):
-        device_address, device_id = generate_device_address(gateway_address, config_num)
-        config_num_expanded = str(config_num).zfill(2)
-        device_config = device_config_template.format(device_number=config_num_expanded, device_id=device_id, device_address=device_address)
-        filename = '{}{}'.format(prefix, config_num_expanded)
+def generate_device_config(config_num: int, prefix: str, gateway_address: str,
+                           campus: str, building: str, output_dir: str):
+    """
+    Generates device configuration file based on provided parameters and writes
+    it to the specified directory. The configuration file includes the device
+    number, device ID, and device address, derived from the given inputs, and is
+    stored in a directory structure based on campus and building names.
 
-        file_path = Path(os.path.join(output_dir,'platform.driver', 'devices', campus, building))
-        file_path.mkdir(parents=True, exist_ok=True)
+    Args:
+        config_num (int): The configuration number for the device. Used to generate
+            the device number and ID.
+        prefix (str): The file name prefix for the configuration file.
+        gateway_address (str): The gateway IP address from which to generate the
+            device address.
+        campus (str): The campus name for the configuration file directory
+            structure.
+        building (str): The building name for the configuration file directory
+            structure.
+        output_dir (str): The base output directory where the configuration file
+            will be stored.
 
-        with open(os.path.join(str(file_path), filename), 'w') as f:
+    """
+    device_address, device_id = generate_device_address(gateway_address, config_num)
+    device_number = str(config_num).zfill(2)
+    device_config = device_config_template.format(device_number=device_number,
+                                                  device_id=device_id,
+                                                  device_address=device_address)
+    device_config_dir = Path(os.path.join(output_dir, 'platform.driver', 'devices', campus, building))
+    device_config_dir.mkdir(parents=True, exist_ok=True)
+
+    device_filename = f"{prefix}{device_number}"
+    device_file_path = device_config_dir / device_filename
+    with open(device_file_path, 'w') as config_file:
+        config_file.write(device_config)
+
+
+def handle_registry_csv(output_dir: str, registry_file_path: str, registry_content: str):
+    """
+    Handles the creation or copying of a Schneider registry CSV file into a designated
+    directory. If a path to an existing registry CSV file is provided, it is copied to
+    the target directory. Otherwise, a new registry CSV file is generated using provided
+    content. The operation is skipped if the output file already exists.
+
+    Args:
+        output_dir (str): The base directory where the registry configuration folder
+            and CSV file will be written.
+        registry_file_path (str): The path to an existing registry CSV file to copy
+            into the target directory. If None, a new CSV file will be created using
+            the registry_content.
+        registry_content (str): The CSV-formatted string content used to generate a
+            new registry file if `registry_file_path` is not provided.
+    """
+    registry_config_dir = Path(os.path.join(output_dir, 'platform.driver', 'registry_configs'))
+    registry_config_dir.mkdir(parents=True, exist_ok=True)
+
+    # Skip if the target registry CSV already exists
+    csv_output_path = registry_config_dir / SCHNEIDER_CSV_NAME
+    if csv_output_path.exists():
+        return
+
+    if registry_file_path:
+        # Copy provided registry file to the target path
+        shutil.copy(registry_file_path, str(csv_output_path))
+    else:
+        # Generate the registry CSV file from `registry_content`
+        with io.StringIO(registry_content) as csvfile:
+            csv_reader = csv.reader(csvfile)
+            with open(csv_output_path, 'w', newline='') as outfile:
+                csv_writer = csv.writer(outfile)
+                csv_writer.writerows(csv_reader)
+
+
+def generate_platform_driver_configs(num_configs: int, output_dir: str, registry_file_path: str,
+                                     prefix: str, campus: str, building: str, gateway_address: str):
+    """
+    Generate platform driver configuration files and handle the registry CSV file.
+
+    This function creates platform driver configuration files for each device based
+    on the specified number of configurations, directory structure, and other
+    metadata. Additionally, it handles the registry CSV file operations.
+
+    Args:
+        num_configs (int): The number of platform driver configuration files to be
+            generated.
+        output_dir (str): The directory where the configuration files will be
+            stored.
+        registry_file_path (str): The path to the registry CSV file that contains
+            metadata for devices.
+        prefix (str): A prefix to use for configuration file-related identifiers.
+        campus (str): The campus associated with the devices for directory
+            structuring or configuration.
+        building (str): The building within the campus where the devices are
+            located.
+        gateway_address (str): The address of the gateway used for device
+            communication.
+
+    """
+    # Generate platform driver configs for each device
+    for config_num in range(1, num_configs + 1):
+        generate_device_config(config_num, prefix, gateway_address, campus, building, output_dir)
+
+    # Handle the registry CSV file
+    handle_registry_csv(output_dir, registry_file_path, schneider_registry)
+
+
+def generate_manager_configs(num_configs: int, output_dir: str, prefix: str, campus: str, building: str, timezone: str):
+    """
+    Generates manager configuration files and organizes them into structured directories.
+
+    This function creates a series of configuration files based on a specified template,
+    organizing them in directories that are named according to the given parameters. The
+    number of configurations, destination output directory, prefixes, and location specifics
+    like campus, building, and timezone influence the resulting directory structure and
+    file contents.
+
+    Each configuration file is stored in a directory using the following convention:
+    "output_dir/manager.prefixXX/devices/campus/building/configuration_file", where 'XX'
+    is the configuration number, zero-padded. The function ensures the necessary directory
+    structure exists before creating files.
+
+    Args:
+        num_configs: The number of configuration files to generate.
+        output_dir: The base directory in which all configurations and subdirectories are created.
+        prefix: A naming prefix to be included in the configuration file or directory names.
+        campus: The campus identification for the directory structure and file contents.
+        building: The building identification for the directory structure and file contents.
+        timezone: The timezone to include in the configuration file template.
+    """
+    def create_output_directory(output_dir: str, prefix: str, config_num: int, campus: str, building: str):
+        device_directory = Path(
+            os.path.join(output_dir, f"manager.{prefix}{str(config_num).zfill(2)}", "devices", campus, building)
+        )
+        device_directory.mkdir(parents=True, exist_ok=True)
+        return device_directory
+
+    for config_num in range(1, num_configs + 1):
+        device_name = f"{prefix}{str(config_num).zfill(2)}"
+        device_config = manager_config_store_template.format(
+            campus=campus, building=building, timezone=timezone, device_name=device_name
+        )
+        directory = create_output_directory(output_dir, prefix, config_num, campus, building)
+        filename = MANAGER_CONFIG_FILENAME_TEMPLATE.format(device_name=device_name)
+        with open(directory / filename, 'w') as f:
             f.write(device_config)
 
-        registry_config_path = Path(os.path.join(output_dir, 'platform.driver', 'registry_configs'))
-        if os.path.exists(f'{registry_config_path}/schneider.csv'):
-            continue
-        registry_config_path.mkdir(parents=True, exist_ok=True)
 
-        # Now copy the csv file to the correct location
-        if registry_file_path:
-            shutil.copy(registry_file_path, str(registry_config_path))
-        else:
-            with io.StringIO(schneider_registry) as csvfile:
-                csv_reader = csv.reader(csvfile)
-                _path = f'{registry_config_path}/schneider.csv'
-                with open(_path, 'w', newline='') as outfile:
-                    csv_writer = csv.writer(outfile)
-                    for row in csv_reader:
-                        csv_writer.writerow(row)
+def generate_bacnet_proxy_config(output_dir: str, building: str, gateway_address: str):
+    """
+    Generates and writes a BACnet proxy configuration file for a specific building and gateway address.
 
-def generate_manager_configs(num_configs, output_dir, prefix, campus, building, timezone):
-    for config_num in range(1,num_configs+1):
-        config_num_expanded = str(config_num).zfill(2)
-        device_name = '{}{}'.format(prefix, config_num_expanded)
-        device_config = manager_config_store_template.format(campus=campus, building = building, timezone=timezone, device_name=device_name)
-        filename = 'manager.{}.config'.format(device_name)
+    This function retrieves the gateway prefix based on the provided gateway address and uses that
+    along with the building name to create a BACnet proxy configuration file. The resulting
+    configuration is saved in the specified output directory as 'bacnet.proxy.config'.
 
-        file_path = Path(os.path.join(output_dir,'manager.{}{}'.format(prefix, config_num_expanded),  'devices', campus, building))
-        file_path.mkdir(parents=True, exist_ok=True)
-
-        with open(os.path.join(str(file_path), filename), 'w') as f:
-            f.write(device_config)
-
-
-def generate_bacnet_proxy_config(output_dir, building, gateway_address):
-    gateway_prefix = '.'.join(gateway_address.split('.')[:-1])
+    Args:
+        output_dir: The directory path where the configuration file will be written.
+        building: The name of the building for which the configuration is being generated.
+        gateway_address: The network address of the gateway used to derive the prefix.
+    """
+    gateway_prefix = get_gateway_prefix(gateway_address)
     bacnet_proxy_config = bacnet_proxy_config_template.format(building=building, gateway_prefix=gateway_prefix)
-
     with open(os.path.join(output_dir, 'bacnet.proxy.config'), 'w') as f:
         f.write(bacnet_proxy_config)
 
 
-def generate_historian_config(output_dir):
-    with open(os.path.join(output_dir, 'historian.config'), 'w') as f:
-        f.write(historian_config_template)
+def generate_historian_config(output_dir: str, config_content: str=historian_config_template):
+    """Writes the historian configuration to a file.
+
+    Args:
+        output_dir: The directory where the file should be written.
+        config_content: The content to write to the historian config file.
+    """
+    historian_config_path = os.path.join(output_dir, 'historian.config')
+    with open(historian_config_path, 'w') as f:
+        f.write(config_content)
 
 
-def generate_weather_config(output_dir, station):
+def generate_weather_config(output_dir: str, station: str):
+    """
+    Generates the weather station configuration file.
+
+    Args:
+        output_dir: The directory to save the configuration file.
+        station: The name of the weather station.  If empty, the station field will be omitted.
+    """
     print(f'Configure weather station: {station}')
-    if station:
-        station = '"station": "{station}"'.format(station=station)
-    else:
-        station = ''
-    weather_config = weather_config_template.format(station=station)
-    with open(os.path.join(output_dir, 'weather.config'), 'w') as f:
+    station_config = f'"station": "{station}"' if station else ''
+    weather_config = weather_config_template.format(station=station_config)
+    weather_config_file_path = os.path.join(output_dir, 'weather.config')
+    with open(weather_config_file_path, 'w') as f:
         f.write(weather_config)
 
 
-
-if __name__ == "__main__":
-    # Identify arguments to be parsed
-    parser = configargparse.ArgParser(default_config_files=['./config.ini'],description='Generate config files for the simulation')
-    parser.add('-n', '--num-configs', type=int, help='Number of config files to generate')
-    parser.add('--output-dir', help='Output directory for config files')
+def main():
+    # Argument parsing
+    parser = configargparse.ArgParser(default_config_files=['./config.ini'],
+                                      description='Generate config files for the simulation')
+    parser.add('-n', '--num-configs', type=int, help='Number of config files to generate', required=True)
+    parser.add('--output-dir', help='Output directory for config files', required=True)
     parser.add('--config-subdir', help='Subdirectory for config files', default='configs')
-    parser.add('--campus', help='Campus name')
-    parser.add('--building', help='Building name')
+    parser.add('--campus', help='Campus name', required=True)
+    parser.add('--building', help='Building name', required=True)
     parser.add('--prefix', help='Device prefix', default='rtu')
     parser.add('--bacnet-address', help='bacnet address', default=None)
     parser.add('--registry-file-path', help='registry file path', default="")
     parser.add('--weather-station', help='weather station', default="")
     parser.add('-g', '--gateway-address', help='Gateway address', default='192.168.0.1')
     parser.add('-t', '--timezone', help='Timezone', default='America/Los_Angeles')
-
     args = parser.parse_args()
 
-    #print(args)
-    #print(parser.format_values())
-    if os.path.exists('configs'):
-        shutil.rmtree('configs')
+    output_path = os.path.join(args.output_dir, args.config_subdir)
+    config_store_path = os.path.join(output_path, "configuration_store")
+
+    # Remove existing configs directory
+    if os.path.exists(output_path):
+        shutil.rmtree(output_path)
+    os.makedirs(output_path, exist_ok=True)
+    os.makedirs(config_store_path, exist_ok=True)
+
     device_address = args.bacnet_address if args.bacnet_address is not None else args.gateway_address
-    generate_platform_driver_configs(args.num_configs, args.output_dir + '/' + args.config_subdir + "/configuration_store", args.registry_file_path, args.prefix, args.campus, args.building, device_address)
-    generate_manager_configs(args.num_configs, args.output_dir + '/' + args.config_subdir + "/configuration_store", args.prefix, args.campus, args.building, args.timezone)
-    generate_bacnet_proxy_config(args.output_dir + '/' + args.config_subdir, args.building, args.gateway_address)
-    generate_historian_config(args.output_dir + '/' + args.config_subdir)
-    generate_weather_config(args.output_dir + '/' + args.config_subdir, args.weather_station)
-    generate_platform_config(args.num_configs, args.config_subdir, args.prefix, args.campus, args.building, args.gateway_address)
-    shutil.copy('docker-compose-aems.yml', args.config_subdir+'/docker-compose-aems.yml')
+
+    # Generate configurations
+    generate_platform_driver_configs(args.num_configs, config_store_path, args.registry_file_path, args.prefix,
+                                     args.campus, args.building, device_address)
+    generate_manager_configs(args.num_configs, config_store_path, args.prefix,
+                             args.campus, args.building, args.timezone)
+    generate_bacnet_proxy_config(output_path, args.building, args.gateway_address)
+    generate_historian_config(output_path)
+    generate_weather_config(output_path, args.weather_station)
+    generate_platform_config(args.num_configs, output_path, args.prefix,
+                             args.campus, args.building, args.gateway_address)
+
+    # Copy docker-compose file
+    shutil.copy('docker-compose-aems.yml', os.path.join(output_path, 'docker-compose-aems.yml'))
+
+
+if __name__ == "__main__":
+    main()
+
