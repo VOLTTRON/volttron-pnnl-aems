@@ -15,6 +15,18 @@ import { DeepPartial } from "../../utils/types";
 
 const holidayOrder = HolidayType.values.map((a) => a.label);
 
+const minDate = new Date("2024-01-01");
+minDate.setFullYear(2024, 0, 1);
+
+const maxDate = new Date("2024-12-31");
+maxDate.setFullYear(2024, 11, 31);
+
+const dateFactory = () => {
+  const date = new Date("2024-01-01");
+  date.setFullYear(2024, 0, 1);
+  return date;
+};
+
 function CreateHoliday(props: {
   unit: DeepPartial<IUnit> | IUnit;
   editing: DeepPartial<IUnit> | null;
@@ -24,7 +36,7 @@ function CreateHoliday(props: {
   const { unit, editing, handleChange, holidays } = props;
 
   const [label, setLabel] = useState("");
-  const [date, setDate] = useState(new Date());
+  const [date, setDate] = useState(dateFactory());
   const [observance, setObservance] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -42,6 +54,9 @@ function CreateHoliday(props: {
           <Popover2
             content={
               <DatePicker
+                canClearSelection={false}
+                minDate={minDate}
+                maxDate={maxDate}
                 value={date}
                 onChange={(d, u) => {
                   if (d) {
