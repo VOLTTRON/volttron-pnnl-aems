@@ -44,8 +44,6 @@ services:
       context: ../app
       dockerfile: ./Dockerfile
       args:
-        - UID=${UID}
-        - GID=${GID}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -87,7 +85,6 @@ services:
     ports:
       - ${APP_PORT}:3000
     restart: unless-stopped
-    user: ${UID}:${GID}
     volumes:
       - app-data:/app/data
       - app-cache:/app/.next/cache
@@ -99,8 +96,6 @@ services:
       context: ../app
       dockerfile: ./Dockerfile
       args:
-        - UID=${UID}
-        - GID=${GID}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -121,7 +116,6 @@ services:
     hostname: services
     image: nextapp:${TAG}
     restart: unless-stopped
-    user: ${UID}:${GID}
     volumes:
       - app-data:/app/data
       - app-upload:/app/upload/
@@ -155,9 +149,7 @@ services:
             --domain "${HOSTNAME}"
         fi;
         cd /app/;
-        chown ${UID}:${GID} data upload;
         chmod 775 data upload;
-        chown ${UID}:${GID} seed;
         chmod 664 /etc/certs/mkcert-ca.crt;
         chmod -R 775 ./lib;
         yarn migrate:deploy;
