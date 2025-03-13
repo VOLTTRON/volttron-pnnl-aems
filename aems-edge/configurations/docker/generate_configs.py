@@ -6,7 +6,7 @@ import io
 import csv
 import configargparse
 
-ADDRESS_OFFSET_DEFAULT = 2
+ADDRESS_OFFSET_DEFAULT = 0
 SCHNEIDER_CSV_NAME = 'schneider.csv'
 MANAGER_CONFIG_FILENAME_TEMPLATE = "manager.{device_name}.config"
 DEVICE_BLOCK_TEMPLATE = '''      devices/{campus}/{building}/{device_name}:
