@@ -11,7 +11,7 @@ export const FeedbackWhere = builder.prismaWhere("Feedback", {
     createdAt: DateTimeFilter,
     updatedAt: DateTimeFilter,
     userId: StringFilter,
-    user: UserWhereUnique
+    user: UserWhereUnique,
   },
 });
 
@@ -37,7 +37,11 @@ builder.queryField("readFeedback", (t) =>
     authScopes: { user: true },
     type: "Feedback",
     args: {
-      where: t.arg({ type: FeedbackWhereUnique, required: true })
+      where: t.arg({ type: FeedbackWhereUnique, required: true }),
+    },
+    smartSubscription: true,
+    subscribe: (subscriptions, _parent, args, _context, _info) => {
+      subscriptions.register(`Feedback/${args.where.id}`);
     },
     resolve: async (_query, _root, args, ctx, _info) => {
       const auth = ctx.authUser;
@@ -53,7 +57,6 @@ builder.queryField("readFeedback", (t) =>
   })
 );
 
-
 builder.queryField("readAllFeedback", (t) =>
   t.prismaField({
     description: "Read a list of feedback.",
@@ -64,6 +67,10 @@ builder.queryField("readAllFeedback", (t) =>
       distinct: t.arg({ type: [FeedbackFields] }),
       orderBy: t.arg({ type: [FeedbackOrderBy] }),
       paging: t.arg({ type: PagingInput }),
+    },
+    smartSubscription: true,
+    subscribe: (subscriptions, _parent, _args, _context, _info) => {
+      subscriptions.register(`Feedback`);
     },
     resolve: async (query, _root, args, ctx, _info) => {
       const auth = ctx.authUser;
@@ -77,7 +84,7 @@ builder.queryField("readAllFeedback", (t) =>
         where: args.where ?? undefined,
         distinct: args.distinct ?? undefined,
         orderBy: args.orderBy ?? {},
-        ...(args.paging ?? {})
+        ...(args.paging ?? {}),
       });
     },
   })

@@ -5,7 +5,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 
 import { authUser } from "@/auth";
 import { logger } from "@/logging";
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 import { Controls } from "@prisma/client";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -27,9 +27,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
           control
         ),
+        include: {
+          units: {
+            include: {
+              configuration: {
+                include: {
+                  setpoint: true,
+                  mondaySchedule: true,
+                  tuesdaySchedule: true,
+                  wednesdaySchedule: true,
+                  thursdaySchedule: true,
+                  fridaySchedule: true,
+                  saturdaySchedule: true,
+                  sundaySchedule: true,
+                  holidaySchedule: true,
+                  holidays: { orderBy: [{ day: "asc" }, { month: "asc" }] },
+                  occupancies: {
+                    include: { schedule: true },
+                    orderBy: [{ date: "desc" }],
+                  },
+                },
+              },
+              location: true,
+            },
+          },
+        },
       })
-      .then((control) => {
-        return res.status(201).json(control);
+      .then((response) => {
+        recordChange("Create", "Controls", response.id.toString(), user, convertToJsonObject(response));
+        return res.status(201).json(response);
       })
       .catch((error) => {
         logger.warn(error);

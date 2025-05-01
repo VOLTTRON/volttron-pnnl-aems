@@ -26,6 +26,10 @@ builder.queryField("readFile", (t) =>
     args: {
       where: t.arg({ type: FileWhereUnique, required: true }),
     },
+    smartSubscription: true,
+    subscribe: (subscriptions, _parent, args, _context, _info) => {
+      subscriptions.register(`File/${args.where.id}`);
+    },
     resolve: async (_query, _root, args, ctx, _info) => {
       // If not admin, limit to their own files
       const auth = ctx.authUser;
@@ -50,6 +54,10 @@ builder.queryField("readFeedbackFiles", (t) =>
     type: ["File"],
     args: {
       where: t.arg({ type: FileWhere }),
+    },
+    smartSubscription: true,
+    subscribe: (subscriptions, _parent, args, _context, _info) => {
+      subscriptions.register(`File`);
     },
     resolve: async (query, _root, args, ctx, _info) => {
       // If not admin, limit to their own files

@@ -1,4 +1,4 @@
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 import { builder } from "../builder";
 import { AccountWhereUnique } from "./query";
 import { UserWhereUnique } from "../user/query";
@@ -56,6 +56,7 @@ builder.mutationField("createAccount", (t) =>
           data: args.create,
         })
         .then((account) => {
+          recordChange("Create", "Account", account.id, ctx.authUser, convertToJsonObject(account));
           ctx.pubsub.publish("Account", {
             topic: "Account",
             id: account.id,
@@ -84,6 +85,7 @@ builder.mutationField("updateAccount", (t) =>
           data: args.update,
         })
         .then((account) => {
+          recordChange("Update", "Account", account.id, ctx.authUser, convertToJsonObject(account));
           ctx.pubsub.publish("Account", {
             topic: "Account",
             id: account.id,
@@ -115,6 +117,7 @@ builder.mutationField("deleteAccount", (t) =>
           where: args.where,
         })
         .then((account) => {
+          recordChange("Delete", "Account", account.id, ctx.authUser);
           ctx.pubsub.publish("Account", {
             topic: "Account",
             id: account.id,

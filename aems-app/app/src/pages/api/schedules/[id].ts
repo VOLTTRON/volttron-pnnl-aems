@@ -6,7 +6,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { authUser } from "@/auth";
 import { StageType } from "@/common";
 import { logger } from "@/logging";
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 import { Schedules } from "@prisma/client";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -61,11 +61,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         data: schedule,
         where: { id: parseInt(id) },
       })
-      .then((schedule) => {
-        if (!schedule) {
-          return res.status(404).json("Schedule not found.");
-        }
-        return res.status(200).json(schedule);
+      .then((response) => {
+        recordChange("Update", "Schedules", response.id.toString(), user, convertToJsonObject(response));
+        return res.status(200).json(response);
       })
       .catch((error) => {
         logger.warn(error);
@@ -79,10 +77,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .delete({
         where: { id: parseInt(id) },
       })
-      .then((schedule) => {
-        if (!schedule) {
-          return res.status(404).json("Schedule not found.");
-        }
+      .then((response) => {
+        recordChange("Delete", "Schedules", response.id.toString(), user);
         return res.status(200).json(null);
       })
       .catch((error) => {
