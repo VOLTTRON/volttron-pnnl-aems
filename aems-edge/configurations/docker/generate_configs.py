@@ -6,7 +6,7 @@ import io
 import csv
 import configargparse
 
-ADDRESS_OFFSET_DEFAULT = 2
+ADDRESS_OFFSET_DEFAULT = 0
 SCHNEIDER_CSV_NAME = 'schneider.csv'
 MANAGER_CONFIG_FILENAME_TEMPLATE = "manager.{device_name}.config"
 DEVICE_BLOCK_TEMPLATE = '''      devices/{campus}/{building}/{device_name}:
@@ -246,7 +246,7 @@ agents:
   weather:
     source: $VOLTTRON_ROOT/services/core/WeatherDotGov
     config: $CONFIG/weather.config
-
+    tag: weather
 """
 
 
@@ -297,7 +297,7 @@ def generate_platform_config_manager_agent_block(num_configs: int, device_prefix
     """
 
     manager_agent_block_template = """\
-  manager.{device_name}:
+  manager.{device_vip}:
     source: $AEMS/aems-edge/Manager
     config: $CONFIG/configuration_store/manager.{device_name}/devices/{campus}/{building}/manager.{device_name}.config
     tag: {device_name}
@@ -306,8 +306,9 @@ def generate_platform_config_manager_agent_block(num_configs: int, device_prefix
     manager_agent_section_block = ""
     for config_num in range(1, num_configs + 1):
         device_name = f"{device_prefix}{str(config_num).zfill(2)}"
+        device_vip = f"{device_prefix.lower()}{str(config_num).zfill(2)}"
         manager_agent_block = manager_agent_block_template.format(
-            device_name=device_name, campus=campus, building=building
+            device_vip=device_vip, device_name=device_name, campus=campus, building=building
         )
         manager_agent_section_block += manager_agent_block
 
