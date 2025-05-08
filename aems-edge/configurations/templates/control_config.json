@@ -17,8 +17,8 @@
           "revert_priority": 1,
           "offset": {
             "_type": "value",
-            "sources": ["setpointPeakOffset", "compressors"],
-            "expression": "setpointPeakOffset / (compressors || 1)"
+            "sources": ["coolingPeakOffset", "compressors"],
+            "expression": "coolingPeakOffset / (compressors || 1)"
           },
           "load": {
             "_type": "value",
@@ -46,13 +46,13 @@
               "revert_priority": 2,
               "offset": {
                 "_type": "value",
-                "sources": ["setpointPeakOffset", "compressors"],
-                "expression": "setpointPeakOffset / compressors"
+                "sources": ["coolingPeakOffset", "compressors"],
+                "expression": "coolingPeakOffset / (compressors || 1)"
               },
               "load": {
                 "_type": "value",
                 "sources": ["coolingCapacity", "compressors"],
-                "expression": "coolingCapacity / compressors"
+                "expression": "coolingCapacity / (compressors || 1)"
               }
             }
           },
@@ -80,8 +80,8 @@
               "revert_priority": 1,
               "offset": {
                 "_type": "value",
-                "sources": ["setpointPeakOffset", "heatPump"],
-                "expression": "setpointPeakOffset / (heatPump ? 2 : 1)"
+                "sources": ["heatingPeakOffset", "heatPump"],
+                "expression": "heatingPeakOffset / (heatPump ? 2 : 1)"
               },
               "load": {
                 "_type": "value",
@@ -114,8 +114,8 @@
               "revert_priority": 2,
               "offset": {
                 "_type": "value",
-                "sources": ["setpointPeakOffset", "heatPump"],
-                "expression": "setpointPeakOffset / (heatPump ? 2 : 1)"
+                "sources": ["heatingPeakOffset", "heatPump"],
+                "expression": "heatingPeakOffset / (heatPump ? 2 : 1)"
               },
               "load": {
                 "_type": "value",
