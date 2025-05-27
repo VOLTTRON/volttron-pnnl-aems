@@ -43,17 +43,18 @@ try:
     
     from volttron.utils.jsonrpc import RemoteError
     from volttron.client.messaging import headers as headers_mod
+    import volttron.utils as utils
     from volttron.utils import format_timestamp, get_aware_utc_now
 
 except ImportError:
 
-    # from volttron.platform.agent import utils
-    # from volttron.platform.agent.utils import (format_timestamp, get_aware_utc_now,
-    #                                         setup_logging)
-    # from volttron.platform.jsonrpc import RemoteError
-    # from volttron.platform.messaging import headers as headers_mod
-    # from volttron.platform.scheduling import cron
-    # from volttron.platform.vip.agent import RPC, Agent
+    from volttron.platform.agent import utils
+    from volttron.platform.agent.utils import (format_timestamp, get_aware_utc_now,
+                                            setup_logging)
+    from volttron.platform.jsonrpc import RemoteError
+    from volttron.platform.messaging import headers as headers_mod
+    from volttron.platform.scheduling import cron
+    from volttron.platform.vip.agent import RPC, Agent
     setup_logging()
 
 from . import DefaultConfig, Location, Schedule
