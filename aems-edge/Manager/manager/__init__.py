@@ -33,8 +33,13 @@ from typing import Optional
 import pytz
 from tzlocal import get_localzone
 
-from volttron.platform.messaging import topics, utils
-from volttron.platform.agent.utils import get_aware_utc_now
+try:
+    import volttron.utils as utils
+    from volttron.utils import get_aware_utc_now
+    from volttron.client.messaging import topics
+except ImportError:
+    from volttron.platform.messaging import topics, utils
+    from volttron.platform.agent.utils import get_aware_utc_now
 
 from .points import DaysOfWeek, Points, PointValue, SetpointControlType
 

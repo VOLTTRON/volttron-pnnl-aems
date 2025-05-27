@@ -30,7 +30,12 @@ from typing import Callable
 
 import numpy as np
 import pandas as pd
-from volttron.platform.agent.utils import format_timestamp
+try:
+    from volttron.utils import format_timestamp
+except ImportError:
+    from volttron.platform.agent.utils import format_timestamp
+
+
 
 from . import OptimalStartConfig
 from .utils import (calculate_prestart_time, ema, get_operating_mode,

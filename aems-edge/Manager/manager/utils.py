@@ -28,7 +28,11 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 from manager.points import DFPoints as dfpts
-from volttron.platform.agent.utils import format_timestamp
+try:
+    from volttron.utils import format_timestamp
+except ImportError:
+    from volttron.platform.agent.utils import format_timestamp
+    
 
 pd.options.mode.chained_assignment = None
 _log = logging.getLogger(__name__)

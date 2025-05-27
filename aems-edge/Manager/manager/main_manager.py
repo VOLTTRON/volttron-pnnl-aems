@@ -35,13 +35,26 @@ from typing import Any, Union
 import gevent
 import pandas as pd
 from dateutil import parser
-from volttron.platform.agent import utils
-from volttron.platform.agent.utils import (format_timestamp, get_aware_utc_now,
-                                           setup_logging)
-from volttron.platform.jsonrpc import RemoteError
-from volttron.platform.messaging import headers as headers_mod
-from volttron.platform.scheduling import cron
-from volttron.platform.vip.agent import RPC, Agent
+
+try:
+    from aems.client.agent import Agent, RPC, Scheduler, run_agent
+
+    cron = Scheduler.cron
+    
+    from volttron.utils.jsonrpc import RemoteError
+    from volttron.client.messaging import headers as headers_mod
+    from volttron.utils import format_timestamp, get_aware_utc_now
+
+except ImportError:
+
+    # from volttron.platform.agent import utils
+    # from volttron.platform.agent.utils import (format_timestamp, get_aware_utc_now,
+    #                                         setup_logging)
+    # from volttron.platform.jsonrpc import RemoteError
+    # from volttron.platform.messaging import headers as headers_mod
+    # from volttron.platform.scheduling import cron
+    # from volttron.platform.vip.agent import RPC, Agent
+    setup_logging()
 
 from . import DefaultConfig, Location, Schedule
 from .data_utils import Data, DataFileAccess
@@ -62,7 +75,7 @@ pd.set_option('display.max_rows', None)
 __author__ = ['Robert Lutes<robert.lutes@pnnl.gov>', 'Craig Allwardt<craig.allwardt@pnnl.gov>']
 __version__ = '0.0.2'
 
-setup_logging()
+#setup_logging()
 _log = logging.getLogger(__name__)
 
 # Set the formatter for the logger if running inside debugger but not when
@@ -973,11 +986,15 @@ class ManagerProxy:
 
 def main(argv=sys.argv):
     """Main method called by the aip."""
-    try:
-        utils.vip_main(ManagerProxy)
-    except Exception as exception:
-        _log.exception('unhandled exception')
-        _log.error(repr(exception))
+    
+    if run_agent:
+        run_agent(ManagerProxy)
+    else:
+        try:
+            utils.vip_main(ManagerProxy)
+        except Exception as exception:
+            _log.exception('unhandled exception')
+            _log.error(repr(exception))
 
 
 if __name__ == '__main__':

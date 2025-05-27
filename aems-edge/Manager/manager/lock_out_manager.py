@@ -24,8 +24,12 @@
 import logging
 from datetime import timedelta as td
 
-from volttron.platform.agent.utils import get_aware_utc_now
-from volttron.platform.scheduling import cron
+try:
+    from volttron.utils import format_timestamp
+    from volttron.client.messaging import headers as headers_mod
+except ImportError:
+    from volttron.platform.agent.utils import format_timestamp
+    from volttron.platform.messaging import headers as headers_mod
 
 from .points import OccupancyTypes, Points, cooling
 
