@@ -1,4 +1,4 @@
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 import { builder } from "../builder";
 import { LogWhereUnique } from "./query";
 import { Mutation } from "../types";
@@ -35,9 +35,10 @@ builder.mutationField("createLog", (t) =>
           ...query,
           data: log,
         })
-        .then((log) => {
-          ctx.pubsub.publish("Log", { topic: "Log", id: log.id, mutation: Mutation.Created });
-          return log;
+        .then((response) => {
+          recordChange("Create", "Log", response.id, ctx.authUser, convertToJsonObject(response));
+          ctx.pubsub.publish("Log", { topic: "Log", id: response.id, mutation: Mutation.Created });
+          return response;
         });
     },
   })
@@ -59,10 +60,11 @@ builder.mutationField("updateLog", (t) =>
           where: args.where,
           data: args.update,
         })
-        .then((log) => {
-          ctx.pubsub.publish("Log", { topic: "Log", id: log.id, mutation: Mutation.Updated });
-          ctx.pubsub.publish(`Log/${log.id}`, { topic: "Log", id: log.id, mutation: Mutation.Updated });
-          return log;
+        .then((response) => {
+          recordChange("Update", "Log", response.id, ctx.authUser, convertToJsonObject(response));
+          ctx.pubsub.publish("Log", { topic: "Log", id: response.id, mutation: Mutation.Updated });
+          ctx.pubsub.publish(`Log/${response.id}`, { topic: "Log", id: response.id, mutation: Mutation.Updated });
+          return response;
         });
     },
   })
@@ -82,10 +84,11 @@ builder.mutationField("deleteLog", (t) =>
           ...query,
           where: args.where,
         })
-        .then((log) => {
-          ctx.pubsub.publish("Log", { topic: "Log", id: log.id, mutation: Mutation.Deleted });
-          ctx.pubsub.publish(`Log/${log.id}`, { topic: "Log", id: log.id, mutation: Mutation.Deleted });
-          return log;
+        .then((response) => {
+          recordChange("Delete", "Log", response.id, ctx.authUser);
+          ctx.pubsub.publish("Log", { topic: "Log", id: response.id, mutation: Mutation.Deleted });
+          ctx.pubsub.publish(`Log/${response.id}`, { topic: "Log", id: response.id, mutation: Mutation.Deleted });
+          return response;
         });
     },
   })

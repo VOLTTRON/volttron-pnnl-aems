@@ -1,4 +1,4 @@
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 import { builder } from "../builder";
 import { AccountCreate } from "../account/mutate";
 import { CommentCreate } from "../comment/mutate";
@@ -77,9 +77,10 @@ builder.mutationField("createUser", (t) =>
           ...query,
           data: args.create,
         })
-        .then((user) => {
-          ctx.pubsub.publish("User", { topic: "User", id: user.id, mutation: Mutation.Created });
-          return user;
+        .then((response) => {
+          recordChange("Create", "User", response.id, ctx.authUser, convertToJsonObject(response));
+          ctx.pubsub.publish("User", { topic: "User", id: response.id, mutation: Mutation.Created });
+          return response;
         });
     },
   })
@@ -101,14 +102,15 @@ builder.mutationField("updateUser", (t) =>
           where: args.where,
           data: args.update,
         })
-        .then((user) => {
-          ctx.pubsub.publish("User", { topic: "User", id: user.id, mutation: Mutation.Updated });
-          ctx.pubsub.publish(`User/${user.id}`, {
+        .then((response) => {
+          recordChange("Update", "User", response.id, ctx.authUser, convertToJsonObject(response));
+          ctx.pubsub.publish("User", { topic: "User", id: response.id, mutation: Mutation.Updated });
+          ctx.pubsub.publish(`User/${response.id}`, {
             topic: "User",
-            id: user.id,
+            id: response.id,
             mutation: Mutation.Updated,
           });
-          return user;
+          return response;
         });
     },
   })
@@ -128,14 +130,15 @@ builder.mutationField("deleteUser", (t) =>
           ...query,
           where: args.where,
         })
-        .then((user) => {
-          ctx.pubsub.publish("User", { topic: "User", id: user.id, mutation: Mutation.Deleted });
-          ctx.pubsub.publish(`User/${user.id}`, {
+        .then((response) => {
+          recordChange("Delete", "User", response.id, ctx.authUser);
+          ctx.pubsub.publish("User", { topic: "User", id: response.id, mutation: Mutation.Deleted });
+          ctx.pubsub.publish(`User/${response.id}`, {
             topic: "User",
-            id: user.id,
+            id: response.id,
             mutation: Mutation.Deleted,
           });
-          return user;
+          return response;
         });
     },
   })

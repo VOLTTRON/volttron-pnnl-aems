@@ -13,6 +13,7 @@ import ScopeAuthPlugin from "@pothos/plugin-scope-auth";
 import SmartSubscriptionsPlugin, { subscribeOptionsFromIterator } from "@pothos/plugin-smart-subscriptions";
 import RelayPlugin from "@pothos/plugin-relay";
 import { Context, Scalars } from "./types";
+import { MutationType } from "@/generated/graphql-codegen/graphql";
 
 export const builder = new SchemaBuilder<{
   Context: Context;
@@ -64,6 +65,7 @@ builder.scalarType("Event", { serialize: (v) => v });
 
 builder.enumType("LogType", { values: LogType.values.map((v) => v.enum) });
 builder.enumType("FeedbackStatusType", { values: FeedbackStatusType.values.map((v) => v.enum) });
+builder.enumType("MutationType", { values: Object.values(MutationType) });
 
 builder.queryType({});
 builder.mutationType({});
@@ -90,6 +92,10 @@ export const DateTimeFilter = builder.prismaFilter("DateTime", {
 });
 
 export const LogTypeFilter = builder.prismaFilter("LogType", {
+  ops: ["equals", "not", "in", "mode"],
+});
+
+export const MutationTypeFilter = builder.prismaFilter("MutationType", {
   ops: ["equals", "not", "in", "mode"],
 });
 

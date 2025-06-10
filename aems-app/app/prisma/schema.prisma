@@ -39,7 +39,7 @@ model Feedback {
 
   // direct relations
   user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignee User? @relation("assignee", fields: [assigneeId], references: [id], onDelete: Cascade)
+  assignee User? @relation("assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
 
   // indirect relations
   files File[]
@@ -110,6 +110,7 @@ model User {
   assignedFeedbacks Feedback[] @relation("assignee")
   files             File[]
   units             Units[]    @relation("Units_users")
+  changes           Change[]
 
   // indices
   @@index([name], map: "users_name")
@@ -446,6 +447,34 @@ model Locations {
   longitude Float
   // indirect relations
   units     Units[]  @relation("Units_locations")
+}
+
+model Change {
+  // key
+  id        String        @id @default(cuid())
+  // metadata
+  createdAt DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime      @updatedAt @db.Timestamptz(6)
+  // fields
+  table     String
+  key       String
+  mutation  enum_mutation
+  data      Json?
+  // foreign keys
+  userId    String?
+  // direct relations
+  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // indices
+  @@index([table])
+  @@index([key])
+}
+
+enum enum_mutation {
+  Create
+  Update
+  Delete
+  Upsert
 }
 
 enum enum_log {

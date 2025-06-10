@@ -5,19 +5,20 @@ services:
     hostname: volttron1
     build:
       context: .
-      dockerfile: Dockerfile-aems
+      dockerfile: Dockerfile-ilc
       args:
         install_rmq: 'false'
-    image: eclipsevolttron/volttron-aems:latest
+    image: eclipsevolttron/volttron-aems-ilc:latest
     network_mode: host
     volumes:
       - ./platform_config.yml:/platform_config.yml
-      - ../configs:/home/volttron/configs
+      - ./configs:/home/volttron/configs
       #      - ./core:/startup
       - volttron1-volume:/home/volttron/db
     environment:
       - CONFIG=/home/volttron/configs
       - AEMS=/code/aems
+      - ILC=/code/ilc
       - LOCAL_USER_ID=1000
       - TZ=America/Los_Angeles
 
