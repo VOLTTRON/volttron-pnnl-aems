@@ -6,7 +6,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { authUser } from "@/auth";
 import { StageType } from "@/common";
 import { logger } from "@/logging";
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 import { Controls } from "@prisma/client";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -26,9 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         where: { id: parseInt(id) },
       })
       .then((control) => {
-        if (!control) {
-          return res.status(404).json("Control not found.");
-        }
+        recordChange("Delete", "Controls", control.id.toString(), user);
         return res.status(200).json(null);
       })
       .catch((error) => {
@@ -110,12 +108,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .update({
         data: control,
         where: { id: parseInt(id) },
+        include: {
+          units: {
+            include: {
+              configuration: {
+                include: {
+                  setpoint: true,
+                  mondaySchedule: true,
+                  tuesdaySchedule: true,
+                  wednesdaySchedule: true,
+                  thursdaySchedule: true,
+                  fridaySchedule: true,
+                  saturdaySchedule: true,
+                  sundaySchedule: true,
+                  holidaySchedule: true,
+                  holidays: { orderBy: [{ day: "asc" }, { month: "asc" }] },
+                  occupancies: {
+                    include: { schedule: true },
+                    orderBy: [{ date: "desc" }],
+                  },
+                },
+              },
+              location: true,
+            },
+          },
+        },
       })
-      .then((control) => {
-        if (!control) {
-          return res.status(404).json("Control not found.");
-        }
-        return res.status(200).json(control);
+      .then((response) => {
+        recordChange("Update", "Controls", response.id.toString(), user, convertToJsonObject(response));
+        return res.status(200).json(response);
       })
       .catch((error) => {
         logger.warn(error);

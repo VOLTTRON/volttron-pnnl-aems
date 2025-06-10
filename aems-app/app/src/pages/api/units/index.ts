@@ -4,7 +4,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 
 import { authUser } from "@/auth";
 import { logger } from "@/logging";
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 import { Units } from "@prisma/client";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -23,9 +23,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           name: unit.name || "",
           label: unit.label || "",
         },
+        include: {
+          configuration: {
+            include: {
+              setpoint: true,
+              mondaySchedule: true,
+              tuesdaySchedule: true,
+              wednesdaySchedule: true,
+              thursdaySchedule: true,
+              fridaySchedule: true,
+              saturdaySchedule: true,
+              sundaySchedule: true,
+              holidaySchedule: true,
+              holidays: { orderBy: [{ id: "desc" }] },
+              occupancies: {
+                include: { schedule: true },
+                orderBy: [{ date: "desc" }, { id: "desc" }],
+              },
+            },
+          },
+          location: true,
+        },
       })
-      .then((unit) => {
-        return res.status(201).json(unit);
+      .then((response) => {
+        recordChange("Create", "Units", response.id.toString(), user, convertToJsonObject(response));
+        return res.status(201).json(response);
       })
       .catch((error) => {
         logger.warn(error);

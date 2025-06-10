@@ -1,14 +1,14 @@
 import bcrypt from "@node-rs/bcrypt";
-import { isArray } from "lodash";
 import pino from "pino";
-
 import { LogType } from "@/common";
 import { logger } from "@/logging";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma, User } from "@prisma/client";
 import checkPassword from "@/auth/checkPassword";
-import { parseBoolean } from "@/utils/util";
+import { parseBoolean, typeofObject } from "@/utils/util";
 import { Preferences as ClientPreferences, UserPreferences } from "@/app/components/providers";
 import { SubscriptionEvent, SubscriptionTopic } from "@/graphql/types";
+import { AuthUser } from "@/auth/types";
+import { JsonObject, JsonValue } from "@prisma/client/runtime/library";
 
 type PrismaGlobal = typeof globalThis & {
   _singleton_prisma?: PrismaClient;
@@ -24,6 +24,69 @@ declare global {
 const level = LogType.parse(process.env.LOG_PRISMA_LEVEL ?? "")?.name as pino.Level | undefined;
 const passwordValidate = parseBoolean(process.env.PASSWORD_VALIDATE);
 const passwordStrength = parseInt(process.env.PASSWORD_STRENGTH ?? "1");
+
+function convertToJsonValue<T extends any>(value: T): JsonValue {
+  if (Array.isArray(value)) {
+    return value.map((v) => convertToJsonValue(v));
+  } else if (value instanceof Date) {
+    return value.toISOString();
+  } else if (value instanceof String) {
+    return value.toString();
+  } else if (value instanceof Number) {
+    return value.valueOf();
+  } else if (value instanceof Boolean) {
+    return value.valueOf();
+  } else if (typeof value === "function") {
+    return Function.name;
+  } else if (value === undefined || value === null) {
+    return null;
+  } else if (typeofObject(value)) {
+    return convertToJsonObject(value);
+  } else {
+    return value;
+  }
+}
+
+export function convertToJsonObject<T extends object>(data: T): JsonObject {
+  if (typeof data === "function") {
+    throw new Error("Cannot convert function to JSON object");
+  }
+  const copy: JsonObject = {};
+  return Object.entries(data).reduce((obj, [key, value]) => {
+    obj[key] = convertToJsonValue(value);
+    return obj;
+  }, copy);
+}
+
+export async function recordChange<T extends Prisma.ModelName>(
+  mutation: "Create" | "Update",
+  table: T,
+  key: string,
+  user: Pick<User, "id"> | User["id"] | AuthUser,
+  data?: JsonObject
+): Promise<any>;
+export async function recordChange<T extends Prisma.ModelName>(
+  mutation: "Delete",
+  table: T,
+  key: string,
+  user: Pick<User, "id"> | User["id"] | AuthUser
+): Promise<any>;
+export async function recordChange<T extends Prisma.ModelName>(
+  mutation: "Create" | "Update" | "Delete",
+  table: T,
+  key: string,
+  user: Pick<User, "id"> | User["id"] | AuthUser,
+  data?: JsonObject | null | undefined
+): Promise<any> {
+  const userId = typeof user === "object" ? user.id : user;
+  return prisma.change
+    .create({
+      data: { table: table, key: `${key}`, mutation: mutation, data: data, user: { connect: { id: userId } } },
+    })
+    .catch((error) => {
+      logger.error(error, `Failed to record change for ${mutation} ${table} ${key}`);
+    });
+}
 
 const processPassword = (password: string) => {
   const result = checkPassword(password);
@@ -77,7 +140,7 @@ const createPrismaClient = () => {
               break;
             case "createMany":
             case "updateMany":
-              if (isArray(args.data)) {
+              if (Array.isArray(args.data)) {
                 args.data.forEach((v) => {
                   if (v.password) {
                     v.password = processPassword(v.password);

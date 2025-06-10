@@ -7,6 +7,7 @@ import "./user/object";
 import "./account/object";
 import "./feedback/object";
 import "./file/object";
+import "./change/object";
 // import queries
 import "./account/query";
 import "./banner/query";
@@ -17,6 +18,7 @@ import "./current/query";
 import "./account/query";
 import "./feedback/query";
 import "./file/query";
+import "./change/query";
 // import mutators
 import "./account/mutate";
 import "./banner/mutate";
@@ -27,6 +29,7 @@ import "./current/mutate";
 import "./account/mutate";
 import "./feedback/mutate";
 import "./file/mutate";
+import "./change/mutate";
 import { builder } from "./builder";
 import { lexicographicSortSchema, printSchema } from "graphql";
 import { resolve } from "path";

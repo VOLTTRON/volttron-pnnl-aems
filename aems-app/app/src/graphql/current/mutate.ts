@@ -1,4 +1,4 @@
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 import { builder } from "../builder";
 import { Mutation } from "../types";
 
@@ -43,6 +43,7 @@ builder.mutationField("createCurrent", (t) =>
           data: args.create,
         })
         .then((user) => {
+          recordChange("Create", "User", user.id, ctx.authUser, convertToJsonObject(user));
           ctx.pubsub.publish("User", {
             topic: "User",
             id: user.id,
@@ -74,6 +75,7 @@ builder.mutationField("updateCurrent", (t) =>
           data: args.update,
         })
         .then((user) => {
+          recordChange("Update", "User", user.id, ctx.authUser, convertToJsonObject(user));
           ctx.pubsub.publish("User", {
             topic: "User",
             id: user.id,
@@ -106,6 +108,7 @@ builder.mutationField("deleteCurrent", (t) =>
           where: { id: auth.id },
         })
         .then((user) => {
+          recordChange("Delete", "User", user.id, ctx.authUser);
           ctx.pubsub.publish("User", {
             topic: "User",
             id: user.id,

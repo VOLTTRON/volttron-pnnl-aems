@@ -1,4 +1,4 @@
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 import { builder } from "../builder";
 import { UserWhereUnique } from "../user/query";
 import { CommentWhereUnique } from "./query";
@@ -52,6 +52,7 @@ builder.mutationField("createComment", (t) =>
           data: create,
         })
         .then((comment) => {
+          recordChange("Create", "Comment", comment.id, auth, convertToJsonObject(comment));
           ctx.pubsub.publish("Comment", {
             topic: "Comment",
             id: comment.id,
@@ -86,6 +87,7 @@ builder.mutationField("updateComment", (t) =>
           data: args.update,
         })
         .then((comment) => {
+          recordChange("Update", "Comment", comment.id, auth, convertToJsonObject(comment));
           ctx.pubsub.publish("Comment", {
             topic: "Comment",
             id: comment.id,
@@ -123,6 +125,7 @@ builder.mutationField("deleteComment", (t) =>
           where: where,
         })
         .then((comment) => {
+          recordChange("Delete", "Comment", comment.id, auth);
           ctx.pubsub.publish("Comment", {
             topic: "Comment",
             id: comment.id,

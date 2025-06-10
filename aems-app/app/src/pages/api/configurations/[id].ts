@@ -6,7 +6,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { authUser } from "@/auth";
 import { StageType } from "@/common";
 import { logger } from "@/logging";
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const user = await authUser(req);
@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).end("ID must be specified.");
   } else if (req.method === "GET") {
     return prisma.configurations
-      .findFirst({
+      .findUniqueOrThrow({
         where: { id: parseInt(id) },
         include: {
           setpoint: true,
@@ -36,9 +36,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       })
       .then((configuration) => {
-        if (!configuration) {
-          return res.status(404).json("Configuration not found.");
-        }
         return res.status(200).json(configuration);
       })
       .catch((error) => {
@@ -93,12 +90,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .update({
         data: configuration,
         where: { id: parseInt(id) },
+        include: {
+          setpoint: true,
+          mondaySchedule: true,
+          tuesdaySchedule: true,
+          wednesdaySchedule: true,
+          thursdaySchedule: true,
+          fridaySchedule: true,
+          saturdaySchedule: true,
+          sundaySchedule: true,
+          holidaySchedule: true,
+          holidays: { orderBy: [{ day: "asc" }, { month: "asc" }] },
+          occupancies: {
+            include: { schedule: true },
+            orderBy: [{ date: "desc" }],
+          },
+        },
       })
-      .then((configuration) => {
-        if (!configuration) {
-          return res.status(404).json("Configuration not found.");
-        }
-        return res.status(200).json(configuration);
+      .then((response) => {
+        recordChange("Update", "Configurations", response.id.toString(), user, convertToJsonObject(response));
+        return res.status(200).json(response);
       })
       .catch((error) => {
         logger.warn(error);
@@ -112,10 +123,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .delete({
         where: { id: parseInt(id) },
       })
-      .then((configuration) => {
-        if (!configuration) {
-          return res.status(404).json("Configuration not found.");
-        }
+      .then((response) => {
+        recordChange("Delete", "Configurations", response.id.toString(), user);
         return res.status(200).json(null);
       })
       .catch((error) => {

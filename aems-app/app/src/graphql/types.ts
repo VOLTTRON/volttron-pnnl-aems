@@ -1,7 +1,7 @@
 import { Preferences, UserPreferences } from "@/app/components/providers";
 import { AuthUser } from "@/auth/types";
 import { BaseContext } from "@apollo/server";
-import { enum_log, enum_feedbackStatus, Prisma } from "@prisma/client";
+import { enum_log, enum_feedbackStatus, Prisma, enum_mutation } from "@prisma/client";
 import { PubSubEngine } from "graphql-subscriptions";
 
 export enum Mutation {
@@ -46,6 +46,8 @@ export type LogType = enum_log;
 
 export type FeedbackStatusType = enum_feedbackStatus;
 
+export type MutationType = enum_mutation;
+
 /* eslint-disable */
 export type Scalars = {
   DateTime: { Input: Date; Output: Date };
@@ -54,6 +56,7 @@ export type Scalars = {
   Preferences: { Input: UserPreferencesType; Output: UserPreferencesType };
   LogType: { Input: LogType; Output: LogType };
   FeedbackStatusType: { Input: FeedbackStatusType; Output: FeedbackStatusType };
+  MutationType: { Input: MutationType; Output: MutationType };
 };
 /* eslint-enable */
 

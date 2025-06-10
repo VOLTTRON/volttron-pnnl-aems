@@ -1,4 +1,4 @@
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 import { builder } from "../builder";
 import { BannerWhereUnique } from "./query";
 import { Mutation } from "../types";
@@ -41,6 +41,7 @@ builder.mutationField("createBanner", (t) =>
           data: args.create,
         })
         .then((banner) => {
+          recordChange("Create", "Banner", banner.id, ctx.authUser, convertToJsonObject(banner));
           ctx.pubsub.publish("Banner", { topic: "Banner", id: banner.id, mutation: Mutation.Created });
           return banner;
         });
@@ -65,6 +66,7 @@ builder.mutationField("updateBanner", (t) =>
           data: args.update,
         })
         .then((banner) => {
+          recordChange("Update", "Banner", banner.id, ctx.authUser, convertToJsonObject(banner));
           ctx.pubsub.publish("Banner", { topic: "Banner", id: banner.id, mutation: Mutation.Updated });
           ctx.pubsub.publish(`Banner/${banner.id}`, { topic: "Banner", id: banner.id, mutation: Mutation.Updated });
           return banner;
@@ -88,6 +90,7 @@ builder.mutationField("deleteBanner", (t) =>
           where: args.where,
         })
         .then((banner) => {
+          recordChange("Delete", "Banner", banner.id, ctx.authUser);
           ctx.pubsub.publish("Banner", { topic: "Banner", id: banner.id, mutation: Mutation.Deleted });
           ctx.pubsub.publish(`Banner/${banner.id}`, { topic: "Banner", id: banner.id, mutation: Mutation.Deleted });
           return banner;
