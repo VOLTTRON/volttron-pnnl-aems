@@ -4,7 +4,7 @@ import { get } from "lodash";
 import { DeepPartial } from "../../utils/types";
 
 export function Setpoints(props: {
-  unit: IUnit;
+  unit: DeepPartial<IUnit> | IUnit;
   editing: DeepPartial<IUnit> | null;
   handleChange: (field: string, unit?: DeepPartial<IUnit> | null) => (value: any) => void;
 }) {

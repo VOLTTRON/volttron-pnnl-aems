@@ -34,6 +34,13 @@ export interface IUnit {
   updatedAt: string;
   configurationId?: number | null;
   configuration?: DeepPartial<IConfiguration>;
+  locationId?: number | null;
+  location?: {
+    id: number;
+    name: string;
+    latitude: number;
+    longitude: number;
+  };
   _count?: {
     [key: string]: number;
   };

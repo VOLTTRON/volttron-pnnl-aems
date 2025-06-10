@@ -489,7 +489,7 @@ class ManagerProxy:
                     # Set always on/off for the day
                     schedule = {schedule: True}
 
-                Schedule(day=DaysOfWeek.__members__[day], **schedule)
+                Schedule(day=DaysOfWeek.__members__[day], get_current_datetime=self.cfg.get_current_datetime, **schedule)
         except ValueError:
             _log.debug(f'Invalid Schedule: {data}')
             return False

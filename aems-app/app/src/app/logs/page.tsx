@@ -4,7 +4,12 @@ import styles from "./page.module.scss";
 import { Button, ControlGroup, Tab, TabId, Tabs, TabsExpander } from "@blueprintjs/core";
 import { useContext, useMemo, useState } from "react";
 import { useQuery } from "@apollo/client";
-import { ReadLogsQuery, LogType as LogTypeGql, StringFilterMode, ReadLogsDocument } from "@/generated/graphql-codegen/graphql";
+import {
+  ReadLogsQuery,
+  LogType as LogTypeGql,
+  StringFilterMode,
+  ReadLogsDocument,
+} from "@/generated/graphql-codegen/graphql";
 import { Log, LoggingContext, NotificationContext, NotificationType } from "../components/providers";
 import { Term, filter } from "@/utils/client";
 import { LogType } from "@/common";
@@ -80,6 +85,7 @@ export default function Page() {
         panel={
           <div className={styles.table}>
             <Table
+              rowKey="id"
               rows={logs}
               columns={[
                 { field: "type", label: "Type", type: "term" },
@@ -103,6 +109,7 @@ export default function Page() {
         panel={
           <div className={styles.table}>
             <Table
+              rowKey="timestamp"
               rows={clientLogs}
               columns={[
                 { field: "type", label: "Type", type: "term" },

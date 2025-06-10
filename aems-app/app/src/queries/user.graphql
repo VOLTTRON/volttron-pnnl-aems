@@ -73,31 +73,3 @@ mutation DeleteUser($where: UserUniqueFilter!) {
     id
   }
 }
-
-subscription SubscribeUser($where: UserUniqueFilter!) {
-  readUser(where: $where) {
-    id
-    name
-    email
-    image
-    role
-    emailVerified
-    preferences
-    createdAt
-    updatedAt
-  }
-}
-
-subscription SubscribeUsers($where: UserFilter, $orderBy: [UserOrderBy!], $distinct: [UserFields!]) {
-  readUsers(where: $where, orderBy: $orderBy, distinct: $distinct) {
-    id
-    name
-    email
-    image
-    role
-    emailVerified
-    preferences
-    createdAt
-    updatedAt
-  }
-}

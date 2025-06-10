@@ -10,14 +10,14 @@ const transport = async function (options) {
     try {
         const pool = new pg_1.Pool({
             connectionString: process.env.DATABASE_URL,
-            user: process.env.DATABASE_USERNAME,
-            password: process.env.DATABASE_PASSWORD,
         });
         return (0, pino_abstract_transport_1.default)(async function (transform) {
             for await (const obj of transform) {
                 await pool
                     .query(`INSERT INTO "Log" ("id", "type", "message", "createdAt", "updatedAt") VALUES ($1, $2, $3, NOW(), NOW())`, [(0, node_crypto_1.randomUUID)(), options.levels?.[obj.level] ?? "Info", obj.msg])
-                    .catch((error) => console.error("pino-prisma.transport", error));
+                    .catch((error) => {
+                    console.error("pino-prisma.transport", error);
+                });
             }
         }, {
             async close(_err) {

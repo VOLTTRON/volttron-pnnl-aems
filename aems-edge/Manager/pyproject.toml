@@ -1,0 +1,50 @@
+[tool.poetry]
+name = "aems-edge"
+version = "0.1.0"
+description = "AEMS Edge Agent for the AEMS project"
+authors = [
+    "C. Allwardt <3979063+craig8@users.noreply.github.com>",
+    "Robert Lutes <Robert.Lutes@pnnl.gov>"
+]
+packages = [
+    { include="manager"},
+    { include="server"}
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pandas = "^2.2.3"
+geopy = "^2.4.1"
+fastapi = "^0.115.8"
+tzlocal = "^5.2"
+uvicorn = "^0.34.0"
+
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+httpx = "^0.28.1"
+pytest-cov = "^6.0.0"
+
+[tool.poetry.scripts]
+start-server = "server.start_server:main"
+
+[tool.yapfignore]
+ignore_patterns = [
+    ".pytest_cache/**",
+    "dist/**",
+    "docs/**",
+    "build/**",
+    "dist/**",
+    "htmlcov/**"
+]
+
+[tool.yapf]
+based_on_style = "pep8"
+spaces_before_comment = 4
+column_limit = 120
+split_before_logical_operator = true
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

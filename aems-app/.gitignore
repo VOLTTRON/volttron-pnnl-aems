@@ -13,8 +13,11 @@ docker-images.**
 .DS_Store
 
 # certs
-certs/*
-!certs/README.md
+docker/certs/*
+!docker/certs/README.md
+
+# secrets
+.env.secrets
 
 # other
 *.bat

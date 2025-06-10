@@ -1,0 +1,69 @@
+fragment ChangeFields on Change {
+  id
+  table
+  key
+  mutation
+  data
+  createdAt
+  updatedAt
+  user {
+    name
+    email
+  }
+}
+
+query ReadChange($where: ChangeUniqueFilter!) {
+  readChange(where: $where) {
+    id
+    table
+    key
+    mutation
+    data
+    createdAt
+    updatedAt
+    user {
+      name
+      email
+    }
+  }
+}
+
+query ReadChanges($where: ChangeFilter, $paging: PagingInput, $orderBy: [ChangeOrderBy!], $distinct: [ChangeFields!]) {
+  readChanges(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    table
+    key
+    mutation
+    data
+    createdAt
+    updatedAt
+    user {
+      name
+      email
+    }
+  }
+
+  countChanges(where: $where)
+}
+
+mutation CreateChange($create: ChangeCreateInput!) {
+  createChange(create: $create) {
+    id
+    table
+    key
+    mutation
+    data
+    createdAt
+    updatedAt
+    user {
+      name
+      email
+    }
+  }
+}
+
+mutation DeleteChange($where: ChangeUniqueFilter!) {
+  deleteChange(where: $where) {
+    id
+  }
+}

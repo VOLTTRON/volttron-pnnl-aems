@@ -7,8 +7,6 @@ const transport = async function (options: { levels?: Record<string, any> }) {
   try {
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      user: process.env.DATABASE_USERNAME,
-      password: process.env.DATABASE_PASSWORD,
     });
     return build(
       async function (transform: Transform & build.OnUnknown) {
@@ -18,7 +16,9 @@ const transport = async function (options: { levels?: Record<string, any> }) {
               `INSERT INTO "Log" ("id", "type", "message", "createdAt", "updatedAt") VALUES ($1, $2, $3, NOW(), NOW())`,
               [randomUUID(), options.levels?.[obj.level] ?? "Info", obj.msg]
             )
-            .catch((error) => console.error("pino-prisma.transport", error));
+            .catch((error) => {
+              console.error("pino-prisma.transport", error);
+            });
         }
       },
       {

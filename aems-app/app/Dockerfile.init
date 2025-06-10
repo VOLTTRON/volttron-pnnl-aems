@@ -1,0 +1,54 @@
+FROM node:20
+# arguments
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+
+ENV HTTP_PROXY=${HTTP_PROXY}
+ENV HTTPS_PROXY=${HTTPS_PROXY}
+ENV NO_PROXY=${NO_PROXY}
+
+# prisma engines provided locally
+ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/lib/debian-openssl-3.0.x/libquery_engine.so.node
+ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/lib/debian-openssl-3.0.x/schema-engine
+ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+# may be necessary for proxy with self signed cert
+RUN npm config set strict-ssl false
+
+# useful for debugging inside container
+RUN apt-get update -y && apt-get install -y dtrx nano && apt-get clean
+
+# certs library install
+RUN npm install -g mkcert
+
+# setup yarn
+RUN corepack enable
+RUN yarn config set proxy $HTTP_PROXY
+RUN yarn config set https-proxy $HTTPS_PROXY
+RUN yarn config set no-proxy $NO_PROXY
+RUN yarn config set "strict-ssl" false
+
+# setup
+RUN mkdir /app
+
+# dependencies
+WORKDIR /app
+
+# Copy local dependencies
+COPY modules ./modules
+# Install dependencies based on the preferred package manager
+COPY package.json yarn.lock .yarnrc.yml ./
+RUN yarn install
+
+# copy source
+COPY . .
+
+# build
+RUN yarn compile
+
+# external declarations
+EXPOSE 80 443
+VOLUME "/home/root/"
+
+# start app
+WORKDIR /app

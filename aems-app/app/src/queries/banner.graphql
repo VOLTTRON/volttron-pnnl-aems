@@ -51,23 +51,3 @@ mutation DeleteBanner($where: BannerUniqueFilter!) {
     id
   }
 }
-
-subscription SubscribeBanner($where: BannerUniqueFilter!) {
-  readBanner(where: $where) {
-    id
-    message
-    expiration
-    createdAt
-    updatedAt
-  }
-}
-
-subscription SubscribeBanners($where: BannerFilter, $orderBy: [BannerOrderBy!], $distinct: [BannerFields!]) {
-  readBanners(where: $where, orderBy: $orderBy, distinct: $distinct) {
-    id
-    message
-    expiration
-    createdAt
-    updatedAt
-  }
-}

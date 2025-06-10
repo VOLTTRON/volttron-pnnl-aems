@@ -6,7 +6,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { authUser } from "@/auth";
 import { StageType } from "@/common";
 import { logger } from "@/logging";
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 import { Holidays, Occupancies, Schedules, Setpoints } from "@prisma/client";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -31,39 +31,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const holidaySchedule = req.body?.holidaySchedule as Schedules;
     const holidays = req.body?.holidays as Holidays[];
     const occupancies = req.body?.occupancies as Occupancies[];
+    const configuration = {
+      label,
+      ...(setpoint && { setpoint: { create: setpoint } }),
+      ...(mondaySchedule && { mondaySchedule: { create: mondaySchedule } }),
+      ...(tuesdaySchedule && {
+        tuesdaySchedule: { create: tuesdaySchedule },
+      }),
+      ...(wednesdaySchedule && {
+        wednesdaySchedule: { create: wednesdaySchedule },
+      }),
+      ...(thursdaySchedule && {
+        thursdaySchedule: { create: thursdaySchedule },
+      }),
+      ...(fridaySchedule && { fridaySchedule: { create: fridaySchedule } }),
+      ...(saturdaySchedule && {
+        saturdaySchedule: { create: saturdaySchedule },
+      }),
+      ...(sundaySchedule && { sundaySchedule: { create: sundaySchedule } }),
+      ...(holidaySchedule && {
+        holidaySchedule: { create: holidaySchedule },
+      }),
+      ...(holidays && { holidays: { create: holidays } }),
+      ...(occupancies && { occupancies: { create: occupancies } }),
+      ...(isFinite(unitId) && {
+        units: {
+          connect: [{ id: unitId }],
+        },
+      }),
+    };
     return prisma.configurations
       .create({
-        data: {
-          label,
-          ...(setpoint && { setpoint: { create: setpoint } }),
-          ...(mondaySchedule && { mondaySchedule: { create: mondaySchedule } }),
-          ...(tuesdaySchedule && {
-            tuesdaySchedule: { create: tuesdaySchedule },
-          }),
-          ...(wednesdaySchedule && {
-            wednesdaySchedule: { create: wednesdaySchedule },
-          }),
-          ...(thursdaySchedule && {
-            thursdaySchedule: { create: thursdaySchedule },
-          }),
-          ...(fridaySchedule && { fridaySchedule: { create: fridaySchedule } }),
-          ...(saturdaySchedule && {
-            saturdaySchedule: { create: saturdaySchedule },
-          }),
-          ...(sundaySchedule && { sundaySchedule: { create: sundaySchedule } }),
-          ...(holidaySchedule && {
-            holidaySchedule: { create: holidaySchedule },
-          }),
-          ...(holidays && { holidays: { create: holidays } }),
-          ...(occupancies && { occupancies: { create: occupancies } }),
-          ...(isFinite(unitId) && {
-            units: {
-              connect: [{ id: unitId }],
-            },
-          }),
+        data: configuration,
+        include: {
+          setpoint: true,
+          mondaySchedule: true,
+          tuesdaySchedule: true,
+          wednesdaySchedule: true,
+          thursdaySchedule: true,
+          fridaySchedule: true,
+          saturdaySchedule: true,
+          sundaySchedule: true,
+          holidaySchedule: true,
+          holidays: { orderBy: [{ day: "asc" }, { month: "asc" }] },
+          occupancies: {
+            include: { schedule: true },
+            orderBy: [{ date: "desc" }],
+          },
         },
       })
-      .then((configuration) => {
+      .then((response) => {
+        recordChange("Create", "Configurations", response.id.toString(), user, convertToJsonObject(response));
         if (isFinite(unitId)) {
           prisma.units
             .update({
@@ -71,14 +89,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               data: { stage: StageType.UpdateType.enum },
             })
             .then(() => {
-              return res.status(201).json(configuration);
+              return res.status(201).json(response);
             })
             .catch((error) => {
               logger.warn(error);
               return res.status(400).json(error.message);
             });
         } else {
-          return res.status(201).json(configuration);
+          return res.status(201).json(response);
         }
       })
       .catch((error) => {

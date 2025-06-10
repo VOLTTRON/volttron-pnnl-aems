@@ -166,6 +166,91 @@ input BooleanFilter {
   not: BooleanFilter
 }
 
+type Change {
+  createdAt: DateTime
+  data: JSON
+  id: String
+  key: String
+  mutation: MutationType
+  table: String
+  updatedAt: DateTime
+  user: User
+  userId: String
+}
+
+input ChangeAggregate {
+  average: [ChangeFields!]
+  count: [ChangeFields!]
+  maximum: [ChangeFields!]
+  minimum: [ChangeFields!]
+  sum: [ChangeFields!]
+}
+
+input ChangeCreateInput {
+  data: JSON
+  key: String!
+  mutation: MutationType!
+  table: String!
+  user: ChangeCreateUserRelationInput
+}
+
+input ChangeCreateUserRelationInput {
+  connect: UserUniqueFilter
+}
+
+enum ChangeFields {
+  createdAt
+  data
+  id
+  key
+  mutation
+  table
+  updatedAt
+  userId
+}
+
+input ChangeFilter {
+  AND: [ChangeFilter!]
+  NOT: ChangeFilter
+  OR: [ChangeFilter!]
+  createdAt: DateTimeFilter
+  id: StringFilter
+  key: StringFilter
+  mutation: MutationTypeFilter
+  table: StringFilter
+  updatedAt: DateTimeFilter
+  user: UserFilter
+  userId: StringFilter
+}
+
+input ChangeOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  key: OrderBy
+  mutation: OrderBy
+  table: OrderBy
+  updatedAt: OrderBy
+  user: UserOrderBy
+  userId: OrderBy
+}
+
+input ChangeUniqueFilter {
+  id: String
+}
+
+input ChangeUpdateInput {
+  data: JSON
+  key: String
+  mutation: MutationType
+  table: String
+  user: ChangeUpdateUserRelationInput
+}
+
+input ChangeUpdateUserRelationInput {
+  connect: UserUniqueFilter
+  disconnect: Boolean
+}
+
 type Comment {
   createdAt: DateTime
   id: String
@@ -474,6 +559,9 @@ type Mutation {
   """Create a new banner."""
   createBanner(create: BannerCreateInput!): Banner
 
+  """Create a new change."""
+  createChange(create: ChangeCreateInput!): Change
+
   """Create a new comment."""
   createComment(create: CommentCreateInput!): Comment
 
@@ -498,6 +586,9 @@ type Mutation {
   """Delete the specified banner."""
   deleteBanner(where: BannerUniqueFilter!): Banner
 
+  """Delete the specified change."""
+  deleteChange(where: ChangeUniqueFilter!): Change
+
   """Delete the specified comment."""
   deleteComment(where: CommentUniqueFilter!): Comment
 
@@ -516,6 +607,9 @@ type Mutation {
   """Update the specified banner."""
   updateBanner(update: BannerUpdateInput!, where: BannerUniqueFilter!): Banner
 
+  """Update the specified change."""
+  updateChange(update: ChangeUpdateInput!, where: ChangeUniqueFilter!): Change
+
   """Update the specified comment."""
   updateComment(update: CommentUpdateInput!, where: CommentUniqueFilter!): Comment
 
@@ -530,6 +624,20 @@ type Mutation {
 
   """Update the specified user."""
   updateUser(update: UserUpdateInput!, where: UserUniqueFilter!): User
+}
+
+enum MutationType {
+  Create
+  Delete
+  Update
+  Upsert
+}
+
+input MutationTypeFilter {
+  equals: MutationType
+  in: [MutationType!]
+  mode: StringFilterMode
+  not: MutationTypeFilter
 }
 
 enum OrderBy {
@@ -558,6 +666,9 @@ type Query {
   """Count the number of banners."""
   countBanners(where: BannerFilter): Int
 
+  """Count the number of changes."""
+  countChanges(where: ChangeFilter): Int
+
   """Count the number of comments."""
   countComments(where: CommentFilter): Int
 
@@ -573,6 +684,9 @@ type Query {
   """Group a list of banners."""
   groupBanners(aggregate: BannerAggregate, by: [BannerFields!]!, where: BannerFilter): [JSON!]
 
+  """Group a list of changes."""
+  groupChanges(aggregate: ChangeAggregate, by: [ChangeFields!]!, where: ChangeFilter): [JSON!]
+
   """Group a list of comments."""
   groupComments(aggregate: CommentAggregate, by: [CommentFields!]!, where: CommentFilter): [JSON!]
 
@@ -587,6 +701,9 @@ type Query {
 
   """Paginate through multiple banners."""
   pageBanner(after: String, before: String, first: Int, last: Int, where: BannerFilter): QueryPageBannerConnection
+
+  """Paginate through multiple changes."""
+  pageChange(after: String, before: String, first: Int, last: Int, where: ChangeFilter): QueryPageChangeConnection
 
   """Paginate through multiple comments."""
   pageComment(after: String, before: String, first: Int, last: Int, where: CommentFilter): QueryPageCommentConnection
@@ -611,6 +728,12 @@ type Query {
 
   """Read a list of banners."""
   readBanners(distinct: [BannerFields!], orderBy: [BannerOrderBy!], paging: PagingInput, where: BannerFilter): [Banner!]
+
+  """Read a unique change."""
+  readChange(where: ChangeUniqueFilter!): Change
+
+  """Read a list of changes."""
+  readChanges(distinct: [ChangeFields!], orderBy: [ChangeOrderBy!], paging: PagingInput, where: ChangeFilter): [Change!]
 
   """Read a unique comment."""
   readComment(where: CommentUniqueFilter!): Comment
@@ -661,6 +784,16 @@ type QueryPageBannerConnection {
 type QueryPageBannerConnectionEdge {
   cursor: String!
   node: Banner
+}
+
+type QueryPageChangeConnection {
+  edges: [QueryPageChangeConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageChangeConnectionEdge {
+  cursor: String!
+  node: Change
 }
 
 type QueryPageCommentConnection {
@@ -715,6 +848,9 @@ type Subscription {
   """Count the number of banners."""
   countBanners(where: BannerFilter): Int
 
+  """Count the number of changes."""
+  countChanges(where: ChangeFilter): Int
+
   """Count the number of comments."""
   countComments(where: CommentFilter): Int
 
@@ -729,6 +865,9 @@ type Subscription {
 
   """Group a list of banners."""
   groupBanners(aggregate: BannerAggregate, by: [BannerFields!]!, where: BannerFilter): [JSON!]
+
+  """Group a list of changes."""
+  groupChanges(aggregate: ChangeAggregate, by: [ChangeFields!]!, where: ChangeFilter): [JSON!]
 
   """Group a list of comments."""
   groupComments(aggregate: CommentAggregate, by: [CommentFields!]!, where: CommentFilter): [JSON!]
@@ -745,11 +884,20 @@ type Subscription {
   """Read a list of accounts."""
   readAccounts(distinct: [AccountFields!], orderBy: [AccountOrderBy!], paging: PagingInput, where: AccountFilter): [Account!]
 
+  """Read a list of feedback."""
+  readAllFeedback(distinct: [FeedbackFields!], orderBy: [FeedbackOrderBy!], paging: PagingInput, where: FeedbackFilter): [Feedback!]
+
   """Read a unique banner."""
   readBanner(where: BannerUniqueFilter!): Banner
 
   """Read a list of banners."""
   readBanners(distinct: [BannerFields!], orderBy: [BannerOrderBy!], paging: PagingInput, where: BannerFilter): [Banner!]
+
+  """Read a unique change."""
+  readChange(where: ChangeUniqueFilter!): Change
+
+  """Read a list of changes."""
+  readChanges(distinct: [ChangeFields!], orderBy: [ChangeOrderBy!], paging: PagingInput, where: ChangeFilter): [Change!]
 
   """Read a unique comment."""
   readComment(where: CommentUniqueFilter!): Comment
@@ -759,6 +907,15 @@ type Subscription {
 
   """Read the currently logged in user."""
   readCurrent: User
+
+  """read a unique feedback"""
+  readFeedback(where: FeedbackUniqueFilter!): Feedback
+
+  """Read attached files to specific feedback."""
+  readFeedbackFiles(where: FileFilter): [File!]
+
+  """Read a specific file by its ID"""
+  readFile(where: FileUniqueFilter!): File
 
   """Read a unique log."""
   readLog(where: LogUniqueFilter!): Log

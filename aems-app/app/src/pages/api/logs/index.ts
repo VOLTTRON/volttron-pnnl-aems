@@ -6,7 +6,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 
 import { authUser } from "@/auth";
 import { LogType } from "@/common";
-import { prisma } from "@/prisma";
+import { convertToJsonObject, prisma, recordChange } from "@/prisma";
 import { Log } from "@prisma/client";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -29,6 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
         })
         .then((created) => {
+          recordChange("Create", "Banner", created.id, user, convertToJsonObject(created));
           return res.status(201).json(created);
         })
         .catch((error) => {
