@@ -1,0 +1,81 @@
+{
+  "folders": [
+    {
+      "name": "Prisma",
+      "path": "aems-app/prisma"
+    },
+    {
+      "name": "Common",
+      "path": "aems-app/common"
+    },
+    {
+      "name": "Server",
+      "path": "aems-app/server"
+    },
+    {
+      "name": "Client",
+      "path": "aems-app/client"
+    },
+    {
+      "name": "Root",
+      "path": "aems-app/."
+    },
+	{
+	  "name": "Deprecated",
+	  "path": "aems-app-deprecated"
+	},
+	{
+	  "name": "Edge",
+	  "path": "aems-edge"
+	}
+  ],
+  "settings": {
+    "[typescript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[dockercompose]": {
+      "editor.defaultFormatter": "ms-azuretools.vscode-docker"
+    },
+    "[typescriptreact]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascriptreact]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[json]": {
+      "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "[jsonc]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[scss]": {
+      "editor.defaultFormatter": "vscode.css-language-features"
+    },
+    "[css]": {
+      "editor.defaultFormatter": "vscode.css-language-features"
+    },
+    "prettier.tabWidth": 2,
+    "prettier.printWidth": 120,
+    "prettier.singleQuote": false,
+    "prettier.trailingComma": "all",
+    "cSpell.words": [
+      "blueprintjs",
+      "clsx",
+      "codegen",
+      "corepack",
+      "datetime",
+      "Geolocate",
+      "keycloak",
+      "maplibre",
+      "mbtiles",
+      "nominatim",
+      "pgoutput",
+      "pino",
+      "pothos",
+      "upsert"
+    ]
+  }
+}
