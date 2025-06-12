@@ -1,0 +1,47 @@
+fragment GeographyFields on Geography {
+  id
+  name
+  group
+  type
+  geojson
+  createdAt
+  updatedAt
+}
+
+query AreaGeographies($area: GeographyGeoJson!) {
+  areaGeographies(area: $area) {
+    id
+    name
+    group
+    type
+    geojson
+    createdAt
+    updatedAt
+  }
+}
+
+query ReadGeography($where: GeographyUniqueFilter!) {
+  readGeography(where: $where) {
+    id
+    name
+    group
+    type
+    geojson
+    createdAt
+    updatedAt
+  }
+}
+
+query ReadGeographies($where: GeographyFilter, $paging: PagingInput, $orderBy: [GeographyOrderBy!], $distinct: [GeographyFields!]) {
+  readGeographies(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    name
+    group
+    type
+    geojson
+    createdAt
+    updatedAt
+  }
+
+  countGeographies(where: $where)
+}

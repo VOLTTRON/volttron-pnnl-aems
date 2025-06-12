@@ -1,0 +1,10 @@
+export declare const PothosBuilderKey: unique symbol;
+export declare const PothosObjectKey: unique symbol;
+export declare const PothosInputKey: unique symbol;
+export declare const PothosQueryKey: unique symbol;
+export declare const PothosMutationKey: unique symbol;
+export declare const PothosBuilder: () => import("@nestjs/common").CustomDecorator<typeof PothosBuilderKey>;
+export declare const PothosObject: () => import("@nestjs/common").CustomDecorator<typeof PothosObjectKey>;
+export declare const PothosInput: () => import("@nestjs/common").CustomDecorator<typeof PothosInputKey>;
+export declare const PothosQuery: () => import("@nestjs/common").CustomDecorator<typeof PothosQueryKey>;
+export declare const PothosMutation: () => import("@nestjs/common").CustomDecorator<typeof PothosMutationKey>;

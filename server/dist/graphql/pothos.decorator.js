@@ -1,0 +1,20 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PothosMutation = exports.PothosQuery = exports.PothosInput = exports.PothosObject = exports.PothosBuilder = exports.PothosMutationKey = exports.PothosQueryKey = exports.PothosInputKey = exports.PothosObjectKey = exports.PothosBuilderKey = void 0;
+const common_1 = require("@nestjs/common");
+exports.PothosBuilderKey = Symbol("pothos_builder");
+exports.PothosObjectKey = Symbol("pothos_object");
+exports.PothosInputKey = Symbol("pothos_input");
+exports.PothosQueryKey = Symbol("pothos_query");
+exports.PothosMutationKey = Symbol("pothos_mutation");
+const PothosBuilder = () => (0, common_1.SetMetadata)(exports.PothosBuilderKey, true);
+exports.PothosBuilder = PothosBuilder;
+const PothosObject = () => (0, common_1.SetMetadata)(exports.PothosObjectKey, true);
+exports.PothosObject = PothosObject;
+const PothosInput = () => (0, common_1.SetMetadata)(exports.PothosInputKey, true);
+exports.PothosInput = PothosInput;
+const PothosQuery = () => (0, common_1.SetMetadata)(exports.PothosQueryKey, true);
+exports.PothosQuery = PothosQuery;
+const PothosMutation = () => (0, common_1.SetMetadata)(exports.PothosMutationKey, true);
+exports.PothosMutation = PothosMutation;
+//# sourceMappingURL=pothos.decorator.js.map

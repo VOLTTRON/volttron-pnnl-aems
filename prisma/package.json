@@ -1,0 +1,34 @@
+{
+  "name": "@local/prisma",
+  "version": "2.0.0",
+  "description": "",
+  "author": "Amelia Bleeker (PNNL)",
+  "private": true,
+  "license": "SEE LICENSE IN ../LICENSE.txt",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "npx prisma generate && tsc --project tsconfig.build.json",
+    "prisma": "npx prisma",
+    "migrate": "yarn migrate:deploy",
+    "migrate:create": "yarn prisma migrate dev",
+    "migrate:deploy": "yarn prisma migrate deploy",
+    "migrate:reset": "yarn prisma migrate reset",
+    "postinstall": "npx prisma generate"
+  },
+  "devDependencies": {
+    "@pothos/core": "^4.3.0",
+    "@pothos/plugin-prisma": "^4.4.0",
+    "@pothos/plugin-prisma-utils": "^1.2.0",
+    "@prisma/client": "^6.6.0",
+    "@types/geojson": "^7946.0.16",
+    "graphql": "^16.10.0",
+    "prisma": "^6.6.0",
+    "prisma-json-types-generator": "^3.2.3",
+    "typescript": "^5.7.3"
+  },
+  "peerDependencies": {
+    "@prisma/client": "^6.6.0"
+  },
+  "packageManager": "yarn@4.9.1"
+}
