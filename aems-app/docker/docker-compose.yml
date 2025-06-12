@@ -1,0 +1,398 @@
+services:
+
+  # Proxy that can be configured for HTTP or HTTPS
+  proxy:
+    command:
+      - --log.level=DEBUG
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls=true
+      - --entrypoints.websecure.http.tls.certresolver=${CERT_RESOLVER}
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=${ADMIN_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/etc/certs/letsencrypt.json
+    container_name: ${COMPOSE_PROJECT_NAME}-proxy
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+    hostname: proxy
+    image: traefik:v2.10
+    labels:
+      - traefik.tls.stores.default.defaultgeneratedcert.resolver=${CERT_RESOLVER}
+      - traefik.tls.stores.default.defaultgeneratedcert.domain.main=${HOSTNAME}
+      - traefik.tls.stores.default.defaultgeneratedcert.domain.sans=*.${HOSTNAME}
+      - traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https,wss
+    ports:
+      - 80:80
+      - 443:443
+      - ${TRAEFIK_PORT}:8080
+    profiles:
+      - proxy
+    restart: unless-stopped
+    user: root:root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - certs-data:/etc/certs/:ro
+      - ./proxy/certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
+
+  # Application that hosts static files and API
+  client:
+    build:
+      additional_contexts:
+        prisma: ../prisma
+        common: ../common
+      context: ../client
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+    container_name: ${COMPOSE_PROJECT_NAME}-client
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      database:
+        condition: service_started
+    env_file:
+      - .env.client
+    healthcheck:
+      test: "curl --fail http://localhost:3000 || exit 1"
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    hostname: client
+    image: client:${TAG}
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.client.loadbalancer.server.port=3000
+      - traefik.http.middlewares.client-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.client-security.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.client-security.headers.forceSTSHeader=true
+      - traefik.http.middlewares.client-security.headers.frameDeny=true
+      - traefik.http.middlewares.client-security.headers.referrerPolicy=same-origin
+      - traefik.http.middlewares.client-security.headers.sslRedirect=true
+      - traefik.http.middlewares.client-security.headers.stsSeconds=31536000
+      - traefik.http.routers.client-http.entrypoints=web
+      - traefik.http.routers.client-http.rule=Host(`${HOSTNAME}`)
+      - traefik.http.routers.client-http.middlewares=client-https
+      - traefik.http.middlewares.client-https.redirectscheme.scheme=https
+      - traefik.http.routers.client.entrypoints=websecure
+      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`) && !PathPrefix(`/graphql`, `/api`, `/ext`, `/auth/sso/`)
+      - traefik.http.routers.client.middlewares=client-security
+      - traefik.http.routers.client.tls=true
+      - traefik.http.routers.client.tls.certresolver=${CERT_RESOLVER}
+    ports:
+      - ${CLIENT_PORT}:3000
+    restart: unless-stopped
+    volumes:
+      - client-cache:/app/.next/cache
+
+  # Runs application backend server
+  server:
+    build:
+      additional_contexts:
+        prisma: ../prisma
+        common: ../common
+      context: ../server
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+    container_name: ${COMPOSE_PROJECT_NAME}-server
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      database:
+        condition: service_started
+    env_file:
+      - .env.server
+    healthcheck:
+      test: "curl http://localhost:3000/graphql"
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    hostname: server
+    image: server:${TAG}
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.server.loadbalancer.server.port=3000
+      - traefik.http.middlewares.server-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.server-security.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.server-security.headers.forceSTSHeader=true
+      - traefik.http.middlewares.server-security.headers.frameDeny=true
+      - traefik.http.middlewares.server-security.headers.referrerPolicy=same-origin
+      - traefik.http.middlewares.server-security.headers.sslRedirect=true
+      - traefik.http.middlewares.server-security.headers.stsSeconds=31536000
+      - traefik.http.routers.server-http.entrypoints=web
+      - traefik.http.routers.server-http.rule=Host(`${HOSTNAME}`)
+      - traefik.http.routers.server-http.middlewares=server-https
+      - traefik.http.middlewares.server-https.redirectscheme.scheme=https
+      - traefik.http.routers.server.entrypoints=websecure
+      - traefik.http.routers.server.rule=Host(`${HOSTNAME}`) && PathPrefix(`/graphql`, `/api`, `/ext`) && !PathPrefix(`/auth/sso/`)
+      - traefik.http.routers.server.middlewares=server-security
+      - traefik.http.routers.server.tls=true
+      - traefik.http.routers.server.tls.certresolver=${CERT_RESOLVER}
+    ports:
+      - ${SERVER_PORT}:3000
+    restart: unless-stopped
+    volumes:
+      - file-upload:/app/upload/
+
+  # Runs application services
+  services:
+    build:
+      additional_contexts:
+        prisma: ../prisma
+        common: ../common
+      context: ../server
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+    container_name: ${COMPOSE_PROJECT_NAME}-services
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      database:
+        condition: service_started
+    env_file:
+      - .env.services
+    healthcheck:
+      test: "curl http://localhost:3000/graphql"
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    hostname: services
+    image: server:${TAG}
+    restart: unless-stopped
+    volumes:
+      - file-upload:/app/upload/
+      - ./seed/:/app/seed/:ro
+
+  # Runs relational database migrations on startup
+  init:
+    build:
+      context: ../prisma
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+    container_name: ${COMPOSE_PROJECT_NAME}-init
+    depends_on:
+      database:
+        condition: service_healthy
+    env_file:
+      - .env.init
+    hostname: init
+    image: init:${TAG}
+
+  # Creates self-signed TLS certs for localhost and domain
+  certs:
+    build:
+      context: ./certs
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+    container_name: ${COMPOSE_PROJECT_NAME}-certs
+    env_file:
+      - .env.certs
+    hostname: certs
+    image: certs:${TAG}
+    volumes:
+      - certs-data:/etc/certs/
+
+  # Application relational database
+  database:
+    cap_add:
+      - SYS_NICE
+    container_name: ${COMPOSE_PROJECT_NAME}-database
+    env_file:
+      - .env.database
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    hostname: database
+    image: postgis/postgis:16-3.4
+    ports:
+      - ${DATABASE_PORT}:5432
+    restart: unless-stopped
+    volumes:
+      - database-data:/var/lib/postgresql/data
+
+  # Redis
+  redis:
+    container_name: ${COMPOSE_PROJECT_NAME}-redis
+    hostname: redis
+    image: redis:6.2
+    ports:
+      - ${REDIS_PORT}:6379
+    restart: unless-stopped
+
+  # Open Street Map Tiles
+  maptiles:
+    command: [ "--port", "80", "--public_url", "/ext/map", "--verbose" ]
+    container_name: ${COMPOSE_PROJECT_NAME}-maptiles
+    hostname: map
+    image: maptiler/tileserver-gl:latest
+    ports:
+      - ${MAPTILES_PORT}:80
+    profiles:
+      - map
+    restart: unless-stopped
+    volumes:
+      - ./map/:/data/
+
+  # Nominatim container for geocoding
+  nominatim:
+    container_name: ${COMPOSE_PROJECT_NAME}-nominatim
+    env_file:
+      - .env.nominatim
+    hostname: nominatim
+    image: mediagis/nominatim:4.4
+    ports:
+      - ${NOMINATIM_PORT}:80
+    profiles:
+      - nom
+    restart: unless-stopped
+    shm_size: 1gb
+    volumes:
+      - nominatim-data:/var/lib/postgresql/14/main
+      - nominatim-cache:/nominatim/cache
+      - ./map/:/nominatim/data/
+
+  # Wiki container
+  wiki:
+    container_name: ${COMPOSE_PROJECT_NAME}-wiki
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      wiki-db:
+        condition: service_started
+    env_file:
+      - .env.wiki
+    hostname: wiki
+    image: lscr.io/linuxserver/bookstack
+    ports:
+      - ${BOOKSTACK_PORT}:80
+    profiles:
+      - wiki
+    restart: unless-stopped
+    volumes:
+      - wiki-data:/config
+      - wiki-storage:/storage
+      - ./certs/:/etc/certs/:ro
+      - ./wiki/init-wiki.sh:/custom-cont-init.d/init-wiki.sh:ro
+
+  # Wiki database
+  wiki-db:
+    container_name: ${COMPOSE_PROJECT_NAME}-wiki-db
+    env_file:
+      - .env.wiki
+    hostname: wiki-db
+    image: lscr.io/linuxserver/mariadb
+    profiles:
+      - wiki
+    restart: unless-stopped
+    volumes:
+      - wiki-data:/config
+
+  # Keycloak for single sign-on
+  keycloak:
+    command: start
+    container_name: ${COMPOSE_PROJECT_NAME}-keycloak
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    env_file:
+      - .env.keycloak
+    hostname: keycloak
+    image: quay.io/keycloak/keycloak
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.keycloak.loadbalancer.server.port=8080
+      - traefik.http.middlewares.keycloak-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.keycloak-security.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.keycloak-security.headers.forceSTSHeader=true
+      - traefik.http.middlewares.keycloak-security.headers.frameDeny=false
+      - traefik.http.middlewares.keycloak-security.headers.referrerPolicy=same-origin
+      - traefik.http.middlewares.keycloak-security.headers.sslRedirect=true
+      - traefik.http.middlewares.keycloak-security.headers.stsSeconds=31536000
+      - traefik.http.routers.keycloak-http.entrypoints=web
+      - traefik.http.routers.keycloak-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/auth/sso/js/`, `/auth/sso/realms/`, `/auth/sso/resources/`, `/auth/sso/robots.txt`)
+      - traefik.http.routers.keycloak-http.middlewares=keycloak-https
+      - traefik.http.middlewares.keycloak-https.redirectscheme.scheme=https
+      - traefik.http.routers.keycloak.entrypoints=websecure
+      - traefik.http.routers.keycloak.rule=Host(`${HOSTNAME}`) && PathPrefix(`/auth/sso/js/`, `/auth/sso/realms/`, `/auth/sso/resources/`, `/auth/sso/robots.txt`)
+      - traefik.http.routers.keycloak.middlewares=keycloak-security
+      - traefik.http.routers.keycloak.tls=true
+      - traefik.http.routers.keycloak.tls.certresolver=${CERT_RESOLVER}
+      - traefik.http.routers.keycloak-admin.entrypoints=websecure
+      - traefik.http.routers.keycloak-admin.rule=Host(`${HOSTNAME}`) && PathPrefix(`/auth/sso/admin/`)
+      - traefik.http.routers.keycloak-admin.middlewares=keycloak-security
+      - traefik.http.routers.keycloak-admin.tls=true
+      - traefik.http.routers.keycloak-admin.tls.certresolver=${CERT_RESOLVER}
+    ports:
+      - ${KEYCLOAK_PORT}:8080
+    profiles:
+      - sso
+    restart: unless-stopped
+    volumes:
+      - keycloak-cache:/opt/jboss/keycloak/standalone/data
+
+  # Keycloak database
+  keycloak-db:
+    cap_add:
+      - SYS_NICE
+    container_name: ${COMPOSE_PROJECT_NAME}-keycloak-db
+    env_file:
+      - .env.keycloak
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    hostname: keycloak-db
+    image: postgis/postgis:16-3.4
+    profiles:
+      - sso
+    restart: unless-stopped
+    volumes:
+      - keycloak-data:/var/lib/postgresql/data
+
+volumes:
+  certs-data:
+    driver: local
+  client-cache:
+    driver: local
+  file-upload:
+    driver: local
+  database-data:
+    driver: local
+  nominatim-data:
+    driver: local
+  nominatim-cache:
+    driver: local
+  wiki-data:
+    driver: local
+  wiki-storage:
+    driver: local
+  keycloak-data:
+    driver: local
+  keycloak-cache:
+    driver: local

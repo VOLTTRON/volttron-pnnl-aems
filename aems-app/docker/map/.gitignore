@@ -1,0 +1,8 @@
+
+# raw data files
+*.osm.pbf
+*.osm.bz2
+*.osm.gz
+
+# other
+*.mbtiles

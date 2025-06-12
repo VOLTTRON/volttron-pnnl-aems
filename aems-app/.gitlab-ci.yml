@@ -1,0 +1,113 @@
+# This file is a template, and might need editing before it works on your project.
+# You can copy and paste this template into a new `.gitlab-ci.yml` file.
+# You should not add this template to an existing `.gitlab-ci.yml` file by using the `include:` keyword.
+#
+# To contribute improvements to CI/CD templates, please follow the Development guide at:
+# https://docs.gitlab.com/ee/development/cicd/templates.html
+# This specific template is located at:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Nodejs.gitlab-ci.yml
+
+# Official framework image. Look for the different tagged releases at:
+# https://hub.docker.com/r/library/node/tags/
+image: node:22.14.0
+
+# Pick zero or more services to be used on all builds.
+# Only needed when using a docker container to run your tests in.
+# Check out: https://docs.gitlab.com/ee/ci/services/index.html
+services:
+  - postgis/postgis:16-3.4
+variables:
+  POSTGRES_DB: skeleton
+  POSTGRES_USER: develop
+  POSTGRES_PASSWORD: password
+  DATABASE_HOST: postgis-postgis
+
+# This folder is cached between builds
+# https://docs.gitlab.com/ee/ci/yaml/index.html#cache
+cache:
+  paths:
+    - "**/node_modules/"
+    - "**/dist/"
+
+stages:
+  - build
+  - test
+
+build:
+  stage: build
+  variables:
+    YARN_ENABLE_IMMUTABLE_INSTALLS: false
+  script:
+    - corepack enable
+    - cd ./prisma
+    - yarn install
+    - yarn build
+    - yarn migrate
+    - cd ../common
+    - yarn install
+    - yarn build
+    - cd ../server
+    - yarn install
+    - yarn build
+    - cd ../client
+    - yarn install
+    - yarn build
+
+test_common:
+  stage: test
+  script:
+    - corepack enable
+    - cd ./common
+    - yarn lint
+    - yarn check
+    - yarn test:cov
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: common/coverage/coverage.xml
+
+test_server:
+  stage: test
+  script:
+    - corepack enable
+    - cd ./prisma
+    - yarn migrate
+    - cd ../server
+    - yarn lint
+    - yarn check
+    - yarn test:cov
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: server/coverage/coverage.xml
+
+test_client:
+  stage: test
+  script:
+    - corepack enable
+    - cd ./client
+    - yarn lint
+    - yarn check
+    - yarn test:cov
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: client/coverage/coverage.xml
+
+# push_builds:
+#   stage: push
+#   script:
+#     - git config user.email "amelia.bleeker@pnnl.gov"
+#     - git config user.name "Gitlab CI"
+#     - git remote add gitlab_origin https://$ACCESS_TOKEN@tanuki.pnnl.gov/amelia.bleeker/skeleton.git
+#     - git add .
+#     - git commit -m "push builds from Gitlab CI pipeline"
+#     - git push gitlab_origin HEAD:$CI_COMMIT_BRANCH -o ci.skip # prevent triggering pipeline again
+
+# deploy:
+#   stage: deploy
+#   script: echo "Define your deployment script!"
+#   environment: production

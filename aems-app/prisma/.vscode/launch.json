@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Prisma:setup",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["install"],
+      "cwd": "${workspaceRoot}/prisma",
+      "timeout": 10000
+    },
+    {
+      "name": "Prisma:build",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["build"],
+      "cwd": "${workspaceRoot}/prisma",
+      "timeout": 10000
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+    "options": {
+        "paths": {
+            "root": "",
+            "fonts": "/usr/src/app/node_modules/tileserver-gl-styles/fonts",
+            "icons": "/data/icons",
+            "styles": "/data/styles",
+            "mbtiles": "/data/mbtiles",
+            "pmtiles": "/data/pmtiles"
+        }
+    },
+    "styles": {
+        "basic": {
+            "style": "basic/style.json"
+        },
+        "bright": {
+            "style": "bright/style.json"
+        },
+        "dark-matter": {
+            "style": "dark-matter/style.json"
+        },
+        "fiord-color": {
+            "style": "fiord-color/style.json"
+        },
+        "positron": {
+            "style": "positron/style.json"
+        },
+        "toner": {
+            "style": "toner/style.json"
+        }
+    },
+    "data": {
+        "planet": {
+            "mbtiles": "planet.mbtiles"
+        }
+    }
+}
