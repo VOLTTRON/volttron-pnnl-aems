@@ -1,0 +1,27 @@
+enum ChangeMutation {
+    Create
+    Update
+    Delete
+    Upsert
+}
+
+model Change {
+    // key
+    id        String         @id @default(cuid())
+    // metadata
+    createdAt DateTime       @default(now()) @db.Timestamptz(6)
+    updatedAt DateTime       @updatedAt @db.Timestamptz(6)
+    // fields
+    table     String
+    key       String
+    mutation  ChangeMutation
+    data      Json?
+    // foreign keys
+    userId    String?
+    // direct relations
+    user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+    // indices
+    @@index([table])
+    @@index([key])
+}

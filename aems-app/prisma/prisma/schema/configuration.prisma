@@ -1,0 +1,40 @@
+model Configuration {
+    // key
+    id                  Int         @id @default(autoincrement())
+    // metadata
+    stage               ModelStage  @default(Create)
+    message             String?     @db.VarChar(1024)
+    correlation         String?     @db.VarChar(1024)
+    createdAt           DateTime    @default(now()) @db.Timestamptz(6)
+    updatedAt           DateTime    @updatedAt @db.Timestamptz(6)
+    // fields
+    label               String      @db.VarChar(1024)
+    // foreign keys
+    setpointId          Int?
+    mondayScheduleId    Int?
+    tuesdayScheduleId   Int?
+    wednesdayScheduleId Int?
+    thursdayScheduleId  Int?
+    fridayScheduleId    Int?
+    saturdayScheduleId  Int?
+    sundayScheduleId    Int?
+    holidayScheduleId   Int?
+    // direct relations
+    setpoint            Setpoint?   @relation("Configurations_setpoints", fields: [setpointId], references: [id], onDelete: Cascade)
+    mondaySchedule      Schedule?   @relation("Configurations_mondaySchedules", fields: [mondayScheduleId], references: [id], onDelete: Cascade)
+    tuesdaySchedule     Schedule?   @relation("Configurations_tuesdaySchedules", fields: [tuesdayScheduleId], references: [id], onDelete: Cascade)
+    wednesdaySchedule   Schedule?   @relation("Configurations_wednesdaySchedules", fields: [wednesdayScheduleId], references: [id], onDelete: Cascade)
+    thursdaySchedule    Schedule?   @relation("Configurations_thursdaySchedules", fields: [thursdayScheduleId], references: [id], onDelete: Cascade)
+    fridaySchedule      Schedule?   @relation("Configurations_fridaySchedules", fields: [fridayScheduleId], references: [id], onDelete: Cascade)
+    saturdaySchedule    Schedule?   @relation("Configurations_saturdaySchedules", fields: [saturdayScheduleId], references: [id], onDelete: Cascade)
+    sundaySchedule      Schedule?   @relation("Configurations_sundaySchedules", fields: [sundayScheduleId], references: [id], onDelete: Cascade)
+    holidaySchedule     Schedule?   @relation("Configurations_holidaySchedules", fields: [holidayScheduleId], references: [id], onDelete: Cascade)
+    // indirect relations
+    units               Unit[]      @relation("Units_configurations")
+    occupancies         Occupancy[] @relation("Occupancies_configurations")
+    holidays            Holiday[]   @relation()
+
+    // indices
+    @@index([label])
+    @@index([stage])
+}

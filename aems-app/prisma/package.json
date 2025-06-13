@@ -20,10 +20,10 @@
     "@pothos/core": "^4.3.0",
     "@pothos/plugin-prisma": "^4.4.0",
     "@pothos/plugin-prisma-utils": "^1.2.0",
-    "@prisma/client": "^6.6.0",
+    "@prisma/client": "^6.9.0",
     "@types/geojson": "^7946.0.16",
     "graphql": "^16.10.0",
-    "prisma": "^6.6.0",
+    "prisma": "^6.9.0",
     "prisma-json-types-generator": "^3.2.3",
     "typescript": "^5.7.3"
   },

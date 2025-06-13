@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const lodash_1 = require("lodash");
 const regex_1 = require("regex");
 const base_1 = require("./base");
-const processLettersAndNumbers = (v) => (0, lodash_1.isNil)(v) ? "" : (0, lodash_1.replace)(v, (0, regex_1.regex)("gm") `[^\s\p{L}0-9]`, "");
+const processLettersAndNumbers = (v) => (0, lodash_1.replace)(v, (0, regex_1.regex)("gm") `[^\s\p{L}0-9]`, "");
 class Normalization extends base_1.default {
     constructor() {
         super([

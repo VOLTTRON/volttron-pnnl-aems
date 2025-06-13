@@ -29,7 +29,7 @@ export interface ILog extends IEnum<LogType> {
 export interface IFeedbackStatus extends IEnum<FeedbackStatus> {
 }
 export type IAllowed<T> = (...type: (T | number | string)[]) => boolean;
-export type IProcess = (value: string | undefined | null) => string | undefined | null;
+export type IProcess = (value: string) => string;
 export interface INormalization extends IConstant {
     unallowed: string[];
     allowed: IAllowed<INormalization>;

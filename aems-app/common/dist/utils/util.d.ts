@@ -13,3 +13,4 @@ export declare const printEnvironment: (options?: {
     stringify?: (values: any) => string;
 }) => void;
 export declare const delay: (d: number) => Promise<unknown>;
+export declare const toOrdinal: (n: number) => string;

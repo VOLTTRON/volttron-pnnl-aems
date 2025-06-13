@@ -3,8 +3,7 @@ import { regex } from "regex";
 import { IAllowed, IBase, INormalization, IProcess } from ".";
 import Base from "./base";
 
-const processLettersAndNumbers = (v: string | undefined | null) =>
-  isNil(v) ? "" : replace(v, regex("gm")`[^\s\p{L}0-9]`, "");
+const processLettersAndNumbers = (v: string): string => replace(v, regex("gm")`[^\s\p{L}0-9]`, "");
 
 class Normalization extends Base<INormalization> implements IBase<INormalization> {
   constructor() {

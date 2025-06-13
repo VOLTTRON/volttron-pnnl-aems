@@ -1,5 +1,310 @@
-import type { Prisma, Feedback, File, Comment, User, Account, Session, VerificationToken, Seed, Event, Log, Banner, Geography } from "@prisma/client";
+import type { Prisma, Unit, Configuration, Occupancy, Schedule, Setpoint, Holiday, Control, Location, Change, Feedback, File, Comment, User, Account, Session, VerificationToken, Seed, Event, Log, Banner, Geography } from "@prisma/client";
 export default interface PrismaTypes {
+    Unit: {
+        Name: "Unit";
+        Shape: Unit;
+        Include: Prisma.UnitInclude;
+        Select: Prisma.UnitSelect;
+        OrderBy: Prisma.UnitOrderByWithRelationInput;
+        WhereUnique: Prisma.UnitWhereUniqueInput;
+        Where: Prisma.UnitWhereInput;
+        Create: Prisma.UnitCreateInput;
+        Update: Prisma.UnitUpdateInput;
+        RelationName: "configuration" | "control" | "location" | "users";
+        ListRelations: "users";
+        Relations: {
+            configuration: {
+                Shape: Configuration | null;
+                Name: "Configuration";
+                Nullable: true;
+            };
+            control: {
+                Shape: Control | null;
+                Name: "Control";
+                Nullable: true;
+            };
+            location: {
+                Shape: Location | null;
+                Name: "Location";
+                Nullable: true;
+            };
+            users: {
+                Shape: User[];
+                Name: "User";
+                Nullable: false;
+            };
+        };
+    };
+    Configuration: {
+        Name: "Configuration";
+        Shape: Configuration;
+        Include: Prisma.ConfigurationInclude;
+        Select: Prisma.ConfigurationSelect;
+        OrderBy: Prisma.ConfigurationOrderByWithRelationInput;
+        WhereUnique: Prisma.ConfigurationWhereUniqueInput;
+        Where: Prisma.ConfigurationWhereInput;
+        Create: Prisma.ConfigurationCreateInput;
+        Update: Prisma.ConfigurationUpdateInput;
+        RelationName: "setpoint" | "mondaySchedule" | "tuesdaySchedule" | "wednesdaySchedule" | "thursdaySchedule" | "fridaySchedule" | "saturdaySchedule" | "sundaySchedule" | "holidaySchedule" | "units" | "occupancies" | "holidays";
+        ListRelations: "units" | "occupancies" | "holidays";
+        Relations: {
+            setpoint: {
+                Shape: Setpoint | null;
+                Name: "Setpoint";
+                Nullable: true;
+            };
+            mondaySchedule: {
+                Shape: Schedule | null;
+                Name: "Schedule";
+                Nullable: true;
+            };
+            tuesdaySchedule: {
+                Shape: Schedule | null;
+                Name: "Schedule";
+                Nullable: true;
+            };
+            wednesdaySchedule: {
+                Shape: Schedule | null;
+                Name: "Schedule";
+                Nullable: true;
+            };
+            thursdaySchedule: {
+                Shape: Schedule | null;
+                Name: "Schedule";
+                Nullable: true;
+            };
+            fridaySchedule: {
+                Shape: Schedule | null;
+                Name: "Schedule";
+                Nullable: true;
+            };
+            saturdaySchedule: {
+                Shape: Schedule | null;
+                Name: "Schedule";
+                Nullable: true;
+            };
+            sundaySchedule: {
+                Shape: Schedule | null;
+                Name: "Schedule";
+                Nullable: true;
+            };
+            holidaySchedule: {
+                Shape: Schedule | null;
+                Name: "Schedule";
+                Nullable: true;
+            };
+            units: {
+                Shape: Unit[];
+                Name: "Unit";
+                Nullable: false;
+            };
+            occupancies: {
+                Shape: Occupancy[];
+                Name: "Occupancy";
+                Nullable: false;
+            };
+            holidays: {
+                Shape: Holiday[];
+                Name: "Holiday";
+                Nullable: false;
+            };
+        };
+    };
+    Occupancy: {
+        Name: "Occupancy";
+        Shape: Occupancy;
+        Include: Prisma.OccupancyInclude;
+        Select: Prisma.OccupancySelect;
+        OrderBy: Prisma.OccupancyOrderByWithRelationInput;
+        WhereUnique: Prisma.OccupancyWhereUniqueInput;
+        Where: Prisma.OccupancyWhereInput;
+        Create: Prisma.OccupancyCreateInput;
+        Update: Prisma.OccupancyUpdateInput;
+        RelationName: "schedule" | "configuration";
+        ListRelations: never;
+        Relations: {
+            schedule: {
+                Shape: Schedule | null;
+                Name: "Schedule";
+                Nullable: true;
+            };
+            configuration: {
+                Shape: Configuration | null;
+                Name: "Configuration";
+                Nullable: true;
+            };
+        };
+    };
+    Schedule: {
+        Name: "Schedule";
+        Shape: Schedule;
+        Include: Prisma.ScheduleInclude;
+        Select: Prisma.ScheduleSelect;
+        OrderBy: Prisma.ScheduleOrderByWithRelationInput;
+        WhereUnique: Prisma.ScheduleWhereUniqueInput;
+        Where: Prisma.ScheduleWhereInput;
+        Create: Prisma.ScheduleCreateInput;
+        Update: Prisma.ScheduleUpdateInput;
+        RelationName: "setpoint" | "mondayConfigurations" | "tuesdayConfigurations" | "wednesdayConfigurations" | "thursdayConfigurations" | "fridayConfigurations" | "saturdayConfigurations" | "sundayConfigurations" | "holidayConfigurations" | "occupancies";
+        ListRelations: "mondayConfigurations" | "tuesdayConfigurations" | "wednesdayConfigurations" | "thursdayConfigurations" | "fridayConfigurations" | "saturdayConfigurations" | "sundayConfigurations" | "holidayConfigurations" | "occupancies";
+        Relations: {
+            setpoint: {
+                Shape: Setpoint | null;
+                Name: "Setpoint";
+                Nullable: true;
+            };
+            mondayConfigurations: {
+                Shape: Configuration[];
+                Name: "Configuration";
+                Nullable: false;
+            };
+            tuesdayConfigurations: {
+                Shape: Configuration[];
+                Name: "Configuration";
+                Nullable: false;
+            };
+            wednesdayConfigurations: {
+                Shape: Configuration[];
+                Name: "Configuration";
+                Nullable: false;
+            };
+            thursdayConfigurations: {
+                Shape: Configuration[];
+                Name: "Configuration";
+                Nullable: false;
+            };
+            fridayConfigurations: {
+                Shape: Configuration[];
+                Name: "Configuration";
+                Nullable: false;
+            };
+            saturdayConfigurations: {
+                Shape: Configuration[];
+                Name: "Configuration";
+                Nullable: false;
+            };
+            sundayConfigurations: {
+                Shape: Configuration[];
+                Name: "Configuration";
+                Nullable: false;
+            };
+            holidayConfigurations: {
+                Shape: Configuration[];
+                Name: "Configuration";
+                Nullable: false;
+            };
+            occupancies: {
+                Shape: Occupancy[];
+                Name: "Occupancy";
+                Nullable: false;
+            };
+        };
+    };
+    Setpoint: {
+        Name: "Setpoint";
+        Shape: Setpoint;
+        Include: Prisma.SetpointInclude;
+        Select: Prisma.SetpointSelect;
+        OrderBy: Prisma.SetpointOrderByWithRelationInput;
+        WhereUnique: Prisma.SetpointWhereUniqueInput;
+        Where: Prisma.SetpointWhereInput;
+        Create: Prisma.SetpointCreateInput;
+        Update: Prisma.SetpointUpdateInput;
+        RelationName: "configurations" | "schedules";
+        ListRelations: "configurations" | "schedules";
+        Relations: {
+            configurations: {
+                Shape: Configuration[];
+                Name: "Configuration";
+                Nullable: false;
+            };
+            schedules: {
+                Shape: Schedule[];
+                Name: "Schedule";
+                Nullable: false;
+            };
+        };
+    };
+    Holiday: {
+        Name: "Holiday";
+        Shape: Holiday;
+        Include: Prisma.HolidayInclude;
+        Select: Prisma.HolidaySelect;
+        OrderBy: Prisma.HolidayOrderByWithRelationInput;
+        WhereUnique: Prisma.HolidayWhereUniqueInput;
+        Where: Prisma.HolidayWhereInput;
+        Create: Prisma.HolidayCreateInput;
+        Update: Prisma.HolidayUpdateInput;
+        RelationName: "configurations";
+        ListRelations: "configurations";
+        Relations: {
+            configurations: {
+                Shape: Configuration[];
+                Name: "Configuration";
+                Nullable: false;
+            };
+        };
+    };
+    Control: {
+        Name: "Control";
+        Shape: Control;
+        Include: Prisma.ControlInclude;
+        Select: Prisma.ControlSelect;
+        OrderBy: Prisma.ControlOrderByWithRelationInput;
+        WhereUnique: Prisma.ControlWhereUniqueInput;
+        Where: Prisma.ControlWhereInput;
+        Create: Prisma.ControlCreateInput;
+        Update: Prisma.ControlUpdateInput;
+        RelationName: "units";
+        ListRelations: "units";
+        Relations: {
+            units: {
+                Shape: Unit[];
+                Name: "Unit";
+                Nullable: false;
+            };
+        };
+    };
+    Location: {
+        Name: "Location";
+        Shape: Location;
+        Include: Prisma.LocationInclude;
+        Select: Prisma.LocationSelect;
+        OrderBy: Prisma.LocationOrderByWithRelationInput;
+        WhereUnique: Prisma.LocationWhereUniqueInput;
+        Where: Prisma.LocationWhereInput;
+        Create: Prisma.LocationCreateInput;
+        Update: Prisma.LocationUpdateInput;
+        RelationName: "units";
+        ListRelations: "units";
+        Relations: {
+            units: {
+                Shape: Unit[];
+                Name: "Unit";
+                Nullable: false;
+            };
+        };
+    };
+    Change: {
+        Name: "Change";
+        Shape: Change;
+        Include: Prisma.ChangeInclude;
+        Select: Prisma.ChangeSelect;
+        OrderBy: Prisma.ChangeOrderByWithRelationInput;
+        WhereUnique: Prisma.ChangeWhereUniqueInput;
+        Where: Prisma.ChangeWhereInput;
+        Create: Prisma.ChangeCreateInput;
+        Update: Prisma.ChangeUpdateInput;
+        RelationName: "user";
+        ListRelations: never;
+        Relations: {
+            user: {
+                Shape: User | null;
+                Name: "User";
+                Nullable: true;
+            };
+        };
+    };
     Feedback: {
         Name: "Feedback";
         Shape: Feedback;
@@ -85,8 +390,8 @@ export default interface PrismaTypes {
         Where: Prisma.UserWhereInput;
         Create: Prisma.UserCreateInput;
         Update: Prisma.UserUpdateInput;
-        RelationName: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files";
-        ListRelations: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files";
+        RelationName: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "units" | "changes";
+        ListRelations: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "units" | "changes";
         Relations: {
             accounts: {
                 Shape: Account[];
@@ -116,6 +421,16 @@ export default interface PrismaTypes {
             files: {
                 Shape: File[];
                 Name: "File";
+                Nullable: false;
+            };
+            units: {
+                Shape: Unit[];
+                Name: "Unit";
+                Nullable: false;
+            };
+            changes: {
+                Shape: Change[];
+                Name: "Change";
                 Nullable: false;
             };
         };

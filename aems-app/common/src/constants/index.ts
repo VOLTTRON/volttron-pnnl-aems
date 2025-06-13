@@ -53,7 +53,7 @@ export type IAllowed<T> = (...type: (T | number | string)[]) => boolean;
 /**
  * Process the value by applying the normalizations to it.
  */
-export type IProcess = (value: string | undefined | null) => string | undefined | null;
+export type IProcess = (value: string) => string;
 
 export interface INormalization extends IConstant {
   unallowed: string[];

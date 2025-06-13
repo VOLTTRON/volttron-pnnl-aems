@@ -139,3 +139,19 @@ export const printEnvironment = (options?: {
 };
 
 export const delay = (d: number) => new Promise((r) => setTimeout(r, d));
+
+/**
+ * Convert a number to its ordinal representation (e.g., 1 -> "1st", 2 -> "2nd", 3 -> "3rd", 4 -> "4th").
+ *
+ * @param n The number to convert.
+ * @returns The ordinal representation of the number.
+ */
+export const toOrdinal = (n: number): string => {
+  if (!Number.isInteger(n) || n < 1) {
+    throw new TypeError("Input must be a positive finite number.");
+  }
+  const suffixes = ["th", "st", "nd", "rd"];
+  const number = Math.floor(Math.abs(n));
+  const v = number % 100;
+  return `${number.toLocaleString()}${suffixes[(v - 20) % 10] ?? suffixes[v] ?? suffixes[0]}`;
+};
