@@ -36,7 +36,7 @@ export interface IEvaluate extends IAction {
 }
 
 const applyFunction = (unit: Unit, action: IAction): unknown => {
-  /* eslint-disable no-new-func */
+   
   return Function.apply(null, [
     ...action.sources.map((s) => s.split(".").pop() as string),
     `return ${action.expression};`,
@@ -92,7 +92,7 @@ export const transformTemplate = (template: any, params?: any) => {
       setter(templateFormat(value, params));
     } else if (Array.isArray(value)) {
       setter([]);
-      (value as any[]).forEach((v, i) => transformer(object, path, `[${i}]`, v));
+      (value).forEach((v, i) => transformer(object, path, `[${i}]`, v));
     } else if (typeof value === "object") {
       setter({});
       Object.entries(value).forEach(([k, v]) => transformer(object, path, k, v));

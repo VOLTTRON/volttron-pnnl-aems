@@ -1,8 +1,0 @@
-model Banner {
-    id         String    @id() @default(cuid())
-    message    String?   @db.Text()
-    expiration DateTime? @db.Timestamptz(6)
-    createdAt  DateTime  @default(now()) @db.Timestamptz(6)
-    updatedAt  DateTime  @updatedAt() @db.Timestamptz(6)
-    users      User[]
-}

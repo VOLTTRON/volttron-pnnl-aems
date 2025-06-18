@@ -1,6 +1,10 @@
 {
   "folders": [
     {
+      "name": "Root",
+      "path": "aems-app"
+    },
+    {
       "name": "Prisma",
       "path": "aems-app/prisma"
     },
@@ -17,17 +21,17 @@
       "path": "aems-app/client"
     },
     {
-      "name": "Root",
-      "path": "aems-app/."
+      "name": "Aems",
+      "path": "."
     },
-	{
-	  "name": "Deprecated",
-	  "path": "aems-app-deprecated"
-	},
-	{
-	  "name": "Edge",
-	  "path": "aems-edge"
-	}
+    {
+      "name": "Edge",
+      "path": "aems-edge"
+    },
+    {
+      "name": "Deprecated",
+      "path": "aems-app-deprecated"
+    }
   ],
   "settings": {
     "[typescript]": {
@@ -76,6 +80,48 @@
       "pino",
       "pothos",
       "upsert"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "presentation": {
+      "panel": "new"
+    },
+    "tasks": [
+      {
+        "group": "build",
+        "label": "Build All",
+        "presentation": {
+          "reveal": "always"
+        },
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "type": "shell",
+        "windows": {
+          "command": "./build.ps1"
+        },
+        "linux": {
+          "command": "./build.sh"
+        }
+      },
+      {
+        "group": "build",
+        "label": "Test All",
+        "presentation": {
+          "reveal": "always"
+        },
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "type": "shell",
+        "windows": {
+          "command": "./test.ps1"
+        },
+        "linux": {
+          "command": "./test.sh"
+        }
+      }
     ]
   }
 }

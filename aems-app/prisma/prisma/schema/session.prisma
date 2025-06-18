@@ -1,8 +1,0 @@
-model Session {
-    id        String   @id() @default(cuid())
-    expiresAt DateTime
-    /// [SessionData]
-    data      Json
-    createdAt DateTime @default(now()) @db.Timestamptz(6)
-    updatedAt DateTime @updatedAt() @db.Timestamptz(6)
-}

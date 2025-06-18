@@ -16,6 +16,8 @@ model User {
     feedbacks         Feedback[]
     assignedFeedbacks Feedback[] @relation("assignee")
     files             File[]
+    units             Unit[]     @relation("Units_users")
+    changes           Change[]
 
     @@index([name], map: "users_name")
     @@index([email], map: "users_email")

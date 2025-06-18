@@ -369,7 +369,7 @@ export class SetupService extends BaseService {
     const removeControls = difference(
       controls?.map((v) => v?.name).filter((v) => v) ?? [],
       configs.map((c) => c.control),
-    ).filter((v) => v) as string[];
+    ).filter((v) => v);
     if (!isEmpty(removeControls)) {
       this.logger.log(
         `Deleting control${removeControls.length === 1 ? "" : "s"} (ILC) ${removeControls.map((v) => `"${v}"`).join(", ")}.`,
@@ -379,7 +379,7 @@ export class SetupService extends BaseService {
     const removeUnits = difference(
       units.map((v) => v?.name).filter((v) => v),
       flatten(configs.map((n) => n.units)),
-    ).filter((v) => v) as string[];
+    ).filter((v) => v);
     if (!isEmpty(removeUnits)) {
       this.logger.log(
         `Unassigning unit${removeUnits.length === 1 ? "" : "s"} ${removeUnits
