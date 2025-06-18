@@ -15,7 +15,12 @@ import { AuthModule } from "./auth/auth.module";
 @Module({
   imports: [
     AuthModule,
-    ConfigModule.forRoot({ isGlobal: true, expandVariables: true, load: [AppConfigToken] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      expandVariables: true,
+      load: [AppConfigToken],
+      envFilePath: [".env", ".env.local"],
+    }),
     ThrottlerModule.forRoot([
       {
         name: "short",

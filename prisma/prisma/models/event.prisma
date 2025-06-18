@@ -1,0 +1,8 @@
+model Event {
+    id        String   @id() @default(cuid())
+    topic     String   @db.VarChar(1024)
+    /// [EventPayload]
+    payload   Json
+    createdAt DateTime @default(now()) @db.Timestamptz(6)
+    updatedAt DateTime @updatedAt() @db.Timestamptz(6)
+}

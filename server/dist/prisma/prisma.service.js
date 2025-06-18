@@ -75,10 +75,10 @@ const extendPrisma = (prisma, configService) => {
     });
 };
 let PrismaService = class PrismaService {
-    constructor(configService) {
+    constructor(configService, prisma) {
         this.logger = new common_1.Logger("PrismaClient");
         const level = (0, logging_1.getLogLevel)(configService.log.prisma.level);
-        if (level) {
+        if (level && !prisma) {
             const prisma = new client_1.PrismaClient({
                 log: [
                     {
@@ -91,17 +91,23 @@ let PrismaService = class PrismaService {
                 this.logger[level](event, "Prisma Query");
             });
             this.prisma = extendPrisma(prisma, configService);
+            this.logger.log(`Prisma Client configured for database (with query logging) at:  ${configService.database.url.split("@").pop()}`);
+        }
+        else if (!prisma) {
+            this.prisma = extendPrisma(new client_1.PrismaClient(), configService);
+            this.logger.log(`Prisma Client configured for database at:  ${configService.database.url.split("@").pop()}`);
         }
         else {
-            this.prisma = extendPrisma(new client_1.PrismaClient(), configService);
+            this.prisma = extendPrisma(prisma, configService);
+            this.logger.log(`Prisma Client configured using supplied prisma client.`);
         }
-        this.logger.log(`Prisma Client configured for database at:  ${configService.database.url.split("@").pop()}`);
     }
 };
 exports.PrismaService = PrismaService;
 exports.PrismaService = PrismaService = __decorate([
     (0, common_2.Injectable)(),
     __param(0, (0, common_1.Inject)(app_config_1.AppConfigService.Key)),
-    __metadata("design:paramtypes", [app_config_1.AppConfigService])
+    __param(1, (0, common_1.Optional)()),
+    __metadata("design:paramtypes", [app_config_1.AppConfigService, client_1.PrismaClient])
 ], PrismaService);
 //# sourceMappingURL=prisma.service.js.map

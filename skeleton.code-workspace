@@ -1,6 +1,10 @@
 {
   "folders": [
     {
+      "name": "Root",
+      "path": "."
+    },
+    {
       "name": "Prisma",
       "path": "prisma"
     },
@@ -15,10 +19,6 @@
     {
       "name": "Client",
       "path": "client"
-    },
-    {
-      "name": "Root",
-      "path": "."
     }
   ],
   "settings": {
@@ -68,6 +68,48 @@
       "pino",
       "pothos",
       "upsert"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "presentation": {
+      "panel": "new"
+    },
+    "tasks": [
+      {
+        "group": "build",
+        "label": "Build All",
+        "presentation": {
+          "reveal": "always"
+        },
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "type": "shell",
+        "windows": {
+          "command": "./build.ps1"
+        },
+        "linux": {
+          "command": "./build.sh"
+        }
+      },
+      {
+        "group": "build",
+        "label": "Test All",
+        "presentation": {
+          "reveal": "always"
+        },
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "type": "shell",
+        "windows": {
+          "command": "./test.ps1"
+        },
+        "linux": {
+          "command": "./test.sh"
+        }
+      }
     ]
   }
 }

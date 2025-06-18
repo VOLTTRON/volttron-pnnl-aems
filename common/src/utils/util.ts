@@ -138,4 +138,50 @@ export const printEnvironment = (options?: {
   (printable ?? console.log)(stringify ? stringify(env) : JSON.stringify(env, undefined, 2));
 };
 
+/**
+ * Delay the execution for a given number of milliseconds.
+ *
+ * @param d The delay in milliseconds.
+ * @returns A promise that resolves after the delay.
+ */
 export const delay = (d: number) => new Promise((r) => setTimeout(r, d));
+
+/**
+ * Convert a number to its ordinal representation (e.g., 1 -> "1st", 2 -> "2nd", 3 -> "3rd", 4 -> "4th").
+ *
+ * @param n The number to convert.
+ * @returns The ordinal representation of the number.
+ */
+export const toOrdinal = (n: number): string => {
+  if (!Number.isInteger(n) || n < 1) {
+    throw new TypeError("Input must be a positive finite number.");
+  }
+  const suffixes = ["th", "st", "nd", "rd"];
+  const number = Math.floor(Math.abs(n));
+  const v = number % 100;
+  return `${number.toLocaleString()}${suffixes[(v - 20) % 10] ?? suffixes[v] ?? suffixes[0]}`;
+};
+
+/**
+ * A simple chainable utility class to allow chaining of functions.
+ * It can be used to create a chain of operations on a value.
+ */
+export class Chainable<T> {
+  constructor(private value: T) {}
+
+  next<U>(fn: (value: T) => U): Chainable<U> {
+    return new Chainable(fn(this.value));
+  }
+
+  end(): T {
+    return this.value;
+  }
+}
+
+/**
+ * Convenience function to create a Chainable instance.
+ *
+ * @param value the initial value to chain on
+ * @returns A new Chainable instance with the given value.
+ */
+export const chainable = <T>(value: T): Chainable<T> => new Chainable(value);

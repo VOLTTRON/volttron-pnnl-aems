@@ -3,7 +3,7 @@ import { isArray } from "lodash";
 import { PrismaClient } from "@prisma/client";
 import { checkPassword } from "@/auth";
 import { getLogLevel } from "@/logging";
-import { Inject, Logger } from "@nestjs/common";
+import { Inject, Logger, Optional } from "@nestjs/common";
 import { Injectable } from "@nestjs/common";
 import { AppConfigService } from "@/app.config";
 
@@ -87,9 +87,9 @@ export class PrismaService {
   private logger = new Logger("PrismaClient");
   readonly prisma: PrismaClient;
 
-  constructor(@Inject(AppConfigService.Key) configService: AppConfigService) {
+  constructor(@Inject(AppConfigService.Key) configService: AppConfigService, @Optional() prisma?: PrismaClient) {
     const level = getLogLevel(configService.log.prisma.level);
-    if (level) {
+    if (level && !prisma) {
       const prisma = new PrismaClient({
         log: [
           {
@@ -102,9 +102,15 @@ export class PrismaService {
         this.logger[level](event, "Prisma Query");
       });
       this.prisma = extendPrisma(prisma, configService) as PrismaClient;
-    } else {
+      this.logger.log(
+        `Prisma Client configured for database (with query logging) at:  ${configService.database.url.split("@").pop()}`,
+      );
+    } else if (!prisma) {
       this.prisma = extendPrisma(new PrismaClient(), configService) as PrismaClient;
+      this.logger.log(`Prisma Client configured for database at:  ${configService.database.url.split("@").pop()}`);
+    } else {
+      this.prisma = extendPrisma(prisma, configService) as PrismaClient;
+      this.logger.log(`Prisma Client configured using supplied prisma client.`);
     }
-    this.logger.log(`Prisma Client configured for database at:  ${configService.database.url.split("@").pop()}`);
   }
 }

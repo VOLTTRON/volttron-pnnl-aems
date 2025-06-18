@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.delay = exports.printEnvironment = exports.templateFormat = exports.parseBoolean = exports.getDifference = exports.Removed = exports.typeofObject = exports.typeofEnum = exports.keyofObject = exports.typeofNonNullable = void 0;
+exports.chainable = exports.Chainable = exports.toOrdinal = exports.delay = exports.printEnvironment = exports.templateFormat = exports.parseBoolean = exports.getDifference = exports.Removed = exports.typeofObject = exports.typeofEnum = exports.keyofObject = exports.typeofNonNullable = void 0;
 exports.deepFreeze = deepFreeze;
 const lodash_1 = require("lodash");
 const typeofNonNullable = (value) => value !== null && value !== undefined;
@@ -76,4 +76,28 @@ const printEnvironment = (options) => {
 exports.printEnvironment = printEnvironment;
 const delay = (d) => new Promise((r) => setTimeout(r, d));
 exports.delay = delay;
+const toOrdinal = (n) => {
+    if (!Number.isInteger(n) || n < 1) {
+        throw new TypeError("Input must be a positive finite number.");
+    }
+    const suffixes = ["th", "st", "nd", "rd"];
+    const number = Math.floor(Math.abs(n));
+    const v = number % 100;
+    return `${number.toLocaleString()}${suffixes[(v - 20) % 10] ?? suffixes[v] ?? suffixes[0]}`;
+};
+exports.toOrdinal = toOrdinal;
+class Chainable {
+    constructor(value) {
+        this.value = value;
+    }
+    next(fn) {
+        return new Chainable(fn(this.value));
+    }
+    end() {
+        return this.value;
+    }
+}
+exports.Chainable = Chainable;
+const chainable = (value) => new Chainable(value);
+exports.chainable = chainable;
 //# sourceMappingURL=util.js.map

@@ -1,4 +1,14 @@
-import { deepFreeze, parseBoolean, templateFormat, delay, getDifference, Removed } from "./util";
+import {
+  deepFreeze,
+  parseBoolean,
+  templateFormat,
+  delay,
+  getDifference,
+  Removed,
+  toOrdinal,
+  Chainable,
+  chainable,
+} from "./util";
 
 describe("deepFreeze", () => {
   it("should recursively freeze an object", () => {
@@ -263,5 +273,74 @@ describe("delay", () => {
     const elapsed = end - start;
 
     expect(elapsed).toBeGreaterThanOrEqual(delayDuration);
+  });
+});
+
+describe("toOrdinal", () => {
+  it("should convert numbers to their ordinal representation", () => {
+    expect(toOrdinal(1)).toBe("1st");
+    expect(toOrdinal(2)).toBe("2nd");
+    expect(toOrdinal(3)).toBe("3rd");
+    expect(toOrdinal(4)).toBe("4th");
+    expect(toOrdinal(5)).toBe("5th");
+    expect(toOrdinal(6)).toBe("6th");
+    expect(toOrdinal(7)).toBe("7th");
+    expect(toOrdinal(8)).toBe("8th");
+    expect(toOrdinal(9)).toBe("9th");
+    expect(toOrdinal(10)).toBe("10th");
+    expect(toOrdinal(11)).toBe("11th");
+    expect(toOrdinal(12)).toBe("12th");
+    expect(toOrdinal(13)).toBe("13th");
+    expect(toOrdinal(14)).toBe("14th");
+    expect(toOrdinal(15)).toBe("15th");
+    expect(toOrdinal(16)).toBe("16th");
+    expect(toOrdinal(17)).toBe("17th");
+    expect(toOrdinal(18)).toBe("18th");
+    expect(toOrdinal(19)).toBe("19th");
+    expect(toOrdinal(20)).toBe("20th");
+    expect(toOrdinal(21)).toBe("21st");
+    expect(toOrdinal(22)).toBe("22nd");
+    expect(toOrdinal(23)).toBe("23rd");
+    expect(toOrdinal(24)).toBe("24th");
+    expect(toOrdinal(100)).toBe("100th");
+    expect(toOrdinal(10101)).toBe("10,101st");
+  });
+  it("should fail for negative numbers", () => {
+    expect(() => toOrdinal(-1)).toThrow(TypeError);
+  });
+  it("should fail for non-integer numbers", () => {
+    expect(() => toOrdinal(1.5)).toThrow(TypeError);
+    expect(() => toOrdinal(2.3)).toThrow(TypeError);
+  });
+  it("should fail for non-numeric values", () => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    expect(() => toOrdinal("test" as any)).toThrow(TypeError);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    expect(() => toOrdinal(null as any)).toThrow(TypeError);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    expect(() => toOrdinal(undefined as any)).toThrow(TypeError);
+  });
+});
+
+describe("Chainable<T>", () => {
+  it("should allow chaining methods of the same type", () => {
+    const chain = new Chainable(5);
+    const result = chain
+      .next((v) => v + 3)
+      .next((v) => v * 2)
+      .next((v) => v - 4)
+      .end();
+
+    expect(result).toBe(12);
+  });
+
+  it("should allow chaining methods of different types", () => {
+    const chain = chainable("Hello");
+    const result = chain
+      .next((v) => v + " World")
+      .next((v) => ({ original: v, uppercase: v.toUpperCase() }))
+      .end();
+
+    expect(result).toEqual({ original: "Hello World", uppercase: "HELLO WORLD" });
   });
 });
