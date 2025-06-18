@@ -1,12 +1,37 @@
-import { Normalization, toOrdinal } from "@local/common";
-import { Configuration, Holiday, Schedule, Setpoint, Unit } from "@prisma/client";
-import { snakeCase, upperFirst } from "lodash";
+import {
+  Chainable,
+  DeepPartial,
+  HolidayType as HolidayAlt,
+  Normalization,
+  StageType,
+  toOrdinal,
+  typeofNonNullable,
+  ValidateType,
+} from "@local/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Configuration, Holiday, HolidayType, Schedule, Setpoint, Unit } from "@prisma/client";
+import {
+  difference,
+  flatten,
+  get,
+  isArray,
+  isEmpty,
+  isObject,
+  isString,
+  merge,
+  set,
+  snakeCase,
+  upperFirst,
+} from "lodash";
+import { BaseService } from "..";
+import { PrismaService } from "@/prisma/prisma.service";
+import { AppConfigService } from "@/app.config";
+import { Timeout } from "@nestjs/schedule";
+import { extname, resolve } from "node:path";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { getConfigFiles } from "@/utils/file";
 
-const DATA_FORMAT = "HH:mm";
-const TIME_FORMAT = "h:mm\xa0a";
-const CONFIG_FORMAT = "H:mm";
-
-type UnitsFull = Unit & {
+type UnitFull = Unit & {
   configuration: Configuration & {
     setpoint: Setpoint;
     mondaySchedule: Schedule;
@@ -22,9 +47,18 @@ type UnitsFull = Unit & {
 };
 
 const parseTime = (value: string): Date => {
-  const normalizer = Normalization.process(Normalization.Concatenate, Normalization.Letters, Normalization.Lowercase, Normalization.NFD)
-  const am = /am/i.test(normalizer(value));
-}
+  const normalizer = Normalization.process(
+    Normalization.Concatenate,
+    Normalization.Letters,
+    Normalization.Lowercase,
+    Normalization.NFD,
+  );
+  const pm = /pm/i.test(normalizer(value));
+  const [_, hours, minutes] = /(\d{1,2}):(\d{2})/.exec(value) ?? ["0", "0"];
+  const date = new Date(0);
+  date.setHours(parseInt(hours) + (pm ? 12 : 0), parseInt(minutes), 0, 0);
+  return date;
+};
 
 const transform = (v: string): string => upperFirst(snakeCase(v));
 
@@ -56,24 +90,32 @@ const createSetpointLabel = (type: "all" | "setpoint" | "deadband" | "heating" |
   }
 };
 
-const toDataFormat = (value: string) => moment(value, [CONFIG_FORMAT, TIME_FORMAT, DATA_FORMAT]).format(DATA_FORMAT);
+const toDataFormat = (value: string) =>
+  new Chainable(value)
+    .next(parseTime)
+    .next((date) => `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`)
+    .end();
 
 const toTimeFormat = (value: number) =>
-  moment("00:00", [DATA_FORMAT, CONFIG_FORMAT, TIME_FORMAT])
-    .add(Math.trunc(value / 60), "hours")
-    .add(value % 60, "minutes")
-    .format(TIME_FORMAT);
+  new Chainable(value)
+    .next((value) => ({ hours: Math.trunc(value / 60), minutes: value % 60 }))
+    .next(
+      ({ hours, minutes }) =>
+        `${(hours > 12 ? hours - 12 : hours).toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")} ${hours < 12 ? "am" : "pm"}`,
+    )
+    .end();
 
 const toUpperBound = (value: number, boundary: number, upper?: boolean) => (upper && value === 0 ? boundary : value);
 
-const toMinutes = (value?: string, upper?: boolean) =>
-  toUpperBound(moment(value, [DATA_FORMAT, TIME_FORMAT]).hours(), 24, upper) * 60 +
-  moment(value, [DATA_FORMAT, TIME_FORMAT]).minutes();
+const toMinutes = (value: string, upper?: boolean) =>
+  new Chainable(value)
+    .next(parseTime)
+    .next((value) => toUpperBound(value.getHours(), 24, upper) * 60 + value.getMinutes());
 
 const createScheduleLabel = (type: "all" | "startTime" | "endTime", schedule: any): string => {
   const occupied = schedule?.occupied === undefined ? true : schedule.occupied;
-  const startTime = isNumber(schedule.startTime) ? schedule.startTime : toMinutes(schedule.startTime, false);
-  const endTime = isNumber(schedule.endTime) ? schedule.endTime : toMinutes(schedule.endTime, true);
+  const startTime = typeof schedule.startTime === "number" ? schedule.startTime : toMinutes(schedule.startTime, false);
+  const endTime = typeof schedule.endTime === "number" ? schedule.endTime : toMinutes(schedule.endTime, true);
   switch (type) {
     case "startTime":
       return `${toTimeFormat(startTime)}`;
@@ -89,24 +131,24 @@ const createScheduleLabel = (type: "all" | "startTime" | "endTime", schedule: an
   }
 };
 
-const createConfigurationDefault = (unit: Partial<Units>): DeepPartial<UnitsFull> => {
+const createConfigurationDefault = (unit: Partial<Unit>): DeepPartial<UnitFull> => {
   const label = createConfigurationLabel(unit);
-  const setpoint: Partial<Setpoints> = {
+  const setpoint: Partial<Setpoint> = {
     label: "",
-    setpoint: ValidateType.SetpointType.options?.default as number,
-    deadband: ValidateType.DeadbandType.options?.default as number,
-    heating: ValidateType.HeatingType.options?.default as number,
-    cooling: ValidateType.CoolingType.options?.default as number,
+    setpoint: ValidateType.Setpoint.options?.default as number,
+    deadband: ValidateType.Deadband.options?.default as number,
+    heating: ValidateType.Heating.options?.default as number,
+    cooling: ValidateType.Cooling.options?.default as number,
   };
   setpoint.label = createSetpointLabel("all", setpoint);
-  const schedule: Partial<Schedules> = {
+  const schedule: Partial<Schedule> = {
     label: "",
     occupied: ValidateType.OccupiedType.options?.default as boolean,
     startTime: ValidateType.StartTimeType.options?.default as string,
     endTime: ValidateType.EndTimeType.options?.default as string,
   };
   schedule.label = createScheduleLabel("all", schedule);
-  const unoccupied: Partial<Schedules> = {
+  const unoccupied: Partial<Schedule> = {
     label: "",
     occupied: false,
     startTime: ValidateType.StartTimeType.options?.default as string,
@@ -114,19 +156,19 @@ const createConfigurationDefault = (unit: Partial<Units>): DeepPartial<UnitsFull
   };
   unoccupied.label = createScheduleLabel("all", unoccupied);
   const enabled = [
-    HolidayType.NewYearsDayType,
-    HolidayType.MemorialDayType,
-    HolidayType.JuneteenthType,
-    HolidayType.IndependenceDayType,
-    HolidayType.LaborDayType,
-    HolidayType.ThanksgivingType,
-    HolidayType.BlackFridayType,
-    HolidayType.ChristmasEveType,
-    HolidayType.ChristmasType,
+    HolidayAlt.NewYearsDay,
+    HolidayAlt.MemorialDay,
+    HolidayAlt.Juneteenth,
+    HolidayAlt.IndependenceDay,
+    HolidayAlt.LaborDay,
+    HolidayAlt.Thanksgiving,
+    HolidayAlt.BlackFriday,
+    HolidayAlt.ChristmasEve,
+    HolidayAlt.Christmas,
   ].map((h) => h.name);
-  const holidays = HolidayType.values.map((h) => ({
+  const holidays = HolidayAlt.values.map((h) => ({
     label: h.label,
-    type: enabled.includes(h.name) ? enum_holiday.Enabled : enum_holiday.Disabled,
+    type: enabled.includes(h.name) ? HolidayType.Enabled : HolidayType.Disabled,
   }));
   return merge(unit, {
     configuration: {
@@ -145,7 +187,7 @@ const createConfigurationDefault = (unit: Partial<Units>): DeepPartial<UnitsFull
   });
 };
 
-const updateConfigurationDefaults = (unit: DeepPartial<UnitsFull>, json: any) => {
+const updateConfigurationDefaults = (unit: DeepPartial<UnitFull>, json: any) => {
   set(
     unit,
     "configuration.setpoint.deadband",
@@ -212,168 +254,143 @@ const transformUnit = (v: any, t: "create" | "update") => {
   }
 };
 
-const execute = (options: SetupOptions) => async () => {
-  logger.info(`Checking for units that need to be created...`);
-  const units = await Promise.all(
-    options.state.files
-      .map(async (f: string) => {
-        try {
-          const file = resolve(process.cwd(), f);
-          const text = await readFile(file, "utf-8");
-          const json = JSON.parse(text);
-          const { campus, building, system, local_tz: timezone } = json;
-          const name = `${transform(campus)}-${transform(building)}-${transform(system)}`;
-          const label = `${campus} ${building} ${system}`;
-          logger.info(`Checking if unit "${name}" exists.`);
-          return await prisma.units
-            .findFirst({ where: { name } })
-            .then(async (unit) => {
-              if (unit) {
-                return unit;
-              } else {
-                logger.info(`Creating unit "${name}".`);
-                const data = createConfigurationDefault({ name, label, campus, building, system, timezone });
-                updateConfigurationDefaults(data, json);
-                const record = transformUnit(data, "create");
-                record.stage = StageType.UpdateType.enum;
-                return await prisma.units
-                  .create({
-                    data: record,
-                  })
-                  .catch((err) => {
-                    logger.warn(err);
-                    return null;
-                  });
-              }
-            })
-            .catch((err) => {
-              logger.warn(err);
-              return null;
-            });
-        } catch (error) {
-          logger.warn(error as Error);
-          return null;
+@Injectable()
+export class SetupService extends BaseService {
+  private logger = new Logger(SetupService.name);
+
+  constructor(
+    private prismaService: PrismaService,
+    @Inject(AppConfigService.Key) private configService: AppConfigService,
+  ) {
+    super("setup", configService);
+  }
+
+  async getIlcFiles(paths: string[]) {
+    const files: string[] = [];
+    for (const path of paths) {
+      const file = resolve(process.cwd(), path);
+      const dirent = await stat(file);
+      if (dirent.isFile()) {
+        if (extname(file) === ".json") {
+          files.push(file);
         }
-      })
-      .filter((v) => v),
-  );
-  await prisma.units
-    .findMany()
-    .then(async (values) => {
-      const remove = difference(
-        values.map((v) => v?.name).filter((v) => v),
-        units.map((v) => v?.name).filter((v) => v),
-      ).filter((v) => v) as string[];
-      for (const name of remove) {
-        logger.info(`Removing unit "${name}".`);
-        await prisma.units.deleteMany({ where: { name } });
+      } else if (dirent.isDirectory()) {
+        files.push(...(await this.getIlcFiles(await readdir(file))));
+      } else {
+        this.logger.warn(`Skipping non-file and non-directory: ${file}`);
       }
-    })
-    .catch((err: any) => logger.warn(err));
-  logger.info(`Finished checking for units to create or update.`);
-  logger.info(`Checking for controls that need to be created...`);
-  const controls = await prisma.controls.findMany({ include: { units: true } }).catch((err) => {
-    logger.warn(err);
-    return null;
-  });
-  if (controls !== null) {
-    const names = await Promise.all(
-      options.state.ilcs
-        .map(async (f: string) => {
-          const names: { controls: string[]; units: string[] } = { controls: [], units: [] };
-          try {
-            const file = resolve(process.cwd(), f);
-            const text = await readFile(file, "utf-8");
-            const json = JSON.parse(text);
-            const { campus, building, systems }: { campus: string; building: string; systems: string[] } = json;
-            const name = `${transform(campus)}-${transform(building)}`;
-            let control = controls.find((v) => v.name === name);
-            if (!control) {
-              const label = `${campus} ${building}`;
-              logger.info(`Creating control "${name}".`);
-              const stage = StageType.CreateType.enum;
-              control = await prisma.controls.create({
-                include: { units: true },
-                data: { name, label, campus, building, stage },
-              });
-            }
-            names.controls.push(control.name);
-            for (const system of systems) {
-              const temp = `${name}-${transform(system)}`;
-              names.units.push(temp);
-              const unit = units.find((v) => v?.name === temp);
-              if (!unit) {
-                logger.warn(new Error(`Unit "${temp}" specified in control config does not exist.`));
-              } else if (unit.controlId !== control.id) {
-                logger.info(`Assigning unit "${unit.name}" to  control "${name}".`);
-                await prisma.units.update({ where: { id: unit.id }, data: { controlId: control.id } });
-              }
-            }
-            return names;
-          } catch (error) {
-            logger.warn(error as Error);
-            return names;
+    }
+    return files;
+  }
+
+  @Timeout(1000)
+  execute(): Promise<void> {
+    return super.execute();
+  }
+
+  async task() {
+    this.logger.log(`Checking for units that need to be created...`);
+    const units: Unit[] = [];
+    for (const file of await getConfigFiles(this.configService.service.setup.thermostatPaths, ".config", this.logger)) {
+      const text = await readFile(file, "utf-8");
+      const json = JSON.parse(text);
+      const { campus, building, system, local_tz: timezone } = json;
+      const name = `${transform(campus)}-${transform(building)}-${transform(system)}`;
+      const label = `${campus} ${building} ${system}`;
+      this.logger.log(`Checking if thermostat unit "${name}" already exists in the database.`);
+      await this.prismaService.prisma.unit
+        .findFirst({ where: { name } })
+        .then(async (unit) => {
+          if (unit) {
+            units.push(unit);
+          } else {
+            this.logger.log(`Creating thermostat unit "${name}".`);
+            const data = createConfigurationDefault({ name, label, campus, building, system, timezone });
+            updateConfigurationDefaults(data, json);
+            const record = transformUnit(data, "create");
+            record.stage = StageType.Update.enum;
+            await this.prismaService.prisma.unit
+              .create({
+                data: record,
+              })
+              .then((unit) => units.push(unit))
+              .catch((error) => this.logger.warn(`Failed to create unit "${name}":`, error));
           }
         })
-        .filter((v) => v),
-    );
+        .catch((error) => this.logger.warn(`Failed to look for thermostat unit "${name}":`, error));
+    }
+    await this.prismaService.prisma.unit
+      .findMany()
+      .then(async (values) => {
+        const remove = difference(
+          values.map((v) => v?.name).filter((v) => v),
+          units.map((v) => v?.name).filter((v) => v),
+        ).filter(typeofNonNullable);
+        for (const name of remove) {
+          this.logger.log(`Removing thermostat unit "${name}" from the database.`);
+          await this.prismaService.prisma.unit.deleteMany({ where: { name } });
+        }
+      })
+      .catch((error: any) => this.logger.warn(`Failed to look for thermostat units:`, error));
+    this.logger.log(`Finished checking for thermostat units to create or update.`);
+    this.logger.log(`Checking for controls that need to be created...`);
+    const controls = await this.prismaService.prisma.control
+      .findMany({ include: { units: true } })
+      .catch((error) => this.logger.warn(`Failed to look for controls:`, error));
+    const configs: { control: string; units: string[] }[] = [];
+    for (const file of await getConfigFiles(this.configService.service.setup.ilcPaths, ".json", this.logger)) {
+      const text = await readFile(file, "utf-8");
+      const json = JSON.parse(text);
+      const { campus, building, systems }: { campus: string; building: string; systems: string[] } = json;
+      const name = `${transform(campus)}-${transform(building)}`;
+      let control = controls?.find((v) => v.name === name);
+      if (!control) {
+        const label = `${campus} ${building}`;
+        this.logger.log(`Creating control (ILC) "${name}" in the database.`);
+        const stage = StageType.CreateType.enum;
+        control = await this.prismaService.prisma.control.create({
+          include: { units: true },
+          data: { name, label, campus, building, stage },
+        });
+      }
+      configs.push({ control: control.name, units: [] as string[] });
+      for (const system of systems) {
+        const temp = `${name}-${transform(system)}`;
+        configs[configs.length - 1].units.push(temp);
+        const unit = units.find((v) => v?.name === temp);
+        if (!unit) {
+          this.logger.warn(new Error(`Unit "${temp}" specified in control (ILC) config does not exist.`));
+        } else if (unit.controlId !== control.id) {
+          this.logger.log(`Assigning unit "${unit.name}" to  control (ILC) "${name}".`);
+          await this.prismaService.prisma.unit.update({ where: { id: unit.id }, data: { controlId: control.id } });
+        }
+      }
+    }
     const removeControls = difference(
-      controls.map((v) => v?.name).filter((v) => v),
-      flatten(names.map((n) => n.controls)),
+      controls?.map((v) => v?.name).filter((v) => v) ?? [],
+      configs.map((c) => c.control),
     ).filter((v) => v) as string[];
     if (!isEmpty(removeControls)) {
-      logger.info(
-        `Deleting control${removeControls.length === 1 ? "" : "s"} ${removeControls.map((v) => `"${v}"`).join(", ")}.`,
+      this.logger.log(
+        `Deleting control${removeControls.length === 1 ? "" : "s"} (ILC) ${removeControls.map((v) => `"${v}"`).join(", ")}.`,
       );
-      await prisma.controls.deleteMany({ where: { name: { in: removeControls } } });
+      await this.prismaService.prisma.control.deleteMany({ where: { name: { in: removeControls } } });
     }
     const removeUnits = difference(
       units.map((v) => v?.name).filter((v) => v),
-      flatten(names.map((n) => n.units)),
+      flatten(configs.map((n) => n.units)),
     ).filter((v) => v) as string[];
     if (!isEmpty(removeUnits)) {
-      logger.info(
+      this.logger.log(
         `Unassigning unit${removeUnits.length === 1 ? "" : "s"} ${removeUnits
           .map((v) => `"${v}"`)
-          .join(", ")} from controls.`,
+          .join(", ")} from controls (ILC).`,
       );
-      await prisma.units.updateMany({ where: { name: { in: removeUnits } }, data: { controlId: null } });
+      await this.prismaService.prisma.unit.updateMany({
+        where: { name: { in: removeUnits } },
+        data: { controlId: null },
+      });
     }
+    this.logger.log(`Finished checking for controls (ILC) to create or update.`);
   }
-  logger.info(`Finished checking for controls to create or update.`);
-};
-
-interface SetupState {
-  running: boolean;
-  count: number;
-  files: string[];
-  ilcs: string[];
-  templates: string[];
-  holidaySchedule: boolean;
-}
-
-interface SetupOptions extends ServiceState<SetupState> {}
-
-const task = () => {
-  const options: SetupOptions = buildOptions(
-    {
-      service: "setup",
-      schedule: process.env.SETUP_SCHEDULE,
-      leading: parseBoolean(process.env.SETUP_STARTUP),
-    },
-    {
-      running: false,
-      count: 0,
-      files: process.env.SETUP_FILES?.split(/[,|]/) || [],
-      ilcs: process.env.SETUP_ILC_FILES?.split(/[,|]/) || [],
-      templates: process.env.SETUP_TEMPLATE_FILES?.split(/[,|]/) || [],
-      holidaySchedule: parseBoolean(process.env.HOLIDAY_SCHEDULE),
-    },
-  );
-  const worker = execute(options);
-  schedule(worker, options);
-};
-
-if (!startService(__filename, { name: "Setup Service" })?.catch((error) => logger.warn(error))) {
-  task();
 }

@@ -14,3 +14,10 @@ export declare const printEnvironment: (options?: {
 }) => void;
 export declare const delay: (d: number) => Promise<unknown>;
 export declare const toOrdinal: (n: number) => string;
+export declare class Chainable<T> {
+    private value;
+    constructor(value: T);
+    next<U>(fn: (value: T) => U): Chainable<U>;
+    end(): T;
+}
+export declare const chainable: <T>(value: T) => Chainable<T>;

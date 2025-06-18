@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.toOrdinal = exports.delay = exports.printEnvironment = exports.templateFormat = exports.parseBoolean = exports.getDifference = exports.Removed = exports.typeofObject = exports.typeofEnum = exports.keyofObject = exports.typeofNonNullable = void 0;
+exports.chainable = exports.Chainable = exports.toOrdinal = exports.delay = exports.printEnvironment = exports.templateFormat = exports.parseBoolean = exports.getDifference = exports.Removed = exports.typeofObject = exports.typeofEnum = exports.keyofObject = exports.typeofNonNullable = void 0;
 exports.deepFreeze = deepFreeze;
 const lodash_1 = require("lodash");
 const typeofNonNullable = (value) => value !== null && value !== undefined;
@@ -86,4 +86,18 @@ const toOrdinal = (n) => {
     return `${number.toLocaleString()}${suffixes[(v - 20) % 10] ?? suffixes[v] ?? suffixes[0]}`;
 };
 exports.toOrdinal = toOrdinal;
+class Chainable {
+    constructor(value) {
+        this.value = value;
+    }
+    next(fn) {
+        return new Chainable(fn(this.value));
+    }
+    end() {
+        return this.value;
+    }
+}
+exports.Chainable = Chainable;
+const chainable = (value) => new Chainable(value);
+exports.chainable = chainable;
 //# sourceMappingURL=util.js.map

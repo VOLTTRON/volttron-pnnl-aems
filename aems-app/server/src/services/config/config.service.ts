@@ -1,13 +1,11 @@
 import { AppConfigService } from "@/app.config";
-import { Unit } from "@prisma/client";
-import { Agent, fetch } from "undici";
 import { BaseService } from "..";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/prisma/prisma.service";
-import { inspect } from "node:util";
 import { Cron } from "@nestjs/schedule";
 import { StageType } from "@local/common";
 import { merge } from "lodash";
+import { VolttronService } from "../volttron.service";
 
 @Injectable()
 export class ConfigService extends BaseService {
@@ -16,60 +14,9 @@ export class ConfigService extends BaseService {
   constructor(
     private prismaService: PrismaService,
     @Inject(AppConfigService.Key) private configService: AppConfigService,
+    private volttronService: VolttronService,
   ) {
     super("config", configService);
-  }
-
-  async makeAuthCall(): Promise<string> {
-    const body = {
-      username: this.configService.service.config.username,
-      password: this.configService.service.config.password,
-    };
-    const response = await fetch(`${this.configService.service.config.authUrl}`, {
-      method: "POST",
-      body: JSON.stringify(body),
-      headers: { "Content-Type": "application/json" },
-      dispatcher: new Agent({
-        connect: { keepAlive: false, ca: this.configService.volttron.ca },
-        connectTimeout: this.configService.service.config.timeout,
-      }),
-    });
-    const json: any = await response.json();
-    if (typeof json?.access_token !== "string") {
-      throw new Error(`Failed Volttron Auth call: ${inspect(json)}`);
-    }
-    return json.access_token;
-  }
-
-  async makeApiCall(unit: Unit, method: string, token: string, data: any) {
-    const body = {
-      jsonrpc: "2.0",
-      id: `manager.${unit.system.toLowerCase()}`,
-      method: method,
-      params: {
-        authentication: token,
-        data: data,
-      },
-    };
-    if (this.configService.service.config.verbose) {
-      this.logger.log(inspect({ url: this.configService.service.config.apiUrl, body: body }, undefined, 10));
-    }
-    const response = await fetch(`${this.configService.service.config.apiUrl}`, {
-      method: "POST",
-      body: JSON.stringify(body),
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      dispatcher: new Agent({
-        connect: { keepAlive: false, ca: this.configService.volttron.ca },
-        connectTimeout: this.configService.service.config.timeout,
-      }),
-    });
-    const json: any = await response.json();
-    if (typeof json?.result === "string") {
-      throw new Error(`Failed Volttron API ${method} call: ${inspect(json)}`);
-    } else if (!json?.result) {
-      throw new Error(`Failed Volttron API ${method} call.`);
-    }
-    return json;
   }
 
   @Cron(`*/10 * * * * *`)
@@ -106,7 +53,7 @@ export class ConfigService extends BaseService {
           where: { stage: { in: [StageType.Update.enum, StageType.Process.enum] } },
         })
         .then(async (units) => {
-          const token = await this.makeAuthCall();
+          const token = await this.volttronService.makeAuthCall();
           for (const unit of units) {
             this.logger.log(`Pushing the unit config for: ${unit.label}`);
             try {
@@ -121,7 +68,12 @@ export class ConfigService extends BaseService {
                 UnoccupiedCoolingSetPoint: unit.configuration?.setpoint?.cooling ?? 0,
                 UnoccupiedHeatingSetPoint: unit.configuration?.setpoint?.heating ?? 0,
               };
-              await this.makeApiCall(unit, "set_temperature_setpoints", token, set_temperature_setpoints);
+              await this.volttronService.makeApiCall(
+                `manager.${unit.system.toLowerCase()}`,
+                "set_temperature_setpoints",
+                token,
+                set_temperature_setpoints,
+              );
 
               const today = new Date();
               today.setHours(0, 0, 0, 0);
@@ -142,7 +94,12 @@ export class ConfigService extends BaseService {
                   }
                   return p;
                 }, {} as any);
-              await this.makeApiCall(unit, "set_occupancy_override", token, set_occupancy_override);
+              await this.volttronService.makeApiCall(
+                `manager.${unit.system.toLowerCase()}`,
+                "set_occupancy_override",
+                token,
+                set_occupancy_override,
+              );
 
               const set_holidays = unit.configuration?.holidays
                 .filter((a) => a.type !== "Disabled")
@@ -153,7 +110,12 @@ export class ConfigService extends BaseService {
                     }),
                   {},
                 );
-              await this.makeApiCall(unit, "set_holidays", token, set_holidays);
+              await this.volttronService.makeApiCall(
+                `manager.${unit.system.toLowerCase()}`,
+                "set_holidays",
+                token,
+                set_holidays,
+              );
 
               const set_schedule = {
                 Monday: unit.configuration?.mondaySchedule?.occupied
@@ -207,7 +169,12 @@ export class ConfigService extends BaseService {
                     : "always_off",
                 }),
               };
-              await this.makeApiCall(unit, "set_schedule", token, set_schedule);
+              await this.volttronService.makeApiCall(
+                `manager.${unit.system.toLowerCase()}`,
+                "set_schedule",
+                token,
+                set_schedule,
+              );
 
               const set_optimal_start = {
                 latest_start_time: unit.latestStart ?? 0,
@@ -215,7 +182,12 @@ export class ConfigService extends BaseService {
                 allowable_setpoint_deviation: 1,
                 optimal_start_lockout_temperature: unit.optimalStartLockout ?? 0,
               };
-              await this.makeApiCall(unit, "set_optimal_start", token, set_optimal_start);
+              await this.volttronService.makeApiCall(
+                `manager.${unit.system.toLowerCase()}`,
+                "set_optimal_start",
+                token,
+                set_optimal_start,
+              );
 
               const set_configurations = {
                 is_heatpump: unit.heatPump ?? false,
@@ -228,14 +200,19 @@ export class ConfigService extends BaseService {
                   cooling_lockout_temp: unit.coolingLockout ?? 0,
                 }),
               };
-              await this.makeApiCall(unit, "set_configurations", token, {
-                ...set_configurations,
-                ...set_optimal_start,
-              });
+              await this.volttronService.makeApiCall(
+                `manager.${unit.system.toLowerCase()}`,
+                "set_configurations",
+                token,
+                {
+                  ...set_configurations,
+                  ...set_optimal_start,
+                },
+              );
 
               const location = unit.location;
-              await this.makeApiCall(
-                unit,
+              await this.volttronService.makeApiCall(
+                `manager.${unit.system.toLowerCase()}`,
                 "set_location",
                 token,
                 location

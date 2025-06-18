@@ -16,8 +16,8 @@ export declare class UserObject {
         Where: Prisma.UserWhereInput;
         Create: Prisma.UserCreateInput;
         Update: Prisma.UserUpdateInput;
-        RelationName: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files";
-        ListRelations: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files";
+        RelationName: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "units" | "changes";
+        ListRelations: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "units" | "changes";
         Relations: {
             accounts: {
                 Shape: import(".prisma/client").Account[];
@@ -47,6 +47,16 @@ export declare class UserObject {
             files: {
                 Shape: import(".prisma/client").File[];
                 Name: "File";
+                Nullable: false;
+            };
+            units: {
+                Shape: import(".prisma/client").Unit[];
+                Name: "Unit";
+                Nullable: false;
+            };
+            changes: {
+                Shape: import(".prisma/client").Change[];
+                Name: "Change";
                 Nullable: false;
             };
         };

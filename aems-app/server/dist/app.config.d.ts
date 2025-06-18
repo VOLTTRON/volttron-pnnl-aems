@@ -5,6 +5,7 @@ export interface ExtConfig {
     authorized?: string;
     unauthorized?: string;
 }
+declare const toDurationUnit: (value: string) => "seconds" | "minutes" | "hours" | "days" | "weeks" | "months" | "years" | "milliseconds";
 export declare class AppConfigService {
     static Key: string;
     private logger;
@@ -90,6 +91,31 @@ export declare class AppConfigService {
             dataPath: string;
             geojsonContribution: string;
         };
+        cleanup: {
+            age: {
+                value: number;
+                unit: ReturnType<typeof toDurationUnit>;
+            };
+        };
+        config: {
+            timeout: number;
+            authUrl: string;
+            apiUrl: string;
+            username: string;
+            password: string;
+            verbose: boolean;
+            holidaySchedule: boolean;
+        };
+        control: {
+            templatePaths: string[];
+        };
+        setup: {
+            ilcPaths: string[];
+            thermostatPaths: string[];
+        };
+    };
+    volttron: {
+        ca: string;
     };
     constructor();
 }

@@ -1,4 +1,4 @@
-import { deepFreeze, parseBoolean, templateFormat, delay, getDifference, Removed } from "./util";
+import { deepFreeze, parseBoolean, templateFormat, delay, getDifference, Removed, Chainable, chainable } from "./util";
 
 describe("deepFreeze", () => {
   it("should recursively freeze an object", () => {
@@ -263,5 +263,28 @@ describe("delay", () => {
     const elapsed = end - start;
 
     expect(elapsed).toBeGreaterThanOrEqual(delayDuration);
+  });
+});
+
+describe("Chainable<T>", () => {
+  it("should allow chaining methods of the same type", () => {
+    const chain = new Chainable(5);
+    const result = chain
+      .next((v) => v + 3)
+      .next((v) => v * 2)
+      .next((v) => v - 4)
+      .end();
+
+    expect(result).toBe(12);
+  });
+
+  it("should allow chaining methods of different types", () => {
+    const chain = chainable("Hello");
+    const result = chain
+      .next((v) => v + " World")
+      .next((v) => ({ original: v, uppercase: v.toUpperCase() }))
+      .end();
+
+    expect(result).toEqual({ original: "Hello World", uppercase: "HELLO WORLD" });
   });
 });

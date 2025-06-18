@@ -155,3 +155,27 @@ export const toOrdinal = (n: number): string => {
   const v = number % 100;
   return `${number.toLocaleString()}${suffixes[(v - 20) % 10] ?? suffixes[v] ?? suffixes[0]}`;
 };
+
+/**
+ * A simple chainable utility class to allow chaining of functions.
+ * It can be used to create a chain of operations on a value.
+ */
+export class Chainable<T> {
+  constructor(private value: T) {}
+
+  next<U>(fn: (value: T) => U): Chainable<U> {
+    return new Chainable(fn(this.value));
+  }
+
+  end(): T {
+    return this.value;
+  }
+}
+
+/**
+ * Convenience function to create a Chainable instance.
+ *
+ * @param value the initial value to chain on
+ * @returns A new Chainable instance with the given value.
+ */
+export const chainable = <T>(value: T): Chainable<T> => new Chainable(value);
