@@ -1,37 +1,82 @@
-import type { Prisma, Unit, Configuration, Occupancy, Schedule, Setpoint, Holiday, Control, Location, Change, Feedback, File, Comment, User, Account, Session, VerificationToken, Seed, Event, Log, Banner, Geography } from "@prisma/client";
+import type { Prisma, Account, Banner, Change, Comment, Configuration, Control, Event, Feedback, File, Geography, Holiday, Location, Log, Occupancy, Schedule, Seed, Session, Setpoint, Unit, User, VerificationToken } from "@prisma/client";
 export default interface PrismaTypes {
-    Unit: {
-        Name: "Unit";
-        Shape: Unit;
-        Include: Prisma.UnitInclude;
-        Select: Prisma.UnitSelect;
-        OrderBy: Prisma.UnitOrderByWithRelationInput;
-        WhereUnique: Prisma.UnitWhereUniqueInput;
-        Where: Prisma.UnitWhereInput;
-        Create: Prisma.UnitCreateInput;
-        Update: Prisma.UnitUpdateInput;
-        RelationName: "configuration" | "control" | "location" | "users";
+    Account: {
+        Name: "Account";
+        Shape: Account;
+        Include: Prisma.AccountInclude;
+        Select: Prisma.AccountSelect;
+        OrderBy: Prisma.AccountOrderByWithRelationInput;
+        WhereUnique: Prisma.AccountWhereUniqueInput;
+        Where: Prisma.AccountWhereInput;
+        Create: Prisma.AccountCreateInput;
+        Update: Prisma.AccountUpdateInput;
+        RelationName: "user";
+        ListRelations: never;
+        Relations: {
+            user: {
+                Shape: User;
+                Name: "User";
+                Nullable: false;
+            };
+        };
+    };
+    Banner: {
+        Name: "Banner";
+        Shape: Banner;
+        Include: Prisma.BannerInclude;
+        Select: Prisma.BannerSelect;
+        OrderBy: Prisma.BannerOrderByWithRelationInput;
+        WhereUnique: Prisma.BannerWhereUniqueInput;
+        Where: Prisma.BannerWhereInput;
+        Create: Prisma.BannerCreateInput;
+        Update: Prisma.BannerUpdateInput;
+        RelationName: "users";
         ListRelations: "users";
         Relations: {
-            configuration: {
-                Shape: Configuration | null;
-                Name: "Configuration";
-                Nullable: true;
-            };
-            control: {
-                Shape: Control | null;
-                Name: "Control";
-                Nullable: true;
-            };
-            location: {
-                Shape: Location | null;
-                Name: "Location";
-                Nullable: true;
-            };
             users: {
                 Shape: User[];
                 Name: "User";
                 Nullable: false;
+            };
+        };
+    };
+    Change: {
+        Name: "Change";
+        Shape: Change;
+        Include: Prisma.ChangeInclude;
+        Select: Prisma.ChangeSelect;
+        OrderBy: Prisma.ChangeOrderByWithRelationInput;
+        WhereUnique: Prisma.ChangeWhereUniqueInput;
+        Where: Prisma.ChangeWhereInput;
+        Create: Prisma.ChangeCreateInput;
+        Update: Prisma.ChangeUpdateInput;
+        RelationName: "user";
+        ListRelations: never;
+        Relations: {
+            user: {
+                Shape: User | null;
+                Name: "User";
+                Nullable: true;
+            };
+        };
+    };
+    Comment: {
+        Name: "Comment";
+        Shape: Comment;
+        Include: Prisma.CommentInclude;
+        Select: Prisma.CommentSelect;
+        OrderBy: Prisma.CommentOrderByWithRelationInput;
+        WhereUnique: Prisma.CommentWhereUniqueInput;
+        Where: Prisma.CommentWhereInput;
+        Create: Prisma.CommentCreateInput;
+        Update: Prisma.CommentUpdateInput;
+        RelationName: "user";
+        ListRelations: never;
+        Relations: {
+            user: {
+                Shape: User | null;
+                Name: "User";
+                Nullable: true;
             };
         };
     };
@@ -109,6 +154,163 @@ export default interface PrismaTypes {
                 Nullable: false;
             };
         };
+    };
+    Control: {
+        Name: "Control";
+        Shape: Control;
+        Include: Prisma.ControlInclude;
+        Select: Prisma.ControlSelect;
+        OrderBy: Prisma.ControlOrderByWithRelationInput;
+        WhereUnique: Prisma.ControlWhereUniqueInput;
+        Where: Prisma.ControlWhereInput;
+        Create: Prisma.ControlCreateInput;
+        Update: Prisma.ControlUpdateInput;
+        RelationName: "units";
+        ListRelations: "units";
+        Relations: {
+            units: {
+                Shape: Unit[];
+                Name: "Unit";
+                Nullable: false;
+            };
+        };
+    };
+    Event: {
+        Name: "Event";
+        Shape: Event;
+        Include: never;
+        Select: Prisma.EventSelect;
+        OrderBy: Prisma.EventOrderByWithRelationInput;
+        WhereUnique: Prisma.EventWhereUniqueInput;
+        Where: Prisma.EventWhereInput;
+        Create: Prisma.EventCreateInput;
+        Update: Prisma.EventUpdateInput;
+        RelationName: never;
+        ListRelations: never;
+        Relations: {};
+    };
+    Feedback: {
+        Name: "Feedback";
+        Shape: Feedback;
+        Include: Prisma.FeedbackInclude;
+        Select: Prisma.FeedbackSelect;
+        OrderBy: Prisma.FeedbackOrderByWithRelationInput;
+        WhereUnique: Prisma.FeedbackWhereUniqueInput;
+        Where: Prisma.FeedbackWhereInput;
+        Create: Prisma.FeedbackCreateInput;
+        Update: Prisma.FeedbackUpdateInput;
+        RelationName: "user" | "assignee" | "files";
+        ListRelations: "files";
+        Relations: {
+            user: {
+                Shape: User;
+                Name: "User";
+                Nullable: false;
+            };
+            assignee: {
+                Shape: User | null;
+                Name: "User";
+                Nullable: true;
+            };
+            files: {
+                Shape: File[];
+                Name: "File";
+                Nullable: false;
+            };
+        };
+    };
+    File: {
+        Name: "File";
+        Shape: File;
+        Include: Prisma.FileInclude;
+        Select: Prisma.FileSelect;
+        OrderBy: Prisma.FileOrderByWithRelationInput;
+        WhereUnique: Prisma.FileWhereUniqueInput;
+        Where: Prisma.FileWhereInput;
+        Create: Prisma.FileCreateInput;
+        Update: Prisma.FileUpdateInput;
+        RelationName: "user" | "feedback";
+        ListRelations: never;
+        Relations: {
+            user: {
+                Shape: User | null;
+                Name: "User";
+                Nullable: true;
+            };
+            feedback: {
+                Shape: Feedback | null;
+                Name: "Feedback";
+                Nullable: true;
+            };
+        };
+    };
+    Geography: {
+        Name: "Geography";
+        Shape: Geography;
+        Include: never;
+        Select: Prisma.GeographySelect;
+        OrderBy: Prisma.GeographyOrderByWithRelationInput;
+        WhereUnique: Prisma.GeographyWhereUniqueInput;
+        Where: Prisma.GeographyWhereInput;
+        Create: Prisma.GeographyCreateInput;
+        Update: Prisma.GeographyUpdateInput;
+        RelationName: never;
+        ListRelations: never;
+        Relations: {};
+    };
+    Holiday: {
+        Name: "Holiday";
+        Shape: Holiday;
+        Include: Prisma.HolidayInclude;
+        Select: Prisma.HolidaySelect;
+        OrderBy: Prisma.HolidayOrderByWithRelationInput;
+        WhereUnique: Prisma.HolidayWhereUniqueInput;
+        Where: Prisma.HolidayWhereInput;
+        Create: Prisma.HolidayCreateInput;
+        Update: Prisma.HolidayUpdateInput;
+        RelationName: "configurations";
+        ListRelations: "configurations";
+        Relations: {
+            configurations: {
+                Shape: Configuration[];
+                Name: "Configuration";
+                Nullable: false;
+            };
+        };
+    };
+    Location: {
+        Name: "Location";
+        Shape: Location;
+        Include: Prisma.LocationInclude;
+        Select: Prisma.LocationSelect;
+        OrderBy: Prisma.LocationOrderByWithRelationInput;
+        WhereUnique: Prisma.LocationWhereUniqueInput;
+        Where: Prisma.LocationWhereInput;
+        Create: Prisma.LocationCreateInput;
+        Update: Prisma.LocationUpdateInput;
+        RelationName: "units";
+        ListRelations: "units";
+        Relations: {
+            units: {
+                Shape: Unit[];
+                Name: "Unit";
+                Nullable: false;
+            };
+        };
+    };
+    Log: {
+        Name: "Log";
+        Shape: Log;
+        Include: never;
+        Select: Prisma.LogSelect;
+        OrderBy: Prisma.LogOrderByWithRelationInput;
+        WhereUnique: Prisma.LogWhereUniqueInput;
+        Where: Prisma.LogWhereInput;
+        Create: Prisma.LogCreateInput;
+        Update: Prisma.LogUpdateInput;
+        RelationName: never;
+        ListRelations: never;
+        Relations: {};
     };
     Occupancy: {
         Name: "Occupancy";
@@ -200,6 +402,34 @@ export default interface PrismaTypes {
             };
         };
     };
+    Seed: {
+        Name: "Seed";
+        Shape: Seed;
+        Include: never;
+        Select: Prisma.SeedSelect;
+        OrderBy: Prisma.SeedOrderByWithRelationInput;
+        WhereUnique: Prisma.SeedWhereUniqueInput;
+        Where: Prisma.SeedWhereInput;
+        Create: Prisma.SeedCreateInput;
+        Update: Prisma.SeedUpdateInput;
+        RelationName: never;
+        ListRelations: never;
+        Relations: {};
+    };
+    Session: {
+        Name: "Session";
+        Shape: Session;
+        Include: never;
+        Select: Prisma.SessionSelect;
+        OrderBy: Prisma.SessionOrderByWithRelationInput;
+        WhereUnique: Prisma.SessionWhereUniqueInput;
+        Where: Prisma.SessionWhereInput;
+        Create: Prisma.SessionCreateInput;
+        Update: Prisma.SessionUpdateInput;
+        RelationName: never;
+        ListRelations: never;
+        Relations: {};
+    };
     Setpoint: {
         Name: "Setpoint";
         Shape: Setpoint;
@@ -225,158 +455,38 @@ export default interface PrismaTypes {
             };
         };
     };
-    Holiday: {
-        Name: "Holiday";
-        Shape: Holiday;
-        Include: Prisma.HolidayInclude;
-        Select: Prisma.HolidaySelect;
-        OrderBy: Prisma.HolidayOrderByWithRelationInput;
-        WhereUnique: Prisma.HolidayWhereUniqueInput;
-        Where: Prisma.HolidayWhereInput;
-        Create: Prisma.HolidayCreateInput;
-        Update: Prisma.HolidayUpdateInput;
-        RelationName: "configurations";
-        ListRelations: "configurations";
+    Unit: {
+        Name: "Unit";
+        Shape: Unit;
+        Include: Prisma.UnitInclude;
+        Select: Prisma.UnitSelect;
+        OrderBy: Prisma.UnitOrderByWithRelationInput;
+        WhereUnique: Prisma.UnitWhereUniqueInput;
+        Where: Prisma.UnitWhereInput;
+        Create: Prisma.UnitCreateInput;
+        Update: Prisma.UnitUpdateInput;
+        RelationName: "configuration" | "control" | "location" | "users";
+        ListRelations: "users";
         Relations: {
-            configurations: {
-                Shape: Configuration[];
+            configuration: {
+                Shape: Configuration | null;
                 Name: "Configuration";
-                Nullable: false;
-            };
-        };
-    };
-    Control: {
-        Name: "Control";
-        Shape: Control;
-        Include: Prisma.ControlInclude;
-        Select: Prisma.ControlSelect;
-        OrderBy: Prisma.ControlOrderByWithRelationInput;
-        WhereUnique: Prisma.ControlWhereUniqueInput;
-        Where: Prisma.ControlWhereInput;
-        Create: Prisma.ControlCreateInput;
-        Update: Prisma.ControlUpdateInput;
-        RelationName: "units";
-        ListRelations: "units";
-        Relations: {
-            units: {
-                Shape: Unit[];
-                Name: "Unit";
-                Nullable: false;
-            };
-        };
-    };
-    Location: {
-        Name: "Location";
-        Shape: Location;
-        Include: Prisma.LocationInclude;
-        Select: Prisma.LocationSelect;
-        OrderBy: Prisma.LocationOrderByWithRelationInput;
-        WhereUnique: Prisma.LocationWhereUniqueInput;
-        Where: Prisma.LocationWhereInput;
-        Create: Prisma.LocationCreateInput;
-        Update: Prisma.LocationUpdateInput;
-        RelationName: "units";
-        ListRelations: "units";
-        Relations: {
-            units: {
-                Shape: Unit[];
-                Name: "Unit";
-                Nullable: false;
-            };
-        };
-    };
-    Change: {
-        Name: "Change";
-        Shape: Change;
-        Include: Prisma.ChangeInclude;
-        Select: Prisma.ChangeSelect;
-        OrderBy: Prisma.ChangeOrderByWithRelationInput;
-        WhereUnique: Prisma.ChangeWhereUniqueInput;
-        Where: Prisma.ChangeWhereInput;
-        Create: Prisma.ChangeCreateInput;
-        Update: Prisma.ChangeUpdateInput;
-        RelationName: "user";
-        ListRelations: never;
-        Relations: {
-            user: {
-                Shape: User | null;
-                Name: "User";
                 Nullable: true;
             };
-        };
-    };
-    Feedback: {
-        Name: "Feedback";
-        Shape: Feedback;
-        Include: Prisma.FeedbackInclude;
-        Select: Prisma.FeedbackSelect;
-        OrderBy: Prisma.FeedbackOrderByWithRelationInput;
-        WhereUnique: Prisma.FeedbackWhereUniqueInput;
-        Where: Prisma.FeedbackWhereInput;
-        Create: Prisma.FeedbackCreateInput;
-        Update: Prisma.FeedbackUpdateInput;
-        RelationName: "user" | "assignee" | "files";
-        ListRelations: "files";
-        Relations: {
-            user: {
-                Shape: User;
+            control: {
+                Shape: Control | null;
+                Name: "Control";
+                Nullable: true;
+            };
+            location: {
+                Shape: Location | null;
+                Name: "Location";
+                Nullable: true;
+            };
+            users: {
+                Shape: User[];
                 Name: "User";
                 Nullable: false;
-            };
-            assignee: {
-                Shape: User | null;
-                Name: "User";
-                Nullable: true;
-            };
-            files: {
-                Shape: File[];
-                Name: "File";
-                Nullable: false;
-            };
-        };
-    };
-    File: {
-        Name: "File";
-        Shape: File;
-        Include: Prisma.FileInclude;
-        Select: Prisma.FileSelect;
-        OrderBy: Prisma.FileOrderByWithRelationInput;
-        WhereUnique: Prisma.FileWhereUniqueInput;
-        Where: Prisma.FileWhereInput;
-        Create: Prisma.FileCreateInput;
-        Update: Prisma.FileUpdateInput;
-        RelationName: "user" | "feedback";
-        ListRelations: never;
-        Relations: {
-            user: {
-                Shape: User | null;
-                Name: "User";
-                Nullable: true;
-            };
-            feedback: {
-                Shape: Feedback | null;
-                Name: "Feedback";
-                Nullable: true;
-            };
-        };
-    };
-    Comment: {
-        Name: "Comment";
-        Shape: Comment;
-        Include: Prisma.CommentInclude;
-        Select: Prisma.CommentSelect;
-        OrderBy: Prisma.CommentOrderByWithRelationInput;
-        WhereUnique: Prisma.CommentWhereUniqueInput;
-        Where: Prisma.CommentWhereInput;
-        Create: Prisma.CommentCreateInput;
-        Update: Prisma.CommentUpdateInput;
-        RelationName: "user";
-        ListRelations: never;
-        Relations: {
-            user: {
-                Shape: User | null;
-                Name: "User";
-                Nullable: true;
             };
         };
     };
@@ -435,40 +545,6 @@ export default interface PrismaTypes {
             };
         };
     };
-    Account: {
-        Name: "Account";
-        Shape: Account;
-        Include: Prisma.AccountInclude;
-        Select: Prisma.AccountSelect;
-        OrderBy: Prisma.AccountOrderByWithRelationInput;
-        WhereUnique: Prisma.AccountWhereUniqueInput;
-        Where: Prisma.AccountWhereInput;
-        Create: Prisma.AccountCreateInput;
-        Update: Prisma.AccountUpdateInput;
-        RelationName: "user";
-        ListRelations: never;
-        Relations: {
-            user: {
-                Shape: User;
-                Name: "User";
-                Nullable: false;
-            };
-        };
-    };
-    Session: {
-        Name: "Session";
-        Shape: Session;
-        Include: never;
-        Select: Prisma.SessionSelect;
-        OrderBy: Prisma.SessionOrderByWithRelationInput;
-        WhereUnique: Prisma.SessionWhereUniqueInput;
-        Where: Prisma.SessionWhereInput;
-        Create: Prisma.SessionCreateInput;
-        Update: Prisma.SessionUpdateInput;
-        RelationName: never;
-        ListRelations: never;
-        Relations: {};
-    };
     VerificationToken: {
         Name: "VerificationToken";
         Shape: VerificationToken;
@@ -479,82 +555,6 @@ export default interface PrismaTypes {
         Where: Prisma.VerificationTokenWhereInput;
         Create: Prisma.VerificationTokenCreateInput;
         Update: Prisma.VerificationTokenUpdateInput;
-        RelationName: never;
-        ListRelations: never;
-        Relations: {};
-    };
-    Seed: {
-        Name: "Seed";
-        Shape: Seed;
-        Include: never;
-        Select: Prisma.SeedSelect;
-        OrderBy: Prisma.SeedOrderByWithRelationInput;
-        WhereUnique: Prisma.SeedWhereUniqueInput;
-        Where: Prisma.SeedWhereInput;
-        Create: Prisma.SeedCreateInput;
-        Update: Prisma.SeedUpdateInput;
-        RelationName: never;
-        ListRelations: never;
-        Relations: {};
-    };
-    Event: {
-        Name: "Event";
-        Shape: Event;
-        Include: never;
-        Select: Prisma.EventSelect;
-        OrderBy: Prisma.EventOrderByWithRelationInput;
-        WhereUnique: Prisma.EventWhereUniqueInput;
-        Where: Prisma.EventWhereInput;
-        Create: Prisma.EventCreateInput;
-        Update: Prisma.EventUpdateInput;
-        RelationName: never;
-        ListRelations: never;
-        Relations: {};
-    };
-    Log: {
-        Name: "Log";
-        Shape: Log;
-        Include: never;
-        Select: Prisma.LogSelect;
-        OrderBy: Prisma.LogOrderByWithRelationInput;
-        WhereUnique: Prisma.LogWhereUniqueInput;
-        Where: Prisma.LogWhereInput;
-        Create: Prisma.LogCreateInput;
-        Update: Prisma.LogUpdateInput;
-        RelationName: never;
-        ListRelations: never;
-        Relations: {};
-    };
-    Banner: {
-        Name: "Banner";
-        Shape: Banner;
-        Include: Prisma.BannerInclude;
-        Select: Prisma.BannerSelect;
-        OrderBy: Prisma.BannerOrderByWithRelationInput;
-        WhereUnique: Prisma.BannerWhereUniqueInput;
-        Where: Prisma.BannerWhereInput;
-        Create: Prisma.BannerCreateInput;
-        Update: Prisma.BannerUpdateInput;
-        RelationName: "users";
-        ListRelations: "users";
-        Relations: {
-            users: {
-                Shape: User[];
-                Name: "User";
-                Nullable: false;
-            };
-        };
-    };
-    Geography: {
-        Name: "Geography";
-        Shape: Geography;
-        Include: never;
-        Select: Prisma.GeographySelect;
-        OrderBy: Prisma.GeographyOrderByWithRelationInput;
-        WhereUnique: Prisma.GeographyWhereUniqueInput;
-        Where: Prisma.GeographyWhereInput;
-        Create: Prisma.GeographyCreateInput;
-        Update: Prisma.GeographyUpdateInput;
         RelationName: never;
         ListRelations: never;
         Relations: {};

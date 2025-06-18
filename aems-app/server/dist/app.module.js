@@ -30,7 +30,12 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             auth_module_1.AuthModule,
-            config_1.ConfigModule.forRoot({ isGlobal: true, expandVariables: true, load: [app_config_1.AppConfigToken] }),
+            config_1.ConfigModule.forRoot({
+                isGlobal: true,
+                expandVariables: true,
+                load: [app_config_1.AppConfigToken],
+                envFilePath: [".env", ".env.local"],
+            }),
             throttler_1.ThrottlerModule.forRoot([
                 {
                     name: "short",

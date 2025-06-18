@@ -1,0 +1,16 @@
+enum LogType {
+    Trace
+    Debug
+    Info
+    Warn
+    Error
+    Fatal
+}
+
+model Log {
+    id        String   @id() @default(cuid())
+    type      LogType?
+    message   String?  @db.Text()
+    createdAt DateTime @default(now()) @db.Timestamptz(6)
+    updatedAt DateTime @updatedAt() @db.Timestamptz(6)
+}

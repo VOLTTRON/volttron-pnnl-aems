@@ -138,6 +138,12 @@ export const printEnvironment = (options?: {
   (printable ?? console.log)(stringify ? stringify(env) : JSON.stringify(env, undefined, 2));
 };
 
+/**
+ * Delay the execution for a given number of milliseconds.
+ *
+ * @param d The delay in milliseconds.
+ * @returns A promise that resolves after the delay.
+ */
 export const delay = (d: number) => new Promise((r) => setTimeout(r, d));
 
 /**

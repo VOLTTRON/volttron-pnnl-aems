@@ -1,38 +1,57 @@
-// import { INestApplication } from "@nestjs/common";
-// import * as request from "supertest";
-// import { App } from "supertest/types";
-// import { Test } from "@nestjs/testing";
-// import { AppModule } from "./../src/app.module";
-// import { ConfigModule } from "@nestjs/config";
-// import { AppConfigToken } from "./app.config";
+import { INestApplication } from "@nestjs/common";
+import * as request from "supertest";
+import { App } from "supertest/types";
+import { Test } from "@nestjs/testing";
+import { AppModule } from "./../src/app.module";
+import { ConfigModule } from "@nestjs/config";
+import { AppConfigService, AppConfigToken } from "./app.config";
+import { PrismaClient } from "@prisma/client";
+import { mockDeep, mockReset, DeepMockProxy } from "jest-mock-extended";
+import { PrismaService } from "./prisma/prisma.service";
 
-// fixme: test is currently skipped because of open handles
+export class MockPrismaService extends PrismaService {
+  constructor(readonly prisma: PrismaClient) {
+    super(new AppConfigService(), prisma);
+  }
+}
 
 describe("AppModule (e2e)", () => {
-  // let app: INestApplication<App>;
+  let app: INestApplication<App>;
+  let prisma: DeepMockProxy<PrismaClient>;
 
-  // beforeAll(async () => {
-  //   const module = await Test.createTestingModule({
-  //     imports: [
-  //       ConfigModule.forRoot({
-  //         isGlobal: true,
-  //         expandVariables: true,
-  //         load: [AppConfigToken],
-  //         envFilePath: ".env.test",
-  //       }),
-  //       AppModule,
-  //     ],
-  //   }).compile();
+  beforeAll(async () => {
+    prisma = mockDeep<PrismaClient>();
+    const module = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({
+          isGlobal: true,
+          expandVariables: true,
+          load: [AppConfigToken],
+          envFilePath: [".env", ".env.test"],
+        }),
+        AppModule,
+      ],
+      providers: [
+        {
+          provide: PrismaService,
+          useValue: new MockPrismaService(prisma),
+        },
+      ],
+    }).compile();
 
-  //   app = module.createNestApplication();
-  //   await app.init();
-  // });
-
-  it.skip("/ (GET)", () => {
-    // return request(app.getHttpServer()).get("/").expect(404);
+    app = module.createNestApplication({ abortOnError: true, forceCloseConnections: true });
+    await app.init();
   });
 
-  // afterAll(async () => {
-  //   await app.close();
-  // });
+  beforeEach(() => {
+    mockReset(prisma);
+  });
+
+  it("/ (GET)", () => {
+    return request(app.getHttpServer()).get("/").expect(404);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
 });
