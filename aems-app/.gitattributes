@@ -2,8 +2,8 @@
 # and leave all files detected as binary untouched.
 * text=auto
 
-# Never modify line endings of our bash scripts
-*.sh -crlf
+# Mark .sh files as executable
+*.sh eol=lf diff shell script
 
 #
 # The above will handle all files NOT found below

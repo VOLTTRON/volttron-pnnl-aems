@@ -8,6 +8,7 @@ docker-compose*
 README.md
 LICENSE
 .vscode
-.next
 *.swp
+*.log*
 .env*.local
+coverage

@@ -19,6 +19,10 @@
     {
       "name": "Client",
       "path": "client"
+    },
+    {
+      "name": "Docker",
+      "path": "docker"
     }
   ],
   "settings": {

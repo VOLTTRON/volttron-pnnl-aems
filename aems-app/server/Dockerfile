@@ -8,7 +8,7 @@ ENV HTTP_PROXY=${HTTP_PROXY}
 ENV HTTPS_PROXY=${HTTPS_PROXY}
 ENV NO_PROXY=${NO_PROXY}
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
 # may be necessary for proxy with self signed cert
 RUN npm config set strict-ssl false
@@ -47,7 +47,7 @@ COPY ./dist ./dist
 COPY --from=builder /app/server/node_modules ./node_modules
 
 EXPOSE 3000
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "./dist/main.js"]

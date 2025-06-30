@@ -9,4 +9,6 @@ README.md
 LICENSE
 .vscode
 *.swp
+*.log*
 .env*.local
+coverage
