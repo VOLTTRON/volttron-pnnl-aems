@@ -1,43 +1,71 @@
 # Store the starting path
 $StartingPath = Get-Location
-Write-Host "Updating dependencies and building all projects in the monorepo..." -ForegroundColor Blue
+Write-Host "Updating dependencies and building all modules in the monorepo..." -ForegroundColor Blue
 
 try {
     # Build Prisma
-    Write-Host "Building Prisma..." -ForegroundColor Cyan
+    Write-Host "Prisma: Starting build process..." -ForegroundColor Blue
+    Write-Host "Prisma: Cleaning output directories..." -ForegroundColor Cyan
     Set-Location -Path ./prisma
     if (Test-Path -Path ./node_modules -PathType Container) {
         Remove-Item -Recurse -Force ./node_modules
     }
+    if (Test-Path -Path ./dist -PathType Container) {
+        Remove-Item -Recurse -Force ./dist
+    }
+    Write-Host "Prisma: Installing dependencies..." -ForegroundColor Cyan
     yarn install
+    Write-Host "Prisma: Building module..." -ForegroundColor Cyan
     yarn build
+    Write-Host "Prisma: Build completed successfully!" -ForegroundColor Green
 
     # Build Common
-    Write-Host "Building Common..." -ForegroundColor Cyan
+    Write-Host "Common: Starting build process..." -ForegroundColor Blue
+    Write-Host "Common: Cleaning output directories..." -ForegroundColor Cyan
     Set-Location -Path ../common
     if (Test-Path -Path ./node_modules -PathType Container) {
         Remove-Item -Recurse -Force ./node_modules
     }
+    if (Test-Path -Path ./dist -PathType Container) {
+        Remove-Item -Recurse -Force ./dist
+    }
+    Write-Host "Common: Installing dependencies..." -ForegroundColor Cyan
     yarn install
+    Write-Host "Common: Building module..." -ForegroundColor Cyan
     yarn build
+    Write-Host "Common: Build completed successfully!" -ForegroundColor Green
 
     # Build Server
-    Write-Host "Building Server..." -ForegroundColor Cyan
+    Write-Host "Server: Starting build process..." -ForegroundColor Blue
+    Write-Host "Server: Cleaning output directories..." -ForegroundColor Cyan
     Set-Location -Path ../server
     if (Test-Path -Path ./node_modules -PathType Container) {
         Remove-Item -Recurse -Force ./node_modules
     }
+    if (Test-Path -Path ./dist -PathType Container) {
+        Remove-Item -Recurse -Force ./dist
+    }
+    Write-Host "Server: Installing dependencies..." -ForegroundColor Cyan
     yarn install
+    Write-Host "Server: Building module..." -ForegroundColor Cyan
     yarn build
+    Write-Host "Server: Build completed successfully!" -ForegroundColor Green
 
     # Build Client
-    Write-Host "Building Client..." -ForegroundColor Cyan
+    Write-Host "Client: Starting build process..." -ForegroundColor Blue
+    Write-Host "Client: Cleaning output directories..." -ForegroundColor Cyan
     Set-Location -Path ../client
     if (Test-Path -Path ./node_modules -PathType Container) {
         Remove-Item -Recurse -Force ./node_modules
     }
+    if (Test-Path -Path ./.next -PathType Container) {
+        Remove-Item -Recurse -Force ./.next
+    }
+    Write-Host "Client: Installing dependencies..." -ForegroundColor Cyan
     yarn install
+    Write-Host "Client: Building module..." -ForegroundColor Cyan
     yarn build
+    Write-Host "Client: Build completed successfully!" -ForegroundColor Green
 
     Write-Host "All builds completed successfully!" -ForegroundColor Green
 }
@@ -49,5 +77,5 @@ catch {
 finally {
     # Always restore the starting path
     Set-Location -Path $StartingPath
-    Write-Host "Restored to starting directory: $StartingPath" -ForegroundColor Cyan
+    Write-Host "Restored starting directory: $StartingPath" -ForegroundColor Cyan
 }

@@ -3,7 +3,7 @@
 </p>
 <p align="center">A full-stack and full-featured web application framework for PNNL developers.</p>
 <p align="center">
-<a href="https://tanuki.pnnl.gov/amelia.bleeker/skeleton" target="_blank"><img src="https://img.shields.io/badge/git-master-blue" alt="Git Repo Master" /></a>
+<a href="https://tanuki.pnnl.gov/amelia.bleeker/skeleton" target="_blank"><img src="https://img.shields.io/badge/git-main-blue" alt="Git Repo Main" /></a>
 <a href="./LICENSE.txt" target="_blank"><img src="https://img.shields.io/badge/license-pnnl-orange" alt="PNNL License" /></a>
 <a href="mailto:amelia.bleeker@pnnl.gov"><img src="https://img.shields.io/badge/help-contribute-green" alt="Help Contribute" /></a>
 </p>
@@ -49,12 +49,13 @@ This guide has been written, tested, and intended for Windows and Linux installa
   - [Docker Compose](#docker-compose)
   - [Setup Keycloak](#setup-keycloak)
   - [Administration](#administration)
+  - [Utilities](#utilities)
 - [Development](#development)
   - [Node.js](#nodejs)
   - [Project Structure](#project-structure)
   - [Installing and Initializing the Skeleton App](#installing-and-initializing-the-skeleton-app)
-    - [Preferred Method](#preferred-method)
-    - [Alternative Method](#alternative-method)
+    - [Subtree Method](#subtree-method)
+    - [Detached Method](#detached-method)
   - [Compiling](#compiling)
   - [Quality](#quality)
   - [Initializing](#initializing)
@@ -253,6 +254,21 @@ gzip -d docker-images.tar.gz
 docker load -i docker-images.tar
 ```
 
+### Utilities
+
+Various scripts are provided for convenience and/or a starting point for continuous integration (CI).
+
+- `.gitlab-ci.yml`
+  - This script can be copied to the new project root and modified to support building, testing, and publishing within your GitLab code repository.
+- `build.*`
+  - The build script (for Windows and Linux/Mac) is included for convenience. It initializes and builds all of the workspace projects in the correct order.
+- `test.*`
+  - The test script (for Windows and Linux/Mac) is included for convenience and works similarly to the build script except that it does code analysis and executes tests with code coverage reports.
+- `env.sh`
+  - The env script is used within the CI environment to read in environment variables from a file.
+- `secrets.*`
+  - The secrets script (for Windows and Linux/Mac) can be used in the deploy environment to read in secrets from a `.env.secrets` file.
+
 ## Development
 
 ### Node.js
@@ -275,25 +291,27 @@ The project is structured into the following directories:
 
 ### Installing and Initializing the Skeleton App
 
-#### Preferred Method
+#### Subtree Method
 
-Another option is to use Git subtree. This will allow you to push changes to your own repository yet still pull changes and bug fixes applied to the source skeleton repository.
+One option is to use Git subtree. This will allow you to push changes to your own repository yet still pull changes and bug fixes applied to the source skeleton repository.
 
-To initialize the skeleton subtree project run the following from your project directory. This will create a `source` folder that can then be modified as necessary. When possible avoid making changes to skeleton files in order to make future updates easier. E.g. Instead of adding a function to an existing module, create a new module.
+To initialize the skeleton subtree project run the following from your project directory. This will create a `source` folder that can then be modified as necessary. Feel free to change this folder name to something more meaningful for your project. When possible avoid making changes to skeleton files in order to make future updates easier. E.g. Instead of adding a function to an existing module, create a new module.
+
+For more timely fixes and upgrades you can use the `develop` branch instead of `main`.
 
 ```bash
-git subtree add --prefix=source https://tanuki.pnnl.gov/amelia.bleeker/skeleton.git master --squash
+git subtree add --prefix=source https://tanuki.pnnl.gov/amelia.bleeker/skeleton.git main --squash
 ```
 
 To update the skeleton subtree project run the following from your project directory.
 
 ```bash
-git subtree pull --prefix=source https://tanuki.pnnl.gov/amelia.bleeker/skeleton.git master --squash
+git subtree pull --prefix=source https://tanuki.pnnl.gov/amelia.bleeker/skeleton.git main --squash
 ```
 
-#### Alternative Method
+#### Detached Method
 
-Download the Skeleton App source code from the repository. It's recommended to use the latest stable release from the master branch.
+Download the Skeleton App source code from the repository. It's recommended to use the latest stable release from the main branch.
 
 - [Github](https://tanuki.pnnl.gov/amelia.bleeker/skeleton)
 
@@ -374,57 +392,55 @@ This project utilizes a Gitflow workflow. While this method works well for small
 
 ### Branches
 
-- `master`: The master branch is the main branch where the source code of HEAD always reflects a production-ready state.
-- `develop`: The develop branch is the main branch where the source code of HEAD always reflects a state with the latest delivered development changes for the next release.
+- `main`: The main branch is where the source code of HEAD always reflects a production-ready state.
+- `develop`: The develop branch is where the source code of HEAD always reflects a state with the latest delivered development changes for the next release.
 - `feature/*`: Feature branches are used to develop new features for the upcoming or a distant future release. The essence of a feature branch is that it exists as long as the feature is in development.
 - `release/*`: Release branches support preparation of a new production release. They allow for last-minute dotting of i’s and crossing t’s. Furthermore, they allow for minor bug fixes and preparing meta-data for a release.
 
 ### Workflow
 
-1. Create a new feature branch from the `develop` branch replacing `my-feature` with a short name for your feature.
-
-```bash
-git checkout -b feature/my-feature develop
-```
-
-2. Make changes to the feature branch and check in often to prevent loss of work.
-
-```bash
-git add .
-git commit -m "My feature commit message."
-```
-
-3. Merge the feature branch into the `develop` branch. Optionally create a pull request.
-
-```bash
-git checkout develop
-git merge feature/my-feature
-git branch -d feature/my-feature
-git push origin develop
-```
-
-4. Create a new release branch from the `develop` branch replacing `1.0.0` with the release version.
-
-```bash
-git checkout -b release/1.0.0 develop
-```
-
-5. Make changes to the release branch. To update the client version make changes within files matching these filters: `.env*,*.yml,*.json`
-
-```bash
-git add .
-git commit -m "My release commit message."
-```
-
-6. Merge the release branch into the `master` and `develop` branches.
-
-```bash
-git checkout master
-git merge release/1.0.0
-git tag -a 1.0.0 -m "My release tag message."
-git push origin master
-git checkout develop
-git merge release/1.0.0
-git branch -d release/1.0.0
-git push origin develop
-```
+- Develop new features
+  1. Create a new feature branch from the `develop` branch replacing `my-feature` with a short name for your feature.
+    ```bash
+    git checkout -b feature/my-feature develop
+    ```
+  2. Make changes to the feature branch and check in often to prevent loss of work.
+    ```bash
+    git add .
+    git commit -m "My feature commit message."
+    ```
+  3. Merge the feature branch into the `develop` branch. Optionally create a pull request.
+    ```bash
+    git checkout develop
+    git merge feature/my-feature
+    git branch -d feature/my-feature
+    git push origin develop
+    ```
+- Create a release
+  1. Increment the version number from `2.0.2` using [Semantic Versioning](https://semver.org/) or your project's preferred method.
+      1. In VSCode go to the `Search (Ctrl+Shift+F)` tab.
+      2. Enter `2.0.2` in the `Search` field.
+      3. Enter your incremented version number in the `Replace` field.
+      4. Press the `...` to `Expand Search Details` and enter `.env*,*.yml,*.json,*.md` in the `files to include` field.
+      5. Replace all of the relevant entries.
+  2. Create a new release branch from the `develop` branch using the updated release version.
+    ```bash
+    git checkout -b release/2.0.2 develop
+    ```
+  3. Make changes to the release branch.
+    ```bash
+    git add .
+    git commit -m "Updated release version numbers."
+    ```
+  4. Merge the release branch into the `main` and `develop` branches.
+    ```bash
+    git checkout main
+    git merge release/2.0.2
+    git tag -a 2.0.2 -m "Tagged for new version release."
+    git push origin --tags
+    git push origin main
+    git checkout develop
+    git merge release/2.0.2
+    git branch -d release/2.0.2
+    git push origin develop
+    ```

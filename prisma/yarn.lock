@@ -845,6 +845,7 @@ __metadata:
     "@types/geojson": "npm:^7946.0.16"
     eslint: "npm:^9.18.0"
     eslint-config-prettier: "npm:^10.0.1"
+    eslint-formatter-gitlab: "npm:^6.0.1"
     eslint-plugin-prettier: "npm:^5.2.2"
     globals: "npm:^15.14.0"
     graphql: "npm:^16.10.0"
@@ -1748,6 +1749,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"codeclimate-types@npm:^0.3.0":
+  version: 0.3.1
+  resolution: "codeclimate-types@npm:0.3.1"
+  checksum: 10/abadc51fffc21c50546eafbe81eb046dd805138ff0c108fc6025e2980fdd15ab57ef2628cbf3cc39e011bd36c7c969d0b419e5ed95d8988c587896327ccfcce4
+  languageName: node
+  linkType: hard
+
 "collect-v8-coverage@npm:^1.0.0":
   version: 1.0.2
   resolution: "collect-v8-coverage@npm:1.0.2"
@@ -1972,6 +1980,29 @@ __metadata:
   bin:
     eslint-config-prettier: bin/cli.js
   checksum: 10/bc192e703e595c886c33703ebb9a8381a18179ce2ec14a24f671cb675a96b8ba1b4a862c5763680e1c918131007759afb3c874788c7d61706740147ae77f249a
+  languageName: node
+  linkType: hard
+
+"eslint-formatter-codeclimate@npm:^1.0.0":
+  version: 1.0.2
+  resolution: "eslint-formatter-codeclimate@npm:1.0.2"
+  dependencies:
+    codeclimate-types: "npm:^0.3.0"
+  peerDependencies:
+    eslint: ^9.0.0
+  checksum: 10/0ca0e6682796f2245c40404b751256c23a5fd8d5f9c772cc6d391c47a17153d46a099152f3149ff196f47cb7456df040059d144e908c02bde0cff19b42d000ad
+  languageName: node
+  linkType: hard
+
+"eslint-formatter-gitlab@npm:^6.0.1":
+  version: 6.0.1
+  resolution: "eslint-formatter-gitlab@npm:6.0.1"
+  dependencies:
+    eslint-formatter-codeclimate: "npm:^1.0.0"
+    yaml: "npm:^2.0.0"
+  peerDependencies:
+    eslint: ">=9"
+  checksum: 10/869fdaa6c5e7320154a77fd7686d005b5b7e48d565552805cada8c5c9d344bb9b09bca18b172bfc26124877ff8da45d47c55699ff249a36c3ebcc82becae4d4b
   languageName: node
   linkType: hard
 
@@ -4629,6 +4660,15 @@ __metadata:
   version: 5.0.0
   resolution: "yallist@npm:5.0.0"
   checksum: 10/1884d272d485845ad04759a255c71775db0fac56308764b4c77ea56a20d56679fad340213054c8c9c9c26fcfd4c4b2a90df993b7e0aaf3cdb73c618d1d1a802a
+  languageName: node
+  linkType: hard
+
+"yaml@npm:^2.0.0":
+  version: 2.8.0
+  resolution: "yaml@npm:2.8.0"
+  bin:
+    yaml: bin.mjs
+  checksum: 10/7d4bd9c10d0e467601f496193f2ac254140f8e36f96f5ff7f852b9ce37974168eb7354f4c36dc8837dde527a2043d004b6aff48818ec24a69ab2dd3c6b6c381c
   languageName: node
   linkType: hard
 
