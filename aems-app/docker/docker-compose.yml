@@ -39,15 +39,30 @@ services:
       - certs-data:/etc/certs/:ro
       - ./proxy/certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
 
+  # Common libraries
+  common:
+    build:
+      context: ../
+      dockerfile: ./common/Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+    container_name: ${COMPOSE_PROJECT_NAME}-common
+    env_file:
+      - .env.init
+    image: common:${TAG}
+
   # Application that hosts static files and API
   client:
     build:
-      additional_contexts:
-        prisma: ../prisma
-        common: ../common
       context: ../client
       dockerfile: ./Dockerfile
+      additional_contexts:
+        common: service:common
       args:
+        - TAG:${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -95,12 +110,12 @@ services:
   # Runs application backend server
   server:
     build:
-      additional_contexts:
-        prisma: ../prisma
-        common: ../common
       context: ../server
       dockerfile: ./Dockerfile
+      additional_contexts:
+        common: service:common
       args:
+        - TAG:${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -148,12 +163,12 @@ services:
   # Runs application services
   services:
     build:
-      additional_contexts:
-        prisma: ../prisma
-        common: ../common
       context: ../server
       dockerfile: ./Dockerfile
+      additional_contexts:
+        common: service:common
       args:
+        - TAG:${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}

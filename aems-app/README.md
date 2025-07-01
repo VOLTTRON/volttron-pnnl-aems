@@ -417,15 +417,15 @@ This project utilizes a Gitflow workflow. While this method works well for small
     git push origin develop
     ```
 - Create a release
-  1. Increment the version number from `2.0.2` using [Semantic Versioning](https://semver.org/) or your project's preferred method.
+  1. Increment the version number from `2.0.3` using [Semantic Versioning](https://semver.org/) or your project's preferred method.
       1. In VSCode go to the `Search (Ctrl+Shift+F)` tab.
-      2. Enter `2.0.2` in the `Search` field.
+      2. Enter `2.0.3` in the `Search` field.
       3. Enter your incremented version number in the `Replace` field.
       4. Press the `...` to `Expand Search Details` and enter `.env*,*.yml,*.json,*.md` in the `files to include` field.
       5. Replace all of the relevant entries.
   2. Create a new release branch from the `develop` branch using the updated release version.
     ```bash
-    git checkout -b release/2.0.2 develop
+    git checkout -b release/2.0.3 develop
     ```
   3. Make changes to the release branch.
     ```bash
@@ -435,12 +435,12 @@ This project utilizes a Gitflow workflow. While this method works well for small
   4. Merge the release branch into the `main` and `develop` branches.
     ```bash
     git checkout main
-    git merge release/2.0.2
-    git tag -a 2.0.2 -m "Tagged for new version release."
+    git merge release/2.0.3
+    git tag -a 2.0.3 -m "Tagged for new version release."
     git push origin --tags
     git push origin main
     git checkout develop
-    git merge release/2.0.2
-    git branch -d release/2.0.2
+    git merge release/2.0.3
+    git branch -d release/2.0.3
     git push origin develop
     ```
