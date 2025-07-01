@@ -1,6 +1,6 @@
 model Location {
     // key
-    id        Int      @id @default(autoincrement())
+    id        String   @id() @default(cuid())
     // metadata
     createdAt DateTime @default(now()) @db.Timestamptz(6)
     updatedAt DateTime @updatedAt @db.Timestamptz(6)

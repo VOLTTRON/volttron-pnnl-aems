@@ -30,6 +30,7 @@ export type Scalars = {
   SessionData: { Input: PrismaJson.SessionData; Output: PrismaJson.SessionData };
   EventPayload: { Input: PrismaJson.EventPayload; Output: PrismaJson.EventPayload };
   GeographyGeoJson: { Input: PrismaJson.GeographyGeoJson; Output: PrismaJson.GeographyGeoJson };
+  ChangeData: { Input: PrismaJson.ChangeData; Output: PrismaJson.ChangeData };
   AccountGroupBy: { Input: PrismaJson.AccountGroupBy; Output: PrismaJson.AccountGroupBy };
   BannerGroupBy: { Input: PrismaJson.BannerGroupBy; Output: PrismaJson.BannerGroupBy };
   CommentGroupBy: { Input: PrismaJson.CommentGroupBy; Output: PrismaJson.CommentGroupBy };
@@ -38,6 +39,15 @@ export type Scalars = {
   GeographyGroupBy: { Input: PrismaJson.GeographyGroupBy; Output: PrismaJson.GeographyGroupBy };
   LogGroupBy: { Input: PrismaJson.LogGroupBy; Output: PrismaJson.LogGroupBy };
   UserGroupBy: { Input: PrismaJson.UserGroupBy; Output: PrismaJson.UserGroupBy };
+  ChangeGroupBy: { Input: PrismaJson.ChangeGroupBy; Output: PrismaJson.ChangeGroupBy };
+  LocationGroupBy: { Input: PrismaJson.LocationGroupBy; Output: PrismaJson.LocationGroupBy };
+  SetpointGroupBy: { Input: PrismaJson.SetpointGroupBy; Output: PrismaJson.SetpointGroupBy };
+  ControlGroupBy: { Input: PrismaJson.ControlGroupBy; Output: PrismaJson.ControlGroupBy };
+  HolidayGroupBy: { Input: PrismaJson.HolidayGroupBy; Output: PrismaJson.HolidayGroupBy };
+  ScheduleGroupBy: { Input: PrismaJson.ScheduleGroupBy; Output: PrismaJson.ScheduleGroupBy };
+  ConfigurationGroupBy: { Input: PrismaJson.ConfigurationGroupBy; Output: PrismaJson.ConfigurationGroupBy };
+  UnitGroupBy: { Input: PrismaJson.UnitGroupBy; Output: PrismaJson.UnitGroupBy };
+  OccupancyGroupBy: { Input: PrismaJson.OccupancyGroupBy; Output: PrismaJson.OccupancyGroupBy };
 };
 
 export interface Aggregate<T extends string> {

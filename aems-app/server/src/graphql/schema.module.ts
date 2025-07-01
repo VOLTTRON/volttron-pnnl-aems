@@ -12,6 +12,7 @@ import { FileObject } from "./file/object.service";
 import { LogObject } from "./log/object.service";
 import { UserObject } from "./user/object.service";
 import { GeographyObject } from "./geography/object.service";
+import { ChangeObject } from "./change/object.service";
 import { AccountQuery } from "./account/query.service";
 import { BannerQuery } from "./banner/query.service";
 import { CommentQuery } from "./comment/query.service";
@@ -21,6 +22,7 @@ import { FileQuery } from "./file/query.service";
 import { LogQuery } from "./log/query.service";
 import { UserQuery } from "./user/query.service";
 import { GeographyQuery } from "./geography/query.service";
+import { ChangeQuery } from "./change/query.service";
 import { AccountMutation } from "./account/mutate.service";
 import { BannerMutation } from "./banner/mutate.service";
 import { CommentMutation } from "./comment/mutate.service";
@@ -29,6 +31,7 @@ import { FeedbackMutation } from "./feedback/mutate.service";
 import { FileMutation } from "./file/mutate.service";
 import { LogMutation } from "./log/mutate.service";
 import { UserMutation } from "./user/mutate.service";
+import { ChangeMutation } from "./change/mutate.service";
 
 @Module({
   imports: [PrismaModule, SubscriptionModule],
@@ -43,6 +46,7 @@ import { UserMutation } from "./user/mutate.service";
     LogObject,
     UserObject,
     GeographyObject,
+    ChangeObject,
     AccountQuery,
     BannerQuery,
     CommentQuery,
@@ -52,6 +56,7 @@ import { UserMutation } from "./user/mutate.service";
     LogQuery,
     UserQuery,
     GeographyQuery,
+    ChangeQuery,
     AccountMutation,
     BannerMutation,
     CommentMutation,
@@ -60,6 +65,7 @@ import { UserMutation } from "./user/mutate.service";
     FileMutation,
     LogMutation,
     UserMutation,
+    ChangeMutation,
   ],
 })
 export class SchemaModule implements ModuleMetadata {

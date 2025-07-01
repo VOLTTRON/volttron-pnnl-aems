@@ -1,6 +1,6 @@
 model Schedule {
     // key
-    id                      Int             @id @default(autoincrement())
+    id                      String          @id() @default(cuid())
     // metadata
     stage                   ModelStage      @default(Create)
     message                 String?         @db.VarChar(1024)
@@ -13,7 +13,7 @@ model Schedule {
     endTime                 String          @default("18:00")
     occupied                Boolean         @default(true)
     // foreign keys
-    setpointId              Int?
+    setpointId              String?
     // direct relations
     setpoint                Setpoint?       @relation("Schedules_setpoints", fields: [setpointId], references: [id], onDelete: Cascade)
     // indirect relations

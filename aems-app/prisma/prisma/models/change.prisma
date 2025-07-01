@@ -15,6 +15,7 @@ model Change {
     table     String
     key       String
     mutation  ChangeMutation
+    /// [ChangeData]
     data      Json?
     // foreign keys
     userId    String?

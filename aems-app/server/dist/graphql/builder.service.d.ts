@@ -7,6 +7,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { GraphQLSchema } from "graphql";
 import { AppConfigService } from "@/app.config";
 import PrismaTypes from "@local/prisma/dist/pothos";
+import { JsonValue } from "@prisma/client/runtime/library";
 import { SubscriptionService } from "@/subscription/subscription.service";
 export declare class SchemaBuilderService extends SchemaBuilder<{
     Context: Context;
@@ -75,6 +76,12 @@ export declare class SchemaBuilderService extends SchemaBuilder<{
         PrismaTypes: PrismaTypes;
         Scalars: Scalars;
     }>, PrismaJson.GeographyGeoJson, PrismaJson.GeographyGeoJson, PrismaJson.GeographyGeoJson>;
+    readonly ChangeData: PothosSchemaTypes.ScalarRef<PothosSchemaTypes.ExtendDefaultTypes<{
+        Context: Context;
+        AuthScopes: AuthRoles;
+        PrismaTypes: PrismaTypes;
+        Scalars: Scalars;
+    }>, JsonValue, JsonValue, JsonValue>;
     readonly BooleanFilter: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: Context;
         AuthScopes: AuthRoles;

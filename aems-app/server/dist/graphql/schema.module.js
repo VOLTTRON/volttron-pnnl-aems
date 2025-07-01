@@ -22,6 +22,7 @@ const object_service_5 = require("./file/object.service");
 const object_service_6 = require("./log/object.service");
 const object_service_7 = require("./user/object.service");
 const object_service_8 = require("./geography/object.service");
+const object_service_9 = require("./change/object.service");
 const query_service_1 = require("./account/query.service");
 const query_service_2 = require("./banner/query.service");
 const query_service_3 = require("./comment/query.service");
@@ -31,6 +32,7 @@ const query_service_6 = require("./file/query.service");
 const query_service_7 = require("./log/query.service");
 const query_service_8 = require("./user/query.service");
 const query_service_9 = require("./geography/query.service");
+const query_service_10 = require("./change/query.service");
 const mutate_service_1 = require("./account/mutate.service");
 const mutate_service_2 = require("./banner/mutate.service");
 const mutate_service_3 = require("./comment/mutate.service");
@@ -39,6 +41,7 @@ const mutate_service_5 = require("./feedback/mutate.service");
 const mutate_service_6 = require("./file/mutate.service");
 const mutate_service_7 = require("./log/mutate.service");
 const mutate_service_8 = require("./user/mutate.service");
+const mutate_service_9 = require("./change/mutate.service");
 let SchemaModule = SchemaModule_1 = class SchemaModule {
     static register() {
         return {
@@ -87,6 +90,7 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             object_service_6.LogObject,
             object_service_7.UserObject,
             object_service_8.GeographyObject,
+            object_service_9.ChangeObject,
             query_service_1.AccountQuery,
             query_service_2.BannerQuery,
             query_service_3.CommentQuery,
@@ -96,6 +100,7 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             query_service_7.LogQuery,
             query_service_8.UserQuery,
             query_service_9.GeographyQuery,
+            query_service_10.ChangeQuery,
             mutate_service_1.AccountMutation,
             mutate_service_2.BannerMutation,
             mutate_service_3.CommentMutation,
@@ -104,6 +109,7 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             mutate_service_6.FileMutation,
             mutate_service_7.LogMutation,
             mutate_service_8.UserMutation,
+            mutate_service_9.ChangeMutation,
         ],
     })
 ], SchemaModule);

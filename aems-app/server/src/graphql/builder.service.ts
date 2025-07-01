@@ -1,5 +1,6 @@
 import { AuthRoles, AuthUser } from "@/auth";
 import { FeedbackStatus, LogType, Mode, Mutation } from "@local/common";
+import { ModelStage, HolidayType } from "@prisma/client";
 import SchemaBuilder from "@pothos/core";
 import ComplexityPlugin from "@pothos/plugin-complexity";
 import PrismaPlugin from "@pothos/plugin-prisma";
@@ -41,6 +42,7 @@ export class SchemaBuilderService
   readonly SessionData;
   readonly EventPayload;
   readonly GeographyGeoJson;
+  readonly ChangeData;
   readonly BooleanFilter;
   readonly IntFilter;
   readonly FloatFilter;
@@ -97,6 +99,8 @@ export class SchemaBuilderService
     this.FeedbackStatus = this.enumType("FeedbackStatus", { values: FeedbackStatus.values.map((v) => v.enum) });
     this.Mode = this.enumType("ModeType", { values: Object.values(Mode) });
     this.Mutation = this.enumType("MutationType", { values: Object.values(Mutation) });
+    this.enumType("ModelStage", { values: Object.values(ModelStage) });
+    this.enumType("HolidayType", { values: Object.values(HolidayType) });
 
     // scalar types
     this.DateTime = this.addScalarType(
@@ -131,6 +135,12 @@ export class SchemaBuilderService
       "GeographyGeoJson",
       new GraphQLScalarType<Scalars["GeographyGeoJson"]["Input"], Scalars["GeographyGeoJson"]["Output"]>({
         name: "GeographyGeoJson",
+      }),
+    );
+    this.ChangeData = this.addScalarType(
+      "ChangeData",
+      new GraphQLScalarType<Scalars["ChangeData"]["Input"], Scalars["ChangeData"]["Output"]>({
+        name: "ChangeData",
       }),
     );
 
@@ -181,6 +191,60 @@ export class SchemaBuilderService
       "UserGroupBy",
       new GraphQLScalarType<Scalars["UserGroupBy"]["Input"], Scalars["UserGroupBy"]["Output"]>({
         name: "UserGroupBy",
+      }),
+    );
+    this.addScalarType(
+      "ChangeGroupBy",
+      new GraphQLScalarType<Scalars["ChangeGroupBy"]["Input"], Scalars["ChangeGroupBy"]["Output"]>({
+        name: "ChangeGroupBy",
+      }),
+    );
+    this.addScalarType(
+      "LocationGroupBy",
+      new GraphQLScalarType<Scalars["LocationGroupBy"]["Input"], Scalars["LocationGroupBy"]["Output"]>({
+        name: "LocationGroupBy",
+      }),
+    );
+    this.addScalarType(
+      "SetpointGroupBy",
+      new GraphQLScalarType<Scalars["SetpointGroupBy"]["Input"], Scalars["SetpointGroupBy"]["Output"]>({
+        name: "SetpointGroupBy",
+      }),
+    );
+    this.addScalarType(
+      "ControlGroupBy",
+      new GraphQLScalarType<Scalars["ControlGroupBy"]["Input"], Scalars["ControlGroupBy"]["Output"]>({
+        name: "ControlGroupBy",
+      }),
+    );
+    this.addScalarType(
+      "HolidayGroupBy",
+      new GraphQLScalarType<Scalars["HolidayGroupBy"]["Input"], Scalars["HolidayGroupBy"]["Output"]>({
+        name: "HolidayGroupBy",
+      }),
+    );
+    this.addScalarType(
+      "ScheduleGroupBy",
+      new GraphQLScalarType<Scalars["ScheduleGroupBy"]["Input"], Scalars["ScheduleGroupBy"]["Output"]>({
+        name: "ScheduleGroupBy",
+      }),
+    );
+    this.addScalarType(
+      "ConfigurationGroupBy",
+      new GraphQLScalarType<Scalars["ConfigurationGroupBy"]["Input"], Scalars["ConfigurationGroupBy"]["Output"]>({
+        name: "ConfigurationGroupBy",
+      }),
+    );
+    this.addScalarType(
+      "UnitGroupBy",
+      new GraphQLScalarType<Scalars["UnitGroupBy"]["Input"], Scalars["UnitGroupBy"]["Output"]>({
+        name: "UnitGroupBy",
+      }),
+    );
+    this.addScalarType(
+      "OccupancyGroupBy",
+      new GraphQLScalarType<Scalars["OccupancyGroupBy"]["Input"], Scalars["OccupancyGroupBy"]["Output"]>({
+        name: "OccupancyGroupBy",
       }),
     );
 

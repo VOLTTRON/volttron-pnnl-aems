@@ -53,6 +53,10 @@ export type Scalars = {
         Input: PrismaJson.GeographyGeoJson;
         Output: PrismaJson.GeographyGeoJson;
     };
+    ChangeData: {
+        Input: PrismaJson.ChangeData;
+        Output: PrismaJson.ChangeData;
+    };
     AccountGroupBy: {
         Input: PrismaJson.AccountGroupBy;
         Output: PrismaJson.AccountGroupBy;
@@ -84,6 +88,14 @@ export type Scalars = {
     UserGroupBy: {
         Input: PrismaJson.UserGroupBy;
         Output: PrismaJson.UserGroupBy;
+    };
+    ChangeGroupBy: {
+        Input: PrismaJson.ChangeGroupBy;
+        Output: PrismaJson.ChangeGroupBy;
+    };
+    LocationGroupBy: {
+        Input: PrismaJson.LocationGroupBy;
+        Output: PrismaJson.LocationGroupBy;
     };
 };
 export interface Aggregate<T extends string> {

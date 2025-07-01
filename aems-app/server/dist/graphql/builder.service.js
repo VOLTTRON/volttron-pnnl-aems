@@ -81,6 +81,9 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
         this.GeographyGeoJson = this.addScalarType("GeographyGeoJson", new graphql_1.GraphQLScalarType({
             name: "GeographyGeoJson",
         }));
+        this.ChangeData = this.addScalarType("ChangeData", new graphql_1.GraphQLScalarType({
+            name: "ChangeData",
+        }));
         this.addScalarType("AccountGroupBy", new graphql_1.GraphQLScalarType({
             name: "AccountGroupBy",
         }));
@@ -104,6 +107,12 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
         }));
         this.addScalarType("UserGroupBy", new graphql_1.GraphQLScalarType({
             name: "UserGroupBy",
+        }));
+        this.addScalarType("ChangeGroupBy", new graphql_1.GraphQLScalarType({
+            name: "ChangeGroupBy",
+        }));
+        this.addScalarType("LocationGroupBy", new graphql_1.GraphQLScalarType({
+            name: "LocationGroupBy",
         }));
         this.queryType({});
         this.mutationType({});
