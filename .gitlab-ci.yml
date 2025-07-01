@@ -22,6 +22,8 @@ variables:
   POSTGRES_USER: develop
   POSTGRES_PASSWORD: password
   DATABASE_HOST: postgis-postgis
+  DOCKER_BUILDKIT: 1
+  CLEAN_BUILD: "false"
   TAG_VERSION: "$CI_COMMIT_BRANCH$CI_COMMIT_TAG"
 
 # This folder is cached between builds
@@ -61,34 +63,30 @@ publish_init:
   image: docker:latest
   stage: publish
   script:
-    - export DOCKER_BUILDKIT=1
-    - export MY_TAG="$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/init:$TAG_VERSION"
     - env
     - cd ./prisma
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker buildx build --provenance=false --tag=$MY_TAG .
-    - docker push $MY_TAG
+    - docker build --tag=$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/init:$TAG_VERSION .
+    - docker push $CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/init:$TAG_VERSION
 
 publish_server:
   image: docker:latest
   stage: publish
   script:
-    - export DOCKER_BUILDKIT=1
-    - export MY_TAG="$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/server:$TAG_VERSION"
     - env
+    - docker build --file common/Dockerfile --tag common:latest .
     - cd ./server
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker buildx build --build-context prisma=../prisma --build-context common=../common --provenance=false --tag=$MY_TAG .
-    - docker push $MY_TAG
+    - docker build --tag=$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/server:$TAG_VERSION .
+    - docker push $CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/server:$TAG_VERSION
 
 publish_client:
   image: docker:latest
   stage: publish
   script:
-    - export DOCKER_BUILDKIT=1
-    - export MY_TAG="$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/client:$TAG_VERSION"
     - env
+    - docker build --file common/Dockerfile --tag common:latest .
     - cd ./client
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker buildx build --build-context prisma=../prisma --build-context common=../common --provenance=false --tag=$MY_TAG .
-    - docker push $MY_TAG
+    - docker build --tag=$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/client:$TAG_VERSION .
+    - docker push $CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/client:$TAG_VERSION
