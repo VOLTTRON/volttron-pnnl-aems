@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SchemaBuilderService = void 0;
 const auth_1 = require("../auth");
 const common_1 = require("@local/common");
+const client_1 = require("@prisma/client");
 const core_1 = require("@pothos/core");
 const plugin_complexity_1 = require("@pothos/plugin-complexity");
 const plugin_prisma_1 = require("@pothos/plugin-prisma");
@@ -65,6 +66,8 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
         this.FeedbackStatus = this.enumType("FeedbackStatus", { values: common_1.FeedbackStatus.values.map((v) => v.enum) });
         this.Mode = this.enumType("ModeType", { values: Object.values(common_1.Mode) });
         this.Mutation = this.enumType("MutationType", { values: Object.values(common_1.Mutation) });
+        this.enumType("ModelStage", { values: Object.values(client_1.ModelStage) });
+        this.enumType("HolidayType", { values: Object.values(client_1.HolidayType) });
         this.DateTime = this.addScalarType("DateTime", new graphql_1.GraphQLScalarType({
             name: "DateTime",
         }));
@@ -113,6 +116,27 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
         }));
         this.addScalarType("LocationGroupBy", new graphql_1.GraphQLScalarType({
             name: "LocationGroupBy",
+        }));
+        this.addScalarType("SetpointGroupBy", new graphql_1.GraphQLScalarType({
+            name: "SetpointGroupBy",
+        }));
+        this.addScalarType("ControlGroupBy", new graphql_1.GraphQLScalarType({
+            name: "ControlGroupBy",
+        }));
+        this.addScalarType("HolidayGroupBy", new graphql_1.GraphQLScalarType({
+            name: "HolidayGroupBy",
+        }));
+        this.addScalarType("ScheduleGroupBy", new graphql_1.GraphQLScalarType({
+            name: "ScheduleGroupBy",
+        }));
+        this.addScalarType("ConfigurationGroupBy", new graphql_1.GraphQLScalarType({
+            name: "ConfigurationGroupBy",
+        }));
+        this.addScalarType("UnitGroupBy", new graphql_1.GraphQLScalarType({
+            name: "UnitGroupBy",
+        }));
+        this.addScalarType("OccupancyGroupBy", new graphql_1.GraphQLScalarType({
+            name: "OccupancyGroupBy",
         }));
         this.queryType({});
         this.mutationType({});

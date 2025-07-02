@@ -170,6 +170,93 @@ input BooleanFilter {
   not: BooleanFilter
 }
 
+type Change {
+  createdAt: DateTime
+
+  """[ChangeData]"""
+  data: ChangeData
+  id: String
+  key: String
+  mutation: ChangeMutation
+  table: String
+  updatedAt: DateTime
+  user: User
+  userId: String
+}
+
+input ChangeAggregate {
+  average: [ChangeFields!]
+  count: [ChangeFields!]
+  maximum: [ChangeFields!]
+  minimum: [ChangeFields!]
+  sum: [ChangeFields!]
+}
+
+input ChangeCreateInput {
+  data: Json
+  key: String!
+  mutation: ChangeMutation!
+  table: String!
+  userId: String
+}
+
+scalar ChangeData
+
+enum ChangeFields {
+  createdAt
+  data
+  id
+  key
+  mutation
+  table
+  updatedAt
+  userId
+}
+
+input ChangeFilter {
+  AND: [ChangeFilter!]
+  NOT: ChangeFilter
+  OR: [ChangeFilter!]
+  createdAt: DateTimeFilter
+  id: StringFilter
+  key: StringFilter
+  mutation: ChangeMutation
+  table: StringFilter
+  updatedAt: DateTimeFilter
+  userId: StringFilter
+}
+
+scalar ChangeGroupBy
+
+enum ChangeMutation {
+  Create
+  Delete
+  Update
+  Upsert
+}
+
+input ChangeOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  key: OrderBy
+  mutation: OrderBy
+  table: OrderBy
+  updatedAt: OrderBy
+  userId: OrderBy
+}
+
+input ChangeUniqueFilter {
+  id: String
+}
+
+input ChangeUpdateInput {
+  data: Json
+  key: String
+  mutation: ChangeMutation
+  table: String
+  userId: String
+}
+
 type Comment {
   createdAt: DateTime
   id: String
@@ -240,6 +327,10 @@ input CommentUpdateUserRelationInput {
   connect: UserUniqueFilter
   disconnect: Boolean
 }
+
+scalar ConfigurationGroupBy
+
+scalar ControlGroupBy
 
 input CurrentCreateInput {
   email: String!
@@ -498,6 +589,14 @@ input GeographyUniqueFilter {
   id: String
 }
 
+scalar HolidayGroupBy
+
+enum HolidayType {
+  Custom
+  Disabled
+  Enabled
+}
+
 input IntFilter {
   equals: Int
   gt: Int
@@ -509,6 +608,8 @@ input IntFilter {
 }
 
 scalar Json
+
+scalar LocationGroupBy
 
 type Log {
   createdAt: DateTime
@@ -590,12 +691,25 @@ enum ModeType {
   light
 }
 
+enum ModelStage {
+  Complete
+  Create
+  Delete
+  Fail
+  Process
+  Read
+  Update
+}
+
 type Mutation {
   """Create a new account."""
   createAccount(create: AccountCreateInput!): Account
 
   """Create a new banner."""
   createBanner(create: BannerCreateInput!): Banner
+
+  """Create a new change."""
+  createChange(create: ChangeCreateInput!): Change
 
   """Create a new comment."""
   createComment(create: CommentCreateInput!): Comment
@@ -621,6 +735,9 @@ type Mutation {
   """Delete the specified banner."""
   deleteBanner(where: BannerUniqueFilter!): Banner
 
+  """Delete the specified change."""
+  deleteChange(where: ChangeUniqueFilter!): Change
+
   """Delete the specified comment."""
   deleteComment(where: CommentUniqueFilter!): Comment
 
@@ -644,6 +761,9 @@ type Mutation {
 
   """Update the specified banner."""
   updateBanner(update: BannerUpdateInput!, where: BannerUniqueFilter!): Banner
+
+  """Update the specified change."""
+  updateChange(update: ChangeUpdateInput!, where: ChangeUniqueFilter!): Change
 
   """Update the specified comment."""
   updateComment(update: CommentUpdateInput!, where: CommentUniqueFilter!): Comment
@@ -669,6 +789,8 @@ enum MutationType {
   delete
   update
 }
+
+scalar OccupancyGroupBy
 
 enum OrderBy {
   Asc
@@ -697,6 +819,9 @@ type Query {
   """Count the number of banners."""
   countBanners(where: BannerFilter): Int
 
+  """Count the number of changes."""
+  countChanges(where: ChangeFilter): Int
+
   """Count the number of comments."""
   countComments(where: CommentFilter): Int
 
@@ -721,6 +846,9 @@ type Query {
   """Group a list of banners."""
   groupBanners(aggregate: BannerAggregate, by: [BannerFields!]!, where: BannerFilter): [BannerGroupBy!]
 
+  """Group a list of changes."""
+  groupChanges(aggregate: ChangeAggregate, by: [ChangeFields!]!, where: ChangeFilter): [ChangeGroupBy!]
+
   """Group a list of comments."""
   groupComments(aggregate: CommentAggregate, by: [CommentFields!]!, where: CommentFilter): [CommentGroupBy!]
 
@@ -744,6 +872,9 @@ type Query {
 
   """Paginate through multiple banners."""
   pageBanner(after: String, before: String, first: Int, last: Int, where: BannerFilter): QueryPageBannerConnection
+
+  """Paginate through multiple changes."""
+  pageChange(after: String, before: String, first: Int, last: Int, where: ChangeFilter): QueryPageChangeConnection
 
   """Paginate through multiple comments."""
   pageComment(after: String, before: String, first: Int, last: Int, where: CommentFilter): QueryPageCommentConnection
@@ -774,6 +905,12 @@ type Query {
 
   """Read a list of banners."""
   readBanners(distinct: [BannerFields!], orderBy: [BannerOrderBy!], paging: PagingInput, where: BannerFilter): [Banner!]
+
+  """Read a unique change."""
+  readChange(where: ChangeUniqueFilter!): Change
+
+  """Read a list of changes."""
+  readChanges(distinct: [ChangeFields!], orderBy: [ChangeOrderBy!], paging: PagingInput, where: ChangeFilter): [Change!]
 
   """Read a unique comment."""
   readComment(where: CommentUniqueFilter!): Comment
@@ -833,6 +970,16 @@ type QueryPageBannerConnection {
 type QueryPageBannerConnectionEdge {
   cursor: String!
   node: Banner
+}
+
+type QueryPageChangeConnection {
+  edges: [QueryPageChangeConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageChangeConnectionEdge {
+  cursor: String!
+  node: Change
 }
 
 type QueryPageCommentConnection {
@@ -895,7 +1042,11 @@ type QueryPageUserConnectionEdge {
   node: User
 }
 
+scalar ScheduleGroupBy
+
 scalar SessionData
+
+scalar SetpointGroupBy
 
 input StringFilter {
   contains: String
@@ -922,6 +1073,9 @@ type Subscription {
   """Count the number of banners."""
   countBanners(where: BannerFilter): Int
 
+  """Count the number of changes."""
+  countChanges(where: ChangeFilter): Int
+
   """Count the number of comments."""
   countComments(where: CommentFilter): Int
 
@@ -945,6 +1099,9 @@ type Subscription {
 
   """Group a list of banners."""
   groupBanners(aggregate: BannerAggregate, by: [BannerFields!]!, where: BannerFilter): [BannerGroupBy!]
+
+  """Group a list of changes."""
+  groupChanges(aggregate: ChangeAggregate, by: [ChangeFields!]!, where: ChangeFilter): [ChangeGroupBy!]
 
   """Group a list of comments."""
   groupComments(aggregate: CommentAggregate, by: [CommentFields!]!, where: CommentFilter): [CommentGroupBy!]
@@ -975,6 +1132,12 @@ type Subscription {
 
   """Read a list of banners."""
   readBanners(distinct: [BannerFields!], orderBy: [BannerOrderBy!], paging: PagingInput, where: BannerFilter): [Banner!]
+
+  """Read a unique change."""
+  readChange(where: ChangeUniqueFilter!): Change
+
+  """Read a list of changes."""
+  readChanges(distinct: [ChangeFields!], orderBy: [ChangeOrderBy!], paging: PagingInput, where: ChangeFilter): [Change!]
 
   """Read a unique comment."""
   readComment(where: CommentUniqueFilter!): Comment
@@ -1015,6 +1178,8 @@ type Subscription {
   """Read a list of user."""
   readUsers(distinct: [UserFields!], orderBy: [UserOrderBy!], paging: PagingInput, where: UserFilter): [User!]
 }
+
+scalar UnitGroupBy
 
 type User {
   accounts: [Account!]

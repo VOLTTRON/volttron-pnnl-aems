@@ -97,6 +97,34 @@ export type Scalars = {
         Input: PrismaJson.LocationGroupBy;
         Output: PrismaJson.LocationGroupBy;
     };
+    SetpointGroupBy: {
+        Input: PrismaJson.SetpointGroupBy;
+        Output: PrismaJson.SetpointGroupBy;
+    };
+    ControlGroupBy: {
+        Input: PrismaJson.ControlGroupBy;
+        Output: PrismaJson.ControlGroupBy;
+    };
+    HolidayGroupBy: {
+        Input: PrismaJson.HolidayGroupBy;
+        Output: PrismaJson.HolidayGroupBy;
+    };
+    ScheduleGroupBy: {
+        Input: PrismaJson.ScheduleGroupBy;
+        Output: PrismaJson.ScheduleGroupBy;
+    };
+    ConfigurationGroupBy: {
+        Input: PrismaJson.ConfigurationGroupBy;
+        Output: PrismaJson.ConfigurationGroupBy;
+    };
+    UnitGroupBy: {
+        Input: PrismaJson.UnitGroupBy;
+        Output: PrismaJson.UnitGroupBy;
+    };
+    OccupancyGroupBy: {
+        Input: PrismaJson.OccupancyGroupBy;
+        Output: PrismaJson.OccupancyGroupBy;
+    };
 };
 export interface Aggregate<T extends string> {
     average?: T[] | null;
