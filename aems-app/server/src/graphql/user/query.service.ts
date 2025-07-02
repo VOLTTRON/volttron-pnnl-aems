@@ -84,7 +84,7 @@ export class UserQuery {
     builder.queryField("readUser", (t) =>
       t.prismaField({
         description: "Read a unique user.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "User",
         args: {
           where: t.arg({ type: UserWhereUnique, required: true }),
@@ -93,7 +93,11 @@ export class UserQuery {
         subscribe: (subscriptions, _parent, args, _context, _info) => {
           subscriptions.register(`User/${args.where.id}`);
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
+          // Users can only read their own data unless they are admin
+          if (!ctx.user?.authRoles.admin && ctx.user?.id !== args.where.id) {
+            throw new Error("Unauthorized: You can only access your own user data");
+          }
           return prismaService.prisma.user.findUniqueOrThrow({
             ...query,
             where: args.where,

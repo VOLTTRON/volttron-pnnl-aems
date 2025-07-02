@@ -70,7 +70,7 @@ export class OccupancyQuery {
     builder.queryField("pageOccupancy", (t) =>
       t.prismaConnection({
         description: "Paginate through multiple occupancies.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Occupancy",
         cursor: "id",
         args: {
@@ -88,7 +88,7 @@ export class OccupancyQuery {
     builder.queryField("readOccupancy", (t) =>
       t.prismaField({
         description: "Read a unique occupancy.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Occupancy",
         args: {
           where: t.arg({ type: OccupancyWhereUnique, required: true }),
@@ -109,7 +109,7 @@ export class OccupancyQuery {
     builder.queryField("readOccupancies", (t) =>
       t.prismaField({
         description: "Read a list of occupancies.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["Occupancy"],
         args: {
           where: t.arg({ type: OccupancyWhere }),
@@ -136,7 +136,7 @@ export class OccupancyQuery {
     builder.queryField("countOccupancies", (t) =>
       t.field({
         description: "Count the number of occupancies.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Int",
         args: {
           where: t.arg({ type: OccupancyWhere }),
@@ -156,7 +156,7 @@ export class OccupancyQuery {
     builder.queryField("groupOccupancies", (t) =>
       t.field({
         description: "Group a list of occupancies.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["OccupancyGroupBy"],
         args: {
           by: t.arg({ type: [OccupancyFields], required: true }),

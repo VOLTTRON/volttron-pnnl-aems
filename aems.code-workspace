@@ -1,6 +1,10 @@
 {
   "folders": [
     {
+      "name": "Root",
+      "path": "."
+    },
+    {
       "name": "AEMS App",
       "path": "aems-app/"
     },
@@ -23,10 +27,6 @@
     {
       "name": "Docker",
       "path": "aems-app/docker"
-    },
-    {
-      "name": "Root",
-      "path": "."
     },
     {
       "name": "AEMS Edge",

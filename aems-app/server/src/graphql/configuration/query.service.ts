@@ -82,7 +82,7 @@ export class ConfigurationQuery {
     builder.queryField("pageConfiguration", (t) =>
       t.prismaConnection({
         description: "Paginate through multiple configurations.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Configuration",
         cursor: "id",
         args: {
@@ -100,7 +100,7 @@ export class ConfigurationQuery {
     builder.queryField("readConfiguration", (t) =>
       t.prismaField({
         description: "Read a unique configuration.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Configuration",
         args: {
           where: t.arg({ type: ConfigurationWhereUnique, required: true }),
@@ -121,7 +121,7 @@ export class ConfigurationQuery {
     builder.queryField("readConfigurations", (t) =>
       t.prismaField({
         description: "Read a list of configurations.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["Configuration"],
         args: {
           where: t.arg({ type: ConfigurationWhere }),
@@ -148,7 +148,7 @@ export class ConfigurationQuery {
     builder.queryField("countConfigurations", (t) =>
       t.field({
         description: "Count the number of configurations.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Int",
         args: {
           where: t.arg({ type: ConfigurationWhere }),
@@ -168,7 +168,7 @@ export class ConfigurationQuery {
     builder.queryField("groupConfigurations", (t) =>
       t.field({
         description: "Group a list of configurations.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["ConfigurationGroupBy"],
         args: {
           by: t.arg({ type: [ConfigurationFields], required: true }),

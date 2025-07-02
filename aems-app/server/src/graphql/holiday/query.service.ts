@@ -72,7 +72,7 @@ export class HolidayQuery {
     builder.queryField("pageHoliday", (t) =>
       t.prismaConnection({
         description: "Paginate through multiple holidays.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Holiday",
         cursor: "id",
         args: {
@@ -90,7 +90,7 @@ export class HolidayQuery {
     builder.queryField("readHoliday", (t) =>
       t.prismaField({
         description: "Read a unique holiday.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Holiday",
         args: {
           where: t.arg({ type: HolidayWhereUnique, required: true }),
@@ -111,7 +111,7 @@ export class HolidayQuery {
     builder.queryField("readHolidays", (t) =>
       t.prismaField({
         description: "Read a list of holidays.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["Holiday"],
         args: {
           where: t.arg({ type: HolidayWhere }),
@@ -138,7 +138,7 @@ export class HolidayQuery {
     builder.queryField("countHolidays", (t) =>
       t.field({
         description: "Count the number of holidays.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Int",
         args: {
           where: t.arg({ type: HolidayWhere }),
@@ -158,7 +158,7 @@ export class HolidayQuery {
     builder.queryField("groupHolidays", (t) =>
       t.field({
         description: "Group a list of holidays.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["HolidayGroupBy"],
         args: {
           by: t.arg({ type: [HolidayFields], required: true }),

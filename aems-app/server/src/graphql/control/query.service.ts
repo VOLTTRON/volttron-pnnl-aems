@@ -72,7 +72,7 @@ export class ControlQuery {
     builder.queryField("pageControl", (t) =>
       t.prismaConnection({
         description: "Paginate through multiple controls.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Control",
         cursor: "id",
         args: {
@@ -90,7 +90,7 @@ export class ControlQuery {
     builder.queryField("readControl", (t) =>
       t.prismaField({
         description: "Read a unique control.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Control",
         args: {
           where: t.arg({ type: ControlWhereUnique, required: true }),
@@ -111,7 +111,7 @@ export class ControlQuery {
     builder.queryField("readControls", (t) =>
       t.prismaField({
         description: "Read a list of controls.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["Control"],
         args: {
           where: t.arg({ type: ControlWhere }),
@@ -138,7 +138,7 @@ export class ControlQuery {
     builder.queryField("countControls", (t) =>
       t.field({
         description: "Count the number of controls.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Int",
         args: {
           where: t.arg({ type: ControlWhere }),
@@ -158,7 +158,7 @@ export class ControlQuery {
     builder.queryField("groupControls", (t) =>
       t.field({
         description: "Group a list of controls.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["ControlGroupBy"],
         args: {
           by: t.arg({ type: [ControlFields], required: true }),

@@ -72,7 +72,7 @@ export class ScheduleQuery {
     builder.queryField("pageSchedule", (t) =>
       t.prismaConnection({
         description: "Paginate through multiple schedules.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Schedule",
         cursor: "id",
         args: {
@@ -90,7 +90,7 @@ export class ScheduleQuery {
     builder.queryField("readSchedule", (t) =>
       t.prismaField({
         description: "Read a unique schedule.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Schedule",
         args: {
           where: t.arg({ type: ScheduleWhereUnique, required: true }),
@@ -111,7 +111,7 @@ export class ScheduleQuery {
     builder.queryField("readSchedules", (t) =>
       t.prismaField({
         description: "Read a list of schedules.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["Schedule"],
         args: {
           where: t.arg({ type: ScheduleWhere }),
@@ -138,7 +138,7 @@ export class ScheduleQuery {
     builder.queryField("countSchedules", (t) =>
       t.field({
         description: "Count the number of schedules.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Int",
         args: {
           where: t.arg({ type: ScheduleWhere }),
@@ -158,7 +158,7 @@ export class ScheduleQuery {
     builder.queryField("groupSchedules", (t) =>
       t.field({
         description: "Group a list of schedules.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["ScheduleGroupBy"],
         args: {
           by: t.arg({ type: [ScheduleFields], required: true }),

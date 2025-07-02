@@ -72,7 +72,7 @@ export class SetpointQuery {
     builder.queryField("pageSetpoint", (t) =>
       t.prismaConnection({
         description: "Paginate through multiple setpoints.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Setpoint",
         cursor: "id",
         args: {
@@ -90,7 +90,7 @@ export class SetpointQuery {
     builder.queryField("readSetpoint", (t) =>
       t.prismaField({
         description: "Read a unique setpoint.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Setpoint",
         args: {
           where: t.arg({ type: SetpointWhereUnique, required: true }),
@@ -111,7 +111,7 @@ export class SetpointQuery {
     builder.queryField("readSetpoints", (t) =>
       t.prismaField({
         description: "Read a list of setpoints.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["Setpoint"],
         args: {
           where: t.arg({ type: SetpointWhere }),
@@ -138,7 +138,7 @@ export class SetpointQuery {
     builder.queryField("countSetpoints", (t) =>
       t.field({
         description: "Count the number of setpoints.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Int",
         args: {
           where: t.arg({ type: SetpointWhere }),
@@ -158,7 +158,7 @@ export class SetpointQuery {
     builder.queryField("groupSetpoints", (t) =>
       t.field({
         description: "Group a list of setpoints.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["SetpointGroupBy"],
         args: {
           by: t.arg({ type: [SetpointFields], required: true }),

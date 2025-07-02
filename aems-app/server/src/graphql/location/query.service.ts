@@ -62,7 +62,7 @@ export class LocationQuery {
     builder.queryField("pageLocation", (t) =>
       t.prismaConnection({
         description: "Paginate through multiple locations.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Location",
         cursor: "id",
         args: {
@@ -80,7 +80,7 @@ export class LocationQuery {
     builder.queryField("readLocation", (t) =>
       t.prismaField({
         description: "Read a unique location.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Location",
         args: {
           where: t.arg({ type: LocationWhereUnique, required: true }),
@@ -101,7 +101,7 @@ export class LocationQuery {
     builder.queryField("readLocations", (t) =>
       t.prismaField({
         description: "Read a list of locations.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["Location"],
         args: {
           where: t.arg({ type: LocationWhere }),
@@ -128,7 +128,7 @@ export class LocationQuery {
     builder.queryField("countLocations", (t) =>
       t.field({
         description: "Count the number of locations.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Int",
         args: {
           where: t.arg({ type: LocationWhere }),
@@ -148,7 +148,7 @@ export class LocationQuery {
     builder.queryField("groupLocations", (t) =>
       t.field({
         description: "Group a list of locations.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["LocationGroupBy"],
         args: {
           by: t.arg({ type: [LocationFields], required: true }),

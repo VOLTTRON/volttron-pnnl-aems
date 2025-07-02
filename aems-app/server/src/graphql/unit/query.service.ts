@@ -118,7 +118,7 @@ export class UnitQuery {
     builder.queryField("pageUnit", (t) =>
       t.prismaConnection({
         description: "Paginate through multiple units.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Unit",
         cursor: "id",
         args: {
@@ -136,7 +136,7 @@ export class UnitQuery {
     builder.queryField("readUnit", (t) =>
       t.prismaField({
         description: "Read a unique unit.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Unit",
         args: {
           where: t.arg({ type: UnitWhereUnique, required: true }),
@@ -157,7 +157,7 @@ export class UnitQuery {
     builder.queryField("readUnits", (t) =>
       t.prismaField({
         description: "Read a list of units.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["Unit"],
         args: {
           where: t.arg({ type: UnitWhere }),
@@ -184,7 +184,7 @@ export class UnitQuery {
     builder.queryField("countUnits", (t) =>
       t.field({
         description: "Count the number of units.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Int",
         args: {
           where: t.arg({ type: UnitWhere }),
@@ -204,7 +204,7 @@ export class UnitQuery {
     builder.queryField("groupUnits", (t) =>
       t.field({
         description: "Group a list of units.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: ["UnitGroupBy"],
         args: {
           by: t.arg({ type: [UnitFields], required: true }),
