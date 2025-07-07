@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { FeedbackStatus, Prisma } from "@prisma/client";
 import { Injectable } from "@nestjs/common";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosObject } from "../pothos.decorator";
@@ -6,10 +6,13 @@ import { PothosObject } from "../pothos.decorator";
 @Injectable()
 @PothosObject()
 export class FeedbackObject {
+  readonly FeedbackStatus;
   readonly FeedbackObject;
   readonly FeedbackFields;
 
   constructor(builder: SchemaBuilderService) {
+    this.FeedbackStatus = builder.enumType("FeedbackStatus", { values: Object.values(FeedbackStatus) });
+
     this.FeedbackObject = builder.prismaObject("Feedback", {
       authScopes: { user: true },
       fields: (t) => ({
@@ -17,7 +20,7 @@ export class FeedbackObject {
         id: t.exposeString("id", {}),
         // fields
         message: t.exposeString("message", {}),
-        status: t.expose("status", { type: builder.FeedbackStatus }),
+        status: t.expose("status", { type: this.FeedbackStatus }),
         assigneeId: t.exposeString("assigneeId"),
         // metadata
         createdAt: t.expose("createdAt", { type: builder.DateTime }),

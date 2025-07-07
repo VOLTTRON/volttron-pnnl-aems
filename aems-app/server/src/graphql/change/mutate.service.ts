@@ -28,7 +28,7 @@ export class ChangeMutation {
         table: "String",
         key: "String",
         mutation: ChangeMutation,
-        data: builder.Json,
+        data: builder.ChangeData,
         userId: "String",
       },
     });
@@ -38,7 +38,7 @@ export class ChangeMutation {
         table: "String",
         key: "String",
         mutation: ChangeMutation,
-        data: builder.Json,
+        data: builder.ChangeData,
         userId: "String",
       },
     });
@@ -60,7 +60,11 @@ export class ChangeMutation {
               data: { ...args.create },
             })
             .then(async (change) => {
-              await subscriptionService.publish("Change", { topic: "Change", id: change.id, mutation: Mutation.Created });
+              await subscriptionService.publish("Change", {
+                topic: "Change",
+                id: change.id,
+                mutation: Mutation.Created,
+              });
               return change;
             });
         },
@@ -84,7 +88,11 @@ export class ChangeMutation {
               data: args.update,
             })
             .then(async (change) => {
-              await subscriptionService.publish("Change", { topic: "Change", id: change.id, mutation: Mutation.Updated });
+              await subscriptionService.publish("Change", {
+                topic: "Change",
+                id: change.id,
+                mutation: Mutation.Updated,
+              });
               await subscriptionService.publish(`Change/${change.id}`, {
                 topic: "Change",
                 id: change.id,
@@ -111,7 +119,11 @@ export class ChangeMutation {
               where: args.where,
             })
             .then(async (change) => {
-              await subscriptionService.publish("Change", { topic: "Change", id: change.id, mutation: Mutation.Deleted });
+              await subscriptionService.publish("Change", {
+                topic: "Change",
+                id: change.id,
+                mutation: Mutation.Deleted,
+              });
               await subscriptionService.publish(`Change/${change.id}`, {
                 topic: "Change",
                 id: change.id,

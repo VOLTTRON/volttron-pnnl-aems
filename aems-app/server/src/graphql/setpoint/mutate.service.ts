@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { Mutation } from "@local/common";
 import { SchemaBuilderService } from "../builder.service";
 import { SetpointQuery } from "./query.service";
-import { SetpointObject } from "./object.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
@@ -18,14 +17,12 @@ export class SetpointMutation {
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
     setpointQuery: SetpointQuery,
-    setpointObject: SetpointObject,
   ) {
     const { SetpointWhereUnique } = setpointQuery;
-    const { ModelStage } = setpointObject;
 
     this.SetpointCreate = builder.prismaCreate("Setpoint", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         label: "String",
@@ -38,7 +35,7 @@ export class SetpointMutation {
 
     this.SetpointUpdate = builder.prismaUpdate("Setpoint", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         label: "String",
@@ -66,7 +63,11 @@ export class SetpointMutation {
               data: { ...args.create },
             })
             .then(async (setpoint) => {
-              await subscriptionService.publish("Setpoint", { topic: "Setpoint", id: setpoint.id, mutation: Mutation.Created });
+              await subscriptionService.publish("Setpoint", {
+                topic: "Setpoint",
+                id: setpoint.id,
+                mutation: Mutation.Created,
+              });
               return setpoint;
             });
         },
@@ -90,7 +91,11 @@ export class SetpointMutation {
               data: args.update,
             })
             .then(async (setpoint) => {
-              await subscriptionService.publish("Setpoint", { topic: "Setpoint", id: setpoint.id, mutation: Mutation.Updated });
+              await subscriptionService.publish("Setpoint", {
+                topic: "Setpoint",
+                id: setpoint.id,
+                mutation: Mutation.Updated,
+              });
               await subscriptionService.publish(`Setpoint/${setpoint.id}`, {
                 topic: "Setpoint",
                 id: setpoint.id,
@@ -117,7 +122,11 @@ export class SetpointMutation {
               where: args.where,
             })
             .then(async (setpoint) => {
-              await subscriptionService.publish("Setpoint", { topic: "Setpoint", id: setpoint.id, mutation: Mutation.Deleted });
+              await subscriptionService.publish("Setpoint", {
+                topic: "Setpoint",
+                id: setpoint.id,
+                mutation: Mutation.Deleted,
+              });
               await subscriptionService.publish(`Setpoint/${setpoint.id}`, {
                 topic: "Setpoint",
                 id: setpoint.id,

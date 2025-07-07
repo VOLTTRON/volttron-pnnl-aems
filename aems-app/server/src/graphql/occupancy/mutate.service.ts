@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { Mutation } from "@local/common";
 import { SchemaBuilderService } from "../builder.service";
 import { OccupancyQuery } from "./query.service";
-import { OccupancyObject } from "./object.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
@@ -18,14 +17,12 @@ export class OccupancyMutation {
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
     occupancyQuery: OccupancyQuery,
-    occupancyObject: OccupancyObject,
   ) {
     const { OccupancyWhereUnique } = occupancyQuery;
-    const { ModelStage } = occupancyObject;
 
     this.OccupancyCreate = builder.prismaCreate("Occupancy", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         label: "String",
@@ -37,7 +34,7 @@ export class OccupancyMutation {
 
     this.OccupancyUpdate = builder.prismaUpdate("Occupancy", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         label: "String",
@@ -64,7 +61,11 @@ export class OccupancyMutation {
               data: { ...args.create },
             })
             .then(async (occupancy) => {
-              await subscriptionService.publish("Occupancy", { topic: "Occupancy", id: occupancy.id, mutation: Mutation.Created });
+              await subscriptionService.publish("Occupancy", {
+                topic: "Occupancy",
+                id: occupancy.id,
+                mutation: Mutation.Created,
+              });
               return occupancy;
             });
         },
@@ -88,7 +89,11 @@ export class OccupancyMutation {
               data: args.update,
             })
             .then(async (occupancy) => {
-              await subscriptionService.publish("Occupancy", { topic: "Occupancy", id: occupancy.id, mutation: Mutation.Updated });
+              await subscriptionService.publish("Occupancy", {
+                topic: "Occupancy",
+                id: occupancy.id,
+                mutation: Mutation.Updated,
+              });
               await subscriptionService.publish(`Occupancy/${occupancy.id}`, {
                 topic: "Occupancy",
                 id: occupancy.id,
@@ -115,7 +120,11 @@ export class OccupancyMutation {
               where: args.where,
             })
             .then(async (occupancy) => {
-              await subscriptionService.publish("Occupancy", { topic: "Occupancy", id: occupancy.id, mutation: Mutation.Deleted });
+              await subscriptionService.publish("Occupancy", {
+                topic: "Occupancy",
+                id: occupancy.id,
+                mutation: Mutation.Deleted,
+              });
               await subscriptionService.publish(`Occupancy/${occupancy.id}`, {
                 topic: "Occupancy",
                 id: occupancy.id,

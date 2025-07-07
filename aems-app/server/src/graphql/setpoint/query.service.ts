@@ -14,7 +14,7 @@ export class SetpointQuery {
 
   constructor(builder: SchemaBuilderService, prismaService: PrismaService, setpointObject: SetpointObject) {
     const { StringFilter, FloatFilter, DateTimeFilter, PagingInput } = builder;
-    const { SetpointFields, ModelStage } = setpointObject;
+    const { SetpointFields } = setpointObject;
 
     this.SetpointAggregate = builder.inputType("SetpointAggregate", {
       fields: (t) => ({
@@ -38,7 +38,7 @@ export class SetpointQuery {
         AND: true,
         NOT: true,
         id: StringFilter,
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: StringFilter,
         correlation: StringFilter,
         label: StringFilter,

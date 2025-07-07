@@ -1,4 +1,4 @@
-import { Prisma, ModelStage } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { Injectable } from "@nestjs/common";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosObject } from "../pothos.decorator";
@@ -8,14 +8,8 @@ import { PothosObject } from "../pothos.decorator";
 export class SetpointObject {
   readonly SetpointObject;
   readonly SetpointFields;
-  readonly ModelStage;
 
   constructor(builder: SchemaBuilderService) {
-    // Define the ModelStage enum
-    this.ModelStage = builder.enumType("ModelStage", {
-      values: Object.values(ModelStage),
-    });
-
     this.SetpointObject = builder.prismaObject("Setpoint", {
       authScopes: { admin: true },
       subscribe(subscriptions, parent, _context, _info) {
@@ -25,7 +19,7 @@ export class SetpointObject {
         // key
         id: t.exposeString("id"),
         // metadata
-        stage: t.expose("stage", { type: this.ModelStage }),
+        stage: t.expose("stage", { type: builder.ModelStage }),
         message: t.exposeString("message", { nullable: true }),
         correlation: t.exposeString("correlation", { nullable: true }),
         createdAt: t.expose("createdAt", { type: builder.DateTime }),

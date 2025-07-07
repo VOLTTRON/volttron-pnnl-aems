@@ -57,7 +57,7 @@ let LogQuery = class LogQuery {
         const { LogWhere, LogWhereUnique, LogOrderBy, LogAggregate } = this;
         builder.queryField("pageLog", (t) => t.prismaConnection({
             description: "Paginate through multiple logs.",
-            authScopes: { admin: true },
+            authScopes: { user: true },
             type: "Log",
             cursor: "id",
             args: {
@@ -72,7 +72,7 @@ let LogQuery = class LogQuery {
         }));
         builder.queryField("readLog", (t) => t.prismaField({
             description: "Read a unique log.",
-            authScopes: { admin: true },
+            authScopes: { user: true },
             type: "Log",
             args: {
                 where: t.arg({ type: LogWhereUnique, required: true }),
@@ -90,7 +90,7 @@ let LogQuery = class LogQuery {
         }));
         builder.queryField("readLogs", (t) => t.prismaField({
             description: "Read a list of logs.",
-            authScopes: { admin: true },
+            authScopes: { user: true },
             type: ["Log"],
             args: {
                 where: t.arg({ type: LogWhere }),
@@ -114,7 +114,7 @@ let LogQuery = class LogQuery {
         }));
         builder.queryField("countLogs", (t) => t.field({
             description: "Count the number of logs.",
-            authScopes: { admin: true },
+            authScopes: { user: true },
             type: "Int",
             args: {
                 where: t.arg({ type: LogWhere }),
@@ -131,7 +131,7 @@ let LogQuery = class LogQuery {
         }));
         builder.queryField("groupLogs", (t) => t.field({
             description: "Group a list of logs.",
-            authScopes: { admin: true },
+            authScopes: { user: true },
             type: ["LogGroupBy"],
             args: {
                 by: t.arg({ type: [LogFields], required: true }),

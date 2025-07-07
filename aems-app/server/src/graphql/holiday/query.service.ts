@@ -14,7 +14,7 @@ export class HolidayQuery {
 
   constructor(builder: SchemaBuilderService, prismaService: PrismaService, holidayObject: HolidayObject) {
     const { StringFilter, IntFilter, DateTimeFilter, PagingInput } = builder;
-    const { HolidayFields, ModelStage, HolidayType } = holidayObject;
+    const { HolidayFields, HolidayType } = holidayObject;
 
     this.HolidayAggregate = builder.inputType("HolidayAggregate", {
       fields: (t) => ({
@@ -38,7 +38,7 @@ export class HolidayQuery {
         AND: true,
         NOT: true,
         id: StringFilter,
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: StringFilter,
         correlation: StringFilter,
         type: HolidayType,

@@ -53,6 +53,17 @@
     "[css]": {
       "editor.defaultFormatter": "vscode.css-language-features"
     },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/bower_components": true,
+      "**/*.code-search": true,
+      "**/dist": true,
+      "**/build": true,
+      "**/coverage": true,
+      "**/.next": true,
+      "**/.swc": true,
+      "**/.yarn": true
+    },
     "prettier.tabWidth": 2,
     "prettier.printWidth": 120,
     "prettier.singleQuote": false,

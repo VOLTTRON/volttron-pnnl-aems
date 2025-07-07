@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { Mutation } from "@local/common";
 import { SchemaBuilderService } from "../builder.service";
 import { UnitQuery } from "./query.service";
-import { UnitObject } from "./object.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
@@ -18,14 +17,12 @@ export class UnitMutation {
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
     unitQuery: UnitQuery,
-    unitObject: UnitObject,
   ) {
     const { UnitWhereUnique } = unitQuery;
-    const { ModelStage } = unitObject;
 
     this.UnitCreate = builder.prismaCreate("Unit", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         name: "String",
@@ -61,7 +58,7 @@ export class UnitMutation {
 
     this.UnitUpdate = builder.prismaUpdate("Unit", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         name: "String",

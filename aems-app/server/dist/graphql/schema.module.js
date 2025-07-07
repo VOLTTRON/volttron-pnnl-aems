@@ -42,6 +42,27 @@ const mutate_service_6 = require("./file/mutate.service");
 const mutate_service_7 = require("./log/mutate.service");
 const mutate_service_8 = require("./user/mutate.service");
 const mutate_service_9 = require("./change/mutate.service");
+const object_service_10 = require("./configuration/object.service");
+const object_service_11 = require("./control/object.service");
+const object_service_12 = require("./occupancy/object.service");
+const object_service_13 = require("./schedule/object.service");
+const object_service_14 = require("./setpoint/object.service");
+const query_service_11 = require("./configuration/query.service");
+const query_service_12 = require("./control/query.service");
+const query_service_13 = require("./holiday/query.service");
+const query_service_14 = require("./location/query.service");
+const query_service_15 = require("./occupancy/query.service");
+const query_service_16 = require("./schedule/query.service");
+const query_service_17 = require("./setpoint/query.service");
+const mutate_service_10 = require("./configuration/mutate.service");
+const mutate_service_11 = require("./control/mutate.service");
+const mutate_service_12 = require("./holiday/mutate.service");
+const mutate_service_13 = require("./location/mutate.service");
+const mutate_service_14 = require("./occupancy/mutate.service");
+const mutate_service_15 = require("./schedule/mutate.service");
+const mutate_service_16 = require("./setpoint/mutate.service");
+const object_service_15 = require("./holiday/object.service");
+const object_service_16 = require("./location/object.service");
 let SchemaModule = SchemaModule_1 = class SchemaModule {
     static register() {
         return {
@@ -84,30 +105,54 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             builder_service_1.SchemaBuilderService,
             object_service_1.AccountObject,
             object_service_2.BannerObject,
+            object_service_9.ChangeObject,
             object_service_3.CommentObject,
+            object_service_10.ConfigurationObject,
+            object_service_11.ControlObject,
             object_service_4.FeedbackObject,
             object_service_5.FileObject,
+            object_service_15.HolidayObject,
+            object_service_16.LocationObject,
             object_service_6.LogObject,
+            object_service_12.OccupancyObject,
+            object_service_13.ScheduleObject,
+            object_service_14.SetpointObject,
             object_service_7.UserObject,
             object_service_8.GeographyObject,
             object_service_9.ChangeObject,
             query_service_1.AccountQuery,
             query_service_2.BannerQuery,
+            query_service_10.ChangeQuery,
             query_service_3.CommentQuery,
+            query_service_11.ConfigurationQuery,
+            query_service_12.ControlQuery,
             query_service_4.CurrentQuery,
             query_service_5.FeedbackQuery,
             query_service_6.FileQuery,
+            query_service_13.HolidayQuery,
+            query_service_14.LocationQuery,
             query_service_7.LogQuery,
+            query_service_15.OccupancyQuery,
+            query_service_16.ScheduleQuery,
+            query_service_17.SetpointQuery,
             query_service_8.UserQuery,
             query_service_9.GeographyQuery,
             query_service_10.ChangeQuery,
             mutate_service_1.AccountMutation,
             mutate_service_2.BannerMutation,
+            mutate_service_9.ChangeMutation,
             mutate_service_3.CommentMutation,
+            mutate_service_10.ConfigurationMutation,
+            mutate_service_11.ControlMutation,
             mutate_service_4.CurrentMutation,
             mutate_service_5.FeedbackMutation,
             mutate_service_6.FileMutation,
+            mutate_service_12.HolidayMutation,
+            mutate_service_13.LocationMutation,
             mutate_service_7.LogMutation,
+            mutate_service_14.OccupancyMutation,
+            mutate_service_15.ScheduleMutation,
+            mutate_service_16.SetpointMutation,
             mutate_service_8.UserMutation,
             mutate_service_9.ChangeMutation,
         ],

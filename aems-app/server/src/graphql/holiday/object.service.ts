@@ -1,4 +1,4 @@
-import { Prisma, ModelStage, HolidayType } from "@prisma/client";
+import { Prisma, HolidayType } from "@prisma/client";
 import { Injectable } from "@nestjs/common";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosObject } from "../pothos.decorator";
@@ -8,15 +8,9 @@ import { PothosObject } from "../pothos.decorator";
 export class HolidayObject {
   readonly HolidayObject;
   readonly HolidayFields;
-  readonly ModelStage;
   readonly HolidayType;
 
   constructor(builder: SchemaBuilderService) {
-    // Define the ModelStage enum
-    this.ModelStage = builder.enumType("ModelStage", {
-      values: Object.values(ModelStage),
-    });
-
     // Define the HolidayType enum
     this.HolidayType = builder.enumType("HolidayType", {
       values: Object.values(HolidayType),
@@ -31,7 +25,7 @@ export class HolidayObject {
         // key
         id: t.exposeString("id"),
         // metadata
-        stage: t.expose("stage", { type: this.ModelStage }),
+        stage: t.expose("stage", { type: builder.ModelStage }),
         message: t.exposeString("message", { nullable: true }),
         correlation: t.exposeString("correlation", { nullable: true }),
         createdAt: t.expose("createdAt", { type: builder.DateTime }),

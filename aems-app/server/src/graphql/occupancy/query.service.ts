@@ -14,7 +14,7 @@ export class OccupancyQuery {
 
   constructor(builder: SchemaBuilderService, prismaService: PrismaService, occupancyObject: OccupancyObject) {
     const { StringFilter, DateTimeFilter, PagingInput } = builder;
-    const { OccupancyFields, ModelStage } = occupancyObject;
+    const { OccupancyFields } = occupancyObject;
 
     this.OccupancyAggregate = builder.inputType("OccupancyAggregate", {
       fields: (t) => ({
@@ -38,7 +38,7 @@ export class OccupancyQuery {
         AND: true,
         NOT: true,
         id: StringFilter,
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: StringFilter,
         correlation: StringFilter,
         label: StringFilter,

@@ -1,6 +1,6 @@
 import { AuthRoles, AuthUser } from "@/auth";
-import { FeedbackStatus, LogType, Mode, Mutation } from "@local/common";
-import { ModelStage, HolidayType } from "@prisma/client";
+import { Mode, Mutation } from "@local/common";
+import { ModelStage } from "@prisma/client";
 import SchemaBuilder from "@pothos/core";
 import ComplexityPlugin from "@pothos/plugin-complexity";
 import PrismaPlugin from "@pothos/plugin-prisma";
@@ -34,8 +34,6 @@ export class SchemaBuilderService
   private initialized = false;
   readonly DateTime;
   readonly Json;
-  readonly LogType;
-  readonly FeedbackStatus;
   readonly Mode;
   readonly Mutation;
   readonly UserPreferences;
@@ -51,6 +49,7 @@ export class SchemaBuilderService
   readonly LogTypeFilter;
   readonly FeedbackStatusFilter;
   readonly PagingInput;
+  readonly ModelStage;
 
   constructor(
     prismaService: PrismaService,
@@ -94,13 +93,10 @@ export class SchemaBuilderService
       },
     });
 
-    // enum types
-    this.LogType = this.enumType("LogType", { values: LogType.values.map((v) => v.enum) });
-    this.FeedbackStatus = this.enumType("FeedbackStatus", { values: FeedbackStatus.values.map((v) => v.enum) });
+    // global enum types
     this.Mode = this.enumType("ModeType", { values: Object.values(Mode) });
     this.Mutation = this.enumType("MutationType", { values: Object.values(Mutation) });
-    this.enumType("ModelStage", { values: Object.values(ModelStage) });
-    this.enumType("HolidayType", { values: Object.values(HolidayType) });
+    this.ModelStage = this.enumType("ModelStage", { values: Object.values(ModelStage) });
 
     // scalar types
     this.DateTime = this.addScalarType(

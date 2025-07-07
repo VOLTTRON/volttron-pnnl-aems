@@ -28,18 +28,6 @@ export declare class SchemaBuilderService extends SchemaBuilder<{
         PrismaTypes: PrismaTypes;
         Scalars: Scalars;
     }>, object, object, object>;
-    readonly LogType: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
-        Context: Context;
-        AuthScopes: AuthRoles;
-        PrismaTypes: PrismaTypes;
-        Scalars: Scalars;
-    }>, import(".prisma/client").$Enums.LogType, import(".prisma/client").$Enums.LogType>;
-    readonly FeedbackStatus: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
-        Context: Context;
-        AuthScopes: AuthRoles;
-        PrismaTypes: PrismaTypes;
-        Scalars: Scalars;
-    }>, import(".prisma/client").$Enums.FeedbackStatus, import(".prisma/client").$Enums.FeedbackStatus>;
     readonly Mode: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: Context;
         AuthScopes: AuthRoles;
@@ -133,6 +121,12 @@ export declare class SchemaBuilderService extends SchemaBuilder<{
         take: number;
         skip: number;
     }>;
+    readonly ModelStage: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
+        Context: Context;
+        AuthScopes: AuthRoles;
+        PrismaTypes: PrismaTypes;
+        Scalars: Scalars;
+    }>, "Create" | "Read" | "Update" | "Delete" | "Process" | "Complete" | "Fail", "Create" | "Read" | "Update" | "Delete" | "Process" | "Complete" | "Fail">;
     constructor(prismaService: PrismaService, configService: AppConfigService, subscriptionService: SubscriptionService);
     onModuleInit(): void;
     awaitSchema(): GraphQLSchema | Promise<GraphQLSchema>;

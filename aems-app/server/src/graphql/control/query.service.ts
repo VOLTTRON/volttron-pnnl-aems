@@ -14,7 +14,7 @@ export class ControlQuery {
 
   constructor(builder: SchemaBuilderService, prismaService: PrismaService, controlObject: ControlObject) {
     const { StringFilter, BooleanFilter, DateTimeFilter, PagingInput } = builder;
-    const { ControlFields, ModelStage } = controlObject;
+    const { ControlFields } = controlObject;
 
     this.ControlAggregate = builder.inputType("ControlAggregate", {
       fields: (t) => ({
@@ -38,7 +38,7 @@ export class ControlQuery {
         AND: true,
         NOT: true,
         id: StringFilter,
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: StringFilter,
         correlation: StringFilter,
         name: StringFilter,

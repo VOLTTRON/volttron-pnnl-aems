@@ -100,18 +100,31 @@ let UserMutation = class UserMutation {
         }));
         builder.mutationField("updateUser", (t) => t.prismaField({
             description: "Update the specified user.",
-            authScopes: { admin: true },
+            authScopes: { user: true },
             type: "User",
             args: {
                 where: t.arg({ type: UserWhereUnique, required: true }),
                 update: t.arg({ type: UserUpdate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
+                if (!ctx.user?.authRoles.admin && ctx.user?.id !== args.where.id) {
+                    throw new Error("Unauthorized: You can only update your own user data");
+                }
+                let updateData = args.update;
+                if (!ctx.user?.authRoles.admin) {
+                    updateData = {};
+                    if (args.update.password !== undefined) {
+                        updateData.password = args.update.password;
+                    }
+                    if (args.update.preferences !== undefined) {
+                        updateData.preferences = args.update.preferences;
+                    }
+                }
                 return prismaService.prisma.user
                     .update({
                     ...query,
                     where: args.where,
-                    data: args.update,
+                    data: updateData,
                 })
                     .then(async (user) => {
                     await subscriptionService.publish("User", { topic: "User", id: user.id, mutation: common_2.Mutation.Updated });

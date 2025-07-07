@@ -55,7 +55,11 @@ export class LocationMutation {
               data: { ...args.create },
             })
             .then(async (location) => {
-              await subscriptionService.publish("Location", { topic: "Location", id: location.id.toString(), mutation: Mutation.Created });
+              await subscriptionService.publish("Location", {
+                topic: "Location",
+                id: location.id.toString(),
+                mutation: Mutation.Created,
+              });
               return location;
             });
         },
@@ -79,7 +83,11 @@ export class LocationMutation {
               data: args.update,
             })
             .then(async (location) => {
-              await subscriptionService.publish("Location", { topic: "Location", id: location.id.toString(), mutation: Mutation.Updated });
+              await subscriptionService.publish("Location", {
+                topic: "Location",
+                id: location.id.toString(),
+                mutation: Mutation.Updated,
+              });
               await subscriptionService.publish(`Location/${location.id}`, {
                 topic: "Location",
                 id: location.id.toString(),
@@ -106,7 +114,11 @@ export class LocationMutation {
               where: args.where,
             })
             .then(async (location) => {
-              await subscriptionService.publish("Location", { topic: "Location", id: location.id.toString(), mutation: Mutation.Deleted });
+              await subscriptionService.publish("Location", {
+                topic: "Location",
+                id: location.id.toString(),
+                mutation: Mutation.Deleted,
+              });
               await subscriptionService.publish(`Location/${location.id}`, {
                 topic: "Location",
                 id: location.id.toString(),

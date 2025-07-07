@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { Mutation } from "@local/common";
 import { SchemaBuilderService } from "../builder.service";
 import { ScheduleQuery } from "./query.service";
-import { ScheduleObject } from "./object.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
@@ -18,14 +17,12 @@ export class ScheduleMutation {
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
     scheduleQuery: ScheduleQuery,
-    scheduleObject: ScheduleObject,
   ) {
     const { ScheduleWhereUnique } = scheduleQuery;
-    const { ModelStage } = scheduleObject;
 
     this.ScheduleCreate = builder.prismaCreate("Schedule", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         label: "String",
@@ -38,7 +35,7 @@ export class ScheduleMutation {
 
     this.ScheduleUpdate = builder.prismaUpdate("Schedule", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         label: "String",
@@ -66,7 +63,11 @@ export class ScheduleMutation {
               data: { ...args.create },
             })
             .then(async (schedule) => {
-              await subscriptionService.publish("Schedule", { topic: "Schedule", id: schedule.id, mutation: Mutation.Created });
+              await subscriptionService.publish("Schedule", {
+                topic: "Schedule",
+                id: schedule.id,
+                mutation: Mutation.Created,
+              });
               return schedule;
             });
         },
@@ -90,7 +91,11 @@ export class ScheduleMutation {
               data: args.update,
             })
             .then(async (schedule) => {
-              await subscriptionService.publish("Schedule", { topic: "Schedule", id: schedule.id, mutation: Mutation.Updated });
+              await subscriptionService.publish("Schedule", {
+                topic: "Schedule",
+                id: schedule.id,
+                mutation: Mutation.Updated,
+              });
               await subscriptionService.publish(`Schedule/${schedule.id}`, {
                 topic: "Schedule",
                 id: schedule.id,
@@ -117,7 +122,11 @@ export class ScheduleMutation {
               where: args.where,
             })
             .then(async (schedule) => {
-              await subscriptionService.publish("Schedule", { topic: "Schedule", id: schedule.id, mutation: Mutation.Deleted });
+              await subscriptionService.publish("Schedule", {
+                topic: "Schedule",
+                id: schedule.id,
+                mutation: Mutation.Deleted,
+              });
               await subscriptionService.publish(`Schedule/${schedule.id}`, {
                 topic: "Schedule",
                 id: schedule.id,

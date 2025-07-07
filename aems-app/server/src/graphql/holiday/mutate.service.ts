@@ -21,11 +21,11 @@ export class HolidayMutation {
     holidayObject: HolidayObject,
   ) {
     const { HolidayWhereUnique } = holidayQuery;
-    const { ModelStage, HolidayType } = holidayObject;
+    const { HolidayType } = holidayObject;
 
     this.HolidayCreate = builder.prismaCreate("Holiday", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         type: HolidayType,
@@ -38,7 +38,7 @@ export class HolidayMutation {
 
     this.HolidayUpdate = builder.prismaUpdate("Holiday", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         type: HolidayType,
@@ -66,7 +66,11 @@ export class HolidayMutation {
               data: { ...args.create },
             })
             .then(async (holiday) => {
-              await subscriptionService.publish("Holiday", { topic: "Holiday", id: holiday.id, mutation: Mutation.Created });
+              await subscriptionService.publish("Holiday", {
+                topic: "Holiday",
+                id: holiday.id,
+                mutation: Mutation.Created,
+              });
               return holiday;
             });
         },
@@ -90,7 +94,11 @@ export class HolidayMutation {
               data: args.update,
             })
             .then(async (holiday) => {
-              await subscriptionService.publish("Holiday", { topic: "Holiday", id: holiday.id, mutation: Mutation.Updated });
+              await subscriptionService.publish("Holiday", {
+                topic: "Holiday",
+                id: holiday.id,
+                mutation: Mutation.Updated,
+              });
               await subscriptionService.publish(`Holiday/${holiday.id}`, {
                 topic: "Holiday",
                 id: holiday.id,
@@ -117,7 +125,11 @@ export class HolidayMutation {
               where: args.where,
             })
             .then(async (holiday) => {
-              await subscriptionService.publish("Holiday", { topic: "Holiday", id: holiday.id, mutation: Mutation.Deleted });
+              await subscriptionService.publish("Holiday", {
+                topic: "Holiday",
+                id: holiday.id,
+                mutation: Mutation.Deleted,
+              });
               await subscriptionService.publish(`Holiday/${holiday.id}`, {
                 topic: "Holiday",
                 id: holiday.id,

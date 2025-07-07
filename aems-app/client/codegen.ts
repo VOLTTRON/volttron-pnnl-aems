@@ -1,4 +1,5 @@
 import type { CodegenConfig } from "@graphql-codegen/cli";
+import { Holiday } from "@local/common";
 
 const config: CodegenConfig = {
   schema: "./schema.graphql",
@@ -16,6 +17,7 @@ const config: CodegenConfig = {
           UserPreferences: "PrismaJson.UserPreferences",
           SessionData: "PrismaJson.SessionData",
           GeographyGeoJson: "PrismaJson.GeographyGeoJson",
+          ChangeData: "PrismaJson.ChangeData",
           AccountGroupBy: "PrismaJson.AccountGroupBy",
           BannerGroupBy: "PrismaJson.BannerGroupBy",
           CommentGroupBy: "PrismaJson.CommentGroupBy",
@@ -24,6 +26,15 @@ const config: CodegenConfig = {
           GeographyGroupBy: "PrismaJson.GeographyGroupBy",
           LogGroupBy: "PrismaJson.LogGroupBy",
           UserGroupBy: "PrismaJson.UserGroupBy",
+          HolidayGroupBy: "PrismaJson.HolidayGroupBy",
+          LocationGroupBy: "PrismaJson.LocationGroupBy",
+          OccupancyGroupBy: "PrismaJson.OccupancyGroupBy",
+          ScheduleGroupBy: "PrismaJson.ScheduleGroupBy",
+          SetpointGroupBy: "PrismaJson.SetpointGroupBy",
+          UnitGroupBy: "PrismaJson.UnitGroupBy",
+          ControlGroupBy: "PrismaJson.ControlGroupBy",
+          ChangeGroupBy: "PrismaJson.ChangeGroupBy",
+          ConfigurationGroupBy: "PrismaJson.ConfigurationGroupBy",
         },
       },
     },

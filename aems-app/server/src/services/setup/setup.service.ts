@@ -1,7 +1,7 @@
 import {
   Chainable,
   DeepPartial,
-  HolidayType as HolidayAlt,
+  HolidayType as Holidays,
   Normalization,
   StageType,
   toOrdinal,
@@ -166,7 +166,7 @@ const createConfigurationDefault = (unit: Partial<Unit>): DeepPartial<UnitFull> 
     HolidayAlt.ChristmasEve,
     HolidayAlt.Christmas,
   ].map((h) => h.name);
-  const holidays = HolidayAlt.values.map((h) => ({
+  const holidays = Holidays.values.map((h) => ({
     label: h.label,
     type: enabled.includes(h.name) ? HolidayType.Enabled : HolidayType.Disabled,
   }));

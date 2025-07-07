@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { Mutation } from "@local/common";
 import { SchemaBuilderService } from "../builder.service";
 import { ControlQuery } from "./query.service";
-import { ControlObject } from "./object.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
@@ -18,14 +17,12 @@ export class ControlMutation {
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
     controlQuery: ControlQuery,
-    controlObject: ControlObject,
   ) {
     const { ControlWhereUnique } = controlQuery;
-    const { ModelStage } = controlObject;
 
     this.ControlCreate = builder.prismaCreate("Control", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         name: "String",
@@ -38,7 +35,7 @@ export class ControlMutation {
 
     this.ControlUpdate = builder.prismaUpdate("Control", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         name: "String",
@@ -66,7 +63,11 @@ export class ControlMutation {
               data: { ...args.create },
             })
             .then(async (control) => {
-              await subscriptionService.publish("Control", { topic: "Control", id: control.id, mutation: Mutation.Created });
+              await subscriptionService.publish("Control", {
+                topic: "Control",
+                id: control.id,
+                mutation: Mutation.Created,
+              });
               return control;
             });
         },
@@ -90,7 +91,11 @@ export class ControlMutation {
               data: args.update,
             })
             .then(async (control) => {
-              await subscriptionService.publish("Control", { topic: "Control", id: control.id, mutation: Mutation.Updated });
+              await subscriptionService.publish("Control", {
+                topic: "Control",
+                id: control.id,
+                mutation: Mutation.Updated,
+              });
               await subscriptionService.publish(`Control/${control.id}`, {
                 topic: "Control",
                 id: control.id,
@@ -117,7 +122,11 @@ export class ControlMutation {
               where: args.where,
             })
             .then(async (control) => {
-              await subscriptionService.publish("Control", { topic: "Control", id: control.id, mutation: Mutation.Deleted });
+              await subscriptionService.publish("Control", {
+                topic: "Control",
+                id: control.id,
+                mutation: Mutation.Deleted,
+              });
               await subscriptionService.publish(`Control/${control.id}`, {
                 topic: "Control",
                 id: control.id,

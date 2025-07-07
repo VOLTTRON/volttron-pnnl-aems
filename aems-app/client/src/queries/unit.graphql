@@ -1,0 +1,408 @@
+query ReadUnit($where: UnitWhereUnique!) {
+  readUnit(where: $where) {
+    id
+    name
+    campus
+    building
+    system
+    timezone
+    label
+    stage
+    message
+    correlation
+    coolingCapacity
+    compressors
+    coolingLockout
+    optimalStartLockout
+    optimalStartDeviation
+    earliestStart
+    latestStart
+    zoneLocation
+    zoneMass
+    zoneOrientation
+    zoneBuilding
+    heatPump
+    heatPumpBackup
+    economizer
+    heatPumpLockout
+    coolingPeakOffset
+    heatingPeakOffset
+    peakLoadExclude
+    economizerSetpoint
+    configurationId
+    controlId
+    locationId
+    createdAt
+    updatedAt
+    configuration {
+      id
+      label
+      stage
+      message
+      correlation
+      setpoint {
+        id
+        label
+        setpoint
+        deadband
+        heating
+        cooling
+      }
+      holidays {
+        id
+        type
+        label
+        month
+        day
+        observance
+      }
+      occupancies {
+        id
+        label
+        date
+        schedule {
+          id
+          label
+          startTime
+          endTime
+          occupied
+        }
+      }
+    }
+    location {
+      id
+      name
+      latitude
+      longitude
+    }
+  }
+}
+
+query ReadUnits($where: UnitWhere, $paging: PagingInput, $orderBy: [UnitOrderBy!], $distinct: [UnitFields!]) {
+  readUnits(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    name
+    campus
+    building
+    system
+    timezone
+    label
+    stage
+    message
+    correlation
+    coolingCapacity
+    compressors
+    coolingLockout
+    optimalStartLockout
+    optimalStartDeviation
+    earliestStart
+    latestStart
+    zoneLocation
+    zoneMass
+    zoneOrientation
+    zoneBuilding
+    heatPump
+    heatPumpBackup
+    economizer
+    heatPumpLockout
+    coolingPeakOffset
+    heatingPeakOffset
+    peakLoadExclude
+    economizerSetpoint
+    configurationId
+    controlId
+    locationId
+    createdAt
+    updatedAt
+    configuration {
+      id
+      label
+      stage
+      message
+      correlation
+      setpoint {
+        id
+        label
+        setpoint
+        deadband
+        heating
+        cooling
+      }
+      holidays {
+        id
+        type
+        label
+        month
+        day
+        observance
+      }
+      occupancies {
+        id
+        label
+        date
+        schedule {
+          id
+          label
+          startTime
+          endTime
+          occupied
+        }
+      }
+    }
+    location {
+      id
+      name
+      latitude
+      longitude
+    }
+  }
+}
+
+mutation CreateUnit($input: CreateUnitInput!) {
+  createUnit(input: $input) {
+    id
+    name
+    campus
+    building
+    system
+    timezone
+    label
+    stage
+    message
+    correlation
+    coolingCapacity
+    compressors
+    coolingLockout
+    optimalStartLockout
+    optimalStartDeviation
+    earliestStart
+    latestStart
+    zoneLocation
+    zoneMass
+    zoneOrientation
+    zoneBuilding
+    heatPump
+    heatPumpBackup
+    economizer
+    heatPumpLockout
+    coolingPeakOffset
+    heatingPeakOffset
+    peakLoadExclude
+    economizerSetpoint
+    configurationId
+    controlId
+    locationId
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateUnit($where: UnitWhereUnique!, $input: UpdateUnitInput!) {
+  updateUnit(where: $where, input: $input) {
+    id
+    name
+    campus
+    building
+    system
+    timezone
+    label
+    stage
+    message
+    correlation
+    coolingCapacity
+    compressors
+    coolingLockout
+    optimalStartLockout
+    optimalStartDeviation
+    earliestStart
+    latestStart
+    zoneLocation
+    zoneMass
+    zoneOrientation
+    zoneBuilding
+    heatPump
+    heatPumpBackup
+    economizer
+    heatPumpLockout
+    coolingPeakOffset
+    heatingPeakOffset
+    peakLoadExclude
+    economizerSetpoint
+    configurationId
+    controlId
+    locationId
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteUnit($where: UnitWhereUnique!) {
+  deleteUnit(where: $where) {
+    id
+  }
+}
+
+subscription SubscribeUnit($where: UnitWhereUnique!) {
+  readUnit(where: $where) {
+    id
+    name
+    campus
+    building
+    system
+    timezone
+    label
+    stage
+    message
+    correlation
+    coolingCapacity
+    compressors
+    coolingLockout
+    optimalStartLockout
+    optimalStartDeviation
+    earliestStart
+    latestStart
+    zoneLocation
+    zoneMass
+    zoneOrientation
+    zoneBuilding
+    heatPump
+    heatPumpBackup
+    economizer
+    heatPumpLockout
+    coolingPeakOffset
+    heatingPeakOffset
+    peakLoadExclude
+    economizerSetpoint
+    configurationId
+    controlId
+    locationId
+    createdAt
+    updatedAt
+    configuration {
+      id
+      label
+      stage
+      message
+      correlation
+      setpoint {
+        id
+        label
+        setpoint
+        deadband
+        heating
+        cooling
+      }
+      holidays {
+        id
+        type
+        label
+        month
+        day
+        observance
+      }
+      occupancies {
+        id
+        label
+        date
+        schedule {
+          id
+          label
+          startTime
+          endTime
+          occupied
+        }
+      }
+    }
+    location {
+      id
+      name
+      latitude
+      longitude
+    }
+  }
+}
+
+subscription SubscribeUnits(
+  $where: UnitWhere
+  $paging: PagingInput
+  $orderBy: [UnitOrderBy!]
+  $distinct: [UnitFields!]
+) {
+  readUnits(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    name
+    campus
+    building
+    system
+    timezone
+    label
+    stage
+    message
+    correlation
+    coolingCapacity
+    compressors
+    coolingLockout
+    optimalStartLockout
+    optimalStartDeviation
+    earliestStart
+    latestStart
+    zoneLocation
+    zoneMass
+    zoneOrientation
+    zoneBuilding
+    heatPump
+    heatPumpBackup
+    economizer
+    heatPumpLockout
+    coolingPeakOffset
+    heatingPeakOffset
+    peakLoadExclude
+    economizerSetpoint
+    configurationId
+    controlId
+    locationId
+    createdAt
+    updatedAt
+    configuration {
+      id
+      label
+      stage
+      message
+      correlation
+      setpoint {
+        id
+        label
+        setpoint
+        deadband
+        heating
+        cooling
+      }
+      holidays {
+        id
+        type
+        label
+        month
+        day
+        observance
+      }
+      occupancies {
+        id
+        label
+        date
+        schedule {
+          id
+          label
+          startTime
+          endTime
+          occupied
+        }
+      }
+    }
+    location {
+      id
+      name
+      latitude
+      longitude
+    }
+  }
+}

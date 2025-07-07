@@ -14,7 +14,7 @@ export class ConfigurationQuery {
 
   constructor(builder: SchemaBuilderService, prismaService: PrismaService, configurationObject: ConfigurationObject) {
     const { StringFilter, DateTimeFilter, PagingInput } = builder;
-    const { ConfigurationFields, ModelStage } = configurationObject;
+    const { ConfigurationFields } = configurationObject;
 
     this.ConfigurationAggregate = builder.inputType("ConfigurationAggregate", {
       fields: (t) => ({
@@ -38,7 +38,7 @@ export class ConfigurationQuery {
         AND: true,
         NOT: true,
         id: StringFilter,
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: StringFilter,
         correlation: StringFilter,
         label: StringFilter,

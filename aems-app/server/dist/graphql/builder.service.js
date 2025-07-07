@@ -62,12 +62,9 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
             },
         });
         this.initialized = false;
-        this.LogType = this.enumType("LogType", { values: common_1.LogType.values.map((v) => v.enum) });
-        this.FeedbackStatus = this.enumType("FeedbackStatus", { values: common_1.FeedbackStatus.values.map((v) => v.enum) });
         this.Mode = this.enumType("ModeType", { values: Object.values(common_1.Mode) });
         this.Mutation = this.enumType("MutationType", { values: Object.values(common_1.Mutation) });
-        this.enumType("ModelStage", { values: Object.values(client_1.ModelStage) });
-        this.enumType("HolidayType", { values: Object.values(client_1.HolidayType) });
+        this.ModelStage = this.enumType("ModelStage", { values: Object.values(client_1.ModelStage) });
         this.DateTime = this.addScalarType("DateTime", new graphql_1.GraphQLScalarType({
             name: "DateTime",
         }));

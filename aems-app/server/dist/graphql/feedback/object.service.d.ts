@@ -1,6 +1,12 @@
 import { Prisma } from "@prisma/client";
 import { SchemaBuilderService } from "../builder.service";
 export declare class FeedbackObject {
+    readonly FeedbackStatus: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
+        Context: import("..").Context;
+        AuthScopes: import("../../auth").AuthRoles;
+        PrismaTypes: import("@local/prisma/dist/pothos").default;
+        Scalars: import("..").Scalars;
+    }>, "Todo" | "InProgress" | "Done", "Todo" | "InProgress" | "Done">;
     readonly FeedbackObject: import("@pothos/plugin-prisma").PrismaObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;

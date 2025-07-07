@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { Mutation } from "@local/common";
 import { SchemaBuilderService } from "../builder.service";
 import { ConfigurationQuery } from "./query.service";
-import { ConfigurationObject } from "./object.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
@@ -18,14 +17,12 @@ export class ConfigurationMutation {
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
     configurationQuery: ConfigurationQuery,
-    configurationObject: ConfigurationObject,
   ) {
     const { ConfigurationWhereUnique } = configurationQuery;
-    const { ModelStage } = configurationObject;
 
     this.ConfigurationCreate = builder.prismaCreate("Configuration", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         label: "String",
@@ -43,7 +40,7 @@ export class ConfigurationMutation {
 
     this.ConfigurationUpdate = builder.prismaUpdate("Configuration", {
       fields: {
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: "String",
         correlation: "String",
         label: "String",
@@ -76,7 +73,11 @@ export class ConfigurationMutation {
               data: { ...args.create },
             })
             .then(async (configuration) => {
-              await subscriptionService.publish("Configuration", { topic: "Configuration", id: configuration.id, mutation: Mutation.Created });
+              await subscriptionService.publish("Configuration", {
+                topic: "Configuration",
+                id: configuration.id,
+                mutation: Mutation.Created,
+              });
               return configuration;
             });
         },
@@ -100,7 +101,11 @@ export class ConfigurationMutation {
               data: args.update,
             })
             .then(async (configuration) => {
-              await subscriptionService.publish("Configuration", { topic: "Configuration", id: configuration.id, mutation: Mutation.Updated });
+              await subscriptionService.publish("Configuration", {
+                topic: "Configuration",
+                id: configuration.id,
+                mutation: Mutation.Updated,
+              });
               await subscriptionService.publish(`Configuration/${configuration.id}`, {
                 topic: "Configuration",
                 id: configuration.id,
@@ -127,7 +132,11 @@ export class ConfigurationMutation {
               where: args.where,
             })
             .then(async (configuration) => {
-              await subscriptionService.publish("Configuration", { topic: "Configuration", id: configuration.id, mutation: Mutation.Deleted });
+              await subscriptionService.publish("Configuration", {
+                topic: "Configuration",
+                id: configuration.id,
+                mutation: Mutation.Deleted,
+              });
               await subscriptionService.publish(`Configuration/${configuration.id}`, {
                 topic: "Configuration",
                 id: configuration.id,

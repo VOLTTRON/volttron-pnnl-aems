@@ -1,0 +1,100 @@
+query ReadControl($where: ControlWhereUnique!) {
+  readControl(where: $where) {
+    id
+    label
+    stage
+    message
+    correlation
+    unitId
+    createdAt
+    updatedAt
+  }
+}
+
+query ReadControls(
+  $where: ControlWhere
+  $paging: PagingInput
+  $orderBy: [ControlOrderBy!]
+  $distinct: [ControlFields!]
+) {
+  readControls(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    label
+    stage
+    message
+    correlation
+    unitId
+    createdAt
+    updatedAt
+  }
+}
+
+mutation CreateControl($input: CreateControlInput!) {
+  createControl(input: $input) {
+    id
+    label
+    stage
+    message
+    correlation
+    unitId
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateControl($input: UpdateControlInput!) {
+  updateControl(input: $input) {
+    id
+    label
+    stage
+    message
+    correlation
+    unitId
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteControl($where: ControlWhereUnique!) {
+  deleteControl(where: $where) {
+    id
+    label
+    stage
+    message
+    correlation
+    unitId
+    createdAt
+    updatedAt
+  }
+}
+
+subscription SubscribeControl($where: ControlWhereUnique!) {
+  readControl(where: $where) {
+    id
+    label
+    stage
+    message
+    correlation
+    unitId
+    createdAt
+    updatedAt
+  }
+}
+
+subscription SubscribeControls(
+  $where: ControlWhere
+  $paging: PagingInput
+  $orderBy: [ControlOrderBy!]
+  $distinct: [ControlFields!]
+) {
+  readControls(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    label
+    stage
+    message
+    correlation
+    unitId
+    createdAt
+    updatedAt
+  }
+}

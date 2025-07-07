@@ -9,12 +9,7 @@ export declare class LogMutation {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.LogCreateInput, {
-        type: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
-            Context: import("..").Context;
-            AuthScopes: import("../../auth").AuthRoles;
-            PrismaTypes: import("@local/prisma/dist/pothos").default;
-            Scalars: import("..").Scalars;
-        }>, import(".prisma/client").$Enums.LogType, import(".prisma/client").$Enums.LogType>;
+        type: any;
         message: "String";
     }>>;
     readonly LogUpdate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
@@ -23,12 +18,7 @@ export declare class LogMutation {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.LogUpdateInput, {
-        type: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
-            Context: import("..").Context;
-            AuthScopes: import("../../auth").AuthRoles;
-            PrismaTypes: import("@local/prisma/dist/pothos").default;
-            Scalars: import("..").Scalars;
-        }>, import(".prisma/client").$Enums.LogType, import(".prisma/client").$Enums.LogType>;
+        type: any;
         message: "String";
     }>>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, logQuery: LogQuery);

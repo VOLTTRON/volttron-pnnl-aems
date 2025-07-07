@@ -14,7 +14,7 @@ export class UnitQuery {
 
   constructor(builder: SchemaBuilderService, prismaService: PrismaService, unitObject: UnitObject) {
     const { StringFilter, IntFilter, FloatFilter, BooleanFilter, DateTimeFilter, PagingInput } = builder;
-    const { UnitFields, ModelStage } = unitObject;
+    const { UnitFields } = unitObject;
 
     this.UnitAggregate = builder.inputType("UnitAggregate", {
       fields: (t) => ({
@@ -38,7 +38,7 @@ export class UnitQuery {
         AND: true,
         NOT: true,
         id: StringFilter,
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: StringFilter,
         correlation: StringFilter,
         name: StringFilter,

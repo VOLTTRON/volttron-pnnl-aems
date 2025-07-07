@@ -14,7 +14,7 @@ export class ScheduleQuery {
 
   constructor(builder: SchemaBuilderService, prismaService: PrismaService, scheduleObject: ScheduleObject) {
     const { StringFilter, BooleanFilter, DateTimeFilter, PagingInput } = builder;
-    const { ScheduleFields, ModelStage } = scheduleObject;
+    const { ScheduleFields } = scheduleObject;
 
     this.ScheduleAggregate = builder.inputType("ScheduleAggregate", {
       fields: (t) => ({
@@ -38,7 +38,7 @@ export class ScheduleQuery {
         AND: true,
         NOT: true,
         id: StringFilter,
-        stage: ModelStage,
+        stage: builder.ModelStage,
         message: StringFilter,
         correlation: StringFilter,
         label: StringFilter,
