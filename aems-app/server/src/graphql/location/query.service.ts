@@ -3,6 +3,8 @@ import { LocationObject } from "./object.service";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -56,6 +58,13 @@ export class LocationQuery {
         updatedAt: true,
       },
     });
+
+    builder.addScalarType(
+      "LocationGroupBy",
+      new GraphQLScalarType<Scalars["LocationGroupBy"]["Input"], Scalars["LocationGroupBy"]["Output"]>({
+        name: "LocationGroupBy",
+      }),
+    );
 
     const { LocationWhere, LocationWhereUnique, LocationOrderBy, LocationAggregate } = this;
 

@@ -3,6 +3,8 @@ import { HolidayObject } from "./object.service";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -66,6 +68,13 @@ export class HolidayQuery {
         updatedAt: true,
       },
     });
+
+    builder.addScalarType(
+      "HolidayGroupBy",
+      new GraphQLScalarType<Scalars["HolidayGroupBy"]["Input"], Scalars["HolidayGroupBy"]["Output"]>({
+        name: "HolidayGroupBy",
+      }),
+    );
 
     const { HolidayWhere, HolidayWhereUnique, HolidayOrderBy, HolidayAggregate } = this;
 

@@ -3,6 +3,8 @@ import { ChangeObject } from "./object.service";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -58,6 +60,13 @@ export class ChangeQuery {
         updatedAt: true,
       },
     });
+
+    builder.addScalarType(
+      "ChangeGroupBy",
+      new GraphQLScalarType<Scalars["ChangeGroupBy"]["Input"], Scalars["ChangeGroupBy"]["Output"]>({
+        name: "ChangeGroupBy",
+      }),
+    );
 
     const { ChangeWhere, ChangeWhereUnique, ChangeOrderBy, ChangeAggregate } = this;
 

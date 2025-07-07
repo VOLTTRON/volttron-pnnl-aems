@@ -3,6 +3,8 @@ import { ControlObject } from "./object.service";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -66,6 +68,13 @@ export class ControlQuery {
         updatedAt: true,
       },
     });
+
+    builder.addScalarType(
+      "ControlGroupBy",
+      new GraphQLScalarType<Scalars["ControlGroupBy"]["Input"], Scalars["ControlGroupBy"]["Output"]>({
+        name: "ControlGroupBy",
+      }),
+    );
 
     const { ControlWhere, ControlWhereUnique, ControlOrderBy, ControlAggregate } = this;
 

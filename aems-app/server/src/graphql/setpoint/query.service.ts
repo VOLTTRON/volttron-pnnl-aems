@@ -3,6 +3,8 @@ import { SetpointObject } from "./object.service";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -66,6 +68,13 @@ export class SetpointQuery {
         updatedAt: true,
       },
     });
+
+    builder.addScalarType(
+      "SetpointGroupBy",
+      new GraphQLScalarType<Scalars["SetpointGroupBy"]["Input"], Scalars["SetpointGroupBy"]["Output"]>({
+        name: "SetpointGroupBy",
+      }),
+    );
 
     const { SetpointWhere, SetpointWhereUnique, SetpointOrderBy, SetpointAggregate } = this;
 

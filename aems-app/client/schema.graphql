@@ -193,7 +193,7 @@ input ChangeAggregate {
 }
 
 input ChangeCreateInput {
-  data: Json
+  data: ChangeData
   key: String!
   mutation: ChangeMutation!
   table: String!
@@ -250,7 +250,7 @@ input ChangeUniqueFilter {
 }
 
 input ChangeUpdateInput {
-  data: Json
+  data: ChangeData
   key: String
   mutation: ChangeMutation
   table: String
@@ -328,9 +328,238 @@ input CommentUpdateUserRelationInput {
   disconnect: Boolean
 }
 
+type Configuration {
+  correlation: String
+  createdAt: DateTime
+  fridaySchedule: Schedule
+  fridayScheduleId: String
+  holidaySchedule: Schedule
+  holidayScheduleId: String
+  holidays: [Holiday!]
+  id: String
+  label: String
+  message: String
+  mondaySchedule: Schedule
+  mondayScheduleId: String
+  occupancies: [Occupancy!]
+  saturdaySchedule: Schedule
+  saturdayScheduleId: String
+  setpoint: Setpoint
+  setpointId: String
+  stage: ModelStage
+  sundaySchedule: Schedule
+  sundayScheduleId: String
+  thursdaySchedule: Schedule
+  thursdayScheduleId: String
+  tuesdaySchedule: Schedule
+  tuesdayScheduleId: String
+  units: [Unit!]
+  updatedAt: DateTime
+  wednesdaySchedule: Schedule
+  wednesdayScheduleId: String
+}
+
+input ConfigurationAggregate {
+  average: [ConfigurationFields!]
+  count: [ConfigurationFields!]
+  maximum: [ConfigurationFields!]
+  minimum: [ConfigurationFields!]
+  sum: [ConfigurationFields!]
+}
+
+input ConfigurationCreateInput {
+  correlation: String
+  fridayScheduleId: String
+  holidayScheduleId: String
+  label: String!
+  message: String
+  mondayScheduleId: String
+  saturdayScheduleId: String
+  setpointId: String
+  stage: ModelStage
+  sundayScheduleId: String
+  thursdayScheduleId: String
+  tuesdayScheduleId: String
+  wednesdayScheduleId: String
+}
+
+enum ConfigurationFields {
+  correlation
+  createdAt
+  fridayScheduleId
+  holidayScheduleId
+  id
+  label
+  message
+  mondayScheduleId
+  saturdayScheduleId
+  setpointId
+  stage
+  sundayScheduleId
+  thursdayScheduleId
+  tuesdayScheduleId
+  updatedAt
+  wednesdayScheduleId
+}
+
+input ConfigurationFilter {
+  AND: [ConfigurationFilter!]
+  NOT: ConfigurationFilter
+  OR: [ConfigurationFilter!]
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  fridayScheduleId: StringFilter
+  holidayScheduleId: StringFilter
+  id: StringFilter
+  label: StringFilter
+  message: StringFilter
+  mondayScheduleId: StringFilter
+  saturdayScheduleId: StringFilter
+  setpointId: StringFilter
+  stage: ModelStage
+  sundayScheduleId: StringFilter
+  thursdayScheduleId: StringFilter
+  tuesdayScheduleId: StringFilter
+  updatedAt: DateTimeFilter
+  wednesdayScheduleId: StringFilter
+}
+
 scalar ConfigurationGroupBy
 
+input ConfigurationOrderBy {
+  correlation: OrderBy
+  createdAt: OrderBy
+  fridayScheduleId: OrderBy
+  holidayScheduleId: OrderBy
+  id: OrderBy
+  label: OrderBy
+  message: OrderBy
+  mondayScheduleId: OrderBy
+  saturdayScheduleId: OrderBy
+  setpointId: OrderBy
+  stage: OrderBy
+  sundayScheduleId: OrderBy
+  thursdayScheduleId: OrderBy
+  tuesdayScheduleId: OrderBy
+  updatedAt: OrderBy
+  wednesdayScheduleId: OrderBy
+}
+
+input ConfigurationUniqueFilter {
+  id: String
+}
+
+input ConfigurationUpdateInput {
+  correlation: String
+  fridayScheduleId: String
+  holidayScheduleId: String
+  label: String
+  message: String
+  mondayScheduleId: String
+  saturdayScheduleId: String
+  setpointId: String
+  stage: ModelStage
+  sundayScheduleId: String
+  thursdayScheduleId: String
+  tuesdayScheduleId: String
+  wednesdayScheduleId: String
+}
+
+type Control {
+  building: String
+  campus: String
+  correlation: String
+  createdAt: DateTime
+  id: String
+  label: String
+  message: String
+  name: String
+  peakLoadExclude: Boolean
+  stage: ModelStage
+  units: [Unit!]
+  updatedAt: DateTime
+}
+
+input ControlAggregate {
+  average: [ControlFields!]
+  count: [ControlFields!]
+  maximum: [ControlFields!]
+  minimum: [ControlFields!]
+  sum: [ControlFields!]
+}
+
+input ControlCreateInput {
+  building: String
+  campus: String
+  correlation: String
+  label: String!
+  message: String
+  name: String!
+  peakLoadExclude: Boolean
+  stage: ModelStage
+}
+
+enum ControlFields {
+  building
+  campus
+  correlation
+  createdAt
+  id
+  label
+  message
+  name
+  peakLoadExclude
+  stage
+  updatedAt
+}
+
+input ControlFilter {
+  AND: [ControlFilter!]
+  NOT: ControlFilter
+  OR: [ControlFilter!]
+  building: StringFilter
+  campus: StringFilter
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  id: StringFilter
+  label: StringFilter
+  message: StringFilter
+  name: StringFilter
+  peakLoadExclude: BooleanFilter
+  stage: ModelStage
+  updatedAt: DateTimeFilter
+}
+
 scalar ControlGroupBy
+
+input ControlOrderBy {
+  building: OrderBy
+  campus: OrderBy
+  correlation: OrderBy
+  createdAt: OrderBy
+  id: OrderBy
+  label: OrderBy
+  message: OrderBy
+  name: OrderBy
+  peakLoadExclude: OrderBy
+  stage: OrderBy
+  updatedAt: OrderBy
+}
+
+input ControlUniqueFilter {
+  id: String
+}
+
+input ControlUpdateInput {
+  building: String
+  campus: String
+  correlation: String
+  label: String
+  message: String
+  name: String
+  peakLoadExclude: Boolean
+  stage: ModelStage
+}
 
 input CurrentCreateInput {
   email: String!
@@ -588,12 +817,106 @@ input GeographyUniqueFilter {
   id: String
 }
 
+type Holiday {
+  configurations: [Configuration!]
+  correlation: String
+  createdAt: DateTime
+  day: Int
+  id: String
+  label: String
+  message: String
+  month: Int
+  observance: String
+  stage: ModelStage
+  type: HolidayType
+  updatedAt: DateTime
+}
+
+input HolidayAggregate {
+  average: [HolidayFields!]
+  count: [HolidayFields!]
+  maximum: [HolidayFields!]
+  minimum: [HolidayFields!]
+  sum: [HolidayFields!]
+}
+
+input HolidayCreateInput {
+  correlation: String
+  day: Int
+  label: String!
+  message: String
+  month: Int
+  observance: String
+  stage: ModelStage
+  type: HolidayType!
+}
+
+enum HolidayFields {
+  correlation
+  createdAt
+  day
+  id
+  label
+  message
+  month
+  observance
+  stage
+  type
+  updatedAt
+}
+
+input HolidayFilter {
+  AND: [HolidayFilter!]
+  NOT: HolidayFilter
+  OR: [HolidayFilter!]
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  day: IntFilter
+  id: StringFilter
+  label: StringFilter
+  message: StringFilter
+  month: IntFilter
+  observance: StringFilter
+  stage: ModelStage
+  type: HolidayType
+  updatedAt: DateTimeFilter
+}
+
 scalar HolidayGroupBy
+
+input HolidayOrderBy {
+  correlation: OrderBy
+  createdAt: OrderBy
+  day: OrderBy
+  id: OrderBy
+  label: OrderBy
+  message: OrderBy
+  month: OrderBy
+  observance: OrderBy
+  stage: OrderBy
+  type: OrderBy
+  updatedAt: OrderBy
+}
 
 enum HolidayType {
   Custom
   Disabled
   Enabled
+}
+
+input HolidayUniqueFilter {
+  id: String
+}
+
+input HolidayUpdateInput {
+  correlation: String
+  day: Int
+  label: String
+  message: String
+  month: Int
+  observance: String
+  stage: ModelStage
+  type: HolidayType
 }
 
 input IntFilter {
@@ -608,7 +931,71 @@ input IntFilter {
 
 scalar Json
 
+type Location {
+  createdAt: DateTime
+  id: ID
+  latitude: Float
+  longitude: Float
+  name: String
+  units: [Unit!]
+  updatedAt: DateTime
+}
+
+input LocationAggregate {
+  average: [LocationFields!]
+  count: [LocationFields!]
+  maximum: [LocationFields!]
+  minimum: [LocationFields!]
+  sum: [LocationFields!]
+}
+
+input LocationCreateInput {
+  latitude: Float!
+  longitude: Float!
+  name: String!
+}
+
+enum LocationFields {
+  createdAt
+  id
+  latitude
+  longitude
+  name
+  updatedAt
+}
+
+input LocationFilter {
+  AND: [LocationFilter!]
+  NOT: LocationFilter
+  OR: [LocationFilter!]
+  createdAt: DateTimeFilter
+  id: StringFilter
+  latitude: FloatFilter
+  longitude: FloatFilter
+  name: StringFilter
+  updatedAt: DateTimeFilter
+}
+
 scalar LocationGroupBy
+
+input LocationOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  latitude: OrderBy
+  longitude: OrderBy
+  name: OrderBy
+  updatedAt: OrderBy
+}
+
+input LocationUniqueFilter {
+  id: String
+}
+
+input LocationUpdateInput {
+  latitude: Float
+  longitude: Float
+  name: String
+}
 
 type Log {
   createdAt: DateTime
@@ -713,6 +1100,12 @@ type Mutation {
   """Create a new comment."""
   createComment(create: CommentCreateInput!): Comment
 
+  """Create a new configuration."""
+  createConfiguration(create: ConfigurationCreateInput!): Configuration
+
+  """Create a new control."""
+  createControl(create: ControlCreateInput!): Control
+
   """Create a new user."""
   createCurrent(create: CurrentCreateInput!): User
 
@@ -722,8 +1115,26 @@ type Mutation {
   """Create a local file record."""
   createFile(create: FileCreateInput!): File
 
+  """Create a new holiday."""
+  createHoliday(create: HolidayCreateInput!): Holiday
+
+  """Create a new location."""
+  createLocation(create: LocationCreateInput!): Location
+
   """Create a new log."""
   createLog(create: LogCreateInput!): Log
+
+  """Create a new occupancy."""
+  createOccupancy(create: OccupancyCreateInput!): Occupancy
+
+  """Create a new schedule."""
+  createSchedule(create: ScheduleCreateInput!): Schedule
+
+  """Create a new setpoint."""
+  createSetpoint(create: SetpointCreateInput!): Setpoint
+
+  """Create a new unit."""
+  createUnit(create: UnitCreateInput!): Unit
 
   """Create a new user."""
   createUser(create: UserCreateInput!): User
@@ -740,6 +1151,12 @@ type Mutation {
   """Delete the specified comment."""
   deleteComment(where: CommentUniqueFilter!): Comment
 
+  """Delete the specified configuration."""
+  deleteConfiguration(where: ConfigurationUniqueFilter!): Configuration
+
+  """Delete the specified control."""
+  deleteControl(where: ControlUniqueFilter!): Control
+
   """Delete the currently logged in user."""
   deleteCurrent: User
 
@@ -749,8 +1166,26 @@ type Mutation {
   """Delete a local file record."""
   deleteFile(where: FileUniqueFilter!): File
 
+  """Delete the specified holiday."""
+  deleteHoliday(where: HolidayUniqueFilter!): Holiday
+
+  """Delete the specified location."""
+  deleteLocation(where: LocationUniqueFilter!): Location
+
   """Delete the specified log."""
   deleteLog(where: LogUniqueFilter!): Log
+
+  """Delete the specified occupancy."""
+  deleteOccupancy(where: OccupancyUniqueFilter!): Occupancy
+
+  """Delete the specified schedule."""
+  deleteSchedule(where: ScheduleUniqueFilter!): Schedule
+
+  """Delete the specified setpoint."""
+  deleteSetpoint(where: SetpointUniqueFilter!): Setpoint
+
+  """Delete the specified unit."""
+  deleteUnit(where: UnitUniqueFilter!): Unit
 
   """Delete the specified user."""
   deleteUser(where: UserUniqueFilter!): User
@@ -767,6 +1202,12 @@ type Mutation {
   """Update the specified comment."""
   updateComment(update: CommentUpdateInput!, where: CommentUniqueFilter!): Comment
 
+  """Update the specified configuration."""
+  updateConfiguration(update: ConfigurationUpdateInput!, where: ConfigurationUniqueFilter!): Configuration
+
+  """Update the specified control."""
+  updateControl(update: ControlUpdateInput!, where: ControlUniqueFilter!): Control
+
   """Update the currently logged in user."""
   updateCurrent(update: CurrentUpdateInput!): User
 
@@ -776,8 +1217,26 @@ type Mutation {
   """Update a local file record."""
   updateFile(update: FileUpdateInput!, where: FileUniqueFilter!): File
 
+  """Update the specified holiday."""
+  updateHoliday(update: HolidayUpdateInput!, where: HolidayUniqueFilter!): Holiday
+
+  """Update the specified location."""
+  updateLocation(update: LocationUpdateInput!, where: LocationUniqueFilter!): Location
+
   """Update the specified log."""
   updateLog(update: LogUpdateInput!, where: LogUniqueFilter!): Log
+
+  """Update the specified occupancy."""
+  updateOccupancy(update: OccupancyUpdateInput!, where: OccupancyUniqueFilter!): Occupancy
+
+  """Update the specified schedule."""
+  updateSchedule(update: ScheduleUpdateInput!, where: ScheduleUniqueFilter!): Schedule
+
+  """Update the specified setpoint."""
+  updateSetpoint(update: SetpointUpdateInput!, where: SetpointUniqueFilter!): Setpoint
+
+  """Update the specified unit."""
+  updateUnit(update: UnitUpdateInput!, where: UnitUniqueFilter!): Unit
 
   """Update the specified user."""
   updateUser(update: UserUpdateInput!, where: UserUniqueFilter!): User
@@ -789,7 +1248,96 @@ enum MutationType {
   update
 }
 
+type Occupancy {
+  configuration: Configuration
+  configurationId: String
+  correlation: String
+  createdAt: DateTime
+  date: DateTime
+  id: String
+  label: String
+  message: String
+  schedule: Schedule
+  scheduleId: String
+  stage: ModelStage
+  updatedAt: DateTime
+}
+
+input OccupancyAggregate {
+  average: [OccupancyFields!]
+  count: [OccupancyFields!]
+  maximum: [OccupancyFields!]
+  minimum: [OccupancyFields!]
+  sum: [OccupancyFields!]
+}
+
+input OccupancyCreateInput {
+  configurationId: String
+  correlation: String
+  date: DateTime!
+  label: String!
+  message: String
+  scheduleId: String
+  stage: ModelStage
+}
+
+enum OccupancyFields {
+  configurationId
+  correlation
+  createdAt
+  date
+  id
+  label
+  message
+  scheduleId
+  stage
+  updatedAt
+}
+
+input OccupancyFilter {
+  AND: [OccupancyFilter!]
+  NOT: OccupancyFilter
+  OR: [OccupancyFilter!]
+  configurationId: StringFilter
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  date: DateTimeFilter
+  id: StringFilter
+  label: StringFilter
+  message: StringFilter
+  scheduleId: StringFilter
+  stage: ModelStage
+  updatedAt: DateTimeFilter
+}
+
 scalar OccupancyGroupBy
+
+input OccupancyOrderBy {
+  configurationId: OrderBy
+  correlation: OrderBy
+  createdAt: OrderBy
+  date: OrderBy
+  id: OrderBy
+  label: OrderBy
+  message: OrderBy
+  scheduleId: OrderBy
+  stage: OrderBy
+  updatedAt: OrderBy
+}
+
+input OccupancyUniqueFilter {
+  id: String
+}
+
+input OccupancyUpdateInput {
+  configurationId: String
+  correlation: String
+  date: DateTime
+  label: String
+  message: String
+  scheduleId: String
+  stage: ModelStage
+}
 
 enum OrderBy {
   Asc
@@ -824,6 +1372,12 @@ type Query {
   """Count the number of comments."""
   countComments(where: CommentFilter): Int
 
+  """Count the number of configurations."""
+  countConfigurations(where: ConfigurationFilter): Int
+
+  """Count the number of controls."""
+  countControls(where: ControlFilter): Int
+
   """Count the number of feedbacks."""
   countFeedbacks(where: FeedbackFilter): Int
 
@@ -833,8 +1387,26 @@ type Query {
   """Count the number of geographies."""
   countGeographies(where: GeographyFilter): Int
 
+  """Count the number of holidays."""
+  countHolidays(where: HolidayFilter): Int
+
+  """Count the number of locations."""
+  countLocations(where: LocationFilter): Int
+
   """Count the number of logs."""
   countLogs(where: LogFilter): Int
+
+  """Count the number of occupancies."""
+  countOccupancies(where: OccupancyFilter): Int
+
+  """Count the number of schedules."""
+  countSchedules(where: ScheduleFilter): Int
+
+  """Count the number of setpoints."""
+  countSetpoints(where: SetpointFilter): Int
+
+  """Count the number of units."""
+  countUnits(where: UnitFilter): Int
 
   """Count the number of user."""
   countUsers(where: UserFilter): Int
@@ -851,6 +1423,12 @@ type Query {
   """Group a list of comments."""
   groupComments(aggregate: CommentAggregate, by: [CommentFields!]!, where: CommentFilter): [CommentGroupBy!]
 
+  """Group a list of configurations."""
+  groupConfigurations(aggregate: ConfigurationAggregate, by: [ConfigurationFields!]!, where: ConfigurationFilter): [ConfigurationGroupBy!]
+
+  """Group a list of controls."""
+  groupControls(aggregate: ControlAggregate, by: [ControlFields!]!, where: ControlFilter): [ControlGroupBy!]
+
   """Group a list of feedbacks."""
   groupFeedbacks(aggregate: FeedbackAggregate, by: [FeedbackFields!]!, where: FeedbackFilter): [FeedbackGroupBy!]
 
@@ -860,8 +1438,26 @@ type Query {
   """Group a list of geographies."""
   groupGeographies(aggregate: GeographyAggregate, by: [GeographyFields!]!, where: GeographyFilter): [GeographyGroupBy!]
 
+  """Group a list of holidays."""
+  groupHolidays(aggregate: HolidayAggregate, by: [HolidayFields!]!, where: HolidayFilter): [HolidayGroupBy!]
+
+  """Group a list of locations."""
+  groupLocations(aggregate: LocationAggregate, by: [LocationFields!]!, where: LocationFilter): [LocationGroupBy!]
+
   """Group a list of logs."""
   groupLogs(aggregate: LogAggregate, by: [LogFields!]!, where: LogFilter): [LogGroupBy!]
+
+  """Group a list of occupancies."""
+  groupOccupancies(aggregate: OccupancyAggregate, by: [OccupancyFields!]!, where: OccupancyFilter): [OccupancyGroupBy!]
+
+  """Group a list of schedules."""
+  groupSchedules(aggregate: ScheduleAggregate, by: [ScheduleFields!]!, where: ScheduleFilter): [ScheduleGroupBy!]
+
+  """Group a list of setpoints."""
+  groupSetpoints(aggregate: SetpointAggregate, by: [SetpointFields!]!, where: SetpointFilter): [SetpointGroupBy!]
+
+  """Group a list of units."""
+  groupUnits(aggregate: UnitAggregate, by: [UnitFields!]!, where: UnitFilter): [UnitGroupBy!]
 
   """Group a list of user."""
   groupUsers(aggregate: UserAggregate, by: [UserFields!]!, where: UserFilter): [UserGroupBy!]
@@ -878,6 +1474,12 @@ type Query {
   """Paginate through multiple comments."""
   pageComment(after: String, before: String, first: Int, last: Int, where: CommentFilter): QueryPageCommentConnection
 
+  """Paginate through multiple configurations."""
+  pageConfiguration(after: String, before: String, first: Int, last: Int, where: ConfigurationFilter): QueryPageConfigurationConnection
+
+  """Paginate through multiple controls."""
+  pageControl(after: String, before: String, first: Int, last: Int, where: ControlFilter): QueryPageControlConnection
+
   """Paginate through multiple feedback."""
   pageFeedback(after: String, before: String, first: Int, last: Int, where: FeedbackFilter): QueryPageFeedbackConnection
 
@@ -887,8 +1489,26 @@ type Query {
   """Paginate through multiple geographies."""
   pageGeography(after: String, before: String, first: Int, last: Int, where: GeographyFilter): QueryPageGeographyConnection
 
+  """Paginate through multiple holidays."""
+  pageHoliday(after: String, before: String, first: Int, last: Int, where: HolidayFilter): QueryPageHolidayConnection
+
+  """Paginate through multiple locations."""
+  pageLocation(after: String, before: String, first: Int, last: Int, where: LocationFilter): QueryPageLocationConnection
+
   """Paginate through multiple logs."""
   pageLog(after: String, before: String, first: Int, last: Int, where: LogFilter): QueryPageLogConnection
+
+  """Paginate through multiple occupancies."""
+  pageOccupancy(after: String, before: String, first: Int, last: Int, where: OccupancyFilter): QueryPageOccupancyConnection
+
+  """Paginate through multiple schedules."""
+  pageSchedule(after: String, before: String, first: Int, last: Int, where: ScheduleFilter): QueryPageScheduleConnection
+
+  """Paginate through multiple setpoints."""
+  pageSetpoint(after: String, before: String, first: Int, last: Int, where: SetpointFilter): QueryPageSetpointConnection
+
+  """Paginate through multiple units."""
+  pageUnit(after: String, before: String, first: Int, last: Int, where: UnitFilter): QueryPageUnitConnection
 
   """Paginate through multiple users."""
   pageUser(after: String, before: String, first: Int, last: Int, where: UserFilter): QueryPageUserConnection
@@ -917,6 +1537,18 @@ type Query {
   """Read a list of comments."""
   readComments(distinct: [CommentFields!], orderBy: [CommentOrderBy!], paging: PagingInput, where: CommentFilter): [Comment!]
 
+  """Read a unique configuration."""
+  readConfiguration(where: ConfigurationUniqueFilter!): Configuration
+
+  """Read a list of configurations."""
+  readConfigurations(distinct: [ConfigurationFields!], orderBy: [ConfigurationOrderBy!], paging: PagingInput, where: ConfigurationFilter): [Configuration!]
+
+  """Read a unique control."""
+  readControl(where: ControlUniqueFilter!): Control
+
+  """Read a list of controls."""
+  readControls(distinct: [ControlFields!], orderBy: [ControlOrderBy!], paging: PagingInput, where: ControlFilter): [Control!]
+
   """Read the currently logged in user."""
   readCurrent: User
 
@@ -938,11 +1570,47 @@ type Query {
   """Read a unique geography."""
   readGeography(where: GeographyUniqueFilter!): Geography
 
+  """Read a unique holiday."""
+  readHoliday(where: HolidayUniqueFilter!): Holiday
+
+  """Read a list of holidays."""
+  readHolidays(distinct: [HolidayFields!], orderBy: [HolidayOrderBy!], paging: PagingInput, where: HolidayFilter): [Holiday!]
+
+  """Read a unique location."""
+  readLocation(where: LocationUniqueFilter!): Location
+
+  """Read a list of locations."""
+  readLocations(distinct: [LocationFields!], orderBy: [LocationOrderBy!], paging: PagingInput, where: LocationFilter): [Location!]
+
   """Read a unique log."""
   readLog(where: LogUniqueFilter!): Log
 
   """Read a list of logs."""
   readLogs(distinct: [LogFields!], orderBy: [LogOrderBy!], paging: PagingInput, where: LogFilter): [Log!]
+
+  """Read a list of occupancies."""
+  readOccupancies(distinct: [OccupancyFields!], orderBy: [OccupancyOrderBy!], paging: PagingInput, where: OccupancyFilter): [Occupancy!]
+
+  """Read a unique occupancy."""
+  readOccupancy(where: OccupancyUniqueFilter!): Occupancy
+
+  """Read a unique schedule."""
+  readSchedule(where: ScheduleUniqueFilter!): Schedule
+
+  """Read a list of schedules."""
+  readSchedules(distinct: [ScheduleFields!], orderBy: [ScheduleOrderBy!], paging: PagingInput, where: ScheduleFilter): [Schedule!]
+
+  """Read a unique setpoint."""
+  readSetpoint(where: SetpointUniqueFilter!): Setpoint
+
+  """Read a list of setpoints."""
+  readSetpoints(distinct: [SetpointFields!], orderBy: [SetpointOrderBy!], paging: PagingInput, where: SetpointFilter): [Setpoint!]
+
+  """Read a unique unit."""
+  readUnit(where: UnitUniqueFilter!): Unit
+
+  """Read a list of units."""
+  readUnits(distinct: [UnitFields!], orderBy: [UnitOrderBy!], paging: PagingInput, where: UnitFilter): [Unit!]
 
   """Read a unique user."""
   readUser(where: UserUniqueFilter!): User
@@ -991,6 +1659,26 @@ type QueryPageCommentConnectionEdge {
   node: Comment
 }
 
+type QueryPageConfigurationConnection {
+  edges: [QueryPageConfigurationConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageConfigurationConnectionEdge {
+  cursor: String!
+  node: Configuration
+}
+
+type QueryPageControlConnection {
+  edges: [QueryPageControlConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageControlConnectionEdge {
+  cursor: String!
+  node: Control
+}
+
 type QueryPageFeedbackConnection {
   edges: [QueryPageFeedbackConnectionEdge]
   pageInfo: PageInfo!
@@ -1021,6 +1709,26 @@ type QueryPageGeographyConnectionEdge {
   node: Geography
 }
 
+type QueryPageHolidayConnection {
+  edges: [QueryPageHolidayConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageHolidayConnectionEdge {
+  cursor: String!
+  node: Holiday
+}
+
+type QueryPageLocationConnection {
+  edges: [QueryPageLocationConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageLocationConnectionEdge {
+  cursor: String!
+  node: Location
+}
+
 type QueryPageLogConnection {
   edges: [QueryPageLogConnectionEdge]
   pageInfo: PageInfo!
@@ -1029,6 +1737,46 @@ type QueryPageLogConnection {
 type QueryPageLogConnectionEdge {
   cursor: String!
   node: Log
+}
+
+type QueryPageOccupancyConnection {
+  edges: [QueryPageOccupancyConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageOccupancyConnectionEdge {
+  cursor: String!
+  node: Occupancy
+}
+
+type QueryPageScheduleConnection {
+  edges: [QueryPageScheduleConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageScheduleConnectionEdge {
+  cursor: String!
+  node: Schedule
+}
+
+type QueryPageSetpointConnection {
+  edges: [QueryPageSetpointConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageSetpointConnectionEdge {
+  cursor: String!
+  node: Setpoint
+}
+
+type QueryPageUnitConnection {
+  edges: [QueryPageUnitConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageUnitConnectionEdge {
+  cursor: String!
+  node: Unit
 }
 
 type QueryPageUserConnection {
@@ -1041,11 +1789,207 @@ type QueryPageUserConnectionEdge {
   node: User
 }
 
+type Schedule {
+  correlation: String
+  createdAt: DateTime
+  endTime: String
+  fridayConfigurations: [Configuration!]
+  holidayConfigurations: [Configuration!]
+  id: String
+  label: String
+  message: String
+  mondayConfigurations: [Configuration!]
+  occupancies: [Occupancy!]
+  occupied: Boolean
+  saturdayConfigurations: [Configuration!]
+  setpoint: Setpoint
+  setpointId: String
+  stage: ModelStage
+  startTime: String
+  sundayConfigurations: [Configuration!]
+  thursdayConfigurations: [Configuration!]
+  tuesdayConfigurations: [Configuration!]
+  updatedAt: DateTime
+  wednesdayConfigurations: [Configuration!]
+}
+
+input ScheduleAggregate {
+  average: [ScheduleFields!]
+  count: [ScheduleFields!]
+  maximum: [ScheduleFields!]
+  minimum: [ScheduleFields!]
+  sum: [ScheduleFields!]
+}
+
+input ScheduleCreateInput {
+  correlation: String
+  endTime: String
+  label: String!
+  message: String
+  occupied: Boolean
+  setpointId: String
+  stage: ModelStage
+  startTime: String
+}
+
+enum ScheduleFields {
+  correlation
+  createdAt
+  endTime
+  id
+  label
+  message
+  occupied
+  setpointId
+  stage
+  startTime
+  updatedAt
+}
+
+input ScheduleFilter {
+  AND: [ScheduleFilter!]
+  NOT: ScheduleFilter
+  OR: [ScheduleFilter!]
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  endTime: StringFilter
+  id: StringFilter
+  label: StringFilter
+  message: StringFilter
+  occupied: BooleanFilter
+  setpointId: StringFilter
+  stage: ModelStage
+  startTime: StringFilter
+  updatedAt: DateTimeFilter
+}
+
 scalar ScheduleGroupBy
 
-scalar SessionData
+input ScheduleOrderBy {
+  correlation: OrderBy
+  createdAt: OrderBy
+  endTime: OrderBy
+  id: OrderBy
+  label: OrderBy
+  message: OrderBy
+  occupied: OrderBy
+  setpointId: OrderBy
+  stage: OrderBy
+  startTime: OrderBy
+  updatedAt: OrderBy
+}
+
+input ScheduleUniqueFilter {
+  id: String
+}
+
+input ScheduleUpdateInput {
+  correlation: String
+  endTime: String
+  label: String
+  message: String
+  occupied: Boolean
+  setpointId: String
+  stage: ModelStage
+  startTime: String
+}
+
+type Setpoint {
+  configurations: [Configuration!]
+  cooling: Float
+  correlation: String
+  createdAt: DateTime
+  deadband: Float
+  heating: Float
+  id: String
+  label: String
+  message: String
+  schedules: [Schedule!]
+  setpoint: Float
+  stage: ModelStage
+  updatedAt: DateTime
+}
+
+input SetpointAggregate {
+  average: [SetpointFields!]
+  count: [SetpointFields!]
+  maximum: [SetpointFields!]
+  minimum: [SetpointFields!]
+  sum: [SetpointFields!]
+}
+
+input SetpointCreateInput {
+  cooling: Float
+  correlation: String
+  deadband: Float
+  heating: Float
+  label: String!
+  message: String
+  setpoint: Float
+  stage: ModelStage
+}
+
+enum SetpointFields {
+  cooling
+  correlation
+  createdAt
+  deadband
+  heating
+  id
+  label
+  message
+  setpoint
+  stage
+  updatedAt
+}
+
+input SetpointFilter {
+  AND: [SetpointFilter!]
+  NOT: SetpointFilter
+  OR: [SetpointFilter!]
+  cooling: FloatFilter
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  deadband: FloatFilter
+  heating: FloatFilter
+  id: StringFilter
+  label: StringFilter
+  message: StringFilter
+  setpoint: FloatFilter
+  stage: ModelStage
+  updatedAt: DateTimeFilter
+}
 
 scalar SetpointGroupBy
+
+input SetpointOrderBy {
+  cooling: OrderBy
+  correlation: OrderBy
+  createdAt: OrderBy
+  deadband: OrderBy
+  heating: OrderBy
+  id: OrderBy
+  label: OrderBy
+  message: OrderBy
+  setpoint: OrderBy
+  stage: OrderBy
+  updatedAt: OrderBy
+}
+
+input SetpointUniqueFilter {
+  id: String
+}
+
+input SetpointUpdateInput {
+  cooling: Float
+  correlation: String
+  deadband: Float
+  heating: Float
+  label: String
+  message: String
+  setpoint: Float
+  stage: ModelStage
+}
 
 input StringFilter {
   contains: String
@@ -1078,6 +2022,12 @@ type Subscription {
   """Count the number of comments."""
   countComments(where: CommentFilter): Int
 
+  """Count the number of configurations."""
+  countConfigurations(where: ConfigurationFilter): Int
+
+  """Count the number of controls."""
+  countControls(where: ControlFilter): Int
+
   """Count the number of feedbacks."""
   countFeedbacks(where: FeedbackFilter): Int
 
@@ -1087,8 +2037,26 @@ type Subscription {
   """Count the number of geographies."""
   countGeographies(where: GeographyFilter): Int
 
+  """Count the number of holidays."""
+  countHolidays(where: HolidayFilter): Int
+
+  """Count the number of locations."""
+  countLocations(where: LocationFilter): Int
+
   """Count the number of logs."""
   countLogs(where: LogFilter): Int
+
+  """Count the number of occupancies."""
+  countOccupancies(where: OccupancyFilter): Int
+
+  """Count the number of schedules."""
+  countSchedules(where: ScheduleFilter): Int
+
+  """Count the number of setpoints."""
+  countSetpoints(where: SetpointFilter): Int
+
+  """Count the number of units."""
+  countUnits(where: UnitFilter): Int
 
   """Count the number of user."""
   countUsers(where: UserFilter): Int
@@ -1105,6 +2073,12 @@ type Subscription {
   """Group a list of comments."""
   groupComments(aggregate: CommentAggregate, by: [CommentFields!]!, where: CommentFilter): [CommentGroupBy!]
 
+  """Group a list of configurations."""
+  groupConfigurations(aggregate: ConfigurationAggregate, by: [ConfigurationFields!]!, where: ConfigurationFilter): [ConfigurationGroupBy!]
+
+  """Group a list of controls."""
+  groupControls(aggregate: ControlAggregate, by: [ControlFields!]!, where: ControlFilter): [ControlGroupBy!]
+
   """Group a list of feedbacks."""
   groupFeedbacks(aggregate: FeedbackAggregate, by: [FeedbackFields!]!, where: FeedbackFilter): [FeedbackGroupBy!]
 
@@ -1114,8 +2088,26 @@ type Subscription {
   """Group a list of geographies."""
   groupGeographies(aggregate: GeographyAggregate, by: [GeographyFields!]!, where: GeographyFilter): [GeographyGroupBy!]
 
+  """Group a list of holidays."""
+  groupHolidays(aggregate: HolidayAggregate, by: [HolidayFields!]!, where: HolidayFilter): [HolidayGroupBy!]
+
+  """Group a list of locations."""
+  groupLocations(aggregate: LocationAggregate, by: [LocationFields!]!, where: LocationFilter): [LocationGroupBy!]
+
   """Group a list of logs."""
   groupLogs(aggregate: LogAggregate, by: [LogFields!]!, where: LogFilter): [LogGroupBy!]
+
+  """Group a list of occupancies."""
+  groupOccupancies(aggregate: OccupancyAggregate, by: [OccupancyFields!]!, where: OccupancyFilter): [OccupancyGroupBy!]
+
+  """Group a list of schedules."""
+  groupSchedules(aggregate: ScheduleAggregate, by: [ScheduleFields!]!, where: ScheduleFilter): [ScheduleGroupBy!]
+
+  """Group a list of setpoints."""
+  groupSetpoints(aggregate: SetpointAggregate, by: [SetpointFields!]!, where: SetpointFilter): [SetpointGroupBy!]
+
+  """Group a list of units."""
+  groupUnits(aggregate: UnitAggregate, by: [UnitFields!]!, where: UnitFilter): [UnitGroupBy!]
 
   """Group a list of user."""
   groupUsers(aggregate: UserAggregate, by: [UserFields!]!, where: UserFilter): [UserGroupBy!]
@@ -1144,6 +2136,18 @@ type Subscription {
   """Read a list of comments."""
   readComments(distinct: [CommentFields!], orderBy: [CommentOrderBy!], paging: PagingInput, where: CommentFilter): [Comment!]
 
+  """Read a unique configuration."""
+  readConfiguration(where: ConfigurationUniqueFilter!): Configuration
+
+  """Read a list of configurations."""
+  readConfigurations(distinct: [ConfigurationFields!], orderBy: [ConfigurationOrderBy!], paging: PagingInput, where: ConfigurationFilter): [Configuration!]
+
+  """Read a unique control."""
+  readControl(where: ControlUniqueFilter!): Control
+
+  """Read a list of controls."""
+  readControls(distinct: [ControlFields!], orderBy: [ControlOrderBy!], paging: PagingInput, where: ControlFilter): [Control!]
+
   """Read the currently logged in user."""
   readCurrent: User
 
@@ -1165,11 +2169,47 @@ type Subscription {
   """Read a unique geography."""
   readGeography(where: GeographyUniqueFilter!): Geography
 
+  """Read a unique holiday."""
+  readHoliday(where: HolidayUniqueFilter!): Holiday
+
+  """Read a list of holidays."""
+  readHolidays(distinct: [HolidayFields!], orderBy: [HolidayOrderBy!], paging: PagingInput, where: HolidayFilter): [Holiday!]
+
+  """Read a unique location."""
+  readLocation(where: LocationUniqueFilter!): Location
+
+  """Read a list of locations."""
+  readLocations(distinct: [LocationFields!], orderBy: [LocationOrderBy!], paging: PagingInput, where: LocationFilter): [Location!]
+
   """Read a unique log."""
   readLog(where: LogUniqueFilter!): Log
 
   """Read a list of logs."""
   readLogs(distinct: [LogFields!], orderBy: [LogOrderBy!], paging: PagingInput, where: LogFilter): [Log!]
+
+  """Read a list of occupancies."""
+  readOccupancies(distinct: [OccupancyFields!], orderBy: [OccupancyOrderBy!], paging: PagingInput, where: OccupancyFilter): [Occupancy!]
+
+  """Read a unique occupancy."""
+  readOccupancy(where: OccupancyUniqueFilter!): Occupancy
+
+  """Read a unique schedule."""
+  readSchedule(where: ScheduleUniqueFilter!): Schedule
+
+  """Read a list of schedules."""
+  readSchedules(distinct: [ScheduleFields!], orderBy: [ScheduleOrderBy!], paging: PagingInput, where: ScheduleFilter): [Schedule!]
+
+  """Read a unique setpoint."""
+  readSetpoint(where: SetpointUniqueFilter!): Setpoint
+
+  """Read a list of setpoints."""
+  readSetpoints(distinct: [SetpointFields!], orderBy: [SetpointOrderBy!], paging: PagingInput, where: SetpointFilter): [Setpoint!]
+
+  """Read a unique unit."""
+  readUnit(where: UnitUniqueFilter!): Unit
+
+  """Read a list of units."""
+  readUnits(distinct: [UnitFields!], orderBy: [UnitOrderBy!], paging: PagingInput, where: UnitFilter): [Unit!]
 
   """Read a unique user."""
   readUser(where: UserUniqueFilter!): User
@@ -1178,7 +2218,242 @@ type Subscription {
   readUsers(distinct: [UserFields!], orderBy: [UserOrderBy!], paging: PagingInput, where: UserFilter): [User!]
 }
 
+type Unit {
+  building: String
+  campus: String
+  compressors: Int
+  configuration: Configuration
+  configurationId: String
+  control: Control
+  controlId: String
+  coolingCapacity: Float
+  coolingLockout: Float
+  coolingPeakOffset: Float
+  correlation: String
+  createdAt: DateTime
+  earliestStart: Int
+  economizer: Boolean
+  economizerSetpoint: Float
+  heatPump: Boolean
+  heatPumpBackup: Float
+  heatPumpLockout: Float
+  heatingPeakOffset: Float
+  id: String
+  label: String
+  latestStart: Int
+  location: Location
+  locationId: String
+  message: String
+  name: String
+  optimalStartDeviation: Float
+  optimalStartLockout: Float
+  peakLoadExclude: Boolean
+  stage: ModelStage
+  system: String
+  timezone: String
+  updatedAt: DateTime
+  users: [User!]
+  zoneBuilding: String
+  zoneLocation: String
+  zoneMass: String
+  zoneOrientation: String
+}
+
+input UnitAggregate {
+  average: [UnitFields!]
+  count: [UnitFields!]
+  maximum: [UnitFields!]
+  minimum: [UnitFields!]
+  sum: [UnitFields!]
+}
+
+input UnitCreateInput {
+  building: String
+  campus: String
+  compressors: Int
+  configurationId: String
+  controlId: String
+  coolingCapacity: Float
+  coolingLockout: Float
+  coolingPeakOffset: Float
+  correlation: String
+  earliestStart: Int
+  economizer: Boolean
+  economizerSetpoint: Float
+  heatPump: Boolean
+  heatPumpBackup: Float
+  heatPumpLockout: Float
+  heatingPeakOffset: Float
+  label: String!
+  latestStart: Int
+  locationId: String
+  message: String
+  name: String!
+  optimalStartDeviation: Float
+  optimalStartLockout: Float
+  peakLoadExclude: Boolean
+  stage: ModelStage
+  system: String
+  timezone: String
+  zoneBuilding: String
+  zoneLocation: String
+  zoneMass: String
+  zoneOrientation: String
+}
+
+enum UnitFields {
+  building
+  campus
+  compressors
+  configurationId
+  controlId
+  coolingCapacity
+  coolingLockout
+  coolingPeakOffset
+  correlation
+  createdAt
+  earliestStart
+  economizer
+  economizerSetpoint
+  heatPump
+  heatPumpBackup
+  heatPumpLockout
+  heatingPeakOffset
+  id
+  label
+  latestStart
+  locationId
+  message
+  name
+  optimalStartDeviation
+  optimalStartLockout
+  peakLoadExclude
+  stage
+  system
+  timezone
+  updatedAt
+  zoneBuilding
+  zoneLocation
+  zoneMass
+  zoneOrientation
+}
+
+input UnitFilter {
+  AND: [UnitFilter!]
+  NOT: UnitFilter
+  OR: [UnitFilter!]
+  building: StringFilter
+  campus: StringFilter
+  compressors: IntFilter
+  configurationId: StringFilter
+  controlId: StringFilter
+  coolingCapacity: FloatFilter
+  coolingLockout: FloatFilter
+  coolingPeakOffset: FloatFilter
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  earliestStart: IntFilter
+  economizer: BooleanFilter
+  economizerSetpoint: FloatFilter
+  heatPump: BooleanFilter
+  heatPumpBackup: FloatFilter
+  heatPumpLockout: FloatFilter
+  heatingPeakOffset: FloatFilter
+  id: StringFilter
+  label: StringFilter
+  latestStart: IntFilter
+  locationId: StringFilter
+  message: StringFilter
+  name: StringFilter
+  optimalStartDeviation: FloatFilter
+  optimalStartLockout: FloatFilter
+  peakLoadExclude: BooleanFilter
+  stage: ModelStage
+  system: StringFilter
+  timezone: StringFilter
+  updatedAt: DateTimeFilter
+  zoneBuilding: StringFilter
+  zoneLocation: StringFilter
+  zoneMass: StringFilter
+  zoneOrientation: StringFilter
+}
+
 scalar UnitGroupBy
+
+input UnitOrderBy {
+  building: OrderBy
+  campus: OrderBy
+  compressors: OrderBy
+  configurationId: OrderBy
+  controlId: OrderBy
+  coolingCapacity: OrderBy
+  coolingLockout: OrderBy
+  coolingPeakOffset: OrderBy
+  correlation: OrderBy
+  createdAt: OrderBy
+  earliestStart: OrderBy
+  economizer: OrderBy
+  economizerSetpoint: OrderBy
+  heatPump: OrderBy
+  heatPumpBackup: OrderBy
+  heatPumpLockout: OrderBy
+  heatingPeakOffset: OrderBy
+  id: OrderBy
+  label: OrderBy
+  latestStart: OrderBy
+  locationId: OrderBy
+  message: OrderBy
+  name: OrderBy
+  optimalStartDeviation: OrderBy
+  optimalStartLockout: OrderBy
+  peakLoadExclude: OrderBy
+  stage: OrderBy
+  system: OrderBy
+  timezone: OrderBy
+  updatedAt: OrderBy
+  zoneBuilding: OrderBy
+  zoneLocation: OrderBy
+  zoneMass: OrderBy
+  zoneOrientation: OrderBy
+}
+
+input UnitUniqueFilter {
+  id: String
+}
+
+input UnitUpdateInput {
+  building: String
+  campus: String
+  compressors: Int
+  configurationId: String
+  controlId: String
+  coolingCapacity: Float
+  coolingLockout: Float
+  coolingPeakOffset: Float
+  correlation: String
+  earliestStart: Int
+  economizer: Boolean
+  economizerSetpoint: Float
+  heatPump: Boolean
+  heatPumpBackup: Float
+  heatPumpLockout: Float
+  heatingPeakOffset: Float
+  label: String
+  latestStart: Int
+  locationId: String
+  message: String
+  name: String
+  optimalStartDeviation: Float
+  optimalStartLockout: Float
+  peakLoadExclude: Boolean
+  stage: ModelStage
+  system: String
+  timezone: String
+  zoneBuilding: String
+  zoneLocation: String
+  zoneMass: String
+  zoneOrientation: String
+}
 
 type User {
   accounts: [Account!]

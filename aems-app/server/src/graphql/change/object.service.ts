@@ -2,15 +2,26 @@ import { Prisma, ChangeMutation } from "@prisma/client";
 import { Injectable } from "@nestjs/common";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosObject } from "../pothos.decorator";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosObject()
 export class ChangeObject {
+  readonly ChangeData;
   readonly ChangeObject;
   readonly ChangeFields;
   readonly ChangeMutation;
 
   constructor(builder: SchemaBuilderService) {
+    // Define the ChangeData scalar type
+    this.ChangeData = builder.addScalarType(
+      "ChangeData",
+      new GraphQLScalarType<Scalars["ChangeData"]["Input"], Scalars["ChangeData"]["Output"]>({
+        name: "ChangeData",
+      }),
+    );
+
     // Define the ChangeMutation enum
     this.ChangeMutation = builder.enumType("ChangeMutation", {
       values: Object.values(ChangeMutation),
@@ -32,7 +43,7 @@ export class ChangeObject {
         key: t.exposeString("key"),
         mutation: t.expose("mutation", { type: this.ChangeMutation }),
         data: t.expose("data", {
-          type: builder.ChangeData,
+          type: this.ChangeData,
           nullable: true,
         }),
         // foreign keys

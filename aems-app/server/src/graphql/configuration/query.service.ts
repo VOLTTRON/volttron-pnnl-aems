@@ -3,6 +3,8 @@ import { ConfigurationObject } from "./object.service";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -76,6 +78,13 @@ export class ConfigurationQuery {
         updatedAt: true,
       },
     });
+
+    builder.addScalarType(
+      "ConfigurationGroupBy",
+      new GraphQLScalarType<Scalars["ConfigurationGroupBy"]["Input"], Scalars["ConfigurationGroupBy"]["Output"]>({
+        name: "ConfigurationGroupBy",
+      }),
+    );
 
     const { ConfigurationWhere, ConfigurationWhereUnique, ConfigurationOrderBy, ConfigurationAggregate } = this;
 

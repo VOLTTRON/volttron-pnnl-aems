@@ -3,6 +3,8 @@ import { ScheduleObject } from "./object.service";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -66,6 +68,13 @@ export class ScheduleQuery {
         updatedAt: true,
       },
     });
+
+    builder.addScalarType(
+      "ScheduleGroupBy",
+      new GraphQLScalarType<Scalars["ScheduleGroupBy"]["Input"], Scalars["ScheduleGroupBy"]["Output"]>({
+        name: "ScheduleGroupBy",
+      }),
+    );
 
     const { ScheduleWhere, ScheduleWhereUnique, ScheduleOrderBy, ScheduleAggregate } = this;
 

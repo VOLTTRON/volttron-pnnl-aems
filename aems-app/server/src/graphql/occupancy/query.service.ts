@@ -3,6 +3,8 @@ import { OccupancyObject } from "./object.service";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { Scalars } from "..";
+import { GraphQLScalarType } from "graphql";
 
 @Injectable()
 @PothosQuery()
@@ -64,6 +66,13 @@ export class OccupancyQuery {
         updatedAt: true,
       },
     });
+
+    builder.addScalarType(
+      "OccupancyGroupBy",
+      new GraphQLScalarType<Scalars["OccupancyGroupBy"]["Input"], Scalars["OccupancyGroupBy"]["Output"]>({
+        name: "OccupancyGroupBy",
+      }),
+    );
 
     const { OccupancyWhere, OccupancyWhereUnique, OccupancyOrderBy, OccupancyAggregate } = this;
 

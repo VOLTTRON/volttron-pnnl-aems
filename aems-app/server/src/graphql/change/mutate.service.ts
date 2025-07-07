@@ -21,14 +21,14 @@ export class ChangeMutation {
     changeObject: ChangeObject,
   ) {
     const { ChangeWhereUnique } = changeQuery;
-    const { ChangeMutation } = changeObject;
+    const { ChangeData, ChangeMutation } = changeObject;
 
     this.ChangeCreate = builder.prismaCreate("Change", {
       fields: {
         table: "String",
         key: "String",
         mutation: ChangeMutation,
-        data: builder.ChangeData,
+        data: ChangeData,
         userId: "String",
       },
     });
@@ -38,7 +38,7 @@ export class ChangeMutation {
         table: "String",
         key: "String",
         mutation: ChangeMutation,
-        data: builder.ChangeData,
+        data: ChangeData,
         userId: "String",
       },
     });
