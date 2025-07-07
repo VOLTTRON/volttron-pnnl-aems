@@ -223,6 +223,7 @@ input ChangeFilter {
   mutation: ChangeMutation
   table: StringFilter
   updatedAt: DateTimeFilter
+  user: UserFilter
   userId: StringFilter
 }
 

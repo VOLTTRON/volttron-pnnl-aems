@@ -5,6 +5,7 @@ import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { GraphQLScalarType } from "graphql";
 import { Scalars } from "..";
+import { UserQuery } from "../user/query.service";
 
 @Injectable()
 @PothosQuery()
@@ -14,9 +15,15 @@ export class ChangeQuery {
   readonly ChangeWhere;
   readonly ChangeOrderBy;
 
-  constructor(builder: SchemaBuilderService, prismaService: PrismaService, changeObject: ChangeObject) {
+  constructor(
+    builder: SchemaBuilderService,
+    prismaService: PrismaService,
+    changeObject: ChangeObject,
+    userQuery: UserQuery,
+  ) {
     const { StringFilter, DateTimeFilter, PagingInput } = builder;
     const { ChangeFields, ChangeMutation } = changeObject;
+    const { UserWhere } = userQuery;
 
     this.ChangeAggregate = builder.inputType("ChangeAggregate", {
       fields: (t) => ({
@@ -46,6 +53,7 @@ export class ChangeQuery {
         userId: StringFilter,
         createdAt: DateTimeFilter,
         updatedAt: DateTimeFilter,
+        user: UserWhere,
       },
     });
 

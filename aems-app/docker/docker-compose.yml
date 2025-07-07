@@ -66,7 +66,7 @@ services:
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
         - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
-    container_name: ${COMPOSE_PROJECT_NAME}-client
+    # container_name: ${COMPOSE_PROJECT_NAME}-client
     depends_on:
       init:
         condition: service_completed_successfully
@@ -122,7 +122,7 @@ services:
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
         - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
-    container_name: ${COMPOSE_PROJECT_NAME}-server
+    # container_name: ${COMPOSE_PROJECT_NAME}-server
     depends_on:
       init:
         condition: service_completed_successfully
