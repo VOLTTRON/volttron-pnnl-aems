@@ -17,18 +17,20 @@ const common_2 = require("@local/common");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
+const object_service_1 = require("./object.service");
 let LogMutation = class LogMutation {
-    constructor(builder, prismaService, subscriptionService, logQuery) {
+    constructor(builder, prismaService, subscriptionService, logObject, logQuery) {
+        const { LogType } = logObject;
         const { LogWhereUnique } = logQuery;
         this.LogCreate = builder.prismaCreate("Log", {
             fields: {
-                type: builder.LogType,
+                type: LogType,
                 message: "String",
             },
         });
         this.LogUpdate = builder.prismaUpdate("Log", {
             fields: {
-                type: builder.LogType,
+                type: LogType,
                 message: "String",
             },
         });
@@ -115,6 +117,7 @@ exports.LogMutation = LogMutation = __decorate([
     __metadata("design:paramtypes", [builder_service_1.SchemaBuilderService,
         prisma_service_1.PrismaService,
         subscription_service_1.SubscriptionService,
+        object_service_1.LogObject,
         query_service_1.LogQuery])
 ], LogMutation);
 //# sourceMappingURL=mutate.service.js.map

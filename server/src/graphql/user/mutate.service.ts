@@ -11,6 +11,7 @@ import { BannerMutation } from "../banner/mutate.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { UserObject } from "./object.service";
 
 @Injectable()
 @PothosMutation()
@@ -25,6 +26,7 @@ export class UserMutation {
     builder: SchemaBuilderService,
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
+    userObject: UserObject,
     userQuery: UserQuery,
     accountQuery: AccountQuery,
     commentQuery: CommentQuery,
@@ -33,6 +35,7 @@ export class UserMutation {
     commentMutation: CommentMutation,
     bannerMutation: BannerMutation,
   ) {
+    const { UserPreferences } = userObject;
     const { UserWhereUnique } = userQuery;
     const { AccountWhereUnique } = accountQuery;
     const { CommentWhereUnique } = commentQuery;
@@ -48,7 +51,7 @@ export class UserMutation {
         image: "String",
         role: "String",
         emailVerified: builder.DateTime,
-        preferences: builder.UserPreferences,
+        preferences: UserPreferences,
         password: "String",
       },
     });
@@ -60,7 +63,7 @@ export class UserMutation {
         image: "String",
         role: "String",
         emailVerified: builder.DateTime,
-        preferences: builder.UserPreferences,
+        preferences: UserPreferences,
         password: "String",
       },
     });

@@ -4,6 +4,7 @@ import { Mutation } from "@local/common";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { UserObject } from "../user/object.service";
 
 @Injectable()
 @PothosMutation()
@@ -11,14 +12,21 @@ export class CurrentMutation {
   readonly CurrentCreate;
   readonly CurrentUpdate;
 
-  constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService) {
+  constructor(
+    builder: SchemaBuilderService,
+    prismaService: PrismaService,
+    subscriptionService: SubscriptionService,
+    userObject: UserObject,
+  ) {
+    const { UserPreferences } = userObject;
+
     this.CurrentCreate = builder.prismaCreate("User", {
       name: "CurrentCreateInput",
       fields: {
         name: "String",
         email: "String",
         image: "String",
-        preferences: builder.UserPreferences,
+        preferences: UserPreferences,
         password: "String",
       },
     });
@@ -29,7 +37,7 @@ export class CurrentMutation {
         name: "String",
         email: "String",
         image: "String",
-        preferences: builder.UserPreferences,
+        preferences: UserPreferences,
         password: "String",
       },
     });

@@ -8,6 +8,7 @@ import { CommentMutation } from "../comment/mutate.service";
 import { BannerMutation } from "../banner/mutate.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { UserObject } from "./object.service";
 export declare class UserMutation {
     readonly UserCreate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -75,5 +76,5 @@ export declare class UserMutation {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
     }>, import(".prisma/client").Prisma.BannerUpdateManyWithoutUsersNestedInput>;
-    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, userQuery: UserQuery, accountQuery: AccountQuery, commentQuery: CommentQuery, bannerQuery: BannerQuery, accountMutation: AccountMutation, commentMutation: CommentMutation, bannerMutation: BannerMutation);
+    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, userObject: UserObject, userQuery: UserQuery, accountQuery: AccountQuery, commentQuery: CommentQuery, bannerQuery: BannerQuery, accountMutation: AccountMutation, commentMutation: CommentMutation, bannerMutation: BannerMutation);
 }

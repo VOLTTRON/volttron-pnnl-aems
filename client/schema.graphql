@@ -271,8 +271,6 @@ input DateTimeFilter {
   not: DateTimeFilter
 }
 
-scalar EventPayload
-
 type Feedback {
   assignee: User
   assigneeId: String
@@ -316,6 +314,7 @@ input FeedbackFilter {
   createdAt: DateTimeFilter
   id: StringFilter
   message: StringFilter
+  status: FeedbackStatusFilter
   updatedAt: DateTimeFilter
   user: UserUniqueFilter
   userId: StringFilter
@@ -894,8 +893,6 @@ type QueryPageUserConnectionEdge {
   cursor: String!
   node: User
 }
-
-scalar SessionData
 
 input StringFilter {
   contains: String

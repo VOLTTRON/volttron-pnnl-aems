@@ -1,13 +1,14 @@
 import { SchemaBuilderService } from "../builder.service";
 import { GeographyObject } from "./object.service";
 import { PrismaService } from "@/prisma/prisma.service";
+import { Scalars } from "..";
 export declare class GeographyQuery {
     private logger;
     readonly GeographyAggregate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
-        Scalars: import("..").Scalars;
+        Scalars: Scalars;
     }>, {
         count?: ("name" | "id" | "createdAt" | "updatedAt" | "type" | "group" | "geojson")[] | null | undefined;
         sum?: ("name" | "id" | "createdAt" | "updatedAt" | "type" | "group" | "geojson")[] | null | undefined;
@@ -19,13 +20,13 @@ export declare class GeographyQuery {
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
-        Scalars: import("..").Scalars;
+        Scalars: Scalars;
     }>, import(".prisma/client").Prisma.GeographyWhereUniqueInput>;
     readonly GeographyWhere: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
-        Scalars: import("..").Scalars;
+        Scalars: Scalars;
     }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.GeographyWhereInput, {
         OR: true;
         AND: true;
@@ -34,44 +35,44 @@ export declare class GeographyQuery {
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
-            Scalars: import("..").Scalars;
+            Scalars: Scalars;
         }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         name: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
-            Scalars: import("..").Scalars;
+            Scalars: Scalars;
         }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         group: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
-            Scalars: import("..").Scalars;
+            Scalars: Scalars;
         }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         type: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
-            Scalars: import("..").Scalars;
+            Scalars: Scalars;
         }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         createdAt: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
-            Scalars: import("..").Scalars;
+            Scalars: Scalars;
         }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt" | "contains" | "mode">>;
         updatedAt: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
-            Scalars: import("..").Scalars;
+            Scalars: Scalars;
         }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt" | "contains" | "mode">>;
     }>>;
     readonly GeographyOrderBy: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
-        Scalars: import("..").Scalars;
+        Scalars: Scalars;
     }>, import(".prisma/client").Prisma.GeographyOrderByWithRelationInput>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, geographyObject: GeographyObject);
 }

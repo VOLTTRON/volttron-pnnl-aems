@@ -16,12 +16,15 @@ const builder_service_1 = require("../builder.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 let FeedbackObject = class FeedbackObject {
     constructor(builder) {
+        this.FeedbackStatus = builder.enumType("FeedbackStatus", {
+            values: Object.values(client_1.FeedbackStatus),
+        });
         this.FeedbackObject = builder.prismaObject("Feedback", {
             authScopes: { user: true },
             fields: (t) => ({
                 id: t.exposeString("id", {}),
                 message: t.exposeString("message", {}),
-                status: t.expose("status", { type: builder.FeedbackStatus }),
+                status: t.expose("status", { type: this.FeedbackStatus }),
                 assigneeId: t.exposeString("assigneeId"),
                 createdAt: t.expose("createdAt", { type: builder.DateTime }),
                 updatedAt: t.expose("updatedAt", { type: builder.DateTime }),

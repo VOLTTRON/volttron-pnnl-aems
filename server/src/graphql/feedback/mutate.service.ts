@@ -6,6 +6,7 @@ import { FeedbackQuery } from "./query.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { FeedbackObject } from "./object.service";
 
 @Injectable()
 @PothosMutation()
@@ -18,9 +19,11 @@ export class FeedbackMutation {
     builder: SchemaBuilderService,
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
+    feedbackObject: FeedbackObject,
     feedbackQuery: FeedbackQuery,
     fileQuery: FileQuery,
   ) {
+    const { FeedbackStatus } = feedbackObject;
     const { FeedbackWhereUnique } = feedbackQuery;
     const { FileWhereUnique } = fileQuery;
 
@@ -39,7 +42,7 @@ export class FeedbackMutation {
 
     this.FeedbackUpdate = builder.prismaUpdate("Feedback", {
       fields: {
-        status: "FeedbackStatus",
+        status: FeedbackStatus,
         assigneeId: "String",
       },
     });

@@ -4,6 +4,8 @@ import { FileObject } from "./object.service";
 import { UserQuery } from "../user/query.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -58,6 +60,13 @@ export class FileQuery {
         sum: t.field({ type: [FileFields] }),
       }),
     });
+
+    builder.addScalarType(
+      "FileGroupBy",
+      new GraphQLScalarType<Scalars["FileGroupBy"]["Input"], Scalars["FileGroupBy"]["Output"]>({
+        name: "FileGroupBy",
+      }),
+    );
 
     const { FileWhere, FileWhereUnique, FileOrderBy, FileAggregate } = this;
 

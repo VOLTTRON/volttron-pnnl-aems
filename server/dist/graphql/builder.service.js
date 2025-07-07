@@ -61,8 +61,6 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
             },
         });
         this.initialized = false;
-        this.LogType = this.enumType("LogType", { values: common_1.LogType.values.map((v) => v.enum) });
-        this.FeedbackStatus = this.enumType("FeedbackStatus", { values: common_1.FeedbackStatus.values.map((v) => v.enum) });
         this.Mode = this.enumType("ModeType", { values: Object.values(common_1.Mode) });
         this.Mutation = this.enumType("MutationType", { values: Object.values(common_1.Mutation) });
         this.DateTime = this.addScalarType("DateTime", new graphql_1.GraphQLScalarType({
@@ -70,40 +68,6 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
         }));
         this.Json = this.addScalarType("Json", new graphql_1.GraphQLScalarType({
             name: "Json",
-        }));
-        this.UserPreferences = this.addScalarType("UserPreferences", new graphql_1.GraphQLScalarType({
-            name: "UserPreferences",
-        }));
-        this.SessionData = this.addScalarType("SessionData", new graphql_1.GraphQLScalarType({ name: "SessionData" }));
-        this.EventPayload = this.addScalarType("EventPayload", new graphql_1.GraphQLScalarType({
-            name: "EventPayload",
-        }));
-        this.GeographyGeoJson = this.addScalarType("GeographyGeoJson", new graphql_1.GraphQLScalarType({
-            name: "GeographyGeoJson",
-        }));
-        this.addScalarType("AccountGroupBy", new graphql_1.GraphQLScalarType({
-            name: "AccountGroupBy",
-        }));
-        this.addScalarType("BannerGroupBy", new graphql_1.GraphQLScalarType({
-            name: "BannerGroupBy",
-        }));
-        this.addScalarType("CommentGroupBy", new graphql_1.GraphQLScalarType({
-            name: "CommentGroupBy",
-        }));
-        this.addScalarType("FeedbackGroupBy", new graphql_1.GraphQLScalarType({
-            name: "FeedbackGroupBy",
-        }));
-        this.addScalarType("FileGroupBy", new graphql_1.GraphQLScalarType({
-            name: "FileGroupBy",
-        }));
-        this.addScalarType("GeographyGroupBy", new graphql_1.GraphQLScalarType({
-            name: "GeographyGroupBy",
-        }));
-        this.addScalarType("LogGroupBy", new graphql_1.GraphQLScalarType({
-            name: "LogGroupBy",
-        }));
-        this.addScalarType("UserGroupBy", new graphql_1.GraphQLScalarType({
-            name: "UserGroupBy",
         }));
         this.queryType({});
         this.mutationType({});
@@ -123,12 +87,6 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
         this.DateTimeFilter = this.prismaFilter("DateTime", {
             ops: ["contains", "equals", "gt", "gte", "lt", "lte", "not", "in", "mode"],
         });
-        this.LogTypeFilter = this.prismaFilter("LogType", {
-            ops: ["equals", "not", "in", "mode"],
-        });
-        this.FeedbackStatusFilter = this.prismaFilter("FeedbackStatus", {
-            ops: ["equals", "not", "in", "mode"],
-        });
         this.PagingInput = this.inputType("PagingInput", {
             fields: (t) => ({
                 skip: t.int({ required: true }),
@@ -141,7 +99,7 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
     }
     awaitSchema() {
         if (this.initialized) {
-            return super.toSchema();
+            return Promise.resolve(super.toSchema());
         }
         else {
             const controller = new AbortController();

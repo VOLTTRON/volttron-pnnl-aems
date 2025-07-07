@@ -16,6 +16,7 @@ const object_service_1 = require("./object.service");
 const query_service_1 = require("../user/query.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const graphql_1 = require("graphql");
 let CommentQuery = class CommentQuery {
     constructor(builder, prismaService, commentObject, userQuery) {
         const { PagingInput, DateTimeFilter, StringFilter } = builder;
@@ -58,6 +59,9 @@ let CommentQuery = class CommentQuery {
                 sum: t.field({ type: [CommentFields] }),
             }),
         });
+        builder.addScalarType("CommentGroupBy", new graphql_1.GraphQLScalarType({
+            name: "CommentGroupBy",
+        }));
         const { CommentWhere, CommentWhereUnique, CommentOrderBy, CommentAggregate } = this;
         builder.queryField("pageComment", (t) => t.prismaConnection({
             description: "Paginate through multiple comments.",

@@ -23,8 +23,10 @@ const mutate_service_3 = require("../banner/mutate.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
+const object_service_1 = require("./object.service");
 let UserMutation = class UserMutation {
-    constructor(builder, prismaService, subscriptionService, userQuery, accountQuery, commentQuery, bannerQuery, accountMutation, commentMutation, bannerMutation) {
+    constructor(builder, prismaService, subscriptionService, userObject, userQuery, accountQuery, commentQuery, bannerQuery, accountMutation, commentMutation, bannerMutation) {
+        const { UserPreferences } = userObject;
         const { UserWhereUnique } = userQuery;
         const { AccountWhereUnique } = accountQuery;
         const { CommentWhereUnique } = commentQuery;
@@ -39,7 +41,7 @@ let UserMutation = class UserMutation {
                 image: "String",
                 role: "String",
                 emailVerified: builder.DateTime,
-                preferences: builder.UserPreferences,
+                preferences: UserPreferences,
                 password: "String",
             },
         });
@@ -50,7 +52,7 @@ let UserMutation = class UserMutation {
                 image: "String",
                 role: "String",
                 emailVerified: builder.DateTime,
-                preferences: builder.UserPreferences,
+                preferences: UserPreferences,
                 password: "String",
             },
         });
@@ -157,6 +159,7 @@ exports.UserMutation = UserMutation = __decorate([
     __metadata("design:paramtypes", [builder_service_1.SchemaBuilderService,
         prisma_service_1.PrismaService,
         subscription_service_1.SubscriptionService,
+        object_service_1.UserObject,
         query_service_1.UserQuery,
         query_service_2.AccountQuery,
         query_service_3.CommentQuery,

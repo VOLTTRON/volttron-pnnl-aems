@@ -1,5 +1,5 @@
 import { AuthRoles, AuthUser } from "@/auth";
-import { FeedbackStatus, LogType, Mode, Mutation } from "@local/common";
+import { Mode, Mutation } from "@local/common";
 import SchemaBuilder from "@pothos/core";
 import ComplexityPlugin from "@pothos/plugin-complexity";
 import PrismaPlugin from "@pothos/plugin-prisma";
@@ -33,21 +33,13 @@ export class SchemaBuilderService
   private initialized = false;
   readonly DateTime;
   readonly Json;
-  readonly LogType;
-  readonly FeedbackStatus;
   readonly Mode;
   readonly Mutation;
-  readonly UserPreferences;
-  readonly SessionData;
-  readonly EventPayload;
-  readonly GeographyGeoJson;
   readonly BooleanFilter;
   readonly IntFilter;
   readonly FloatFilter;
   readonly StringFilter;
   readonly DateTimeFilter;
-  readonly LogTypeFilter;
-  readonly FeedbackStatusFilter;
   readonly PagingInput;
 
   constructor(
@@ -92,13 +84,11 @@ export class SchemaBuilderService
       },
     });
 
-    // enum types
-    this.LogType = this.enumType("LogType", { values: LogType.values.map((v) => v.enum) });
-    this.FeedbackStatus = this.enumType("FeedbackStatus", { values: FeedbackStatus.values.map((v) => v.enum) });
+    // global enum types
     this.Mode = this.enumType("ModeType", { values: Object.values(Mode) });
     this.Mutation = this.enumType("MutationType", { values: Object.values(Mutation) });
 
-    // scalar types
+    // global scalar types
     this.DateTime = this.addScalarType(
       "DateTime",
       new GraphQLScalarType<Date, string>({
@@ -111,85 +101,13 @@ export class SchemaBuilderService
         name: "Json",
       }),
     );
-    this.UserPreferences = this.addScalarType(
-      "UserPreferences",
-      new GraphQLScalarType<Scalars["UserPreferences"]["Input"], Scalars["UserPreferences"]["Output"]>({
-        name: "UserPreferences",
-      }),
-    );
-    this.SessionData = this.addScalarType(
-      "SessionData",
-      new GraphQLScalarType<Scalars["SessionData"]["Input"], Scalars["SessionData"]["Output"]>({ name: "SessionData" }),
-    );
-    this.EventPayload = this.addScalarType(
-      "EventPayload",
-      new GraphQLScalarType<Scalars["EventPayload"]["Input"], Scalars["EventPayload"]["Output"]>({
-        name: "EventPayload",
-      }),
-    );
-    this.GeographyGeoJson = this.addScalarType(
-      "GeographyGeoJson",
-      new GraphQLScalarType<Scalars["GeographyGeoJson"]["Input"], Scalars["GeographyGeoJson"]["Output"]>({
-        name: "GeographyGeoJson",
-      }),
-    );
-
-    // group by types
-    this.addScalarType(
-      "AccountGroupBy",
-      new GraphQLScalarType<Scalars["AccountGroupBy"]["Input"], Scalars["AccountGroupBy"]["Output"]>({
-        name: "AccountGroupBy",
-      }),
-    );
-    this.addScalarType(
-      "BannerGroupBy",
-      new GraphQLScalarType<Scalars["BannerGroupBy"]["Input"], Scalars["BannerGroupBy"]["Output"]>({
-        name: "BannerGroupBy",
-      }),
-    );
-    this.addScalarType(
-      "CommentGroupBy",
-      new GraphQLScalarType<Scalars["CommentGroupBy"]["Input"], Scalars["CommentGroupBy"]["Output"]>({
-        name: "CommentGroupBy",
-      }),
-    );
-    this.addScalarType(
-      "FeedbackGroupBy",
-      new GraphQLScalarType<Scalars["FeedbackGroupBy"]["Input"], Scalars["FeedbackGroupBy"]["Output"]>({
-        name: "FeedbackGroupBy",
-      }),
-    );
-    this.addScalarType(
-      "FileGroupBy",
-      new GraphQLScalarType<Scalars["FileGroupBy"]["Input"], Scalars["FileGroupBy"]["Output"]>({
-        name: "FileGroupBy",
-      }),
-    );
-    this.addScalarType(
-      "GeographyGroupBy",
-      new GraphQLScalarType<Scalars["GeographyGroupBy"]["Input"], Scalars["GeographyGroupBy"]["Output"]>({
-        name: "GeographyGroupBy",
-      }),
-    );
-    this.addScalarType(
-      "LogGroupBy",
-      new GraphQLScalarType<Scalars["LogGroupBy"]["Input"], Scalars["LogGroupBy"]["Output"]>({
-        name: "LogGroupBy",
-      }),
-    );
-    this.addScalarType(
-      "UserGroupBy",
-      new GraphQLScalarType<Scalars["UserGroupBy"]["Input"], Scalars["UserGroupBy"]["Output"]>({
-        name: "UserGroupBy",
-      }),
-    );
 
     // base types
     this.queryType({});
     this.mutationType({});
     this.subscriptionType({});
 
-    // input types
+    // global filter types
     this.BooleanFilter = this.prismaFilter("Boolean", {
       ops: ["equals", "not"],
     });
@@ -205,12 +123,8 @@ export class SchemaBuilderService
     this.DateTimeFilter = this.prismaFilter("DateTime", {
       ops: ["contains", "equals", "gt", "gte", "lt", "lte", "not", "in", "mode"],
     });
-    this.LogTypeFilter = this.prismaFilter("LogType", {
-      ops: ["equals", "not", "in", "mode"],
-    });
-    this.FeedbackStatusFilter = this.prismaFilter("FeedbackStatus", {
-      ops: ["equals", "not", "in", "mode"],
-    });
+
+    // global input types
     this.PagingInput = this.inputType("PagingInput", {
       fields: (t) => ({
         skip: t.int({ required: true }),
@@ -223,9 +137,9 @@ export class SchemaBuilderService
     this.initialized = true;
   }
 
-  awaitSchema(): GraphQLSchema | Promise<GraphQLSchema> {
+  awaitSchema(): Promise<GraphQLSchema> {
     if (this.initialized) {
-      return super.toSchema();
+      return Promise.resolve(super.toSchema());
     } else {
       const controller = new AbortController();
       const { signal } = controller;

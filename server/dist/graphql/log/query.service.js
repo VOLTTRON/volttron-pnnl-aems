@@ -15,10 +15,14 @@ const builder_service_1 = require("../builder.service");
 const object_service_1 = require("./object.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const graphql_1 = require("graphql");
 let LogQuery = class LogQuery {
     constructor(builder, prismaService, logObject) {
-        const { StringFilter, DateTimeFilter, LogTypeFilter, PagingInput } = builder;
+        const { StringFilter, DateTimeFilter, PagingInput } = builder;
         const { LogFields } = logObject;
+        this.LogTypeFilter = builder.prismaFilter("LogType", {
+            ops: ["equals", "not", "in", "mode"],
+        });
         this.LogWhereUnique = builder.prismaWhereUnique("Log", {
             fields: {
                 id: "String",
@@ -30,7 +34,7 @@ let LogQuery = class LogQuery {
                 AND: true,
                 NOT: true,
                 id: StringFilter,
-                type: LogTypeFilter,
+                type: this.LogTypeFilter,
                 message: StringFilter,
                 createdAt: DateTimeFilter,
                 updatedAt: DateTimeFilter,
@@ -54,6 +58,9 @@ let LogQuery = class LogQuery {
                 sum: t.field({ type: [LogFields] }),
             }),
         });
+        builder.addScalarType("LogGroupBy", new graphql_1.GraphQLScalarType({
+            name: "LogGroupBy",
+        }));
         const { LogWhere, LogWhereUnique, LogOrderBy, LogAggregate } = this;
         builder.queryField("pageLog", (t) => t.prismaConnection({
             description: "Paginate through multiple logs.",

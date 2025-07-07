@@ -14,8 +14,12 @@ const client_1 = require("@prisma/client");
 const common_1 = require("@nestjs/common");
 const builder_service_1 = require("../builder.service");
 const pothos_decorator_1 = require("../pothos.decorator");
+const graphql_1 = require("graphql");
 let GeographyObject = class GeographyObject {
     constructor(builder) {
+        this.GeographyGeoJson = builder.addScalarType("GeographyGeoJson", new graphql_1.GraphQLScalarType({
+            name: "GeographyGeoJson",
+        }));
         this.GeographyObject = builder.prismaObject("Geography", {
             authScopes: { user: true },
             subscribe: (subscriptions, geography, _context, _info) => {
@@ -26,7 +30,7 @@ let GeographyObject = class GeographyObject {
                 name: t.exposeString("name", { nullable: true }),
                 group: t.exposeString("group", { nullable: true }),
                 type: t.exposeString("type", { nullable: true }),
-                geojson: t.expose("geojson", { type: builder.GeographyGeoJson }),
+                geojson: t.expose("geojson", { type: this.GeographyGeoJson }),
                 createdAt: t.expose("createdAt", { type: builder.DateTime, nullable: true }),
                 updatedAt: t.expose("updatedAt", { type: builder.DateTime, nullable: true }),
             }),

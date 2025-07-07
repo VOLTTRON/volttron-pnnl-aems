@@ -1,6 +1,12 @@
 import { Prisma } from "@prisma/client";
 import { SchemaBuilderService } from "../builder.service";
 export declare class LogObject {
+    readonly LogType: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
+        Context: import("..").Context;
+        AuthScopes: import("../../auth").AuthRoles;
+        PrismaTypes: import("@local/prisma/dist/pothos").default;
+        Scalars: import("..").Scalars;
+    }>, "Trace" | "Debug" | "Info" | "Warn" | "Error" | "Fatal", "Trace" | "Debug" | "Info" | "Warn" | "Error" | "Fatal">;
     readonly LogObject: import("@pothos/plugin-prisma").PrismaObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;

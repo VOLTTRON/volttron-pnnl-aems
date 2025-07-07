@@ -1,5 +1,4 @@
 services:
-
   # Proxy that can be configured for HTTP or HTTPS
   proxy:
     command:
@@ -73,6 +72,9 @@ services:
         condition: service_completed_successfully
       database:
         condition: service_started
+    deploy:
+      mode: replicated
+      replicas: 2
     env_file:
       - .env.client
     healthcheck:
@@ -126,6 +128,9 @@ services:
         condition: service_completed_successfully
       database:
         condition: service_started
+    deploy:
+      mode: replicated
+      replicas: 2
     env_file:
       - .env.server
     healthcheck:
@@ -238,7 +243,7 @@ services:
     env_file:
       - .env.database
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready" ]
+      test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -261,7 +266,7 @@ services:
 
   # Open Street Map Tiles
   maptiles:
-    command: [ "--port", "80", "--public_url", "/ext/map", "--verbose" ]
+    command: ["--port", "80", "--public_url", "/ext/map", "--verbose"]
     container_name: ${COMPOSE_PROJECT_NAME}-maptiles
     hostname: map
     image: maptiler/tileserver-gl:latest
@@ -378,7 +383,7 @@ services:
     env_file:
       - .env.keycloak
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready" ]
+      test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
       timeout: 10s
       retries: 10

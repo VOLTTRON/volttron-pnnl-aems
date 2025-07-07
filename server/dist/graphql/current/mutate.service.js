@@ -16,15 +16,17 @@ const common_2 = require("@local/common");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
+const object_service_1 = require("../user/object.service");
 let CurrentMutation = class CurrentMutation {
-    constructor(builder, prismaService, subscriptionService) {
+    constructor(builder, prismaService, subscriptionService, userObject) {
+        const { UserPreferences } = userObject;
         this.CurrentCreate = builder.prismaCreate("User", {
             name: "CurrentCreateInput",
             fields: {
                 name: "String",
                 email: "String",
                 image: "String",
-                preferences: builder.UserPreferences,
+                preferences: UserPreferences,
                 password: "String",
             },
         });
@@ -34,7 +36,7 @@ let CurrentMutation = class CurrentMutation {
                 name: "String",
                 email: "String",
                 image: "String",
-                preferences: builder.UserPreferences,
+                preferences: UserPreferences,
                 password: "String",
             },
         });
@@ -131,6 +133,9 @@ exports.CurrentMutation = CurrentMutation;
 exports.CurrentMutation = CurrentMutation = __decorate([
     (0, common_1.Injectable)(),
     (0, pothos_decorator_1.PothosMutation)(),
-    __metadata("design:paramtypes", [builder_service_1.SchemaBuilderService, prisma_service_1.PrismaService, subscription_service_1.SubscriptionService])
+    __metadata("design:paramtypes", [builder_service_1.SchemaBuilderService,
+        prisma_service_1.PrismaService,
+        subscription_service_1.SubscriptionService,
+        object_service_1.UserObject])
 ], CurrentMutation);
 //# sourceMappingURL=mutate.service.js.map

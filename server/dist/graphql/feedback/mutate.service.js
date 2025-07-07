@@ -18,8 +18,10 @@ const query_service_2 = require("./query.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
+const object_service_1 = require("./object.service");
 let FeedbackMutation = class FeedbackMutation {
-    constructor(builder, prismaService, subscriptionService, feedbackQuery, fileQuery) {
+    constructor(builder, prismaService, subscriptionService, feedbackObject, feedbackQuery, fileQuery) {
+        const { FeedbackStatus } = feedbackObject;
         const { FeedbackWhereUnique } = feedbackQuery;
         const { FileWhereUnique } = fileQuery;
         this.FeedbackCreateFiles = builder.prismaUpdateRelation("Feedback", "files", {
@@ -35,7 +37,7 @@ let FeedbackMutation = class FeedbackMutation {
         });
         this.FeedbackUpdate = builder.prismaUpdate("Feedback", {
             fields: {
-                status: "FeedbackStatus",
+                status: FeedbackStatus,
                 assigneeId: "String",
             },
         });
@@ -140,6 +142,7 @@ exports.FeedbackMutation = FeedbackMutation = __decorate([
     __metadata("design:paramtypes", [builder_service_1.SchemaBuilderService,
         prisma_service_1.PrismaService,
         subscription_service_1.SubscriptionService,
+        object_service_1.FeedbackObject,
         query_service_2.FeedbackQuery,
         query_service_1.FileQuery])
 ], FeedbackMutation);
