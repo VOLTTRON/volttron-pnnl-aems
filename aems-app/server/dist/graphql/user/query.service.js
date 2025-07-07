@@ -15,6 +15,7 @@ const object_service_1 = require("./object.service");
 const builder_service_1 = require("../builder.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const graphql_1 = require("graphql");
 let UserQuery = class UserQuery {
     constructor(builder, prismaService, userObject) {
         const { StringFilter, DateTimeFilter, PagingInput } = builder;
@@ -60,6 +61,9 @@ let UserQuery = class UserQuery {
                 updatedAt: true,
             },
         });
+        builder.addScalarType("UserGroupBy", new graphql_1.GraphQLScalarType({
+            name: "UserGroupBy",
+        }));
         const { UserWhere, UserWhereUnique, UserOrderBy, UserAggregate } = this;
         builder.queryField("pageUser", (t) => t.prismaConnection({
             description: "Paginate through multiple users.",

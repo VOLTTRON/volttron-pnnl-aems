@@ -16,11 +16,15 @@ const object_service_1 = require("./object.service");
 const query_service_1 = require("../user/query.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const graphql_1 = require("graphql");
 let FeedbackQuery = class FeedbackQuery {
     constructor(builder, prismaService, feedbackObject, userQuery) {
         const { DateTimeFilter, PagingInput, StringFilter } = builder;
         const { FeedbackFields } = feedbackObject;
         const { UserWhereUnique } = userQuery;
+        this.FeedbackStatusFilter = builder.prismaFilter("FeedbackStatus", {
+            ops: ["equals", "not", "in", "mode"],
+        });
         this.FeedbackWhereUnique = builder.prismaWhereUnique("Feedback", {
             fields: {
                 id: "String",
@@ -33,6 +37,7 @@ let FeedbackQuery = class FeedbackQuery {
                 NOT: true,
                 id: StringFilter,
                 message: StringFilter,
+                status: this.FeedbackStatusFilter,
                 createdAt: DateTimeFilter,
                 updatedAt: DateTimeFilter,
                 userId: StringFilter,
@@ -57,6 +62,9 @@ let FeedbackQuery = class FeedbackQuery {
                 sum: t.field({ type: [FeedbackFields] }),
             }),
         });
+        builder.addScalarType("FeedbackGroupBy", new graphql_1.GraphQLScalarType({
+            name: "FeedbackGroupBy",
+        }));
         const { FeedbackWhere, FeedbackWhereUnique, FeedbackOrderBy, FeedbackAggregate } = this;
         builder.queryField("pageFeedback", (t) => t.prismaConnection({
             description: "Paginate through multiple feedback.",

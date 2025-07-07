@@ -18,14 +18,12 @@ export type Scalars = {
   BannerGroupBy: { input: PrismaJson.BannerGroupBy; output: PrismaJson.BannerGroupBy; }
   CommentGroupBy: { input: PrismaJson.CommentGroupBy; output: PrismaJson.CommentGroupBy; }
   DateTime: { input: string; output: string; }
-  EventPayload: { input: PrismaJson.EventPayload; output: PrismaJson.EventPayload; }
   FeedbackGroupBy: { input: PrismaJson.FeedbackGroupBy; output: PrismaJson.FeedbackGroupBy; }
   FileGroupBy: { input: PrismaJson.FileGroupBy; output: PrismaJson.FileGroupBy; }
   GeographyGeoJson: { input: PrismaJson.GeographyGeoJson; output: PrismaJson.GeographyGeoJson; }
   GeographyGroupBy: { input: PrismaJson.GeographyGroupBy; output: PrismaJson.GeographyGroupBy; }
   Json: { input: any; output: any; }
   LogGroupBy: { input: PrismaJson.LogGroupBy; output: PrismaJson.LogGroupBy; }
-  SessionData: { input: PrismaJson.SessionData; output: PrismaJson.SessionData; }
   UserGroupBy: { input: PrismaJson.UserGroupBy; output: PrismaJson.UserGroupBy; }
   UserPreferences: { input: PrismaJson.UserPreferences; output: PrismaJson.UserPreferences; }
 };
@@ -342,6 +340,7 @@ export type FeedbackFilter = {
   createdAt?: InputMaybe<DateTimeFilter>;
   id?: InputMaybe<StringFilter>;
   message?: InputMaybe<StringFilter>;
+  status?: InputMaybe<FeedbackStatusFilter>;
   updatedAt?: InputMaybe<DateTimeFilter>;
   user?: InputMaybe<UserUniqueFilter>;
   userId?: InputMaybe<StringFilter>;

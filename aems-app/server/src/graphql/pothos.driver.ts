@@ -21,7 +21,7 @@ export class PothosApolloDriver extends ApolloDriver {
     super(modulesContainer);
   }
 
-  start(options: GqlModuleOptions<any>): Promise<void> {
+  async start(options: GqlModuleOptions<any>): Promise<void> {
     let schemaBuilder: InstanceWrapper<SchemaBuilderService> | undefined;
     for (const module of this.modulesContainer.values()) {
       for (const provider of module.providers.values()) {
@@ -37,7 +37,7 @@ export class PothosApolloDriver extends ApolloDriver {
     if (!schemaBuilder) {
       throw Error("Unable to find SchemaBuilderService");
     }
-    this.schema = schemaBuilder.instance.toSchema();
+    this.schema = await schemaBuilder.instance.awaitSchema();
     this.logger.log("GraphQL schema loaded");
     this.printSchema();
     return super.start({

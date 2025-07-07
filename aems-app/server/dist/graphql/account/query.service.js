@@ -16,6 +16,7 @@ const object_service_1 = require("./object.service");
 const query_service_1 = require("../user/query.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const graphql_1 = require("graphql");
 let AccountQuery = class AccountQuery {
     constructor(builder, prismaService, accountObject, userQuery) {
         const { StringFilter, DateTimeFilter, PagingInput } = builder;
@@ -60,6 +61,9 @@ let AccountQuery = class AccountQuery {
                 user: UserOrderBy,
             },
         });
+        builder.addScalarType("AccountGroupBy", new graphql_1.GraphQLScalarType({
+            name: "AccountGroupBy",
+        }));
         const { AccountWhere, AccountWhereUnique, AccountOrderBy, AccountAggregate } = this;
         builder.queryField("pageAccount", (t) => t.prismaConnection({
             description: "Paginate through multiple accounts.",
@@ -174,8 +178,7 @@ let AccountQuery = class AccountQuery {
                     delete where.user;
                     where.userId = ctx.user?.id;
                 }
-                return prismaService.prisma.account
-                    .groupBy({
+                return prismaService.prisma.account.groupBy({
                     by: args.by ?? [],
                     ...builder_service_1.SchemaBuilderService.aggregateToGroupBy(args.aggregate),
                     where: where,

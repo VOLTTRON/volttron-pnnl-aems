@@ -71,70 +71,6 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
         this.Json = this.addScalarType("Json", new graphql_1.GraphQLScalarType({
             name: "Json",
         }));
-        this.UserPreferences = this.addScalarType("UserPreferences", new graphql_1.GraphQLScalarType({
-            name: "UserPreferences",
-        }));
-        this.SessionData = this.addScalarType("SessionData", new graphql_1.GraphQLScalarType({ name: "SessionData" }));
-        this.EventPayload = this.addScalarType("EventPayload", new graphql_1.GraphQLScalarType({
-            name: "EventPayload",
-        }));
-        this.GeographyGeoJson = this.addScalarType("GeographyGeoJson", new graphql_1.GraphQLScalarType({
-            name: "GeographyGeoJson",
-        }));
-        this.ChangeData = this.addScalarType("ChangeData", new graphql_1.GraphQLScalarType({
-            name: "ChangeData",
-        }));
-        this.addScalarType("AccountGroupBy", new graphql_1.GraphQLScalarType({
-            name: "AccountGroupBy",
-        }));
-        this.addScalarType("BannerGroupBy", new graphql_1.GraphQLScalarType({
-            name: "BannerGroupBy",
-        }));
-        this.addScalarType("CommentGroupBy", new graphql_1.GraphQLScalarType({
-            name: "CommentGroupBy",
-        }));
-        this.addScalarType("FeedbackGroupBy", new graphql_1.GraphQLScalarType({
-            name: "FeedbackGroupBy",
-        }));
-        this.addScalarType("FileGroupBy", new graphql_1.GraphQLScalarType({
-            name: "FileGroupBy",
-        }));
-        this.addScalarType("GeographyGroupBy", new graphql_1.GraphQLScalarType({
-            name: "GeographyGroupBy",
-        }));
-        this.addScalarType("LogGroupBy", new graphql_1.GraphQLScalarType({
-            name: "LogGroupBy",
-        }));
-        this.addScalarType("UserGroupBy", new graphql_1.GraphQLScalarType({
-            name: "UserGroupBy",
-        }));
-        this.addScalarType("ChangeGroupBy", new graphql_1.GraphQLScalarType({
-            name: "ChangeGroupBy",
-        }));
-        this.addScalarType("LocationGroupBy", new graphql_1.GraphQLScalarType({
-            name: "LocationGroupBy",
-        }));
-        this.addScalarType("SetpointGroupBy", new graphql_1.GraphQLScalarType({
-            name: "SetpointGroupBy",
-        }));
-        this.addScalarType("ControlGroupBy", new graphql_1.GraphQLScalarType({
-            name: "ControlGroupBy",
-        }));
-        this.addScalarType("HolidayGroupBy", new graphql_1.GraphQLScalarType({
-            name: "HolidayGroupBy",
-        }));
-        this.addScalarType("ScheduleGroupBy", new graphql_1.GraphQLScalarType({
-            name: "ScheduleGroupBy",
-        }));
-        this.addScalarType("ConfigurationGroupBy", new graphql_1.GraphQLScalarType({
-            name: "ConfigurationGroupBy",
-        }));
-        this.addScalarType("UnitGroupBy", new graphql_1.GraphQLScalarType({
-            name: "UnitGroupBy",
-        }));
-        this.addScalarType("OccupancyGroupBy", new graphql_1.GraphQLScalarType({
-            name: "OccupancyGroupBy",
-        }));
         this.queryType({});
         this.mutationType({});
         this.subscriptionType({});
@@ -153,12 +89,6 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
         this.DateTimeFilter = this.prismaFilter("DateTime", {
             ops: ["contains", "equals", "gt", "gte", "lt", "lte", "not", "in", "mode"],
         });
-        this.LogTypeFilter = this.prismaFilter("LogType", {
-            ops: ["equals", "not", "in", "mode"],
-        });
-        this.FeedbackStatusFilter = this.prismaFilter("FeedbackStatus", {
-            ops: ["equals", "not", "in", "mode"],
-        });
         this.PagingInput = this.inputType("PagingInput", {
             fields: (t) => ({
                 skip: t.int({ required: true }),
@@ -171,7 +101,7 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
     }
     awaitSchema() {
         if (this.initialized) {
-            return super.toSchema();
+            return Promise.resolve(super.toSchema());
         }
         else {
             const controller = new AbortController();

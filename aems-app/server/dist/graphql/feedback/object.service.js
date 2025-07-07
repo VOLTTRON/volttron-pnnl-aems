@@ -16,7 +16,9 @@ const builder_service_1 = require("../builder.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 let FeedbackObject = class FeedbackObject {
     constructor(builder) {
-        this.FeedbackStatus = builder.enumType("FeedbackStatus", { values: Object.values(client_1.FeedbackStatus) });
+        this.FeedbackStatus = builder.enumType("FeedbackStatus", {
+            values: Object.values(client_1.FeedbackStatus),
+        });
         this.FeedbackObject = builder.prismaObject("Feedback", {
             authScopes: { user: true },
             fields: (t) => ({

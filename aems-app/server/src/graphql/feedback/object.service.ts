@@ -11,7 +11,9 @@ export class FeedbackObject {
   readonly FeedbackFields;
 
   constructor(builder: SchemaBuilderService) {
-    this.FeedbackStatus = builder.enumType("FeedbackStatus", { values: Object.values(FeedbackStatus) });
+    this.FeedbackStatus = builder.enumType("FeedbackStatus", {
+      values: Object.values(FeedbackStatus),
+    });
 
     this.FeedbackObject = builder.prismaObject("Feedback", {
       authScopes: { user: true },

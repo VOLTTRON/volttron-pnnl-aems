@@ -15,6 +15,7 @@ const builder_service_1 = require("../builder.service");
 const object_service_1 = require("./object.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const graphql_1 = require("graphql");
 let BannerQuery = class BannerQuery {
     constructor(builder, prismaService, bannerObject) {
         const { StringFilter, DateTimeFilter, PagingInput } = builder;
@@ -54,6 +55,9 @@ let BannerQuery = class BannerQuery {
                 sum: t.field({ type: [BannerFields] }),
             }),
         });
+        builder.addScalarType("BannerGroupBy", new graphql_1.GraphQLScalarType({
+            name: "BannerGroupBy",
+        }));
         const { BannerWhere, BannerWhereUnique, BannerOrderBy, BannerAggregate } = this;
         builder.queryField("pageBanner", (t) => t.prismaConnection({
             description: "Paginate through multiple banners.",
@@ -143,11 +147,13 @@ let BannerQuery = class BannerQuery {
                 subscriptions.register("Banner");
             },
             resolve: async (_root, args, _ctx, _info) => {
-                return prismaService.prisma.banner.groupBy({
+                return prismaService.prisma.banner
+                    .groupBy({
                     by: args.by ?? [],
                     ...builder_service_1.SchemaBuilderService.aggregateToGroupBy(args.aggregate),
                     where: args.where ?? {},
-                }).then((result) => result);
+                })
+                    .then((result) => result);
             },
         }));
     }

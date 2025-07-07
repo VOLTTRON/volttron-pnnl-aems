@@ -5,6 +5,7 @@ import { Mutation } from "@local/common";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { LogObject } from "./object.service";
 
 @Injectable()
 @PothosMutation()
@@ -16,20 +17,22 @@ export class LogMutation {
     builder: SchemaBuilderService,
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
+    logObject: LogObject,
     logQuery: LogQuery,
   ) {
+    const { LogType } = logObject;
     const { LogWhereUnique } = logQuery;
 
     this.LogCreate = builder.prismaCreate("Log", {
       fields: {
-        type: builder.LogType,
+        type: LogType,
         message: "String",
       },
     });
 
     this.LogUpdate = builder.prismaUpdate("Log", {
       fields: {
-        type: builder.LogType,
+        type: LogType,
         message: "String",
       },
     });

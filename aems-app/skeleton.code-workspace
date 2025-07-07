@@ -33,7 +33,7 @@
       "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
     "[dockercompose]": {
-      "editor.defaultFormatter": "ms-azuretools.vscode-docker"
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
     "[typescriptreact]": {
       "editor.defaultFormatter": "esbenp.prettier-vscode"
@@ -62,7 +62,8 @@
       "**/coverage": true,
       "**/.next": true,
       "**/.swc": true,
-      "**/.yarn": true
+      "**/.yarn": true,
+      "**/yarn.lock": true
     },
     "prettier.tabWidth": 2,
     "prettier.printWidth": 120,

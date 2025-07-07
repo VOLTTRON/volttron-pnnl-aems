@@ -6,6 +6,8 @@ import { Geography } from "@prisma/client";
 import { typeofNonNullable } from "@local/common";
 import { pick } from "lodash";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -61,6 +63,13 @@ export class GeographyQuery {
         updatedAt: true,
       },
     });
+
+    builder.addScalarType(
+      "GeographyGroupBy",
+      new GraphQLScalarType<Scalars["GeographyGroupBy"]["Input"], Scalars["GeographyGroupBy"]["Output"]>({
+        name: "GeographyGroupBy",
+      }),
+    );
 
     const { GeographyWhere, GeographyWhereUnique, GeographyOrderBy, GeographyAggregate } = this;
 

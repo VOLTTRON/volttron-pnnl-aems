@@ -4,6 +4,8 @@ import { AccountObject } from "./object.service";
 import { UserQuery } from "../user/query.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -65,6 +67,13 @@ export class AccountQuery {
         user: UserOrderBy,
       },
     });
+
+    builder.addScalarType(
+      "AccountGroupBy",
+      new GraphQLScalarType<Scalars["AccountGroupBy"]["Input"], Scalars["AccountGroupBy"]["Output"]>({
+        name: "AccountGroupBy",
+      }),
+    );
 
     const { AccountWhere, AccountWhereUnique, AccountOrderBy, AccountAggregate } = this;
 
@@ -194,12 +203,11 @@ export class AccountQuery {
             delete where.user;
             where.userId = ctx.user?.id;
           }
-          return prismaService.prisma.account
-            .groupBy({
-              by: args.by ?? [],
-              ...SchemaBuilderService.aggregateToGroupBy(args.aggregate),
-              where: where,
-            });
+          return prismaService.prisma.account.groupBy({
+            by: args.by ?? [],
+            ...SchemaBuilderService.aggregateToGroupBy(args.aggregate),
+            where: where,
+          });
         },
       }),
     );

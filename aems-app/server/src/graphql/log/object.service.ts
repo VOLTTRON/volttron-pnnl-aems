@@ -1,4 +1,4 @@
-import { LogType, Prisma } from "@prisma/client";
+import { Prisma, LogType } from "@prisma/client";
 import { Injectable } from "@nestjs/common";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosObject } from "../pothos.decorator";
@@ -11,13 +11,16 @@ export class LogObject {
   readonly LogFields;
 
   constructor(builder: SchemaBuilderService) {
-    this.LogType = builder.enumType("LogType", { values: Object.values(LogType) });
+    this.LogType = builder.enumType("LogType", {
+      values: Object.values(LogType),
+    });
 
     this.LogObject = builder.prismaObject("Log", {
       authScopes: { admin: true },
       subscribe: (subscriptions, log, _context, _info) => {
         subscriptions.register(`Log/${log.id}`);
       },
+
       fields: (t) => ({
         // key
         id: t.exposeString("id"),

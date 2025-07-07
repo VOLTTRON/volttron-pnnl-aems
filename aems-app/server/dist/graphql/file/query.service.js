@@ -16,6 +16,7 @@ const object_service_1 = require("./object.service");
 const query_service_1 = require("../user/query.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const graphql_1 = require("graphql");
 let FileQuery = class FileQuery {
     constructor(builder, prismaService, fileObject, userQuery) {
         const { StringFilter, PagingInput } = builder;
@@ -53,6 +54,9 @@ let FileQuery = class FileQuery {
                 sum: t.field({ type: [FileFields] }),
             }),
         });
+        builder.addScalarType("FileGroupBy", new graphql_1.GraphQLScalarType({
+            name: "FileGroupBy",
+        }));
         const { FileWhere, FileWhereUnique, FileOrderBy, FileAggregate } = this;
         builder.queryField("pageFile", (t) => t.prismaConnection({
             description: "Paginate through multiple files.",

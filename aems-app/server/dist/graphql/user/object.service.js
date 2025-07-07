@@ -15,8 +15,12 @@ const lodash_1 = require("lodash");
 const common_1 = require("@nestjs/common");
 const builder_service_1 = require("../builder.service");
 const pothos_decorator_1 = require("../pothos.decorator");
+const graphql_1 = require("graphql");
 let UserObject = class UserObject {
     constructor(builder) {
+        this.UserPreferences = builder.addScalarType("UserPreferences", new graphql_1.GraphQLScalarType({
+            name: "UserPreferences",
+        }));
         this.UserObject = builder.prismaObject("User", {
             authScopes: { user: true },
             subscribe(subscriptions, parent, _context, _info) {
@@ -29,7 +33,7 @@ let UserObject = class UserObject {
                 image: t.exposeString("image", { nullable: true }),
                 emailVerified: t.expose("emailVerified", { type: builder.DateTime, nullable: true }),
                 role: t.exposeString("role", { nullable: true }),
-                preferences: t.expose("preferences", { type: builder.UserPreferences, nullable: true }),
+                preferences: t.expose("preferences", { type: this.UserPreferences, nullable: true }),
                 createdAt: t.expose("createdAt", { type: builder.DateTime }),
                 updatedAt: t.expose("updatedAt", { type: builder.DateTime }),
                 comments: t.relation("comments", { nullable: true }),

@@ -4,10 +4,13 @@ import { FeedbackObject } from "./object.service";
 import { UserQuery } from "../user/query.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
 export class FeedbackQuery {
+  readonly FeedbackStatusFilter;
   readonly FeedbackWhereUnique;
   readonly FeedbackWhere;
   readonly FeedbackOrderBy;
@@ -23,6 +26,10 @@ export class FeedbackQuery {
     const { FeedbackFields } = feedbackObject;
     const { UserWhereUnique } = userQuery;
 
+    this.FeedbackStatusFilter = builder.prismaFilter("FeedbackStatus", {
+      ops: ["equals", "not", "in", "mode"],
+    });
+
     this.FeedbackWhereUnique = builder.prismaWhereUnique("Feedback", {
       fields: {
         id: "String",
@@ -36,6 +43,7 @@ export class FeedbackQuery {
         NOT: true,
         id: StringFilter,
         message: StringFilter,
+        status: this.FeedbackStatusFilter,
         createdAt: DateTimeFilter,
         updatedAt: DateTimeFilter,
         userId: StringFilter,
@@ -62,6 +70,13 @@ export class FeedbackQuery {
         sum: t.field({ type: [FeedbackFields] }),
       }),
     });
+
+    builder.addScalarType(
+      "FeedbackGroupBy",
+      new GraphQLScalarType<Scalars["FeedbackGroupBy"]["Input"], Scalars["FeedbackGroupBy"]["Output"]>({
+        name: "FeedbackGroupBy",
+      }),
+    );
 
     const { FeedbackWhere, FeedbackWhereUnique, FeedbackOrderBy, FeedbackAggregate } = this;
 

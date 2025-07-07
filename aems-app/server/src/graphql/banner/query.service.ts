@@ -3,6 +3,8 @@ import { SchemaBuilderService } from "../builder.service";
 import { BannerObject } from "./object.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -54,6 +56,13 @@ export class BannerQuery {
         sum: t.field({ type: [BannerFields] }),
       }),
     });
+
+    builder.addScalarType(
+      "BannerGroupBy",
+      new GraphQLScalarType<Scalars["BannerGroupBy"]["Input"], Scalars["BannerGroupBy"]["Output"]>({
+        name: "BannerGroupBy",
+      }),
+    );
 
     const { BannerWhere, BannerWhereUnique, BannerOrderBy, BannerAggregate } = this;
 
@@ -158,11 +167,13 @@ export class BannerQuery {
           subscriptions.register("Banner");
         },
         resolve: async (_root, args, _ctx, _info) => {
-          return prismaService.prisma.banner.groupBy({
-            by: args.by ?? [],
-            ...SchemaBuilderService.aggregateToGroupBy(args.aggregate),
-            where: args.where ?? {},
-          }).then((result) => result as PrismaJson.BannerGroupBy[]);
+          return prismaService.prisma.banner
+            .groupBy({
+              by: args.by ?? [],
+              ...SchemaBuilderService.aggregateToGroupBy(args.aggregate),
+              where: args.where ?? {},
+            })
+            .then((result) => result as PrismaJson.BannerGroupBy[]);
         },
       }),
     );

@@ -16,7 +16,9 @@ const builder_service_1 = require("../builder.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 let LogObject = class LogObject {
     constructor(builder) {
-        this.LogType = builder.enumType("LogType", { values: Object.values(client_1.LogType) });
+        this.LogType = builder.enumType("LogType", {
+            values: Object.values(client_1.LogType),
+        });
         this.LogObject = builder.prismaObject("Log", {
             authScopes: { admin: true },
             subscribe: (subscriptions, log, _context, _info) => {

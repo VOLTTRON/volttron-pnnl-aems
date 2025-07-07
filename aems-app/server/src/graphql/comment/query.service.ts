@@ -4,6 +4,8 @@ import { CommentObject } from "./object.service";
 import { UserQuery } from "../user/query.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -63,6 +65,13 @@ export class CommentQuery {
         sum: t.field({ type: [CommentFields] }),
       }),
     });
+
+    builder.addScalarType(
+      "CommentGroupBy",
+      new GraphQLScalarType<Scalars["CommentGroupBy"]["Input"], Scalars["CommentGroupBy"]["Output"]>({
+        name: "CommentGroupBy",
+      }),
+    );
 
     const { CommentWhere, CommentWhereUnique, CommentOrderBy, CommentAggregate } = this;
 

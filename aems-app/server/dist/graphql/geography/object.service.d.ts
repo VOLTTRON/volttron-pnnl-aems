@@ -1,11 +1,18 @@
 import { Prisma } from "@prisma/client";
 import { SchemaBuilderService } from "../builder.service";
+import { Scalars } from "..";
 export declare class GeographyObject {
+    readonly GeographyGeoJson: PothosSchemaTypes.ScalarRef<PothosSchemaTypes.ExtendDefaultTypes<{
+        Context: import("..").Context;
+        AuthScopes: import("../../auth").AuthRoles;
+        PrismaTypes: import("@local/prisma/dist/pothos").default;
+        Scalars: Scalars;
+    }>, PrismaJson.GeographyGeoJson, PrismaJson.GeographyGeoJson, PrismaJson.GeographyGeoJson>;
     readonly GeographyObject: import("@pothos/plugin-prisma").PrismaObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
-        Scalars: import("..").Scalars;
+        Scalars: Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Geography";
         Shape: import(".prisma/client").Geography;
@@ -32,7 +39,7 @@ export declare class GeographyObject {
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
-        Scalars: import("..").Scalars;
+        Scalars: Scalars;
     }>, "name" | "id" | "createdAt" | "updatedAt" | "type" | "group" | "geojson", "name" | "id" | "createdAt" | "updatedAt" | "type" | "group" | "geojson">;
     constructor(builder: SchemaBuilderService);
 }

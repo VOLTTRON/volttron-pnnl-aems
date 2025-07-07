@@ -1,11 +1,18 @@
 import { Prisma } from "@prisma/client";
 import { SchemaBuilderService } from "../builder.service";
+import { Scalars } from "..";
 export declare class UserObject {
+    readonly UserPreferences: PothosSchemaTypes.ScalarRef<PothosSchemaTypes.ExtendDefaultTypes<{
+        Context: import("..").Context;
+        AuthScopes: import("../../auth").AuthRoles;
+        PrismaTypes: import("@local/prisma/dist/pothos").default;
+        Scalars: Scalars;
+    }>, Partial<import("@local/prisma").Preferences>, Partial<import("@local/prisma").Preferences>, Partial<import("@local/prisma").Preferences>>;
     readonly UserObject: import("@pothos/plugin-prisma").PrismaObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
-        Scalars: import("..").Scalars;
+        Scalars: Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "User";
         Shape: import(".prisma/client").User;
@@ -76,7 +83,7 @@ export declare class UserObject {
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
-        Scalars: import("..").Scalars;
+        Scalars: Scalars;
     }>, "name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt", "name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt">;
     constructor(builder: SchemaBuilderService);
 }

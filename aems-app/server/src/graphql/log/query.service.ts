@@ -3,18 +3,25 @@ import { SchemaBuilderService } from "../builder.service";
 import { LogObject } from "./object.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
 export class LogQuery {
+  readonly LogTypeFilter;
   readonly LogWhereUnique;
   readonly LogWhere;
   readonly LogOrderBy;
   readonly LogAggregate;
 
   constructor(builder: SchemaBuilderService, prismaService: PrismaService, logObject: LogObject) {
-    const { StringFilter, DateTimeFilter, LogTypeFilter, PagingInput } = builder;
+    const { StringFilter, DateTimeFilter, PagingInput } = builder;
     const { LogFields } = logObject;
+
+    this.LogTypeFilter = builder.prismaFilter("LogType", {
+      ops: ["equals", "not", "in", "mode"],
+    });
 
     this.LogWhereUnique = builder.prismaWhereUnique("Log", {
       fields: {
@@ -28,7 +35,7 @@ export class LogQuery {
         AND: true,
         NOT: true,
         id: StringFilter,
-        type: LogTypeFilter,
+        type: this.LogTypeFilter,
         message: StringFilter,
         createdAt: DateTimeFilter,
         updatedAt: DateTimeFilter,
@@ -54,6 +61,13 @@ export class LogQuery {
         sum: t.field({ type: [LogFields] }),
       }),
     });
+
+    builder.addScalarType(
+      "LogGroupBy",
+      new GraphQLScalarType<Scalars["LogGroupBy"]["Input"], Scalars["LogGroupBy"]["Output"]>({
+        name: "LogGroupBy",
+      }),
+    );
 
     const { LogWhere, LogWhereUnique, LogOrderBy, LogAggregate } = this;
 

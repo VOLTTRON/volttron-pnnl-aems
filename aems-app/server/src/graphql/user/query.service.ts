@@ -3,6 +3,8 @@ import { UserObject } from "./object.service";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
+import { GraphQLScalarType } from "graphql";
+import { Scalars } from "..";
 
 @Injectable()
 @PothosQuery()
@@ -60,6 +62,13 @@ export class UserQuery {
         updatedAt: true,
       },
     });
+
+    builder.addScalarType(
+      "UserGroupBy",
+      new GraphQLScalarType<Scalars["UserGroupBy"]["Input"], Scalars["UserGroupBy"]["Output"]>({
+        name: "UserGroupBy",
+      }),
+    );
 
     const { UserWhere, UserWhereUnique, UserOrderBy, UserAggregate } = this;
 

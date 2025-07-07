@@ -18,6 +18,7 @@ const pothos_decorator_1 = require("../pothos.decorator");
 const common_2 = require("@local/common");
 const lodash_1 = require("lodash");
 const prisma_service_1 = require("../../prisma/prisma.service");
+const graphql_1 = require("graphql");
 let GeographyQuery = GeographyQuery_1 = class GeographyQuery {
     constructor(builder, prismaService, geographyObject) {
         this.logger = new common_1.Logger(GeographyQuery_1.name);
@@ -60,6 +61,9 @@ let GeographyQuery = GeographyQuery_1 = class GeographyQuery {
                 updatedAt: true,
             },
         });
+        builder.addScalarType("GeographyGroupBy", new graphql_1.GraphQLScalarType({
+            name: "GeographyGroupBy",
+        }));
         const { GeographyWhere, GeographyWhereUnique, GeographyOrderBy, GeographyAggregate } = this;
         builder.queryField("areaGeographies", (t) => t.prismaField({
             description: "Read a list of geographies at a specific location.",
