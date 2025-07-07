@@ -1,18 +1,20 @@
-query ReadControl($where: ControlWhereUnique!) {
+query ReadControl($where: ControlUniqueFilter!) {
   readControl(where: $where) {
     id
     label
     stage
     message
     correlation
-    unitId
     createdAt
     updatedAt
+    units {
+      id
+    }
   }
 }
 
 query ReadControls(
-  $where: ControlWhere
+  $where: ControlFilter
   $paging: PagingInput
   $orderBy: [ControlOrderBy!]
   $distinct: [ControlFields!]
@@ -23,66 +25,64 @@ query ReadControls(
     stage
     message
     correlation
-    unitId
     createdAt
     updatedAt
+    units {
+      id
+    }
   }
 }
 
-mutation CreateControl($input: CreateControlInput!) {
-  createControl(input: $input) {
+mutation CreateControl($create: ControlCreateInput!) {
+  createControl(create: $create) {
     id
     label
     stage
     message
     correlation
-    unitId
     createdAt
     updatedAt
   }
 }
 
-mutation UpdateControl($input: UpdateControlInput!) {
-  updateControl(input: $input) {
+mutation UpdateControl($where: ControlUniqueFilter!, $update: ControlUpdateInput!) {
+  updateControl(where: $where, update: $update) {
     id
     label
     stage
     message
     correlation
-    unitId
     createdAt
     updatedAt
   }
 }
 
-mutation DeleteControl($where: ControlWhereUnique!) {
+mutation DeleteControl($where: ControlUniqueFilter!) {
   deleteControl(where: $where) {
     id
     label
     stage
     message
     correlation
-    unitId
     createdAt
     updatedAt
   }
 }
 
-subscription SubscribeControl($where: ControlWhereUnique!) {
+subscription SubscribeControl($where: ControlUniqueFilter!) {
   readControl(where: $where) {
     id
     label
     stage
     message
     correlation
-    unitId
     createdAt
     updatedAt
   }
 }
 
 subscription SubscribeControls(
-  $where: ControlWhere
+  $where: ControlFilter
   $paging: PagingInput
   $orderBy: [ControlOrderBy!]
   $distinct: [ControlFields!]
@@ -93,8 +93,10 @@ subscription SubscribeControls(
     stage
     message
     correlation
-    unitId
     createdAt
     updatedAt
+    units {
+      id
+    }
   }
 }

@@ -1,4 +1,4 @@
-query ReadUnit($where: UnitWhereUnique!) {
+query ReadUnit($where: UnitUniqueFilter!) {
   readUnit(where: $where) {
     id
     name
@@ -78,7 +78,7 @@ query ReadUnit($where: UnitWhereUnique!) {
   }
 }
 
-query ReadUnits($where: UnitWhere, $paging: PagingInput, $orderBy: [UnitOrderBy!], $distinct: [UnitFields!]) {
+query ReadUnits($where: UnitFilter, $paging: PagingInput, $orderBy: [UnitOrderBy!], $distinct: [UnitFields!]) {
   readUnits(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
     id
     name
@@ -158,8 +158,8 @@ query ReadUnits($where: UnitWhere, $paging: PagingInput, $orderBy: [UnitOrderBy!
   }
 }
 
-mutation CreateUnit($input: CreateUnitInput!) {
-  createUnit(input: $input) {
+mutation CreateUnit($create: UnitCreateInput!) {
+  createUnit(create: $create) {
     id
     name
     campus
@@ -197,8 +197,8 @@ mutation CreateUnit($input: CreateUnitInput!) {
   }
 }
 
-mutation UpdateUnit($where: UnitWhereUnique!, $input: UpdateUnitInput!) {
-  updateUnit(where: $where, input: $input) {
+mutation UpdateUnit($where: UnitUniqueFilter!, $update: UnitUpdateInput!) {
+  updateUnit(where: $where, update: $update) {
     id
     name
     campus
@@ -236,13 +236,13 @@ mutation UpdateUnit($where: UnitWhereUnique!, $input: UpdateUnitInput!) {
   }
 }
 
-mutation DeleteUnit($where: UnitWhereUnique!) {
+mutation DeleteUnit($where: UnitUniqueFilter!) {
   deleteUnit(where: $where) {
     id
   }
 }
 
-subscription SubscribeUnit($where: UnitWhereUnique!) {
+subscription SubscribeUnit($where: UnitUniqueFilter!) {
   readUnit(where: $where) {
     id
     name
@@ -323,7 +323,7 @@ subscription SubscribeUnit($where: UnitWhereUnique!) {
 }
 
 subscription SubscribeUnits(
-  $where: UnitWhere
+  $where: UnitFilter
   $paging: PagingInput
   $orderBy: [UnitOrderBy!]
   $distinct: [UnitFields!]

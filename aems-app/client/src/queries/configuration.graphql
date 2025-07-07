@@ -1,13 +1,15 @@
-query ReadConfiguration($where: ConfigurationWhereUnique!) {
+query ReadConfiguration($where: ConfigurationUniqueFilter!) {
   readConfiguration(where: $where) {
     id
     label
     stage
     message
     correlation
-    unitId
     createdAt
     updatedAt
+    units {
+      id
+    }
     setpoint {
       id
       label
@@ -23,20 +25,6 @@ query ReadConfiguration($where: ConfigurationWhereUnique!) {
       month
       day
       observance
-    }
-    schedules {
-      id
-      label
-      startTime
-      endTime
-      occupied
-      monday
-      tuesday
-      wednesday
-      thursday
-      friday
-      saturday
-      sunday
     }
     occupancies {
       id
@@ -54,7 +42,7 @@ query ReadConfiguration($where: ConfigurationWhereUnique!) {
 }
 
 query ReadConfigurations(
-  $where: ConfigurationWhere
+  $where: ConfigurationFilter
   $paging: PagingInput
   $orderBy: [ConfigurationOrderBy!]
   $distinct: [ConfigurationFields!]
@@ -65,9 +53,11 @@ query ReadConfigurations(
     stage
     message
     correlation
-    unitId
     createdAt
     updatedAt
+    units {
+      id
+    }
     setpoint {
       id
       label
@@ -83,20 +73,6 @@ query ReadConfigurations(
       month
       day
       observance
-    }
-    schedules {
-      id
-      label
-      startTime
-      endTime
-      occupied
-      monday
-      tuesday
-      wednesday
-      thursday
-      friday
-      saturday
-      sunday
     }
     occupancies {
       id
@@ -122,7 +98,7 @@ mutation CreateConfiguration($create: ConfigurationCreateInput!) {
   }
 }
 
-mutation UpdateConfiguration($where: ConfigurationWhereUnique!, $update: ConfigurationUpdateInput!) {
+mutation UpdateConfiguration($where: ConfigurationUniqueFilter!, $update: ConfigurationUpdateInput!) {
   updateConfiguration(where: $where, update: $update) {
     id
     label
@@ -131,22 +107,24 @@ mutation UpdateConfiguration($where: ConfigurationWhereUnique!, $update: Configu
   }
 }
 
-mutation DeleteConfiguration($where: ConfigurationWhereUnique!) {
+mutation DeleteConfiguration($where: ConfigurationUniqueFilter!) {
   deleteConfiguration(where: $where) {
     id
   }
 }
 
-subscription SubscribeConfiguration($where: ConfigurationWhereUnique!) {
+subscription SubscribeConfiguration($where: ConfigurationUniqueFilter!) {
   readConfiguration(where: $where) {
     id
     label
     stage
     message
     correlation
-    unitId
     createdAt
     updatedAt
+    units {
+      id
+    }
     setpoint {
       id
       label
@@ -162,20 +140,6 @@ subscription SubscribeConfiguration($where: ConfigurationWhereUnique!) {
       month
       day
       observance
-    }
-    schedules {
-      id
-      label
-      startTime
-      endTime
-      occupied
-      monday
-      tuesday
-      wednesday
-      thursday
-      friday
-      saturday
-      sunday
     }
     occupancies {
       id
@@ -193,7 +157,7 @@ subscription SubscribeConfiguration($where: ConfigurationWhereUnique!) {
 }
 
 subscription SubscribeConfigurations(
-  $where: ConfigurationWhere
+  $where: ConfigurationFilter
   $paging: PagingInput
   $orderBy: [ConfigurationOrderBy!]
   $distinct: [ConfigurationFields!]
@@ -204,9 +168,11 @@ subscription SubscribeConfigurations(
     stage
     message
     correlation
-    unitId
     createdAt
     updatedAt
+    units {
+      id
+    }
     setpoint {
       id
       label
@@ -222,20 +188,6 @@ subscription SubscribeConfigurations(
       month
       day
       observance
-    }
-    schedules {
-      id
-      label
-      startTime
-      endTime
-      occupied
-      monday
-      tuesday
-      wednesday
-      thursday
-      friday
-      saturday
-      sunday
     }
     occupancies {
       id
