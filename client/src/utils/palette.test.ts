@@ -6,10 +6,10 @@ import {
   PaletteScheme,
   PaletteColor,
   Palettes,
-  Color,
-  ColorType,
   allPalettes,
+  Color,
 } from "./palette";
+import { ColorType } from "@local/common";
 
 describe("Palette", () => {
   const palette = new Palette(
@@ -20,7 +20,7 @@ describe("Palette", () => {
     Color.parse("#0000EE"),
     Color.parse("#0000DD"),
     Color.parse("#0000CC"),
-    Color.parse("#0000BB")
+    Color.parse("#0000BB"),
   );
 
   it("should have the correct name", () => {
@@ -124,13 +124,13 @@ describe("Palettes", () => {
       "Rainbow",
       PaletteType.Custom,
       PaletteScheme.Qualitative,
-      new Color(Colors.RED3),
-      new Color(Colors.ORANGE3),
-      new Color(Colors.GOLD3),
-      new Color(Colors.GREEN3),
-      new Color(Colors.BLUE3),
-      new Color(Colors.INDIGO3),
-      new Color(Colors.VIOLET3)
+      new Color(Colors.RED3 as `#${string}`),
+      new Color(Colors.ORANGE3 as `#${string}`),
+      new Color(Colors.GOLD3 as `#${string}`),
+      new Color(Colors.GREEN3 as `#${string}`),
+      new Color(Colors.BLUE3 as `#${string}`),
+      new Color(Colors.INDIGO3 as `#${string}`),
+      new Color(Colors.VIOLET3 as `#${string}`),
     );
     palettes.addPalette(newPalette);
     expect(palettes.length).toEqual(allPalettes.length + 1);
@@ -216,7 +216,7 @@ describe("Color", () => {
   });
 
   it("should throw an error for invalid color values", () => {
-    expect(() => new Color("Invalid")).toThrow(new Error("Invalid color values"));
+    expect(() => new Color("Invalid" as any)).toThrow(new Error("Invalid color values"));
     expect(() => new Color("#GG0000")).toThrow(new Error("Invalid color values"));
   });
 

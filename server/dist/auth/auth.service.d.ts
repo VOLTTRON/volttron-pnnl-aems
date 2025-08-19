@@ -1,22 +1,24 @@
-import { PrismaService } from "@/prisma/prisma.service";
-import * as passport from "passport";
-import { Request, RequestHandler } from "express";
+import { OnModuleDestroy } from "@nestjs/common";
 import { AppConfigService } from "@/app.config";
 import { Credentials, ProviderInfo } from "@local/common";
-import { IncomingMessage } from "node:http";
-export declare const Session = "session";
-export declare class AuthService {
-    private prismaService;
+import { Provider } from "@auth/core/providers";
+export type ExpressProvider = ProviderInfo<Credentials> & {
+    validate(...args: unknown[]): unknown;
+};
+export type AuthjsProvider = ProviderInfo<Credentials> & {
+    create(): Provider;
+};
+export declare class AuthService implements OnModuleDestroy {
     private configService;
     private logger;
-    readonly passport: passport.PassportStatic;
-    readonly session: RequestHandler;
-    readonly providers: Map<string, ProviderInfo<Credentials>>;
-    constructor(prismaService: PrismaService, configService: AppConfigService);
-    serializeUser: (user: Express.User, done: (err: Error | null, id?: string) => void) => void;
-    deserializeUser: (id: string, done: (err: Error | null, user?: Express.User) => void) => void;
-    registerProvider: (provider: ProviderInfo<Credentials>) => void;
+    readonly providers: Map<string, ExpressProvider | AuthjsProvider>;
+    private subscribers;
+    constructor(configService: AppConfigService);
+    private notifySubscribers;
+    subscribe: (subscriber: (provider: ExpressProvider | AuthjsProvider) => void) => void;
+    unsubscribe: (subscriber: (provider: ExpressProvider | AuthjsProvider) => void) => void;
+    registerProvider: (provider: ExpressProvider | AuthjsProvider) => void;
     getProviderNames: () => string[];
-    getProvider: (name: string) => ProviderInfo<Credentials> | undefined;
-    getAuthUser: (req: Request | IncomingMessage) => Promise<Express.User | undefined>;
+    getProvider: (name: string) => ExpressProvider | AuthjsProvider | undefined;
+    onModuleDestroy(): void;
 }

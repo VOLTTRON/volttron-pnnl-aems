@@ -1,4 +1,4 @@
-import { DynamicModule, Inject, Injectable, MiddlewareConsumer, Module, RequestMethod } from "@nestjs/common";
+import { DynamicModule, Inject, Injectable, Module } from "@nestjs/common";
 import { GraphQLModule } from "@nestjs/graphql";
 import { PothosApolloDriver } from "./pothos.driver";
 import { ModulesContainer } from "@nestjs/core";
@@ -15,7 +15,6 @@ import { Context } from ".";
 import { SubscriptionModule } from "@/subscription/subscription.module";
 import { Request } from "express";
 import { AppConfigService } from "@/app.config";
-import { PothosAuthMiddleware } from "./pothos.middleware";
 import { AuthModule } from "@/auth/auth.module";
 import { InfoLogger } from "@/logging";
 import { IncomingMessage } from "node:http";
@@ -80,20 +79,15 @@ export class PothosGraphQLModule {
           imports: [AuthModule],
           inject: [AuthService, AppConfigService.Key],
           useFactory: (authService: AuthService, configService: AppConfigService) => ({
-            context: async ({
+            context: ({
               req,
-              extra,
             }: {
               req?: Request;
               res?: Response;
               extra?: { socket?: WebSocket; request?: IncomingMessage };
-            }): Promise<Context> => {
-              let user = req?.user;
-              if (!user && extra?.request) {
-                user = await authService.getAuthUser(extra.request);
-              }
+            }): Context => {
               return {
-                user: user,
+                user: req?.user,
               };
             },
             ...omit(moduleOptionsFactory(configService), ["sortSchema", "autoSchemaFile"]),
@@ -101,9 +95,5 @@ export class PothosGraphQLModule {
         }),
       ],
     };
-  }
-
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(PothosAuthMiddleware).forRoutes({ path: "graphql", method: RequestMethod.ALL });
   }
 }

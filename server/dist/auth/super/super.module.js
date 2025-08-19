@@ -26,11 +26,15 @@ exports.SuperModule = SuperModule = __decorate([
         providers: [
             {
                 provide: _1.Provider,
-                inject: [app_config_1.AppConfigService.Key, auth_service_1.AuthService, prisma_service_1.PrismaService],
-                useFactory: (configService, authService, prismaService) => configService.auth.providers.includes(_1.Provider) ? new super_service_1.SuperService(authService, prismaService) : null,
+                inject: [auth_service_1.AuthService, app_config_1.AppConfigService.Key, prisma_service_1.PrismaService],
+                useFactory: (authService, configService, prismaService) => configService.auth.providers.includes(_1.Provider)
+                    ? configService.auth.framework === "authjs"
+                        ? new super_service_1.SuperAuthjsService(authService, configService, prismaService)
+                        : new super_service_1.SuperPassportService(authService, configService, prismaService)
+                    : null,
             },
         ],
-        controllers: [super_controller_1.SuperController],
+        controllers: new app_config_1.AppConfigService().auth.framework === "passport" ? [super_controller_1.SuperController] : [],
     })
 ], SuperModule);
 //# sourceMappingURL=super.module.js.map

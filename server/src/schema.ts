@@ -7,7 +7,7 @@ import { getLogLevels } from "@/logging";
 
 async function GenerateSchema() {
   process.env.NODE_ENV = "development";
-  process.env.INSTANCE_TYPE = "schema";
+  process.env.INSTANCE_TYPE = "";
   const logger = new Logger(GenerateSchema.name);
   const controller = new AbortController();
   const { signal } = controller;

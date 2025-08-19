@@ -13,7 +13,7 @@ const nextConfig = {
       : undefined,
   ...(process.env.NODE_ENV !== "production" && {
     async headers() {
-      return ["/graphql/:path", "/api/:path", "/ext/:path"].map((source) => ({
+      return ["/authjs/:path", "/graphql/:path", "/api/:path", "/ext/:path"].map((source) => ({
         source: source,
         headers: [
           { key: "Access-Control-Allow-Credentials", value: "true" },
@@ -29,6 +29,10 @@ const nextConfig = {
     },
     async rewrites() {
       return [
+        {
+          source: "/authjs/:path*",
+          destination: `${process.env.REWRITE_AUTHJS_URL}/:path*`,
+        },
         {
           source: "/graphql/:path*",
           destination: `${process.env.REWRITE_GRAPHQL_URL}/:path*`,

@@ -509,7 +509,7 @@ class HttpStatus extends base_1.default {
                 message: "The client needs to authenticate to gain network access.",
                 status: 511,
             },
-        ], (_c, v) => ({ ...v, ...{ _status: `${v.status}` } }));
+        ], (_c, v) => ({ ...v, ...{ statusCode: `${v.status}` } }));
         this.Continue = this.parseStrict("continue");
         this.SwitchingProtocols = this.parseStrict("switching-protocols");
         this.Processing = this.parseStrict("processing");

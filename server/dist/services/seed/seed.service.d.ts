@@ -3,6 +3,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { AppConfigService } from "@/app.config";
 export declare class SeedService extends BaseService {
     private prismaService;
+    private configService;
     private logger;
     private readonly normalizer;
     private readonly path;

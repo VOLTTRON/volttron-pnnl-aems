@@ -22,6 +22,6 @@ RUN npm install -g mkcert
 # Copy the script
 WORKDIR /usr/local/bin/
 COPY ./mkcert.sh /usr/local/bin/mkcert.sh
-
+RUN chmod +x /usr/local/bin/mkcert.sh
 
 CMD ["/bin/sh", "mkcert.sh"]

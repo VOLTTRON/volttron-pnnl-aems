@@ -1,9 +1,10 @@
-import { Color, Palette, Palettes, PaletteScheme, PaletteType } from "@/utils/palette";
+import { Palette, Palettes, PaletteScheme, PaletteType } from "@/utils/palette";
 import { Button, ButtonGroup, Menu, MenuItem } from "@blueprintjs/core";
 import { ItemRendererProps, MultiSelect, Select } from "@blueprintjs/select";
 import { TextIcon } from "./texticon";
 import { useEffect, useMemo, useState } from "react";
 import styles from "./page.module.scss";
+import { Color } from "@local/common";
 
 const disabledPalette = Palettes.getPalette("LightGray");
 const disabledColor = disabledPalette.getColor(2);
@@ -56,7 +57,7 @@ export function ColorChooser({
           />
         ) : (
           <RenderColor key={`${c}`} color={c} index={i} options={options} />
-        )
+        ),
       )}
     </ButtonGroup>
   );
@@ -109,7 +110,7 @@ export function PalettePicker({
                     />
                   ) : (
                     <RenderColor key={`${c}`} color={c} index={i} options={options} />
-                  )
+                  ),
                 )}
               </ButtonGroup>
             }

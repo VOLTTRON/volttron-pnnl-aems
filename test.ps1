@@ -3,11 +3,11 @@
 
 # Display help if -h or --help is present in arguments
 if ($args -contains "-h" -or $args -contains "--help") {
-    Write-Host "Usage: test.ps1 [--skip-coverage] [-h|--help]" -ForegroundColor Yellow
+    Write-Host "Usage: test.ps1 [-c|--skip-coverage] [-h|--help]" -ForegroundColor Yellow
     Write-Host "Environment Variables:"
     Write-Host "  SKIP_COVERAGE=true    Skip running tests with coverage (run tests without coverage)."
     Write-Host "Options:"
-    Write-Host "  --skip-coverage    Skip running tests with coverage (run tests without coverage)."
+    Write-Host "  -c, --skip-coverage    Skip running tests with coverage (run tests without coverage)."
     Write-Host "  -h, --help         Show this help message."
     exit 0
 }
@@ -20,7 +20,7 @@ $env:NODE_OPTIONS = "$env:NODE_OPTIONS --max-old-space-size=8192"
 
 # Determine if coverage should be skipped
 $SkipCoverage = $false
-if ($args -contains "--skip-coverage" -or $env:SKIP_COVERAGE -eq "true") {
+if ($args -contains "-c" -or $args -contains "--skip-coverage" -or $env:SKIP_COVERAGE -eq "true") {
     $SkipCoverage = $true
 }
 

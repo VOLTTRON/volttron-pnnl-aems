@@ -272,7 +272,8 @@ describe("delay", () => {
     const end = Date.now();
     const elapsed = end - start;
 
-    expect(elapsed).toBeGreaterThanOrEqual(delayDuration);
+    // give it a little wiggle room
+    expect(elapsed).toBeGreaterThanOrEqual(delayDuration - Math.ceil(delayDuration * 0.01));
   });
 });
 

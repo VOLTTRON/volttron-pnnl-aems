@@ -25,8 +25,8 @@ let ProviderModule = ProviderModule_1 = class ProviderModule {
                     : [auth_module_1.AuthModule]),
                 ...[bearer_module_1.BearerModule, keycloak_module_1.KeycloakModule, local_module_1.LocalModule, super_module_1.SuperModule]
                     .map((m) => options?.path
-                    ? [m, core_1.RouterModule.register([{ path: options.path, children: [{ path: "auth", module: m }] }])]
-                    : [m, core_1.RouterModule.register([{ path: "auth", module: m }])])
+                    ? [m, core_1.RouterModule.register([{ path: options.path, children: [{ path: "providers", module: m }] }])]
+                    : [m, core_1.RouterModule.register([{ path: "providers", module: m }])])
                     .flat(),
             ],
         };

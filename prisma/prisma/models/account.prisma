@@ -1,19 +1,20 @@
 model Account {
-    id                String   @id() @default(cuid())
+    id                String   @default(cuid())
     type              String
     provider          String
     providerAccountId String
-    refreshToken      String?  @db.Text()
-    accessToken       String?  @db.Text()
-    expiresAt         Int?
-    tokenType         String?
+    refresh_token     String?
+    access_token      String?
+    expires_at        Int?
+    token_type        String?
     scope             String?
-    idToken           String?  @db.Text()
-    sessionState      String?
+    id_token          String?
+    session_state     String?
     createdAt         DateTime @default(now()) @db.Timestamptz(6)
     updatedAt         DateTime @updatedAt() @db.Timestamptz(6)
     userId            String
     user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([provider, providerAccountId])
+    @@id([provider, providerAccountId])
+    @@unique([id])
 }

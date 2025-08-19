@@ -32,13 +32,13 @@ export declare class AccountObject {
         type: string;
         provider: string;
         providerAccountId: string;
-        refreshToken: string | null;
-        accessToken: string | null;
-        expiresAt: number | null;
-        tokenType: string | null;
+        refresh_token: string | null;
+        access_token: string | null;
+        expires_at: number | null;
+        token_type: string | null;
         scope: string | null;
-        idToken: string | null;
-        sessionState: string | null;
+        id_token: string | null;
+        session_state: string | null;
         userId: string;
     }>;
     readonly AccountFields: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
@@ -46,6 +46,6 @@ export declare class AccountObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refreshToken" | "accessToken" | "expiresAt" | "tokenType" | "scope" | "idToken" | "sessionState" | "userId", "id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refreshToken" | "accessToken" | "expiresAt" | "tokenType" | "scope" | "idToken" | "sessionState" | "userId">;
+    }>, "id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refresh_token" | "access_token" | "expires_at" | "token_type" | "scope" | "id_token" | "session_state" | "userId", "id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refresh_token" | "access_token" | "expires_at" | "token_type" | "scope" | "id_token" | "session_state" | "userId">;
     constructor(builder: SchemaBuilderService);
 }

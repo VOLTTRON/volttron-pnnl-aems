@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { LocalService } from "./local.service";
+import { LocalAuthjsService, LocalPassportService } from "./local.service";
 import { LocalController } from "./local.controller";
 import { Provider } from ".";
 import { AuthModule } from "../auth.module";
@@ -13,12 +13,17 @@ import { PrismaService } from "@/prisma/prisma.service";
   providers: [
     {
       provide: Provider,
-      inject: [AppConfigService.Key, AuthService, PrismaService],
-      useFactory: (configService: AppConfigService, authService: AuthService, prismaService: PrismaService) =>
-        configService.auth.providers.includes(Provider) ? new LocalService(authService, prismaService) : null,
+      inject: [AuthService, AppConfigService.Key, PrismaService],
+      useFactory: (authService: AuthService, configService: AppConfigService, prismaService: PrismaService) =>
+        configService.auth.providers.includes(Provider)
+          ? configService.auth.framework === "authjs"
+            ? new LocalAuthjsService(authService, configService, prismaService)
+            : new LocalPassportService(authService, configService, prismaService)
+          : null,
     },
   ],
-  controllers: [LocalController],
+  // todo: make this cleaner
+  controllers: new AppConfigService().auth.framework === "passport" ? [LocalController] : [],
 })
 export class LocalModule {
   static readonly provider = Provider;

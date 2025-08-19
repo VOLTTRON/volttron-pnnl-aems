@@ -1,10 +1,11 @@
 import { AuthService } from "@/auth/auth.service";
 import { PrismaService } from "@/prisma/prisma.service";
-import { Controller, Get, Logger, NotFoundException, Param, Post, Req } from "@nestjs/common";
+import { Controller, Get, Logger, Post, Req, Inject } from "@nestjs/common";
 import { pick } from "lodash";
 import { Request } from "express";
 import { User } from "./user.decorator";
 import { ApiResponse, ApiTags } from "@nestjs/swagger";
+import { AppConfigService } from "@/app.config";
 
 @ApiTags("auth")
 @Controller("auth")
@@ -14,13 +15,33 @@ export class AuthController {
   constructor(
     private prismaService: PrismaService,
     private authService: AuthService,
+    @Inject(AppConfigService.Key) private configService: AppConfigService,
   ) {}
 
   @ApiTags("auth", "providers")
-  @ApiResponse({ schema: { type: "array", items: { type: "string" } } })
+  @ApiResponse({
+    schema: {
+      type: "object",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          label: { type: "string" },
+          credentials: { type: "object", additionalProperties: { type: "string" } },
+          endpoint: { type: "string", nullable: true },
+        },
+      },
+    },
+  })
   @Get()
   root() {
-    return this.authService.getProviderNames();
+    return this.authService.getProviderNames().reduce(
+      (out, value) => ({
+        ...out,
+        [value]: pick(this.authService.getProvider(value) ?? {}, ["name", "label", "credentials", "endpoint"]),
+      }),
+      {},
+    );
   }
 
   @ApiTags("auth", "current", "user")
@@ -34,16 +55,6 @@ export class AuthController {
     } else {
       return null;
     }
-  }
-
-  @ApiTags("auth", "provider")
-  @Get(":provider")
-  provider(@Param("provider") provider: string) {
-    const info = this.authService.getProvider(provider);
-    if (!info) {
-      throw new NotFoundException();
-    }
-    return pick(info, ["name", "label", "credentials"]);
   }
 
   @ApiTags("auth", "logout")

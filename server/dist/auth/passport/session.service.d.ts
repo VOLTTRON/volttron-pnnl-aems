@@ -1,4 +1,4 @@
-import { PrismaService } from "../prisma/prisma.service";
+import { PrismaService } from "../../prisma/prisma.service";
 import { SessionData, Store } from "express-session";
 export declare class PrismaSessionStore extends Store {
     private prismaService;

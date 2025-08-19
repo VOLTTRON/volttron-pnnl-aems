@@ -43,6 +43,10 @@ export default function Page() {
     }
   }
 
+  if (process.env.NEXT_PUBLIC_AUTHJS_LOGOUT_URL) {
+    return router.push(`${process.env.NEXT_PUBLIC_AUTHJS_LOGOUT_URL}`);
+  }
+
   return (
     <div className={styles.modal}>
       <div className={styles.logout}>

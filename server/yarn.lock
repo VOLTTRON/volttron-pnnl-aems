@@ -325,6 +325,52 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@auth/core@npm:0.40.0":
+  version: 0.40.0
+  resolution: "@auth/core@npm:0.40.0"
+  dependencies:
+    "@panva/hkdf": "npm:^1.2.1"
+    jose: "npm:^6.0.6"
+    oauth4webapi: "npm:^3.3.0"
+    preact: "npm:10.24.3"
+    preact-render-to-string: "npm:6.5.11"
+  peerDependencies:
+    "@simplewebauthn/browser": ^9.0.1
+    "@simplewebauthn/server": ^9.0.2
+    nodemailer: ^6.8.0
+  peerDependenciesMeta:
+    "@simplewebauthn/browser":
+      optional: true
+    "@simplewebauthn/server":
+      optional: true
+    nodemailer:
+      optional: true
+  checksum: 10/cde8467d24a2069220954b541f2fb9aaadf2fb82719ab19fa59cf42e77b9de8688cbb48faca5a576ad7f59b19f1739b23f60dc28b5949e2e64bfc85736610f9c
+  languageName: node
+  linkType: hard
+
+"@auth/express@npm:^0.11.0":
+  version: 0.11.0
+  resolution: "@auth/express@npm:0.11.0"
+  dependencies:
+    "@auth/core": "npm:0.40.0"
+  peerDependencies:
+    express: ^4.18.2 || ^5.0.0
+  checksum: 10/f39d53267753077fb4daa85ac705171bf15632dcafc394a0bce4dd21778f7a343ff315d97553605b05f1d89fce46952134d8791a0cb210f55ce59b15bf42819f
+  languageName: node
+  linkType: hard
+
+"@auth/prisma-adapter@npm:^2.10.0":
+  version: 2.10.0
+  resolution: "@auth/prisma-adapter@npm:2.10.0"
+  dependencies:
+    "@auth/core": "npm:0.40.0"
+  peerDependencies:
+    "@prisma/client": ">=2.26.0 || >=3 || >=4 || >=5 || >=6"
+  checksum: 10/7e0ec14cec8f9ac14ae6be14048e827a7a61bb8d3c5d9805c4ba196b79e0453167bad2b66ec9f6c1e5b7077fbb23d490fdd3b8fb07c146ab025c60947895c213
+  languageName: node
+  linkType: hard
+
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.12.13, @babel/code-frame@npm:^7.16.7, @babel/code-frame@npm:^7.25.9, @babel/code-frame@npm:^7.26.2":
   version: 7.26.2
   resolution: "@babel/code-frame@npm:7.26.2"
@@ -1508,8 +1554,8 @@ __metadata:
   linkType: hard
 
 "@local/common@file:../common::locator=server%40workspace%3A.":
-  version: 2.0.3
-  resolution: "@local/common@file:../common#../common::hash=db997c&locator=server%40workspace%3A."
+  version: 2.0.4
+  resolution: "@local/common@file:../common#../common::hash=1da5aa&locator=server%40workspace%3A."
   dependencies:
     "@local/prisma": "file:../prisma"
     "@prisma/client": "npm:^6.9.0"
@@ -1518,25 +1564,25 @@ __metadata:
   peerDependencies:
     "@local/prisma": "*"
     "@prisma/client": ^6.6.0
-  checksum: 10/a702ada56c1cca9f5223eb4d11a6da522b4fd0c356425f2a77009d8555820c843aa66000e4dfdb28acef975750df2889b3b45a03aac1c45110d5f016c8f2b387
+  checksum: 10/71bee7ff919a3510d2fd380045a8cac35e464037a0052d9dc177934c88bc9105efa35d0f5ede9c6398dabc669cb797b502fb508f77c2ce4c9945f5ad7f04a9f4
   languageName: node
   linkType: hard
 
-"@local/prisma@file:../prisma::locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3Ddb997c%26locator%3Dserver%2540workspace%253A.":
-  version: 2.0.3
-  resolution: "@local/prisma@file:../prisma#../prisma::hash=2159ca&locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3Ddb997c%26locator%3Dserver%2540workspace%253A."
+"@local/prisma@file:../prisma::locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3D1da5aa%26locator%3Dserver%2540workspace%253A.":
+  version: 2.0.4
+  resolution: "@local/prisma@file:../prisma#../prisma::hash=488b25&locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3D1da5aa%26locator%3Dserver%2540workspace%253A."
   peerDependencies:
     "@prisma/client": ^6.6.0
-  checksum: 10/d18884f06d79c993a6d28a4281fffa4e2b112b7382a902b04100aa94cb78c06b759bc6101caffef7ddc15e2c65cf9d558d45323b7e69a63b2ffaa88f8afa8044
+  checksum: 10/60bd60b4fc1ba28481e0b2f38e08542c443d9071d0a6396074ac8fccec37858ace530cfa543b53c6365a9cec908ef06a6cfc55a771dadfed3469a6a6647f2a4d
   languageName: node
   linkType: hard
 
 "@local/prisma@file:../prisma::locator=server%40workspace%3A.":
-  version: 2.0.3
-  resolution: "@local/prisma@file:../prisma#../prisma::hash=2159ca&locator=server%40workspace%3A."
+  version: 2.0.4
+  resolution: "@local/prisma@file:../prisma#../prisma::hash=488b25&locator=server%40workspace%3A."
   peerDependencies:
     "@prisma/client": ^6.6.0
-  checksum: 10/d18884f06d79c993a6d28a4281fffa4e2b112b7382a902b04100aa94cb78c06b759bc6101caffef7ddc15e2c65cf9d558d45323b7e69a63b2ffaa88f8afa8044
+  checksum: 10/60bd60b4fc1ba28481e0b2f38e08542c443d9071d0a6396074ac8fccec37858ace530cfa543b53c6365a9cec908ef06a6cfc55a771dadfed3469a6a6647f2a4d
   languageName: node
   linkType: hard
 
@@ -2340,6 +2386,13 @@ __metadata:
   bin:
     opencollective: bin/opencollective.js
   checksum: 10/37739657e87196c7f1019a76bc33dc6e33b028eeeec43ffbf29c821e89bf5c170514e9e224456e1da85d95859ba63a3a36bd7ce1b82f2d366f7be3d6299e7631
+  languageName: node
+  linkType: hard
+
+"@panva/hkdf@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "@panva/hkdf@npm:1.2.1"
+  checksum: 10/a4a9d1812f88f02bc163b365524bbaa5239cc4711e5e7be1bda68dabae1c896cf1cd12520949b0925a6910733d1afcb25ab51fd3cf06f0f69aee988fffebf56e
   languageName: node
   linkType: hard
 
@@ -7385,6 +7438,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jose@npm:^6.0.6":
+  version: 6.0.12
+  resolution: "jose@npm:6.0.12"
+  checksum: 10/48b7aee43a88e157eb973c7e950f5835175264ecda01a7fcb1750ad6cc02672153e2bd486b65db969841b38c01b1596d86cb71f65e2ccb5311b67127ba4f8549
+  languageName: node
+  linkType: hard
+
 "js-tokens@npm:^4.0.0":
   version: 4.0.0
   resolution: "js-tokens@npm:4.0.0"
@@ -8296,6 +8356,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"oauth4webapi@npm:^3.3.0":
+  version: 3.6.0
+  resolution: "oauth4webapi@npm:3.6.0"
+  checksum: 10/c0389d9db9cf23ab9a486ea1a6de8da928b01188e93839db11c8aced5e7105c75d74b87d8105888423d7ad295578e1863b131cc47893f5ce923d001596de757f
+  languageName: node
+  linkType: hard
+
 "oauth@npm:0.10.x":
   version: 0.10.0
   resolution: "oauth@npm:0.10.0"
@@ -8876,6 +8943,22 @@ __metadata:
   version: 1.1.4
   resolution: "postgres-range@npm:1.1.4"
   checksum: 10/035759f17b44bf9ba7e71a30402ed2ca1e2b7fabb3ad794b08169a5b453d38d06905a6dfb51fe41a3f6d9fac4e183dac9e769b95053053db933be16785edce1f
+  languageName: node
+  linkType: hard
+
+"preact-render-to-string@npm:6.5.11":
+  version: 6.5.11
+  resolution: "preact-render-to-string@npm:6.5.11"
+  peerDependencies:
+    preact: ">=10"
+  checksum: 10/a77f7715f3b7e94d6157dab3708e204663a605f86bb20d70a2916c734b873640335dd4180aa79f4eeb4555c07dc4e92b9a4fadc809beeb56b206eaf41e5762dd
+  languageName: node
+  linkType: hard
+
+"preact@npm:10.24.3":
+  version: 10.24.3
+  resolution: "preact@npm:10.24.3"
+  checksum: 10/e9c4c901a4ddd475a1072355b5c6c944b05797445e0d68f317ad0dbc976b831523573693ea75d2e12e7902042e3729af435377816d25558bf693ecf6b516c707
   languageName: node
   linkType: hard
 
@@ -9509,6 +9592,8 @@ __metadata:
   resolution: "server@workspace:."
   dependencies:
     "@apollo/server": "npm:^4.11.3"
+    "@auth/express": "npm:^0.11.0"
+    "@auth/prisma-adapter": "npm:^2.10.0"
     "@envelop/core": "npm:^5.0.3"
     "@eslint/eslintrc": "npm:^3.2.0"
     "@eslint/js": "npm:^9.18.0"

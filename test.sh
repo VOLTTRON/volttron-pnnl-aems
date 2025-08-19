@@ -6,13 +6,13 @@
 # Display help if -h or --help is present in arguments
 for arg in "$@"; do
     if [[ "$arg" == "-h" || "$arg" == "--help" ]]; then
-        echo -e "\033[1;33mUsage: test.sh [--skip-coverage] [-h|--help]\033[0m"
+        echo -e "\033[1;33mUsage: test.sh [-c|--skip-coverage] [-h|--help]\033[0m"
         echo "This script performs code analysis and testing for all modules in the monorepo."
         echo "Environment Variables:"
         echo "  SKIP_COVERAGE=true   Skip running tests with coverage (run tests without coverage)."
         echo "  NODE_OPTIONS         Node.js options (automatically set to increase memory limit)"
         echo "Options:"
-        echo "  --skip-coverage      Skip running tests with coverage (run tests without coverage)."
+        echo "  -c,--skip-coverage      Skip running tests with coverage (run tests without coverage)."
         echo "  -h, --help           Show this help message."
         echo ""
         echo "The script will run the following for each module (prisma, common, server, client):"
@@ -30,18 +30,13 @@ STARTING_PATH=$(pwd)
 export NODE_OPTIONS="$NODE_OPTIONS --max-old-space-size=8192"
 
 # Determine if coverage should be skipped
-SKIP_COVERAGE=false
+SKIP_COVERAGE="$SKIP_COVERAGE"
 for arg in "$@"; do
-    if [[ "$arg" == "--skip-coverage" ]]; then
+    if [[ "$arg" == "-c" || "$arg" == "--skip-coverage" ]]; then
         SKIP_COVERAGE=true
         break
     fi
 done
-
-# Check environment variable as well
-if [[ "$SKIP_COVERAGE" == "true" ]]; then
-    SKIP_COVERAGE=true
-fi
 
 # Color functions for output
 print_blue() {

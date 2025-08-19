@@ -28,7 +28,7 @@ services:
     ports:
       - 80:80
       - 443:443
-      - ${TRAEFIK_PORT}:8080
+      - ${TRAEFIK_TEST_PORT}:8080
     profiles:
       - proxy
     restart: unless-stopped
@@ -72,9 +72,10 @@ services:
         condition: service_completed_successfully
       database:
         condition: service_started
-    deploy:
-      mode: replicated
-      replicas: 2
+    # deploy:
+    #   mode: replicated
+    #   endpoint_mode: vip
+    #   replicas: 2
     env_file:
       - .env.client
     healthcheck:
@@ -99,12 +100,12 @@ services:
       - traefik.http.routers.client-http.middlewares=client-https
       - traefik.http.middlewares.client-https.redirectscheme.scheme=https
       - traefik.http.routers.client.entrypoints=websecure
-      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`) && !PathPrefix(`/graphql`, `/api`, `/ext`, `/auth/sso/`)
+      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`) && !PathPrefix(`/authjs`, `/graphql`, `/api`, `/ext`, `/auth/sso/`)
       - traefik.http.routers.client.middlewares=client-security
       - traefik.http.routers.client.tls=true
       - traefik.http.routers.client.tls.certresolver=${CERT_RESOLVER}
     ports:
-      - ${CLIENT_PORT}:3000
+      - ${CLIENT_TEST_PORT}:3000
     restart: unless-stopped
     volumes:
       - client-cache:/app/.next/cache
@@ -128,9 +129,10 @@ services:
         condition: service_completed_successfully
       database:
         condition: service_started
-    deploy:
-      mode: replicated
-      replicas: 2
+    # deploy:
+    #   mode: replicated
+    #   endpoint_mode: vip
+    #   replicas: 2
     env_file:
       - .env.server
     healthcheck:
@@ -155,12 +157,12 @@ services:
       - traefik.http.routers.server-http.middlewares=server-https
       - traefik.http.middlewares.server-https.redirectscheme.scheme=https
       - traefik.http.routers.server.entrypoints=websecure
-      - traefik.http.routers.server.rule=Host(`${HOSTNAME}`) && PathPrefix(`/graphql`, `/api`, `/ext`) && !PathPrefix(`/auth/sso/`)
+      - traefik.http.routers.server.rule=Host(`${HOSTNAME}`) && PathPrefix(`/authjs`, `/graphql`, `/api`, `/ext`) && !PathPrefix(`/auth/sso/`)
       - traefik.http.routers.server.middlewares=server-security
       - traefik.http.routers.server.tls=true
       - traefik.http.routers.server.tls.certresolver=${CERT_RESOLVER}
     ports:
-      - ${SERVER_PORT}:3000
+      - ${SERVER_TEST_PORT}:3000
     restart: unless-stopped
     volumes:
       - file-upload:/app/upload/
@@ -196,6 +198,37 @@ services:
     restart: unless-stopped
     volumes:
       - file-upload:/app/upload/
+
+    # Runs application seeders
+  seeders:
+    build:
+      context: ../server
+      dockerfile: ./Dockerfile
+      additional_contexts:
+        common: service:common
+      args:
+        - TAG:${TAG}
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+    container_name: ${COMPOSE_PROJECT_NAME}-seeders
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      database:
+        condition: service_started
+    env_file:
+      - .env.seeders
+    healthcheck:
+      test: "curl http://localhost:3000/graphql"
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    hostname: seeders
+    image: server:${TAG}
+    restart: on-failure:3
+    volumes:
       - ./seed/:/app/seed/:ro
 
   # Runs relational database migrations on startup
@@ -250,7 +283,7 @@ services:
     hostname: database
     image: postgis/postgis:16-3.4
     ports:
-      - ${DATABASE_PORT}:5432
+      - ${DATABASE_TEST_PORT}:5432
     restart: unless-stopped
     volumes:
       - database-data:/var/lib/postgresql/data
@@ -258,10 +291,14 @@ services:
   # Redis
   redis:
     container_name: ${COMPOSE_PROJECT_NAME}-redis
+    env_file:
+      - .env.redis
     hostname: redis
     image: redis:6.2
     ports:
-      - ${REDIS_PORT}:6379
+      - ${REDIS_TEST_PORT}:6379
+    profiles:
+      - redis
     restart: unless-stopped
 
   # Open Street Map Tiles
@@ -271,7 +308,7 @@ services:
     hostname: map
     image: maptiler/tileserver-gl:latest
     ports:
-      - ${MAPTILES_PORT}:80
+      - ${MAPTILES_TEST_PORT}:80
     profiles:
       - map
     restart: unless-stopped
@@ -286,7 +323,7 @@ services:
     hostname: nominatim
     image: mediagis/nominatim:4.4
     ports:
-      - ${NOMINATIM_PORT}:80
+      - ${NOMINATIM_TEST_PORT}:80
     profiles:
       - nom
     restart: unless-stopped
@@ -309,7 +346,7 @@ services:
     hostname: wiki
     image: lscr.io/linuxserver/bookstack
     ports:
-      - ${BOOKSTACK_PORT}:80
+      - ${BOOKSTACK_TEST_PORT}:80
     profiles:
       - wiki
     restart: unless-stopped
@@ -326,6 +363,8 @@ services:
       - .env.wiki
     hostname: wiki-db
     image: lscr.io/linuxserver/mariadb
+    ports:
+      - ${BOOKSTACK_DATABASE_TEST_PORT}:3306
     profiles:
       - wiki
     restart: unless-stopped
@@ -334,7 +373,7 @@ services:
 
   # Keycloak for single sign-on
   keycloak:
-    command: start
+    command: ["start", "--import-realm"]
     container_name: ${COMPOSE_PROJECT_NAME}-keycloak
     depends_on:
       keycloak-db:
@@ -368,12 +407,13 @@ services:
       - traefik.http.routers.keycloak-admin.tls=true
       - traefik.http.routers.keycloak-admin.tls.certresolver=${CERT_RESOLVER}
     ports:
-      - ${KEYCLOAK_PORT}:8080
+      - ${KEYCLOAK_TEST_PORT}:8080
     profiles:
       - sso
     restart: unless-stopped
     volumes:
       - keycloak-cache:/opt/jboss/keycloak/standalone/data
+      - ./keycloak/default-realm.json:/opt/keycloak/data/import/default-realm.json
 
   # Keycloak database
   keycloak-db:
