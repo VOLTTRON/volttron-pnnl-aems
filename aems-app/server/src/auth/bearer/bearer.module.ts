@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { BearerService } from "./bearer.service";
+import { BearerPassportService } from "./bearer.service";
 import { BearerController } from "./bearer.controller";
 import { Provider } from ".";
 import { AuthModule } from "../auth.module";
@@ -24,19 +24,22 @@ import { PrismaService } from "@/prisma/prisma.service";
   providers: [
     {
       provide: Provider,
-      inject: [AppConfigService.Key, AuthService, PrismaService, JwtService],
+      inject: [AuthService, AppConfigService.Key, PrismaService, JwtService],
       useFactory: (
-        configService: AppConfigService,
         authService: AuthService,
+        configService: AppConfigService,
         prismaService: PrismaService,
         jwtService: JwtService,
       ) =>
         configService.auth.providers.includes(Provider)
-          ? new BearerService(authService, prismaService, jwtService)
+          ? configService.auth.framework === "passport"
+            ? new BearerPassportService(authService, configService, prismaService, jwtService)
+            : null
           : null,
     },
   ],
-  controllers: [BearerController],
+  // todo: make this cleaner
+  controllers: new AppConfigService().auth.framework === "passport" ? [BearerController] : [],
 })
 export class BearerModule {
   static readonly provider = Provider;

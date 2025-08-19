@@ -522,7 +522,7 @@ class HttpStatus extends Base<IHttpStatus> {
           status: 511,
         },
       ],
-      (_c, v) => ({ ...v, ...{ _status: `${v.status}` } })
+      (_c, v) => ({ ...v, ...{ statusCode: `${v.status}` } })
     );
   }
 

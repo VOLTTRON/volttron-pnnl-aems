@@ -67,6 +67,7 @@ export class AppConfigService {
   private logger = new Logger(AppConfigService.name);
 
   nodeEnv: string;
+  printEnv: boolean;
   port: number;
   project: {
     name: string;
@@ -102,8 +103,12 @@ export class AppConfigService {
   redis: {
     host: string;
     port: number;
+    username?: string;
+    password?: string;
+    db?: number;
   };
   auth: {
+    framework: string;
     providers: string[];
   };
   jwt: {
@@ -113,11 +118,15 @@ export class AppConfigService {
   keycloak: {
     authUrl: string;
     tokenUrl: string;
+    callbackUrl: string;
     userinfoUrl: string;
+    certsUrl: string;
     logoutUrl: string;
+    scope: string;
     clientId: string;
     clientSecret: string;
-    redirectUrl: string;
+    issuerUrl: string;
+    wellKnownUrl: string;
     passRoles: boolean;
     defaultRole: string;
   };
@@ -146,6 +155,7 @@ export class AppConfigService {
     };
     seed: {
       dataPath: string;
+      batchSize: number;
       geojsonContribution: string;
     };
     cleanup: {
@@ -174,9 +184,13 @@ export class AppConfigService {
   volttron: {
     ca: string;
   };
+  cors: {
+    origin?: string;
+  };
 
   constructor() {
     this.nodeEnv = process.env.NODE_ENV ?? "development";
+    this.printEnv = parseBoolean(process.env.PRINT_ENV);
     this.port = parseInt(process.env.PORT ?? "3000");
     this.project = {
       name: process.env.PROJECT_NAME ?? "",
@@ -190,10 +204,10 @@ export class AppConfigService {
         level: process.env.LOG_DATABASE_LEVEL ?? "",
       },
       http: {
-        level: process.env.LOG_HTTP_REQUEST_LEVEL ?? "",
+        level: process.env.LOG_HTTP_LEVEL ?? "",
       },
       prisma: {
-        level: process.env.LOG_PRISMA_QUERY_LEVEL ?? "",
+        level: process.env.LOG_PRISMA_LEVEL ?? "",
       },
     };
     this.session = {
@@ -210,10 +224,14 @@ export class AppConfigService {
       uploadPath: process.env.FILE_UPLOAD_PATH ?? "",
     };
     this.redis = {
-      host: process.env.REDIS_HOST ?? "",
+      host: process.env.REDIS_HOST ?? "localhost",
       port: parseInt(process.env.REDIS_PORT ?? "6379"),
+      username: process.env.REDIS_USERNAME || undefined,
+      password: process.env.REDIS_PASSWORD || undefined,
+      db: process.env.REDIS_DB ? parseInt(process.env.REDIS_DB) : undefined,
     };
     this.auth = {
+      framework: process.env.AUTH_FRAMEWORK ?? "passport",
       providers: process.env.AUTH_PROVIDERS?.split(",") ?? [],
     };
     this.jwt = {
@@ -223,11 +241,15 @@ export class AppConfigService {
     this.keycloak = {
       authUrl: process.env.KEYCLOAK_AUTH_URL ?? "",
       tokenUrl: process.env.KEYCLOAK_TOKEN_URL ?? "",
+      callbackUrl: process.env.KEYCLOAK_CALLBACK_URL ?? "",
       userinfoUrl: process.env.KEYCLOAK_USERINFO_URL ?? "",
+      certsUrl: process.env.KEYCLOAK_CERTS_URL ?? "",
       logoutUrl: process.env.KEYCLOAK_LOGOUT_URL ?? "",
+      scope: process.env.KEYCLOAK_SCOPE ?? "",
       clientId: process.env.KEYCLOAK_CLIENT_ID ?? "",
       clientSecret: process.env.KEYCLOAK_CLIENT_SECRET ?? "",
-      redirectUrl: process.env.KEYCLOAK_REDIRECT_URL ?? "",
+      issuerUrl: process.env.KEYCLOAK_ISSUER_URL ?? "",
+      wellKnownUrl: process.env.KEYCLOAK_WELL_KNOWN_URL ?? "",
       passRoles: parseBoolean(process.env.KEYCLOAK_PASS_ROLES),
       defaultRole: process.env.KEYCLOAK_DEFAULT_ROLE ?? "",
     };
@@ -298,6 +320,7 @@ export class AppConfigService {
       },
       seed: {
         dataPath: process.env.SERVICE_SEED_DATA_PATH ?? "",
+        batchSize: parseInt(process.env.SERVICE_SEED_BATCH_SIZE ?? "100"),
         geojsonContribution: process.env.SERVICE_SEED_GEOJSON_CONTRIBUTION ?? "",
       },
       cleanup: {
@@ -336,6 +359,9 @@ export class AppConfigService {
       ca: process.env.VOLTTRON_CA
         ? readFileSync(resolve(__dirname, process.env.VOLTTRON_CA ?? "")).toString("utf-8")
         : "",
+    };
+    this.cors = {
+      origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,
     };
   }
 }

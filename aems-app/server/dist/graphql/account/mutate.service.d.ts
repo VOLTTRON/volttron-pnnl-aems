@@ -19,9 +19,13 @@ export declare class AccountMutation {
         type: "String";
         provider: "String";
         providerAccountId: "String";
-        expiresAt: "Int";
+        refresh_token: "String";
+        access_token: "String";
+        token_type: "String";
+        expires_at: "Int";
         scope: "String";
-        idToken: "String";
+        id_token: "String";
+        session_state: "String";
         user: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
@@ -44,9 +48,13 @@ export declare class AccountMutation {
         type: "String";
         provider: "String";
         providerAccountId: "String";
-        expiresAt: "Int";
+        refresh_token: "String";
+        access_token: "String";
+        token_type: "String";
+        expires_at: "Int";
         scope: "String";
-        idToken: "String";
+        id_token: "String";
+        session_state: "String";
         user: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;

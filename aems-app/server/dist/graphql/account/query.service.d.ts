@@ -10,11 +10,11 @@ export declare class AccountQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refreshToken" | "accessToken" | "expiresAt" | "tokenType" | "scope" | "idToken" | "sessionState" | "userId")[] | null | undefined;
-        sum?: ("id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refreshToken" | "accessToken" | "expiresAt" | "tokenType" | "scope" | "idToken" | "sessionState" | "userId")[] | null | undefined;
-        maximum?: ("id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refreshToken" | "accessToken" | "expiresAt" | "tokenType" | "scope" | "idToken" | "sessionState" | "userId")[] | null | undefined;
-        minimum?: ("id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refreshToken" | "accessToken" | "expiresAt" | "tokenType" | "scope" | "idToken" | "sessionState" | "userId")[] | null | undefined;
-        average?: ("id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refreshToken" | "accessToken" | "expiresAt" | "tokenType" | "scope" | "idToken" | "sessionState" | "userId")[] | null | undefined;
+        count?: ("id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refresh_token" | "access_token" | "expires_at" | "token_type" | "scope" | "id_token" | "session_state" | "userId")[] | null | undefined;
+        sum?: ("id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refresh_token" | "access_token" | "expires_at" | "token_type" | "scope" | "id_token" | "session_state" | "userId")[] | null | undefined;
+        maximum?: ("id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refresh_token" | "access_token" | "expires_at" | "token_type" | "scope" | "id_token" | "session_state" | "userId")[] | null | undefined;
+        minimum?: ("id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refresh_token" | "access_token" | "expires_at" | "token_type" | "scope" | "id_token" | "session_state" | "userId")[] | null | undefined;
+        average?: ("id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refresh_token" | "access_token" | "expires_at" | "token_type" | "scope" | "id_token" | "session_state" | "userId")[] | null | undefined;
     }>;
     readonly AccountWhereUnique: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;

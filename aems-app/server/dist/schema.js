@@ -8,7 +8,7 @@ const app_module_1 = require("./app.module");
 const logging_1 = require("./logging");
 async function GenerateSchema() {
     process.env.NODE_ENV = "development";
-    process.env.INSTANCE_TYPE = "schema";
+    process.env.INSTANCE_TYPE = "";
     const logger = new common_1.Logger(GenerateSchema.name);
     const controller = new AbortController();
     const { signal } = controller;

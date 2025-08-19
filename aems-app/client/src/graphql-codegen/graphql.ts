@@ -40,17 +40,17 @@ export type Scalars = {
 
 export type Account = {
   __typename?: 'Account';
-  accessToken?: Maybe<Scalars['String']['output']>;
+  access_token?: Maybe<Scalars['String']['output']>;
   createdAt?: Maybe<Scalars['DateTime']['output']>;
-  expiresAt?: Maybe<Scalars['Int']['output']>;
+  expires_at?: Maybe<Scalars['Int']['output']>;
   id?: Maybe<Scalars['String']['output']>;
-  idToken?: Maybe<Scalars['String']['output']>;
+  id_token?: Maybe<Scalars['String']['output']>;
   provider?: Maybe<Scalars['String']['output']>;
   providerAccountId?: Maybe<Scalars['String']['output']>;
-  refreshToken?: Maybe<Scalars['String']['output']>;
+  refresh_token?: Maybe<Scalars['String']['output']>;
   scope?: Maybe<Scalars['String']['output']>;
-  sessionState?: Maybe<Scalars['String']['output']>;
-  tokenType?: Maybe<Scalars['String']['output']>;
+  session_state?: Maybe<Scalars['String']['output']>;
+  token_type?: Maybe<Scalars['String']['output']>;
   type?: Maybe<Scalars['String']['output']>;
   updatedAt?: Maybe<Scalars['DateTime']['output']>;
   user?: Maybe<User>;
@@ -66,11 +66,15 @@ export type AccountAggregate = {
 };
 
 export type AccountCreateInput = {
-  expiresAt?: InputMaybe<Scalars['Int']['input']>;
-  idToken?: InputMaybe<Scalars['String']['input']>;
+  access_token?: InputMaybe<Scalars['String']['input']>;
+  expires_at?: InputMaybe<Scalars['Int']['input']>;
+  id_token?: InputMaybe<Scalars['String']['input']>;
   provider: Scalars['String']['input'];
   providerAccountId: Scalars['String']['input'];
+  refresh_token?: InputMaybe<Scalars['String']['input']>;
   scope?: InputMaybe<Scalars['String']['input']>;
+  session_state?: InputMaybe<Scalars['String']['input']>;
+  token_type?: InputMaybe<Scalars['String']['input']>;
   type: Scalars['String']['input'];
   user: AccountCreateUserRelationInput;
 };
@@ -80,17 +84,17 @@ export type AccountCreateUserRelationInput = {
 };
 
 export enum AccountFields {
-  AccessToken = 'accessToken',
+  AccessToken = 'access_token',
   CreatedAt = 'createdAt',
-  ExpiresAt = 'expiresAt',
+  ExpiresAt = 'expires_at',
   Id = 'id',
-  IdToken = 'idToken',
+  IdToken = 'id_token',
   Provider = 'provider',
   ProviderAccountId = 'providerAccountId',
-  RefreshToken = 'refreshToken',
+  RefreshToken = 'refresh_token',
   Scope = 'scope',
-  SessionState = 'sessionState',
-  TokenType = 'tokenType',
+  SessionState = 'session_state',
+  TokenType = 'token_type',
   Type = 'type',
   UpdatedAt = 'updatedAt',
   UserId = 'userId'
@@ -124,11 +128,15 @@ export type AccountUniqueFilter = {
 };
 
 export type AccountUpdateInput = {
-  expiresAt?: InputMaybe<Scalars['Int']['input']>;
-  idToken?: InputMaybe<Scalars['String']['input']>;
+  access_token?: InputMaybe<Scalars['String']['input']>;
+  expires_at?: InputMaybe<Scalars['Int']['input']>;
+  id_token?: InputMaybe<Scalars['String']['input']>;
   provider?: InputMaybe<Scalars['String']['input']>;
   providerAccountId?: InputMaybe<Scalars['String']['input']>;
+  refresh_token?: InputMaybe<Scalars['String']['input']>;
   scope?: InputMaybe<Scalars['String']['input']>;
+  session_state?: InputMaybe<Scalars['String']['input']>;
+  token_type?: InputMaybe<Scalars['String']['input']>;
   type?: InputMaybe<Scalars['String']['input']>;
   user?: InputMaybe<AccountUpdateUserRelationInput>;
 };

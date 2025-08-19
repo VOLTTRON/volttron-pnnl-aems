@@ -6,13 +6,15 @@
 # Display help if -h or --help is present in arguments
 for arg in "$@"; do
     if [[ "$arg" == "-h" || "$arg" == "--help" ]]; then
-        echo -e "\033[1;33mUsage: build.sh [--clean-build] [--skip-migrations] [-h|--help]\033[0m"
+        echo -e "\033[1;33mUsage: build.sh [-c|--clean-build] [-d|--skip-dependencies] [-m|--skip-migrations] [-h|--help]\033[0m"
         echo "Environment Variables:"
         echo "  CLEAN_BUILD=true      Remove node_modules for each module before building."
+        echo "  SKIP_DEPENDENCIES=true Skip installing dependencies for each module."
         echo "  SKIP_MIGRATIONS=true  Skip applying Prisma migrations."
         echo "Options:"
-        echo "  --clean-build      Remove node_modules for each module before building."
-        echo "  --skip-migrations  Skip applying Prisma migrations."
+        echo "  -c, --clean-build      Remove node_modules for each module before building."
+        echo "  -d, --skip-dependencies Skip installing dependencies for each module."
+        echo "  -m, --skip-migrations  Skip applying Prisma migrations."
         echo "  -h, --help         Show this help message."
         exit 0
     fi
@@ -24,8 +26,17 @@ STARTING_PATH=$(pwd)
 # Determine if clean build is requested
 CLEAN_BUILD="$CLEAN_BUILD"
 for arg in "$@"; do
-    if [[ "$arg" == "--clean-build" ]]; then
+    if [[ "$arg" == "-c" || "$arg" == "--clean-build" ]]; then
         CLEAN_BUILD=true
+        break
+    fi
+done
+
+# Determine if dependencies should be skipped
+SKIP_DEPENDENCIES="$SKIP_DEPENDENCIES"
+for arg in "$@"; do
+    if [[ "$arg" == "-d" || "$arg" == "--skip-dependencies" ]]; then
+        SKIP_DEPENDENCIES=true
         break
     fi
 done
@@ -33,7 +44,7 @@ done
 # Skip prisma migrations if requested
 SKIP_MIGRATIONS="$SKIP_MIGRATIONS"
 for arg in "$@"; do
-    if [[ "$arg" == "--skip-migrations" ]]; then
+    if [[ "$arg" == "-m" || "$arg" == "--skip-migrations" ]]; then
         SKIP_MIGRATIONS=true
         break
     fi
@@ -87,8 +98,10 @@ if [[ -d "./dist" ]]; then
     rm -rf ./dist
 fi
 
-print_cyan "Prisma: Installing dependencies..."
-yarn install
+if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
+    print_cyan "Prisma: Installing dependencies..."
+    yarn install
+fi
 
 print_cyan "Prisma: Building module..."
 yarn build
@@ -120,8 +133,10 @@ if [[ -d "./dist" ]]; then
     rm -rf ./dist
 fi
 
-print_cyan "Common: Installing dependencies..."
-yarn install
+if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
+    print_cyan "Common: Installing dependencies..."
+    yarn install
+fi
 
 print_cyan "Common: Building module..."
 yarn build
@@ -141,8 +156,10 @@ if [[ -d "./dist" ]]; then
     rm -rf ./dist
 fi
 
-print_cyan "Server: Installing dependencies..."
-yarn install
+if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
+    print_cyan "Server: Installing dependencies..."
+    yarn install
+fi
 
 print_cyan "Server: Building module..."
 yarn build
@@ -162,8 +179,10 @@ if [[ -d "./.next" ]]; then
     rm -rf ./.next
 fi
 
-print_cyan "Client: Installing dependencies..."
-yarn install
+if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
+    print_cyan "Client: Installing dependencies..."
+    yarn install
+fi
 
 print_cyan "Client: Building module..."
 yarn build

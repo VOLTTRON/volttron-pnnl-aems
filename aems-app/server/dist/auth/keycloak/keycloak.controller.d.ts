@@ -1,4 +1,6 @@
-import { Request } from "express";
+import { Request, Response } from "express";
 export declare class KeycloakController {
-    login(req: Request, user: Express.User): Promise<Express.User | null>;
+    private logger;
+    login(req: Request, user: Express.User): Promise<void>;
+    callback(req: Request, res: Response, user: Express.User): Promise<void>;
 }

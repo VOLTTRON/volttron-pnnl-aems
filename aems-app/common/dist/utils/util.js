@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.chainable = exports.Chainable = exports.toOrdinal = exports.delay = exports.printEnvironment = exports.templateFormat = exports.parseBoolean = exports.getDifference = exports.Removed = exports.typeofObject = exports.typeofEnum = exports.keyofObject = exports.typeofNonNullable = void 0;
+exports.chainable = exports.Chainable = exports.toOrdinal = exports.delay = exports.printEnvironment = exports.templateFormat = exports.parseBoolean = exports.getDifference = exports.Removed = exports.typeofArray = exports.typeofSymbol = exports.typeofFunction = exports.typeofBoolean = exports.typeofNumber = exports.typeofString = exports.typeofObject = exports.typeofEnum = exports.keyofObject = exports.typeofNonNullable = void 0;
 exports.deepFreeze = deepFreeze;
 const lodash_1 = require("lodash");
 const typeofNonNullable = (value) => value !== null && value !== undefined;
@@ -11,6 +11,18 @@ const typeofEnum = (type) => (value) => Object.values(type).includes(value);
 exports.typeofEnum = typeofEnum;
 const typeofObject = (value, callback) => typeof value === "object" && (callback ? callback(value) : true);
 exports.typeofObject = typeofObject;
+const typeofString = (value) => typeof value === "string";
+exports.typeofString = typeofString;
+const typeofNumber = (value) => typeof value === "number";
+exports.typeofNumber = typeofNumber;
+const typeofBoolean = (value) => typeof value === "boolean";
+exports.typeofBoolean = typeofBoolean;
+const typeofFunction = (value) => typeof value === "function";
+exports.typeofFunction = typeofFunction;
+const typeofSymbol = (value) => typeof value === "symbol";
+exports.typeofSymbol = typeofSymbol;
+const typeofArray = (value) => Array.isArray(value);
+exports.typeofArray = typeofArray;
 function deepFreeze(object) {
     const propNames = Reflect.ownKeys(object);
     for (const name of propNames) {
@@ -62,7 +74,9 @@ const printEnvironment = (options) => {
         .reduce((a, [k, v]) => ({
         ...a,
         [k]: `${/password|secret/i.test(k)
-            ? "********"
+            ? ["SeT_tHiS_iN_0x3A-.env.secrets-"].includes(v ?? "")
+                ? `\x1b[31mWARNING\x1b[0m: Value should be changed for production!`
+                : "********"
             : /uri|url|path/i.test(k) && /:([^:@]+)@/i.test(v ?? "")
                 ? /^(.*:)([^:@]+)(@.*)$/i
                     .exec(v ?? "")

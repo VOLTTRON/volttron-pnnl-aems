@@ -50,7 +50,7 @@ export class CleanupService extends BaseService {
           } that occurred prior to ${this.started.toLocaleDateString()}.`,
         );
       })
-      .catch((error) => {
+      .catch((error: Error) => {
         this.logger.warn({ message: error.message, stack: error.stack });
       });
   }

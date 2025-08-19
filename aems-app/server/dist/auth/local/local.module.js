@@ -26,11 +26,15 @@ exports.LocalModule = LocalModule = __decorate([
         providers: [
             {
                 provide: _1.Provider,
-                inject: [app_config_1.AppConfigService.Key, auth_service_1.AuthService, prisma_service_1.PrismaService],
-                useFactory: (configService, authService, prismaService) => configService.auth.providers.includes(_1.Provider) ? new local_service_1.LocalService(authService, prismaService) : null,
+                inject: [auth_service_1.AuthService, app_config_1.AppConfigService.Key, prisma_service_1.PrismaService],
+                useFactory: (authService, configService, prismaService) => configService.auth.providers.includes(_1.Provider)
+                    ? configService.auth.framework === "authjs"
+                        ? new local_service_1.LocalAuthjsService(authService, configService, prismaService)
+                        : new local_service_1.LocalPassportService(authService, configService, prismaService)
+                    : null,
             },
         ],
-        controllers: [local_controller_1.LocalController],
+        controllers: new app_config_1.AppConfigService().auth.framework === "passport" ? [local_controller_1.LocalController] : [],
     })
 ], LocalModule);
 //# sourceMappingURL=local.module.js.map

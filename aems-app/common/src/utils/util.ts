@@ -26,6 +26,29 @@ export const typeofObject = <T extends object>(value: any, callback?: (v: any) =
   typeof value === "object" && (callback ? callback(value) : true);
 
 /**
+ * Type guard for string.
+ */
+export const typeofString = (value: any): value is string => typeof value === "string";
+
+/**
+ * Type guard for number.
+ */
+export const typeofNumber = (value: any): value is number => typeof value === "number";
+
+/** Type guard for boolean. */
+export const typeofBoolean = (value: any): value is boolean => typeof value === "boolean";
+
+/** Type guard for function. */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+export const typeofFunction = (value: any): value is Function => typeof value === "function";
+
+/** Type guard for symbol. */
+export const typeofSymbol = (value: any): value is symbol => typeof value === "symbol";
+
+/** Type guard for array. */
+export const typeofArray = (value: any): value is any[] => Array.isArray(value);
+
+/**
  * Recursively applies Object.freeze() to an object.
  */
 export function deepFreeze<T extends object>(object: T) {
@@ -123,7 +146,9 @@ export const printEnvironment = (options?: {
         ...a,
         [k]: `${
           /password|secret/i.test(k)
-            ? "********"
+            ? ["SeT_tHiS_iN_0x3A-.env.secrets-"].includes(v ?? "")
+              ? `\x1b[31mWARNING\x1b[0m: Value should be changed for production!`
+              : "********"
             : /uri|url|path/i.test(k) && /:([^:@]+)@/i.test(v ?? "")
               ? /^(.*:)([^:@]+)(@.*)$/i
                   .exec(v ?? "")

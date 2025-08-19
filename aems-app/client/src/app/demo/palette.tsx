@@ -1,9 +1,10 @@
 "use client";
 
-import { Color, Palette, Palettes } from "@/utils/palette";
+import { Palette, Palettes } from "@/utils/palette";
 import { ColorChooser, ColorPicker, PaletteFilter, PalettePicker } from "../components/common";
 import { useState } from "react";
 import { ControlGroup, FormGroup } from "@blueprintjs/core";
+import { Color } from "@local/common";
 
 const PALETTES = new Palettes();
 const PALETTE = Palettes.getPalette("Blue");

@@ -1,6 +1,9 @@
 import { Colors } from "@blueprintjs/core";
-import { typeofObject } from "@local/common";
+import { Color, JsonColor, typeofObject } from "@local/common";
 import json from "./palettes.json";
+
+export { Color } from "@local/common";
+export type { JsonColor } from "@local/common";
 
 /**
  * Represents a default color palette based on Blueprintjs colors.
@@ -68,19 +71,6 @@ export enum PaletteScheme {
 }
 
 /**
- * Represents an input or output format for a color.
- */
-export enum ColorType {
-  Color = "Color",
-  Hex = "Hex",
-  HexA = "HexA",
-  RGB = "RGB",
-  RGBA = "RGBA",
-  HSL = "HSL",
-  HSLA = "HSLA",
-}
-
-/**
  * Represents a data scale type for filtering palette types.
  */
 export enum ScaleType {
@@ -88,361 +78,6 @@ export enum ScaleType {
   Ordinal = "Ordinal",
   Interval = "Interval",
   Ratio = "Ratio",
-}
-
-const wordToHex: Record<string, string> = {
-  aliceblue: "#f0f8ff",
-  antiquewhite: "#faebd7",
-  aqua: "#00ffff",
-  aquamarine: "#7fffd4",
-  azure: "#f0ffff",
-  beige: "#f5f5dc",
-  bisque: "#ffe4c4",
-  black: "#000000",
-  blanchedalmond: "#ffebcd",
-  blue: "#0000ff",
-  blueviolet: "#8a2be2",
-  brown: "#a52a2a",
-  burlywood: "#deb887",
-  cadetblue: "#5f9ea0",
-  chartreuse: "#7fff00",
-  chocolate: "#d2691e",
-  coral: "#ff7f50",
-  cornflowerblue: "#6495ed",
-  cornsilk: "#fff8dc",
-  crimson: "#dc143c",
-  cyan: "#00ffff",
-  darkblue: "#00008b",
-  darkcyan: "#008b8b",
-  darkgoldenrod: "#b8860b",
-  darkgray: "#a9a9a9",
-  darkgrey: "#a9a9a9",
-  darkgreen: "#006400",
-  darkkhaki: "#bdb76b",
-  darkmagenta: "#8b008b",
-  darkolivegreen: "#556b2f",
-  darkorange: "#ff8c00",
-  darkorchid: "#9932cc",
-  darkred: "#8b0000",
-  darksalmon: "#e9967a",
-  darkseagreen: "#8fbc8f",
-  darkslateblue: "#483d8b",
-  darkslategray: "#2f4f4f",
-  darkslategrey: "#2f4f4f",
-  darkturquoise: "#00ced1",
-  darkviolet: "#9400d3",
-  deeppink: "#ff1493",
-  deepskyblue: "#00bfff",
-  dimgray: "#696969",
-  dimgrey: "#696969",
-  dodgerblue: "#1e90ff",
-  firebrick: "#b22222",
-  floralwhite: "#fffaf0",
-  forestgreen: "#228b22",
-  fuchsia: "#ff00ff",
-  gainsboro: "#dcdcdc",
-  ghostwhite: "#f8f8ff",
-  gold: "#ffd700",
-  goldenrod: "#daa520",
-  gray: "#808080",
-  grey: "#808080",
-  green: "#008000",
-  greenyellow: "#adff2f",
-  honeydew: "#f0fff0",
-  hotpink: "#ff69b4",
-  indianred: "#cd5c5c",
-  indigo: "#4b0082",
-  ivory: "#fffff0",
-  khaki: "#f0e68c",
-  lavender: "#e6e6fa",
-  lavenderblush: "#fff0f5",
-  lawngreen: "#7cfc00",
-  lemonchiffon: "#fffacd",
-  lightblue: "#add8e6",
-  lightcoral: "#f08080",
-  lightcyan: "#e0ffff",
-  lightgoldenrodyellow: "#fafad2",
-  lightgray: "#d3d3d3",
-  lightgrey: "#d3d3d3",
-  lightgreen: "#90ee90",
-  lightpink: "#ffb6c1",
-  lightsalmon: "#ffa07a",
-  lightseagreen: "#20b2aa",
-  lightskyblue: "#87cefa",
-  lightslategray: "#778899",
-  lightslategrey: "#778899",
-  lightsteelblue: "#b0c4de",
-  lightyellow: "#ffffe0",
-  lime: "#00ff00",
-  limegreen: "#32cd32",
-  linen: "#faf0e6",
-  magenta: "#ff00ff",
-  maroon: "#800000",
-  mediumaquamarine: "#66cdaa",
-  mediumblue: "#0000cd",
-  mediumorchid: "#ba55d3",
-  mediumpurple: "#9370db",
-  mediumseagreen: "#3cb371",
-  mediumslateblue: "#7b68ee",
-  mediumspringgreen: "#00fa9a",
-  mediumturquoise: "#48d1cc",
-  mediumvioletred: "#c71585",
-  midnightblue: "#191970",
-  mintcream: "#f5fffa",
-  mistyrose: "#ffe4e1",
-  moccasin: "#ffe4b5",
-  navajowhite: "#ffdead",
-  navy: "#000080",
-  oldlace: "#fdf5e6",
-  olive: "#808000",
-  olivedrab: "#6b8e23",
-  orange: "#ffa500",
-  orangered: "#ff4500",
-  orchid: "#da70d6",
-  palegoldenrod: "#eee8aa",
-  palegreen: "#98fb98",
-  paleturquoise: "#afeeee",
-  palevioletred: "#db7093",
-  papayawhip: "#ffefd5",
-  peachpuff: "#ffdab9",
-  peru: "#cd853f",
-  pink: "#ffc0cb",
-  plum: "#dda0dd",
-  powderblue: "#b0e0e6",
-  purple: "#800080",
-  rebeccapurple: "#663399",
-  red: "#ff0000",
-  rosybrown: "#bc8f8f",
-  royalblue: "#4169e1",
-  saddlebrown: "#8b4513",
-  salmon: "#fa8072",
-  sandybrown: "#f4a460",
-  seagreen: "#2e8b57",
-  seashell: "#fff5ee",
-  sienna: "#a0522d",
-  silver: "#c0c0c0",
-  skyblue: "#87ceeb",
-  slateblue: "#6a5acd",
-  slategray: "#708090",
-  slategrey: "#708090",
-  snow: "#fffafa",
-  springgreen: "#00ff7f",
-  steelblue: "#4682b4",
-  tan: "#d2b48c",
-  teal: "#008080",
-  thistle: "#d8bfd8",
-  tomato: "#ff6347",
-  turquoise: "#40e0d0",
-  violet: "#ee82ee",
-  wheat: "#f5deb3",
-  white: "#ffffff",
-  whitesmoke: "#f5f5f5",
-  yellow: "#ffff00",
-  yellowgreen: "#9acd32",
-};
-
-const hexToWord = Object.fromEntries(Object.entries(wordToHex).map(([k, v]) => [v, k]));
-
-const toHex = (color: string) => wordToHex[color.toLowerCase()];
-const fromHex = (hex: string): string => hexToWord[hex.toLowerCase()];
-const hsl2rgb = (h: number, s: number, l: number) => {
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number, k = (n + h / 30) % 12) => l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-  return [f(0), f(8), f(4)];
-};
-
-function isString(value: string | number | undefined): value is string {
-  return typeof value === "string";
-}
-function isNumber(value: string | number): value is number {
-  return typeof value === "number";
-}
-function isColor(value: string | number): value is string {
-  return isString(value) && wordToHex.hasOwnProperty(value.toLowerCase());
-}
-function isHex(value: string | number): value is string {
-  return typeof value === "string" && /^#[0-9A-Fa-f]{6,8}$/.test(value);
-}
-function error(error: string): never {
-  throw new Error(error);
-}
-
-/**
- * JSON representation of a color.
- */
-export interface JsonColor {
-  name: string;
-  hex: string;
-}
-
-export class Color {
-  readonly name: string;
-  readonly hex: string;
-
-  constructor(hex: string);
-  constructor(name: string, hex: string);
-  constructor(red: number, green: number, blue: number);
-  constructor(red: number, green: number, blue: number, alpha: number);
-  constructor(name: string, red: number, green: number, blue: number);
-  constructor(name: string, red: number, green: number, blue: number, alpha: number);
-  constructor(...values: (string | number)[]) {
-    let name = "";
-    let hex = "";
-    if (values.length === 1 && isHex(values[0])) {
-      hex = values[0];
-    } else if (values.length === 1 && isColor(values[0])) {
-      hex = toHex(values[0]);
-    } else if (values.length === 2 && isString(values[0]) && isHex(values[1])) {
-      name = values[0];
-      hex = values[1];
-    } else if (values.length === 2 && isString(values[0]) && isColor(values[1])) {
-      name = values[0];
-      hex = toHex(values[1]);
-    } else if (values.every((value) => typeof value === "number")) {
-      name = "";
-      hex = `#${values
-        .map((value, i) => (i === 3 ? Math.round((value as number) * 255) : value).toString(16).padStart(2, "0"))
-        .join("")}`;
-    } else if (
-      (values.length === 4 || values.length === 5) &&
-      isString(values[0]) &&
-      values.slice(1).every((value) => typeof value === "number")
-    ) {
-      name = values[0];
-      hex = `#${values
-        .slice(1)
-        .filter(isNumber)
-        .map((value, i) => (i === 3 ? Math.round((value as number) * 255) : value).toString(16).padStart(2, "0"))
-        .join("")}`;
-    } else {
-      error("Invalid color values");
-    }
-    this.name = isString(name) ? name : error(`Invalid color name: ${name}`);
-    this.hex = isHex(hex) ? hex.toLocaleLowerCase() : error(`Invalid color hex: ${hex}`);
-  }
-
-  static build(builder: JsonColor): Color {
-    return new Color(builder.name, builder.hex);
-  }
-
-  static parse(value: string): Color;
-  static parse(name: string, value: string): Color;
-  static parse(first: string, second?: string): Color {
-    const name = isString(second) ? first : "";
-    const value = isString(second) ? second : first;
-    if (/rgb\(\d{1,3}, ?\d{1,3}, ?\d{1,3}\)/.test(value)) {
-      const [, r, g, b] = /rgb\((\d{1,3}), ?(\d{1,3}), ?(\d{1,3})\)/.exec(value) ?? [];
-      return new Color(parseInt(r), parseInt(g), parseInt(b));
-    } else if (/rgba\(\d{1,3}, ?\d{1,3}, ?\d{1,3}, ?0?\.\d+\)/.test(value)) {
-      const [, r, g, b, a] = /rgba\((\d{1,3}), ?(\d{1,3}), ?(\d{1,3}), ?(0?\.\d+)\)/.exec(value) ?? [];
-      return new Color(parseInt(r), parseInt(g), parseInt(b), parseFloat(a));
-    } else if (/hsl\(\d{1,3}, ?\d{1,3}%, ?\d{1,3}%\)/.test(value)) {
-      const [, h, s, l] = /hsl\((\d{1,3}), ?(\d{1,3})%, ?(\d{1,3})%\)/.exec(value) ?? [];
-      const [r, g, b] = hsl2rgb(parseInt(h), parseInt(s) / 100, parseInt(l) / 100);
-      return new Color(r * 255, g * 255, b * 255);
-    } else if (/hsla\(\d{1,3}, ?\d{1,3}%, ?\d{1,3}%, ?0?\.\d+\)/.test(value)) {
-      const [, h, s, l, a] = /hsla\((\d{1,3}), ?(\d{1,3})%, ?(\d{1,3})%, ?(0?\.\d+)\)/.exec(value) ?? [];
-      const [r, g, b] = hsl2rgb(parseInt(h), parseInt(s) / 100, parseInt(l) / 100);
-      return new Color(r * 255, g * 255, b * 255, parseFloat(a));
-    }
-    return new Color(name, value);
-  }
-
-  get red(): number {
-    return parseInt(this.hex.slice(1, 3), 16);
-  }
-
-  get green(): number {
-    return parseInt(this.hex.slice(3, 5), 16);
-  }
-
-  get blue(): number {
-    return parseInt(this.hex.slice(5, 7), 16);
-  }
-
-  get alpha(): number {
-    return this.hex.length === 9 ? Math.round((parseInt(this.hex.slice(7, 9), 16) / 255) * 100) / 100 : 1;
-  }
-
-  get rgb(): string {
-    return `rgb(${this.red}, ${this.green}, ${this.blue})`;
-  }
-
-  get rgba(): string {
-    return `rgba(${this.red}, ${this.green}, ${this.blue}, ${this.alpha})`;
-  }
-
-  get hsl(): string {
-    const r = this.red / 255;
-    const g = this.green / 255;
-    const b = this.blue / 255;
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    let h = 0;
-    let s = 0;
-    const l = (max + min) / 2;
-    if (max !== min) {
-      const d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      switch (max) {
-        case r:
-          h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-          break;
-        case g:
-          h = ((b - r) / d + 2) / 6;
-          break;
-        case b:
-          h = ((r - g) / d + 4) / 6;
-          break;
-      }
-    }
-    return `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
-  }
-
-  get hsla(): string {
-    return this.hsl.replace("hsl", "hsla").replace(")", `, ${this.alpha})`);
-  }
-
-  toString(type?: ColorType): string {
-    switch (type) {
-      case ColorType.Hex:
-        return this.hex.slice(0, 7);
-      case ColorType.HexA:
-        return this.hex.length === 9 ? this.hex.slice(0, 7) : `${this.hex}ff`;
-      case ColorType.RGB:
-        return this.rgb;
-      case ColorType.RGBA:
-        return this.rgba;
-      case ColorType.HSL:
-        return this.hsl;
-      case ColorType.HSLA:
-        return this.hsla;
-      case ColorType.Color:
-        const color = fromHex(this.hex);
-        return color ?? this.hex;
-      default:
-        return this.hex;
-    }
-  }
-
-  valueOf(): string {
-    return this.hex;
-  }
-
-  [Symbol.toPrimitive](hint: "number"): number;
-  [Symbol.toPrimitive](hint: "string"): string;
-  [Symbol.toPrimitive](hint: "default"): string;
-  [Symbol.toPrimitive](hint: string): string | number | boolean | undefined {
-    switch (hint) {
-      case "number":
-        return this.hex.length === 9 ? parseInt(this.hex.slice(0, 7), 16) : parseInt(this.hex, 16);
-      case "string":
-      case "default":
-        return this.hex;
-      default:
-        return true;
-    }
-  }
 }
 
 /**
@@ -469,7 +104,7 @@ export class Palette {
     secondary: Color,
     tertiary: Color,
     quaternary: Color,
-    quinary: Color
+    quinary: Color,
   );
   constructor(
     name: PaletteName | string,
@@ -566,11 +201,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Achromatic,
         PaletteScheme.Sequential,
-        new Color("BLACK", Colors.BLACK),
-        new Color("DARK_GRAY3", Colors.DARK_GRAY3),
-        new Color("GRAY3", Colors.GRAY3),
-        new Color("LIGHT_GRAY3", Colors.LIGHT_GRAY3),
-        new Color("WHITE", Colors.WHITE)
+        new Color("BLACK", Colors.BLACK as `#${string}`),
+        new Color("DARK_GRAY3", Colors.DARK_GRAY3 as `#${string}`),
+        new Color("GRAY3", Colors.GRAY3 as `#${string}`),
+        new Color("LIGHT_GRAY3", Colors.LIGHT_GRAY3 as `#${string}`),
+        new Color("WHITE", Colors.WHITE as `#${string}`),
       );
     case PaletteName.DarkGray:
     case "DarkGray":
@@ -578,11 +213,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Achromatic,
         PaletteScheme.Sequential,
-        new Color("DARK_GRAY1", Colors.DARK_GRAY1),
-        new Color("DARK_GRAY2", Colors.DARK_GRAY2),
-        new Color("DARK_GRAY3", Colors.DARK_GRAY3),
-        new Color("DARK_GRAY4", Colors.DARK_GRAY4),
-        new Color("DARK_GRAY5", Colors.DARK_GRAY5)
+        new Color("DARK_GRAY1", Colors.DARK_GRAY1 as `#${string}`),
+        new Color("DARK_GRAY2", Colors.DARK_GRAY2 as `#${string}`),
+        new Color("DARK_GRAY3", Colors.DARK_GRAY3 as `#${string}`),
+        new Color("DARK_GRAY4", Colors.DARK_GRAY4 as `#${string}`),
+        new Color("DARK_GRAY5", Colors.DARK_GRAY5 as `#${string}`),
       );
     case PaletteName.Gray:
     case "Gray":
@@ -590,11 +225,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Achromatic,
         PaletteScheme.Sequential,
-        new Color("GRAY1", Colors.GRAY1),
-        new Color("GRAY2", Colors.GRAY2),
-        new Color("GRAY3", Colors.GRAY3),
-        new Color("GRAY4", Colors.GRAY4),
-        new Color("GRAY5", Colors.GRAY5)
+        new Color("GRAY1", Colors.GRAY1 as `#${string}`),
+        new Color("GRAY2", Colors.GRAY2 as `#${string}`),
+        new Color("GRAY3", Colors.GRAY3 as `#${string}`),
+        new Color("GRAY4", Colors.GRAY4 as `#${string}`),
+        new Color("GRAY5", Colors.GRAY5 as `#${string}`),
       );
     case PaletteName.LightGray:
     case "LightGray":
@@ -602,11 +237,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Achromatic,
         PaletteScheme.Sequential,
-        new Color("LIGHT_GRAY1", Colors.LIGHT_GRAY1),
-        new Color("LIGHT_GRAY2", Colors.LIGHT_GRAY2),
-        new Color("LIGHT_GRAY3", Colors.LIGHT_GRAY3),
-        new Color("LIGHT_GRAY4", Colors.LIGHT_GRAY4),
-        new Color("LIGHT_GRAY5", Colors.LIGHT_GRAY5)
+        new Color("LIGHT_GRAY1", Colors.LIGHT_GRAY1 as `#${string}`),
+        new Color("LIGHT_GRAY2", Colors.LIGHT_GRAY2 as `#${string}`),
+        new Color("LIGHT_GRAY3", Colors.LIGHT_GRAY3 as `#${string}`),
+        new Color("LIGHT_GRAY4", Colors.LIGHT_GRAY4 as `#${string}`),
+        new Color("LIGHT_GRAY5", Colors.LIGHT_GRAY5 as `#${string}`),
       );
     case PaletteName.White:
     case "White":
@@ -614,11 +249,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Achromatic,
         PaletteScheme.Sequential,
-        new Color("WHITE", Colors.WHITE),
-        new Color("LIGHT_GRAY3", Colors.LIGHT_GRAY3),
-        new Color("GRAY3", Colors.GRAY3),
-        new Color("DARK_GRAY3", Colors.DARK_GRAY3),
-        new Color("BLACK", Colors.BLACK)
+        new Color("WHITE", Colors.WHITE as `#${string}`),
+        new Color("LIGHT_GRAY3", Colors.LIGHT_GRAY3 as `#${string}`),
+        new Color("GRAY3", Colors.GRAY3 as `#${string}`),
+        new Color("DARK_GRAY3", Colors.DARK_GRAY3 as `#${string}`),
+        new Color("BLACK", Colors.BLACK as `#${string}`),
       );
     case PaletteName.Vermilion:
     case "Vermilion":
@@ -626,11 +261,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Extended,
         PaletteScheme.Sequential,
-        new Color("VERMILION1", Colors.VERMILION1),
-        new Color("VERMILION2", Colors.VERMILION2),
-        new Color("VERMILION3", Colors.VERMILION3),
-        new Color("VERMILION4", Colors.VERMILION4),
-        new Color("VERMILION5", Colors.VERMILION5)
+        new Color("VERMILION1", Colors.VERMILION1 as `#${string}`),
+        new Color("VERMILION2", Colors.VERMILION2 as `#${string}`),
+        new Color("VERMILION3", Colors.VERMILION3 as `#${string}`),
+        new Color("VERMILION4", Colors.VERMILION4 as `#${string}`),
+        new Color("VERMILION5", Colors.VERMILION5 as `#${string}`),
       );
     case PaletteName.Rose:
     case "Rose":
@@ -638,11 +273,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Extended,
         PaletteScheme.Sequential,
-        new Color("ROSE1", Colors.ROSE1),
-        new Color("ROSE2", Colors.ROSE2),
-        new Color("ROSE3", Colors.ROSE3),
-        new Color("ROSE4", Colors.ROSE4),
-        new Color("ROSE5", Colors.ROSE5)
+        new Color("ROSE1", Colors.ROSE1 as `#${string}`),
+        new Color("ROSE2", Colors.ROSE2 as `#${string}`),
+        new Color("ROSE3", Colors.ROSE3 as `#${string}`),
+        new Color("ROSE4", Colors.ROSE4 as `#${string}`),
+        new Color("ROSE5", Colors.ROSE5 as `#${string}`),
       );
     case PaletteName.Violet:
     case "Violet":
@@ -650,11 +285,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Extended,
         PaletteScheme.Sequential,
-        new Color("VIOLET1", Colors.VIOLET1),
-        new Color("VIOLET2", Colors.VIOLET2),
-        new Color("VIOLET3", Colors.VIOLET3),
-        new Color("VIOLET4", Colors.VIOLET4),
-        new Color("VIOLET5", Colors.VIOLET5)
+        new Color("VIOLET1", Colors.VIOLET1 as `#${string}`),
+        new Color("VIOLET2", Colors.VIOLET2 as `#${string}`),
+        new Color("VIOLET3", Colors.VIOLET3 as `#${string}`),
+        new Color("VIOLET4", Colors.VIOLET4 as `#${string}`),
+        new Color("VIOLET5", Colors.VIOLET5 as `#${string}`),
       );
     case PaletteName.Indigo:
     case "Indigo":
@@ -662,11 +297,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Extended,
         PaletteScheme.Sequential,
-        new Color("INDIGO1", Colors.INDIGO1),
-        new Color("INDIGO2", Colors.INDIGO2),
-        new Color("INDIGO3", Colors.INDIGO3),
-        new Color("INDIGO4", Colors.INDIGO4),
-        new Color("INDIGO5", Colors.INDIGO5)
+        new Color("INDIGO1", Colors.INDIGO1 as `#${string}`),
+        new Color("INDIGO2", Colors.INDIGO2 as `#${string}`),
+        new Color("INDIGO3", Colors.INDIGO3 as `#${string}`),
+        new Color("INDIGO4", Colors.INDIGO4 as `#${string}`),
+        new Color("INDIGO5", Colors.INDIGO5 as `#${string}`),
       );
     case PaletteName.Cerulean:
     case "Cerulean":
@@ -674,11 +309,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Extended,
         PaletteScheme.Sequential,
-        new Color("CERULEAN1", Colors.CERULEAN1),
-        new Color("CERULEAN2", Colors.CERULEAN2),
-        new Color("CERULEAN3", Colors.CERULEAN3),
-        new Color("CERULEAN4", Colors.CERULEAN4),
-        new Color("CERULEAN5", Colors.CERULEAN5)
+        new Color("CERULEAN1", Colors.CERULEAN1 as `#${string}`),
+        new Color("CERULEAN2", Colors.CERULEAN2 as `#${string}`),
+        new Color("CERULEAN3", Colors.CERULEAN3 as `#${string}`),
+        new Color("CERULEAN4", Colors.CERULEAN4 as `#${string}`),
+        new Color("CERULEAN5", Colors.CERULEAN5 as `#${string}`),
       );
     case PaletteName.Turquoise:
     case "Turquoise":
@@ -686,11 +321,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Extended,
         PaletteScheme.Sequential,
-        new Color("TURQUOISE1", Colors.TURQUOISE1),
-        new Color("TURQUOISE2", Colors.TURQUOISE2),
-        new Color("TURQUOISE3", Colors.TURQUOISE3),
-        new Color("TURQUOISE4", Colors.TURQUOISE4),
-        new Color("TURQUOISE5", Colors.TURQUOISE5)
+        new Color("TURQUOISE1", Colors.TURQUOISE1 as `#${string}`),
+        new Color("TURQUOISE2", Colors.TURQUOISE2 as `#${string}`),
+        new Color("TURQUOISE3", Colors.TURQUOISE3 as `#${string}`),
+        new Color("TURQUOISE4", Colors.TURQUOISE4 as `#${string}`),
+        new Color("TURQUOISE5", Colors.TURQUOISE5 as `#${string}`),
       );
     case PaletteName.Forest:
     case "Forest":
@@ -698,11 +333,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Extended,
         PaletteScheme.Sequential,
-        new Color("FOREST1", Colors.FOREST1),
-        new Color("FOREST2", Colors.FOREST2),
-        new Color("FOREST3", Colors.FOREST3),
-        new Color("FOREST4", Colors.FOREST4),
-        new Color("FOREST5", Colors.FOREST5)
+        new Color("FOREST1", Colors.FOREST1 as `#${string}`),
+        new Color("FOREST2", Colors.FOREST2 as `#${string}`),
+        new Color("FOREST3", Colors.FOREST3 as `#${string}`),
+        new Color("FOREST4", Colors.FOREST4 as `#${string}`),
+        new Color("FOREST5", Colors.FOREST5 as `#${string}`),
       );
     case PaletteName.Lime:
     case "Lime":
@@ -710,11 +345,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Extended,
         PaletteScheme.Sequential,
-        new Color("LIME1", Colors.LIME1),
-        new Color("LIME2", Colors.LIME2),
-        new Color("LIME3", Colors.LIME3),
-        new Color("LIME4", Colors.LIME4),
-        new Color("LIME5", Colors.LIME5)
+        new Color("LIME1", Colors.LIME1 as `#${string}`),
+        new Color("LIME2", Colors.LIME2 as `#${string}`),
+        new Color("LIME3", Colors.LIME3 as `#${string}`),
+        new Color("LIME4", Colors.LIME4 as `#${string}`),
+        new Color("LIME5", Colors.LIME5 as `#${string}`),
       );
     case PaletteName.Gold:
     case "Gold":
@@ -722,11 +357,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Extended,
         PaletteScheme.Sequential,
-        new Color("GOLD1", Colors.GOLD1),
-        new Color("GOLD2", Colors.GOLD2),
-        new Color("GOLD3", Colors.GOLD3),
-        new Color("GOLD4", Colors.GOLD4),
-        new Color("GOLD5", Colors.GOLD5)
+        new Color("GOLD1", Colors.GOLD1 as `#${string}`),
+        new Color("GOLD2", Colors.GOLD2 as `#${string}`),
+        new Color("GOLD3", Colors.GOLD3 as `#${string}`),
+        new Color("GOLD4", Colors.GOLD4 as `#${string}`),
+        new Color("GOLD5", Colors.GOLD5 as `#${string}`),
       );
     case PaletteName.Sepia:
     case "Sepia":
@@ -734,11 +369,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Extended,
         PaletteScheme.Sequential,
-        new Color("SEPIA1", Colors.SEPIA1),
-        new Color("SEPIA2", Colors.SEPIA2),
-        new Color("SEPIA3", Colors.SEPIA3),
-        new Color("SEPIA4", Colors.SEPIA4),
-        new Color("SEPIA5", Colors.SEPIA5)
+        new Color("SEPIA1", Colors.SEPIA1 as `#${string}`),
+        new Color("SEPIA2", Colors.SEPIA2 as `#${string}`),
+        new Color("SEPIA3", Colors.SEPIA3 as `#${string}`),
+        new Color("SEPIA4", Colors.SEPIA4 as `#${string}`),
+        new Color("SEPIA5", Colors.SEPIA5 as `#${string}`),
       );
     case PaletteName.Blue:
     case "Blue":
@@ -746,11 +381,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Core,
         PaletteScheme.Sequential,
-        new Color("BLUE1", Colors.BLUE1),
-        new Color("BLUE2", Colors.BLUE2),
-        new Color("BLUE3", Colors.BLUE3),
-        new Color("BLUE4", Colors.BLUE4),
-        new Color("BLUE5", Colors.BLUE5)
+        new Color("BLUE1", Colors.BLUE1 as `#${string}`),
+        new Color("BLUE2", Colors.BLUE2 as `#${string}`),
+        new Color("BLUE3", Colors.BLUE3 as `#${string}`),
+        new Color("BLUE4", Colors.BLUE4 as `#${string}`),
+        new Color("BLUE5", Colors.BLUE5 as `#${string}`),
       );
     case PaletteName.Green:
     case "Green":
@@ -758,11 +393,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Core,
         PaletteScheme.Sequential,
-        new Color("GREEN1", Colors.GREEN1),
-        new Color("GREEN2", Colors.GREEN2),
-        new Color("GREEN3", Colors.GREEN3),
-        new Color("GREEN4", Colors.GREEN4),
-        new Color("GREEN5", Colors.GREEN5)
+        new Color("GREEN1", Colors.GREEN1 as `#${string}`),
+        new Color("GREEN2", Colors.GREEN2 as `#${string}`),
+        new Color("GREEN3", Colors.GREEN3 as `#${string}`),
+        new Color("GREEN4", Colors.GREEN4 as `#${string}`),
+        new Color("GREEN5", Colors.GREEN5 as `#${string}`),
       );
     case PaletteName.Orange:
     case "Orange":
@@ -770,11 +405,11 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Core,
         PaletteScheme.Sequential,
-        new Color("ORANGE1", Colors.ORANGE1),
-        new Color("ORANGE2", Colors.ORANGE2),
-        new Color("ORANGE3", Colors.ORANGE3),
-        new Color("ORANGE4", Colors.ORANGE4),
-        new Color("ORANGE5", Colors.ORANGE5)
+        new Color("ORANGE1", Colors.ORANGE1 as `#${string}`),
+        new Color("ORANGE2", Colors.ORANGE2 as `#${string}`),
+        new Color("ORANGE3", Colors.ORANGE3 as `#${string}`),
+        new Color("ORANGE4", Colors.ORANGE4 as `#${string}`),
+        new Color("ORANGE5", Colors.ORANGE5 as `#${string}`),
       );
     case PaletteName.Red:
     case "Red":
@@ -782,17 +417,17 @@ const blueprintPalettes = Object.values(PaletteName).map((name) => {
         name,
         PaletteType.Core,
         PaletteScheme.Sequential,
-        new Color("RED1", Colors.RED1),
-        new Color("RED2", Colors.RED2),
-        new Color("RED3", Colors.RED3),
-        new Color("RED4", Colors.RED4),
-        new Color("RED5", Colors.RED5)
+        new Color("RED1", Colors.RED1 as `#${string}`),
+        new Color("RED2", Colors.RED2 as `#${string}`),
+        new Color("RED3", Colors.RED3 as `#${string}`),
+        new Color("RED4", Colors.RED4 as `#${string}`),
+        new Color("RED5", Colors.RED5 as `#${string}`),
       );
     default:
       throw new Error(`Unknown palette name: ${name}`);
   }
 });
-const customPalettes = json.palettes.map((palette) => Palette.build(palette));
+const customPalettes = (json as JsonPalettes).palettes.map((palette) => Palette.build(palette));
 
 export type TypeOrTypes = { type: PaletteType | string } | { types: (PaletteType | string)[] };
 export type SchemeOrSchemes = { scheme: PaletteScheme | string } | { schemes: (PaletteScheme | string)[] };
@@ -823,7 +458,7 @@ const scaleFilter = (options: { scale: ScaleType }, palette: Palette): boolean =
       return PaletteScheme.Qualitative === palette.scheme;
     case ScaleType.Ordinal:
       return ([PaletteScheme.Sequential, PaletteScheme.Diverging] as (PaletteScheme | string)[]).includes(
-        palette.scheme
+        palette.scheme,
       );
     case ScaleType.Interval:
       return PaletteScheme.Sequential === palette.scheme;
@@ -883,7 +518,7 @@ export class Palettes {
       return new Palettes(allPalettes.filter((palette) => scaleFilter(options, palette)));
     } else {
       return new Palettes(
-        allPalettes.filter((palette) => typeFilter(options, palette) && schemeFilter(options, palette))
+        allPalettes.filter((palette) => typeFilter(options, palette) && schemeFilter(options, palette)),
       );
     }
   }
@@ -952,7 +587,7 @@ export class Palettes {
       return new Palettes(this.palettes.filter((palette) => scaleFilter(options, palette)));
     } else {
       return new Palettes(
-        this.palettes.filter((palette) => typeFilter(options, palette) && schemeFilter(options, palette))
+        this.palettes.filter((palette) => typeFilter(options, palette) && schemeFilter(options, palette)),
       );
     }
   }

@@ -1,299 +1,695 @@
-![Prisma](https://i.imgur.com/h6UIYTu.png)
+# Prisma Database Layer
 
-<div align="center">
-  <h1>Prisma</h1>
-  <a href="https://www.npmjs.com/package/prisma"><img src="https://img.shields.io/npm/v/prisma.svg?style=flat" /></a>
-  <a href="https://github.com/prisma/prisma/blob/main/CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" /></a>
-  <a href="https://github.com/prisma/prisma/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-blue" /></a>
-  <a href="https://pris.ly/discord"><img alt="Discord" src="https://img.shields.io/discord/937751382725886062?label=Discord"></a>
-  <br />
-  <br />
-  <a href="https://www.prisma.io/docs/getting-started/quickstart">Quickstart</a>
-  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://www.prisma.io/">Website</a>
-  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://www.prisma.io/docs/">Docs</a>
-  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://github.com/prisma/prisma-examples/">Examples</a>
-  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://www.prisma.io/blog">Blog</a>
-  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://pris.ly/discord?utm_source=github&utm_medium=prisma&utm_content=repo_readme">Discord</a>
-  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://pris.ly/x?utm_source=github&utm_medium=prisma&utm_content=repo_readme">Twitter</a>
-  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://pris.ly/youtube?utm_source=github&utm_medium=prisma&utm_content=repo_readme">Youtube</a>
-  <br />
-  <hr />
-</div>
+<p align="center">
+  <strong>Database schema, migrations, and ORM layer for the Skeleton App</strong>
+</p>
 
-## What is Prisma?
+<p align="center">
+  <a href="https://www.prisma.io/docs" target="_blank">
+    <img src="https://img.shields.io/badge/Prisma-6.9.0-2D3748?logo=prisma" alt="Prisma Version" />
+  </a>
+  <a href="https://www.postgresql.org/" target="_blank">
+    <img src="https://img.shields.io/badge/PostgreSQL-16+-336791?logo=postgresql" alt="PostgreSQL Version" />
+  </a>
+  <a href="https://postgis.net/" target="_blank">
+    <img src="https://img.shields.io/badge/PostGIS-3+-4169E1?logo=postgresql" alt="PostGIS Version" />
+  </a>
+  <a href="https://nodejs.org/dist/latest-v22.x/" target="_blank">
+    <img src="https://img.shields.io/badge/node-22.x-green.svg?logo=node.js" alt="Node.js Version" />
+  </a>
+</p>
 
-Prisma ORM is a **next-generation ORM** that consists of these tools:
+---
 
-- [**Prisma Client**](https://www.prisma.io/docs/concepts/components/prisma-client): Auto-generated and type-safe query builder for Node.js & TypeScript
-- [**Prisma Migrate**](https://www.prisma.io/docs/concepts/components/prisma-migrate): Declarative data modeling & migration system
-- [**Prisma Studio**](https://github.com/prisma/studio): GUI to view and edit data in your database
+## Table of Contents
 
-Prisma Client can be used in _any_ Node.js or TypeScript backend application (including serverless applications and microservices). This can be a [REST API](https://www.prisma.io/docs/concepts/overview/prisma-in-your-stack/rest), a [GraphQL API](https://www.prisma.io/docs/concepts/overview/prisma-in-your-stack/graphql), a gRPC API, or anything else that needs a database.
+- [Overview](#overview)
+- [Architecture](#architecture)
+  - [Database Stack](#database-stack)
+  - [Key Features](#key-features)
+- [Project Structure](#project-structure)
+- [Database Schema](#database-schema)
+  - [Core Models](#core-models)
+  - [Database Extensions](#database-extensions)
+- [Development Workflow](#development-workflow)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
+  - [Migration Management](#migration-management)
+  - [Schema Development](#schema-development)
+  - [Query Patterns](#query-patterns)
+- [Testing](#testing)
+  - [Unit Tests](#unit-tests)
+  - [Integration Tests](#integration-tests)
+- [Performance Optimization](#performance-optimization)
+  - [Connection Pooling](#connection-pooling)
+  - [Query Optimization](#query-optimization)
+  - [Monitoring](#monitoring)
+- [Production Considerations](#production-considerations)
+  - [Environment Configuration](#environment-configuration)
+  - [Migration Deployment](#migration-deployment)
+  - [Backup Strategy](#backup-strategy)
+- [Integration with GraphQL](#integration-with-graphql)
+- [Scripts Reference](#scripts-reference)
+- [Official Documentation](#official-documentation)
+- [Contributing](#contributing)
 
-**If you need a database to use with Prisma ORM, check out [Prisma Postgres](https://www.prisma.io/docs/getting-started/quickstart-prismaPostgres?utm_source=github&utm_medium=prisma-readme).**
+---
 
-## Getting started
+## Overview
 
-### Quickstart (5min)
+This module contains the database layer for the Skeleton App, built with [Prisma](https://www.prisma.io/) as the ORM and query builder. It provides type-safe database access, automated migrations, and seamless integration with PostgreSQL and PostGIS for geospatial data.
 
-The fastest way to get started with Prisma is by following the quickstart guides. You can choose either of two databases:
+## Architecture
 
-- [Prisma Postgres](https://www.prisma.io/docs/getting-started/quickstart-prismaPostgres)
-- [SQLite](https://www.prisma.io/docs/getting-started/quickstart-sqlite)
+### Database Stack
 
-### Bring your own database
+- **Database**: PostgreSQL 16+ with PostGIS 3+ extension
+- **ORM**: Prisma 6.9.0 with TypeScript support
+- **Schema Management**: Prisma Migrate for version-controlled migrations
+- **Type Generation**: Automatic TypeScript type generation from schema
+- **Query Builder**: Type-safe Prisma Client with IntelliSense support
+- **Geospatial**: PostGIS integration for location-based features
 
-If you already have your own database, you can follows these guides:
+### Key Features
 
-- [Add Prisma to an existing project](https://www.prisma.io/docs/getting-started/setup-prisma/add-to-existing-project/relational-databases-typescript-postgresql)
-- [Set up a new project with Prisma from scratch](https://www.prisma.io/docs/getting-started/setup-prisma/start-from-scratch/relational-databases-typescript-postgresql)
+- **Type Safety**: Full TypeScript integration with auto-generated types
+- **Migration System**: Version-controlled database schema changes
+- **Relation Management**: Declarative relationship definitions
+- **Query Optimization**: Efficient query generation and connection pooling
+- **Geospatial Support**: PostGIS integration for geographic data
+- **Multi-Environment**: Support for development, testing, and production
+- **Seeding**: Database initialization with sample data
 
-## How Prisma ORM works
+## Project Structure
 
-This section provides a high-level overview of how Prisma ORM works and its most important technical components. For a more thorough introduction, visit the [Prisma documentation](https://www.prisma.io/docs/).
+```
+prisma/
+├── prisma/
+│   ├── schema.prisma          # Main schema definition
+│   ├── migrations/            # Database migration files
+│   │   └── [timestamp]_[name]/
+│   │       └── migration.sql
+│   └── models/               # Modular schema definitions
+│       ├── user.prisma       # User and authentication models
+│       ├── account.prisma    # OAuth account models
+│       ├── session.prisma    # Session management
+│       ├── comment.prisma    # Comment system
+│       ├── feedback.prisma   # Feedback and file management
+│       ├── banner.prisma     # System banners
+│       ├── geography.prisma  # Geospatial data models
+│       ├── log.prisma        # Application logging
+│       └── *.prisma         # Additional domain models
+├── src/
+│   ├── index.ts             # Prisma client exports
+│   └── pothos.ts            # GraphQL schema integration
+├── package.json             # Dependencies and scripts
+└── README.md               # This file
+```
 
-### The Prisma schema
+## Database Schema
 
-Every project that uses a tool from the Prisma toolkit starts with a [Prisma schema file](https://www.prisma.io/docs/concepts/components/prisma-schema). The Prisma schema allows developers to define their _application models_ in an intuitive data modeling language. It also contains the connection to a database and defines a _generator_:
+### Core Models
+
+#### User Management
 
 ```prisma
-// Data source
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-// Generator
-generator client {
-  provider = "prisma-client-js"
-}
-
-// Data model
-model Post {
-  id        Int     @id @default(autoincrement())
-  title     String
-  content   String?
-  published Boolean @default(false)
-  author    User?   @relation(fields:  [authorId], references: [id])
-  authorId  Int?
-}
-
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
-  posts Post[]
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  role          String?   // Comma-separated roles
+  password      String?   // For local authentication
+  preferences   Json?     // User preferences object
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  comments      Comment[]
+  feedbacks     Feedback[] @relation("UserFeedback")
+  assignedFeedbacks Feedback[] @relation("assignee")
+  files         File[]
+  banners       Banner[]
 }
 ```
 
-In this schema, you configure three things:
+#### Authentication & Sessions
 
-- **Data source**: Specifies your database connection (via an environment variable)
-- **Generator**: Indicates that you want to generate Prisma Client
-- **Data model**: Defines your application models
+```prisma
+model Account {
+  id                 String   @default(cuid())
+  type               String   // oauth, credentials
+  provider           String   // google, github, local
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
----
+  @@id([provider, providerAccountId])
+}
 
-### The Prisma data model
-
-On this page, the focus is on the data model. You can learn more about [Data sources](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-schema/data-sources) and [Generators](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-schema/generators) on the respective docs pages.
-
-#### Functions of Prisma models
-
-The data model is a collection of [models](https://www.prisma.io/docs/concepts/components/prisma-schema/data-model#defining-models). A model has two major functions:
-
-- Represent a table in the underlying database
-- Provide the foundation for the queries in the Prisma Client API
-
-#### Getting a data model
-
-There are two major workflows for "getting" a data model into your Prisma schema:
-
-- Generate the data model from [introspecting](https://www.prisma.io/docs/concepts/components/introspection) a database
-- Manually writing the data model and mapping it to the database with [Prisma Migrate](https://www.prisma.io/docs/concepts/components/prisma-migrate)
-
-Once the data model is defined, you can [generate Prisma Client](https://www.prisma.io/docs/concepts/components/prisma-client/generating-prisma-client) which will expose CRUD and more queries for the defined models. If you're using TypeScript, you'll get full type-safety for all queries (even when only retrieving the subsets of a model's fields).
-
----
-
-### Accessing your database with Prisma Client
-
-#### Generating Prisma Client
-
-The first step when using Prisma Client is installing its npm package:
-
-```
-npm install @prisma/client
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  data      Json     // Session data (Auth.js or Express)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 ```
 
-Note that the installation of this package invokes the `prisma generate` command which reads your Prisma schema and _generates_ the Prisma Client code. The code will be located in `node_modules/.prisma/client`, which is exported by `node_modules/@prisma/client/index.d.ts`.
+#### Content & Feedback
 
-After you change your data model, you'll need to manually re-generate Prisma Client to ensure the code inside `node_modules/.prisma/client` gets updated:
+```prisma
+model Comment {
+  id        String   @id @default(cuid())
+  message   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
-```
-npx prisma generate
-```
+model Feedback {
+  id         String         @id @default(cuid())
+  message    String
+  status     FeedbackStatus @default(Todo)
+  userId     String
+  user       User           @relation("UserFeedback", fields: [userId], references: [id])
+  assigneeId String?
+  assignee   User?          @relation("assignee", fields: [assigneeId], references: [id])
+  files      File[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+}
 
-Refer to the documentation for more information about ["generating the Prisma client"](https://www.prisma.io/docs/concepts/components/prisma-client/generating-prisma-client).
-
-#### Using Prisma Client to send queries to your database
-
-Once the Prisma Client is generated, you can import it in your code and send queries to your database. This is what the setup code looks like.
-
-##### Import and instantiate Prisma Client
-
-You can import and instantiate Prisma Client as follows:
-
-```ts
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
-```
-
-or
-
-```js
-const { PrismaClient } = require('@prisma/client')
-
-const prisma = new PrismaClient()
-```
-
-Now you can start sending queries via the generated Prisma Client API, here are a few sample queries. Note that all Prisma Client queries return _plain old JavaScript objects_.
-
-Learn more about the available operations in the [Prisma Client docs](https://www.prisma.io/docs/concepts/components/prisma-client) or watch this [demo video](https://www.youtube.com/watch?v=LggrE5kJ75I&list=PLn2e1F9Rfr6k9PnR_figWOcSHgc_erDr5&index=4) (2 min).
-
-##### Retrieve all `User` records from the database
-
-```ts
-const allUsers = await prisma.user.findMany()
+enum FeedbackStatus {
+  Todo
+  InProgress
+  Done
+}
 ```
 
-##### Include the `posts` relation on each returned `User` object
+#### Geospatial Data
 
-```ts
-const allUsers = await prisma.user.findMany({
-  include: { posts: true },
-})
+```prisma
+model Geography {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   // country, state, city, etc.
+  group     String   // grouping identifier
+  geojson   Json     // GeoJSON geometry data
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 ```
 
-##### Filter all `Post` records that contain `"prisma"`
+### Database Extensions
 
-```ts
-const filteredPosts = await prisma.post.findMany({
-  where: {
-    OR: [{ title: { contains: 'prisma' } }, { content: { contains: 'prisma' } }],
-  },
-})
+The schema utilizes PostgreSQL extensions for enhanced functionality:
+
+```sql
+-- PostGIS for geospatial data
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- UUID generation
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 ```
 
-##### Create a new `User` and a new `Post` record in the same query
+## Development Workflow
 
-```ts
+### Prerequisites
+
+- Node.js 22.x
+- PostgreSQL 16+ with PostGIS 3+
+- Yarn 4.x
+
+### Setup
+
+1. **Install dependencies**
+
+   ```bash
+   cd prisma
+   yarn install
+   ```
+
+2. **Configure database connection**
+
+   ```bash
+   # Set DATABASE_URL in your environment
+   export DATABASE_URL="postgresql://develop:password@localhost:5432/skeleton?schema=public"
+   ```
+
+3. **Generate Prisma Client**
+   ```bash
+   yarn generate
+   ```
+
+### Migration Management
+
+#### Create New Migration
+
+```bash
+# After modifying schema.prisma
+yarn migrate:create --name descriptive_migration_name
+```
+
+#### Apply Migrations
+
+```bash
+# Deploy pending migrations
+yarn migrate:deploy
+
+# Reset database (development only)
+yarn migrate:reset
+```
+
+#### Migration Best Practices
+
+- **Descriptive Names**: Use clear, descriptive migration names
+- **Incremental Changes**: Make small, focused schema changes
+- **Data Migration**: Include data transformation scripts when needed
+- **Rollback Strategy**: Consider rollback implications for production
+
+#### Geospatial Index Optimization
+
+When working with geospatial fields (GeoJSON data stored as `Json` type), you should manually modify the generated migration files to use PostGIS spatial indexes for optimal performance:
+
+**Before (Prisma-generated migration):**
+
+```sql
+-- This is what Prisma generates by default
+CREATE INDEX "Geography_geojson_idx" ON "Geography"("geojson");
+```
+
+**After (PostGIS-optimized migration):**
+
+```sql
+-- Manually modify the migration to use PostGIS spatial indexing
+CREATE INDEX "Geography_geojson_gist_idx" ON "Geography" USING GIST ((geojson::geometry));
+
+-- Alternative: Create a GIN index for JSON queries
+CREATE INDEX "Geography_geojson_gin_idx" ON "Geography" USING GIN (geojson);
+```
+
+**Migration Modification Workflow:**
+
+1. Generate migration with `yarn migrate:create --name add_geography_model`
+2. Edit the generated migration file in `prisma/migrations/[timestamp]_add_geography_model/migration.sql`
+3. Replace standard indexes with PostGIS spatial indexes
+4. Apply the migration with `yarn migrate:deploy`
+
+**PostGIS Index Types:**
+
+- **GIST Index**: Best for geometric operations (ST_Contains, ST_Intersects, ST_DWithin)
+- **GIN Index**: Best for JSON property queries and full-text search
+- **SPGIST Index**: Best for non-overlapping geometric data
+
+**Example Migration File:**
+
+```sql
+-- CreateTable
+CREATE TABLE "Geography" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "group" TEXT NOT NULL,
+    "geojson" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Geography_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex (manually optimized for PostGIS)
+CREATE INDEX "Geography_geojson_gist_idx" ON "Geography" USING GIST ((geojson::geometry));
+CREATE INDEX "Geography_name_idx" ON "Geography"("name");
+CREATE INDEX "Geography_type_idx" ON "Geography"("type");
+```
+
+> **Note**: Always test geospatial queries after applying custom indexes to ensure optimal performance. Use `EXPLAIN ANALYZE` to verify that PostGIS indexes are being utilized correctly.
+
+### Schema Development
+
+#### Adding New Models
+
+1. **Create model file** in `prisma/models/`
+
+   ```prisma
+   // prisma/models/example.prisma
+   model Example {
+     id        String   @id @default(cuid())
+     name      String
+     createdAt DateTime @default(now())
+     updatedAt DateTime @updatedAt
+   }
+   ```
+
+2. **Update main schema** to include the model
+3. **Generate migration**
+   ```bash
+   yarn migrate:create --name add_example_model
+   ```
+
+#### Relationship Patterns
+
+```prisma
+// One-to-Many
+model User {
+  id       String    @id @default(cuid())
+  comments Comment[]
+}
+
+model Comment {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+// Many-to-Many
+model User {
+  id      String    @id @default(cuid())
+  banners Banner[]
+}
+
+model Banner {
+  id    String @id @default(cuid())
+  users User[]
+}
+
+// Self-Relation
+model User {
+  id       String @id @default(cuid())
+  managerId String?
+  manager  User?   @relation("UserManager", fields: [managerId], references: [id])
+  reports  User[]  @relation("UserManager")
+}
+```
+
+### Query Patterns
+
+#### Basic Operations
+
+```typescript
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+// Create
 const user = await prisma.user.create({
   data: {
-    name: 'Alice',
-    email: 'alice@prisma.io',
-    posts: {
-      create: { title: 'Join us for Prisma Day 2021' },
+    email: "user@example.com",
+    name: "John Doe",
+    role: "user",
+  },
+});
+
+// Read with relations
+const userWithComments = await prisma.user.findUnique({
+  where: { id: userId },
+  include: {
+    comments: {
+      orderBy: { createdAt: "desc" },
+      take: 10,
     },
   },
-})
+});
+
+// Update
+const updatedUser = await prisma.user.update({
+  where: { id: userId },
+  data: { name: "Jane Doe" },
+});
+
+// Delete
+await prisma.user.delete({
+  where: { id: userId },
+});
 ```
 
-##### Update an existing `Post` record
+#### Advanced Queries
 
-```ts
-const post = await prisma.post.update({
-  where: { id: 42 },
-  data: { published: true },
-})
+```typescript
+// Pagination
+const users = await prisma.user.findMany({
+  skip: (page - 1) * pageSize,
+  take: pageSize,
+  orderBy: { createdAt: "desc" },
+});
+
+// Filtering and searching
+const filteredUsers = await prisma.user.findMany({
+  where: {
+    AND: [{ email: { contains: searchTerm } }, { role: { in: ["user", "admin"] } }, { createdAt: { gte: startDate } }],
+  },
+});
+
+// Aggregations
+const userStats = await prisma.user.aggregate({
+  _count: { id: true },
+  _min: { createdAt: true },
+  _max: { createdAt: true },
+});
+
+// Transactions
+await prisma.$transaction(async (tx) => {
+  const user = await tx.user.create({ data: userData });
+  await tx.comment.create({
+    data: { message: "Welcome!", userId: user.id },
+  });
+});
 ```
 
-#### Usage with TypeScript
+#### Geospatial Queries
 
-Note that when using TypeScript, the result of this query will be _statically typed_ so that you can't accidentally access a property that doesn't exist (and any typos are caught at compile-time). Learn more about leveraging Prisma Client's generated types on the [Advanced usage of generated types](https://www.prisma.io/docs/concepts/components/prisma-client/advanced-usage-of-generated-types) page in the docs.
-
-## Community
-
-Prisma has a large and supportive [community](https://www.prisma.io/community) of enthusiastic application developers. You can join us on [Discord](https://pris.ly/discord) and here on [GitHub](https://github.com/prisma/prisma/discussions).
-
-## Badges
-
-[![Made with Prisma](http://made-with.prisma.io/dark.svg)](https://prisma.io) [![Made with Prisma](http://made-with.prisma.io/indigo.svg)](https://prisma.io)
-
-Built something awesome with Prisma? 🌟 Show it off with these [badges](https://github.com/prisma/presskit?tab=readme-ov-file#badges), perfect for your readme or website.
-
-```
-[![Made with Prisma](http://made-with.prisma.io/dark.svg)](https://prisma.io)
+```typescript
+// PostGIS integration for geographic queries
+const nearbyGeographies = await prisma.$queryRaw`
+  SELECT id, name, type, 
+         ST_Distance(geojson::geometry, ST_GeomFromGeoJSON(${searchArea})) as distance
+  FROM "Geography"
+  WHERE ST_DWithin(geojson::geometry, ST_GeomFromGeoJSON(${searchArea}), ${radius})
+  ORDER BY distance
+  LIMIT ${limit}
+`;
 ```
 
-```
-[![Made with Prisma](http://made-with.prisma.io/indigo.svg)](https://prisma.io)
+### Testing
+
+#### Unit Tests
+
+```typescript
+import { PrismaClient } from "@prisma/client";
+import { mockDeep, mockReset, DeepMockProxy } from "jest-mock-extended";
+
+// Mock Prisma for testing
+const prismaMock = mockDeep<PrismaClient>();
+
+beforeEach(() => {
+  mockReset(prismaMock);
+});
+
+test("should create user", async () => {
+  const userData = { email: "test@example.com", name: "Test User" };
+  prismaMock.user.create.mockResolvedValue({ id: "1", ...userData });
+
+  const result = await userService.createUser(userData);
+  expect(result.email).toBe(userData.email);
+});
 ```
 
-## MCP server
+#### Integration Tests
 
-The Prisma CLI includes a [Prisma MCP server](https://www.prisma.io/docs/postgres/mcp-server). It's started via this CLI command:
+```typescript
+import { PrismaClient } from "@prisma/client";
 
+const prisma = new PrismaClient({
+  datasources: { db: { url: process.env.TEST_DATABASE_URL } },
+});
+
+beforeEach(async () => {
+  // Clean database
+  await prisma.user.deleteMany();
+});
+
+afterAll(async () => {
+  await prisma.$disconnect();
+});
 ```
-npx prisma mcp
+
+## Performance Optimization
+
+### Connection Pooling
+
+```typescript
+// Configure connection pool
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: `${DATABASE_URL}?connection_limit=5&pool_timeout=20`,
+    },
+  },
+});
 ```
 
-Most AI tools support a JSON-based configuration for MCP servers looking like this:
+### Query Optimization
+
+```typescript
+// Use select to limit fields
+const users = await prisma.user.findMany({
+  select: {
+    id: true,
+    email: true,
+    name: true,
+  },
+});
+
+// Batch operations
+const users = await prisma.user.createMany({
+  data: userDataArray,
+  skipDuplicates: true,
+});
+
+// Use indexes for frequent queries
+// Add to schema.prisma:
+// @@index([email])
+// @@index([createdAt])
+```
+
+### Monitoring
+
+```typescript
+// Enable query logging
+const prisma = new PrismaClient({
+  log: ["query", "info", "warn", "error"],
+});
+
+// Query metrics
+prisma.$on("query", (e) => {
+  console.log("Query: " + e.query);
+  console.log("Duration: " + e.duration + "ms");
+});
+```
+
+## Production Considerations
+
+### Environment Configuration
+
+```bash
+# Production database URL
+DATABASE_URL="postgresql://user:password@host:5432/database?schema=public&connection_limit=10"
+
+# Connection pooling
+PRISMA_CLIENT_ENGINE_TYPE="binary"
+```
+
+### Migration Deployment
+
+```bash
+# Production migration deployment
+yarn migrate:deploy
+
+# Verify migration status
+yarn migrate:status
+```
+
+### Backup Strategy
+
+```bash
+# Database backup
+pg_dump $DATABASE_URL > backup.sql
+
+# Restore from backup
+psql $DATABASE_URL < backup.sql
+```
+
+## Integration with GraphQL
+
+The Prisma layer integrates seamlessly with the GraphQL API through [Pothos](https://pothos-graphql.dev/):
+
+```typescript
+// src/pothos.ts
+import { PrismaClient } from "@prisma/client";
+import SchemaBuilder from "@pothos/core";
+import PrismaPlugin from "@pothos/plugin-prisma";
+
+const prisma = new PrismaClient();
+
+const builder = new SchemaBuilder<{
+  PrismaTypes: PrismaTypes;
+}>({
+  plugins: [PrismaPlugin],
+  prisma: {
+    client: prisma,
+  },
+});
+
+// Auto-generated GraphQL types from Prisma schema
+builder.prismaObject("User", {
+  fields: (t) => ({
+    id: t.exposeID("id"),
+    email: t.exposeString("email"),
+    name: t.exposeString("name", { nullable: true }),
+    comments: t.relation("comments"),
+  }),
+});
+```
+
+## Scripts Reference
 
 ```json
 {
-  "mcpServers": {
-    "Prisma": {
-      "command": "npx",
-      "args": ["-y", "prisma", "mcp"]
-    }
+  "scripts": {
+    "build": "yarn generate && tsc",
+    "generate": "prisma generate",
+    "migrate:create": "prisma migrate dev --create-only",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:reset": "prisma migrate reset",
+    "migrate:status": "prisma migrate status",
+    "db:push": "prisma db push",
+    "db:pull": "prisma db pull",
+    "db:seed": "tsx prisma/seed.ts",
+    "studio": "prisma studio",
+    "lint": "eslint src --ext .ts",
+    "check": "tsc --noEmit",
+    "test": "jest",
+    "test:cov": "jest --coverage"
   }
 }
 ```
 
-Prisma's MCP server gives AI agents the ability to manage [Prisma Postgres](https://www.prisma.io/postgres) databases (e.g. spin up new database instances or run schema migrations).
+## Official Documentation
 
-## Security
+For comprehensive information about Prisma features and best practices, refer to the official documentation:
 
-If you have a security issue to report, please contact us at [security@prisma.io](mailto:security@prisma.io?subject=[GitHub]%20Prisma%202%20Security%20Report%20).
-
-## Support
-
-### Ask a question about Prisma
-
-You can ask questions and initiate [discussions](https://github.com/prisma/prisma/discussions/) about Prisma-related topics in the `prisma` repository on GitHub.
-
-👉 [**Ask a question**](https://github.com/prisma/prisma/discussions/new)
-
-### Create a bug report for Prisma
-
-If you see an error message or run into an issue, please make sure to create a bug report! You can find [best practices for creating bug reports](https://www.prisma.io/docs/guides/other/troubleshooting-orm/creating-bug-reports) (like including additional debugging output) in the docs.
-
-👉 [**Create bug report**](https://pris.ly/prisma-prisma-bug-report)
-
-### Submit a feature request
-
-If Prisma currently doesn't have a certain feature, be sure to check out the [roadmap](https://www.prisma.io/docs/more/roadmap) to see if this is already planned for the future.
-
-If the feature on the roadmap is linked to a GitHub issue, please make sure to leave a 👍 reaction on the issue and ideally a comment with your thoughts about the feature!
-
-👉 [**Submit feature request**](https://github.com/prisma/prisma/issues/new?assignees=&labels=&template=feature_request.md&title=)
+- **[Prisma Documentation](https://www.prisma.io/docs)** - Complete guide to Prisma
+- **[Prisma Schema Reference](https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference)** - Schema syntax and options
+- **[Prisma Client API](https://www.prisma.io/docs/reference/api-reference/prisma-client-reference)** - Client methods and options
+- **[Prisma Migrate](https://www.prisma.io/docs/concepts/components/prisma-migrate)** - Migration system guide
+- **[PostgreSQL Guide](https://www.prisma.io/docs/concepts/database-connectors/postgresql)** - PostgreSQL-specific features
+- **[PostGIS Integration](https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#working-with-geojson)** - Geospatial data handling
 
 ## Contributing
 
-Refer to our [contribution guidelines](https://github.com/prisma/prisma/blob/main/CONTRIBUTING.md) and [Code of Conduct for contributors](https://github.com/prisma/prisma/blob/main/CODE_OF_CONDUCT.md).
+When contributing to the database layer:
 
-## Tests Status
+1. **Schema Changes**: Always create migrations for schema modifications
+2. **Testing**: Include tests for new models and queries
+3. **Documentation**: Update this README for significant changes
+4. **Performance**: Consider query performance implications
+5. **Backwards Compatibility**: Ensure migrations are backwards compatible
 
-- Prisma Tests Status:
-  [![Prisma Tests Status](https://github.com/prisma/prisma/workflows/CI/badge.svg)](https://github.com/prisma/prisma/actions/workflows/test.yml?query=branch%3Amain)
-- Ecosystem Tests Status:
-  [![Ecosystem Tests Status](https://github.com/prisma/ecosystem-tests/workflows/test/badge.svg)](https://github.com/prisma/ecosystem-tests/actions/workflows/test.yaml?query=branch%3Adev)
+---
+
+<p align="center">
+  <strong>Database layer for the Skeleton App</strong><br>
+  <em>Built with Prisma, PostgreSQL, and PostGIS</em>
+</p>

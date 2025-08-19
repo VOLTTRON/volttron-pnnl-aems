@@ -10,6 +10,7 @@ export declare class AppConfigService {
     static Key: string;
     private logger;
     nodeEnv: string;
+    printEnv: boolean;
     port: number;
     project: {
         name: string;
@@ -45,8 +46,12 @@ export declare class AppConfigService {
     redis: {
         host: string;
         port: number;
+        username?: string;
+        password?: string;
+        db?: number;
     };
     auth: {
+        framework: string;
         providers: string[];
     };
     jwt: {
@@ -56,11 +61,15 @@ export declare class AppConfigService {
     keycloak: {
         authUrl: string;
         tokenUrl: string;
+        callbackUrl: string;
         userinfoUrl: string;
+        certsUrl: string;
         logoutUrl: string;
+        scope: string;
         clientId: string;
         clientSecret: string;
-        redirectUrl: string;
+        issuerUrl: string;
+        wellKnownUrl: string;
         passRoles: boolean;
         defaultRole: string;
     };
@@ -89,6 +98,7 @@ export declare class AppConfigService {
         };
         seed: {
             dataPath: string;
+            batchSize: number;
             geojsonContribution: string;
         };
         cleanup: {
@@ -116,6 +126,9 @@ export declare class AppConfigService {
     };
     volttron: {
         ca: string;
+    };
+    cors: {
+        origin?: string;
     };
     constructor();
 }

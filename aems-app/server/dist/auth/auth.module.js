@@ -13,8 +13,7 @@ const auth_service_1 = require("./auth.service");
 const core_1 = require("@nestjs/core");
 const roles_guard_1 = require("./roles.guard");
 const jwt_1 = require("@nestjs/jwt");
-const passport_1 = require("@nestjs/passport");
-const session_service_1 = require("./session.service");
+const schedule_1 = require("@nestjs/schedule");
 const prisma_module_1 = require("../prisma/prisma.module");
 const subscription_module_1 = require("../subscription/subscription.module");
 const auth_controller_1 = require("./auth.controller");
@@ -32,7 +31,7 @@ exports.AuthModule = AuthModule = AuthModule_1 = __decorate([
         imports: [
             prisma_module_1.PrismaModule,
             subscription_module_1.SubscriptionModule,
-            passport_1.PassportModule.register({ session: true }),
+            schedule_1.ScheduleModule.forRoot(),
             jwt_1.JwtModule.registerAsync({
                 inject: [app_config_1.AppConfigService.Key],
                 useFactory: (configService) => ({
@@ -46,7 +45,6 @@ exports.AuthModule = AuthModule = AuthModule_1 = __decorate([
                 provide: core_1.APP_GUARD,
                 useClass: roles_guard_1.RolesGuard,
             },
-            session_service_1.PrismaSessionStore,
             auth_service_1.AuthService,
         ],
         controllers: [auth_controller_1.AuthController],

@@ -18,8 +18,8 @@ export class ProviderModule {
         ...[BearerModule, KeycloakModule, LocalModule, SuperModule]
           .map((m) =>
             options?.path
-              ? [m, RouterModule.register([{ path: options.path, children: [{ path: "auth", module: m }] }])]
-              : [m, RouterModule.register([{ path: "auth", module: m }])],
+              ? [m, RouterModule.register([{ path: options.path, children: [{ path: "providers", module: m }] }])]
+              : [m, RouterModule.register([{ path: "providers", module: m }])],
           )
           .flat(),
       ],

@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Chainable,
   DeepPartial,
@@ -86,7 +89,6 @@ const createSetpointLabel = (type: "all" | "setpoint" | "deadband" | "heating" |
     case "heating":
     case "cooling":
     default:
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       return `${setpoint[type]}º\xa0F`;
   }
 };
@@ -114,12 +116,11 @@ const toMinutes = (value: string, upper?: boolean) =>
     .next((value) => toUpperBound(value.getHours(), 24, upper) * 60 + value.getMinutes());
 
 const createScheduleLabel = (type: "all" | "startTime" | "endTime", schedule: any): string => {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
   const occupied = schedule?.occupied === undefined ? true : schedule?.occupied;
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-  const startTime: number = typeof schedule?.startTime === "number" ? schedule.startTime : toMinutes(schedule?.startTime ?? "", false);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-  const endTime: number = typeof schedule?.endTime === "number" ? schedule.endTime : toMinutes(schedule?.endTime ?? "", true);
+  const startTime: number =
+    typeof schedule?.startTime === "number" ? schedule.startTime : toMinutes(schedule?.startTime ?? "", false);
+  const endTime: number =
+    typeof schedule?.endTime === "number" ? schedule.endTime : toMinutes(schedule?.endTime ?? "", true);
   switch (type) {
     case "startTime":
       return `${toTimeFormat(startTime)}`;
@@ -299,9 +300,7 @@ export class SetupService extends BaseService {
     const units: Unit[] = [];
     for (const file of await getConfigFiles(this.configService.service.setup.thermostatPaths, ".config", this.logger)) {
       const text = await readFile(file, "utf-8");
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const json = JSON.parse(text);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const {
         campus,
         building,
@@ -313,7 +312,7 @@ export class SetupService extends BaseService {
         system: "",
         local_tz: "",
       };
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
       const name = `${transform(campus)}-${transform(building)}-${transform(system)}`;
       const label = `${campus} ${building} ${system}`;
       this.logger.log(`Checking if thermostat unit "${name}" already exists in the database.`);
@@ -326,13 +325,10 @@ export class SetupService extends BaseService {
             this.logger.log(`Creating thermostat unit "${name}".`);
             const data = createConfigurationDefault({ name, label, campus, building, system, timezone });
             updateConfigurationDefaults(data, json);
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const record = transformUnit(data, "create");
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             record.stage = StageType.Update.enum;
             await this.prismaService.prisma.unit
               .create({
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 data: record,
               })
               .then((unit) => units.push(unit))
@@ -362,9 +358,7 @@ export class SetupService extends BaseService {
     const configs: { control: string; units: string[] }[] = [];
     for (const file of await getConfigFiles(this.configService.service.setup.ilcPaths, ".json", this.logger)) {
       const text = await readFile(file, "utf-8");
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const json = JSON.parse(text);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const { campus, building, systems }: { campus: string; building: string; systems: string[] } = json;
       const name = `${transform(campus)}-${transform(building)}`;
       let control = controls?.find((v) => v.name === name);

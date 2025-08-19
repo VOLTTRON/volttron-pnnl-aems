@@ -20,6 +20,7 @@ const provider_module_1 = require("./auth/provider.module");
 const app_config_1 = require("./app.config");
 const logging_module_1 = require("./logging/logging.module");
 const auth_module_1 = require("./auth/auth.module");
+const framework_module_1 = require("./auth/framework.module");
 let AppModule = class AppModule {
     configure(consumer) {
         consumer.apply(ext_middleware_1.ExtRewriteMiddleware).forRoutes({ path: "ext/*path", method: common_1.RequestMethod.ALL });
@@ -29,6 +30,7 @@ exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            api_module_1.ApiModule,
             auth_module_1.AuthModule,
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
@@ -36,6 +38,13 @@ exports.AppModule = AppModule = __decorate([
                 load: [app_config_1.AppConfigToken],
                 envFilePath: [".env", ".env.local"],
             }),
+            framework_module_1.FrameworkModule.register(),
+            logging_module_1.LoggingModule,
+            prisma_module_1.PrismaModule,
+            provider_module_1.ProviderModule.register({ path: "api" }),
+            pothos_module_1.PothosGraphQLModule.forRoot(),
+            core_1.RouterModule.register([{ path: "api", module: api_module_1.ApiModule }]),
+            services_module_1.ServicesModule,
             throttler_1.ThrottlerModule.forRoot([
                 {
                     name: "short",
@@ -53,13 +62,6 @@ exports.AppModule = AppModule = __decorate([
                     limit: 100,
                 },
             ]),
-            prisma_module_1.PrismaModule,
-            logging_module_1.LoggingModule,
-            api_module_1.ApiModule,
-            core_1.RouterModule.register([{ path: "api", module: api_module_1.ApiModule }]),
-            provider_module_1.ProviderModule.register({ path: "api" }),
-            pothos_module_1.PothosGraphQLModule.forRoot(),
-            services_module_1.ServicesModule,
         ],
         controllers: [],
         providers: [],

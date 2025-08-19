@@ -6,9 +6,10 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { BaseService } from "..";
 import { PrismaService } from "@/prisma/prisma.service";
 import { Timeout } from "@nestjs/schedule";
-import { GeographySeeder, Seeder } from ".";
+import { FileSeeder, GeographySeeder, Seeder } from ".";
 import { AppConfigService } from "@/app.config";
 import { NormalizationType, typeofObject } from "@local/common";
+import { StreamingJsonReader } from "@/utils/json";
 
 @Injectable()
 export class SeedService extends BaseService {
@@ -24,15 +25,15 @@ export class SeedService extends BaseService {
 
   constructor(
     private prismaService: PrismaService,
-    @Inject(AppConfigService.Key) configService: AppConfigService,
+    @Inject(AppConfigService.Key) private configService: AppConfigService,
   ) {
     super("seed", configService);
     this.path = configService.service.seed.dataPath;
   }
 
   @Timeout(1000)
-  execute(): Promise<void> {
-    return super.execute();
+  async execute(): Promise<void> {
+    await super.execute();
   }
 
   async task() {
@@ -55,37 +56,82 @@ export class SeedService extends BaseService {
               try {
                 const seeder = JSON.parse(await readFile(resolve(file.parentPath, file.name), "utf-8")) as
                   | Seeder
+                  | FileSeeder
                   | GeographySeeder;
-                if (typeofObject<GeographySeeder>(seeder, (v) => typeof v === "object" && "geography" in v)) {
+                if (typeofObject<FileSeeder>(seeder, (v) => typeof v === "object" && "jsonpath" in v)) {
+                  const geography = typeofObject<GeographySeeder>(
+                    seeder,
+                    (v) => typeof v === "object" && "geography" in v,
+                  )
+                    ? seeder["geography"]
+                    : undefined;
                   for (const { filename } of seeder.data) {
-                    const geojson = JSON.parse(
-                      await readFile(resolve(file.parentPath, filename), "utf-8"),
-                    ) as GeoJSON.FeatureCollection;
-                    const collection = geojson.features
-                      .filter((feature) =>
-                        typeofObject<GeographySeeder["geography"]["geojson"]>(
-                          feature,
-                          (v) => typeof v === "object" && "properties" in v,
-                        ),
-                      )
-                      .map((feature) => {
-                        const type = `${feature.properties[seeder.geography.mapping.type] ?? seeder.geography.defaults?.type ?? ""}`;
-                        const group = `${feature.properties[seeder.geography.mapping.group] ?? seeder.geography.defaults?.group ?? ""}`;
-                        const name = `${feature.properties[seeder.geography.mapping.name] ?? seeder.geography.defaults?.name ?? ""}`;
-                        const id = feature.properties[seeder.geography.mapping.id]
-                          ? `${feature.properties[seeder.geography.mapping.id]}`
+                    const reader = new StreamingJsonReader(resolve(file.parentPath, filename));
+                    let batch: Record<string, any>[] = [];
+                    for await (let record of reader.read<Record<string, any>>(seeder.jsonpath)) {
+                      if (
+                        geography &&
+                        typeofObject<GeoJSON.Feature>(record, (v) => typeof v === "object" && "properties" in v)
+                      ) {
+                        const type = `${record.properties?.[geography.mapping.type] ?? geography.defaults?.type ?? ""}`;
+                        const group = `${record.properties?.[geography.mapping.group] ?? geography.defaults?.group ?? ""}`;
+                        const name = `${record.properties?.[geography.mapping.name] ?? geography.defaults?.name ?? ""}`;
+                        const id = record.properties?.[geography.mapping.id]
+                          ? `${record.properties?.[geography.mapping.id]}`
                           : `${this.normalizer(type)}-${this.normalizer(group)}-${this.normalizer(name)}`;
-                        return {
-                          id,
-                          type,
-                          group,
-                          name,
-                          geojson: feature,
-                        };
-                      });
-                    for (const geographies of chunk(collection, 100)) {
-                      await this.prismaService.prisma.geography.createMany({
-                        data: geographies,
+                        record = { id, type, group, name, geojson: record };
+                      }
+                      switch (seeder.type) {
+                        case "upsert":
+                          // @ts-expect-error: Unable to determine specific types for json
+                          await this.prismaService.prisma[seeder.table].upsert({
+                            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                            where: { [seeder.id]: record[seeder.id] },
+                            update: omit(record, [seeder.id]),
+                            create: record,
+                          });
+                          break;
+                        case "create":
+                          if (this.configService.service.seed.batchSize > 0) {
+                            batch.push(record);
+                            if (batch.length >= this.configService.service.seed.batchSize) {
+                              // @ts-expect-error: Unable to determine specific types for json
+                              await this.prismaService.prisma[seeder.table].createMany({
+                                data: batch,
+                                skipDuplicates: true,
+                              });
+                              batch = [];
+                            }
+                          } else {
+                            // @ts-expect-error: Unable to determine specific types for json
+                            await this.prismaService.prisma[seeder.table].create({
+                              data: record,
+                            });
+                          }
+                          break;
+                        case "delete":
+                          // @ts-expect-error: Unable to determine specific types for json
+                          await this.prismaService.prisma[seeder.table].delete({
+                            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                            where: { [seeder.id]: record[seeder.id] },
+                          });
+                          break;
+                        case "update":
+                          // @ts-expect-error: Unable to determine specific types for json
+                          await this.prismaService.prisma[seeder.table].update({
+                            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                            where: { [seeder.id]: record[seeder.id] },
+                            data: omit(record, [seeder.id]),
+                          });
+                          break;
+                        default:
+                          throw new Error(`Unknown or unsupported seeder type: ${seeder as any}`);
+                      }
+                    }
+                    if (batch.length > 0) {
+                      // @ts-expect-error: Unable to determine specific types for json
+                      await this.prismaService.prisma[seeder.table].createMany({
+                        data: batch,
                         skipDuplicates: true,
                       });
                     }
@@ -104,11 +150,22 @@ export class SeedService extends BaseService {
                       }
                       break;
                     case "create":
-                      // @ts-expect-error: Unable to determine specific types for json
-                      await this.prismaService.prisma[seeder.table].createMany({
-                        data: seeder.data,
-                        skipDuplicates: true,
-                      });
+                      if (this.configService.service.seed.batchSize > 0) {
+                        for (const records of chunk(seeder.data, this.configService.service.seed.batchSize)) {
+                          // @ts-expect-error: Unable to determine specific types for json
+                          await this.prismaService.prisma[seeder.table].createMany({
+                            data: records,
+                            skipDuplicates: true,
+                          });
+                        }
+                      } else {
+                        for (const data of seeder.data) {
+                          // @ts-expect-error: Unable to determine specific types for json
+                          await this.prismaService.prisma[seeder.table].create({
+                            data,
+                          });
+                        }
+                      }
                       break;
                     case "update":
                       for (const data of seeder.data) {

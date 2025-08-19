@@ -1,25 +1,29 @@
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "@/app.module";
-import { Logger } from "@nestjs/common";
+import { INestApplication, Logger } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { getLogLevel } from "@/logging";
-import { AuthService, Session } from "./auth/auth.service";
 import { AppConfigService } from "@/app.config";
 import { printEnvironment } from "@local/common";
-import { NextFunction, Request, Response } from "express";
+import { NextFunction, Request, Response, json, urlencoded } from "express";
 import { inspect } from "util";
 import { AppLoggerService } from "@/logging/logging.service";
 import { WsAdapter } from "@nestjs/platform-ws";
+import { NestExpressApplication } from "@nestjs/platform-express";
 
 async function MainBootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
+  app.set("trust proxy", true);
+  app.use(json());
+  app.use(urlencoded({ extended: true }));
+  const configService = app.get<AppConfigService>(AppConfigService.Key);
   app.useLogger(app.get(AppLoggerService));
   const mainLogger = new Logger(MainBootstrap.name);
-  if (process.env.LOG_HTTP_REQUEST_LEVEL) {
+  if (configService.log.http.level) {
     const httpLogger = new Logger("HttpRequest");
-    const level = getLogLevel(process.env.LOG_HTTP_REQUEST_LEVEL) ?? "log";
+    const level = getLogLevel(configService.log.http.level) ?? "log";
     app.use(function (req: Request, res: Response, next: NextFunction) {
       const start = Date.now();
       res.on("finish", () => {
@@ -30,31 +34,42 @@ async function MainBootstrap() {
       next();
     });
   }
-  if (process.env.NODE_ENV !== "production") {
+  if (configService.nodeEnv !== "production") {
     mainLogger.warn("CORS enabled for non-production environment");
     app.enableCors({
-      origin: process.env.CORS_ORIGIN ?? "*",
+      origin: "*",
       methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
       credentials: true,
     });
   }
-  const authService = app.get(AuthService);
-  app.use(authService.session);
-  app.use(authService.passport.initialize());
-  app.use(authService.passport.authenticate(Session));
   const wsAdapter = new WsAdapter(app);
   app.useWebSocketAdapter(wsAdapter);
   const documentBuilder = new DocumentBuilder().setTitle("API").setVersion("1.0").build();
   const documentFactory = () => SwaggerModule.createDocument(app, documentBuilder);
   SwaggerModule.setup("swagger", app, documentFactory);
-  const configService = app.get<AppConfigService>(AppConfigService.Key);
-  if (configService.nodeEnv !== "production") {
+  if (configService.nodeEnv !== "production" || configService.printEnv) {
     printEnvironment({
       printable: (v) => mainLogger.log(v),
       stringify: (v) => inspect(v, undefined, 2, true),
     });
   }
   await app.listen(configService.port);
+
+  process.on("SIGTERM", () => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    gracefulShutdown(app);
+  });
+}
+
+async function gracefulShutdown(app: INestApplication<any>) {
+  try {
+    await app.close();
+    console.log("Cleanup finished. Shutting down.");
+  } catch (error) {
+    console.error("Error during shutdown", error);
+  } finally {
+    process.exit(0);
+  }
 }
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 MainBootstrap();

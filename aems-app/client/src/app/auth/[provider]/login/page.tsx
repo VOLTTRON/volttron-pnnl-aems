@@ -27,9 +27,9 @@ export default function Page(props: { params: Promise<{ provider: string }> }) {
   useEffect(() => {
     props.params
       .then(({ provider }) =>
-        fetch(`${process.env.NEXT_PUBLIC_HTTP_API || "/api"}/auth/${provider}`, { method: "GET" })
-          .then((res) => res.json())
-          .then((response) => setProvider(response as ProviderInfo<Credentials>))
+        fetch(`${process.env.NEXT_PUBLIC_HTTP_API || "/api"}/auth`, { method: "GET" })
+          .then(async (res) => (await res.json()) as Record<string, ProviderInfo<Credentials>>)
+          .then((response) => setProvider((response[provider] as ProviderInfo<Credentials>) || null))
           .catch((e) => createNotification?.("Failed to fetch provider info. " + e.message, NotificationType.Error)),
       )
       .catch((e) => createNotification?.("Failed to determine provider type. " + e.message, NotificationType.Error));
@@ -40,7 +40,7 @@ export default function Page(props: { params: Promise<{ provider: string }> }) {
     const loading = createLoading?.(LoadingType.GLOBAL);
     try {
       const body = Array.from(formData.entries()).reduce((p, [name, value]) => ({ ...p, [name]: value }), {});
-      fetch(`${process.env.NEXT_PUBLIC_HTTP_API || "/api"}/auth/${name}/login`, {
+      fetch(`${process.env.NEXT_PUBLIC_HTTP_API || "/api"}${provider?.endpoint}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -25,7 +25,6 @@ const schema_module_1 = require("./schema.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const subscription_module_1 = require("../subscription/subscription.module");
 const app_config_1 = require("../app.config");
-const pothos_middleware_1 = require("./pothos.middleware");
 const auth_module_1 = require("../auth/auth.module");
 const logging_1 = require("../logging");
 const auth_service_1 = require("../auth/auth.service");
@@ -88,13 +87,9 @@ let PothosGraphQLModule = PothosGraphQLModule_1 = class PothosGraphQLModule {
                     imports: [auth_module_1.AuthModule],
                     inject: [auth_service_1.AuthService, app_config_1.AppConfigService.Key],
                     useFactory: (authService, configService) => ({
-                        context: async ({ req, extra, }) => {
-                            let user = req?.user;
-                            if (!user && extra?.request) {
-                                user = await authService.getAuthUser(extra.request);
-                            }
+                        context: ({ req, }) => {
                             return {
-                                user: user,
+                                user: req?.user,
                             };
                         },
                         ...(0, lodash_1.omit)(moduleOptionsFactory(configService), ["sortSchema", "autoSchemaFile"]),
@@ -102,9 +97,6 @@ let PothosGraphQLModule = PothosGraphQLModule_1 = class PothosGraphQLModule {
                 }),
             ],
         };
-    }
-    configure(consumer) {
-        consumer.apply(pothos_middleware_1.PothosAuthMiddleware).forRoutes({ path: "graphql", method: common_1.RequestMethod.ALL });
     }
 };
 exports.PothosGraphQLModule = PothosGraphQLModule;

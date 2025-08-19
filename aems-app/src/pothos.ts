@@ -420,16 +420,22 @@ export default interface PrismaTypes {
     Session: {
         Name: "Session";
         Shape: Session;
-        Include: never;
+        Include: Prisma.SessionInclude;
         Select: Prisma.SessionSelect;
         OrderBy: Prisma.SessionOrderByWithRelationInput;
         WhereUnique: Prisma.SessionWhereUniqueInput;
         Where: Prisma.SessionWhereInput;
         Create: Prisma.SessionCreateInput;
         Update: Prisma.SessionUpdateInput;
-        RelationName: never;
+        RelationName: "user";
         ListRelations: never;
-        Relations: {};
+        Relations: {
+            user: {
+                Shape: User;
+                Name: "User";
+                Nullable: false;
+            };
+        };
     };
     Setpoint: {
         Name: "Setpoint";
@@ -501,12 +507,22 @@ export default interface PrismaTypes {
         Where: Prisma.UserWhereInput;
         Create: Prisma.UserCreateInput;
         Update: Prisma.UserUpdateInput;
-        RelationName: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "units" | "changes";
-        ListRelations: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "units" | "changes";
+        RelationName: "accounts" | "verificationTokens" | "sessions" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "units" | "changes";
+        ListRelations: "accounts" | "verificationTokens" | "sessions" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "units" | "changes";
         Relations: {
             accounts: {
                 Shape: Account[];
                 Name: "Account";
+                Nullable: false;
+            };
+            verificationTokens: {
+                Shape: VerificationToken[];
+                Name: "VerificationToken";
+                Nullable: false;
+            };
+            sessions: {
+                Shape: Session[];
+                Name: "Session";
                 Nullable: false;
             };
             comments: {
@@ -549,15 +565,21 @@ export default interface PrismaTypes {
     VerificationToken: {
         Name: "VerificationToken";
         Shape: VerificationToken;
-        Include: never;
+        Include: Prisma.VerificationTokenInclude;
         Select: Prisma.VerificationTokenSelect;
         OrderBy: Prisma.VerificationTokenOrderByWithRelationInput;
         WhereUnique: Prisma.VerificationTokenWhereUniqueInput;
         Where: Prisma.VerificationTokenWhereInput;
         Create: Prisma.VerificationTokenCreateInput;
         Update: Prisma.VerificationTokenUpdateInput;
-        RelationName: never;
+        RelationName: "user";
         ListRelations: never;
-        Relations: {};
+        Relations: {
+            user: {
+                Shape: User;
+                Name: "User";
+                Nullable: false;
+            };
+        };
     };
 }

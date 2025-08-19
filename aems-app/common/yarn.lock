@@ -879,11 +879,11 @@ __metadata:
   linkType: soft
 
 "@local/prisma@file:../prisma::locator=%40local%2Fcommon%40workspace%3A.":
-  version: 2.0.3
-  resolution: "@local/prisma@file:../prisma#../prisma::hash=acc89d&locator=%40local%2Fcommon%40workspace%3A."
+  version: 2.0.4
+  resolution: "@local/prisma@file:../prisma#../prisma::hash=c3fd19&locator=%40local%2Fcommon%40workspace%3A."
   peerDependencies:
     "@prisma/client": ^6.6.0
-  checksum: 10/5521afe3d4e76b8ac97d1342327088974cbf713a1be85cdbeeba8040dfceaa9c2aaaf747df2e9d37a1f49dfd73ac2028df229f1ec75a64c2a5dca01420aa66a1
+  checksum: 10/b439be22414e81e3ec60f45c9fa09211f5a096d685c960c220eac04930d719c1b1c78d412b221a0ebf8aa1434ca5fccb5a7fa98081016ff2bc358d38932d7589
   languageName: node
   linkType: hard
 

@@ -3,12 +3,12 @@ import { BaseService } from "..";
 import { PrismaService } from "@/prisma/prisma.service";
 import { AppConfigService } from "@/app.config";
 import { Cron } from "@nestjs/schedule";
-import { StageType } from "@local/common";
-import { transformTemplate } from "@/utils/template";
+import { StageType, typeofObject } from "@local/common";
 import { basename, extname } from "node:path";
 import { readFile } from "node:fs/promises";
 import { VolttronService } from "../volttron.service";
 import { getConfigFiles } from "@/utils/file";
+import { transformTemplate } from "@/utils/template";
 
 @Injectable()
 export class ControlService extends BaseService {
@@ -78,7 +78,9 @@ export class ControlService extends BaseService {
               )) {
                 const key = basename(file, extname(file));
                 const text = await readFile(file, "utf-8");
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 const template = control.units ? JSON.parse(text) : {};
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 data[key] = transformTemplate(template, control);
               }
               await this.volttronService.makeApiCall(`agent.ilc`, "update_configurations", token, data);
@@ -87,9 +89,11 @@ export class ControlService extends BaseService {
                 data: { stage: StageType.CompleteType.enum },
               });
               this.logger.log(`Finished pushing the control config for: ${control.label}`);
-            } catch (err) {
-              this.logger.warn(err, `Failed to push the control config for: ${control.label}`);
-              let message = ((err as any)?.message as string) || "Unknown error occurred while pushing control config.";
+            } catch (error: any) {
+              this.logger.warn(error, `Failed to push the control config for: ${control.label}`);
+              let message = typeofObject<Error>(error, (e) => "message" in e)
+                ? error.message
+                : "Unknown error occurred while pushing control config.";
               message = message.length > 1024 ? message.substring(0, 1024 - 3) + "..." : message;
               await this.prismaService.prisma.control.update({
                 where: { id: control.id },

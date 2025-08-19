@@ -7,6 +7,11 @@ export interface Seeder {
   data: Record<string, any>[];
 }
 
+export interface FileSeeder extends Seeder {
+  jsonpath: `$.${string}[]`;
+  data: Record<"filename", string>[];
+}
+
 export interface Mapping {
   id: string;
   name: string;
@@ -15,8 +20,7 @@ export interface Mapping {
 }
 
 export interface GeographySeeder<M extends Mapping = { id: "id"; name: "name"; group: "group"; type: "type" }>
-  extends Seeder {
-  type: "create";
+  extends FileSeeder {
   table: "geography";
   id: "id";
   geography: {
@@ -24,6 +28,7 @@ export interface GeographySeeder<M extends Mapping = { id: "id"; name: "name"; g
     defaults?: Partial<Omit<Record<keyof M, string | number>, "id">>;
     geojson: GeographyGeoJson<M["id"], M["name"], M["group"], M["type"]>;
   };
+  jsonpath: "$.features[]";
   data: Record<"filename", string>[];
 }
 

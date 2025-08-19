@@ -108,6 +108,7 @@ export interface ProviderInfo<T extends Credentials> {
   name: string;
   label: string;
   credentials: T;
+  endpoint: string;
 }
 
 export {};

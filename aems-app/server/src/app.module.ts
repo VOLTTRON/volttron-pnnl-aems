@@ -11,9 +11,11 @@ import { ProviderModule } from "@/auth/provider.module";
 import { AppConfigToken } from "@/app.config";
 import { LoggingModule } from "@/logging/logging.module";
 import { AuthModule } from "./auth/auth.module";
+import { FrameworkModule } from "./auth/framework.module";
 
 @Module({
   imports: [
+    ApiModule,
     AuthModule,
     ConfigModule.forRoot({
       isGlobal: true,
@@ -21,6 +23,13 @@ import { AuthModule } from "./auth/auth.module";
       load: [AppConfigToken],
       envFilePath: [".env", ".env.local"],
     }),
+    FrameworkModule.register(),
+    LoggingModule,
+    PrismaModule,
+    ProviderModule.register({ path: "api" }),
+    PothosGraphQLModule.forRoot(),
+    RouterModule.register([{ path: "api", module: ApiModule }]),
+    ServicesModule,
     ThrottlerModule.forRoot([
       {
         name: "short",
@@ -38,13 +47,6 @@ import { AuthModule } from "./auth/auth.module";
         limit: 100,
       },
     ]),
-    PrismaModule,
-    LoggingModule,
-    ApiModule,
-    RouterModule.register([{ path: "api", module: ApiModule }]),
-    ProviderModule.register({ path: "api" }),
-    PothosGraphQLModule.forRoot(),
-    ServicesModule,
   ],
   controllers: [],
   providers: [],

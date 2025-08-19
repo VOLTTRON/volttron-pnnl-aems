@@ -10,6 +10,7 @@
       "type": "ISO_SOV1"
     }
   },
+  "jsonpath": "$.features[]",
   "data": [
     {
       "filename": "World_12NM_v4_20231025.geojson"

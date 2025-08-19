@@ -1,3 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { cloneDeep, get, merge, set } from "lodash";
 import { Unit } from "@prisma/client";
 import { templateFormat } from "@local/common";
@@ -36,7 +42,6 @@ export interface IEvaluate extends IAction {
 }
 
 const applyFunction = (unit: Unit, action: IAction): unknown => {
-   
   return Function.apply(null, [
     ...action.sources.map((s) => s.split(".").pop() as string),
     `return ${action.expression};`,
@@ -92,7 +97,7 @@ export const transformTemplate = (template: any, params?: any) => {
       setter(templateFormat(value, params));
     } else if (Array.isArray(value)) {
       setter([]);
-      (value).forEach((v, i) => transformer(object, path, `[${i}]`, v));
+      value.forEach((v, i) => transformer(object, path, `[${i}]`, v));
     } else if (typeof value === "object") {
       setter({});
       Object.entries(value).forEach(([k, v]) => transformer(object, path, k, v));

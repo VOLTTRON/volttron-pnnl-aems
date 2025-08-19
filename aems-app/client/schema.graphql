@@ -1,15 +1,15 @@
 type Account {
-  accessToken: String
+  access_token: String
   createdAt: DateTime
-  expiresAt: Int
+  expires_at: Int
   id: String
-  idToken: String
+  id_token: String
   provider: String
   providerAccountId: String
-  refreshToken: String
+  refresh_token: String
   scope: String
-  sessionState: String
-  tokenType: String
+  session_state: String
+  token_type: String
   type: String
   updatedAt: DateTime
   user: User
@@ -25,11 +25,15 @@ input AccountAggregate {
 }
 
 input AccountCreateInput {
-  expiresAt: Int
-  idToken: String
+  access_token: String
+  expires_at: Int
+  id_token: String
   provider: String!
   providerAccountId: String!
+  refresh_token: String
   scope: String
+  session_state: String
+  token_type: String
   type: String!
   user: AccountCreateUserRelationInput!
 }
@@ -39,17 +43,17 @@ input AccountCreateUserRelationInput {
 }
 
 enum AccountFields {
-  accessToken
+  access_token
   createdAt
-  expiresAt
+  expires_at
   id
-  idToken
+  id_token
   provider
   providerAccountId
-  refreshToken
+  refresh_token
   scope
-  sessionState
-  tokenType
+  session_state
+  token_type
   type
   updatedAt
   userId
@@ -85,11 +89,15 @@ input AccountUniqueFilter {
 }
 
 input AccountUpdateInput {
-  expiresAt: Int
-  idToken: String
+  access_token: String
+  expires_at: Int
+  id_token: String
   provider: String
   providerAccountId: String
+  refresh_token: String
   scope: String
+  session_state: String
+  token_type: String
   type: String
   user: AccountUpdateUserRelationInput
 }

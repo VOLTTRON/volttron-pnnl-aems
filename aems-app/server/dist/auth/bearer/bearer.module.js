@@ -37,13 +37,15 @@ exports.BearerModule = BearerModule = __decorate([
         providers: [
             {
                 provide: _1.Provider,
-                inject: [app_config_1.AppConfigService.Key, auth_service_1.AuthService, prisma_service_1.PrismaService, jwt_1.JwtService],
-                useFactory: (configService, authService, prismaService, jwtService) => configService.auth.providers.includes(_1.Provider)
-                    ? new bearer_service_1.BearerService(authService, prismaService, jwtService)
+                inject: [auth_service_1.AuthService, app_config_1.AppConfigService.Key, prisma_service_1.PrismaService, jwt_1.JwtService],
+                useFactory: (authService, configService, prismaService, jwtService) => configService.auth.providers.includes(_1.Provider)
+                    ? configService.auth.framework === "passport"
+                        ? new bearer_service_1.BearerPassportService(authService, configService, prismaService, jwtService)
+                        : null
                     : null,
             },
         ],
-        controllers: [bearer_controller_1.BearerController],
+        controllers: new app_config_1.AppConfigService().auth.framework === "passport" ? [bearer_controller_1.BearerController] : [],
     })
 ], BearerModule);
 //# sourceMappingURL=bearer.module.js.map

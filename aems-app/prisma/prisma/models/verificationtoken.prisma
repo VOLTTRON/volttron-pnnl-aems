@@ -1,9 +1,13 @@
 model VerificationToken {
+    id         String   @default(cuid())
     identifier String
     token      String   @unique()
     expiresAt  DateTime
     createdAt  DateTime @default(now()) @db.Timestamptz(6)
     updatedAt  DateTime @updatedAt() @db.Timestamptz(6)
+    userId     String
+    user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([identifier, token])
+    @@id([identifier, token])
+    @@unique([id])
 }

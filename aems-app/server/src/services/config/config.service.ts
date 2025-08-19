@@ -3,7 +3,7 @@ import { BaseService } from "..";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/prisma/prisma.service";
 import { Cron } from "@nestjs/schedule";
-import { StageType } from "@local/common";
+import { StageType, typeofObject } from "@local/common";
 import { merge } from "lodash";
 import { VolttronService } from "../volttron.service";
 
@@ -79,21 +79,24 @@ export class ConfigService extends BaseService {
               today.setHours(0, 0, 0, 0);
               const set_occupancy_override = unit.configuration?.occupancies
                 .filter((v) => v.date.getTime() >= today.getTime())
-                .reduce((p, c) => {
-                  const k = `${c.date.getFullYear().toString()}-${(c.date.getMonth() + 1).toString().padStart(2, "0")}-${c.date.getDate().toString().padStart(2, "0")}`;
-                  const v = c.schedule?.occupied
-                    ? {
-                        start: c.schedule?.startTime,
-                        end: c.schedule?.endTime,
-                      }
-                    : "always_off";
-                  if (k in p) {
-                    p[k].push(v);
-                  } else {
-                    p[k] = [v];
-                  }
-                  return p;
-                }, {} as any);
+                .reduce(
+                  (p, c) => {
+                    const k = `${c.date.getFullYear().toString()}-${(c.date.getMonth() + 1).toString().padStart(2, "0")}-${c.date.getDate().toString().padStart(2, "0")}`;
+                    const v = c.schedule?.occupied
+                      ? {
+                          start: c.schedule?.startTime,
+                          end: c.schedule?.endTime,
+                        }
+                      : "always_off";
+                    if (k in p) {
+                      p[k].push(v);
+                    } else {
+                      p[k] = [v];
+                    }
+                    return p;
+                  },
+                  {} as Record<string, any[]>,
+                );
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
                 "set_occupancy_override",
@@ -228,9 +231,11 @@ export class ConfigService extends BaseService {
                 data: { stage: StageType.CompleteType.enum },
               });
               this.logger.log(`Finished pushing the unit config for: ${unit.label}`);
-            } catch (err) {
-              this.logger.warn(err, `Failed to push the unit config for: ${unit.label}`);
-              let message = ((err as any)?.message as string) || "Unknown error occurred while pushing unit config.";
+            } catch (error: any) {
+              this.logger.warn(error, `Failed to push the unit config for: ${unit.label}`);
+              let message = typeofObject<Error>(error, (e) => "message" in e)
+                ? error.message
+                : "Unknown error occurred while pushing unit config.";
               message = message.length > 1024 ? message.substring(0, 1024 - 3) + "..." : message;
               await this.prismaService.prisma.unit.update({
                 where: { id: unit.id },

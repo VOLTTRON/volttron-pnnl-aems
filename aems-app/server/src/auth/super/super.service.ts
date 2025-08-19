@@ -1,25 +1,31 @@
 import { buildExpressUser } from "@/auth";
-import { AuthService } from "@/auth/auth.service";
+import { AuthjsProvider, AuthService, ExpressProvider } from "@/auth/auth.service";
 import { PrismaService } from "@/prisma/prisma.service";
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Strategy } from "passport-local";
 import { PassportStrategy } from "@nestjs/passport";
 import { Provider } from ".";
-import { Credentials, ProviderInfo } from "@local/common";
+import { AppConfigService } from "@/app.config";
+import Credentials from "@auth/express/providers/credentials";
+import { Request } from "express";
 
 @Injectable()
-export class SuperService extends PassportStrategy(Strategy, Provider) implements ProviderInfo<Credentials> {
+export class SuperPassportService extends PassportStrategy(Strategy, Provider) implements ExpressProvider {
+  private logger = new Logger(SuperPassportService.name);
+
   readonly name = Provider;
   readonly label = "Super";
   readonly credentials = {
-    id: { label: "ID", type: "text" as const, required: true },
+    email: { label: "Email", name: "email", type: "text" as const, placeholder: "email" },
   };
+  readonly endpoint = `/auth/${Provider}/login`;
 
   constructor(
     authService: AuthService,
+    @Inject(AppConfigService.Key) configService: AppConfigService,
     private prismaService: PrismaService,
   ) {
-    super({ usernameField: "id", passwordField: "password" });
+    super({ usernameField: "email", passwordField: "password" });
     authService.registerProvider(this);
   }
 
@@ -30,5 +36,46 @@ export class SuperService extends PassportStrategy(Strategy, Provider) implement
     } else {
       return null;
     }
+  }
+}
+
+@Injectable()
+export class SuperAuthjsService implements AuthjsProvider {
+  private logger = new Logger(SuperAuthjsService.name);
+
+  readonly name = Provider;
+  readonly label = "Super";
+  readonly credentials = {
+    email: { label: "Email", name: "email", type: "text" as const, placeholder: "email" },
+  };
+  readonly endpoint = `/authjs/signin/${Provider}`;
+
+  constructor(
+    authService: AuthService,
+    @Inject(AppConfigService.Key) configService: AppConfigService,
+    private prismaService: PrismaService,
+  ) {
+    authService.registerProvider(this);
+  }
+
+  create() {
+    const prisma = this.prismaService.prisma;
+    return Credentials({
+      id: Provider,
+      name: "another User",
+      credentials: this.credentials,
+      async authorize({ email }, request) {
+        if (typeof email !== "string") {
+          return null;
+        }
+        const user = await prisma.user.findUnique({ where: { email: email } });
+        const authorized = (request as unknown as Request).user?.authRoles.super;
+        if (user && authorized) {
+          return buildExpressUser(user);
+        } else {
+          return null;
+        }
+      },
+    });
   }
 }

@@ -10,6 +10,7 @@
       "type": "shapeType"
     }
   },
+  "jsonpath": "$.features[]",
   "data": [
     {
       "filename": "geoBoundariesCGAZ_ADM0.geojson"

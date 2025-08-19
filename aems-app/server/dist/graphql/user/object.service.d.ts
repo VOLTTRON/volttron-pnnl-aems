@@ -23,12 +23,22 @@ export declare class UserObject {
         Where: Prisma.UserWhereInput;
         Create: Prisma.UserCreateInput;
         Update: Prisma.UserUpdateInput;
-        RelationName: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "units" | "changes";
-        ListRelations: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "units" | "changes";
+        RelationName: "accounts" | "verificationTokens" | "sessions" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "units" | "changes";
+        ListRelations: "accounts" | "verificationTokens" | "sessions" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "units" | "changes";
         Relations: {
             accounts: {
                 Shape: import(".prisma/client").Account[];
                 Name: "Account";
+                Nullable: false;
+            };
+            verificationTokens: {
+                Shape: import(".prisma/client").VerificationToken[];
+                Name: "VerificationToken";
+                Nullable: false;
+            };
+            sessions: {
+                Shape: import(".prisma/client").Session[];
+                Name: "Session";
                 Nullable: false;
             };
             comments: {

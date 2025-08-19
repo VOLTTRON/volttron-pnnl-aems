@@ -3,8 +3,7 @@ import { AuthService } from "@/auth/auth.service";
 import { APP_GUARD } from "@nestjs/core";
 import { RolesGuard } from "@/auth/roles.guard";
 import { JwtModule } from "@nestjs/jwt";
-import { PassportModule } from "@nestjs/passport";
-import { PrismaSessionStore } from "./session.service";
+import { ScheduleModule } from "@nestjs/schedule";
 import { PrismaModule } from "@/prisma/prisma.module";
 import { SubscriptionModule } from "@/subscription/subscription.module";
 import { AuthController } from "./auth.controller";
@@ -14,7 +13,7 @@ import { AppConfigService } from "@/app.config";
   imports: [
     PrismaModule,
     SubscriptionModule,
-    PassportModule.register({ session: true }),
+    ScheduleModule.forRoot(),
     JwtModule.registerAsync({
       inject: [AppConfigService.Key],
       useFactory: (configService: AppConfigService) => ({
@@ -28,7 +27,6 @@ import { AppConfigService } from "@/app.config";
       provide: APP_GUARD,
       useClass: RolesGuard,
     },
-    PrismaSessionStore,
     AuthService,
   ],
   controllers: [AuthController],

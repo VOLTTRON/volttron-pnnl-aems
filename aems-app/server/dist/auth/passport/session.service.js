@@ -11,7 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PrismaSessionStore = void 0;
 const common_1 = require("@nestjs/common");
-const prisma_service_1 = require("../prisma/prisma.service");
+const prisma_service_1 = require("../../prisma/prisma.service");
 const express_session_1 = require("express-session");
 const common_2 = require("@local/common");
 let PrismaSessionStore = class PrismaSessionStore extends express_session_1.Store {
@@ -21,17 +21,21 @@ let PrismaSessionStore = class PrismaSessionStore extends express_session_1.Stor
     }
     get(id, callback) {
         this.prismaService.prisma.session
-            .findFirst({ where: { id: id, expiresAt: { gt: new Date() } } })
+            .findFirst({ where: { id: id, expires: { gt: new Date() } } })
             .then((session) => (0, common_2.typeofObject)(session?.data) ? callback(null, session.data) : callback(null, null))
             .catch((err) => callback(err));
     }
     set(id, session, callback) {
         const expiresAt = new Date(Date.now() + (session.cookie.maxAge ?? 86400000));
+        const userId = session.passport?.user;
+        if (!userId) {
+            return callback?.(new Error("User ID is required to set session"));
+        }
         this.prismaService.prisma.session
             .upsert({
             where: { id },
-            update: { data: session, expiresAt: expiresAt },
-            create: { id: id, data: session, expiresAt: expiresAt },
+            update: { data: session, expires: expiresAt },
+            create: { id: id, data: session, expires: expiresAt, sessionToken: "", userId: userId },
         })
             .then(() => callback?.())
             .catch((err) => callback?.(err));
