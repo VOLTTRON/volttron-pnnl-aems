@@ -11,3 +11,4 @@ export * from "./search";
 export * from "./table";
 export * from "./texticon";
 export * from "./theme";
+export { FormInput } from "./form";
