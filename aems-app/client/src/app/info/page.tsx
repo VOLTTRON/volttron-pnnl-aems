@@ -3,5 +3,5 @@
 import Custom from "@/app/components/common/custom";
 
 export default function InfoPage() {
-  return <Custom url="/info.html" />;
+  return <Custom url="/static/info.html" />;
 }

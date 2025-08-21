@@ -75,18 +75,8 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     components: components,
   },
   {
-    id: "aems",
-    parentId: "home",
-    path: `aems`,
-    name: "AEMS",
-    icon: IconNames.SETTINGS,
-    scope: "user",
-    display: true,
-    components: components,
-  },
-  {
     id: "units",
-    parentId: "aems",
+    parentId: "home",
     path: `units`,
     name: "Units",
     icon: IconNames.COG,
@@ -96,7 +86,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
   },
   {
     id: "configurations",
-    parentId: "aems",
+    parentId: "home",
     path: `configurations`,
     name: "Configurations",
     icon: IconNames.SERIES_CONFIGURATION,
@@ -106,7 +96,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
   },
   {
     id: "controls",
-    parentId: "aems",
+    parentId: "home",
     path: `controls`,
     name: "Controls",
     icon: IconNames.CONTROL,
@@ -116,7 +106,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
   },
   {
     id: "holidays",
-    parentId: "aems",
+    parentId: "home",
     path: `holidays`,
     name: "Holidays",
     icon: IconNames.TIMELINE_EVENTS,
@@ -126,7 +116,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
   },
   {
     id: "locations",
-    parentId: "aems",
+    parentId: "home",
     path: `locations`,
     name: "Locations",
     icon: IconNames.MAP_MARKER,
@@ -136,7 +126,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
   },
   {
     id: "occupancies",
-    parentId: "aems",
+    parentId: "home",
     path: `occupancies`,
     name: "Occupancies",
     icon: IconNames.HOME,
@@ -146,7 +136,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
   },
   {
     id: "schedules",
-    parentId: "aems",
+    parentId: "home",
     path: `schedules`,
     name: "Schedules",
     icon: IconNames.TIME,
@@ -156,7 +146,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
   },
   {
     id: "setpoints",
-    parentId: "aems",
+    parentId: "home",
     path: `setpoints`,
     name: "Setpoints",
     icon: IconNames.TEMPERATURE,

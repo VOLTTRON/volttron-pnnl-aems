@@ -2,7 +2,7 @@
 
 import "./index.css";
 
-import { Banner, GlobalLoading, Notice, Notification, Theme } from "./components/common";
+import { Banner, GlobalLoading, Notification, Theme } from "./components/common";
 import {
   CurrentProvider,
   GraphqlProvider,
@@ -31,7 +31,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                           <Theme>
                             <Suspense>
                               {children}
-                              <Notice />
                               <Banner />
                               <Notification />
                               <GlobalLoading />
