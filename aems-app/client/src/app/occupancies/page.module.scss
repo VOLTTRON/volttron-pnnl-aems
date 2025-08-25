@@ -1,0 +1,14 @@
+@import "@/app/global.module.scss";
+
+.table {
+    width: 100%;
+
+    >table {
+        width: 100%;
+        margin-bottom: 1em;
+    }
+}
+
+.spacer {
+    flex: 1;
+}
