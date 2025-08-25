@@ -1,0 +1,218 @@
+.controls {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  h1 {
+    margin-bottom: 24px;
+    color: #394b59;
+    font-weight: 600;
+  }
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 16px;
+  color: #5c7080;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card {
+  padding: 16px;
+  border: 1px solid #d9e1e8;
+  border-radius: 6px;
+  background: #ffffff;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #137cbd;
+    box-shadow: 0 2px 8px rgba(19, 124, 189, 0.15);
+  }
+}
+
+.editingCard {
+  @extend .card;
+  border-color: #137cbd;
+  box-shadow: 0 2px 12px rgba(19, 124, 189, 0.2);
+  background: #f8fafc;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  > div {
+    flex: 1;
+    min-width: 0;
+
+    &:last-child {
+      flex: 0 0 auto;
+    }
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 0 0 auto !important;
+}
+
+.label {
+  flex: 2 !important;
+}
+
+.select {
+  flex: 1.5 !important;
+}
+
+// Blueprint.js overrides for better spacing
+.controls {
+  :global(.bp5-label) {
+    margin-bottom: 8px;
+
+    > b {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 600;
+      color: #394b59;
+    }
+  }
+
+  :global(.bp5-input-group) {
+    .bp5-input {
+      border-radius: 4px;
+      border: 1px solid #d9e1e8;
+      
+      &:focus {
+        border-color: #137cbd;
+        box-shadow: 0 0 0 1px #137cbd;
+      }
+
+      &[readonly] {
+        background-color: #f5f8fa;
+        color: #5c7080;
+      }
+    }
+  }
+
+  :global(.bp5-html-select) {
+    select {
+      border-radius: 4px;
+      border: 1px solid #d9e1e8;
+      
+      &:focus {
+        border-color: #137cbd;
+        box-shadow: 0 0 0 1px #137cbd;
+      }
+    }
+  }
+
+  :global(.bp5-numeric-input) {
+    .bp5-input-group .bp5-input {
+      border-radius: 4px;
+    }
+  }
+
+  :global(.bp5-card) {
+    border-radius: 6px;
+  }
+
+  :global(.bp5-tree) {
+    margin: 8px 0;
+    
+    .bp5-tree-node {
+      padding: 4px 8px;
+      border-radius: 4px;
+      
+      &:hover {
+        background-color: #f5f8fa;
+      }
+      
+      &.bp5-tree-node-expanded {
+        background-color: #ebf1f5;
+      }
+    }
+  }
+
+  :global(.bp5-collapse) {
+    .bp5-collapse-body {
+      padding-top: 8px;
+    }
+  }
+
+  :global(.bp5-button) {
+    &.bp5-minimal {
+      border-radius: 4px;
+      
+      &:hover {
+        background-color: rgba(19, 124, 189, 0.1);
+      }
+    }
+  }
+
+  :global(.bp5-alert) {
+    .bp5-alert-body {
+      padding: 16px;
+    }
+    
+    .bp5-alert-footer {
+      padding: 12px 16px;
+      border-top: 1px solid #d9e1e8;
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .controls {
+    padding: 16px;
+  }
+
+  .row {
+    flex-direction: column;
+    gap: 12px;
+
+    > div {
+      flex: 1 1 auto;
+    }
+  }
+
+  .actions {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .controls {
+    padding: 12px;
+  }
+
+  .card,
+  .editingCard {
+    padding: 12px;
+  }
+
+  .row {
+    gap: 8px;
+  }
+
+  .actions {
+    gap: 4px;
+  }
+}
