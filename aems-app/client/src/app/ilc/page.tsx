@@ -108,7 +108,7 @@ export default function ILCPage() {
   };
 
   const handleEdit = (control: Term<NonNullable<ReadControlsQuery["readControls"]>[0]>) => {
-    const current = state.editing && controls?.find((v) => v.id === state.editing.id);
+    const current = state.editing && controls?.find((v) => v.id === state.editing?.id);
     if (current && isSave(current)) {
       setState(prev => ({
         ...prev,
@@ -137,7 +137,7 @@ export default function ILCPage() {
   };
 
   const handleCancel = () => {
-    const current = state.editing && controls?.find((v) => v.id === state.editing.id);
+    const current = state.editing && controls?.find((v) => v.id === state.editing?.id);
     if (current && isSave(current)) {
       setState(prev => ({
         ...prev,

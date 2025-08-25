@@ -1,0 +1,140 @@
+.units {
+  padding: 1rem;
+  
+  h1 {
+    margin: 1rem 0;
+    color: var(--bp5-text-color);
+  }
+}
+
+.spacer {
+  flex: 1;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.unitCard {
+  padding: 1rem;
+  
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+  
+  > div {
+    flex: 1;
+    min-width: 0;
+    
+    &:last-child {
+      flex: 0 0 auto;
+    }
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.configSection {
+  padding: 1rem;
+  border-left: 3px solid var(--bp5-intent-primary);
+  margin-left: 1rem;
+  background-color: var(--bp5-background-color-secondary);
+  
+  .bp5-label {
+    margin-bottom: 0.5rem;
+    
+    b {
+      display: block;
+      margin-bottom: 0.25rem;
+      color: var(--bp5-text-color);
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .row {
+    flex-direction: column;
+    
+    > div:last-child {
+      align-self: flex-end;
+    }
+  }
+  
+  .actions {
+    justify-content: flex-end;
+  }
+}
+
+// Tree styling
+.units :global(.bp5-tree-node-content) {
+  padding: 0.5rem;
+  
+  &:hover {
+    background-color: var(--bp5-background-color-secondary);
+  }
+}
+
+.units :global(.bp5-tree-node-label) {
+  font-weight: 500;
+}
+
+// Card styling improvements
+.unitCard {
+  transition: all 0.2s ease;
+  border: 1px solid var(--bp5-border-color);
+  
+  &:hover {
+    border-color: var(--bp5-intent-primary);
+  }
+}
+
+// Input styling within cards
+.unitCard :global(.bp5-input-group) {
+  margin-top: 0.25rem;
+}
+
+.unitCard :global(.bp5-label) {
+  margin-bottom: 0.75rem;
+  
+  h3 {
+    margin: 0;
+    color: var(--bp5-heading-color);
+  }
+  
+  b {
+    color: var(--bp5-text-color-muted);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+}
+
+// Collapse styling
+.units :global(.bp5-collapse-body) {
+  padding-top: 0.5rem;
+}
+
+// Alert styling
+.units :global(.bp5-alert) {
+  max-width: 500px;
+  margin: 0 auto;
+}
