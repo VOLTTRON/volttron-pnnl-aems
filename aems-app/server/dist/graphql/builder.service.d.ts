@@ -44,39 +44,39 @@ export declare class SchemaBuilderService extends SchemaBuilder<{
         AuthScopes: AuthRoles;
         PrismaTypes: PrismaTypes;
         Scalars: Scalars;
-    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<boolean>, "equals" | "not">>;
+    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<boolean>, "not" | "equals">>;
     readonly IntFilter: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: Context;
         AuthScopes: AuthRoles;
         PrismaTypes: PrismaTypes;
         Scalars: Scalars;
-    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<number>, "equals" | "in" | "lt" | "lte" | "gt" | "gte" | "not">>;
+    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<number>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt">>;
     readonly FloatFilter: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: Context;
         AuthScopes: AuthRoles;
         PrismaTypes: PrismaTypes;
         Scalars: Scalars;
-    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<number>, "equals" | "in" | "lt" | "lte" | "gt" | "gte" | "not">>;
+    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<number>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt">>;
     readonly StringFilter: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: Context;
         AuthScopes: AuthRoles;
         PrismaTypes: PrismaTypes;
         Scalars: Scalars;
-    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "equals" | "in" | "not" | "contains" | "startsWith" | "endsWith" | "mode">>;
+    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
     readonly DateTimeFilter: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: Context;
         AuthScopes: AuthRoles;
         PrismaTypes: PrismaTypes;
         Scalars: Scalars;
-    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "equals" | "in" | "lt" | "lte" | "gt" | "gte" | "not" | "contains" | "mode">>;
+    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt" | "contains" | "mode">>;
     readonly PagingInput: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: Context;
         AuthScopes: AuthRoles;
         PrismaTypes: PrismaTypes;
         Scalars: Scalars;
     }>, {
-        skip: number;
         take: number;
+        skip: number;
     }>;
     readonly ModelStage: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: Context;

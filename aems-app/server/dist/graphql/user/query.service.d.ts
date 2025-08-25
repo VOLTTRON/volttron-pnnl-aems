@@ -9,11 +9,11 @@ export declare class UserQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        average?: ("name" | "email" | "image" | "role" | "emailVerified" | "preferences" | "id" | "createdAt" | "updatedAt")[] | null | undefined;
-        count?: ("name" | "email" | "image" | "role" | "emailVerified" | "preferences" | "id" | "createdAt" | "updatedAt")[] | null | undefined;
-        maximum?: ("name" | "email" | "image" | "role" | "emailVerified" | "preferences" | "id" | "createdAt" | "updatedAt")[] | null | undefined;
-        minimum?: ("name" | "email" | "image" | "role" | "emailVerified" | "preferences" | "id" | "createdAt" | "updatedAt")[] | null | undefined;
-        sum?: ("name" | "email" | "image" | "role" | "emailVerified" | "preferences" | "id" | "createdAt" | "updatedAt")[] | null | undefined;
+        count?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
+        sum?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
+        maximum?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
+        minimum?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
+        average?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
     }>;
     readonly UserWhereUnique: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -35,49 +35,49 @@ export declare class UserQuery {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "equals" | "in" | "not" | "contains" | "startsWith" | "endsWith" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         name: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "equals" | "in" | "not" | "contains" | "startsWith" | "endsWith" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         email: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "equals" | "in" | "not" | "contains" | "startsWith" | "endsWith" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         image: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "equals" | "in" | "not" | "contains" | "startsWith" | "endsWith" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         role: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "equals" | "in" | "not" | "contains" | "startsWith" | "endsWith" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         emailVerified: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "equals" | "in" | "lt" | "lte" | "gt" | "gte" | "not" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt" | "contains" | "mode">>;
         createdAt: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "equals" | "in" | "lt" | "lte" | "gt" | "gte" | "not" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt" | "contains" | "mode">>;
         updatedAt: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "equals" | "in" | "lt" | "lte" | "gt" | "gte" | "not" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt" | "contains" | "mode">>;
     }>>;
     readonly UserOrderBy: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;

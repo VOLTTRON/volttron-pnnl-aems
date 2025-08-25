@@ -28,10 +28,10 @@ export declare class GeographyObject {
         Relations: {};
     }, {
         name: string;
-        type: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        type: string;
         group: string;
         geojson: PrismaJson.GeographyGeoJson;
     }>;
@@ -40,6 +40,6 @@ export declare class GeographyObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
-    }>, "name" | "type" | "id" | "createdAt" | "updatedAt" | "group" | "geojson", "name" | "type" | "id" | "createdAt" | "updatedAt" | "group" | "geojson">;
+    }>, "name" | "id" | "createdAt" | "updatedAt" | "type" | "group" | "geojson", "name" | "id" | "createdAt" | "updatedAt" | "type" | "group" | "geojson">;
     constructor(builder: SchemaBuilderService);
 }

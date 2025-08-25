@@ -24,19 +24,19 @@ export declare class FileQuery {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "equals" | "in" | "not" | "contains" | "startsWith" | "endsWith" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         feedbackId: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "equals" | "in" | "not" | "contains" | "startsWith" | "endsWith" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         userId: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "equals" | "in" | "not" | "contains" | "startsWith" | "endsWith" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         user: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
@@ -56,11 +56,11 @@ export declare class FileQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        average?: ("id" | "createdAt" | "updatedAt" | "userId" | "mimeType" | "contentLength" | "objectKey" | "feedbackId")[] | null | undefined;
         count?: ("id" | "createdAt" | "updatedAt" | "userId" | "mimeType" | "contentLength" | "objectKey" | "feedbackId")[] | null | undefined;
+        sum?: ("id" | "createdAt" | "updatedAt" | "userId" | "mimeType" | "contentLength" | "objectKey" | "feedbackId")[] | null | undefined;
         maximum?: ("id" | "createdAt" | "updatedAt" | "userId" | "mimeType" | "contentLength" | "objectKey" | "feedbackId")[] | null | undefined;
         minimum?: ("id" | "createdAt" | "updatedAt" | "userId" | "mimeType" | "contentLength" | "objectKey" | "feedbackId")[] | null | undefined;
-        sum?: ("id" | "createdAt" | "updatedAt" | "userId" | "mimeType" | "contentLength" | "objectKey" | "feedbackId")[] | null | undefined;
+        average?: ("id" | "createdAt" | "updatedAt" | "userId" | "mimeType" | "contentLength" | "objectKey" | "feedbackId")[] | null | undefined;
     }>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, fileObject: FileObject, userQuery: UserQuery);
 }

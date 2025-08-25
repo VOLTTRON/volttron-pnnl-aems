@@ -79,13 +79,13 @@ export declare class UserObject {
         };
     }, {
         name: string | null;
+        role: string | null;
+        id: string;
         email: string;
         image: string | null;
-        role: string | null;
         emailVerified: Date | null;
-        preferences: PrismaJson.UserPreferences | null;
         password: string | null;
-        id: string;
+        preferences: PrismaJson.UserPreferences | null;
         createdAt: Date;
         updatedAt: Date;
     }>;
@@ -94,6 +94,6 @@ export declare class UserObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
-    }>, "name" | "email" | "image" | "role" | "emailVerified" | "preferences" | "id" | "createdAt" | "updatedAt", "name" | "email" | "image" | "role" | "emailVerified" | "preferences" | "id" | "createdAt" | "updatedAt">;
+    }>, "name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt", "name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt">;
     constructor(builder: SchemaBuilderService);
 }

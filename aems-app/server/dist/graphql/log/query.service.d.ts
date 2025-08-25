@@ -8,7 +8,7 @@ export declare class LogQuery {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
-    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<import(".prisma/client").$Enums.LogType>, "equals" | "in" | "not" | "mode">>;
+    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<import(".prisma/client").$Enums.LogType>, "not" | "equals" | "in" | "mode">>;
     readonly LogWhereUnique: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
@@ -29,31 +29,31 @@ export declare class LogQuery {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "equals" | "in" | "not" | "contains" | "startsWith" | "endsWith" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         type: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<import(".prisma/client").$Enums.LogType>, "equals" | "in" | "not" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<import(".prisma/client").$Enums.LogType>, "not" | "equals" | "in" | "mode">>;
         message: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "equals" | "in" | "not" | "contains" | "startsWith" | "endsWith" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
         createdAt: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "equals" | "in" | "lt" | "lte" | "gt" | "gte" | "not" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt" | "contains" | "mode">>;
         updatedAt: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "equals" | "in" | "lt" | "lte" | "gt" | "gte" | "not" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt" | "contains" | "mode">>;
     }>>;
     readonly LogOrderBy: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -67,11 +67,11 @@ export declare class LogQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        average?: ("type" | "id" | "createdAt" | "updatedAt" | "message")[] | null | undefined;
-        count?: ("type" | "id" | "createdAt" | "updatedAt" | "message")[] | null | undefined;
-        maximum?: ("type" | "id" | "createdAt" | "updatedAt" | "message")[] | null | undefined;
-        minimum?: ("type" | "id" | "createdAt" | "updatedAt" | "message")[] | null | undefined;
-        sum?: ("type" | "id" | "createdAt" | "updatedAt" | "message")[] | null | undefined;
+        count?: ("id" | "createdAt" | "updatedAt" | "type" | "message")[] | null | undefined;
+        sum?: ("id" | "createdAt" | "updatedAt" | "type" | "message")[] | null | undefined;
+        maximum?: ("id" | "createdAt" | "updatedAt" | "type" | "message")[] | null | undefined;
+        minimum?: ("id" | "createdAt" | "updatedAt" | "type" | "message")[] | null | undefined;
+        average?: ("id" | "createdAt" | "updatedAt" | "type" | "message")[] | null | undefined;
     }>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, logObject: LogObject);
 }
