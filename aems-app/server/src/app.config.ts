@@ -183,6 +183,7 @@ export class AppConfigService {
   };
   volttron: {
     ca: string;
+    mocked: boolean;
   };
   cors: {
     origin?: string;
@@ -359,6 +360,7 @@ export class AppConfigService {
       ca: process.env.VOLTTRON_CA
         ? readFileSync(resolve(__dirname, process.env.VOLTTRON_CA ?? "")).toString("utf-8")
         : "",
+      mocked: parseBoolean(process.env.VOLTTRON_MOCKED),
     };
     this.cors = {
       origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,

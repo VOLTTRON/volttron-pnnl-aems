@@ -126,6 +126,7 @@ export declare class AppConfigService {
     };
     volttron: {
         ca: string;
+        mocked: boolean;
     };
     cors: {
         origin?: string;

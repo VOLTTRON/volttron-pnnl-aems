@@ -213,6 +213,7 @@ class AppConfigService {
             ca: process.env.VOLTTRON_CA
                 ? (0, node_fs_1.readFileSync)((0, node_path_1.resolve)(__dirname, process.env.VOLTTRON_CA ?? "")).toString("utf-8")
                 : "",
+            mocked: (0, common_1.parseBoolean)(process.env.VOLTTRON_MOCKED),
         };
         this.cors = {
             origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,

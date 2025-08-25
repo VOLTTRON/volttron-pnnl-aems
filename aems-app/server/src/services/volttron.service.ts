@@ -13,6 +13,10 @@ export class VolttronService {
   constructor(@Inject(AppConfigService.Key) private configService: AppConfigService) {}
 
   async makeAuthCall(): Promise<string> {
+    if (this.configService.volttron.mocked) {
+      this.logger.log("Mocked Volttron Auth call");
+      return "mocked_access_token";
+    }
     const body = {
       username: this.configService.service.config.username,
       password: this.configService.service.config.password,
@@ -34,6 +38,10 @@ export class VolttronService {
   }
 
   async makeApiCall(id: string, method: string, token: string, data: any) {
+    if (this.configService.volttron.mocked) {
+      this.logger.log(`Mocked Volttron API call: ${method}`);
+      return { jsonrpc: "2.0", id: id, result: {} };
+    }
     const body = {
       jsonrpc: "2.0",
       id: id,

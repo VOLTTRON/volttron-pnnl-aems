@@ -45,5 +45,8 @@ export async function getConfigFiles(paths: string[], filter?: string | RegExp, 
       logger?.warn(`Skipping non-file and non-directory: ${file}`);
     }
   }
+  if (files.length === 0) {
+    logger?.warn(`No config files found in paths: ${paths.join(", ")}`);
+  }
   return files;
 }

@@ -33,6 +33,9 @@ async function getConfigFiles(paths, filter, logger) {
             logger?.warn(`Skipping non-file and non-directory: ${file}`);
         }
     }
+    if (files.length === 0) {
+        logger?.warn(`No config files found in paths: ${paths.join(", ")}`);
+    }
     return files;
 }
 //# sourceMappingURL=file.js.map
