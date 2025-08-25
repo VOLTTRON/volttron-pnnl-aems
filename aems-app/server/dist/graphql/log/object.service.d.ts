@@ -26,10 +26,10 @@ export declare class LogObject {
         ListRelations: never;
         Relations: {};
     }, {
+        type: import(".prisma/client").$Enums.LogType | null;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        type: import(".prisma/client").$Enums.LogType | null;
         message: string | null;
     }>;
     readonly LogFields: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
@@ -37,6 +37,6 @@ export declare class LogObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "type" | "message", "id" | "createdAt" | "updatedAt" | "type" | "message">;
+    }>, "type" | "id" | "createdAt" | "updatedAt" | "message", "type" | "id" | "createdAt" | "updatedAt" | "message">;
     constructor(builder: SchemaBuilderService);
 }

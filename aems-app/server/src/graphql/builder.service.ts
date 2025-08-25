@@ -80,8 +80,8 @@ export class SchemaBuilderService
         defaultComplexity: 1,
         defaultListMultiplier: 10,
         limit: {
-          complexity: 500,
-          depth: 5,
+          complexity: 5000,
+          depth: 10,
         },
       },
     });

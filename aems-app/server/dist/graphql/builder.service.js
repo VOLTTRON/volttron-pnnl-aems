@@ -56,8 +56,8 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
                 defaultComplexity: 1,
                 defaultListMultiplier: 10,
                 limit: {
-                    complexity: 500,
-                    depth: 5,
+                    complexity: 5000,
+                    depth: 10,
                 },
             },
         });

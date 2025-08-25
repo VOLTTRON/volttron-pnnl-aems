@@ -26,10 +26,8 @@ export declare class AccountObject {
             };
         };
     }, {
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         type: string;
+        id: string;
         provider: string;
         providerAccountId: string;
         refresh_token: string | null;
@@ -39,6 +37,8 @@ export declare class AccountObject {
         scope: string | null;
         id_token: string | null;
         session_state: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         userId: string;
     }>;
     readonly AccountFields: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
@@ -46,6 +46,6 @@ export declare class AccountObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refresh_token" | "access_token" | "expires_at" | "token_type" | "scope" | "id_token" | "session_state" | "userId", "id" | "createdAt" | "updatedAt" | "type" | "provider" | "providerAccountId" | "refresh_token" | "access_token" | "expires_at" | "token_type" | "scope" | "id_token" | "session_state" | "userId">;
+    }>, "type" | "id" | "provider" | "providerAccountId" | "refresh_token" | "access_token" | "expires_at" | "token_type" | "scope" | "id_token" | "session_state" | "createdAt" | "updatedAt" | "userId", "type" | "id" | "provider" | "providerAccountId" | "refresh_token" | "access_token" | "expires_at" | "token_type" | "scope" | "id_token" | "session_state" | "createdAt" | "updatedAt" | "userId">;
     constructor(builder: SchemaBuilderService);
 }
