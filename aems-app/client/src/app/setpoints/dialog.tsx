@@ -28,6 +28,7 @@ export function CreateSetpoint({
   const [deadband, setDeadband] = useState("");
   const [heating, setHeating] = useState("");
   const [cooling, setCooling] = useState("");
+  const [stage, setStage] = useState("");
   const [correlation, setCorrelation] = useState("");
   const [message, setMessage] = useState("");
 
@@ -57,6 +58,7 @@ export function CreateSetpoint({
     setDeadband("");
     setHeating("");
     setCooling("");
+    setStage("");
     setCorrelation("");
     setMessage("");
   }, [open]);
@@ -110,6 +112,15 @@ export function CreateSetpoint({
           fill
         />
       </FormGroup>
+      <FormGroup label="Stage">
+        <InputGroup
+          id="stage"
+          name="stage"
+          value={stage}
+          onChange={(event) => setStage(event.target.value)}
+          fill
+        />
+      </FormGroup>
       <FormGroup label="Correlation">
         <InputGroup
           id="correlation"
@@ -148,6 +159,7 @@ export function UpdateSetpoint({
   const [deadband, setDeadband] = useState("");
   const [heating, setHeating] = useState("");
   const [cooling, setCooling] = useState("");
+  const [stage, setStage] = useState("");
   const [correlation, setCorrelation] = useState("");
   const [message, setMessage] = useState("");
 
@@ -178,6 +190,7 @@ export function UpdateSetpoint({
     setDeadband(setpointData?.deadband?.toString() ?? "");
     setHeating(setpointData?.heating?.toString() ?? "");
     setCooling(setpointData?.cooling?.toString() ?? "");
+    setStage(setpointData?.stage ?? "");
     setCorrelation(setpointData?.correlation ?? "");
     setMessage(setpointData?.message ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -229,6 +242,15 @@ export function UpdateSetpoint({
           step="0.1"
           value={cooling}
           onChange={(event) => setCooling(event.target.value)}
+          fill
+        />
+      </FormGroup>
+      <FormGroup label="Stage">
+        <InputGroup
+          id="stage"
+          name="stage"
+          value={stage}
+          onChange={(event) => setStage(event.target.value)}
           fill
         />
       </FormGroup>

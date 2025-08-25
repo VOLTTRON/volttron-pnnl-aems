@@ -88,6 +88,7 @@ export default function Page() {
           { field: "deadband", label: "Deadband", type: "term" },
           { field: "heating", label: "Heating", type: "term" },
           { field: "cooling", label: "Cooling", type: "term" },
+          { field: "stage", label: "Stage", type: "term" },
           { field: "correlation", label: "Correlation", type: "term" },
           { field: "createdAt", label: "Created", type: "date" },
           { field: "updatedAt", label: "Updated", type: "date" },
