@@ -880,10 +880,10 @@ __metadata:
 
 "@local/prisma@file:../prisma::locator=%40local%2Fcommon%40workspace%3A.":
   version: 2.0.4
-  resolution: "@local/prisma@file:../prisma#../prisma::hash=f5d975&locator=%40local%2Fcommon%40workspace%3A."
+  resolution: "@local/prisma@file:../prisma#../prisma::hash=dfcc47&locator=%40local%2Fcommon%40workspace%3A."
   peerDependencies:
     "@prisma/client": ^6.6.0
-  checksum: 10/9e640ba68857dbc3c94e9944d680002029340799b5a81a5392392074f210ba763c449030d2bb32c49b26e1313272c70214d4c410b63cd5669bfa6b557ed923c3
+  checksum: 10/2dc1a2b6ad6bcd41d317d1819ab3ed06088ab7ec30a5c277d13b22fd809a1d8d689feb2226effad89e527d6b037a639d60791c22a04b9f8367da3f66fd301769
   languageName: node
   linkType: hard
 
