@@ -14,6 +14,7 @@ import {
   Position,
   Tree,
   HTMLSelect,
+  Tooltip,
 } from "@blueprintjs/core";
 import { IconName, IconNames } from "@blueprintjs/icons";
 import { useContext, useEffect, useMemo, useState } from "react";
@@ -90,19 +91,53 @@ export default function ILCPage() {
 
   const getValue = (field: string, control?: any) => {
     const temp = control ?? controls?.find((v) => v.id === state.editing?.id);
+    
+    // Handle special cases for fields that should aggregate from units
+    if (field === 'campus' || field === 'building') {
+      // Get from first unit if available
+      const firstUnit = temp?.units?.[0];
+      return firstUnit?.[field] || '';
+    }
+    
+    if (field === 'peakLoadExclude') {
+      // Aggregate from units - if any unit excludes peak load, show as excluded
+      const units = temp?.units || [];
+      if (units.length === 0) return false;
+      return units.some((unit: any) => unit.peakLoadExclude);
+    }
+    
     return (state.editing as any)?.[field] ?? temp?.[field];
   };
 
   const handleChange = (field: string) => {
     return (value: any) => {
       if (state.editing) {
-        setState(prev => ({
-          ...prev,
-          editing: {
-            ...prev.editing,
-            [field]: value,
-          } as any,
-        }));
+        // Special handling for peakLoadExclude - update all units
+        if (field === 'peakLoadExclude') {
+          const control = controls?.find((v) => v.id === state.editing?.id);
+          if (control?.units) {
+            const updatedUnits = control.units.map((unit: any) => ({
+              id: unit.id,
+              peakLoadExclude: value
+            }));
+            
+            setState(prev => ({
+              ...prev,
+              editing: {
+                ...prev.editing,
+                units: updatedUnits,
+              } as any,
+            }));
+          }
+        } else {
+          setState(prev => ({
+            ...prev,
+            editing: {
+              ...prev.editing,
+              [field]: value,
+            } as any,
+          }));
+        }
       }
     };
   };
@@ -156,6 +191,7 @@ export default function ILCPage() {
 
   const handleSave = () => {
     if (state.editing?.id) {
+      // Update control fields
       updateControl({
         variables: {
           where: { id: state.editing.id },
@@ -165,6 +201,43 @@ export default function ILCPage() {
           },
         },
       });
+
+      // Update unit fields if they exist
+      if (state.editing.units && state.editing.units.length > 0) {
+        state.editing.units.forEach((editedUnit: any) => {
+          if (editedUnit.id) {
+            const updateData: any = {};
+            
+            // Include all fields that have been changed
+            Object.keys(editedUnit).forEach(key => {
+              if (key !== 'id') {
+                // Handle nested location object separately
+                if (key === 'location' && editedUnit.location) {
+                  // For now, we'll update the unit's locationId if the location has an id
+                  // In a full implementation, you might want to create/update the Location entity first
+                  if (editedUnit.location.id) {
+                    updateData.locationId = editedUnit.location.id;
+                  }
+                  // Don't include the location object itself in the update
+                } else {
+                  // Include all other fields including zoneLocation and heatPumpBackup
+                  updateData[key] = editedUnit[key];
+                }
+              }
+            });
+
+            if (Object.keys(updateData).length > 0) {
+              console.log('Updating unit with data:', { unitId: editedUnit.id, updateData });
+              updateUnit({
+                variables: {
+                  where: { id: editedUnit.id },
+                  update: updateData,
+                },
+              });
+            }
+          }
+        });
+      }
     }
   };
 
@@ -184,10 +257,42 @@ export default function ILCPage() {
   const isSave = (control: any) => {
     if (!state.editing) return false;
     const original = controls.find(c => c.id === control.id);
-    return (
+    
+    // Check control-level changes
+    const controlChanged = (
       state.editing.label !== original?.label ||
       state.editing.correlation !== original?.correlation
     );
+
+    // Check unit-level changes
+    let unitsChanged = false;
+    if (state.editing.units && state.editing.units.length > 0) {
+      unitsChanged = state.editing.units.some((editedUnit: any) => {
+        if (!editedUnit.id) return false;
+        
+        const originalUnit = original?.units?.find((u: any) => u.id === editedUnit.id);
+        if (!originalUnit) return false;
+
+        // Check if any field in the edited unit differs from the original
+        return Object.keys(editedUnit).some(key => {
+          if (key === 'id') return false;
+          
+          // Handle nested objects (like location)
+          if (typeof editedUnit[key] === 'object' && editedUnit[key] !== null) {
+            const originalValue = (originalUnit as any)[key];
+            if (typeof originalValue !== 'object' || originalValue === null) return true;
+            
+            return Object.keys(editedUnit[key]).some(nestedKey => 
+              editedUnit[key][nestedKey] !== originalValue[nestedKey]
+            );
+          }
+          
+          return editedUnit[key] !== (originalUnit as any)[key];
+        });
+      });
+    }
+
+    return controlChanged || unitsChanged;
   };
 
   const isPush = (control: any) => {
@@ -213,49 +318,62 @@ export default function ILCPage() {
       case StageType.UpdateType.label:
         icon = IconNames.REFRESH;
         intent = Intent.PRIMARY;
+        message = "Updating Configuration";
         break;
       case StageType.ProcessType.label:
         icon = IconNames.REFRESH;
         intent = Intent.SUCCESS;
+        message = "Processing Configuration";
         break;
       case StageType.CreateType.label:
         icon = IconNames.ISSUE;
         intent = Intent.WARNING;
+        message = "Push ILC Configuration";
         break;
       case StageType.DeleteType.label:
         icon = IconNames.DELETE;
         intent = Intent.DANGER;
+        message = "Deleting Configuration";
         break;
       case StageType.CompleteType.label:
         icon = IconNames.CONFIRM;
         intent = Intent.SUCCESS;
+        message = "Configuration Complete";
         break;
       case StageType.FailType.label:
         icon = IconNames.ERROR;
         intent = Intent.DANGER;
+        message = "Configuration Failed";
         break;
       default:
+        message = "Push ILC Configuration";
     }
 
     const notParticipating = item.peakLoadExclude;
     if (notParticipating) {
       icon = IconNames.DISABLE;
       intent = Intent.NONE;
+      message = "Not Participating in Grid Services";
     }
 
     if (item.units) {
       return (
-        <Button
-          icon={icon}
-          intent={intent}
-          minimal
-          onClick={() => handlePush(item)}
-          disabled={!isPush(item)}
-          title={message}
-        />
+        <Tooltip content={message} position={Position.TOP} disabled={!isPush(item)}>
+          <Button
+            icon={icon}
+            intent={intent}
+            minimal
+            onClick={() => handlePush(item)}
+            disabled={!isPush(item)}
+          />
+        </Tooltip>
       );
     } else {
-      return <Button icon={icon} intent={intent} minimal />;
+      return (
+        <Tooltip content={message} position={Position.TOP}>
+          <Button icon={icon} intent={intent} minimal />
+        </Tooltip>
+      );
     }
   };
 
@@ -298,21 +416,23 @@ export default function ILCPage() {
                 </div>
                 <div className={styles.actions}>
                   {renderStatus(control)}
-                  <Button
-                    icon={IconNames.FLOPPY_DISK}
-                    intent={Intent.PRIMARY}
-                    minimal
-                    onClick={handleSave}
-                    disabled={!isSave(control)}
-                    title="Save"
-                  />
-                  <Button
-                    icon={IconNames.CROSS}
-                    intent={Intent.PRIMARY}
-                    minimal
-                    onClick={handleCancel}
-                    title="Exit"
-                  />
+                  <Tooltip content="Save" position={Position.TOP} disabled={!isSave(control)}>
+                    <Button
+                      icon={IconNames.FLOPPY_DISK}
+                      intent={Intent.PRIMARY}
+                      minimal
+                      onClick={handleSave}
+                      disabled={!isSave(control)}
+                    />
+                  </Tooltip>
+                  <Tooltip content="Cancel" position={Position.TOP}>
+                    <Button
+                      icon={IconNames.CROSS}
+                      intent={Intent.PRIMARY}
+                      minimal
+                      onClick={handleCancel}
+                    />
+                  </Tooltip>
                 </div>
               </div>
               
@@ -320,13 +440,13 @@ export default function ILCPage() {
                 <div>
                   <Label>
                     <b>Campus</b>
-                    <InputGroup type="text" value={(control as any).campus || ""} readOnly />
+                    <InputGroup type="text" value={getValue("campus", control)} readOnly />
                   </Label>
                 </div>
                 <div>
                   <Label>
                     <b>Building</b>
-                    <InputGroup type="text" value={(control as any).building || ""} readOnly />
+                    <InputGroup type="text" value={getValue("building", control)} readOnly />
                   </Label>
                 </div>
                 <div />
@@ -393,32 +513,84 @@ export default function ILCPage() {
                       unit={unit}
                       editing={state.editing?.units?.find((v: any) => v?.id === unit.id) ?? null}
                       handleChange={(field: string) => (value: any) => {
-                        // Handle unit field changes
-                        console.log(`Unit ${unit.id} field ${field} changed to:`, value);
+                        setState(prev => {
+                          if (!prev.editing) return prev;
+                          
+                          const updatedUnits = [...(prev.editing.units || [])];
+                          const unitIndex = updatedUnits.findIndex((u: any) => u?.id === unit.id);
+                          
+                          if (unitIndex >= 0) {
+                            // Update existing unit
+                            const updatedUnit = { ...updatedUnits[unitIndex] } as any;
+                            
+                            // Handle nested field paths (e.g., "location.name")
+                            if (field.includes('.')) {
+                              const [parentField, childField] = field.split('.');
+                              updatedUnit[parentField] = {
+                                ...updatedUnit[parentField],
+                                [childField]: value
+                              };
+                            } else {
+                              updatedUnit[field] = value;
+                            }
+                            
+                            updatedUnits[unitIndex] = updatedUnit;
+                          } else {
+                            // Add new unit with the field
+                            const newUnit: any = { id: unit.id };
+                            
+                            // Handle nested field paths
+                            if (field.includes('.')) {
+                              const [parentField, childField] = field.split('.');
+                              newUnit[parentField] = { [childField]: value };
+                            } else {
+                              newUnit[field] = value;
+                            }
+                            
+                            updatedUnits.push(newUnit);
+                          }
+                          
+                          return {
+                            ...prev,
+                            editing: {
+                              ...prev.editing,
+                              units: updatedUnits
+                            }
+                          };
+                        });
                       }}
-                      hidden={[
-                        ...(getValue("peakLoadExclude", control) ? ["peakLoadExclude"] : []),
-                        ...(getValue("peakLoadExclude", control) ? [
-                          "zoneLocation",
-                          "zoneMass", 
-                          "zoneOrientation",
-                          "zoneBuilding",
-                          "coolingCapacity",
-                          "compressors",
-                          "heatPump",
-                          "heatPumpBackup",
-                          "coolingPeakOffset",
-                          "heatingPeakOffset",
-                        ] : []),
-                        "optimalStartLockout",
-                        "optimalStartDeviation",
-                        "earliestStart",
-                        "latestStart",
-                        "economizer",
-                        "economizerSetpoint",
-                        "heatPumpLockout",
-                        "coolingLockout",
-                      ]}
+                      hidden={(() => {
+                        // Get the unit's peakLoadExclude value (from editing state or original unit)
+                        const editingUnit = state.editing?.units?.find((v: any) => v?.id === unit.id);
+                        const unitPeakLoadExclude = editingUnit?.peakLoadExclude ?? (unit as any).peakLoadExclude;
+                        
+                        return [
+                          // Hide peakLoadExclude field in unit editor since it's controlled at control level
+                          "peakLoadExclude",
+                          // Hide grid services related fields if unit excludes peak load
+                          ...(unitPeakLoadExclude ? [
+                            "zoneLocation",
+                            "zoneMass", 
+                            "zoneOrientation",
+                            "zoneBuilding",
+                            "coolingCapacity",
+                            "compressors",
+                            "heatPump",
+                            "heatPumpBackup",
+                            "coolingPeakOffset",
+                            "heatingPeakOffset",
+                          ] : []),
+                          // Always hide these advanced fields for now
+                          "optimalStartLockout",
+                          "optimalStartDeviation",
+                          "earliestStart",
+                          "latestStart",
+                          "economizer",
+                          "economizerSetpoint",
+                          "heatPumpLockout",
+                          "coolingLockout",
+                        ];
+                      })()}
                     />
                   </Collapse>
                 </div>
@@ -434,13 +606,14 @@ export default function ILCPage() {
                 </div>
                 <div className={styles.actions}>
                   {renderStatus(control)}
-                  <Button
-                    icon={IconNames.EDIT}
-                    intent={Intent.PRIMARY}
-                    minimal
-                    onClick={() => handleEdit(control)}
-                    title="Edit"
-                  />
+                  <Tooltip content="Edit" position={Position.TOP}>
+                    <Button
+                      icon={IconNames.EDIT}
+                      intent={Intent.PRIMARY}
+                      minimal
+                      onClick={() => handleEdit(control)}
+                    />
+                  </Tooltip>
                 </div>
               </div>
             </Card>

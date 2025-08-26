@@ -6,7 +6,12 @@ import {
   NumericInput,
   Tag,
   HTMLSelect,
+  Button,
+  MultiSlider,
+  HandleType,
+  HandleInteractionKind,
 } from "@blueprintjs/core";
+import { IconNames } from "@blueprintjs/icons";
 import { useCallback } from "react";
 
 // HVAC parameter constants (matching the deprecated implementation)
@@ -70,7 +75,34 @@ interface UnitEditorProps {
 
 export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEditorProps) {
   const getValue = useCallback((field: string) => {
-    return editing?.[field] ?? unit?.[field];
+    // Handle nested field paths (e.g., "location.name")
+    if (field.includes('.')) {
+      const [parentField, childField] = field.split('.');
+      const editingParent = editing?.[parentField];
+      const unitParent = unit?.[parentField];
+      
+      if (editingParent && typeof editingParent === 'object') {
+        return editingParent[childField];
+      }
+      if (unitParent && typeof unitParent === 'object') {
+        return unitParent[childField];
+      }
+      return undefined;
+    }
+    
+    const value = editing?.[field] ?? unit?.[field];
+    
+    // Debug logging for specific fields
+    if (field === 'zoneLocation' || field === 'heatPumpBackup') {
+      console.log(`UnitEditor getValue for ${field}:`, { 
+        field, 
+        editingValue: editing?.[field], 
+        unitValue: unit?.[field], 
+        finalValue: value 
+      });
+    }
+    
+    return value;
   }, [editing, unit]);
 
   const renderNumeric = (
@@ -79,7 +111,8 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
     max: number,
     path: string,
     element?: JSX.Element,
-    fractions?: boolean
+    fractions?: boolean,
+    disabled?: boolean
   ) => {
     const value = getValue(path);
     return (
@@ -93,6 +126,7 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           onValueChange={(v) => handleChange(path)(v)}
           rightElement={element}
           clampValueOnBlur
+          disabled={disabled}
         />
       </Label>
     );
@@ -124,10 +158,72 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
     );
   };
 
+  const renderTemperatureSlider = (
+    label: string,
+    min: number,
+    max: number,
+    step: number,
+    path: string,
+    disabled?: boolean
+  ) => {
+    const value = getValue(path) || min;
+    return (
+      <Label>
+        <b>{label}</b>
+        <MultiSlider
+          min={min}
+          max={max}
+          stepSize={0.5}
+          labelStepSize={step}
+          labelRenderer={(v, o) => (o?.isHandleTooltip || (v > min && v < max) ? `${v}°F` : "")}
+          disabled={disabled}
+        >
+          <MultiSlider.Handle
+            type={HandleType.FULL}
+            interactionKind={HandleInteractionKind.LOCK}
+            value={value}
+            onChange={(v) => handleChange(path)(v)}
+          />
+        </MultiSlider>
+      </Label>
+    );
+  };
+
+  const renderDurationSlider = (
+    label: string,
+    min: number,
+    max: number,
+    step: number,
+    path: string,
+    disabled?: boolean
+  ) => {
+    const value = getValue(path) || min;
+    return (
+      <Label>
+        <b>{label}</b>
+        <MultiSlider
+          min={min}
+          max={max}
+          stepSize={5}
+          labelStepSize={step}
+          labelRenderer={(v, o) => (o?.isHandleTooltip || (v > min && v < max) ? `${v} min` : "")}
+          disabled={disabled}
+        >
+          <MultiSlider.Handle
+            type={HandleType.FULL}
+            interactionKind={HandleInteractionKind.LOCK}
+            value={value}
+            onChange={(v) => handleChange(path)(v)}
+          />
+        </MultiSlider>
+      </Label>
+    );
+  };
+
   return (
-    <div style={{ padding: "16px", backgroundColor: "#f5f8fa" }}>
+    <div className="unit-editor">
       {!hidden?.includes("label") && (
-        <div style={{ marginBottom: "16px" }}>
+        <div className="field-group">
           <Label>
             <b>Unit Label</b>
             <InputGroup
@@ -140,7 +236,7 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
       )}
 
       {!hidden?.includes("peakLoadExclude") && (
-        <div style={{ marginBottom: "16px" }}>
+        <div className="field-group">
           {renderSelect(
             "Participate in Grid Services",
             [
@@ -154,57 +250,57 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
       )}
 
       {!hidden?.includes("coolingPeakOffset") && (
-        <div style={{ marginBottom: "16px" }}>
-          {renderNumeric(
-            "Cooling Offset During Grid Services (°F)",
+        <div className="field-group">
+          {renderTemperatureSlider(
+            "Cooling Offset During Grid Services",
             COOLING_PEAK_OFFSET_MIN,
             COOLING_PEAK_OFFSET_MAX,
+            1,
             "coolingPeakOffset",
-            <Tag minimal>°F</Tag>,
-            true
+            getValue("peakLoadExclude")
           )}
         </div>
       )}
 
       {!hidden?.includes("heatingPeakOffset") && (
-        <div style={{ marginBottom: "16px" }}>
-          {renderNumeric(
-            "Heating Offset During Grid Services (°F)",
+        <div className="field-group">
+          {renderTemperatureSlider(
+            "Heating Offset During Grid Services",
             HEATING_PEAK_OFFSET_MIN,
             HEATING_PEAK_OFFSET_MAX,
+            1,
             "heatingPeakOffset",
-            <Tag minimal>°F</Tag>,
-            true
+            getValue("peakLoadExclude")
           )}
         </div>
       )}
 
       {!hidden?.includes("zoneLocation") && (
-        <div style={{ marginBottom: "16px" }}>
+        <div className="field-group">
           {renderSelect("Zone Location", ZoneLocationOptions, "zoneLocation")}
         </div>
       )}
 
       {!hidden?.includes("zoneMass") && (
-        <div style={{ marginBottom: "16px" }}>
+        <div className="field-group">
           {renderSelect("Zone Mass", ZoneMassOptions, "zoneMass")}
         </div>
       )}
 
       {!hidden?.includes("zoneOrientation") && (
-        <div style={{ marginBottom: "16px" }}>
+        <div className="field-group">
           {renderSelect("Zone Orientation", ZoneOrientationOptions, "zoneOrientation")}
         </div>
       )}
 
       {!hidden?.includes("zoneBuilding") && (
-        <div style={{ marginBottom: "16px" }}>
+        <div className="field-group">
           {renderSelect("Zone Type", ZoneBuildingOptions, "zoneBuilding")}
         </div>
       )}
 
       {!hidden?.includes("coolingCapacity") && (
-        <div style={{ marginBottom: "16px" }}>
+        <div className="field-group">
           {renderNumeric(
             "Rated Cooling Capacity",
             COOLING_CAPACITY_MIN,
@@ -217,13 +313,13 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
       )}
 
       {!hidden?.includes("compressors") && (
-        <div style={{ marginBottom: "16px" }}>
+        <div className="field-group">
           {renderNumeric("Number of Compressors", COMPRESSORS_MIN, COMPRESSORS_MAX, "compressors")}
         </div>
       )}
 
       {!hidden?.includes("heatPump") && (
-        <div style={{ marginBottom: "16px" }}>
+        <div className="field-group">
           {renderSelect(
             "Heat Pump",
             [
@@ -237,20 +333,21 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
       )}
 
       {!hidden?.includes("heatPumpBackup") && (
-        <div style={{ marginBottom: "16px" }}>
+        <div className="field-group">
           {renderNumeric(
             "Heat Pump Electric Backup Capacity",
             HEAT_PUMP_BACKUP_MIN,
             HEAT_PUMP_BACKUP_MAX,
             "heatPumpBackup",
             <Tag minimal>kW</Tag>,
-            true
+            true,
+            !getValue("heatPump") // Disabled if heat pump is not selected
           )}
         </div>
       )}
 
       {!hidden?.includes("economizer") && (
-        <div style={{ marginBottom: "16px" }}>
+        <div className="field-group">
           {renderSelect(
             "Economizer",
             [
@@ -264,14 +361,150 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
       )}
 
       {!hidden?.includes("economizerSetpoint") && (
-        <div style={{ marginBottom: "16px" }}>
-          {renderNumeric(
+        <div className="field-group">
+          {renderTemperatureSlider(
             "Economizer Switchover Temperature Setpoint",
             ECONOMIZER_SETPOINT_MIN,
             ECONOMIZER_SETPOINT_MAX,
+            5,
             "economizerSetpoint",
-            <Tag minimal>°F</Tag>,
-            true
+            !getValue("economizer") // Disabled if economizer is not selected
+          )}
+        </div>
+      )}
+
+      {!hidden?.includes("location") && (
+        <div style={{ marginBottom: "16px" }}>
+          <Label>
+            <b>Unit Location</b>
+            <InputGroup
+              type="text"
+              value={getValue("location.name") || "No location set"}
+              readOnly
+              rightElement={
+                <Button 
+                  icon={IconNames.MAP} 
+                  minimal 
+                  onClick={() => {
+                    const lat = getValue("location.latitude");
+                    const lng = getValue("location.longitude");
+                    const mapUrl = lat && lng 
+                      ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+                      : `https://www.google.com/maps/@?api=1&map_action=map`;
+                    window.open(mapUrl, "_blank");
+                  }}
+                />
+              }
+            />
+          </Label>
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+            <div style={{ flex: 1 }}>
+              <Label>
+                <b>Location Name</b>
+                <InputGroup
+                  type="text"
+                  value={getValue("location.name") || ""}
+                  onChange={(e) => handleChange("location.name")(e.target.value)}
+                  placeholder="Enter location name"
+                />
+              </Label>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+            <div style={{ flex: 1 }}>
+              {renderNumeric(
+                "Latitude",
+                -90,
+                90,
+                "location.latitude",
+                undefined,
+                true
+              )}
+            </div>
+            <div style={{ flex: 1 }}>
+              {renderNumeric(
+                "Longitude",
+                -180,
+                180,
+                "location.longitude",
+                undefined,
+                true
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!hidden?.includes("optimalStartLockout") && (
+        <div style={{ marginBottom: "16px" }}>
+          {renderTemperatureSlider(
+            "Disable Optimal Start when Outdoor Temperatures are below",
+            OPTIMAL_START_LOCKOUT_MIN,
+            OPTIMAL_START_LOCKOUT_MAX,
+            5,
+            "optimalStartLockout"
+          )}
+        </div>
+      )}
+
+      {!hidden?.includes("optimalStartDeviation") && (
+        <div style={{ marginBottom: "16px" }}>
+          {renderTemperatureSlider(
+            "Optimal Start Allowable Zone Temperature Deviation",
+            OPTIMAL_START_DEVIATION_MIN,
+            OPTIMAL_START_DEVIATION_MAX,
+            0.5,
+            "optimalStartDeviation"
+          )}
+        </div>
+      )}
+
+      {!hidden?.includes("earliestStart") && (
+        <div style={{ marginBottom: "16px" }}>
+          {renderDurationSlider(
+            "Earliest Start Time Before Occupancy",
+            EARLIEST_START_MIN,
+            EARLIEST_START_MAX,
+            30,
+            "earliestStart"
+          )}
+        </div>
+      )}
+
+      {!hidden?.includes("latestStart") && (
+        <div style={{ marginBottom: "16px" }}>
+          {renderDurationSlider(
+            "Latest Start Time Before Occupancy",
+            LATEST_START_MIN,
+            LATEST_START_MAX,
+            15,
+            "latestStart"
+          )}
+        </div>
+      )}
+
+      {!hidden?.includes("heatPumpLockout") && (
+        <div style={{ marginBottom: "16px" }}>
+          {renderTemperatureSlider(
+            "Heat Pump Auxiliary Heat Lockout",
+            HEAT_PUMP_LOCKOUT_MIN,
+            HEAT_PUMP_LOCKOUT_MAX,
+            8,
+            "heatPumpLockout",
+            !getValue("heatPump") // Disabled if heat pump is not selected
+          )}
+        </div>
+      )}
+
+      {!hidden?.includes("coolingLockout") && (
+        <div style={{ marginBottom: "16px" }}>
+          {renderTemperatureSlider(
+            "Compressor Cooling Lockout Temperature",
+            COOLING_LOCKOUT_MIN,
+            COOLING_LOCKOUT_MAX,
+            5,
+            "coolingLockout",
+            !getValue("economizer") // Disabled if economizer is not selected
           )}
         </div>
       )}

@@ -1,11 +1,10 @@
 .controls {
-  padding: 20px;
+  padding: 1rem;
   width: 100%;
-
+  
   h1 {
-    margin-bottom: 24px;
-    color: #394b59;
-    font-weight: 600;
+    margin: 1rem 0;
+    color: var(--bp5-text-color);
   }
 }
 
@@ -14,41 +13,42 @@
   justify-content: center;
   align-items: center;
   height: 200px;
-  font-size: 16px;
-  color: #5c7080;
+  font-size: 1rem;
+  color: var(--bp5-text-color-muted);
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 1rem;
 }
 
 .card {
-  padding: 16px;
-  border: 1px solid #d9e1e8;
+  padding: 1rem;
+  border: 1px solid var(--bp5-border-color);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--bp5-background-color);
   transition: all 0.2s ease;
 
   &:hover {
-    border-color: #137cbd;
-    box-shadow: 0 2px 8px rgba(19, 124, 189, 0.15);
+    border-color: var(--bp5-intent-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 }
 
 .editingCard {
   @extend .card;
-  border-color: #137cbd;
-  box-shadow: 0 2px 12px rgba(19, 124, 189, 0.2);
-  background: #f8fafc;
+  border-color: var(--bp5-intent-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--bp5-background-color-secondary);
 }
 
 .row {
   display: flex;
+  justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 1rem;
+  margin-bottom: 1rem;
 
   &:last-child {
     margin-bottom: 0;
@@ -66,7 +66,7 @@
 
 .actions {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
   align-items: center;
   flex: 0 0 auto !important;
 }
@@ -79,32 +79,59 @@
   flex: 1.5 !important;
 }
 
+.configSection {
+  padding: 1rem;
+  border-left: 3px solid var(--bp5-intent-primary);
+  margin-left: 1rem;
+  background-color: var(--bp5-background-color-secondary);
+  
+  .bp5-label {
+    margin-bottom: 0.5rem;
+    
+    b {
+      display: block;
+      margin-bottom: 0.25rem;
+      color: var(--bp5-text-color);
+    }
+  }
+}
+
 // Blueprint.js overrides for better spacing
 .controls {
   :global(.bp5-label) {
-    margin-bottom: 8px;
+    margin-bottom: 0.75rem;
 
     > b {
       display: block;
-      margin-bottom: 4px;
-      font-weight: 600;
-      color: #394b59;
+      margin-bottom: 0.25rem;
+      font-weight: 500;
+      color: var(--bp5-text-color-muted);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    h3 {
+      margin: 0;
+      color: var(--bp5-heading-color);
     }
   }
 
   :global(.bp5-input-group) {
+    margin-top: 0.25rem;
+    
     .bp5-input {
       border-radius: 4px;
-      border: 1px solid #d9e1e8;
+      border: 1px solid var(--bp5-border-color);
       
       &:focus {
-        border-color: #137cbd;
-        box-shadow: 0 0 0 1px #137cbd;
+        border-color: var(--bp5-intent-primary);
+        box-shadow: 0 0 0 1px var(--bp5-intent-primary);
       }
 
       &[readonly] {
-        background-color: #f5f8fa;
-        color: #5c7080;
+        background-color: var(--bp5-background-color-secondary);
+        color: var(--bp5-text-color-muted);
       }
     }
   }
@@ -112,11 +139,11 @@
   :global(.bp5-html-select) {
     select {
       border-radius: 4px;
-      border: 1px solid #d9e1e8;
+      border: 1px solid var(--bp5-border-color);
       
       &:focus {
-        border-color: #137cbd;
-        box-shadow: 0 0 0 1px #137cbd;
+        border-color: var(--bp5-intent-primary);
+        box-shadow: 0 0 0 1px var(--bp5-intent-primary);
       }
     }
   }
@@ -132,25 +159,29 @@
   }
 
   :global(.bp5-tree) {
-    margin: 8px 0;
+    margin: 0.5rem 0;
     
     .bp5-tree-node {
-      padding: 4px 8px;
+      padding: 0.5rem;
       border-radius: 4px;
       
       &:hover {
-        background-color: #f5f8fa;
+        background-color: var(--bp5-background-color-secondary);
       }
       
       &.bp5-tree-node-expanded {
-        background-color: #ebf1f5;
+        background-color: var(--bp5-background-color-secondary);
       }
+    }
+    
+    .bp5-tree-node-label {
+      font-weight: 500;
     }
   }
 
   :global(.bp5-collapse) {
     .bp5-collapse-body {
-      padding-top: 8px;
+      padding-top: 0.5rem;
     }
   }
 
@@ -159,35 +190,89 @@
       border-radius: 4px;
       
       &:hover {
-        background-color: rgba(19, 124, 189, 0.1);
+        background-color: var(--bp5-background-color-secondary);
       }
     }
   }
 
   :global(.bp5-alert) {
+    max-width: 500px;
+    margin: 0 auto;
+    
     .bp5-alert-body {
-      padding: 16px;
+      padding: 1rem;
     }
     
     .bp5-alert-footer {
-      padding: 12px 16px;
-      border-top: 1px solid #d9e1e8;
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--bp5-border-color);
     }
+  }
+}
+
+// Unit Editor Styling
+.controls :global(.unit-editor) {
+  padding: 1rem;
+  border-left: 3px solid var(--bp5-intent-primary);
+  margin-left: 1rem;
+  background-color: var(--bp5-background-color-secondary);
+  border-radius: 4px;
+  
+  .field-group {
+    margin-bottom: 1rem;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  
+  :global(.bp5-label) {
+    margin-bottom: 0.5rem;
+    
+    > b {
+      display: block;
+      margin-bottom: 0.25rem;
+      color: var(--bp5-text-color);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 500;
+    }
+  }
+  
+  :global(.bp5-input-group) {
+    margin-top: 0.25rem;
+  }
+  
+  :global(.bp5-html-select) {
+    margin-top: 0.25rem;
+  }
+  
+  :global(.bp5-numeric-input) {
+    margin-top: 0.25rem;
+  }
+  
+  :global(.bp5-slider) {
+    margin: 0.5rem 0;
   }
 }
 
 // Responsive design
 @media (max-width: 768px) {
   .controls {
-    padding: 16px;
+    padding: 1rem;
   }
 
   .row {
     flex-direction: column;
-    gap: 12px;
+    gap: 0.75rem;
 
     > div {
       flex: 1 1 auto;
+      
+      &:last-child {
+        align-self: flex-end;
+      }
     }
   }
 
@@ -195,23 +280,33 @@
     flex-direction: row;
     justify-content: flex-end;
   }
+  
+  .controls :global(.unit-editor) {
+    margin-left: 0.5rem;
+    padding: 0.75rem;
+  }
 }
 
 @media (max-width: 480px) {
   .controls {
-    padding: 12px;
+    padding: 0.75rem;
   }
 
   .card,
   .editingCard {
-    padding: 12px;
+    padding: 0.75rem;
   }
 
   .row {
-    gap: 8px;
+    gap: 0.5rem;
   }
 
   .actions {
-    gap: 4px;
+    gap: 0.25rem;
+  }
+  
+  .controls :global(.unit-editor) {
+    margin-left: 0.25rem;
+    padding: 0.5rem;
   }
 }
