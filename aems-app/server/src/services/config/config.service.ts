@@ -53,6 +53,9 @@ export class ConfigService extends BaseService {
           where: { stage: { in: [StageType.Update.enum, StageType.Process.enum] } },
         })
         .then(async (units) => {
+          if (units.length === 0) {
+            return;
+          }
           const token = await this.volttronService.makeAuthCall();
           for (const unit of units) {
             this.logger.log(`Pushing the unit config for: ${unit.label}`);

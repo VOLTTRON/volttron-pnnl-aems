@@ -19,7 +19,7 @@ async function getConfigFiles(paths, filter, logger) {
             : () => true;
     const files = [];
     for (const path of paths) {
-        const file = (0, node_path_1.resolve)(process.cwd(), path);
+        const file = (0, node_path_1.resolve)(path);
         const dirent = await (0, promises_1.stat)(file);
         if (dirent.isFile()) {
             if (test(file)) {
@@ -27,7 +27,7 @@ async function getConfigFiles(paths, filter, logger) {
             }
         }
         else if (dirent.isDirectory()) {
-            files.push(...(await getConfigFiles(await (0, promises_1.readdir)(file))));
+            files.push(...(await getConfigFiles((await (0, promises_1.readdir)(file)).map((f) => (0, node_path_1.resolve)(file, f)), filter)));
         }
         else {
             logger?.warn(`Skipping non-file and non-directory: ${file}`);
@@ -35,6 +35,9 @@ async function getConfigFiles(paths, filter, logger) {
     }
     if (files.length === 0) {
         logger?.warn(`No config files found in paths: ${paths.join(", ")}`);
+    }
+    else {
+        logger?.log(`Found config files: ${files.map((file) => (0, node_path_1.basename)(file)).join(", ")}`);
     }
     return files;
 }

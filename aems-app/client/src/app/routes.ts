@@ -101,7 +101,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     name: "Manage",
     icon: IconNames.GROUP_ITEM,
     scope: "admin",
-    display: true,
+    display: "admin",
     components: components,
     index: true,
   },
@@ -112,7 +112,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     name: "Units",
     icon: IconNames.COG,
     scope: "admin",
-    display: true,
+    display: "admin",
     components: components,
   },
   {
@@ -122,7 +122,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     name: "Controls",
     icon: IconNames.CONTROL,
     scope: "admin",
-    display: true,
+    display: "admin",
     components: components,
   },
   {
@@ -132,7 +132,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     name: "Configurations",
     icon: IconNames.SERIES_CONFIGURATION,
     scope: "admin",
-    display: true,
+    display: "admin",
     components: components,
   },
   {
@@ -142,7 +142,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     name: "Holidays",
     icon: IconNames.TIMELINE_EVENTS,
     scope: "admin",
-    display: true,
+    display: "admin",
     components: components,
   },
   {
@@ -152,7 +152,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     name: "Locations",
     icon: IconNames.MAP_MARKER,
     scope: "admin",
-    display: true,
+    display: "admin",
     components: components,
   },
   {
@@ -162,7 +162,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     name: "Occupancies",
     icon: IconNames.HOME,
     scope: "admin",
-    display: true,
+    display: "admin",
     components: components,
   },
   {
@@ -172,7 +172,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     name: "Schedules",
     icon: IconNames.TIME,
     scope: "admin",
-    display: true,
+    display: "admin",
     components: components,
   },
   {
@@ -182,7 +182,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     name: "Setpoints",
     icon: IconNames.TEMPERATURE,
     scope: "admin",
-    display: true,
+    display: "admin",
     components: components,
   },
   {

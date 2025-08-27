@@ -1,31 +1,31 @@
 "use client";
 
 import styles from "./page.module.scss";
-import { 
-  Button, 
-  Card, 
-  Collapse, 
-  ControlGroup, 
-  InputGroup, 
-  Intent, 
-  Label, 
+import {
+  Button,
+  Card,
+  Collapse,
+  ControlGroup,
+  InputGroup,
+  Intent,
+  Label,
   Tree,
   Alert,
   Position,
-  Tooltip
+  Tooltip,
 } from "@blueprintjs/core";
 import { useContext, useMemo, useState, useCallback } from "react";
 import { useQuery, useMutation } from "@apollo/client";
-import { 
-  ReadUnitsQuery, 
-  StringFilterMode, 
+import {
+  ReadUnitsQuery,
+  StringFilterMode,
   ReadUnitsDocument,
   UpdateUnitDocument,
   ReadConfigurationsDocument,
   OrderBy,
-  ModelStage
+  ModelStage,
 } from "@/graphql-codegen/graphql";
-import { NotificationContext, NotificationType, RouteContext } from "../components/providers";
+import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { Term, filter } from "@/utils/client";
 import { Search } from "../components/common";
 import { IconNames } from "@blueprintjs/icons";
@@ -36,6 +36,7 @@ import { Holidays } from "./components/Holidays";
 import { Occupancies } from "./components/Occupancies";
 import { Unit } from "./components/Unit";
 import { Configuration } from "./components/Configuration";
+import { Role } from "@local/common";
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
@@ -52,6 +53,7 @@ export default function Page() {
 
   const { route } = useContext(RouteContext);
   const { createNotification } = useContext(NotificationContext);
+  const { current } = useContext(CurrentContext);
 
   const { data, loading, refetch } = useQuery(ReadUnitsDocument, {
     variables: {
@@ -92,38 +94,47 @@ export default function Page() {
     [data?.readUnits, search],
   );
 
-  const getValue = useCallback((field: string, editingUnit?: DeepPartial<UnitType> | null, unit?: UnitType) => {
-    const temp = unit ? unit : units?.find((v) => v.id === editingUnit?.id);
-    return get(editingUnit, field, get(temp, field));
-  }, [units]);
+  const getValue = useCallback(
+    (field: string, editingUnit?: DeepPartial<UnitType> | null, unit?: UnitType) => {
+      const temp = unit ? unit : units?.find((v) => v.id === editingUnit?.id);
+      return get(editingUnit, field, get(temp, field));
+    },
+    [units],
+  );
 
-  const handleChange = useCallback((field: string, editingUnit?: DeepPartial<UnitType> | null) => {
-    return (value: any) => {
-      if (editingUnit) {
-        const newEditing = cloneDeep(editingUnit);
-        if (typeof get(editingUnit, field) === 'object' && value && typeof value === 'object') {
-          set(newEditing, field, merge(cloneDeep(get(editingUnit, field)), value));
-        } else {
-          set(newEditing, field, value);
+  const handleChange = useCallback(
+    (field: string, editingUnit?: DeepPartial<UnitType> | null) => {
+      return (value: any) => {
+        if (editingUnit) {
+          const newEditing = cloneDeep(editingUnit);
+          if (typeof get(editingUnit, field) === "object" && value && typeof value === "object") {
+            set(newEditing, field, merge(cloneDeep(get(editingUnit, field)), value));
+          } else {
+            set(newEditing, field, value);
+          }
+
+          if (editingUnit === editing) {
+            setEditing(newEditing);
+          } else if (editingUnit === editingAll) {
+            setEditingAll(newEditing);
+          }
         }
-        
-        if (editingUnit === editing) {
-          setEditing(newEditing);
-        } else if (editingUnit === editingAll) {
-          setEditingAll(newEditing);
-        }
+      };
+    },
+    [editing, editingAll],
+  );
+
+  const handleEdit = useCallback(
+    (unit: UnitType) => {
+      const current = editing && units?.find((v) => v.id === editing.id);
+      if (current && isSave(current)) {
+        setConfirm(() => () => setEditing({ id: unit.id }));
+      } else {
+        setEditing({ id: unit.id });
       }
-    };
-  }, [editing, editingAll]);
-
-  const handleEdit = useCallback((unit: UnitType) => {
-    const current = editing && units?.find((v) => v.id === editing.id);
-    if (current && isSave(current)) {
-      setConfirm(() => () => setEditing({ id: unit.id }));
-    } else {
-      setEditing({ id: unit.id });
-    }
-  }, [editing, units]);
+    },
+    [editing, units],
+  );
 
   const handleCancel = useCallback(() => {
     const current = editing && units?.find((v) => v.id === editing.id);
@@ -140,13 +151,13 @@ export default function Page() {
 
   const handleSave = useCallback(async () => {
     if (editing && editing.id) {
-      const originalUnit = units?.find(u => u.id === editing.id);
+      const originalUnit = units?.find((u) => u.id === editing.id);
       if (originalUnit) {
         const updateData: any = {};
-        
+
         // Compare and build update object
-        Object.keys(editing).forEach(key => {
-          if (key !== 'id' && !isEqual(get(editing, key), get(originalUnit, key))) {
+        Object.keys(editing).forEach((key) => {
+          if (key !== "id" && !isEqual(get(editing, key), get(originalUnit, key))) {
             updateData[key] = get(editing, key);
           }
         });
@@ -165,93 +176,99 @@ export default function Page() {
     }
   }, [editing, units, updateUnit]);
 
-  const handlePush = useCallback(async (unit: UnitType) => {
-    if (unit.id) {
-      await updateUnit({
-        variables: {
-          where: { id: unit.id },
-          update: { stage: ModelStage.Update },
-        },
-      });
-    }
-  }, [updateUnit]);
+  const handlePush = useCallback(
+    async (unit: UnitType) => {
+      if (unit.id) {
+        await updateUnit({
+          variables: {
+            where: { id: unit.id },
+            update: { stage: ModelStage.Update },
+          },
+        });
+      }
+    },
+    [updateUnit],
+  );
 
-  const isSave = useCallback((unit: UnitType, editingUnit?: DeepPartial<UnitType> | null) => {
-    editingUnit = editingUnit ?? editing;
-    if (!editingUnit) return false;
-    
-    const temp = merge({}, unit, editingUnit);
-    return !isEqual(unit, temp);
-  }, [editing]);
+  const isSave = useCallback(
+    (unit: UnitType, editingUnit?: DeepPartial<UnitType> | null) => {
+      editingUnit = editingUnit ?? editing;
+      if (!editingUnit) return false;
 
-  const isPush = useCallback((unit: UnitType) => {
-    switch (unit.stage?.toLowerCase()) {
-      case "update":
-      case "delete":
-      case "process":
-        return false;
-      case "create":
-      case "complete":
-      case "fail":
-      default:
-        return !isSave(unit);
-    }
-  }, [isSave]);
+      const temp = merge({}, unit, editingUnit);
+      return !isEqual(unit, temp);
+    },
+    [editing],
+  );
 
-  const renderStatus = useCallback((unit: UnitType) => {
-    let icon = IconNames.ISSUE;
-    let intent: Intent = Intent.WARNING;
-    let message = "Push Unit Configuration";
-    
-    switch (unit.stage?.toLowerCase()) {
-      case "update":
-        icon = IconNames.REFRESH;
-        intent = Intent.PRIMARY;
-        message = "Updating Configuration";
-        break;
-      case "process":
-        icon = IconNames.REFRESH;
-        intent = Intent.SUCCESS;
-        message = "Processing Configuration";
-        break;
-      case "create":
-        icon = IconNames.ISSUE;
-        intent = Intent.WARNING;
-        message = "Push Unit Configuration";
-        break;
-      case "delete":
-        icon = IconNames.DELETE;
-        intent = Intent.DANGER;
-        message = "Deleting Configuration";
-        break;
-      case "complete":
-        icon = IconNames.CONFIRM;
-        intent = Intent.SUCCESS;
-        message = "Configuration Complete";
-        break;
-      case "fail":
-        icon = IconNames.ERROR;
-        intent = Intent.DANGER;
-        message = "Configuration Failed";
-        break;
-      default:
-        icon = IconNames.ISSUE;
-        intent = Intent.WARNING;
-        message = "Push Unit Configuration";
-    }
-    
-    return (
-      <Tooltip content={message} position={Position.TOP} disabled={!isPush(unit)}>
-        <Button
-          icon={icon}
-          intent={intent}
-          minimal
-          onClick={() => handlePush(unit)}
-          disabled={!isPush(unit)}
-        />
-      </Tooltip>
-    );
-  }, [isPush, handlePush]);
+  const isPush = useCallback(
+    (unit: UnitType) => {
+      switch (unit.stage?.toLowerCase()) {
+        case "update":
+        case "delete":
+        case "process":
+          return false;
+        case "create":
+        case "complete":
+        case "fail":
+        default:
+          return !isSave(unit);
+      }
+    },
+    [isSave],
+  );
+
+  const renderStatus = useCallback(
+    (unit: UnitType) => {
+      let icon = IconNames.ISSUE;
+      let intent: Intent = Intent.WARNING;
+      let message = "Push Unit Configuration";
+
+      switch (unit.stage?.toLowerCase()) {
+        case "update":
+          icon = IconNames.REFRESH;
+          intent = Intent.PRIMARY;
+          message = "Updating Configuration";
+          break;
+        case "process":
+          icon = IconNames.REFRESH;
+          intent = Intent.SUCCESS;
+          message = "Processing Configuration";
+          break;
+        case "create":
+          icon = IconNames.ISSUE;
+          intent = Intent.WARNING;
+          message = "Push Unit Configuration";
+          break;
+        case "delete":
+          icon = IconNames.DELETE;
+          intent = Intent.DANGER;
+          message = "Deleting Configuration";
+          break;
+        case "complete":
+          icon = IconNames.CONFIRM;
+          intent = Intent.SUCCESS;
+          message = "Configuration Complete";
+          break;
+        case "fail":
+          icon = IconNames.ERROR;
+          intent = Intent.DANGER;
+          message = "Configuration Failed";
+          break;
+        default:
+          icon = IconNames.ISSUE;
+          intent = Intent.WARNING;
+          message = "Push Unit Configuration";
+      }
+
+      return (
+        <Tooltip content={message} position={Position.TOP} disabled={!isPush(unit)}>
+          <Button icon={icon} intent={intent} minimal onClick={() => handlePush(unit)} disabled={!isPush(unit)} />
+        </Tooltip>
+      );
+    },
+    [isPush, handlePush],
+  );
 
   const renderConfirm = () => {
     if (confirm === null) {
@@ -274,6 +291,10 @@ export default function Page() {
     );
   };
 
+  if (!Role.User.granted(...(current?.role?.split(" ") ?? []))) {
+    return <div>You do not have permission to view this page.</div>;
+  }
+
   return (
     <div className={styles.units}>
       <ControlGroup>
@@ -286,8 +307,8 @@ export default function Page() {
       <div className={styles.list}>
         {units?.map((unit, i) => {
           const isEditing = unit.id === editing?.id;
-          const currentUnit = isEditing ? units.find(u => u.id === editing?.id) : unit;
-          
+          const currentUnit = isEditing ? units.find((u) => u.id === editing?.id) : unit;
+
           return (
             <Card key={unit.id ?? i} className={styles.unitCard}>
               <div className={styles.row}>
@@ -310,12 +331,7 @@ export default function Page() {
                         />
                       </Tooltip>
                       <Tooltip content="Cancel" position={Position.TOP}>
-                        <Button
-                          icon={IconNames.CROSS}
-                          intent={Intent.PRIMARY}
-                          minimal
-                          onClick={handleCancel}
-                        />
+                        <Button icon={IconNames.CROSS} intent={Intent.PRIMARY} minimal onClick={handleCancel} />
                       </Tooltip>
                     </>
                   ) : (
@@ -339,9 +355,9 @@ export default function Page() {
                     <div>
                       <Label>
                         <b>Campus</b>
-                        <InputGroup 
-                          type="text" 
-                          value={getValue("campus", editing, currentUnit) || ""} 
+                        <InputGroup
+                          type="text"
+                          value={getValue("campus", editing, currentUnit) || ""}
                           onChange={(e) => handleChange("campus", editing)(e.target.value)}
                           readOnly
                         />
@@ -350,9 +366,9 @@ export default function Page() {
                     <div>
                       <Label>
                         <b>Building</b>
-                        <InputGroup 
-                          type="text" 
-                          value={getValue("building", editing, currentUnit) || ""} 
+                        <InputGroup
+                          type="text"
+                          value={getValue("building", editing, currentUnit) || ""}
                           onChange={(e) => handleChange("building", editing)(e.target.value)}
                           readOnly
                         />
@@ -361,9 +377,9 @@ export default function Page() {
                     <div>
                       <Label>
                         <b>System</b>
-                        <InputGroup 
-                          type="text" 
-                          value={getValue("system", editing, currentUnit) || ""} 
+                        <InputGroup
+                          type="text"
+                          value={getValue("system", editing, currentUnit) || ""}
                           onChange={(e) => handleChange("system", editing)(e.target.value)}
                           readOnly
                         />
@@ -372,9 +388,9 @@ export default function Page() {
                     <div>
                       <Label>
                         <b>Timezone</b>
-                        <InputGroup 
-                          type="text" 
-                          value={getValue("timezone", editing, currentUnit) || ""} 
+                        <InputGroup
+                          type="text"
+                          value={getValue("timezone", editing, currentUnit) || ""}
                           onChange={(e) => handleChange("timezone", editing)(e.target.value)}
                           readOnly
                         />
@@ -426,11 +442,7 @@ export default function Page() {
                     />
                     <Collapse isOpen={expanded === "setpoints"}>
                       <div className={styles.configSection}>
-                        <Setpoints
-                          unit={currentUnit}
-                          editing={editing}
-                          handleChange={handleChange}
-                        />
+                        <Setpoints unit={currentUnit} editing={editing} handleChange={handleChange} />
                       </div>
                     </Collapse>
 
@@ -450,11 +462,7 @@ export default function Page() {
                     />
                     <Collapse isOpen={expanded === "schedules"}>
                       <div className={styles.configSection}>
-                        <Schedules
-                          unit={currentUnit}
-                          editing={editing}
-                          handleChange={handleChange}
-                        />
+                        <Schedules unit={currentUnit} editing={editing} handleChange={handleChange} />
                       </div>
                     </Collapse>
 
@@ -474,11 +482,7 @@ export default function Page() {
                     />
                     <Collapse isOpen={expanded === "holidays"}>
                       <div className={styles.configSection}>
-                        <Holidays
-                          unit={currentUnit}
-                          editing={editing}
-                          handleChange={handleChange}
-                        />
+                        <Holidays unit={currentUnit} editing={editing} handleChange={handleChange} />
                       </div>
                     </Collapse>
 
@@ -498,11 +502,7 @@ export default function Page() {
                     />
                     <Collapse isOpen={expanded === "occupancies"}>
                       <div className={styles.configSection}>
-                        <Occupancies
-                          unit={currentUnit}
-                          editing={editing}
-                          handleChange={handleChange}
-                        />
+                        <Occupancies unit={currentUnit} editing={editing} handleChange={handleChange} />
                       </div>
                     </Collapse>
 
@@ -522,11 +522,7 @@ export default function Page() {
                     />
                     <Collapse isOpen={expanded === "rtu"}>
                       <div className={styles.configSection}>
-                        <Unit
-                          unit={currentUnit}
-                          editing={editing}
-                          handleChange={handleChange}
-                        />
+                        <Unit unit={currentUnit} editing={editing} handleChange={handleChange} />
                       </div>
                     </Collapse>
                   </Collapse>
@@ -536,7 +532,7 @@ export default function Page() {
           );
         })}
       </div>
-      
+
       {renderConfirm()}
     </div>
   );

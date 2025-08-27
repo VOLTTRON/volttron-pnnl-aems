@@ -298,8 +298,9 @@ export class SetupService extends BaseService {
   async task() {
     this.logger.log(`Checking for units that need to be created...`);
     const units: Unit[] = [];
-    for (const file of await getConfigFiles(this.configService.service.setup.thermostatPaths, ".config", this.logger)) {
-      const text = await readFile(file, "utf-8");
+    const thermostatPaths = this.configService.service.setup.thermostatPaths.map((p) => resolve(p));
+    for (const file of await getConfigFiles(thermostatPaths, ".config", this.logger)) {
+      const text = await readFile(resolve(file), "utf-8");
       const json = JSON.parse(text);
       const {
         campus,
@@ -356,8 +357,9 @@ export class SetupService extends BaseService {
       .findMany({ include: { units: true } })
       .catch((error) => this.logger.warn(`Failed to look for controls:`, error));
     const configs: { control: string; units: string[] }[] = [];
-    for (const file of await getConfigFiles(this.configService.service.setup.ilcPaths, ".json", this.logger)) {
-      const text = await readFile(file, "utf-8");
+    const ilcPaths = this.configService.service.setup.ilcPaths.map((p) => resolve(process.cwd(), p));
+    for (const file of await getConfigFiles(ilcPaths, ".json", this.logger)) {
+      const text = await readFile(resolve(process.cwd(), file), "utf-8");
       const json = JSON.parse(text);
       const { campus, building, systems }: { campus: string; building: string; systems: string[] } = json;
       const name = `${transform(campus)}-${transform(building)}`;

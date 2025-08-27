@@ -2,7 +2,7 @@ import { typeofObject } from "@local/common";
 import { Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { readdir, stat } from "node:fs/promises";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 /**
  * Generate new unique name for file
@@ -33,20 +33,27 @@ export async function getConfigFiles(paths: string[], filter?: string | RegExp, 
       : () => true;
   const files: string[] = [];
   for (const path of paths) {
-    const file = resolve(process.cwd(), path);
+    const file = resolve(path);
     const dirent = await stat(file);
     if (dirent.isFile()) {
       if (test(file)) {
         files.push(file);
       }
     } else if (dirent.isDirectory()) {
-      files.push(...(await getConfigFiles(await readdir(file))));
+      files.push(
+        ...(await getConfigFiles(
+          (await readdir(file)).map((f) => resolve(file, f)),
+          filter,
+        )),
+      );
     } else {
       logger?.warn(`Skipping non-file and non-directory: ${file}`);
     }
   }
   if (files.length === 0) {
     logger?.warn(`No config files found in paths: ${paths.join(", ")}`);
+  } else {
+    logger?.log(`Found config files: ${files.map((file) => basename(file)).join(", ")}`);
   }
   return files;
 }

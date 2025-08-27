@@ -198,6 +198,7 @@ services:
     restart: unless-stopped
     volumes:
       - file-upload:/app/upload/
+      - ../../aems-edge/configurations/:/app/aems-edge/configurations/
 
     # Runs application seeders
   seeders:

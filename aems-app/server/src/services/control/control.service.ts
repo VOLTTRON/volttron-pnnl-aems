@@ -4,7 +4,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { AppConfigService } from "@/app.config";
 import { Cron } from "@nestjs/schedule";
 import { StageType, typeofObject } from "@local/common";
-import { basename, extname } from "node:path";
+import { basename, extname, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import { VolttronService } from "../volttron.service";
 import { getConfigFiles } from "@/utils/file";
@@ -59,6 +59,9 @@ export class ControlService extends BaseService {
           where: { stage: { in: [StageType.Update.enum, StageType.Process.enum] } },
         })
         .then(async (controls) => {
+          if (controls.length === 0) {
+            return;
+          }
           const token = await this.volttronService.makeAuthCall();
           for (const control of controls) {
             this.logger.log(`Pushing the control config for: ${control.label}`);
@@ -71,13 +74,10 @@ export class ControlService extends BaseService {
                 data: { stage: StageType.ProcessType.enum, message: null },
               });
               const data: Record<string, any> = {};
-              for (const file of await getConfigFiles(
-                this.configService.service.control.templatePaths,
-                ".json",
-                this.logger,
-              )) {
+              const paths = this.configService.service.control.templatePaths.map((p) => resolve(p));
+              for (const file of await getConfigFiles(paths, ".json", this.logger)) {
                 const key = basename(file, extname(file));
-                const text = await readFile(file, "utf-8");
+                const text = await readFile(resolve(file), "utf-8");
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 const template = control.units ? JSON.parse(text) : {};
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

@@ -26,9 +26,10 @@ import {
   UpdateUnitDocument,
   OrderBy,
 } from "@/graphql-codegen/graphql";
-import { NotificationContext, NotificationType, RouteContext } from "../components/providers";
+import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { Term } from "@/utils/client";
 import { UnitEditor } from "./components/UnitEditor";
+import { Role } from "@local/common";
 
 // Stage type mappings for status display
 const StageType = {
@@ -55,6 +56,7 @@ export default function ILCPage() {
 
   const { route } = useContext(RouteContext);
   const { createNotification } = useContext(NotificationContext);
+  const { current } = useContext(CurrentContext);
 
   // Fetch controls with full unit details
   const { data, loading, refetch } = useQuery(ReadControlsDocument, {
@@ -91,21 +93,21 @@ export default function ILCPage() {
 
   const getValue = (field: string, control?: any) => {
     const temp = control ?? controls?.find((v) => v.id === state.editing?.id);
-    
+
     // Handle special cases for fields that should aggregate from units
-    if (field === 'campus' || field === 'building') {
+    if (field === "campus" || field === "building") {
       // Get from first unit if available
       const firstUnit = temp?.units?.[0];
-      return firstUnit?.[field] || '';
+      return firstUnit?.[field] || "";
     }
-    
-    if (field === 'peakLoadExclude') {
+
+    if (field === "peakLoadExclude") {
       // Aggregate from units - if any unit excludes peak load, show as excluded
       const units = temp?.units || [];
       if (units.length === 0) return false;
       return units.some((unit: any) => unit.peakLoadExclude);
     }
-    
+
     return (state.editing as any)?.[field] ?? temp?.[field];
   };
 
@@ -113,15 +115,15 @@ export default function ILCPage() {
     return (value: any) => {
       if (state.editing) {
         // Special handling for peakLoadExclude - update all units
-        if (field === 'peakLoadExclude') {
+        if (field === "peakLoadExclude") {
           const control = controls?.find((v) => v.id === state.editing?.id);
           if (control?.units) {
             const updatedUnits = control.units.map((unit: any) => ({
               id: unit.id,
-              peakLoadExclude: value
+              peakLoadExclude: value,
             }));
-            
-            setState(prev => ({
+
+            setState((prev) => ({
               ...prev,
               editing: {
                 ...prev.editing,
@@ -130,7 +132,7 @@ export default function ILCPage() {
             }));
           }
         } else {
-          setState(prev => ({
+          setState((prev) => ({
             ...prev,
             editing: {
               ...prev.editing,
@@ -145,27 +147,27 @@ export default function ILCPage() {
   const handleEdit = (control: Term<NonNullable<ReadControlsQuery["readControls"]>[0]>) => {
     const current = state.editing && controls?.find((v) => v.id === state.editing?.id);
     if (current && isSave(current)) {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         confirm: () =>
-          setState(prev => ({
+          setState((prev) => ({
             ...prev,
-            editing: { 
-              id: control.id, 
+            editing: {
+              id: control.id,
               label: control.label,
               correlation: control.correlation,
-              units: control.units?.map((v) => ({ id: v.id })) || []
+              units: control.units?.map((v) => ({ id: v.id })) || [],
             },
           })),
       }));
     } else {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        editing: { 
-          id: control.id, 
+        editing: {
+          id: control.id,
           label: control.label,
           correlation: control.correlation,
-          units: control.units?.map((v) => ({ id: v.id })) || []
+          units: control.units?.map((v) => ({ id: v.id })) || [],
         },
       }));
     }
@@ -174,18 +176,18 @@ export default function ILCPage() {
   const handleCancel = () => {
     const current = state.editing && controls?.find((v) => v.id === state.editing?.id);
     if (current && isSave(current)) {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        confirm: () => setState(prev => ({ ...prev, editing: null })),
+        confirm: () => setState((prev) => ({ ...prev, editing: null })),
       }));
     } else {
-      setState(prev => ({ ...prev, editing: null }));
+      setState((prev) => ({ ...prev, editing: null }));
     }
   };
 
   const handleConfirm = () => {
     const { confirm } = state;
-    setState(prev => ({ ...prev, confirm: null }));
+    setState((prev) => ({ ...prev, confirm: null }));
     confirm?.();
   };
 
@@ -207,12 +209,12 @@ export default function ILCPage() {
         state.editing.units.forEach((editedUnit: any) => {
           if (editedUnit.id) {
             const updateData: any = {};
-            
+
             // Include all fields that have been changed
-            Object.keys(editedUnit).forEach(key => {
-              if (key !== 'id') {
+            Object.keys(editedUnit).forEach((key) => {
+              if (key !== "id") {
                 // Handle nested location object separately
-                if (key === 'location' && editedUnit.location) {
+                if (key === "location" && editedUnit.location) {
                   // For now, we'll update the unit's locationId if the location has an id
                   // In a full implementation, you might want to create/update the Location entity first
                   if (editedUnit.location.id) {
@@ -227,7 +229,7 @@ export default function ILCPage() {
             });
 
             if (Object.keys(updateData).length > 0) {
-              console.log('Updating unit with data:', { unitId: editedUnit.id, updateData });
+              console.log("Updating unit with data:", { unitId: editedUnit.id, updateData });
               updateUnit({
                 variables: {
                   where: { id: editedUnit.id },
@@ -256,37 +258,35 @@ export default function ILCPage() {
 
   const isSave = (control: any) => {
     if (!state.editing) return false;
-    const original = controls.find(c => c.id === control.id);
-    
+    const original = controls.find((c) => c.id === control.id);
+
     // Check control-level changes
-    const controlChanged = (
-      state.editing.label !== original?.label ||
-      state.editing.correlation !== original?.correlation
-    );
+    const controlChanged =
+      state.editing.label !== original?.label || state.editing.correlation !== original?.correlation;
 
     // Check unit-level changes
     let unitsChanged = false;
     if (state.editing.units && state.editing.units.length > 0) {
       unitsChanged = state.editing.units.some((editedUnit: any) => {
         if (!editedUnit.id) return false;
-        
+
         const originalUnit = original?.units?.find((u: any) => u.id === editedUnit.id);
         if (!originalUnit) return false;
 
         // Check if any field in the edited unit differs from the original
-        return Object.keys(editedUnit).some(key => {
-          if (key === 'id') return false;
-          
+        return Object.keys(editedUnit).some((key) => {
+          if (key === "id") return false;
+
           // Handle nested objects (like location)
-          if (typeof editedUnit[key] === 'object' && editedUnit[key] !== null) {
+          if (typeof editedUnit[key] === "object" && editedUnit[key] !== null) {
             const originalValue = (originalUnit as any)[key];
-            if (typeof originalValue !== 'object' || originalValue === null) return true;
-            
-            return Object.keys(editedUnit[key]).some(nestedKey => 
-              editedUnit[key][nestedKey] !== originalValue[nestedKey]
+            if (typeof originalValue !== "object" || originalValue === null) return true;
+
+            return Object.keys(editedUnit[key]).some(
+              (nestedKey) => editedUnit[key][nestedKey] !== originalValue[nestedKey],
             );
           }
-          
+
           return editedUnit[key] !== (originalUnit as any)[key];
         });
       });
@@ -313,7 +313,7 @@ export default function ILCPage() {
     let icon: IconName = IconNames.ISSUE;
     let intent: Intent = Intent.WARNING;
     let message: string = "Push ILC Configuration";
-    
+
     switch (item.stage) {
       case StageType.UpdateType.label:
         icon = IconNames.REFRESH;
@@ -359,13 +359,7 @@ export default function ILCPage() {
     if (item.units) {
       return (
         <Tooltip content={message} position={Position.TOP} disabled={!isPush(item)}>
-          <Button
-            icon={icon}
-            intent={intent}
-            minimal
-            onClick={() => handlePush(item)}
-            disabled={!isPush(item)}
-          />
+          <Button icon={icon} intent={intent} minimal onClick={() => handlePush(item)} disabled={!isPush(item)} />
         </Tooltip>
       );
     } else {
@@ -388,7 +382,7 @@ export default function ILCPage() {
         confirmButtonText="Yes"
         cancelButtonText="Cancel"
         onConfirm={handleConfirm}
-        onClose={() => setState(prev => ({ ...prev, confirm: null }))}
+        onClose={() => setState((prev) => ({ ...prev, confirm: null }))}
       >
         <p>There are changes which have not been saved. Do you still want to continue?</p>
       </Alert>
@@ -399,13 +393,17 @@ export default function ILCPage() {
     return <div className={styles.loading}>Loading Intelligent Load Control...</div>;
   }
 
+  if (!Role.User.granted(...(current?.role?.split(" ") ?? []))) {
+    return <div>You do not have permission to view this page.</div>;
+  }
+
   return (
     <div className={styles.controls}>
       <h1>Intelligent Load Control</h1>
       <div className={styles.list}>
         {controls?.map((control, i) => {
           const isEditing = control.id === state.editing?.id;
-          
+
           return isEditing ? (
             <Card key={`control-${control.id ?? i}-editing`} interactive className={styles.editingCard}>
               <div className={styles.row}>
@@ -426,16 +424,11 @@ export default function ILCPage() {
                     />
                   </Tooltip>
                   <Tooltip content="Cancel" position={Position.TOP}>
-                    <Button
-                      icon={IconNames.CROSS}
-                      intent={Intent.PRIMARY}
-                      minimal
-                      onClick={handleCancel}
-                    />
+                    <Button icon={IconNames.CROSS} intent={Intent.PRIMARY} minimal onClick={handleCancel} />
                   </Tooltip>
                 </div>
               </div>
-              
+
               <div className={styles.row}>
                 <div>
                   <Label>
@@ -487,7 +480,7 @@ export default function ILCPage() {
               <Label>
                 <h3>Units</h3>
               </Label>
-              
+
               {control.units?.map((unit, unitIndex) => (
                 <div key={`unit-${unit.id ?? unitIndex}`}>
                   <Tree
@@ -499,10 +492,10 @@ export default function ILCPage() {
                         isExpanded: state.expanded === `${control.id}-${unit.id}`,
                       },
                     ]}
-                    onNodeExpand={() => setState(prev => ({ ...prev, expanded: `${control.id}-${unit.id}` }))}
-                    onNodeCollapse={() => setState(prev => ({ ...prev, expanded: null }))}
+                    onNodeExpand={() => setState((prev) => ({ ...prev, expanded: `${control.id}-${unit.id}` }))}
+                    onNodeCollapse={() => setState((prev) => ({ ...prev, expanded: null }))}
                     onNodeClick={() =>
-                      setState(prev => ({
+                      setState((prev) => ({
                         ...prev,
                         expanded: `${control.id}-${unit.id}` === prev.expanded ? null : `${control.id}-${unit.id}`,
                       }))
@@ -513,49 +506,49 @@ export default function ILCPage() {
                       unit={unit}
                       editing={state.editing?.units?.find((v: any) => v?.id === unit.id) ?? null}
                       handleChange={(field: string) => (value: any) => {
-                        setState(prev => {
+                        setState((prev) => {
                           if (!prev.editing) return prev;
-                          
+
                           const updatedUnits = [...(prev.editing.units || [])];
                           const unitIndex = updatedUnits.findIndex((u: any) => u?.id === unit.id);
-                          
+
                           if (unitIndex >= 0) {
                             // Update existing unit
                             const updatedUnit = { ...updatedUnits[unitIndex] } as any;
-                            
+
                             // Handle nested field paths (e.g., "location.name")
-                            if (field.includes('.')) {
-                              const [parentField, childField] = field.split('.');
+                            if (field.includes(".")) {
+                              const [parentField, childField] = field.split(".");
                               updatedUnit[parentField] = {
                                 ...updatedUnit[parentField],
-                                [childField]: value
+                                [childField]: value,
                               };
                             } else {
                               updatedUnit[field] = value;
                             }
-                            
+
                             updatedUnits[unitIndex] = updatedUnit;
                           } else {
                             // Add new unit with the field
                             const newUnit: any = { id: unit.id };
-                            
+
                             // Handle nested field paths
-                            if (field.includes('.')) {
-                              const [parentField, childField] = field.split('.');
+                            if (field.includes(".")) {
+                              const [parentField, childField] = field.split(".");
                               newUnit[parentField] = { [childField]: value };
                             } else {
                               newUnit[field] = value;
                             }
-                            
+
                             updatedUnits.push(newUnit);
                           }
-                          
+
                           return {
                             ...prev,
                             editing: {
                               ...prev.editing,
-                              units: updatedUnits
-                            }
+                              units: updatedUnits,
+                            },
                           };
                         });
                       }}
@@ -563,23 +556,25 @@ export default function ILCPage() {
                         // Get the unit's peakLoadExclude value (from editing state or original unit)
                         const editingUnit = state.editing?.units?.find((v: any) => v?.id === unit.id);
                         const unitPeakLoadExclude = editingUnit?.peakLoadExclude ?? (unit as any).peakLoadExclude;
-                        
+
                         return [
                           // Hide peakLoadExclude field in unit editor since it's controlled at control level
                           "peakLoadExclude",
                           // Hide grid services related fields if unit excludes peak load
-                          ...(unitPeakLoadExclude ? [
-                            "zoneLocation",
-                            "zoneMass", 
-                            "zoneOrientation",
-                            "zoneBuilding",
-                            "coolingCapacity",
-                            "compressors",
-                            "heatPump",
-                            "heatPumpBackup",
-                            "coolingPeakOffset",
-                            "heatingPeakOffset",
-                          ] : []),
+                          ...(unitPeakLoadExclude
+                            ? [
+                                "zoneLocation",
+                                "zoneMass",
+                                "zoneOrientation",
+                                "zoneBuilding",
+                                "coolingCapacity",
+                                "compressors",
+                                "heatPump",
+                                "heatPumpBackup",
+                                "coolingPeakOffset",
+                                "heatingPeakOffset",
+                              ]
+                            : []),
                           // Always hide these advanced fields for now
                           "optimalStartLockout",
                           "optimalStartDeviation",
@@ -607,12 +602,7 @@ export default function ILCPage() {
                 <div className={styles.actions}>
                   {renderStatus(control)}
                   <Tooltip content="Edit" position={Position.TOP}>
-                    <Button
-                      icon={IconNames.EDIT}
-                      intent={Intent.PRIMARY}
-                      minimal
-                      onClick={() => handleEdit(control)}
-                    />
+                    <Button icon={IconNames.EDIT} intent={Intent.PRIMARY} minimal onClick={() => handleEdit(control)} />
                   </Tooltip>
                 </div>
               </div>
