@@ -77,7 +77,7 @@ export class ScheduleMutation {
     builder.mutationField("updateSchedule", (t) =>
       t.prismaField({
         description: "Update the specified schedule.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Schedule",
         args: {
           where: t.arg({ type: ScheduleWhereUnique, required: true }),

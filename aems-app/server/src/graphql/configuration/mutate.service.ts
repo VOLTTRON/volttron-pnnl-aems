@@ -87,7 +87,7 @@ export class ConfigurationMutation {
     builder.mutationField("updateConfiguration", (t) =>
       t.prismaField({
         description: "Update the specified configuration.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Configuration",
         args: {
           where: t.arg({ type: ConfigurationWhereUnique, required: true }),

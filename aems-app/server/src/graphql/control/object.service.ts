@@ -11,7 +11,7 @@ export class ControlObject {
 
   constructor(builder: SchemaBuilderService) {
     this.ControlObject = builder.prismaObject("Control", {
-      authScopes: { admin: true },
+      authScopes: { user: true },
       subscribe(subscriptions, parent, _context, _info) {
         subscriptions.register(`Control/${parent.id}`);
       },

@@ -11,7 +11,7 @@ export class OccupancyObject {
 
   constructor(builder: SchemaBuilderService) {
     this.OccupancyObject = builder.prismaObject("Occupancy", {
-      authScopes: { admin: true },
+      authScopes: { user: true },
       subscribe(subscriptions, parent, _context, _info) {
         subscriptions.register(`Occupancy/${parent.id}`);
       },

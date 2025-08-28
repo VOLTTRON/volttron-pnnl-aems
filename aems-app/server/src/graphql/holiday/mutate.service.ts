@@ -54,7 +54,7 @@ export class HolidayMutation {
     builder.mutationField("createHoliday", (t) =>
       t.prismaField({
         description: "Create a new holiday.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Holiday",
         args: {
           create: t.arg({ type: HolidayCreate, required: true }),
@@ -80,7 +80,7 @@ export class HolidayMutation {
     builder.mutationField("updateHoliday", (t) =>
       t.prismaField({
         description: "Update the specified holiday.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Holiday",
         args: {
           where: t.arg({ type: HolidayWhereUnique, required: true }),
@@ -113,7 +113,7 @@ export class HolidayMutation {
     builder.mutationField("deleteHoliday", (t) =>
       t.prismaField({
         description: "Delete the specified holiday.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Holiday",
         args: {
           where: t.arg({ type: HolidayWhereUnique, required: true }),

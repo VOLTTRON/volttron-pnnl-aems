@@ -11,7 +11,7 @@ export class UnitObject {
 
   constructor(builder: SchemaBuilderService) {
     this.UnitObject = builder.prismaObject("Unit", {
-      authScopes: { admin: true },
+      authScopes: { user: true },
       subscribe(subscriptions, parent, _context, _info) {
         subscriptions.register(`Unit/${parent.id}`);
       },

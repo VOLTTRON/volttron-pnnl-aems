@@ -11,7 +11,7 @@ export class ScheduleObject {
 
   constructor(builder: SchemaBuilderService) {
     this.ScheduleObject = builder.prismaObject("Schedule", {
-      authScopes: { admin: true },
+      authScopes: { user: true },
       subscribe(subscriptions, parent, _context, _info) {
         subscriptions.register(`Schedule/${parent.id}`);
       },

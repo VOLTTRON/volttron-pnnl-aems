@@ -119,7 +119,7 @@ export class UnitMutation {
     builder.mutationField("updateUnit", (t) =>
       t.prismaField({
         description: "Update the specified unit.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Unit",
         args: {
           where: t.arg({ type: UnitWhereUnique, required: true }),

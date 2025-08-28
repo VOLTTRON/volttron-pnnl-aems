@@ -17,7 +17,7 @@ export class HolidayObject {
     });
 
     this.HolidayObject = builder.prismaObject("Holiday", {
-      authScopes: { admin: true },
+      authScopes: { user: true },
       subscribe(subscriptions, parent, _context, _info) {
         subscriptions.register(`Holiday/${parent.id}`);
       },

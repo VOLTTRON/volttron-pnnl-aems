@@ -19,7 +19,7 @@ services:
   - docker:dind
 variables:
   BASE_DIR: "."
-  POSTGRES_DB: skeleton
+  POSTGRES_DB: aems
   POSTGRES_USER: develop
   POSTGRES_PASSWORD: password
   DATABASE_HOST: postgis-postgis

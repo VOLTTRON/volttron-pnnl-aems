@@ -11,7 +11,7 @@ export class SetpointObject {
 
   constructor(builder: SchemaBuilderService) {
     this.SetpointObject = builder.prismaObject("Setpoint", {
-      authScopes: { admin: true },
+      authScopes: { user: true },
       subscribe(subscriptions, parent, _context, _info) {
         subscriptions.register(`Setpoint/${parent.id}`);
       },

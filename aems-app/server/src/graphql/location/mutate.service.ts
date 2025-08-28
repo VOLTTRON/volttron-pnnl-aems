@@ -43,7 +43,7 @@ export class LocationMutation {
     builder.mutationField("createLocation", (t) =>
       t.prismaField({
         description: "Create a new location.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Location",
         args: {
           create: t.arg({ type: LocationCreate, required: true }),
@@ -69,7 +69,7 @@ export class LocationMutation {
     builder.mutationField("updateLocation", (t) =>
       t.prismaField({
         description: "Update the specified location.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Location",
         args: {
           where: t.arg({ type: LocationWhereUnique, required: true }),
@@ -102,7 +102,7 @@ export class LocationMutation {
     builder.mutationField("deleteLocation", (t) =>
       t.prismaField({
         description: "Delete the specified location.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Location",
         args: {
           where: t.arg({ type: LocationWhereUnique, required: true }),

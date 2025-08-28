@@ -77,7 +77,7 @@ export class ControlMutation {
     builder.mutationField("updateControl", (t) =>
       t.prismaField({
         description: "Update the specified control.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Control",
         args: {
           where: t.arg({ type: ControlWhereUnique, required: true }),

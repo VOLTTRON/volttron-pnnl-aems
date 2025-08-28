@@ -77,7 +77,7 @@ export class SetpointMutation {
     builder.mutationField("updateSetpoint", (t) =>
       t.prismaField({
         description: "Update the specified setpoint.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Setpoint",
         args: {
           where: t.arg({ type: SetpointWhereUnique, required: true }),

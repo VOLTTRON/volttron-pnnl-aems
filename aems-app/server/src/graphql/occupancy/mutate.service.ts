@@ -49,7 +49,7 @@ export class OccupancyMutation {
     builder.mutationField("createOccupancy", (t) =>
       t.prismaField({
         description: "Create a new occupancy.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Occupancy",
         args: {
           create: t.arg({ type: OccupancyCreate, required: true }),
@@ -75,7 +75,7 @@ export class OccupancyMutation {
     builder.mutationField("updateOccupancy", (t) =>
       t.prismaField({
         description: "Update the specified occupancy.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Occupancy",
         args: {
           where: t.arg({ type: OccupancyWhereUnique, required: true }),
@@ -108,7 +108,7 @@ export class OccupancyMutation {
     builder.mutationField("deleteOccupancy", (t) =>
       t.prismaField({
         description: "Delete the specified occupancy.",
-        authScopes: { admin: true },
+        authScopes: { user: true },
         type: "Occupancy",
         args: {
           where: t.arg({ type: OccupancyWhereUnique, required: true }),
