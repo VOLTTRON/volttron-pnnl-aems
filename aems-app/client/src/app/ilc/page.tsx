@@ -553,15 +553,19 @@ export default function ILCPage() {
                         });
                       }}
                       hidden={(() => {
+                        // Get the control's peakLoadExclude value (from editing state or original control)
+                        const controlPeakLoadExclude = getValue("peakLoadExclude", control);
+                        
                         // Get the unit's peakLoadExclude value (from editing state or original unit)
                         const editingUnit = state.editing?.units?.find((v: any) => v?.id === unit.id);
                         const unitPeakLoadExclude = editingUnit?.peakLoadExclude ?? (unit as any).peakLoadExclude;
 
                         return [
-                          // Hide peakLoadExclude field in unit editor since it's controlled at control level
-                          "peakLoadExclude",
-                          // Hide grid services related fields if unit excludes peak load
-                          ...(unitPeakLoadExclude
+                          // Hide fields based on control-level peakLoadExclude
+                          ...(controlPeakLoadExclude ? ["peakLoadExclude"] : []),
+                          
+                          // Hide grid services related fields if control or unit excludes peak load
+                          ...(controlPeakLoadExclude || unitPeakLoadExclude
                             ? [
                                 "zoneLocation",
                                 "zoneMass",
@@ -575,7 +579,8 @@ export default function ILCPage() {
                                 "heatingPeakOffset",
                               ]
                             : []),
-                          // Always hide these advanced fields for now
+                          
+                          // Always hide these advanced fields (matching original implementation)
                           "optimalStartLockout",
                           "optimalStartDeviation",
                           "earliestStart",

@@ -10,9 +10,11 @@ import {
   MultiSlider,
   HandleType,
   HandleInteractionKind,
+  Intent,
 } from "@blueprintjs/core";
 import { IconNames } from "@blueprintjs/icons";
 import { useCallback } from "react";
+import { LocationSearch } from "./LocationSearch";
 
 // HVAC parameter constants (matching the deprecated implementation)
 const COOLING_CAPACITY_MIN = 0;
@@ -40,30 +42,40 @@ const COOLING_PEAK_OFFSET_MAX = 10;
 const HEATING_PEAK_OFFSET_MIN = -10;
 const HEATING_PEAK_OFFSET_MAX = 0;
 
-// Zone type options (simplified for now)
+// Zone type options (matching the original deprecated implementation)
 const ZoneLocationOptions = [
+  { name: "exterior", label: "Exterior" },
   { name: "interior", label: "Interior" },
-  { name: "perimeter", label: "Perimeter" },
-  { name: "corner", label: "Corner" },
 ];
 
 const ZoneMassOptions = [
-  { name: "light", label: "Light" },
+  { name: "high", label: "High" },
   { name: "medium", label: "Medium" },
-  { name: "heavy", label: "Heavy" },
+  { name: "low", label: "Low" },
 ];
 
 const ZoneOrientationOptions = [
   { name: "north", label: "North" },
-  { name: "south", label: "South" },
+  { name: "northeast", label: "Northeast" },
   { name: "east", label: "East" },
+  { name: "southeast", label: "Southeast" },
+  { name: "south", label: "South" },
+  { name: "southwest", label: "Southwest" },
   { name: "west", label: "West" },
+  { name: "northwest", label: "Northwest" },
 ];
 
 const ZoneBuildingOptions = [
+  { name: "corner-office", label: "Corner Office" },
+  { name: "conference", label: "Conference" },
+  { name: "kitchen", label: "Kitchen" },
+  { name: "closet", label: "Closet" },
   { name: "office", label: "Office" },
-  { name: "retail", label: "Retail" },
-  { name: "warehouse", label: "Warehouse" },
+  { name: "empty-office", label: "Empty Office" },
+  { name: "mechanical-room", label: "Mechanical Room" },
+  { name: "computer-lab", label: "Computer Lab" },
+  { name: "mixed", label: "Mixed" },
+  { name: "other", label: "Other" },
 ];
 
 interface UnitEditorProps {
@@ -115,6 +127,9 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
     disabled?: boolean
   ) => {
     const value = getValue(path);
+    const numericValue = typeof value === 'number' ? value : (parseFloat(value) || 0);
+    const isValid = numericValue >= min && numericValue <= max;
+    
     return (
       <Label>
         <b>{label}</b>
@@ -122,11 +137,17 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           step={fractions ? 0.5 : 1}
           min={min}
           max={max}
-          value={value || 0}
-          onValueChange={(v) => handleChange(path)(v)}
+          value={numericValue}
+          onValueChange={(v) => {
+            // Validate the value before updating
+            if (typeof v === 'number' && !isNaN(v)) {
+              handleChange(path)(v);
+            }
+          }}
           rightElement={element}
           clampValueOnBlur
           disabled={disabled}
+          intent={!isValid && numericValue !== 0 ? Intent.DANGER : Intent.NONE}
         />
       </Label>
     );
@@ -223,289 +244,359 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
   return (
     <div className="unit-editor">
       {!hidden?.includes("label") && (
-        <div className="field-group">
-          <Label>
-            <b>Unit Label</b>
-            <InputGroup
-              type="text"
-              value={getValue("label") || ""}
-              onChange={(e) => handleChange("label")(e.target.value)}
-            />
-          </Label>
-        </div>
-      )}
-
-      {!hidden?.includes("peakLoadExclude") && (
-        <div className="field-group">
-          {renderSelect(
-            "Participate in Grid Services",
-            [
-              { name: false, label: "Yes" },
-              { name: true, label: "No" },
-            ],
-            "peakLoadExclude",
-            (v) => (v ? "No" : "Yes")
-          )}
-        </div>
-      )}
-
-      {!hidden?.includes("coolingPeakOffset") && (
-        <div className="field-group">
-          {renderTemperatureSlider(
-            "Cooling Offset During Grid Services",
-            COOLING_PEAK_OFFSET_MIN,
-            COOLING_PEAK_OFFSET_MAX,
-            1,
-            "coolingPeakOffset",
-            getValue("peakLoadExclude")
-          )}
-        </div>
-      )}
-
-      {!hidden?.includes("heatingPeakOffset") && (
-        <div className="field-group">
-          {renderTemperatureSlider(
-            "Heating Offset During Grid Services",
-            HEATING_PEAK_OFFSET_MIN,
-            HEATING_PEAK_OFFSET_MAX,
-            1,
-            "heatingPeakOffset",
-            getValue("peakLoadExclude")
-          )}
-        </div>
-      )}
-
-      {!hidden?.includes("zoneLocation") && (
-        <div className="field-group">
-          {renderSelect("Zone Location", ZoneLocationOptions, "zoneLocation")}
-        </div>
-      )}
-
-      {!hidden?.includes("zoneMass") && (
-        <div className="field-group">
-          {renderSelect("Zone Mass", ZoneMassOptions, "zoneMass")}
-        </div>
-      )}
-
-      {!hidden?.includes("zoneOrientation") && (
-        <div className="field-group">
-          {renderSelect("Zone Orientation", ZoneOrientationOptions, "zoneOrientation")}
-        </div>
-      )}
-
-      {!hidden?.includes("zoneBuilding") && (
-        <div className="field-group">
-          {renderSelect("Zone Type", ZoneBuildingOptions, "zoneBuilding")}
-        </div>
-      )}
-
-      {!hidden?.includes("coolingCapacity") && (
-        <div className="field-group">
-          {renderNumeric(
-            "Rated Cooling Capacity",
-            COOLING_CAPACITY_MIN,
-            COOLING_CAPACITY_MAX,
-            "coolingCapacity",
-            <Tag minimal>tons</Tag>,
-            true
-          )}
-        </div>
-      )}
-
-      {!hidden?.includes("compressors") && (
-        <div className="field-group">
-          {renderNumeric("Number of Compressors", COMPRESSORS_MIN, COMPRESSORS_MAX, "compressors")}
-        </div>
-      )}
-
-      {!hidden?.includes("heatPump") && (
-        <div className="field-group">
-          {renderSelect(
-            "Heat Pump",
-            [
-              { name: true, label: "Yes" },
-              { name: false, label: "No" },
-            ],
-            "heatPump",
-            (v) => (v ? "Yes" : "No")
-          )}
-        </div>
-      )}
-
-      {!hidden?.includes("heatPumpBackup") && (
-        <div className="field-group">
-          {renderNumeric(
-            "Heat Pump Electric Backup Capacity",
-            HEAT_PUMP_BACKUP_MIN,
-            HEAT_PUMP_BACKUP_MAX,
-            "heatPumpBackup",
-            <Tag minimal>kW</Tag>,
-            true,
-            !getValue("heatPump") // Disabled if heat pump is not selected
-          )}
-        </div>
-      )}
-
-      {!hidden?.includes("economizer") && (
-        <div className="field-group">
-          {renderSelect(
-            "Economizer",
-            [
-              { name: true, label: "Yes" },
-              { name: false, label: "No" },
-            ],
-            "economizer",
-            (v) => (v ? "Yes" : "No")
-          )}
-        </div>
-      )}
-
-      {!hidden?.includes("economizerSetpoint") && (
-        <div className="field-group">
-          {renderTemperatureSlider(
-            "Economizer Switchover Temperature Setpoint",
-            ECONOMIZER_SETPOINT_MIN,
-            ECONOMIZER_SETPOINT_MAX,
-            5,
-            "economizerSetpoint",
-            !getValue("economizer") // Disabled if economizer is not selected
-          )}
+        <div className="row">
+          <h3> </h3>
+          <div className="unit">
+            <Label>
+              <b>Unit Label</b>
+              <InputGroup
+                type="text"
+                value={getValue("label") || ""}
+                onChange={(e) => handleChange("label")(e.target.value)}
+              />
+            </Label>
+          </div>
+          <div />
+          <div />
         </div>
       )}
 
       {!hidden?.includes("location") && (
-        <div style={{ marginBottom: "16px" }}>
-          <Label>
-            <b>Unit Location</b>
-            <InputGroup
-              type="text"
-              value={getValue("location.name") || "No location set"}
-              readOnly
-              rightElement={
-                <Button 
-                  icon={IconNames.MAP} 
-                  minimal 
-                  onClick={() => {
-                    const lat = getValue("location.latitude");
-                    const lng = getValue("location.longitude");
-                    const mapUrl = lat && lng 
-                      ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
-                      : `https://www.google.com/maps/@?api=1&map_action=map`;
-                    window.open(mapUrl, "_blank");
-                  }}
-                />
-              }
-            />
-          </Label>
-          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-            <div style={{ flex: 1 }}>
-              <Label>
-                <b>Location Name</b>
-                <InputGroup
-                  type="text"
-                  value={getValue("location.name") || ""}
-                  onChange={(e) => handleChange("location.name")(e.target.value)}
-                  placeholder="Enter location name"
-                />
-              </Label>
+        <div className="row">
+          <div>
+            <Label>
+              <b>Unit Location</b>
+              <InputGroup
+                type="text"
+                value={getValue("location.name") || "No location set"}
+                readOnly
+                rightElement={
+                  <Button 
+                    icon={IconNames.MAP} 
+                    minimal 
+                    onClick={() => {
+                      const lat = getValue("location.latitude");
+                      const lng = getValue("location.longitude");
+                      const mapUrl = lat && lng 
+                        ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+                        : `https://www.google.com/maps/@?api=1&map_action=map`;
+                      window.open(mapUrl, "_blank");
+                    }}
+                  />
+                }
+              />
+            </Label>
+          </div>
+          <div>
+            <Label>
+              <b>Location Search</b>
+              <LocationSearch
+                value={getValue("location.name") || ""}
+                onLocationSelect={(location) => {
+                  handleChange("location.name")(location.name);
+                  handleChange("location.latitude")(location.latitude);
+                  handleChange("location.longitude")(location.longitude);
+                }}
+                placeholder="Search for unit location..."
+              />
+            </Label>
+            <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+              <div style={{ flex: 1 }}>
+                {renderNumeric("Longitude", -180, 180, "location.longitude", undefined, true)}
+              </div>
+              <div style={{ flex: 1 }}>
+                {renderNumeric("Latitude", -90, 90, "location.latitude", undefined, true)}
+              </div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-            <div style={{ flex: 1 }}>
-              {renderNumeric(
-                "Latitude",
-                -90,
-                90,
-                "location.latitude",
-                undefined,
-                true
-              )}
-            </div>
-            <div style={{ flex: 1 }}>
-              {renderNumeric(
-                "Longitude",
-                -180,
-                180,
-                "location.longitude",
-                undefined,
-                true
-              )}
-            </div>
+        </div>
+      )}
+
+      {!hidden?.includes("peakLoadExclude") && (
+        <div className="row">
+          <div className="select">
+            {renderSelect(
+              "Participate in Grid Services",
+              [
+                { name: false, label: "Yes" },
+                { name: true, label: "No" },
+              ],
+              "peakLoadExclude",
+              (v) => (v ? "No" : "Yes")
+            )}
           </div>
+          <div />
+          <div />
+        </div>
+      )}
+
+      {!hidden?.includes("coolingPeakOffset") && (
+        <div className="row">
+          <div className="unit">
+            {renderTemperatureSlider(
+              "Cooling Offset During Grid Services",
+              COOLING_PEAK_OFFSET_MIN,
+              COOLING_PEAK_OFFSET_MAX,
+              1,
+              "coolingPeakOffset",
+              getValue("peakLoadExclude")
+            )}
+          </div>
+          <div />
+          <div />
+        </div>
+      )}
+
+      {!hidden?.includes("heatingPeakOffset") && (
+        <div className="row">
+          <div className="unit">
+            {renderTemperatureSlider(
+              "Heating Offset During Grid Services",
+              HEATING_PEAK_OFFSET_MIN,
+              HEATING_PEAK_OFFSET_MAX,
+              1,
+              "heatingPeakOffset",
+              getValue("peakLoadExclude")
+            )}
+          </div>
+          <div />
+          <div />
+        </div>
+      )}
+
+      {!hidden?.includes("zoneLocation") && (
+        <div className="row">
+          <div className="select">
+            {renderSelect("Zone Location", ZoneLocationOptions, "zoneLocation")}
+          </div>
+          <div />
+          <div />
+        </div>
+      )}
+
+      {!hidden?.includes("zoneMass") && (
+        <div className="row">
+          <div className="select">
+            {renderSelect("Zone Mass", ZoneMassOptions, "zoneMass")}
+          </div>
+          <div />
+          <div />
+        </div>
+      )}
+
+      {!hidden?.includes("zoneOrientation") && (
+        <div className="row">
+          <div className="select">
+            {renderSelect("Zone Orientation", ZoneOrientationOptions, "zoneOrientation")}
+          </div>
+          <div />
+          <div />
+        </div>
+      )}
+
+      {!hidden?.includes("zoneBuilding") && (
+        <div className="row">
+          <div className="select">
+            {renderSelect("Zone Type", ZoneBuildingOptions, "zoneBuilding")}
+          </div>
+          <div />
+          <div />
+        </div>
+      )}
+
+      {!hidden?.includes("coolingCapacity") && (
+        <div className="row">
+          <div className="unit">
+            {renderNumeric(
+              "Rated Cooling Capacity",
+              COOLING_CAPACITY_MIN,
+              COOLING_CAPACITY_MAX,
+              "coolingCapacity",
+              <Tag minimal>tons</Tag>,
+              true
+            )}
+          </div>
+          <div />
+          <div />
+        </div>
+      )}
+
+      {!hidden?.includes("compressors") && (
+        <div className="row">
+          <div className="unit">
+            {renderNumeric("Number of Compressors", COMPRESSORS_MIN, COMPRESSORS_MAX, "compressors")}
+          </div>
+          <div />
+          <div />
         </div>
       )}
 
       {!hidden?.includes("optimalStartLockout") && (
-        <div style={{ marginBottom: "16px" }}>
-          {renderTemperatureSlider(
-            "Disable Optimal Start when Outdoor Temperatures are below",
-            OPTIMAL_START_LOCKOUT_MIN,
-            OPTIMAL_START_LOCKOUT_MAX,
-            5,
-            "optimalStartLockout"
-          )}
+        <div className="row">
+          <div className="unit">
+            {renderTemperatureSlider(
+              "Disable Optimal Start when Outdoor Temperatures are below",
+              OPTIMAL_START_LOCKOUT_MIN,
+              OPTIMAL_START_LOCKOUT_MAX,
+              5,
+              "optimalStartLockout"
+            )}
+          </div>
+          <div />
+          <div />
         </div>
       )}
 
       {!hidden?.includes("optimalStartDeviation") && (
-        <div style={{ marginBottom: "16px" }}>
-          {renderTemperatureSlider(
-            "Optimal Start Allowable Zone Temperature Deviation",
-            OPTIMAL_START_DEVIATION_MIN,
-            OPTIMAL_START_DEVIATION_MAX,
-            0.5,
-            "optimalStartDeviation"
-          )}
+        <div className="row">
+          <div className="unit">
+            {renderTemperatureSlider(
+              "Optimal Start Allowable Zone Temperature Deviation",
+              OPTIMAL_START_DEVIATION_MIN,
+              OPTIMAL_START_DEVIATION_MAX,
+              0.5,
+              "optimalStartDeviation"
+            )}
+          </div>
+          <div />
+          <div />
         </div>
       )}
 
       {!hidden?.includes("earliestStart") && (
-        <div style={{ marginBottom: "16px" }}>
-          {renderDurationSlider(
-            "Earliest Start Time Before Occupancy",
-            EARLIEST_START_MIN,
-            EARLIEST_START_MAX,
-            30,
-            "earliestStart"
-          )}
+        <div className="row">
+          <div className="unit">
+            {renderDurationSlider(
+              "Earliest Start Time Before Occupancy",
+              EARLIEST_START_MIN,
+              EARLIEST_START_MAX,
+              30,
+              "earliestStart"
+            )}
+          </div>
+          <div />
+          <div />
         </div>
       )}
 
       {!hidden?.includes("latestStart") && (
-        <div style={{ marginBottom: "16px" }}>
-          {renderDurationSlider(
-            "Latest Start Time Before Occupancy",
-            LATEST_START_MIN,
-            LATEST_START_MAX,
-            15,
-            "latestStart"
-          )}
+        <div className="row">
+          <div className="unit">
+            {renderDurationSlider(
+              "Latest Start Time Before Occupancy",
+              LATEST_START_MIN,
+              LATEST_START_MAX,
+              15,
+              "latestStart"
+            )}
+          </div>
+          <div />
+          <div />
+        </div>
+      )}
+
+      {!hidden?.includes("heatPump") && (
+        <div className="row">
+          <div className="select">
+            {renderSelect(
+              "Heat Pump",
+              [
+                { name: true, label: "Yes" },
+                { name: false, label: "No" },
+              ],
+              "heatPump",
+              (v) => (v ? "Yes" : "No")
+            )}
+          </div>
+          <div />
+          <div />
+        </div>
+      )}
+
+      {!hidden?.includes("heatPumpBackup") && (
+        <div className="row">
+          <div className="unit">
+            {renderNumeric(
+              "Heat Pump Electric Backup Capacity",
+              HEAT_PUMP_BACKUP_MIN,
+              HEAT_PUMP_BACKUP_MAX,
+              "heatPumpBackup",
+              <Tag minimal>kW</Tag>,
+              true,
+              !getValue("heatPump") // Disabled if heat pump is not selected
+            )}
+          </div>
+          <div />
+          <div />
         </div>
       )}
 
       {!hidden?.includes("heatPumpLockout") && (
-        <div style={{ marginBottom: "16px" }}>
-          {renderTemperatureSlider(
-            "Heat Pump Auxiliary Heat Lockout",
-            HEAT_PUMP_LOCKOUT_MIN,
-            HEAT_PUMP_LOCKOUT_MAX,
-            8,
-            "heatPumpLockout",
-            !getValue("heatPump") // Disabled if heat pump is not selected
-          )}
+        <div className="row">
+          <div className="unit">
+            {renderTemperatureSlider(
+              "Heat Pump Auxiliary Heat Lockout",
+              HEAT_PUMP_LOCKOUT_MIN,
+              HEAT_PUMP_LOCKOUT_MAX,
+              8,
+              "heatPumpLockout",
+              !getValue("heatPump") // Disabled if heat pump is not selected
+            )}
+          </div>
+          <div />
+          <div />
+        </div>
+      )}
+
+      {!hidden?.includes("economizer") && (
+        <div className="row">
+          <div className="select">
+            {renderSelect(
+              "Economizer",
+              [
+                { name: true, label: "Yes" },
+                { name: false, label: "No" },
+              ],
+              "economizer",
+              (v) => (v ? "Yes" : "No")
+            )}
+          </div>
+          <div />
+          <div />
+        </div>
+      )}
+
+      {!hidden?.includes("economizerSetpoint") && (
+        <div className="row">
+          <div className="unit">
+            {renderTemperatureSlider(
+              "Economizer Switchover Temperature Setpoint",
+              ECONOMIZER_SETPOINT_MIN,
+              ECONOMIZER_SETPOINT_MAX,
+              5,
+              "economizerSetpoint",
+              !getValue("economizer") // Disabled if economizer is not selected
+            )}
+          </div>
+          <div />
+          <div />
         </div>
       )}
 
       {!hidden?.includes("coolingLockout") && (
-        <div style={{ marginBottom: "16px" }}>
-          {renderTemperatureSlider(
-            "Compressor Cooling Lockout Temperature",
-            COOLING_LOCKOUT_MIN,
-            COOLING_LOCKOUT_MAX,
-            5,
-            "coolingLockout",
-            !getValue("economizer") // Disabled if economizer is not selected
-          )}
+        <div className="row">
+          <div className="unit">
+            {renderTemperatureSlider(
+              "Compressor Cooling Lockout Temperature",
+              COOLING_LOCKOUT_MIN,
+              COOLING_LOCKOUT_MAX,
+              5,
+              "coolingLockout",
+              !getValue("economizer") // Disabled if economizer is not selected
+            )}
+          </div>
+          <div />
+          <div />
         </div>
       )}
     </div>

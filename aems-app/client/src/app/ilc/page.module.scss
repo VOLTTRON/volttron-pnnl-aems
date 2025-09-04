@@ -218,11 +218,39 @@
   background-color: var(--bp5-background-color-secondary);
   border-radius: 4px;
   
-  .field-group {
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
     margin-bottom: 1rem;
-    
+
     &:last-child {
       margin-bottom: 0;
+    }
+
+    > div {
+      flex: 1;
+      min-width: 0;
+
+      &:last-child {
+        flex: 0 0 auto;
+      }
+      
+      &.unit {
+        flex: 1.5;
+      }
+      
+      &.select {
+        flex: 1.2;
+      }
+    }
+
+    h3 {
+      margin: 0;
+      color: var(--bp5-heading-color);
+      flex: 0 0 auto;
+      width: 2rem;
     }
   }
   
