@@ -29,7 +29,7 @@ import { CurrentContext, NotificationContext, NotificationType, RouteContext } f
 import { Term, filter } from "@/utils/client";
 import { Search } from "../components/common";
 import { IconNames } from "@blueprintjs/icons";
-import { cloneDeep, get, isEqual, merge, set } from "lodash";
+import { cloneDeep, get, isEqual, merge, set, isObject, isArray } from "lodash";
 import { Setpoints } from "./components/Setpoints";
 import { Schedules } from "./components/Schedules";
 import { Holidays } from "./components/Holidays";
@@ -44,10 +44,36 @@ type DeepPartial<T> = {
 
 type UnitType = NonNullable<ReadUnitsQuery["readUnits"]>[0];
 
+// Utility function to get common values across units (from deprecated app)
+const getCommon = (objects: any[], excludeKeys: string[] = []) => {
+  if (!objects || objects.length === 0) return {};
+
+  const first = objects[0];
+  const result: any = {};
+
+  Object.keys(first).forEach((key) => {
+    if (excludeKeys.includes(key)) return;
+
+    const firstValue = first[key];
+    const allSame = objects.every((obj) => {
+      if (isObject(firstValue) && isObject(obj[key])) {
+        return JSON.stringify(firstValue) === JSON.stringify(obj[key]);
+      }
+      return obj[key] === firstValue;
+    });
+
+    if (allSame) {
+      result[key] = firstValue;
+    }
+  });
+
+  return result;
+};
+
 export default function Page() {
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<DeepPartial<UnitType> | null>(null);
-  const [editingAll, setEditingAll] = useState<DeepPartial<UnitType> | null>(null);
+  const [editingAll, setEditingAll] = useState<DeepPartial<UnitType> | null>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<(() => void) | null>(null);
 
@@ -94,6 +120,31 @@ export default function Page() {
     [data?.readUnits, search],
   );
 
+  // Create default unit with common values for bulk editing
+  const defaultUnit = useMemo(() => {
+    if (!units || units.length === 0) return null;
+
+    return {
+      location: getCommon(
+        units.map((u) => u.location ?? {}),
+        ["id", "createdAt", "updatedAt"],
+      ),
+      configuration: {
+        holidays:
+          units[0]?.configuration?.holidays?.map((_, index) =>
+            getCommon(
+              units.map((u) => u.configuration?.holidays?.[index] ?? {}),
+              ["id", "createdAt", "updatedAt"],
+            ),
+          ) ?? [],
+        setpoint: getCommon(
+          units.map((u) => u.configuration?.setpoint ?? {}),
+          ["id", "createdAt", "updatedAt"],
+        ),
+      },
+    };
+  }, [units]);
+
   const getValue = useCallback(
     (field: string, editingUnit?: DeepPartial<UnitType> | null, unit?: UnitType) => {
       const temp = unit ? unit : units?.find((v) => v.id === editingUnit?.id);
@@ -124,6 +175,24 @@ export default function Page() {
     [editing, editingAll],
   );
 
+  const isSaveAll = useCallback(() => {
+    if (!editingAll || !defaultUnit) return false;
+
+    const temp = merge({}, defaultUnit, editingAll);
+    return !isEqual(defaultUnit, temp);
+  }, [editingAll, defaultUnit]);
+
+  const isSave = useCallback(
+    (unit: UnitType, editingUnit?: DeepPartial<UnitType> | null) => {
+      editingUnit = editingUnit ?? editing;
+      if (!editingUnit) return false;
+
+      const temp = merge({}, unit, editingUnit);
+      return !isEqual(unit, temp);
+    },
+    [editing],
+  );
+
   const handleEdit = useCallback(
     (unit: UnitType) => {
       const current = editing && units?.find((v) => v.id === editing.id);
@@ -133,7 +202,7 @@ export default function Page() {
         setEditing({ id: unit.id });
       }
     },
-    [editing, units],
+    [isSave, editing, units],
   );
 
   const handleCancel = useCallback(() => {
@@ -147,7 +216,7 @@ export default function Page() {
       setEditing(null);
       setExpanded(null);
     }
-  }, [editing, units]);
+  }, [isSave, editing, units]);
 
   const handleSave = useCallback(async () => {
     if (editing && editing.id) {
@@ -190,16 +259,80 @@ export default function Page() {
     [updateUnit],
   );
 
-  const isSave = useCallback(
-    (unit: UnitType, editingUnit?: DeepPartial<UnitType> | null) => {
-      editingUnit = editingUnit ?? editing;
-      if (!editingUnit) return false;
+  const handleClearAll = useCallback(() => {
+    setEditingAll({});
+    setExpanded(null);
+  }, []);
 
-      const temp = merge({}, unit, editingUnit);
-      return !isEqual(unit, temp);
-    },
-    [editing],
-  );
+  const handleSaveAll = useCallback(async () => {
+    if (!editingAll || !units) return;
+
+    try {
+      // Apply changes to all units
+      for (const unit of units) {
+        if (!unit.id) continue;
+
+        const updateData: any = {};
+
+        // Handle location updates
+        if (editingAll.location) {
+          const location = editingAll.location;
+          if (location.name || location.latitude || location.longitude) {
+            updateData.location = {
+              name: location.name,
+              latitude: location.latitude,
+              longitude: location.longitude,
+            };
+          }
+        }
+
+        // Handle configuration updates
+        if (editingAll.configuration) {
+          const config = editingAll.configuration;
+
+          // Handle holidays
+          if (config.holidays && isArray(config.holidays)) {
+            const holidays = config.holidays
+              .map((holiday: any, i: number) => {
+                if (holiday.type) {
+                  const originalHoliday = unit.configuration?.holidays?.[i];
+                  if (originalHoliday?.id) {
+                    return { id: originalHoliday.id, type: holiday.type };
+                  }
+                }
+                return null;
+              })
+              .filter(Boolean);
+
+            if (holidays.length > 0) {
+              updateData.configuration = { holidays };
+            }
+          }
+
+          // Handle setpoint updates
+          if (config.setpoint) {
+            if (!updateData.configuration) updateData.configuration = {};
+            updateData.configuration.setpoint = config.setpoint;
+          }
+        }
+
+        // Only update if there are changes
+        if (Object.keys(updateData).length > 0) {
+          await updateUnit({
+            variables: {
+              where: { id: unit.id },
+              update: updateData,
+            },
+          });
+        }
+      }
+
+      createNotification?.("All units updated successfully", NotificationType.Notification);
+      handleClearAll();
+    } catch (error) {
+      createNotification?.("Failed to update units", NotificationType.Error);
+    }
+  }, [editingAll, units, updateUnit, createNotification, handleClearAll]);
 
   const isPush = useCallback(
     (unit: UnitType) => {
@@ -304,6 +437,96 @@ export default function Page() {
       </ControlGroup>
 
       <h1>Units</h1>
+
+      {/* Update All Units Card */}
+      {defaultUnit && (
+        <div className={styles.list}>
+          <Card className={styles.unitCard}>
+            <div className={styles.row}>
+              <div>
+                <Label>
+                  <h3>Update All Units</h3>
+                </Label>
+              </div>
+              <div className={styles.actions}>
+                {isSaveAll() ? (
+                  <>
+                    <Tooltip content="Save All" position={Position.TOP}>
+                      <Button icon={IconNames.FLOPPY_DISK} intent={Intent.PRIMARY} minimal onClick={handleSaveAll} />
+                    </Tooltip>
+                    <Tooltip content="Clear All" position={Position.TOP}>
+                      <Button icon={IconNames.CROSS} intent={Intent.PRIMARY} minimal onClick={handleClearAll} />
+                    </Tooltip>
+                  </>
+                ) : null}
+              </div>
+            </div>
+
+            <Collapse isOpen={true}>
+              <Tree
+                contents={[
+                  {
+                    id: "holidays-all",
+                    label: "Holidays",
+                    icon: IconNames.TIMELINE_EVENTS,
+                    hasCaret: true,
+                    isExpanded: expanded === "holidays-all",
+                  },
+                ]}
+                onNodeExpand={(e) => setExpanded(e.id as string)}
+                onNodeCollapse={() => setExpanded(null)}
+                onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
+              />
+              <Collapse isOpen={expanded === "holidays-all"}>
+                <div className={styles.configSection}>
+                  <Holidays unit={defaultUnit} editing={editingAll} handleChange={handleChange} />
+                </div>
+              </Collapse>
+
+              <Tree
+                contents={[
+                  {
+                    id: "setpoints-all",
+                    label: "Setpoints",
+                    icon: IconNames.TEMPERATURE,
+                    hasCaret: true,
+                    isExpanded: expanded === "setpoints-all",
+                  },
+                ]}
+                onNodeExpand={(e) => setExpanded(e.id as string)}
+                onNodeCollapse={() => setExpanded(null)}
+                onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
+              />
+              <Collapse isOpen={expanded === "setpoints-all"}>
+                <div className={styles.configSection}>
+                  <Setpoints unit={defaultUnit} editing={editingAll} handleChange={handleChange} />
+                </div>
+              </Collapse>
+
+              <Tree
+                contents={[
+                  {
+                    id: "rtu-all",
+                    label: "RTU Configuration",
+                    icon: IconNames.COG,
+                    hasCaret: true,
+                    isExpanded: expanded === "rtu-all",
+                  },
+                ]}
+                onNodeExpand={(e) => setExpanded(e.id as string)}
+                onNodeCollapse={() => setExpanded(null)}
+                onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
+              />
+              <Collapse isOpen={expanded === "rtu-all"}>
+                <div className={styles.configSection}>
+                  <Unit unit={defaultUnit} editing={editingAll} handleChange={handleChange} />
+                </div>
+              </Collapse>
+            </Collapse>
+          </Card>
+        </div>
+      )}
+
       <div className={styles.list}>
         {units?.map((unit, i) => {
           const isEditing = unit.id === editing?.id;

@@ -51,7 +51,7 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}-common
     env_file:
       - .env.init
-    image: common:${TAG}
+    image: ${COMPOSE_PROJECT_NAME}/common:${TAG}
 
   # Application that hosts static files and API
   client:
@@ -84,7 +84,7 @@ services:
       timeout: 10s
       retries: 120
     hostname: client
-    image: client:${TAG}
+    image: ${COMPOSE_PROJECT_NAME}/client:${TAG}
     labels:
       - traefik.enable=true
       - traefik.http.services.client.loadbalancer.server.port=3000
@@ -141,7 +141,7 @@ services:
       timeout: 10s
       retries: 120
     hostname: server
-    image: server:${TAG}
+    image: ${COMPOSE_PROJECT_NAME}/server:${TAG}
     labels:
       - traefik.enable=true
       - traefik.http.services.server.loadbalancer.server.port=3000
@@ -194,7 +194,7 @@ services:
       timeout: 10s
       retries: 120
     hostname: services
-    image: server:${TAG}
+    image: ${COMPOSE_PROJECT_NAME}/server:${TAG}
     restart: unless-stopped
     volumes:
       - file-upload:/app/upload/
@@ -227,7 +227,7 @@ services:
       timeout: 10s
       retries: 120
     hostname: seeders
-    image: server:${TAG}
+    image: ${COMPOSE_PROJECT_NAME}/server:${TAG}
     restart: on-failure:3
     volumes:
       - ./seed/:/app/seed/:ro
@@ -249,7 +249,7 @@ services:
     env_file:
       - .env.init
     hostname: init
-    image: init:${TAG}
+    image: ${COMPOSE_PROJECT_NAME}/init:${TAG}
 
   # Creates self-signed TLS certs for localhost and domain
   certs:
@@ -265,7 +265,7 @@ services:
     env_file:
       - .env.certs
     hostname: certs
-    image: certs:${TAG}
+    image: ${COMPOSE_PROJECT_NAME}/certs:${TAG}
     volumes:
       - certs-data:/etc/certs/
 
