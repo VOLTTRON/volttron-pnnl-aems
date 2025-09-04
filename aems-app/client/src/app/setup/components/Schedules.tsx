@@ -6,11 +6,26 @@ import {
   InputGroup,
   Intent,
   Label,
-  Switch
+  Switch,
+  RangeSlider,
+  NumberRange
 } from "@blueprintjs/core";
 import { IconNames } from "@blueprintjs/icons";
 import { useCallback, useState } from "react";
-import { get } from "lodash";
+import { get, clamp } from "lodash";
+import {
+  START_TIME_MIN,
+  START_TIME_DEFAULT,
+  END_TIME_MAX,
+  END_TIME_DEFAULT,
+  TIME_PADDING,
+  toDataFormat,
+  toTimeFormat,
+  toMinutes,
+  createScheduleLabel,
+  type ISchedule
+} from "@/utils/schedule";
+import { Schedule } from "./Schedule";
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
@@ -138,55 +153,63 @@ export function Schedules({ unit, editing, handleChange, readOnly = false }: Sch
 
       <div style={{ marginTop: '1rem' }}>
         <h4>Weekly Schedule</h4>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {DAYS_OF_WEEK.map((day) => {
-            const daySchedule = schedule[day.value] || DEFAULT_SCHEDULE[day.value];
-            
-            return (
-              <Card key={day.value} style={{ padding: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 120px 120px', gap: '1rem', alignItems: 'center' }}>
-                  <Label style={{ margin: 0, fontWeight: 'bold' }}>
-                    {day.label}
-                  </Label>
-                  
-                  <Switch
-                    checked={daySchedule.occupied}
-                    onChange={(e) => 
-                      handleChange(`configuration.schedule.${day.value}.occupied`, editing)(e.currentTarget.checked)
-                    }
-                    disabled={readOnly}
-                    label="Occupied"
-                  />
-                  
-                  <div>
-                    <Label style={{ margin: 0, fontSize: '0.75rem' }}>Start Time</Label>
-                    <InputGroup
-                      type="time"
-                      value={daySchedule.startTime || '08:00'}
-                      onChange={(e) => 
-                        handleChange(`configuration.schedule.${day.value}.startTime`, editing)(e.target.value)
-                      }
-                      disabled={readOnly || !daySchedule.occupied}
-                      small
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label style={{ margin: 0, fontSize: '0.75rem' }}>End Time</Label>
-                    <InputGroup
-                      type="time"
-                      value={daySchedule.endTime || '17:00'}
-                      onChange={(e) => 
-                        handleChange(`configuration.schedule.${day.value}.endTime`, editing)(e.target.value)
-                      }
-                      disabled={readOnly || !daySchedule.occupied}
-                      small
-                    />
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+        <div style={{ backgroundColor: 'var(--bp5-background-color)', padding: '1rem', borderRadius: '4px', border: '1px solid var(--bp5-border-color)' }}>
+          <Schedule
+            title="Monday Schedule"
+            path="configuration.mondaySchedule"
+            unit={unit}
+            editing={editing}
+            handleChange={handleChange}
+            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+          />
+          <Schedule
+            title="Tuesday Schedule"
+            path="configuration.tuesdaySchedule"
+            unit={unit}
+            editing={editing}
+            handleChange={handleChange}
+            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+          />
+          <Schedule
+            title="Wednesday Schedule"
+            path="configuration.wednesdaySchedule"
+            unit={unit}
+            editing={editing}
+            handleChange={handleChange}
+            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+          />
+          <Schedule
+            title="Thursday Schedule"
+            path="configuration.thursdaySchedule"
+            unit={unit}
+            editing={editing}
+            handleChange={handleChange}
+            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+          />
+          <Schedule
+            title="Friday Schedule"
+            path="configuration.fridaySchedule"
+            unit={unit}
+            editing={editing}
+            handleChange={handleChange}
+            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+          />
+          <Schedule
+            title="Saturday Schedule"
+            path="configuration.saturdaySchedule"
+            unit={unit}
+            editing={editing}
+            handleChange={handleChange}
+            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+          />
+          <Schedule
+            title="Sunday Schedule"
+            path="configuration.sundaySchedule"
+            unit={unit}
+            editing={editing}
+            handleChange={handleChange}
+            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+          />
         </div>
       </div>
 

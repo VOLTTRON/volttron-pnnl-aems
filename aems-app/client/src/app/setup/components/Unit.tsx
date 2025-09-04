@@ -4,10 +4,19 @@ import {
   NumericInput,
   Switch,
   FormGroup,
-  HTMLSelect
+  HTMLSelect,
+  Button,
+  Tooltip
 } from "@blueprintjs/core";
+import { IconNames } from "@blueprintjs/icons";
 import { useCallback } from "react";
 import { get } from "lodash";
+import {
+  createGoogleMapsUrl,
+  formatLocationName,
+  isValidLocation,
+  type ILocation
+} from "@/utils/location";
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
@@ -72,6 +81,77 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           />
         </Label>
       </FormGroup>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+        <FormGroup label="Unit Location">
+          <Label>
+            <b>Unit Location</b>
+            <InputGroup
+              type="text"
+              value={formatLocationName(getValue("location"))}
+              readOnly
+              rightElement={
+                <Tooltip content={createGoogleMapsUrl(getValue("location"))}>
+                  <Button 
+                    icon={IconNames.MAP} 
+                    onClick={() => window.open(createGoogleMapsUrl(getValue("location")), "_blank")} 
+                    minimal 
+                  />
+                </Tooltip>
+              }
+            />
+          </Label>
+        </FormGroup>
+
+        <FormGroup label="Location Update">
+          <Label>
+            <b>Location Name</b>
+            <InputGroup
+              type="text"
+              value={getValue("location.name") || ""}
+              onChange={(e) => {
+                handleChange("location.name", editing)(e.target.value);
+              }}
+              disabled={readOnly}
+              placeholder="Enter location name"
+            />
+          </Label>
+        </FormGroup>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+        <FormGroup label="Coordinates">
+          <Label>
+            <b>Longitude</b>
+            <NumericInput
+              value={getValue("location.longitude") || 0}
+              onValueChange={(value) => handleChange("location.longitude", editing)(value)}
+              min={-180}
+              max={180}
+              stepSize={0.0001}
+              minorStepSize={0.0001}
+              fill
+              disabled={readOnly}
+            />
+          </Label>
+        </FormGroup>
+
+        <FormGroup label="Latitude">
+          <Label>
+            <b>Latitude</b>
+            <NumericInput
+              value={getValue("location.latitude") || 0}
+              onValueChange={(value) => handleChange("location.latitude", editing)(value)}
+              min={-90}
+              max={90}
+              stepSize={0.0001}
+              minorStepSize={0.0001}
+              fill
+              disabled={readOnly}
+            />
+          </Label>
+        </FormGroup>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
         <FormGroup label="Zone Configuration">
