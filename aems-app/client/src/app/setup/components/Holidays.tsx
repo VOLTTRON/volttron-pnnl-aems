@@ -1,296 +1,254 @@
 import { 
+  Alert,
   Button,
-  Card,
-  FormGroup,
-  HTMLSelect,
   InputGroup,
   Intent,
   Label,
-  Switch
+  Menu,
+  MenuItem,
+  Popover
 } from "@blueprintjs/core";
+import { DatePicker3 } from "@blueprintjs/datetime2";
 import { IconNames } from "@blueprintjs/icons";
 import { useCallback, useState } from "react";
-import { get } from "lodash";
+import { get, isEmpty, merge } from "lodash";
+import { Holiday } from "./Holiday";
+import { HolidayType, ObservanceType } from "@local/common";
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
 
 interface HolidaysProps {
-  unit: any;
+  unit: DeepPartial<any> | any;
   editing: DeepPartial<any> | null;
   handleChange: (field: string, editingUnit?: DeepPartial<any> | null) => (value: any) => void;
   readOnly?: boolean;
+  bulkUpdate?: boolean;
 }
 
-const PREDEFINED_HOLIDAYS = [
-  { label: "New Year's Day", month: 1, day: 1, type: "federal" },
-  { label: "Martin Luther King Jr. Day", month: 1, day: 15, type: "federal", observance: "third_monday" },
-  { label: "Presidents' Day", month: 2, day: 15, type: "federal", observance: "third_monday" },
-  { label: "Memorial Day", month: 5, day: 25, type: "federal", observance: "last_monday" },
-  { label: "Independence Day", month: 7, day: 4, type: "federal" },
-  { label: "Labor Day", month: 9, day: 1, type: "federal", observance: "first_monday" },
-  { label: "Columbus Day", month: 10, day: 8, type: "federal", observance: "second_monday" },
-  { label: "Veterans Day", month: 11, day: 11, type: "federal" },
-  { label: "Thanksgiving", month: 11, day: 22, type: "federal", observance: "fourth_thursday" },
-  { label: "Christmas Day", month: 12, day: 25, type: "federal" }
-];
+const holidayOrder = HolidayType.values.map((a: any) => a.label);
 
-const HOLIDAY_TYPES = [
-  { value: "federal", label: "Federal Holiday" },
-  { value: "state", label: "State Holiday" },
-  { value: "local", label: "Local Holiday" },
-  { value: "company", label: "Company Holiday" },
-  { value: "custom", label: "Custom Holiday" }
-];
+const minDate = new Date("2024-01-01");
+minDate.setFullYear(2024, 0, 1);
 
-const OBSERVANCE_TYPES = [
-  { value: "", label: "Fixed Date" },
-  { value: "first_monday", label: "First Monday" },
-  { value: "second_monday", label: "Second Monday" },
-  { value: "third_monday", label: "Third Monday" },
-  { value: "last_monday", label: "Last Monday" },
-  { value: "first_thursday", label: "First Thursday" },
-  { value: "fourth_thursday", label: "Fourth Thursday" }
-];
+const maxDate = new Date("2024-12-31");
+maxDate.setFullYear(2024, 11, 31);
 
-export function Holidays({ unit, editing, handleChange, readOnly = false }: HolidaysProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState('');
-  const [showAddHoliday, setShowAddHoliday] = useState(false);
-  const [newHoliday, setNewHoliday] = useState({
-    label: '',
-    month: 1,
-    day: 1,
-    type: 'company',
-    observance: ''
-  });
+const dateFactory = () => {
+  const date = new Date("2024-01-01");
+  date.setFullYear(2024, 0, 1);
+  return date;
+};
 
-  const getValue = useCallback((field: string) => {
-    return get(editing, field, get(unit, field));
-  }, [editing, unit]);
+function CreateHoliday({
+  unit,
+  editing,
+  handleChange,
+  holidays,
+}: {
+  unit: DeepPartial<any> | any;
+  editing: DeepPartial<any> | null;
+  handleChange: (field: string, unit?: DeepPartial<any> | null) => (value: any) => void;
+  holidays: any[];
+}) {
+  const [label, setLabel] = useState("");
+  const [date, setDate] = useState(dateFactory());
+  const [observance, setObservance] = useState("");
+  const [open, setOpen] = useState(false);
 
-  const getHolidays = useCallback(() => {
-    return getValue("configuration.holidays") || [];
-  }, [getValue]);
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  };
 
-  const handleTemplateApply = useCallback((template: string) => {
-    let holidays: any[] = [];
-    
-    switch (template) {
-      case 'federal':
-        holidays = PREDEFINED_HOLIDAYS.filter(h => h.type === 'federal');
-        break;
-      case 'minimal':
-        holidays = PREDEFINED_HOLIDAYS.filter(h => 
-          ['New Year\'s Day', 'Independence Day', 'Thanksgiving', 'Christmas Day'].includes(h.label)
-        );
-        break;
-      case 'all':
-        holidays = [...PREDEFINED_HOLIDAYS];
-        break;
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '1rem', alignItems: 'end', marginBottom: '1rem' }}>
+      <div>
+        <Label>
+          <b>Holiday Label</b>
+          <InputGroup type="text" value={label} onChange={(e) => setLabel(e.target.value)} />
+        </Label>
+      </div>
+      <div>
+        <Label>
+          <b>Date</b>
+          <Popover
+            content={
+              <DatePicker3
+                canClearSelection={false}
+                minDate={minDate}
+                maxDate={maxDate}
+                value={date}
+                onChange={(d: any, u: any) => {
+                  if (d) {
+                    setDate(d);
+                  }
+                  setOpen(!u);
+                }}
+              />
+            }
+            isOpen={open}
+            placement="bottom-start"
+          >
+            <Button rightIcon={IconNames.CALENDAR} onClick={() => setOpen(true)} minimal>
+              {formatDate(date)}
+            </Button>
+          </Popover>
+        </Label>
+      </div>
+      <div>
+        <Label>
+          <b>Observance</b>
+          <Popover
+            content={
+              <Menu>
+                <MenuItem text="Always on Date" onClick={() => setObservance("")} />
+                {ObservanceType.values.map((o: any) => (
+                  <MenuItem key={o.name} text={o.label} onClick={() => setObservance(o.label)} />
+                ))}
+              </Menu>
+            }
+            placement="bottom-start"
+          >
+            <Button rightIcon={IconNames.CARET_DOWN} minimal>
+              {observance || "Always on Date"}
+            </Button>
+          </Popover>
+        </Label>
+      </div>
+      <div>
+        <Button
+          icon={IconNames.NEW_LAYER}
+          intent={Intent.PRIMARY}
+          minimal
+          disabled={isEmpty(label) || holidays.find((v) => v.label === label) !== undefined}
+          onClick={() => {
+            const i = Math.max(
+              get(unit, "configuration.holidays.length", 0),
+              get(editing, "configuration.holidays.length", 0)
+            );
+            const now = new Date().toISOString();
+            handleChange(
+              `configuration.holidays.${i}`,
+              editing
+            )({
+              type: "Custom",
+              label,
+              month: date.getMonth() + 1,
+              day: date.getDate(),
+              observance,
+              configurationId: unit?.configuration?.id,
+              createdAt: now,
+              action: "create",
+            });
+            setLabel("");
+            setDate(dateFactory());
+            setObservance("");
+          }}
+        >
+          Create Holiday
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function Holidays({ unit, editing, handleChange, readOnly = false, bulkUpdate = false }: HolidaysProps) {
+  const [deleting, setDeleting] = useState<DeepPartial<any> | undefined>(undefined);
+
+  const holidays = merge([], unit.configuration?.holidays, get(editing, "configuration.holidays")) as (any & {
+    index: number;
+  })[];
+  holidays.forEach((h, i) => (h.index = i));
+
+  const handleDelete = useCallback((holiday: any) => {
+    setDeleting(holiday);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (deleting?.id) {
+      // For holidays with IDs, we need to mark them for deletion
+      const path = `configuration.holidays.${deleting.index}`;
+      handleChange(path, editing)({ id: deleting.id, action: "delete" });
     }
-    
-    if (holidays.length > 0) {
-      handleChange("configuration.holidays", editing)(holidays);
-      setSelectedTemplate('');
-    }
-  }, [handleChange, editing]);
-
-  const handleAddHoliday = useCallback(() => {
-    const holidays = getHolidays();
-    const updatedHolidays = [...holidays, { ...newHoliday, id: Date.now() }];
-    handleChange("configuration.holidays", editing)(updatedHolidays);
-    setNewHoliday({
-      label: '',
-      month: 1,
-      day: 1,
-      type: 'company',
-      observance: ''
-    });
-    setShowAddHoliday(false);
-  }, [getHolidays, handleChange, editing, newHoliday]);
-
-  const handleRemoveHoliday = useCallback((index: number) => {
-    const holidays = getHolidays();
-    const updatedHolidays = holidays.filter((_: any, i: number) => i !== index);
-    handleChange("configuration.holidays", editing)(updatedHolidays);
-  }, [getHolidays, handleChange, editing]);
-
-  const handleHolidayChange = useCallback((index: number, field: string, value: any) => {
-    const holidays = getHolidays();
-    const updatedHolidays = [...holidays];
-    updatedHolidays[index] = { ...updatedHolidays[index], [field]: value };
-    handleChange("configuration.holidays", editing)(updatedHolidays);
-  }, [getHolidays, handleChange, editing]);
-
-  const holidays = getHolidays();
+    setDeleting(undefined);
+  }, [deleting, handleChange, editing]);
 
   return (
     <div style={{ padding: '1rem' }}>
-      {!readOnly && (
+      {!bulkUpdate && (
         <>
-          <FormGroup label="Holiday Templates">
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
-              <HTMLSelect
-                value={selectedTemplate}
-                onChange={(e) => setSelectedTemplate(e.target.value)}
-                options={[
-                  { value: '', label: 'Select a template...' },
-                  { value: 'federal', label: 'All Federal Holidays' },
-                  { value: 'minimal', label: 'Major Holidays Only' },
-                  { value: 'all', label: 'All Predefined Holidays' }
-                ]}
-              />
-              <Button
-                icon={IconNames.IMPORT}
-                intent={Intent.PRIMARY}
-                onClick={() => handleTemplateApply(selectedTemplate)}
-                disabled={!selectedTemplate}
-              >
-                Apply Template
-              </Button>
-            </div>
-          </FormGroup>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <Button
-              icon={IconNames.PLUS}
-              intent={Intent.SUCCESS}
-              onClick={() => setShowAddHoliday(!showAddHoliday)}
-            >
-              Add Custom Holiday
-            </Button>
-          </div>
-
-          {showAddHoliday && (
-            <Card style={{ padding: '1rem', marginBottom: '1rem' }}>
-              <h4>Add New Holiday</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '0.5rem', alignItems: 'end' }}>
-                <FormGroup label="Holiday Name">
-                  <InputGroup
-                    value={newHoliday.label}
-                    onChange={(e) => setNewHoliday({ ...newHoliday, label: e.target.value })}
-                    placeholder="Enter holiday name"
-                  />
-                </FormGroup>
-                
-                <FormGroup label="Month">
-                  <HTMLSelect
-                    value={newHoliday.month}
-                    onChange={(e) => setNewHoliday({ ...newHoliday, month: parseInt(e.target.value) })}
-                    options={Array.from({ length: 12 }, (_, i) => ({
-                      value: i + 1,
-                      label: new Date(2024, i, 1).toLocaleString('default', { month: 'long' })
-                    }))}
-                  />
-                </FormGroup>
-                
-                <FormGroup label="Day">
-                  <HTMLSelect
-                    value={newHoliday.day}
-                    onChange={(e) => setNewHoliday({ ...newHoliday, day: parseInt(e.target.value) })}
-                    options={Array.from({ length: 31 }, (_, i) => ({
-                      value: i + 1,
-                      label: (i + 1).toString()
-                    }))}
-                  />
-                </FormGroup>
-                
-                <FormGroup label="Type">
-                  <HTMLSelect
-                    value={newHoliday.type}
-                    onChange={(e) => setNewHoliday({ ...newHoliday, type: e.target.value })}
-                    options={HOLIDAY_TYPES}
-                  />
-                </FormGroup>
-              </div>
-              
-              <FormGroup label="Observance Rule" style={{ marginTop: '0.5rem' }}>
-                <HTMLSelect
-                  value={newHoliday.observance}
-                  onChange={(e) => setNewHoliday({ ...newHoliday, observance: e.target.value })}
-                  options={OBSERVANCE_TYPES}
-                />
-              </FormGroup>
-              
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                <Button
-                  icon={IconNames.CONFIRM}
-                  intent={Intent.PRIMARY}
-                  onClick={handleAddHoliday}
-                  disabled={!newHoliday.label.trim()}
-                >
-                  Add Holiday
-                </Button>
-                <Button
-                  icon={IconNames.CROSS}
-                  onClick={() => setShowAddHoliday(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </Card>
-          )}
+          <Label>
+            <h3>Create Holiday</h3>
+            <CreateHoliday unit={unit} editing={editing} handleChange={handleChange} holidays={holidays} />
+          </Label>
+          
+          <Label>
+            <h3>Custom Holidays</h3>
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+              {isEmpty(holidays.filter((a) => a.type === "Custom" && a.action !== "delete")) ? (
+                <li key={"empty"} style={{ padding: '1rem', textAlign: 'center', color: 'var(--bp5-text-color-muted)' }}>
+                  No Custom Holidays Defined
+                </li>
+              ) : (
+                holidays
+                  .filter((a) => a.type === "Custom" && a.action !== "delete")
+                  .sort((a, b) => {
+                    const aDate = new Date(a.createdAt || 0).valueOf();
+                    const bDate = new Date(b.createdAt || 0).valueOf();
+                    return bDate - aDate;
+                  })
+                  .map((holiday, i) => (
+                    <li key={holiday.index} style={{ marginBottom: '0.5rem' }}>
+                      <Holiday
+                        key={holiday.index}
+                        path={`configuration.holidays.${holiday.index}`}
+                        unit={unit}
+                        editing={editing}
+                        holiday={holiday}
+                        handleChange={handleChange}
+                        readOnly={readOnly}
+                      />
+                    </li>
+                  ))
+              )}
+            </ul>
+          </Label>
         </>
       )}
-
-      <div>
-        <h4>Configured Holidays ({holidays.length})</h4>
-        {holidays.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--bp5-text-color-muted)' }}>
-            No holidays configured. Use templates or add custom holidays above.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {holidays.map((holiday: any, index: number) => (
-              <Card key={index} style={{ padding: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '1rem', alignItems: 'center' }}>
-                  <div>
-                    <strong>{holiday.label}</strong>
-                    {holiday.observance && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--bp5-text-color-muted)' }}>
-                        {OBSERVANCE_TYPES.find(o => o.value === holiday.observance)?.label}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div style={{ fontSize: '0.875rem' }}>
-                    {new Date(2024, holiday.month - 1, 1).toLocaleString('default', { month: 'long' })} {holiday.day}
-                  </div>
-                  
-                  <div style={{ fontSize: '0.875rem', textTransform: 'capitalize' }}>
-                    {holiday.type}
-                  </div>
-                  
-                  <Switch
-                    checked={holiday.enabled !== false}
-                    onChange={(e) => handleHolidayChange(index, 'enabled', e.currentTarget.checked)}
-                    disabled={readOnly}
-                    label="Active"
-                  />
-                  
-                  {!readOnly && (
-                    <Button
-                      icon={IconNames.TRASH}
-                      intent={Intent.DANGER}
-                      minimal
-                      small
-                      onClick={() => handleRemoveHoliday(index)}
-                    />
-                  )}
-                </div>
-              </Card>
+      
+      <Label>
+        <h3>Predefined Holidays</h3>
+        <ul style={{ listStyle: 'none', padding: 0 }}>
+          {holidays
+            .filter((a) => a.type !== "Custom")
+            .sort((a, b) => holidayOrder.indexOf(a.label) - holidayOrder.indexOf(b.label))
+            .map((holiday, i) => (
+              <li key={holiday.index} style={{ marginBottom: '0.5rem' }}>
+                <Holiday
+                  key={holiday.index}
+                  path={`configuration.holidays.${holiday.index}`}
+                  unit={unit}
+                  editing={editing}
+                  holiday={holiday}
+                  handleChange={handleChange}
+                  readOnly={readOnly}
+                />
+              </li>
             ))}
-          </div>
-        )}
-      </div>
-
-      <div style={{ marginTop: '1rem', padding: '0.5rem', backgroundColor: 'var(--bp5-background-color-secondary)', borderRadius: '4px' }}>
-        <small style={{ color: 'var(--bp5-text-color-muted)' }}>
-          <strong>Note:</strong> During holidays, the HVAC system typically operates in unoccupied mode 
-          regardless of the normal schedule. Disable holidays that should follow regular schedules.
-        </small>
-      </div>
+        </ul>
+      </Label>
+      
+      <Alert
+        intent={Intent.DANGER}
+        isOpen={deleting !== undefined}
+        confirmButtonText="Yes"
+        cancelButtonText="Cancel"
+        onConfirm={confirmDelete}
+        onClose={() => setDeleting(undefined)}
+      >
+        <p>Permanently delete the holiday {deleting?.label}?</p>
+      </Alert>
     </div>
   );
 }

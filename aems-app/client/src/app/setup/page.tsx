@@ -36,7 +36,7 @@ import { Holidays } from "./components/Holidays";
 import { Occupancies } from "./components/Occupancies";
 import { Unit } from "./components/Unit";
 import { Configuration } from "./components/Configuration";
-import { Role } from "@local/common";
+import { Role, HolidayType } from "@local/common";
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
@@ -64,6 +64,9 @@ const getCommon = (objects: any[], excludeKeys: string[] = []) => {
 
     if (allSame) {
       result[key] = firstValue;
+    } else {
+      // Set to null when values differ to trigger indeterminate state
+      result[key] = null;
     }
   });
 
@@ -130,13 +133,12 @@ export default function Page() {
         ["id", "createdAt", "updatedAt"],
       ),
       configuration: {
-        holidays:
-          units[0]?.configuration?.holidays?.map((_, index) =>
-            getCommon(
-              units.map((u) => u.configuration?.holidays?.[index] ?? {}),
-              ["id", "createdAt", "updatedAt"],
-            ),
-          ) ?? [],
+        holidays: HolidayType.values.map((holidayType) =>
+          getCommon(
+            units.map((u) => u.configuration?.holidays?.find((h) => h?.label === holidayType.label) ?? {}),
+            ["id", "createdAt", "updatedAt"],
+          )
+        ),
         setpoint: getCommon(
           units.map((u) => u.configuration?.setpoint ?? {}),
           ["id", "createdAt", "updatedAt"],
@@ -436,7 +438,7 @@ export default function Page() {
         <Search value={search} onValueChange={setSearch} />
       </ControlGroup>
 
-      <h1>Units</h1>
+      <h4> </h4>
 
       {/* Update All Units Card */}
       {defaultUnit && (
@@ -479,27 +481,7 @@ export default function Page() {
               />
               <Collapse isOpen={expanded === "holidays-all"}>
                 <div className={styles.configSection}>
-                  <Holidays unit={defaultUnit} editing={editingAll} handleChange={handleChange} />
-                </div>
-              </Collapse>
-
-              <Tree
-                contents={[
-                  {
-                    id: "setpoints-all",
-                    label: "Setpoints",
-                    icon: IconNames.TEMPERATURE,
-                    hasCaret: true,
-                    isExpanded: expanded === "setpoints-all",
-                  },
-                ]}
-                onNodeExpand={(e) => setExpanded(e.id as string)}
-                onNodeCollapse={() => setExpanded(null)}
-                onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
-              />
-              <Collapse isOpen={expanded === "setpoints-all"}>
-                <div className={styles.configSection}>
-                  <Setpoints unit={defaultUnit} editing={editingAll} handleChange={handleChange} />
+                  <Holidays unit={defaultUnit} editing={editingAll} handleChange={handleChange} readOnly={false} bulkUpdate={true} />
                 </div>
               </Collapse>
 
@@ -526,6 +508,8 @@ export default function Page() {
           </Card>
         </div>
       )}
+
+      <h1>Units</h1>
 
       <div className={styles.list}>
         {units?.map((unit, i) => {
