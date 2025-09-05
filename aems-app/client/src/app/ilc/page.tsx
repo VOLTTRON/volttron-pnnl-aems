@@ -29,17 +29,7 @@ import {
 import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { Term } from "@/utils/client";
 import { UnitEditor } from "./components/UnitEditor";
-import { Role } from "@local/common";
-
-// Stage type mappings for status display
-const StageType = {
-  UpdateType: { label: "update" },
-  DeleteType: { label: "delete" },
-  ProcessType: { label: "process" },
-  CreateType: { label: "create" },
-  CompleteType: { label: "complete" },
-  FailType: { label: "fail" },
-};
+import { Role, StageType } from "@local/common";
 
 interface ILCState {
   editing: Partial<Term<NonNullable<ReadControlsQuery["readControls"]>[0]>> | null;
