@@ -15,11 +15,10 @@ import {
 import { IconNames } from "@blueprintjs/icons";
 import { useCallback } from "react";
 import { LocationSearch } from "./LocationSearch";
-import validate from "@local/common/src/constants/validate";
-import zone, { ZoneType } from "@local/common/src/constants/zone";
+import { Validate, Zone, ZoneType } from "@local/common";
 
 // Helper function to get zone options by type
-const getZoneOptions = (type: ZoneType) => zone.values.filter(z => z.type === type);
+const getZoneOptions = (type: string) => Zone.values.filter(z => z.type === type);
 
 // Zone type options from @local/common library
 const ZoneLocationOptions = getZoneOptions("location");
@@ -284,8 +283,8 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           <div className="unit">
             {renderTemperatureSlider(
               "Cooling Offset During Grid Services",
-              validate.CoolingPeakOffset.options?.min as number,
-              validate.CoolingPeakOffset.options?.max as number,
+              Validate.CoolingPeakOffset.options?.min as number,
+              Validate.CoolingPeakOffset.options?.max as number,
               1,
               "coolingPeakOffset",
               getValue("peakLoadExclude")
@@ -301,8 +300,8 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           <div className="unit">
             {renderTemperatureSlider(
               "Heating Offset During Grid Services",
-              validate.HeatingPeakOffset.options?.min as number,
-              validate.HeatingPeakOffset.options?.max as number,
+              Validate.HeatingPeakOffset.options?.min as number,
+              Validate.HeatingPeakOffset.options?.max as number,
               1,
               "heatingPeakOffset",
               getValue("peakLoadExclude")
@@ -358,8 +357,8 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           <div className="unit">
             {renderNumeric(
               "Rated Cooling Capacity",
-              validate.CoolingCapacity.options?.min as number,
-              validate.CoolingCapacity.options?.max as number,
+              Validate.CoolingCapacity.options?.min as number,
+              Validate.CoolingCapacity.options?.max as number,
               "coolingCapacity",
               <Tag minimal>tons</Tag>,
               true
@@ -373,7 +372,7 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
       {!hidden?.includes("compressors") && (
         <div className="row">
           <div className="unit">
-            {renderNumeric("Number of Compressors", validate.Compressors.options?.min as number, validate.Compressors.options?.max as number, "compressors")}
+            {renderNumeric("Number of Compressors", Validate.Compressors.options?.min as number, Validate.Compressors.options?.max as number, "compressors")}
           </div>
           <div />
           <div />
@@ -385,8 +384,8 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           <div className="unit">
             {renderTemperatureSlider(
               "Disable Optimal Start when Outdoor Temperatures are below",
-              validate.OptimalStartLockout.options?.min as number,
-              validate.OptimalStartLockout.options?.max as number,
+              Validate.OptimalStartLockout.options?.min as number,
+              Validate.OptimalStartLockout.options?.max as number,
               5,
               "optimalStartLockout"
             )}
@@ -401,8 +400,8 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           <div className="unit">
             {renderTemperatureSlider(
               "Optimal Start Allowable Zone Temperature Deviation",
-              validate.OptimalStartDeviation.options?.min as number,
-              validate.OptimalStartDeviation.options?.max as number,
+              Validate.OptimalStartDeviation.options?.min as number,
+              Validate.OptimalStartDeviation.options?.max as number,
               0.5,
               "optimalStartDeviation"
             )}
@@ -417,8 +416,8 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           <div className="unit">
             {renderDurationSlider(
               "Earliest Start Time Before Occupancy",
-              validate.EarliestStart.options?.min as number,
-              validate.EarliestStart.options?.max as number,
+              Validate.EarliestStart.options?.min as number,
+              Validate.EarliestStart.options?.max as number,
               30,
               "earliestStart"
             )}
@@ -433,8 +432,8 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           <div className="unit">
             {renderDurationSlider(
               "Latest Start Time Before Occupancy",
-              validate.LatestStart.options?.min as number,
-              validate.LatestStart.options?.max as number,
+              Validate.LatestStart.options?.min as number,
+              Validate.LatestStart.options?.max as number,
               15,
               "latestStart"
             )}
@@ -467,8 +466,8 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           <div className="unit">
             {renderNumeric(
               "Heat Pump Electric Backup Capacity",
-              validate.HeatPumpBackup.options?.min as number,
-              validate.HeatPumpBackup.options?.max as number,
+              Validate.HeatPumpBackup.options?.min as number,
+              Validate.HeatPumpBackup.options?.max as number,
               "heatPumpBackup",
               <Tag minimal>kW</Tag>,
               true,
@@ -485,8 +484,8 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           <div className="unit">
             {renderTemperatureSlider(
               "Heat Pump Auxiliary Heat Lockout",
-              validate.HeatPumpLockout.options?.min as number,
-              validate.HeatPumpLockout.options?.max as number,
+              Validate.HeatPumpLockout.options?.min as number,
+              Validate.HeatPumpLockout.options?.max as number,
               8,
               "heatPumpLockout",
               !getValue("heatPump") // Disabled if heat pump is not selected
@@ -520,8 +519,8 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           <div className="unit">
             {renderTemperatureSlider(
               "Economizer Switchover Temperature Setpoint",
-              validate.EconomizerSetpoint.options?.min as number,
-              validate.EconomizerSetpoint.options?.max as number,
+              Validate.EconomizerSetpoint.options?.min as number,
+              Validate.EconomizerSetpoint.options?.max as number,
               5,
               "economizerSetpoint",
               !getValue("economizer") // Disabled if economizer is not selected
@@ -537,8 +536,8 @@ export function UnitEditor({ unit, editing, handleChange, hidden = [] }: UnitEdi
           <div className="unit">
             {renderTemperatureSlider(
               "Compressor Cooling Lockout Temperature",
-              validate.CoolingLockout.options?.min as number,
-              validate.CoolingLockout.options?.max as number,
+              Validate.CoolingLockout.options?.min as number,
+              Validate.CoolingLockout.options?.max as number,
               5,
               "coolingLockout",
               !getValue("economizer") // Disabled if economizer is not selected

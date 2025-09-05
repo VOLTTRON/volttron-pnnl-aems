@@ -1,6 +1,5 @@
-import { DeepPartial } from "@local/common";
+import { DeepPartial, Validate } from "@local/common";
 import { isNumber, sum } from "lodash";
-import validate from "@local/common/src/constants/validate";
 
 // Constants for schedule validation and defaults
 const TIME_PADDING = 120;
@@ -68,8 +67,8 @@ const formatToTimeFormat = (totalMinutes: number): string => {
 };
 
 // Convert time string to minutes for default values
-const START_TIME_DEFAULT = parseTimeToMinutes(validate.StartTime.options?.default as string);
-const END_TIME_DEFAULT = parseTimeToMinutes(validate.EndTime.options?.default as string);
+const START_TIME_DEFAULT = parseTimeToMinutes(Validate.StartTime.options?.default as string);
+const END_TIME_DEFAULT = parseTimeToMinutes(Validate.EndTime.options?.default as string);
 
 interface ISchedule {
   id?: number;
