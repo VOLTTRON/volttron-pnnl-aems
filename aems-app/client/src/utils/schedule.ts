@@ -1,6 +1,5 @@
 import { DeepPartial } from "@local/common";
 import { isNumber, sum } from "lodash";
-import moment from "moment";
 import validate from "@local/common/src/constants/validate";
 
 // Constants for schedule validation and defaults
@@ -10,9 +9,67 @@ const END_TIME_MAX = 24 * 60;
 const DATA_FORMAT = "HH:mm";
 const TIME_FORMAT = "h:mm\xa0a";
 
+// Helper function to parse time string in HH:mm format and return minutes from midnight
+const parseTimeToMinutes = (timeString: string): number => {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
+// Helper function to parse time string in various formats (HH:mm or h:mm a)
+const parseTimeStringToMinutes = (timeString: string, upper?: boolean): number => {
+  // Handle 12-hour format (h:mm a)
+  if (timeString.includes('a') || timeString.includes('p') || timeString.includes('A') || timeString.includes('P')) {
+    const cleanTime = timeString.replace(/\xa0/g, ' ').trim();
+    const isPM = cleanTime.toLowerCase().includes('p');
+    const timeOnly = cleanTime.replace(/[ap]m?/gi, '').trim();
+    const [hours, minutes] = timeOnly.split(':').map(Number);
+    
+    let adjustedHours = hours;
+    if (isPM && hours !== 12) {
+      adjustedHours += 12;
+    } else if (!isPM && hours === 12) {
+      adjustedHours = 0;
+    }
+    
+    return toUpperBound(adjustedHours, 24, upper) * 60 + minutes;
+  }
+  
+  // Handle 24-hour format (HH:mm)
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return toUpperBound(hours, 24, upper) * 60 + minutes;
+};
+
+// Helper function to format minutes to HH:mm format
+const formatToDataFormat = (totalMinutes: number): string => {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+};
+
+// Helper function to format minutes to h:mm a format
+const formatToTimeFormat = (totalMinutes: number): string => {
+  const hours24 = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  
+  let hours12 = hours24;
+  let period = 'a';
+  
+  if (hours24 === 0) {
+    hours12 = 12;
+  } else if (hours24 === 12) {
+    hours12 = 12;
+    period = 'p';
+  } else if (hours24 > 12) {
+    hours12 = hours24 - 12;
+    period = 'p';
+  }
+  
+  return `${hours12}:${minutes.toString().padStart(2, '0')}\xa0${period}`;
+};
+
 // Convert time string to minutes for default values
-const START_TIME_DEFAULT = moment(validate.StartTime.options?.default as string, "HH:mm").hours() * 60 + moment(validate.StartTime.options?.default as string, "HH:mm").minutes();
-const END_TIME_DEFAULT = moment(validate.EndTime.options?.default as string, "HH:mm").hours() * 60 + moment(validate.EndTime.options?.default as string, "HH:mm").minutes();
+const START_TIME_DEFAULT = parseTimeToMinutes(validate.StartTime.options?.default as string);
+const END_TIME_DEFAULT = parseTimeToMinutes(validate.EndTime.options?.default as string);
 
 interface ISchedule {
   id?: number;
@@ -25,23 +82,16 @@ interface ISchedule {
 
 type Required = "startTime" | "endTime";
 
-const toDataFormat = (value: number) =>
-  moment("00:00", [DATA_FORMAT])
-    .add(Math.trunc(value / 60), "hours")
-    .add(value % 60, "minutes")
-    .format(DATA_FORMAT);
+const toDataFormat = (value: number) => formatToDataFormat(value);
 
-const toTimeFormat = (value: number) =>
-  moment("00:00", [DATA_FORMAT])
-    .add(Math.trunc(value / 60), "hours")
-    .add(value % 60, "minutes")
-    .format(TIME_FORMAT);
+const toTimeFormat = (value: number) => formatToTimeFormat(value);
 
 const toUpperBound = (value: number, boundary: number, upper?: boolean) => (upper && value === 0 ? boundary : value);
 
-const toMinutes = (value?: string, upper?: boolean) =>
-  toUpperBound(moment(value, [DATA_FORMAT, TIME_FORMAT]).hours(), 24, upper) * 60 +
-  moment(value, [DATA_FORMAT, TIME_FORMAT]).minutes();
+const toMinutes = (value?: string, upper?: boolean) => {
+  if (!value) return 0;
+  return parseTimeStringToMinutes(value, upper);
+};
 
 const createScheduleLabel = (
   type: "all" | Required,
