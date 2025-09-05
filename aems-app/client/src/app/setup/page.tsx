@@ -219,16 +219,41 @@ export default function Page() {
     if (editing && editing.id) {
       const originalUnit = units?.find((u) => u.id === editing.id);
       if (originalUnit) {
-        const updateData: Partial<UnitType> = {};
+        const updateData: any = {};
 
-        // Compare and build update object
+        // Only include scalar fields and ID references that match UnitUpdateInput
         Object.keys(editing).forEach((key) => {
           if (key !== "id" && !isEqual(get(editing, key), get(originalUnit, key))) {
-            updateData[key as keyof UnitType] = get(editing, key);
+            const value = get(editing, key);
+            
+            // Handle nested location object - extract locationId only
+            if (key === "location" && value && typeof value === "object") {
+              if (value.id) {
+                updateData.locationId = value.id;
+              }
+              // Skip the location object itself
+            } else if (key === "configuration" && value && typeof value === "object") {
+              // Handle nested configuration object - extract configurationId only
+              if (value.id) {
+                updateData.configurationId = value.id;
+              }
+              // Skip the configuration object itself
+            } else if (key === "control" && value && typeof value === "object") {
+              // Handle nested control object - extract controlId only
+              if (value.id) {
+                updateData.controlId = value.id;
+              }
+              // Skip the control object itself
+            } else if (typeof value !== "object" || value === null) {
+              // Only include scalar values (string, number, boolean, null)
+              updateData[key] = value;
+            }
+            // Skip any other nested objects that don't match the schema
           }
         });
 
         if (Object.keys(updateData).length > 0) {
+          console.log("Updating unit with data:", { unitId: editing.id, updateData });
           await updateUnit({
             variables: {
               where: { id: editing.id },
@@ -269,52 +294,40 @@ export default function Page() {
       for (const unit of units) {
         if (!unit.id) continue;
 
-        const updateData: Partial<UnitType> = {};
+        const updateData: any = {};
 
-        // Handle location updates
+        // Handle location updates - extract locationId only
         if (editingAll.location) {
           const location = editingAll.location;
-          if (location.name || location.latitude || location.longitude) {
-            updateData.location = {
-              name: location.name,
-              latitude: location.latitude,
-              longitude: location.longitude,
-            };
+          if (location.id) {
+            updateData.locationId = location.id;
           }
+          // Skip the location object itself - UnitUpdateInput doesn't accept nested location objects
         }
 
-        // Handle configuration updates
+        // Handle configuration updates - extract configurationId only
         if (editingAll.configuration) {
           const config = editingAll.configuration;
+          if (config.id) {
+            updateData.configurationId = config.id;
+          }
+          // Skip the configuration object itself - UnitUpdateInput doesn't accept nested configuration objects
+        }
 
-          // Handle holidays
-          if (config.holidays && isArray(config.holidays)) {
-            const holidays = config.holidays
-              .map((holiday, i: number) => {
-                if (holiday && holiday.type) {
-                  const originalHoliday = unit.configuration?.holidays?.[i];
-                  if (originalHoliday?.id) {
-                    return { id: originalHoliday.id, type: holiday.type };
-                  }
-                }
-                return null;
-              })
-              .filter((h): h is { id: string; type: any } => h !== null);
-
-            if (holidays.length > 0) {
-              updateData.configuration = { holidays };
+        // Handle other scalar fields from editingAll
+        Object.keys(editingAll).forEach((key) => {
+          if (key !== "id" && key !== "location" && key !== "configuration" && key !== "control") {
+            const value = get(editingAll, key);
+            if (typeof value !== "object" || value === null) {
+              // Only include scalar values (string, number, boolean, null)
+              updateData[key] = value;
             }
           }
-
-          // Handle setpoint updates
-          if (config.setpoint) {
-            if (!updateData.configuration) updateData.configuration = {};
-            updateData.configuration.setpoint = config.setpoint;
-          }
-        }
+        });
 
         // Only update if there are changes
         if (Object.keys(updateData).length > 0) {
+          console.log("Bulk updating unit with data:", { unitId: unit.id, updateData });
           await updateUnit({
             variables: {
               where: { id: unit.id },

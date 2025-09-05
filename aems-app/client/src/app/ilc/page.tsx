@@ -183,16 +183,24 @@ export default function ILCPage() {
 
   const handleSave = () => {
     if (state.editing?.id) {
-      // Update control fields
-      updateControl({
-        variables: {
-          where: { id: state.editing.id },
-          update: {
-            label: state.editing.label as string,
-            correlation: state.editing.correlation as string,
+      // Update control fields - only send scalar fields that match ControlUpdateInput
+      const controlUpdateData: any = {};
+      
+      if (state.editing.label !== undefined) {
+        controlUpdateData.label = state.editing.label as string;
+      }
+      if (state.editing.correlation !== undefined) {
+        controlUpdateData.correlation = state.editing.correlation as string;
+      }
+
+      if (Object.keys(controlUpdateData).length > 0) {
+        updateControl({
+          variables: {
+            where: { id: state.editing.id },
+            update: controlUpdateData,
           },
-        },
-      });
+        });
+      }
 
       // Update unit fields if they exist
       if (state.editing.units && state.editing.units.length > 0) {
@@ -200,21 +208,32 @@ export default function ILCPage() {
           if (editedUnit.id) {
             const updateData: any = {};
 
-            // Include all fields that have been changed
+            // Only include scalar fields and ID references that match UnitUpdateInput
             Object.keys(editedUnit).forEach((key) => {
               if (key !== "id") {
-                // Handle nested location object separately
+                // Handle nested location object - extract locationId only
                 if (key === "location" && editedUnit.location) {
-                  // For now, we'll update the unit's locationId if the location has an id
-                  // In a full implementation, you might want to create/update the Location entity first
                   if (editedUnit.location.id) {
                     updateData.locationId = editedUnit.location.id;
                   }
-                  // Don't include the location object itself in the update
-                } else {
-                  // Include all other fields including zoneLocation and heatPumpBackup
+                  // Skip the location object itself
+                } else if (key === "configuration" && editedUnit.configuration) {
+                  // Handle nested configuration object - extract configurationId only
+                  if (editedUnit.configuration.id) {
+                    updateData.configurationId = editedUnit.configuration.id;
+                  }
+                  // Skip the configuration object itself
+                } else if (key === "control" && editedUnit.control) {
+                  // Handle nested control object - extract controlId only
+                  if (editedUnit.control.id) {
+                    updateData.controlId = editedUnit.control.id;
+                  }
+                  // Skip the control object itself
+                } else if (typeof editedUnit[key] !== "object" || editedUnit[key] === null) {
+                  // Only include scalar values (string, number, boolean, null)
                   updateData[key] = editedUnit[key];
                 }
+                // Skip any other nested objects that don't match the schema
               }
             });
 
