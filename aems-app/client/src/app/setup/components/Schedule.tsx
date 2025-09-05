@@ -17,17 +17,17 @@ import {
   toMinutes,
   createScheduleLabel
 } from "@/utils/schedule";
+import { Unit } from "@/graphql-codegen/graphql";
+import { DeepPartial } from "@local/common";
 
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
+type UnitType = Unit;
 
 interface ScheduleProps {
   title: string;
   path: string;
-  unit: any;
-  editing: DeepPartial<any> | null;
-  handleChange: (field: string, editingUnit?: DeepPartial<any> | null) => (value: any) => void;
+  unit: UnitType | null;
+  editing: DeepPartial<UnitType> | null;
+  handleChange: (field: string, editingUnit?: DeepPartial<UnitType> | null) => (value: string | number | boolean | object | null | undefined) => void;
   readOnly?: Array<"title" | "occupied" | "unoccupied">;
 }
 

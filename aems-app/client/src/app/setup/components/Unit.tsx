@@ -1,43 +1,33 @@
-import { 
-  InputGroup, 
-  Label, 
-  NumericInput,
-  Switch,
-  FormGroup,
-  HTMLSelect,
-  Button,
-  Tooltip
-} from "@blueprintjs/core";
+import { InputGroup, Label, NumericInput, Switch, FormGroup, HTMLSelect, Button, Tooltip } from "@blueprintjs/core";
 import { IconNames } from "@blueprintjs/icons";
 import { useCallback } from "react";
 import { get } from "lodash";
-import {
-  createGoogleMapsUrl,
-  formatLocationName,
-  isValidLocation,
-  type ILocation
-} from "@/utils/location";
-import { Zone } from "@local/common";
+import { createGoogleMapsUrl, formatLocationName } from "@/utils/location";
+import { Zone, DeepPartial } from "@local/common";
+import { Unit as UnitGraphQL } from "@/graphql-codegen/graphql";
 
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
+type UnitType = UnitGraphQL;
 
 interface UnitProps {
-  unit: any;
-  editing: DeepPartial<any> | null;
-  handleChange: (field: string, editingUnit?: DeepPartial<any> | null) => (value: any) => void;
+  unit: UnitType | null;
+  editing: DeepPartial<UnitType> | null;
+  handleChange: (
+    field: string,
+    editingUnit?: DeepPartial<UnitType> | null,
+  ) => (value: string | number | boolean | object | null | undefined) => void;
   readOnly?: boolean;
 }
 
-
 export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProps) {
-  const getValue = useCallback((field: string) => {
-    return get(editing, field, get(unit, field));
-  }, [editing, unit]);
+  const getValue = useCallback(
+    (field: string) => {
+      return get(editing, field, get(unit, field));
+    },
+    [editing, unit],
+  );
 
   return (
-    <div style={{ padding: '1rem' }}>
+    <div style={{ padding: "1rem" }}>
       <FormGroup label="Unit Information">
         <Label>
           <b>Unit Label</b>
@@ -51,7 +41,7 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
         </Label>
       </FormGroup>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
         <FormGroup label="Unit Location">
           <Label>
             <b>Unit Location</b>
@@ -61,10 +51,10 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
               readOnly
               rightElement={
                 <Tooltip content={createGoogleMapsUrl(getValue("location"))}>
-                  <Button 
-                    icon={IconNames.MAP} 
-                    onClick={() => window.open(createGoogleMapsUrl(getValue("location")), "_blank")} 
-                    minimal 
+                  <Button
+                    icon={IconNames.MAP}
+                    onClick={() => window.open(createGoogleMapsUrl(getValue("location")), "_blank")}
+                    minimal
                   />
                 </Tooltip>
               }
@@ -88,7 +78,7 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
         </FormGroup>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
         <FormGroup label="Coordinates">
           <Label>
             <b>Longitude</b>
@@ -122,7 +112,7 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
         </FormGroup>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
         <FormGroup label="Zone Configuration">
           <Label>
             <b>Zone Location</b>
@@ -131,8 +121,8 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
               onChange={(e) => handleChange("zoneLocation", editing)(e.target.value)}
               disabled={readOnly}
               options={[
-                { value: "", label: "Select zone location..." }, 
-                ...Zone.values.filter(v => v.type === "location").map(z => ({ value: z.name, label: z.label }))
+                { value: "", label: "Select zone location..." },
+                ...Zone.values.filter((v) => v.type === "location").map((z) => ({ value: z.name, label: z.label })),
               ]}
             />
           </Label>
@@ -146,15 +136,15 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
               onChange={(e) => handleChange("zoneMass", editing)(e.target.value)}
               disabled={readOnly}
               options={[
-                { value: "", label: "Select zone mass..." }, 
-                ...Zone.values.filter(v => v.type === "mass").map(z => ({ value: z.name, label: z.label }))
+                { value: "", label: "Select zone mass..." },
+                ...Zone.values.filter((v) => v.type === "mass").map((z) => ({ value: z.name, label: z.label })),
               ]}
             />
           </Label>
         </FormGroup>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
         <FormGroup label="Zone Orientation">
           <Label>
             <b>Zone Orientation</b>
@@ -163,8 +153,8 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
               onChange={(e) => handleChange("zoneOrientation", editing)(e.target.value)}
               disabled={readOnly}
               options={[
-                { value: "", label: "Select orientation..." }, 
-                ...Zone.values.filter(v => v.type === "orientation").map(z => ({ value: z.name, label: z.label }))
+                { value: "", label: "Select orientation..." },
+                ...Zone.values.filter((v) => v.type === "orientation").map((z) => ({ value: z.name, label: z.label })),
               ]}
             />
           </Label>
@@ -178,15 +168,15 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
               onChange={(e) => handleChange("zoneBuilding", editing)(e.target.value)}
               disabled={readOnly}
               options={[
-                { value: "", label: "Select building type..." }, 
-                ...Zone.values.filter(v => v.type === "building").map(z => ({ value: z.name, label: z.label }))
+                { value: "", label: "Select building type..." },
+                ...Zone.values.filter((v) => v.type === "building").map((z) => ({ value: z.name, label: z.label })),
               ]}
             />
           </Label>
         </FormGroup>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
         <FormGroup label="Cooling Capacity">
           <Label>
             <b>Rated Cooling Capacity (tons)</b>
@@ -218,7 +208,7 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
         </FormGroup>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
         <FormGroup label="Optimal Start Configuration">
           <Label>
             <b>Optimal Start Lockout Temperature (°F)</b>
@@ -250,7 +240,7 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
         </FormGroup>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
         <FormGroup label="Start Time Limits">
           <Label>
             <b>Earliest Start Time (minutes before occupancy)</b>
@@ -282,7 +272,7 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
         </FormGroup>
       </div>
 
-      <div style={{ marginTop: '1rem' }}>
+      <div style={{ marginTop: "1rem" }}>
         <FormGroup>
           <Label>
             <Switch
@@ -296,7 +286,7 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
       </div>
 
       {getValue("heatPump") && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
           <FormGroup label="Heat Pump Backup">
             <Label>
               <b>Electric Backup Capacity (kW)</b>
@@ -329,7 +319,7 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
         </div>
       )}
 
-      <div style={{ marginTop: '1rem' }}>
+      <div style={{ marginTop: "1rem" }}>
         <FormGroup>
           <Label>
             <Switch
@@ -343,7 +333,7 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
       </div>
 
       {getValue("economizer") && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
           <FormGroup label="Economizer Setpoint">
             <Label>
               <b>Switchover Temperature Setpoint (°F)</b>
@@ -376,10 +366,17 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
         </div>
       )}
 
-      <div style={{ marginTop: '1rem', padding: '0.5rem', backgroundColor: 'var(--bp5-background-color-secondary)', borderRadius: '4px' }}>
-        <small style={{ color: 'var(--bp5-text-color-muted)' }}>
-          <strong>Note:</strong> RTU configuration settings affect system performance and energy efficiency. 
-          Consult with HVAC professionals when making significant changes to these parameters.
+      <div
+        style={{
+          marginTop: "1rem",
+          padding: "0.5rem",
+          backgroundColor: "var(--bp5-background-color-secondary)",
+          borderRadius: "4px",
+        }}
+      >
+        <small style={{ color: "var(--bp5-text-color-muted)" }}>
+          <strong>Note:</strong> RTU configuration settings affect system performance and energy efficiency. Consult
+          with HVAC professionals when making significant changes to these parameters.
         </small>
       </div>
     </div>

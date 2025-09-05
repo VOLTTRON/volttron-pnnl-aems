@@ -13,21 +13,21 @@ import { IconNames } from "@blueprintjs/icons";
 import { useCallback, useState } from "react";
 import { get, isEmpty, merge } from "lodash";
 import { Holiday } from "./Holiday";
-import { HolidayType, ObservanceType } from "@local/common";
+import { HolidayType, ObservanceType, DeepPartial } from "@local/common";
+import { Unit, Holiday as HolidayGraphQL } from "@/graphql-codegen/graphql";
 
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
+type UnitType = Unit;
+type HolidayWithIndex = HolidayGraphQL & { index: number; action?: string };
 
 interface HolidaysProps {
-  unit: DeepPartial<any> | any;
-  editing: DeepPartial<any> | null;
-  handleChange: (field: string, editingUnit?: DeepPartial<any> | null) => (value: any) => void;
+  unit: DeepPartial<UnitType> | UnitType | null;
+  editing: DeepPartial<UnitType> | null;
+  handleChange: (field: string, editingUnit?: DeepPartial<UnitType> | null) => (value: string | number | boolean | object | null | undefined) => void;
   readOnly?: boolean;
   bulkUpdate?: boolean;
 }
 
-const holidayOrder = HolidayType.values.map((a: any) => a.label);
+const holidayOrder = HolidayType.values.map((a) => a.label);
 
 const minDate = new Date("2024-01-01");
 minDate.setFullYear(2024, 0, 1);
@@ -47,10 +47,10 @@ function CreateHoliday({
   handleChange,
   holidays,
 }: {
-  unit: DeepPartial<any> | any;
-  editing: DeepPartial<any> | null;
-  handleChange: (field: string, unit?: DeepPartial<any> | null) => (value: any) => void;
-  holidays: any[];
+  unit: DeepPartial<UnitType> | UnitType | null;
+  editing: DeepPartial<UnitType> | null;
+  handleChange: (field: string, unit?: DeepPartial<UnitType> | null) => (value: string | number | boolean | object | null | undefined) => void;
+  holidays: HolidayWithIndex[];
 }) {
   const [label, setLabel] = useState("");
   const [date, setDate] = useState(dateFactory());
@@ -154,14 +154,12 @@ function CreateHoliday({
 }
 
 export function Holidays({ unit, editing, handleChange, readOnly = false, bulkUpdate = false }: HolidaysProps) {
-  const [deleting, setDeleting] = useState<DeepPartial<any> | undefined>(undefined);
+  const [deleting, setDeleting] = useState<HolidayWithIndex | undefined>(undefined);
 
-  const holidays = merge([], unit.configuration?.holidays, get(editing, "configuration.holidays")) as (any & {
-    index: number;
-  })[];
+  const holidays = merge([], unit?.configuration?.holidays, get(editing, "configuration.holidays")) as HolidayWithIndex[];
   holidays.forEach((h, i) => (h.index = i));
 
-  const handleDelete = useCallback((holiday: any) => {
+  const handleDelete = useCallback((holiday: HolidayWithIndex) => {
     setDeleting(holiday);
   }, []);
 
@@ -222,7 +220,7 @@ export function Holidays({ unit, editing, handleChange, readOnly = false, bulkUp
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {holidays
             .filter((a) => a.type !== "Custom")
-            .sort((a, b) => holidayOrder.indexOf(a.label) - holidayOrder.indexOf(b.label))
+            .sort((a, b) => holidayOrder.indexOf(a.label || "") - holidayOrder.indexOf(b.label || ""))
             .map((holiday, i) => (
               <li key={holiday.index} style={{ marginBottom: '0.5rem' }}>
                 <Holiday

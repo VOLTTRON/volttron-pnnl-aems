@@ -1,3 +1,4 @@
+import { DeepPartial } from "@local/common";
 import { isNumber, sum } from "lodash";
 import moment from "moment";
 
@@ -9,10 +10,6 @@ const END_TIME_MAX = 24 * 60;
 const END_TIME_DEFAULT = 18 * 60;
 const DATA_FORMAT = "HH:mm";
 const TIME_FORMAT = "h:mm\xa0a";
-
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
 
 interface ISchedule {
   id?: number;
@@ -47,7 +44,7 @@ const createScheduleLabel = (
   type: "all" | Required,
   schedule:
     | (DeepPartial<ISchedule> & Pick<ISchedule, Required>)
-    | { occupied?: boolean; startTime: number; endTime: number }
+    | { occupied?: boolean; startTime: number; endTime: number },
 ): string => {
   const occupied = schedule?.occupied === undefined ? true : schedule.occupied;
   const startTime = isNumber(schedule.startTime) ? schedule.startTime : toMinutes(schedule.startTime, false);

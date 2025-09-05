@@ -2,17 +2,17 @@ import { Button, Checkbox, InputGroup, Intent, Label } from "@blueprintjs/core";
 import { IconNames } from "@blueprintjs/icons";
 import { get } from "lodash";
 import { useCallback } from "react";
+import { Unit, Holiday as HolidayType } from "@/graphql-codegen/graphql";
+import { DeepPartial } from "@local/common";
 
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
+type UnitType = Unit;
 
 interface HolidayProps {
   path: string;
-  unit: DeepPartial<any> | any;
-  editing: DeepPartial<any> | null;
-  holiday: DeepPartial<any>;
-  handleChange: (field: string, unit?: DeepPartial<any> | null) => (value: any) => void;
+  unit: DeepPartial<UnitType> | UnitType | null;
+  editing: DeepPartial<UnitType> | null;
+  holiday: DeepPartial<HolidayType>;
+  handleChange: (field: string, unit?: DeepPartial<UnitType> | null) => (value: string | number | boolean | object | null | undefined) => void;
   readOnly?: boolean;
 }
 

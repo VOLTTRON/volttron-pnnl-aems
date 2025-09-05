@@ -1,44 +1,47 @@
-import { 
-  InputGroup, 
-  Label, 
-  FormGroup,
-  Button,
-  Menu,
-  MenuItem,
-  HTMLSelect
-} from "@blueprintjs/core";
+import { InputGroup, Label, Button } from "@blueprintjs/core";
 import { IconNames } from "@blueprintjs/icons";
 import { useCallback } from "react";
 import { get } from "lodash";
+import { Unit, Configuration as ConfigurationType } from "@/graphql-codegen/graphql";
+import { DeepPartial } from "@local/common";
 
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
+type UnitType = Unit;
 
 interface ConfigurationProps {
-  unit: any;
-  editing: DeepPartial<any> | null;
-  handleChange: (field: string, editingUnit?: DeepPartial<any> | null) => (value: any) => void;
-  configurations?: any[];
+  unit: UnitType | null;
+  editing: DeepPartial<UnitType> | null;
+  handleChange: (
+    field: string,
+    editingUnit?: DeepPartial<UnitType> | null,
+  ) => (value: string | number | boolean | object | null | undefined) => void;
+  configurations?: ConfigurationType[];
   readOnly?: boolean;
 }
 
-export function Configuration({ 
-  unit, 
-  editing, 
-  configurations, 
-  handleChange, 
-  handleCreate, 
-  readOnly = false 
-}: ConfigurationProps & { 
-  handleCreate?: (unit: any) => void;
+export function Configuration({
+  unit,
+  editing,
+  configurations,
+  handleChange,
+  handleCreate,
+  readOnly = false,
+}: ConfigurationProps & {
+  handleCreate?: (unit: UnitType) => void;
 }) {
   const getValue = useCallback((field: string) => get(editing, field, get(unit, field)), [editing, unit]);
 
   return (
     <>
       {!readOnly && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'end', marginBottom: '1rem' }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: "1rem",
+            alignItems: "end",
+            marginBottom: "1rem",
+          }}
+        >
           <div>
             <Label>
               <h3>Select Configuration</h3>
@@ -56,7 +59,15 @@ export function Configuration({
           <div />
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'end', marginBottom: '1rem' }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr auto",
+          gap: "1rem",
+          alignItems: "end",
+          marginBottom: "1rem",
+        }}
+      >
         <div>
           <Label>
             {readOnly ? <h3>Configuration Label</h3> : <b>Configuration Label</b>}

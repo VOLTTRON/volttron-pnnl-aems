@@ -26,7 +26,7 @@ import {
   ModelStage,
 } from "@/graphql-codegen/graphql";
 import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
-import { Term, filter } from "@/utils/client";
+import { filter } from "@/utils/client";
 import { Search } from "../components/common";
 import { IconNames } from "@blueprintjs/icons";
 import { cloneDeep, get, isEqual, merge, set, isObject, isArray } from "lodash";
@@ -35,17 +35,12 @@ import { Schedules } from "./components/Schedules";
 import { Holidays } from "./components/Holidays";
 import { Occupancies } from "./components/Occupancies";
 import { Unit } from "./components/Unit";
-import { Configuration } from "./components/Configuration";
-import { Role, HolidayType } from "@local/common";
-
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
+import { Role, HolidayType, DeepPartial } from "@local/common";
 
 type UnitType = NonNullable<ReadUnitsQuery["readUnits"]>[0];
 
 // Utility function to get common values across units (from deprecated app)
-const getCommon = (objects: any[], excludeKeys: string[] = []) => {
+const getCommon = <T extends Record<string, any>>(objects: T[], excludeKeys: string[] = []): Partial<T> => {
   if (!objects || objects.length === 0) return {};
 
   const first = objects[0];
@@ -137,7 +132,7 @@ export default function Page() {
           getCommon(
             units.map((u) => u.configuration?.holidays?.find((h) => h?.label === holidayType.label) ?? {}),
             ["id", "createdAt", "updatedAt"],
-          )
+          ),
         ),
         setpoint: getCommon(
           units.map((u) => u.configuration?.setpoint ?? {}),
@@ -157,7 +152,7 @@ export default function Page() {
 
   const handleChange = useCallback(
     (field: string, editingUnit?: DeepPartial<UnitType> | null) => {
-      return (value: any) => {
+      return (value: string | number | boolean | object | null | undefined) => {
         if (editingUnit) {
           const newEditing = cloneDeep(editingUnit);
           if (typeof get(editingUnit, field) === "object" && value && typeof value === "object") {
@@ -224,12 +219,12 @@ export default function Page() {
     if (editing && editing.id) {
       const originalUnit = units?.find((u) => u.id === editing.id);
       if (originalUnit) {
-        const updateData: any = {};
+        const updateData: Partial<UnitType> = {};
 
         // Compare and build update object
         Object.keys(editing).forEach((key) => {
           if (key !== "id" && !isEqual(get(editing, key), get(originalUnit, key))) {
-            updateData[key] = get(editing, key);
+            updateData[key as keyof UnitType] = get(editing, key);
           }
         });
 
@@ -274,7 +269,7 @@ export default function Page() {
       for (const unit of units) {
         if (!unit.id) continue;
 
-        const updateData: any = {};
+        const updateData: Partial<UnitType> = {};
 
         // Handle location updates
         if (editingAll.location) {
@@ -295,8 +290,8 @@ export default function Page() {
           // Handle holidays
           if (config.holidays && isArray(config.holidays)) {
             const holidays = config.holidays
-              .map((holiday: any, i: number) => {
-                if (holiday.type) {
+              .map((holiday, i: number) => {
+                if (holiday && holiday.type) {
                   const originalHoliday = unit.configuration?.holidays?.[i];
                   if (originalHoliday?.id) {
                     return { id: originalHoliday.id, type: holiday.type };
@@ -304,7 +299,7 @@ export default function Page() {
                 }
                 return null;
               })
-              .filter(Boolean);
+              .filter((h): h is { id: string; type: any } => h !== null);
 
             if (holidays.length > 0) {
               updateData.configuration = { holidays };
@@ -481,7 +476,13 @@ export default function Page() {
               />
               <Collapse isOpen={expanded === "holidays-all"}>
                 <div className={styles.configSection}>
-                  <Holidays unit={defaultUnit} editing={editingAll} handleChange={handleChange} readOnly={false} bulkUpdate={true} />
+                  <Holidays
+                    unit={defaultUnit}
+                    editing={editingAll}
+                    handleChange={handleChange}
+                    readOnly={false}
+                    bulkUpdate={true}
+                  />
                 </div>
               </Collapse>
 
@@ -514,7 +515,7 @@ export default function Page() {
       <div className={styles.list}>
         {units?.map((unit, i) => {
           const isEditing = unit.id === editing?.id;
-          const currentUnit = isEditing ? units.find((u) => u.id === editing?.id) : unit;
+          const currentUnit = (isEditing ? units.find((u) => u.id === editing?.id) : unit) || null;
 
           return (
             <Card key={unit.id ?? i} className={styles.unitCard}>
@@ -564,7 +565,7 @@ export default function Page() {
                         <b>Campus</b>
                         <InputGroup
                           type="text"
-                          value={getValue("campus", editing, currentUnit) || ""}
+                          value={getValue("campus", editing, currentUnit || undefined) || ""}
                           onChange={(e) => handleChange("campus", editing)(e.target.value)}
                           readOnly
                         />
@@ -575,7 +576,7 @@ export default function Page() {
                         <b>Building</b>
                         <InputGroup
                           type="text"
-                          value={getValue("building", editing, currentUnit) || ""}
+                          value={getValue("building", editing, currentUnit || undefined) || ""}
                           onChange={(e) => handleChange("building", editing)(e.target.value)}
                           readOnly
                         />
@@ -586,7 +587,7 @@ export default function Page() {
                         <b>System</b>
                         <InputGroup
                           type="text"
-                          value={getValue("system", editing, currentUnit) || ""}
+                          value={getValue("system", editing, currentUnit || undefined) || ""}
                           onChange={(e) => handleChange("system", editing)(e.target.value)}
                           readOnly
                         />
@@ -597,7 +598,7 @@ export default function Page() {
                         <b>Timezone</b>
                         <InputGroup
                           type="text"
-                          value={getValue("timezone", editing, currentUnit) || ""}
+                          value={getValue("timezone", editing, currentUnit || undefined) || ""}
                           onChange={(e) => handleChange("timezone", editing)(e.target.value)}
                           readOnly
                         />
@@ -626,7 +627,7 @@ export default function Page() {
                           <b>Configuration Label</b>
                           <InputGroup
                             type="text"
-                            value={getValue("configuration.label", editing, currentUnit) || ""}
+                            value={getValue("configuration.label", editing, currentUnit || undefined) || ""}
                             onChange={(e) => handleChange("configuration.label", editing)(e.target.value)}
                           />
                         </Label>

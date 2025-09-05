@@ -1,3 +1,4 @@
+import { DeepPartial } from "@local/common";
 import { isNumber, sum } from "lodash";
 
 // Constants for setpoint validation and defaults
@@ -12,10 +13,6 @@ const COOLING_DEFAULT = 80;
 const SETPOINT_MIN = HEATING_MIN;
 const SETPOINT_MAX = COOLING_MAX;
 const SETPOINT_DEFAULT = 70;
-
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
 
 interface ISetpoint {
   id?: number;
@@ -32,16 +29,16 @@ type Required = "setpoint" | "deadband" | "heating" | "cooling";
 
 const createSetpointLabel = (
   type: "all" | Required,
-  setpoint: DeepPartial<ISetpoint> & Pick<ISetpoint, Required>
+  setpoint: DeepPartial<ISetpoint> & Pick<ISetpoint, Required>,
 ): string => {
   switch (type) {
     case "all":
       return `Occupied Setpoint: ${createSetpointLabel("setpoint", setpoint)} Deadband: ${createSetpointLabel(
         "deadband",
-        setpoint
+        setpoint,
       )} Unoccupied Heating: ${createSetpointLabel("heating", setpoint)} Cooling: ${createSetpointLabel(
         "cooling",
-        setpoint
+        setpoint,
       )}`;
     case "setpoint":
     case "deadband":
