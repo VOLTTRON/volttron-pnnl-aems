@@ -1,15 +1,18 @@
 import { DeepPartial } from "@local/common";
 import { isNumber, sum } from "lodash";
 import moment from "moment";
+import validate from "@local/common/src/constants/validate";
 
 // Constants for schedule validation and defaults
 const TIME_PADDING = 120;
 const START_TIME_MIN = 0 * 60;
-const START_TIME_DEFAULT = 8 * 60;
 const END_TIME_MAX = 24 * 60;
-const END_TIME_DEFAULT = 18 * 60;
 const DATA_FORMAT = "HH:mm";
 const TIME_FORMAT = "h:mm\xa0a";
+
+// Convert time string to minutes for default values
+const START_TIME_DEFAULT = moment(validate.StartTime.options?.default as string, "HH:mm").hours() * 60 + moment(validate.StartTime.options?.default as string, "HH:mm").minutes();
+const END_TIME_DEFAULT = moment(validate.EndTime.options?.default as string, "HH:mm").hours() * 60 + moment(validate.EndTime.options?.default as string, "HH:mm").minutes();
 
 interface ISchedule {
   id?: number;

@@ -1,18 +1,19 @@
 import { DeepPartial } from "@local/common";
 import { isNumber, sum } from "lodash";
+import validate from "@local/common/src/constants/validate";
 
 // Constants for setpoint validation and defaults
 const SETPOINT_PADDING = 2;
-const DEADBAND_MIN = 2;
-const DEADBAND_MAX = 6;
-const DEADBAND_DEFAULT = 4;
-const HEATING_MIN = 55;
-const HEATING_DEFAULT = 60;
-const COOLING_MAX = 85;
-const COOLING_DEFAULT = 80;
-const SETPOINT_MIN = HEATING_MIN;
-const SETPOINT_MAX = COOLING_MAX;
-const SETPOINT_DEFAULT = 70;
+const DEADBAND_MIN = validate.Deadband.options?.min as number;
+const DEADBAND_MAX = validate.Deadband.options?.max as number;
+const DEADBAND_DEFAULT = validate.Deadband.options?.default as number;
+const HEATING_MIN = validate.Heating.options?.min as number;
+const HEATING_DEFAULT = validate.Heating.options?.default as number;
+const COOLING_MAX = validate.Cooling.options?.max as number;
+const COOLING_DEFAULT = validate.Cooling.options?.default as number;
+const SETPOINT_MIN = validate.Setpoint.options?.min as number;
+const SETPOINT_MAX = validate.Setpoint.options?.max as number;
+const SETPOINT_DEFAULT = validate.Setpoint.options?.default as number;
 
 interface ISetpoint {
   id?: number;
