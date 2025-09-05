@@ -9,22 +9,20 @@ import {
   InputGroup,
   Intent,
   Label,
-  Menu,
-  MenuItem,
   Position,
   Tree,
   HTMLSelect,
   Tooltip,
 } from "@blueprintjs/core";
 import { IconName, IconNames } from "@blueprintjs/icons";
-import { useContext, useEffect, useMemo, useState } from "react";
-import { useQuery, useMutation } from "@apollo/client";
+import { useContext, useMemo, useState } from "react";
+import { useSubscription, useMutation } from "@apollo/client";
 import {
   ReadControlsQuery,
-  ReadControlsDocument,
   UpdateControlDocument,
   UpdateUnitDocument,
   OrderBy,
+  SubscribeControlsDocument,
 } from "@/graphql-codegen/graphql";
 import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { Term } from "@/utils/client";
@@ -48,19 +46,17 @@ export default function ILCPage() {
   const { createNotification } = useContext(NotificationContext);
   const { current } = useContext(CurrentContext);
 
-  // Fetch controls with full unit details
-  const { data, loading, refetch } = useQuery(ReadControlsDocument, {
+  // Subscribe to controls with full unit details for real-time updates
+  const { data, loading } = useSubscription(SubscribeControlsDocument, {
     variables: {
       orderBy: { createdAt: OrderBy.Desc },
     },
     onError(error) {
       createNotification?.(error.message, NotificationType.Error);
     },
-    pollInterval: 5000, // Poll every 5 seconds for real-time updates
   });
 
   const [updateControl] = useMutation(UpdateControlDocument, {
-    refetchQueries: [{ query: ReadControlsDocument }],
     onCompleted() {
       createNotification?.("Control updated successfully", NotificationType.Notification);
     },
@@ -70,7 +66,6 @@ export default function ILCPage() {
   });
 
   const [updateUnit] = useMutation(UpdateUnitDocument, {
-    refetchQueries: [{ query: ReadControlsDocument }],
     onCompleted() {
       createNotification?.("Unit updated successfully", NotificationType.Notification);
     },
@@ -185,7 +180,7 @@ export default function ILCPage() {
     if (state.editing?.id) {
       // Update control fields - only send scalar fields that match ControlUpdateInput
       const controlUpdateData: any = {};
-      
+
       if (state.editing.label !== undefined) {
         controlUpdateData.label = state.editing.label as string;
       }
@@ -564,7 +559,7 @@ export default function ILCPage() {
                       hidden={(() => {
                         // Get the control's peakLoadExclude value (from editing state or original control)
                         const controlPeakLoadExclude = getValue("peakLoadExclude", control);
-                        
+
                         // Get the unit's peakLoadExclude value (from editing state or original unit)
                         const editingUnit = state.editing?.units?.find((v: any) => v?.id === unit.id);
                         const unitPeakLoadExclude = editingUnit?.peakLoadExclude ?? (unit as any).peakLoadExclude;
@@ -572,7 +567,7 @@ export default function ILCPage() {
                         return [
                           // Hide fields based on control-level peakLoadExclude
                           ...(controlPeakLoadExclude ? ["peakLoadExclude"] : []),
-                          
+
                           // Hide grid services related fields if control or unit excludes peak load
                           ...(controlPeakLoadExclude || unitPeakLoadExclude
                             ? [
@@ -588,7 +583,7 @@ export default function ILCPage() {
                                 "heatingPeakOffset",
                               ]
                             : []),
-                          
+
                           // Always hide these advanced fields (matching original implementation)
                           "optimalStartLockout",
                           "optimalStartDeviation",

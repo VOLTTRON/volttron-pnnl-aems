@@ -15,15 +15,15 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import { useContext, useMemo, useState, useCallback } from "react";
-import { useQuery, useMutation } from "@apollo/client";
+import { useSubscription, useMutation } from "@apollo/client";
 import {
   ReadUnitsQuery,
   StringFilterMode,
-  ReadUnitsDocument,
   UpdateUnitDocument,
-  ReadConfigurationsDocument,
   OrderBy,
   ModelStage,
+  SubscribeUnitsDocument,
+  SubscribeConfigurationsDocument,
 } from "@/graphql-codegen/graphql";
 import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { filter } from "@/utils/client";
@@ -79,7 +79,8 @@ export default function Page() {
   const { createNotification } = useContext(NotificationContext);
   const { current } = useContext(CurrentContext);
 
-  const { data, loading, refetch } = useQuery(ReadUnitsDocument, {
+  // Subscribe to units for real-time updates
+  const { data, loading } = useSubscription(SubscribeUnitsDocument, {
     variables: {
       orderBy: { createdAt: OrderBy.Desc },
       where: {
@@ -97,19 +98,19 @@ export default function Page() {
     },
   });
 
-  const { data: configurationsData } = useQuery(ReadConfigurationsDocument, {
+  // Subscribe to configurations for real-time updates
+  const { data: configurationsData } = useSubscription(SubscribeConfigurationsDocument, {
     onError(error) {
       createNotification?.(error.message, NotificationType.Error);
     },
   });
 
   const [updateUnit] = useMutation(UpdateUnitDocument, {
-    refetchQueries: [ReadUnitsDocument],
     onError(error) {
       createNotification?.(error.message, NotificationType.Error);
     },
     onCompleted() {
-      createNotification?.("Unit updated successfully", NotificationType.Error);
+      createNotification?.("Unit updated successfully", NotificationType.Notification);
     },
   });
 
@@ -225,7 +226,7 @@ export default function Page() {
         Object.keys(editing).forEach((key) => {
           if (key !== "id" && !isEqual(get(editing, key), get(originalUnit, key))) {
             const value = get(editing, key);
-            
+
             // Handle nested location object - extract locationId only
             if (key === "location" && value && typeof value === "object") {
               if (value.id) {
@@ -442,7 +443,6 @@ export default function Page() {
     <div className={styles.units}>
       <ControlGroup>
         <div className={styles.spacer} />
-        <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
         <Search value={search} onValueChange={setSearch} />
       </ControlGroup>
 
