@@ -16,42 +16,16 @@ import { IconNames } from "@blueprintjs/icons";
 import { useCallback } from "react";
 import { LocationSearch } from "./LocationSearch";
 import validate from "@local/common/src/constants/validate";
+import zone, { ZoneType } from "@local/common/src/constants/zone";
 
-// Zone type options (matching the original deprecated implementation)
-const ZoneLocationOptions = [
-  { name: "exterior", label: "Exterior" },
-  { name: "interior", label: "Interior" },
-];
+// Helper function to get zone options by type
+const getZoneOptions = (type: ZoneType) => zone.values.filter(z => z.type === type);
 
-const ZoneMassOptions = [
-  { name: "high", label: "High" },
-  { name: "medium", label: "Medium" },
-  { name: "low", label: "Low" },
-];
-
-const ZoneOrientationOptions = [
-  { name: "north", label: "North" },
-  { name: "northeast", label: "Northeast" },
-  { name: "east", label: "East" },
-  { name: "southeast", label: "Southeast" },
-  { name: "south", label: "South" },
-  { name: "southwest", label: "Southwest" },
-  { name: "west", label: "West" },
-  { name: "northwest", label: "Northwest" },
-];
-
-const ZoneBuildingOptions = [
-  { name: "corner-office", label: "Corner Office" },
-  { name: "conference", label: "Conference" },
-  { name: "kitchen", label: "Kitchen" },
-  { name: "closet", label: "Closet" },
-  { name: "office", label: "Office" },
-  { name: "empty-office", label: "Empty Office" },
-  { name: "mechanical-room", label: "Mechanical Room" },
-  { name: "computer-lab", label: "Computer Lab" },
-  { name: "mixed", label: "Mixed" },
-  { name: "other", label: "Other" },
-];
+// Zone type options from @local/common library
+const ZoneLocationOptions = getZoneOptions("location");
+const ZoneMassOptions = getZoneOptions("mass");
+const ZoneOrientationOptions = getZoneOptions("orientation");
+const ZoneBuildingOptions = getZoneOptions("building");
 
 interface UnitEditorProps {
   unit: any;
