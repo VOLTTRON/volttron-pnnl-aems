@@ -17,6 +17,7 @@ import {
   isValidLocation,
   type ILocation
 } from "@/utils/location";
+import { Zone } from "@local/common";
 
 type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
@@ -29,38 +30,6 @@ interface UnitProps {
   readOnly?: boolean;
 }
 
-const ZONE_LOCATIONS = [
-  { value: 'interior', label: 'Interior' },
-  { value: 'perimeter', label: 'Perimeter' },
-  { value: 'corner', label: 'Corner' },
-  { value: 'top_floor', label: 'Top Floor' }
-];
-
-const ZONE_MASSES = [
-  { value: 'light', label: 'Light' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'heavy', label: 'Heavy' }
-];
-
-const ZONE_ORIENTATIONS = [
-  { value: 'north', label: 'North' },
-  { value: 'south', label: 'South' },
-  { value: 'east', label: 'East' },
-  { value: 'west', label: 'West' },
-  { value: 'northeast', label: 'Northeast' },
-  { value: 'northwest', label: 'Northwest' },
-  { value: 'southeast', label: 'Southeast' },
-  { value: 'southwest', label: 'Southwest' }
-];
-
-const ZONE_BUILDINGS = [
-  { value: 'office', label: 'Office' },
-  { value: 'retail', label: 'Retail' },
-  { value: 'warehouse', label: 'Warehouse' },
-  { value: 'school', label: 'School' },
-  { value: 'hospital', label: 'Hospital' },
-  { value: 'hotel', label: 'Hotel' }
-];
 
 export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProps) {
   const getValue = useCallback((field: string) => {
@@ -161,7 +130,10 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
               value={getValue("zoneLocation") || ""}
               onChange={(e) => handleChange("zoneLocation", editing)(e.target.value)}
               disabled={readOnly}
-              options={[{ value: "", label: "Select zone location..." }, ...ZONE_LOCATIONS]}
+              options={[
+                { value: "", label: "Select zone location..." }, 
+                ...Zone.values.filter(v => v.type === "location").map(z => ({ value: z.name, label: z.label }))
+              ]}
             />
           </Label>
         </FormGroup>
@@ -173,7 +145,10 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
               value={getValue("zoneMass") || ""}
               onChange={(e) => handleChange("zoneMass", editing)(e.target.value)}
               disabled={readOnly}
-              options={[{ value: "", label: "Select zone mass..." }, ...ZONE_MASSES]}
+              options={[
+                { value: "", label: "Select zone mass..." }, 
+                ...Zone.values.filter(v => v.type === "mass").map(z => ({ value: z.name, label: z.label }))
+              ]}
             />
           </Label>
         </FormGroup>
@@ -187,7 +162,10 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
               value={getValue("zoneOrientation") || ""}
               onChange={(e) => handleChange("zoneOrientation", editing)(e.target.value)}
               disabled={readOnly}
-              options={[{ value: "", label: "Select orientation..." }, ...ZONE_ORIENTATIONS]}
+              options={[
+                { value: "", label: "Select orientation..." }, 
+                ...Zone.values.filter(v => v.type === "orientation").map(z => ({ value: z.name, label: z.label }))
+              ]}
             />
           </Label>
         </FormGroup>
@@ -199,7 +177,10 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
               value={getValue("zoneBuilding") || ""}
               onChange={(e) => handleChange("zoneBuilding", editing)(e.target.value)}
               disabled={readOnly}
-              options={[{ value: "", label: "Select building type..." }, ...ZONE_BUILDINGS]}
+              options={[
+                { value: "", label: "Select building type..." }, 
+                ...Zone.values.filter(v => v.type === "building").map(z => ({ value: z.name, label: z.label }))
+              ]}
             />
           </Label>
         </FormGroup>
