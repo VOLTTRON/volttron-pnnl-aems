@@ -21,6 +21,8 @@ exports.PassportModule = PassportModule;
 exports.PassportModule = PassportModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, auth_module_1.AuthModule, passport_1.PassportModule.register({ session: true })],
+        providers: [passport_middleware_1.PassportMiddleware],
+        exports: [passport_middleware_1.PassportMiddleware],
     })
 ], PassportModule);
 //# sourceMappingURL=passport.module.js.map

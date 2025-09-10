@@ -92,6 +92,7 @@ class AppConfigService {
         this.auth = {
             framework: process.env.AUTH_FRAMEWORK ?? "passport",
             providers: process.env.AUTH_PROVIDERS?.split(",") ?? [],
+            debug: (0, common_1.parseBoolean)(process.env.AUTH_DEBUG),
         };
         this.jwt = {
             secret: process.env.JWT_SECRET ?? "",

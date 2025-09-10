@@ -10,6 +10,8 @@ import { inspect } from "util";
 import { AppLoggerService } from "@/logging/logging.service";
 import { WsAdapter } from "@nestjs/platform-ws";
 import { NestExpressApplication } from "@nestjs/platform-express";
+import { WebSocketAuthService } from "./auth/websocket.service";
+import { cloneDeep, merge } from "lodash";
 
 async function MainBootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -44,6 +46,7 @@ async function MainBootstrap() {
   }
   const wsAdapter = new WsAdapter(app);
   app.useWebSocketAdapter(wsAdapter);
+  const websocketAuthService = app.get(WebSocketAuthService);
   const documentBuilder = new DocumentBuilder().setTitle("API").setVersion("1.0").build();
   const documentFactory = () => SwaggerModule.createDocument(app, documentBuilder);
   SwaggerModule.setup("swagger", app, documentFactory);
@@ -53,7 +56,24 @@ async function MainBootstrap() {
       stringify: (v) => inspect(v, undefined, 2, true),
     });
   }
-  await app.listen(configService.port);
+  await app.listen(configService.port).then((server) => {
+    server.on("upgrade", (request, socket, _head) => {
+      const protocol = request.headers["x-forwarded-proto"]?.toString();
+      const copy = merge(cloneDeep(request) as any, {
+        protocol: protocol === "wss" ? "https" : "http",
+        headers: { "x-forwarded-proto": protocol === "wss" ? "https" : "http" },
+      }) as Request;
+      void websocketAuthService
+        .authenticateWebSocket(copy)
+        .then((user) => {
+          mainLogger.log(`WebSocket connection upgrade request for user: ${inspect(user, { depth: 2, colors: true })}`);
+          (request as Request).user = user;
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          (socket as any).user = user;
+        })
+        .catch((error) => mainLogger.error("WebSocket authentication error:", error));
+    });
+  });
 
   process.on("SIGTERM", () => {
     // eslint-disable-next-line @typescript-eslint/no-floating-promises

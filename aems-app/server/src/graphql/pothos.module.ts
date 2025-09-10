@@ -18,7 +18,8 @@ import { AppConfigService } from "@/app.config";
 import { AuthModule } from "@/auth/auth.module";
 import { InfoLogger } from "@/logging";
 import { IncomingMessage } from "node:http";
-import { AuthService } from "@/auth/auth.service";
+import { WebSocketAuthService } from "@/auth/websocket.service";
+import { FrameworkModule } from "@/auth/framework.module";
 
 @Module({})
 export class PothosGraphQLModule {
@@ -70,24 +71,41 @@ export class PothosGraphQLModule {
       module: PothosGraphQLModule,
       imports: [
         AuthModule,
+        FrameworkModule.register(),
         PrismaModule,
         SchemaModule.register(),
         SubscriptionModule,
-        AuthModule,
         GraphQLModule.forRootAsync<ApolloDriverConfig>({
           driver: PothosApolloDriverWrapper,
-          imports: [AuthModule],
-          inject: [AuthService, AppConfigService.Key],
-          useFactory: (authService: AuthService, configService: AppConfigService) => ({
+          imports: [AuthModule, FrameworkModule.register()],
+          inject: [WebSocketAuthService, AppConfigService.Key],
+          useFactory: (_wsAuthService: WebSocketAuthService, configService: AppConfigService) => ({
             context: ({
               req,
+              extra,
             }: {
               req?: Request;
               res?: Response;
               extra?: { socket?: WebSocket; request?: IncomingMessage };
             }): Context => {
+              let user: Express.User | undefined;
+              if (req?.user) {
+                // HTTP request - use existing middleware user
+                user = req.user;
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              } else if ((extra?.socket as any)?.user) {
+                // WebSocket request - authenticate using WebSocketAuthService
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                user = (extra?.socket as any)?.user as Express.User | undefined;
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              } else if ((extra?.request as any)?.user) {
+                // Fallback for WebSocket request without user - try to authenticate
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                user = (extra?.request as any)?.user as Express.User | undefined;
+              }
+
               return {
-                user: req?.user,
+                user,
               };
             },
             ...omit(moduleOptionsFactory(configService), ["sortSchema", "autoSchemaFile"]),

@@ -27,7 +27,8 @@ const subscription_module_1 = require("../subscription/subscription.module");
 const app_config_1 = require("../app.config");
 const auth_module_1 = require("../auth/auth.module");
 const logging_1 = require("../logging");
-const auth_service_1 = require("../auth/auth.service");
+const websocket_service_1 = require("../auth/websocket.service");
+const framework_module_1 = require("../auth/framework.module");
 let PothosGraphQLModule = PothosGraphQLModule_1 = class PothosGraphQLModule {
     static forRoot() {
         const moduleOptionsFactory = (configService) => ({
@@ -78,18 +79,28 @@ let PothosGraphQLModule = PothosGraphQLModule_1 = class PothosGraphQLModule {
             module: PothosGraphQLModule_1,
             imports: [
                 auth_module_1.AuthModule,
+                framework_module_1.FrameworkModule.register(),
                 prisma_module_1.PrismaModule,
                 schema_module_1.SchemaModule.register(),
                 subscription_module_1.SubscriptionModule,
-                auth_module_1.AuthModule,
                 graphql_1.GraphQLModule.forRootAsync({
                     driver: PothosApolloDriverWrapper,
-                    imports: [auth_module_1.AuthModule],
-                    inject: [auth_service_1.AuthService, app_config_1.AppConfigService.Key],
-                    useFactory: (authService, configService) => ({
-                        context: ({ req, }) => {
+                    imports: [auth_module_1.AuthModule, framework_module_1.FrameworkModule.register()],
+                    inject: [websocket_service_1.WebSocketAuthService, app_config_1.AppConfigService.Key],
+                    useFactory: (_wsAuthService, configService) => ({
+                        context: ({ req, extra, }) => {
+                            let user;
+                            if (req?.user) {
+                                user = req.user;
+                            }
+                            else if (extra?.socket?.user) {
+                                user = extra?.socket?.user;
+                            }
+                            else if (extra?.request?.user) {
+                                user = extra?.request?.user;
+                            }
                             return {
-                                user: req?.user,
+                                user,
                             };
                         },
                         ...(0, lodash_1.omit)(moduleOptionsFactory(configService), ["sortSchema", "autoSchemaFile"]),

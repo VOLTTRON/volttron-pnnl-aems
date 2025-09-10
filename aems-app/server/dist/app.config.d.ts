@@ -53,6 +53,7 @@ export declare class AppConfigService {
     auth: {
         framework: string;
         providers: string[];
+        debug: boolean;
     };
     jwt: {
         secret: string;

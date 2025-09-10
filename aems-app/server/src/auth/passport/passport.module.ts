@@ -6,6 +6,8 @@ import { PassportModule as NestjsPassportModule } from "@nestjs/passport";
 
 @Module({
   imports: [PrismaModule, AuthModule, NestjsPassportModule.register({ session: true })],
+  providers: [PassportMiddleware],
+  exports: [PassportMiddleware],
 })
 export class PassportModule {
   configure(consumer: MiddlewareConsumer) {

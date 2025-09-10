@@ -110,6 +110,7 @@ export class AppConfigService {
   auth: {
     framework: string;
     providers: string[];
+    debug: boolean;
   };
   jwt: {
     secret: string;
@@ -234,6 +235,7 @@ export class AppConfigService {
     this.auth = {
       framework: process.env.AUTH_FRAMEWORK ?? "passport",
       providers: process.env.AUTH_PROVIDERS?.split(",") ?? [],
+      debug: parseBoolean(process.env.AUTH_DEBUG),
     };
     this.jwt = {
       secret: process.env.JWT_SECRET ?? "",
