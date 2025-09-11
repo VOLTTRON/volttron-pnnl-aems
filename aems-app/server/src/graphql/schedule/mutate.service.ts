@@ -5,6 +5,7 @@ import { ScheduleQuery } from "./query.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { SetpointMutation } from "../setpoint/mutate.service";
 
 @Injectable()
 @PothosMutation()
@@ -17,8 +18,16 @@ export class ScheduleMutation {
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
     scheduleQuery: ScheduleQuery,
+    setpointMutation: SetpointMutation,
   ) {
     const { ScheduleWhereUnique } = scheduleQuery;
+    const { SetpointCreate, SetpointUpdate } = setpointMutation;
+
+    const ScheduleSetpointCreate = builder.prismaCreateRelation("Schedule", "setpoint", {
+      fields: {
+        create: SetpointCreate,
+      },
+    });
 
     this.ScheduleCreate = builder.prismaCreate("Schedule", {
       fields: {
@@ -30,6 +39,13 @@ export class ScheduleMutation {
         endTime: "String",
         occupied: "Boolean",
         setpointId: "String",
+        setpoint: ScheduleSetpointCreate,
+      },
+    });
+
+    const ScheduleSetpointUpdate = builder.prismaUpdateRelation("Schedule", "setpoint", {
+      fields: {
+        update: SetpointUpdate,
       },
     });
 
@@ -43,6 +59,7 @@ export class ScheduleMutation {
         endTime: "String",
         occupied: "Boolean",
         setpointId: "String",
+        setpoint: ScheduleSetpointUpdate,
       },
     });
 

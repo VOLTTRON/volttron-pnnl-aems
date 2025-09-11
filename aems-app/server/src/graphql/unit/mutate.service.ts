@@ -5,6 +5,9 @@ import { UnitQuery } from "./query.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { ConfigurationMutation } from "../configuration/mutate.service";
+import { ControlMutation } from "../control/mutate.service";
+import { LocationMutation } from "../location/mutate.service";
 
 @Injectable()
 @PothosMutation()
@@ -17,8 +20,14 @@ export class UnitMutation {
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
     unitQuery: UnitQuery,
+    configurationMutation: ConfigurationMutation,
+    controlMutation: ControlMutation,
+    locationMutation: LocationMutation,
   ) {
     const { UnitWhereUnique } = unitQuery;
+    const { ConfigurationUpdate } = configurationMutation;
+    const { ControlUpdate } = controlMutation;
+    const { LocationUpdate } = locationMutation;
 
     this.UnitCreate = builder.prismaCreate("Unit", {
       fields: {
@@ -56,6 +65,24 @@ export class UnitMutation {
       },
     });
 
+    const UnitUpdateConfiguration = builder.prismaUpdateRelation("Unit", "configuration", {
+      fields: {
+        update: ConfigurationUpdate,
+      },
+    });
+
+    const UnitUpdateControl = builder.prismaUpdateRelation("Unit", "control", {
+      fields: {
+        update: ControlUpdate,
+      },
+    });
+
+    const UnitUpdateLocation = builder.prismaUpdateRelation("Unit", "location", {
+      fields: {
+        update: LocationUpdate,
+      },
+    });
+
     this.UnitUpdate = builder.prismaUpdate("Unit", {
       fields: {
         stage: builder.ModelStage,
@@ -87,8 +114,11 @@ export class UnitMutation {
         peakLoadExclude: "Boolean",
         economizerSetpoint: "Float",
         configurationId: "String",
+        configuration: UnitUpdateConfiguration,
         controlId: "String",
+        control: UnitUpdateControl,
         locationId: "String",
+        location: UnitUpdateLocation,
       },
     });
 

@@ -376,13 +376,19 @@ input ConfigurationAggregate {
   sum: [ConfigurationFields!]
 }
 
+input ConfigurationCreateHolidaysRelationInput {
+  create: [HolidayCreateInput!]
+}
+
 input ConfigurationCreateInput {
   correlation: String
   fridayScheduleId: String
   holidayScheduleId: String
+  holidays: ConfigurationCreateHolidaysRelationInput
   label: String!
   message: String
   mondayScheduleId: String
+  occupancies: ConfigurationCreateOccupanciesRelationInput
   saturdayScheduleId: String
   setpointId: String
   stage: ModelStage
@@ -390,6 +396,10 @@ input ConfigurationCreateInput {
   thursdayScheduleId: String
   tuesdayScheduleId: String
   wednesdayScheduleId: String
+}
+
+input ConfigurationCreateOccupanciesRelationInput {
+  create: [OccupancyCreateInput!]
 }
 
 enum ConfigurationFields {
@@ -458,20 +468,77 @@ input ConfigurationUniqueFilter {
   id: String
 }
 
+input ConfigurationUpdateFridayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateHolidayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateHolidaysRelationInput {
+  connect: [HolidayUniqueFilter!]
+  delete: [HolidayUniqueFilter!]
+}
+
 input ConfigurationUpdateInput {
   correlation: String
+  fridaySchedule: ConfigurationUpdateFridayScheduleRelationInput
   fridayScheduleId: String
+  holidaySchedule: ConfigurationUpdateHolidayScheduleRelationInput
   holidayScheduleId: String
+  holidays: ConfigurationUpdateHolidaysRelationInput
   label: String
   message: String
+  mondaySchedule: ConfigurationUpdateMondayScheduleRelationInput
   mondayScheduleId: String
+  occupancies: ConfigurationUpdateOccupanciesRelationInput
+  saturdaySchedule: ConfigurationUpdateSaturdayScheduleRelationInput
   saturdayScheduleId: String
+  setpoint: ConfigurationUpdateSetpointRelationInput
   setpointId: String
   stage: ModelStage
+  sundaySchedule: ConfigurationUpdateSundayScheduleRelationInput
   sundayScheduleId: String
+  thursdaySchedule: ConfigurationUpdateThursdayScheduleRelationInput
   thursdayScheduleId: String
+  tuesdaySchedule: ConfigurationUpdateTuesdayScheduleRelationInput
   tuesdayScheduleId: String
+  wednesdaySchedule: ConfigurationUpdateWednesdayScheduleRelationInput
   wednesdayScheduleId: String
+}
+
+input ConfigurationUpdateMondayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateOccupanciesRelationInput {
+  connect: [OccupancyUniqueFilter!]
+  delete: [OccupancyUniqueFilter!]
+}
+
+input ConfigurationUpdateSaturdayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateSetpointRelationInput {
+  update: SetpointUpdateInput
+}
+
+input ConfigurationUpdateSundayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateThursdayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateTuesdayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateWednesdayScheduleRelationInput {
+  update: ScheduleUpdateInput
 }
 
 type Control {
@@ -1286,8 +1353,13 @@ input OccupancyCreateInput {
   date: DateTime!
   label: String!
   message: String
+  schedule: OccupancyCreateScheduleRelationInput
   scheduleId: String
   stage: ModelStage
+}
+
+input OccupancyCreateScheduleRelationInput {
+  create: ScheduleCreateInput
 }
 
 enum OccupancyFields {
@@ -1344,8 +1416,13 @@ input OccupancyUpdateInput {
   date: DateTime
   label: String
   message: String
+  schedule: OccupancyUpdateScheduleRelationInput
   scheduleId: String
   stage: ModelStage
+}
+
+input OccupancyUpdateScheduleRelationInput {
+  update: ScheduleUpdateInput
 }
 
 enum OrderBy {
@@ -1836,9 +1913,14 @@ input ScheduleCreateInput {
   label: String!
   message: String
   occupied: Boolean
+  setpoint: ScheduleCreateSetpointRelationInput
   setpointId: String
   stage: ModelStage
   startTime: String
+}
+
+input ScheduleCreateSetpointRelationInput {
+  create: SetpointCreateInput
 }
 
 enum ScheduleFields {
@@ -1898,9 +1980,14 @@ input ScheduleUpdateInput {
   label: String
   message: String
   occupied: Boolean
+  setpoint: ScheduleUpdateSetpointRelationInput
   setpointId: String
   stage: ModelStage
   startTime: String
+}
+
+input ScheduleUpdateSetpointRelationInput {
+  update: SetpointUpdateInput
 }
 
 type Setpoint {
@@ -2430,11 +2517,21 @@ input UnitUniqueFilter {
   id: String
 }
 
+input UnitUpdateConfigurationRelationInput {
+  update: ConfigurationUpdateInput
+}
+
+input UnitUpdateControlRelationInput {
+  update: ControlUpdateInput
+}
+
 input UnitUpdateInput {
   building: String
   campus: String
   compressors: Int
+  configuration: UnitUpdateConfigurationRelationInput
   configurationId: String
+  control: UnitUpdateControlRelationInput
   controlId: String
   coolingCapacity: Float
   coolingLockout: Float
@@ -2449,6 +2546,7 @@ input UnitUpdateInput {
   heatingPeakOffset: Float
   label: String
   latestStart: Int
+  location: UnitUpdateLocationRelationInput
   locationId: String
   message: String
   name: String
@@ -2462,6 +2560,10 @@ input UnitUpdateInput {
   zoneLocation: String
   zoneMass: String
   zoneOrientation: String
+}
+
+input UnitUpdateLocationRelationInput {
+  update: LocationUpdateInput
 }
 
 type User {

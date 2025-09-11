@@ -20,6 +20,15 @@ import {
   ReadUnitsQuery,
   StringFilterMode,
   UpdateUnitDocument,
+  UpdateConfigurationDocument,
+  UpdateSetpointDocument,
+  UpdateScheduleDocument,
+  CreateHolidayDocument,
+  UpdateHolidayDocument,
+  DeleteHolidayDocument,
+  CreateOccupancyDocument,
+  UpdateOccupancyDocument,
+  DeleteOccupancyDocument,
   OrderBy,
   ModelStage,
   SubscribeUnitsDocument,
@@ -109,8 +118,59 @@ export default function Page() {
     onError(error) {
       createNotification?.(error.message, NotificationType.Error);
     },
-    onCompleted() {
-      createNotification?.("Unit updated successfully", NotificationType.Notification);
+  });
+
+  const [updateConfiguration] = useMutation(UpdateConfigurationDocument, {
+    onError(error) {
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
+
+  const [updateSetpoint] = useMutation(UpdateSetpointDocument, {
+    onError(error) {
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
+
+  const [updateSchedule] = useMutation(UpdateScheduleDocument, {
+    onError(error) {
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
+
+  const [createHoliday] = useMutation(CreateHolidayDocument, {
+    onError(error) {
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
+
+  const [updateHoliday] = useMutation(UpdateHolidayDocument, {
+    onError(error) {
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
+
+  const [deleteHoliday] = useMutation(DeleteHolidayDocument, {
+    onError(error) {
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
+
+  const [createOccupancy] = useMutation(CreateOccupancyDocument, {
+    onError(error) {
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
+
+  const [updateOccupancy] = useMutation(UpdateOccupancyDocument, {
+    onError(error) {
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
+
+  const [deleteOccupancy] = useMutation(DeleteOccupancyDocument, {
+    onError(error) {
+      createNotification?.(error.message, NotificationType.Error);
     },
   });
 
@@ -216,43 +276,302 @@ export default function Page() {
     }
   }, [isSave, editing, units]);
 
-  const handleSave = useCallback(async () => {
-    if (editing && editing.id) {
-      const originalUnit = units?.find((u) => u.id === editing.id);
-      if (originalUnit) {
-        const updateData: any = {};
+  // Helper function to process Configuration updates
+  const processConfigurationUpdates = async (originalUnit: UnitType, editedConfig: any) => {
+    if (!editedConfig || !originalUnit.configuration?.id) return;
 
-        // Only include scalar fields and ID references that match UnitUpdateInput
-        Object.keys(editing).forEach((key) => {
-          if (key !== "id" && !isEqual(get(editing, key), get(originalUnit, key))) {
-            const value = get(editing, key);
+    const configUpdateData: any = {};
+    const originalConfig = originalUnit.configuration;
 
-            // Handle nested location object - extract locationId only
-            if (key === "location" && value && typeof value === "object") {
-              if (value.id) {
-                updateData.locationId = value.id;
-              }
-              // Skip the location object itself
-            } else if (key === "configuration" && value && typeof value === "object") {
-              // Handle nested configuration object - extract configurationId only
-              if (value.id) {
-                updateData.configurationId = value.id;
-              }
-              // Skip the configuration object itself
-            } else if (key === "control" && value && typeof value === "object") {
-              // Handle nested control object - extract controlId only
-              if (value.id) {
-                updateData.controlId = value.id;
-              }
-              // Skip the control object itself
-            } else if (typeof value !== "object" || value === null) {
-              // Only include scalar values (string, number, boolean, null)
-              updateData[key] = value;
-            }
-            // Skip any other nested objects that don't match the schema
+    // Check for configuration label changes
+    if (editedConfig.label !== undefined && editedConfig.label !== originalConfig.label) {
+      configUpdateData.label = editedConfig.label;
+    }
+
+    if (Object.keys(configUpdateData).length > 0) {
+      console.log("Updating configuration with data:", { configId: originalConfig.id, configUpdateData });
+      await updateConfiguration({
+        variables: {
+          where: { id: originalConfig.id },
+          update: configUpdateData,
+        },
+      });
+    }
+  };
+
+  // Helper function to process Setpoint updates
+  const processSetpointUpdates = async (originalUnit: UnitType, editedSetpoint: any) => {
+    if (!editedSetpoint || !originalUnit.configuration?.setpoint?.id) return;
+
+    const setpointUpdateData: any = {};
+    const originalSetpoint = originalUnit.configuration.setpoint;
+
+    // Check for setpoint field changes - using correct field names from schema
+    const setpointFields = ['cooling', 'deadband', 'heating', 'setpoint', 'label'];
+
+    setpointFields.forEach(field => {
+      if (editedSetpoint[field] !== undefined && editedSetpoint[field] !== (originalSetpoint as any)[field]) {
+        setpointUpdateData[field] = editedSetpoint[field];
+      }
+    });
+
+    if (Object.keys(setpointUpdateData).length > 0) {
+      console.log("Updating setpoint with data:", { setpointId: originalSetpoint.id, setpointUpdateData });
+      await updateSetpoint({
+        variables: {
+          where: { id: originalSetpoint.id },
+          update: setpointUpdateData,
+        },
+      });
+    }
+  };
+
+  // Helper function to process Schedule updates
+  const processScheduleUpdates = async (originalUnit: UnitType, editedSchedules: any) => {
+    if (!editedSchedules) return;
+
+    // Process each day's schedule
+    for (const editedSchedule of editedSchedules) {
+      if (!editedSchedule.id) continue;
+
+      const scheduleUpdateData: any = {};
+      const scheduleFields = ['day', 'start', 'end'];
+
+      scheduleFields.forEach(field => {
+        if (editedSchedule[field] !== undefined) {
+          scheduleUpdateData[field] = editedSchedule[field];
+        }
+      });
+
+      if (Object.keys(scheduleUpdateData).length > 0) {
+        console.log("Updating schedule with data:", { scheduleId: editedSchedule.id, scheduleUpdateData });
+        await updateSchedule({
+          variables: {
+            where: { id: editedSchedule.id },
+            update: scheduleUpdateData,
+          },
+        });
+      }
+    }
+  };
+
+  // Helper function to process Holiday CRUD operations
+  const processHolidayUpdates = async (originalUnit: UnitType, editedHolidays: any) => {
+    if (!editedHolidays || !originalUnit.configuration?.id) return;
+
+    const configId = originalUnit.configuration.id;
+    const originalHolidays = originalUnit.configuration.holidays || [];
+
+    for (const editedHoliday of editedHolidays) {
+      if (!editedHoliday) continue;
+
+      // Handle delete operations
+      if (editedHoliday.action === 'delete' && editedHoliday.id) {
+        console.log("Deleting holiday:", { holidayId: editedHoliday.id });
+        await deleteHoliday({
+          variables: {
+            where: { id: editedHoliday.id },
+          },
+        });
+        continue;
+      }
+
+      // Handle create operations
+      if (editedHoliday.action === 'create') {
+        const createData: any = {};
+
+        // Use correct Holiday schema fields: label (required), type (required), day, month, observance, correlation, message, stage
+        const holidayFields = ['label', 'type', 'day', 'month', 'observance', 'correlation', 'message', 'stage'];
+        holidayFields.forEach(field => {
+          if (editedHoliday[field] !== undefined) {
+            createData[field] = editedHoliday[field];
           }
         });
 
+        // Ensure required fields are present
+        if (createData.label && createData.type) {
+          console.log("Creating holiday with data:", createData);
+          await createHoliday({
+            variables: {
+              create: createData,
+            },
+          });
+        }
+        continue;
+      }
+
+      // Handle update operations
+      if (editedHoliday.id) {
+        const originalHoliday = originalHolidays.find(h => h?.id === editedHoliday.id);
+        if (!originalHoliday) continue;
+
+        const holidayUpdateData: any = {};
+        // Use correct Holiday schema fields: label, type, day, month, observance, correlation, message, stage
+        const holidayFields = ['label', 'type', 'day', 'month', 'observance', 'correlation', 'message', 'stage'];
+
+        holidayFields.forEach(field => {
+          if (editedHoliday[field] !== undefined && editedHoliday[field] !== (originalHoliday as any)[field]) {
+            holidayUpdateData[field] = editedHoliday[field];
+          }
+        });
+
+        if (Object.keys(holidayUpdateData).length > 0) {
+          console.log("Updating holiday with data:", { holidayId: editedHoliday.id, holidayUpdateData });
+          await updateHoliday({
+            variables: {
+              where: { id: editedHoliday.id },
+              update: holidayUpdateData,
+            },
+          });
+        }
+      }
+    }
+  };
+
+  // Helper function to process Occupancy CRUD operations
+  const processOccupancyUpdates = async (originalUnit: UnitType, editedOccupancies: any) => {
+    if (!editedOccupancies || !originalUnit.configuration?.id) return;
+
+    const configId = originalUnit.configuration.id;
+    const originalOccupancies = originalUnit.configuration.occupancies || [];
+
+    for (const editedOccupancy of editedOccupancies) {
+      if (!editedOccupancy) continue;
+
+      // Handle delete operations
+      if (editedOccupancy.action === 'delete' && editedOccupancy.id) {
+        console.log("Deleting occupancy:", { occupancyId: editedOccupancy.id });
+        await deleteOccupancy({
+          variables: {
+            where: { id: editedOccupancy.id },
+          },
+        });
+        continue;
+      }
+
+      // Handle create operations
+      if (editedOccupancy.action === 'create') {
+        const createData: any = {
+          configurationId: configId,
+        };
+
+        const occupancyFields = ['start', 'end', 'enabled'];
+        occupancyFields.forEach(field => {
+          if (editedOccupancy[field] !== undefined) {
+            createData[field] = editedOccupancy[field];
+          }
+        });
+
+        if (Object.keys(createData).length > 1) { // More than just configurationId
+          console.log("Creating occupancy with data:", createData);
+          await createOccupancy({
+            variables: {
+              create: createData,
+            },
+          });
+        }
+        continue;
+      }
+
+      // Handle update operations
+      if (editedOccupancy.id) {
+        const originalOccupancy = originalOccupancies.find(o => o?.id === editedOccupancy.id);
+        if (!originalOccupancy) continue;
+
+        const occupancyUpdateData: any = {};
+        const occupancyFields = ['start', 'end', 'enabled'];
+
+        occupancyFields.forEach(field => {
+          if (editedOccupancy[field] !== undefined && editedOccupancy[field] !== (originalOccupancy as any)[field]) {
+            occupancyUpdateData[field] = editedOccupancy[field];
+          }
+        });
+
+        if (Object.keys(occupancyUpdateData).length > 0) {
+          console.log("Updating occupancy with data:", { occupancyId: editedOccupancy.id, occupancyUpdateData });
+          await updateOccupancy({
+            variables: {
+              where: { id: editedOccupancy.id },
+              update: occupancyUpdateData,
+            },
+          });
+        }
+      }
+    }
+  };
+
+  const handleSave = useCallback(async () => {
+    if (editing && editing.id) {
+      const originalUnit = units?.find((u) => u.id === editing.id);
+      if (!originalUnit) return;
+
+      try {
+        // Process nested model updates first
+        if (editing.configuration) {
+          await processConfigurationUpdates(originalUnit, editing.configuration);
+          
+          if (editing.configuration.setpoint) {
+            await processSetpointUpdates(originalUnit, editing.configuration.setpoint);
+          }
+          
+          
+          if (editing.configuration.holidays) {
+            await processHolidayUpdates(originalUnit, editing.configuration.holidays);
+          }
+          
+          if (editing.configuration.occupancies) {
+            await processOccupancyUpdates(originalUnit, editing.configuration.occupancies);
+          }
+        }
+
+        // Now process Unit scalar fields and ID references
+        const updateData: any = {};
+        const validScalarFields = [
+          'stage', 'message', 'correlation', 'name', 'campus', 'building', 'system', 
+          'timezone', 'label', 'coolingCapacity', 'compressors', 'coolingLockout', 
+          'optimalStartLockout', 'optimalStartDeviation', 'earliestStart', 'latestStart', 
+          'zoneLocation', 'zoneMass', 'zoneOrientation', 'zoneBuilding', 'heatPump', 
+          'heatPumpBackup', 'economizer', 'heatPumpLockout', 'coolingPeakOffset', 
+          'heatingPeakOffset', 'peakLoadExclude', 'economizerSetpoint'
+        ];
+
+        // Process each field in editing
+        Object.keys(editing).forEach((key) => {
+          if (key === "id" || key === "configuration") return; // Skip ID and configuration (already processed)
+
+          const editedValue = get(editing, key);
+          const originalValue = get(originalUnit, key);
+
+          // Only process if value has changed
+          if (!isEqual(editedValue, originalValue)) {
+            // Handle nested objects by extracting ID references
+            if (key === "location" && editedValue && typeof editedValue === "object") {
+              if (editedValue.id && editedValue.id !== originalUnit.locationId) {
+                updateData.locationId = editedValue.id;
+              }
+            } else if (key === "control" && editedValue && typeof editedValue === "object") {
+              if (editedValue.id && editedValue.id !== originalUnit.controlId) {
+                updateData.controlId = editedValue.id;
+              }
+            } else if (validScalarFields.includes(key)) {
+              // Only include valid scalar fields
+              updateData[key] = editedValue;
+            }
+          }
+        });
+
+        // Also check for direct ID field changes
+        if (editing.locationId && editing.locationId !== originalUnit.locationId) {
+          updateData.locationId = editing.locationId;
+        }
+        if (editing.configurationId && editing.configurationId !== originalUnit.configurationId) {
+          updateData.configurationId = editing.configurationId;
+        }
+        if (editing.controlId && editing.controlId !== originalUnit.controlId) {
+          updateData.controlId = editing.controlId;
+        }
+
+        // Update Unit if there are changes
         if (Object.keys(updateData).length > 0) {
           console.log("Updating unit with data:", { unitId: editing.id, updateData });
           await updateUnit({
@@ -262,11 +581,19 @@ export default function Page() {
             },
           });
         }
+
+        createNotification?.("Unit and configuration saved successfully", NotificationType.Notification);
+      } catch (error) {
+        console.error("Failed to save unit:", error);
+        createNotification?.("Failed to save unit changes", NotificationType.Error);
       }
+
       setEditing(null);
       setExpanded(null);
     }
-  }, [editing, units, updateUnit]);
+  }, [editing, units, updateUnit, updateConfiguration, updateSetpoint, updateSchedule, 
+      createHoliday, updateHoliday, deleteHoliday, createOccupancy, updateOccupancy, 
+      deleteOccupancy, createNotification]);
 
   const handlePush = useCallback(
     async (unit: UnitType) => {
@@ -291,40 +618,61 @@ export default function Page() {
     if (!editingAll || !units) return;
 
     try {
+      let updatedCount = 0;
+      const validScalarFields = [
+        'stage', 'message', 'correlation', 'name', 'campus', 'building', 'system', 
+        'timezone', 'label', 'coolingCapacity', 'compressors', 'coolingLockout', 
+        'optimalStartLockout', 'optimalStartDeviation', 'earliestStart', 'latestStart', 
+        'zoneLocation', 'zoneMass', 'zoneOrientation', 'zoneBuilding', 'heatPump', 
+        'heatPumpBackup', 'economizer', 'heatPumpLockout', 'coolingPeakOffset', 
+        'heatingPeakOffset', 'peakLoadExclude', 'economizerSetpoint'
+      ];
+
       // Apply changes to all units
       for (const unit of units) {
         if (!unit.id) continue;
 
         const updateData: any = {};
 
-        // Handle location updates - extract locationId only
-        if (editingAll.location) {
-          const location = editingAll.location;
-          if (location.id) {
-            updateData.locationId = location.id;
-          }
-          // Skip the location object itself - UnitUpdateInput doesn't accept nested location objects
-        }
-
-        // Handle configuration updates - extract configurationId only
-        if (editingAll.configuration) {
-          const config = editingAll.configuration;
-          if (config.id) {
-            updateData.configurationId = config.id;
-          }
-          // Skip the configuration object itself - UnitUpdateInput doesn't accept nested configuration objects
-        }
-
-        // Handle other scalar fields from editingAll
+        // Process each field in editingAll
         Object.keys(editingAll).forEach((key) => {
-          if (key !== "id" && key !== "location" && key !== "configuration" && key !== "control") {
-            const value = get(editingAll, key);
-            if (typeof value !== "object" || value === null) {
-              // Only include scalar values (string, number, boolean, null)
-              updateData[key] = value;
+          if (key === "id") return; // Skip ID field
+
+          const editedValue = get(editingAll, key);
+          if (editedValue === null || editedValue === undefined) return; // Skip null/undefined values
+
+          // Handle nested objects by extracting ID references
+          if (key === "location" && editedValue && typeof editedValue === "object") {
+            if (editedValue.id && editedValue.id !== unit.locationId) {
+              updateData.locationId = editedValue.id;
+            }
+          } else if (key === "configuration" && editedValue && typeof editedValue === "object") {
+            if (editedValue.id && editedValue.id !== unit.configurationId) {
+              updateData.configurationId = editedValue.id;
+            }
+          } else if (key === "control" && editedValue && typeof editedValue === "object") {
+            if (editedValue.id && editedValue.id !== unit.controlId) {
+              updateData.controlId = editedValue.id;
+            }
+          } else if (validScalarFields.includes(key)) {
+            // Only include valid scalar fields that are different from current value
+            const currentValue = get(unit, key);
+            if (!isEqual(editedValue, currentValue)) {
+              updateData[key] = editedValue;
             }
           }
         });
+
+        // Also check for direct ID field changes
+        if (editingAll.locationId && editingAll.locationId !== unit.locationId) {
+          updateData.locationId = editingAll.locationId;
+        }
+        if (editingAll.configurationId && editingAll.configurationId !== unit.configurationId) {
+          updateData.configurationId = editingAll.configurationId;
+        }
+        if (editingAll.controlId && editingAll.controlId !== unit.controlId) {
+          updateData.controlId = editingAll.controlId;
+        }
 
         // Only update if there are changes
         if (Object.keys(updateData).length > 0) {
@@ -335,12 +683,18 @@ export default function Page() {
               update: updateData,
             },
           });
+          updatedCount++;
         }
       }
 
-      createNotification?.("All units updated successfully", NotificationType.Notification);
+      if (updatedCount > 0) {
+        createNotification?.(`Successfully updated ${updatedCount} unit${updatedCount > 1 ? 's' : ''}`, NotificationType.Notification);
+      } else {
+        createNotification?.("No changes to save", NotificationType.Notification);
+      }
       handleClearAll();
     } catch (error) {
+      console.error("Failed to update units:", error);
       createNotification?.("Failed to update units", NotificationType.Error);
     }
   }, [editingAll, units, updateUnit, createNotification, handleClearAll]);

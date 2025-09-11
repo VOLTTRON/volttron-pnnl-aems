@@ -410,13 +410,19 @@ export type ConfigurationAggregate = {
   sum?: InputMaybe<Array<ConfigurationFields>>;
 };
 
+export type ConfigurationCreateHolidaysRelationInput = {
+  create?: InputMaybe<Array<HolidayCreateInput>>;
+};
+
 export type ConfigurationCreateInput = {
   correlation?: InputMaybe<Scalars['String']['input']>;
   fridayScheduleId?: InputMaybe<Scalars['String']['input']>;
   holidayScheduleId?: InputMaybe<Scalars['String']['input']>;
+  holidays?: InputMaybe<ConfigurationCreateHolidaysRelationInput>;
   label: Scalars['String']['input'];
   message?: InputMaybe<Scalars['String']['input']>;
   mondayScheduleId?: InputMaybe<Scalars['String']['input']>;
+  occupancies?: InputMaybe<ConfigurationCreateOccupanciesRelationInput>;
   saturdayScheduleId?: InputMaybe<Scalars['String']['input']>;
   setpointId?: InputMaybe<Scalars['String']['input']>;
   stage?: InputMaybe<ModelStage>;
@@ -424,6 +430,10 @@ export type ConfigurationCreateInput = {
   thursdayScheduleId?: InputMaybe<Scalars['String']['input']>;
   tuesdayScheduleId?: InputMaybe<Scalars['String']['input']>;
   wednesdayScheduleId?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type ConfigurationCreateOccupanciesRelationInput = {
+  create?: InputMaybe<Array<OccupancyCreateInput>>;
 };
 
 export enum ConfigurationFields {
@@ -490,20 +500,77 @@ export type ConfigurationUniqueFilter = {
   id?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type ConfigurationUpdateFridayScheduleRelationInput = {
+  update?: InputMaybe<ScheduleUpdateInput>;
+};
+
+export type ConfigurationUpdateHolidayScheduleRelationInput = {
+  update?: InputMaybe<ScheduleUpdateInput>;
+};
+
+export type ConfigurationUpdateHolidaysRelationInput = {
+  connect?: InputMaybe<Array<HolidayUniqueFilter>>;
+  delete?: InputMaybe<Array<HolidayUniqueFilter>>;
+};
+
 export type ConfigurationUpdateInput = {
   correlation?: InputMaybe<Scalars['String']['input']>;
+  fridaySchedule?: InputMaybe<ConfigurationUpdateFridayScheduleRelationInput>;
   fridayScheduleId?: InputMaybe<Scalars['String']['input']>;
+  holidaySchedule?: InputMaybe<ConfigurationUpdateHolidayScheduleRelationInput>;
   holidayScheduleId?: InputMaybe<Scalars['String']['input']>;
+  holidays?: InputMaybe<ConfigurationUpdateHolidaysRelationInput>;
   label?: InputMaybe<Scalars['String']['input']>;
   message?: InputMaybe<Scalars['String']['input']>;
+  mondaySchedule?: InputMaybe<ConfigurationUpdateMondayScheduleRelationInput>;
   mondayScheduleId?: InputMaybe<Scalars['String']['input']>;
+  occupancies?: InputMaybe<ConfigurationUpdateOccupanciesRelationInput>;
+  saturdaySchedule?: InputMaybe<ConfigurationUpdateSaturdayScheduleRelationInput>;
   saturdayScheduleId?: InputMaybe<Scalars['String']['input']>;
+  setpoint?: InputMaybe<ConfigurationUpdateSetpointRelationInput>;
   setpointId?: InputMaybe<Scalars['String']['input']>;
   stage?: InputMaybe<ModelStage>;
+  sundaySchedule?: InputMaybe<ConfigurationUpdateSundayScheduleRelationInput>;
   sundayScheduleId?: InputMaybe<Scalars['String']['input']>;
+  thursdaySchedule?: InputMaybe<ConfigurationUpdateThursdayScheduleRelationInput>;
   thursdayScheduleId?: InputMaybe<Scalars['String']['input']>;
+  tuesdaySchedule?: InputMaybe<ConfigurationUpdateTuesdayScheduleRelationInput>;
   tuesdayScheduleId?: InputMaybe<Scalars['String']['input']>;
+  wednesdaySchedule?: InputMaybe<ConfigurationUpdateWednesdayScheduleRelationInput>;
   wednesdayScheduleId?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type ConfigurationUpdateMondayScheduleRelationInput = {
+  update?: InputMaybe<ScheduleUpdateInput>;
+};
+
+export type ConfigurationUpdateOccupanciesRelationInput = {
+  connect?: InputMaybe<Array<OccupancyUniqueFilter>>;
+  delete?: InputMaybe<Array<OccupancyUniqueFilter>>;
+};
+
+export type ConfigurationUpdateSaturdayScheduleRelationInput = {
+  update?: InputMaybe<ScheduleUpdateInput>;
+};
+
+export type ConfigurationUpdateSetpointRelationInput = {
+  update?: InputMaybe<SetpointUpdateInput>;
+};
+
+export type ConfigurationUpdateSundayScheduleRelationInput = {
+  update?: InputMaybe<ScheduleUpdateInput>;
+};
+
+export type ConfigurationUpdateThursdayScheduleRelationInput = {
+  update?: InputMaybe<ScheduleUpdateInput>;
+};
+
+export type ConfigurationUpdateTuesdayScheduleRelationInput = {
+  update?: InputMaybe<ScheduleUpdateInput>;
+};
+
+export type ConfigurationUpdateWednesdayScheduleRelationInput = {
+  update?: InputMaybe<ScheduleUpdateInput>;
 };
 
 export type Control = {
@@ -1522,8 +1589,13 @@ export type OccupancyCreateInput = {
   date: Scalars['DateTime']['input'];
   label: Scalars['String']['input'];
   message?: InputMaybe<Scalars['String']['input']>;
+  schedule?: InputMaybe<OccupancyCreateScheduleRelationInput>;
   scheduleId?: InputMaybe<Scalars['String']['input']>;
   stage?: InputMaybe<ModelStage>;
+};
+
+export type OccupancyCreateScheduleRelationInput = {
+  create?: InputMaybe<ScheduleCreateInput>;
 };
 
 export enum OccupancyFields {
@@ -1578,8 +1650,13 @@ export type OccupancyUpdateInput = {
   date?: InputMaybe<Scalars['DateTime']['input']>;
   label?: InputMaybe<Scalars['String']['input']>;
   message?: InputMaybe<Scalars['String']['input']>;
+  schedule?: InputMaybe<OccupancyUpdateScheduleRelationInput>;
   scheduleId?: InputMaybe<Scalars['String']['input']>;
   stage?: InputMaybe<ModelStage>;
+};
+
+export type OccupancyUpdateScheduleRelationInput = {
+  update?: InputMaybe<ScheduleUpdateInput>;
 };
 
 export enum OrderBy {
@@ -2604,9 +2681,14 @@ export type ScheduleCreateInput = {
   label: Scalars['String']['input'];
   message?: InputMaybe<Scalars['String']['input']>;
   occupied?: InputMaybe<Scalars['Boolean']['input']>;
+  setpoint?: InputMaybe<ScheduleCreateSetpointRelationInput>;
   setpointId?: InputMaybe<Scalars['String']['input']>;
   stage?: InputMaybe<ModelStage>;
   startTime?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type ScheduleCreateSetpointRelationInput = {
+  create?: InputMaybe<SetpointCreateInput>;
 };
 
 export enum ScheduleFields {
@@ -2664,9 +2746,14 @@ export type ScheduleUpdateInput = {
   label?: InputMaybe<Scalars['String']['input']>;
   message?: InputMaybe<Scalars['String']['input']>;
   occupied?: InputMaybe<Scalars['Boolean']['input']>;
+  setpoint?: InputMaybe<ScheduleUpdateSetpointRelationInput>;
   setpointId?: InputMaybe<Scalars['String']['input']>;
   stage?: InputMaybe<ModelStage>;
   startTime?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type ScheduleUpdateSetpointRelationInput = {
+  update?: InputMaybe<SetpointUpdateInput>;
 };
 
 export type Setpoint = {
@@ -3556,11 +3643,21 @@ export type UnitUniqueFilter = {
   id?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type UnitUpdateConfigurationRelationInput = {
+  update?: InputMaybe<ConfigurationUpdateInput>;
+};
+
+export type UnitUpdateControlRelationInput = {
+  update?: InputMaybe<ControlUpdateInput>;
+};
+
 export type UnitUpdateInput = {
   building?: InputMaybe<Scalars['String']['input']>;
   campus?: InputMaybe<Scalars['String']['input']>;
   compressors?: InputMaybe<Scalars['Int']['input']>;
+  configuration?: InputMaybe<UnitUpdateConfigurationRelationInput>;
   configurationId?: InputMaybe<Scalars['String']['input']>;
+  control?: InputMaybe<UnitUpdateControlRelationInput>;
   controlId?: InputMaybe<Scalars['String']['input']>;
   coolingCapacity?: InputMaybe<Scalars['Float']['input']>;
   coolingLockout?: InputMaybe<Scalars['Float']['input']>;
@@ -3575,6 +3672,7 @@ export type UnitUpdateInput = {
   heatingPeakOffset?: InputMaybe<Scalars['Float']['input']>;
   label?: InputMaybe<Scalars['String']['input']>;
   latestStart?: InputMaybe<Scalars['Int']['input']>;
+  location?: InputMaybe<UnitUpdateLocationRelationInput>;
   locationId?: InputMaybe<Scalars['String']['input']>;
   message?: InputMaybe<Scalars['String']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
@@ -3588,6 +3686,10 @@ export type UnitUpdateInput = {
   zoneLocation?: InputMaybe<Scalars['String']['input']>;
   zoneMass?: InputMaybe<Scalars['String']['input']>;
   zoneOrientation?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UnitUpdateLocationRelationInput = {
+  update?: InputMaybe<LocationUpdateInput>;
 };
 
 export type User = {
