@@ -23,6 +23,7 @@
 # }}}
 import logging
 from datetime import timedelta as td
+import gevent
 
 try:
     from aems.client.agent import Scheduler
@@ -126,7 +127,7 @@ class LockOutManager:
         if self.optimal_start_lockout_temp is not None:
             if self._optimal_start_lockout_greenlet is not None:
                 self._optimal_start_lockout_greenlet.cancel()
-            self._optimal_start_lockout_greenlet = self._scheduler_fn(cron('* * * * *'),
+            self._optimal_start_lockout_greenlet = self._scheduler_fn(cron('0 * * * *'),
                                                                       self.evaluate_optimal_start_lockout)
         else:
             if self._optimal_start_lockout_greenlet is not None:
@@ -149,9 +150,9 @@ class LockOutManager:
         :return: None
         :rtype: None
         """
-
+        gevent.sleep(15)
         forecast = self._get_forecast_fn()
-        _log.debug(f'Forecast: {forecast}')
+        _log.debug(f'Evaluate optimal start lockout with weather: {forecast}')
         if not forecast:
             _log.debug(f'No weather forecast, cannot evaluate optimal start lockout!')
             return
