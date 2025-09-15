@@ -424,7 +424,7 @@ class ManagerProxy:
         self.config = self._proxied_agent.vip.config
         self.identity = self.core.identity
         self.weather_forecast: list[tuple[dt, float]] = []
-
+        self._weather_update_greenlet = None
         self.holiday_manager = HolidayManager()
         self.occupancy_override = OccupancyOverride(change_occupancy_fn=self.change_occupancy,
                                                     scheduler_fn=self.core.schedule,
@@ -1387,7 +1387,7 @@ class ManagerProxy:
                 break
 
     def get_weather_forecast(self):
-        if not self.weather_forecast:
+        if not self.weather_forecast and self._weather_update_greenlet is not None:
             if self.cfg.location:
                 self.update_weather_forecast()
             else:
