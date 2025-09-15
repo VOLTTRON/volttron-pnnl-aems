@@ -169,9 +169,13 @@ class DefaultConfig:
     data_dir: Path = Path('~/.manager').expanduser()
     model_dir: Path = Path('~/.manager/models').expanduser()
     data_file: Optional[Path] = None
-    setpoint_offset: float = None
+    setpoint_offset: Optional[float] = None
 
     def __post_init__(self):
+        if isinstance(self.data_dir, str):
+            self.data_dir = Path(self.data_dir).expanduser()
+        if isinstance(self.model_dir, str):
+            self.model_dir = Path(self.model_dir).expanduser()
         self._initialize_directories()
         self._initialize_setpoint_control()
         self._initialize_optimal_start_config()
@@ -247,20 +251,22 @@ class DefaultConfig:
         :return: Occupancy schedule for the current day.
         :rtype: Schedule
         """
-        current_day = DaysOfWeek(self.get_current_datetime().weekday())
+        # Cache the current datetime to avoid multiple calls
+        current_dt = self.get_current_datetime()
+        current_day = DaysOfWeek(current_dt.weekday())
         current_schedule = None
         if self.schedule and current_day.name in self.schedule:
             sched = self.schedule[current_day.name]
             if isinstance(sched, dict):
-                current_schedule = Schedule(current_day, self.get_current_datetime,
+                current_schedule = Schedule(current_day, lambda: current_dt,
                                             earliest_start_time=self.optimal_start.earliest_start_time,
                                             **self.schedule[current_day.name])
             else:
                 _log.debug(f'Using {sched} for {current_day.name}')
                 if sched == 'always_on':
-                    current_schedule = Schedule(current_day, self.get_current_datetime, always_on=True)
+                    current_schedule = Schedule(current_day, lambda: current_dt, always_on=True)
                 elif sched == 'always_off':
-                    current_schedule = Schedule(current_day, self.get_current_datetime, always_off=True)
+                    current_schedule = Schedule(current_day, lambda: current_dt, always_off=True)
                 else:
                     raise ValueError(f'Invalid schedule value: {sched}')
         return current_schedule

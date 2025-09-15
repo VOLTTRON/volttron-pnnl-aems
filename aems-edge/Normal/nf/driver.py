@@ -6,12 +6,12 @@ from .utils import csv_to_dict_list, split_list, load_config_file
 from .helpers import NfClient, get_response
 
 try:
-    from aems.client.agent import Agent, RPC, Scheduler, run_agent
+    from aems.client.agent import Agent, RPC, Scheduler, run_agent, Core
     cron = Scheduler.cron
 
     from volttron.utils.jsonrpc import RemoteError
     from volttron.client.messaging import headers as headers_mod
-    from volttron.utils import format_timestamp, get_aware_utc_now, setup_logging
+    from volttron.utils import format_timestamp, get_aware_utc_now #, setup_logging
 except ImportError:
     run_agent = None
     from volttron.platform.agent import utils
@@ -23,7 +23,7 @@ except ImportError:
     from volttron.platform.vip.agent import RPC, Agent, Core
 
 __version__ = "0.1"
-setup_logging()
+#setup_logging()
 _log = logging.getLogger(__name__)
 
 POINTS_PER_REQUEST = 25
@@ -44,6 +44,7 @@ DATA_TYPE_MAP = {
     'multiStateInput': 'OBJECT_TYPE_MULTI_STATE_INPUT',
     'multiStateOutput': 'OBJECT_TYPE_MULTI_STATE_OUTPUT'
 }
+BINARY_POINTS = ['OBJECT_TYPE_BINARY_VALUE', 'OBJECT_TYPE_BINARY_OUTPUT']
 point_request_template =  """
 {{
   "object_identifier": {{
@@ -170,6 +171,9 @@ class Device:
     points_per_request: int = POINTS_PER_REQUEST
     point_map: dict = field(default_factory=dict)
     client: NfClient = None
+    heartbeat: str = None
+    has_heartbeat: bool = False
+    heartbeat_value: int = 0
 
     def __post_init__(self):
         """
@@ -180,6 +184,31 @@ class Device:
         """
         self._initialize_point_dict()
         self.generate_request_list(device_id=self.device_id)
+        self._initialize_heart_beat()
+
+    def _initialize_heart_beat(self):
+        """
+        Initializes the heartbeat for the associated device. This method sets up the
+        heartbeat functionality by attempting to retrieve the heartbeat point. If the
+        heartbeat point is successfully retrieved, it enables the heartbeat tracking
+        mechanism. If the heartbeat point is not found or an error occurs during
+        retrieval, the method logs the occurrence.
+        """
+        _log.debug(f"Initializing Heartbeat for device {self.device_id}")
+        if self.heartbeat is not None:
+            try:
+                self.heartbeat_value = self.get_point(self.heartbeat)
+                self.has_heartbeat = True
+            except Exception as e:
+                _log.debug(f"Heartbeat not found for device {self.device_id} with error {e}")
+
+    def update_heartbeat(self):
+        try:
+            _log.debug(f"Updating Heartbeat for device {self.device_id} -- {int(not self.heartbeat_value)}")
+            self.set_point(self.heartbeat, int(not self.heartbeat_value))
+            self.heartbeat_value = int(not self.heartbeat_value)
+        except Exception as e:
+            _log.debug(f"Error updating heartbeat for device {self.device_id} with error {e}")
 
     def _initialize_point_dict(self):
         """
@@ -622,6 +651,7 @@ class NormalFrameworkConnector(Agent):
         config_data = load_config_file(config_path)
         self.polling_interval = 60
         self.device_dict = {}
+        self.heartbeat_periodic_list = []
         self.nf_client = None
         if config_data is None:
             raise ValueError("Invalid config file")
@@ -670,7 +700,29 @@ class NormalFrameworkConnector(Agent):
         :type kwargs: dict
         :return: None
         """
-        self.polling_service = self.core.periodic(self.polling_interval, self.scrape_all, wait=self.polling_interval)
+        _log.debug("Starting Normal Framework Connector")
+        self.polling_service = self.core.periodic(self.polling_interval, self.scrape_all) # , wait=self.polling_interval)
+        _log.debug("Am I getting here???????")
+        self.setup_heartbeats()
+
+    @Core.receiver('onstop')
+    def _onstop(self, sender=None, **kwargs):
+        """
+        Handles the start event and initializes periodic polling for the scraping service.
+
+        This method is triggered by the framework when the component receives the
+        'onstart' signal. It schedules a periodic task to execute the `scrape_all`
+        method at intervals specified by `self.polling_interval`.
+
+        :param sender: The sender object that triggered the 'onstart' event.
+        :type sender: Any
+        :param kwargs: Additional keyword arguments provided during the event.
+        :type kwargs: dict
+        :return: None
+        """
+        self.polling_service.cancel()
+        for heartbeat in self.heartbeat_periodic_list:
+            heartbeat.cancel()
 
     def initialize_devices(self, device_list: list, **kwargs):
         """
@@ -695,6 +747,25 @@ class NormalFrameworkConnector(Agent):
 
             device = Device(**device_config, client=self.nf_client)
             self.device_dict[topic] = device
+
+    def setup_heartbeats(self):
+        """
+        Sets up a periodic heartbeat mechanism for devices that support it.
+
+        Iterates over all devices in the `device_dict`, checks if they support
+        heartbeat functionality, and if so, adds a periodic task to invoke the
+        device's `update_heartbeat` method every 30 seconds. The periodic task
+        is managed by the `core` object and appended to the
+        `heartbeat_periodic_list` for tracking.
+
+        :return: None
+        """
+        _log.debug(f"Setup heartbeat")
+        for device in self.device_dict.values():
+            if device.has_heartbeat:
+                self.heartbeat_periodic_list.append(self.core.periodic(30, device.update_heartbeat))
+                _log.debug(f"Heartbeat for {self.heartbeat_periodic_list}")
+
 
     def get_device_by_topic(self, topic: str) -> Device:
         """
@@ -736,9 +807,27 @@ class NormalFrameworkConnector(Agent):
         :param kwargs: Optional additional arguments.
         :return: Status of the operation (True for success).
         """
+        try:
+            _log.debug(f"set_point called: device='{device_path}', point='{point_name}', value={point_value}")
 
-        device = self.get_device_by_topic(device_path)
-        return device.set_point(point_name, point_value, **kwargs)
+            device = self.get_device_by_topic(device_path)
+            result = device.set_point(point_name, point_value, **kwargs)
+
+            _log.info(f"Successfully set {point_name}={point_value} on {device_path} result is: {result}")
+            return result
+
+        except KeyError as e:
+            error_msg = f"Device '{device_path}' not found. Available: {list(self.device_dict.keys())}"
+            _log.error(error_msg)
+            raise RemoteError(error_msg)
+
+        except Exception as e:
+            error_msg = f"set_point failed: {type(e).__name__}: {str(e)}"
+            _log.error(error_msg)
+            raise RemoteError(error_msg)
+
+        # device = self.get_device_by_topic(device_path)
+        # return device.set_point(point_name, point_value, **kwargs)
 
     @staticmethod
     def construct_topic(topic: str) -> str:
@@ -776,7 +865,7 @@ class NormalFrameworkConnector(Agent):
         :return:
             None
         """
-        headers = {"Date": format_timestamp(get_aware_utc_now())}
+        headers = {"Date": format_timestamp(get_aware_utc_now()), "TimeStamp": format_timestamp(get_aware_utc_now())}
         for device_topic, device_instance in self.device_dict.items():
             full_topic = self.construct_topic(device_topic)
             data = device_instance.read_points()
@@ -788,6 +877,7 @@ class NormalFrameworkConnector(Agent):
 
 def main(argv=sys.argv):
     """Main method called by the aip."""
+    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s')
 
     if run_agent:
         run_agent(NormalFrameworkConnector)

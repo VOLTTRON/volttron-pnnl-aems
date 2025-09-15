@@ -64,8 +64,9 @@ __auth__ = None
 def make_request(*, method: str, payload: dict,
                  agent: str = 'manager.schneider'):
     global __auth__
+    server = "http://localhost:8000"
     if not __auth__:
-        resp = requests.post('https://130.20.24.164:8443/authenticate',
+        resp = requests.post(f'{server}/authenticate',
                              data={'username': 'admin', 'password': 'admin'},
                              verify=False)
         __auth__ = resp.json()['access_token']
@@ -82,8 +83,7 @@ def make_request(*, method: str, payload: dict,
     print('x' * 80)
     print(method)
 
-    resp = requests.post('https://130.20.24.164:8443/gs',
-                         json=rpc_payload, verify=False)
+    resp = requests.post(f'{server}/gs', json=rpc_payload, verify=False)
     return resp.status_code, resp.text
 
 

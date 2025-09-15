@@ -88,3 +88,4 @@ def get_response(res):
         else:
             # the headers should have more information for other error
             print (res.headers)
+            return {}
