@@ -68,6 +68,62 @@ query ReadUnit($where: UnitUniqueFilter!) {
           occupied
         }
       }
+      mondaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      tuesdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      wednesdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      thursdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      fridaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      saturdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      sundaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      holidaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
     }
     location {
       id
@@ -147,6 +203,62 @@ query ReadUnits($where: UnitFilter, $paging: PagingInput, $orderBy: [UnitOrderBy
           endTime
           occupied
         }
+      }
+      mondaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      tuesdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      wednesdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      thursdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      fridaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      saturdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      sundaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      holidaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
       }
     }
     location {
@@ -312,6 +424,62 @@ subscription SubscribeUnit($where: UnitUniqueFilter!) {
           occupied
         }
       }
+      mondaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      tuesdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      wednesdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      thursdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      fridaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      saturdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      sundaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      holidaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
     }
     location {
       id
@@ -396,6 +564,62 @@ subscription SubscribeUnits(
           endTime
           occupied
         }
+      }
+      mondaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      tuesdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      wednesdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      thursdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      fridaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      saturdaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      sundaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+      holidaySchedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
       }
     }
     location {

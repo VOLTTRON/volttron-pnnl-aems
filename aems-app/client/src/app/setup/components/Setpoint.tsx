@@ -8,8 +8,8 @@ import {
   HandleInteractionKind,
   Intent,
 } from "@blueprintjs/core";
-import { useCallback, useMemo } from "react";
-import { get, merge, clamp } from "lodash";
+import { useMemo } from "react";
+import { merge, clamp, cloneDeep } from "lodash";
 import {
   SETPOINT_MIN,
   SETPOINT_MAX,
@@ -20,34 +20,44 @@ import {
   COOLING_MAX,
   createSetpointLabel,
   getSetpointMessage,
+  SETPOINT_DEFAULT,
+  DEADBAND_DEFAULT,
+  HEATING_DEFAULT,
+  COOLING_DEFAULT,
 } from "@/utils/setpoint";
-import { Unit } from "@/graphql-codegen/graphql";
 import { DeepPartial } from "@local/common";
+import { ReadUnitQuery } from "@/graphql-codegen/graphql";
 
-type UnitType = Unit;
+type UnitType = NonNullable<ReadUnitQuery["readUnit"]>;
 
-interface SetpointsProps {
+interface SetpointProps {
   unit: UnitType | null;
   editing: DeepPartial<UnitType> | null;
-  handleChange: (
-    field: string,
-    editingUnit?: DeepPartial<UnitType> | null,
-  ) => (value: string | number | boolean | object | null | undefined) => void;
+  setEditing?: (editing: DeepPartial<UnitType> | null) => void;
   readOnly?: boolean;
 }
 
-export function Setpoints({ unit, editing, handleChange, readOnly = false }: SetpointsProps) {
-  const getValue = useCallback(
-    (field: string) => {
-      return get(editing, field, get(unit, field));
+export function Setpoint({ unit, editing, setEditing, readOnly = false }: SetpointProps) {
+  const merged = merge(
+    {
+      label: createSetpointLabel("all", {
+        setpoint: SETPOINT_DEFAULT,
+        deadband: DEADBAND_DEFAULT,
+        heating: HEATING_DEFAULT,
+        cooling: COOLING_DEFAULT,
+      }),
+      setpoint: SETPOINT_DEFAULT,
+      deadband: DEADBAND_DEFAULT,
+      heating: HEATING_DEFAULT,
+      cooling: COOLING_DEFAULT,
     },
-    [editing, unit],
+    unit?.configuration?.setpoint,
+    editing?.configuration?.setpoint,
   );
+  const { label, setpoint, deadband, heating, cooling } = merged;
+  const padding = SETPOINT_PADDING + deadband / 2;
 
-  const path = "configuration.setpoint";
-  const setpoint = merge({}, get(unit, path), get(editing, path));
-
-  const error = useMemo(() => getSetpointMessage(setpoint as any) || "\u00A0", [setpoint]);
+  const error = useMemo(() => getSetpointMessage(merged) || "\u00A0", [merged]);
 
   const renderSeparateSliders = () => (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -66,16 +76,17 @@ export function Setpoints({ unit, editing, handleChange, readOnly = false }: Set
             interactionKind={HandleInteractionKind.LOCK}
             intentBefore={Intent.WARNING}
             intentAfter={Intent.SUCCESS}
-            value={getValue(`${path}.setpoint`) - getValue(`${path}.deadband`) / 2}
+            value={setpoint - deadband / 2}
             onChange={(v) => {
-              const deadband = getValue(`${path}.deadband`);
-              const padding = SETPOINT_PADDING + deadband / 2;
-              const heating = getValue(`${path}.heating`);
-              const cooling = getValue(`${path}.cooling`);
               const value = v + deadband / 2;
               const setpoint = clamp(value, heating + padding, cooling - padding);
               const label = createSetpointLabel("all", { setpoint, deadband, heating, cooling });
-              handleChange(`${path}`, editing)({ setpoint, label });
+              const clone = cloneDeep(editing ?? {});
+              clone.configuration = clone.configuration ?? {};
+              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+              clone.configuration.setpoint.setpoint = setpoint;
+              clone.configuration.setpoint.label = label;
+              setEditing?.(clone);
             }}
           />
           <MultiSlider.Handle
@@ -83,16 +94,17 @@ export function Setpoints({ unit, editing, handleChange, readOnly = false }: Set
             interactionKind={HandleInteractionKind.LOCK}
             intentBefore={Intent.SUCCESS}
             intentAfter={Intent.PRIMARY}
-            value={getValue(`${path}.setpoint`) + getValue(`${path}.deadband`) / 2}
+            value={setpoint + deadband / 2}
             onChange={(v) => {
-              const deadband = getValue(`${path}.deadband`);
-              const padding = SETPOINT_PADDING + deadband / 2;
-              const heating = getValue(`${path}.heating`);
-              const cooling = getValue(`${path}.cooling`);
               const value = v - deadband / 2;
               const setpoint = clamp(value, heating + padding, cooling - padding);
               const label = createSetpointLabel("all", { setpoint, deadband, heating, cooling });
-              handleChange(`${path}`, editing)({ setpoint, label });
+              const clone = cloneDeep(editing ?? {});
+              clone.configuration = clone.configuration ?? {};
+              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+              clone.configuration.setpoint.setpoint = setpoint;
+              clone.configuration.setpoint.label = label;
+              setEditing?.(clone);
             }}
           />
         </MultiSlider>
@@ -111,30 +123,42 @@ export function Setpoints({ unit, editing, handleChange, readOnly = false }: Set
             type={HandleType.START}
             interactionKind={HandleInteractionKind.LOCK}
             intentBefore={Intent.WARNING}
-            value={getValue(`${path}.heating`)}
+            value={heating}
             onChange={(v) => {
-              const setpoint = getValue(`${path}.setpoint`);
-              const deadband = getValue(`${path}.deadband`);
-              const padding = SETPOINT_PADDING + deadband / 2;
-              const heating = clamp(v, HEATING_MIN, setpoint - padding);
-              const cooling = getValue(`${path}.cooling`);
-              const label = createSetpointLabel("all", { setpoint, deadband, heating, cooling });
-              handleChange(`${path}`, editing)({ heating, label });
+              const value = clamp(v, HEATING_MIN, heating - padding);
+              const label = createSetpointLabel("all", {
+                setpoint,
+                deadband,
+                heating: value,
+                cooling,
+              });
+              const clone = cloneDeep(editing ?? {});
+              clone.configuration = clone.configuration ?? {};
+              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+              clone.configuration.setpoint.heating = value;
+              clone.configuration.setpoint.label = label;
+              setEditing?.(clone);
             }}
           />
           <MultiSlider.Handle
             type={HandleType.END}
             interactionKind={HandleInteractionKind.LOCK}
             intentAfter={Intent.PRIMARY}
-            value={getValue(`${path}.cooling`)}
+            value={cooling}
             onChange={(v) => {
-              const setpoint = getValue(`${path}.setpoint`);
-              const deadband = getValue(`${path}.deadband`);
-              const padding = SETPOINT_PADDING + deadband / 2;
-              const heating = getValue(`${path}.heating`);
-              const cooling = clamp(v, setpoint + padding, COOLING_MAX);
-              const label = createSetpointLabel("all", { setpoint, deadband, heating, cooling });
-              handleChange(`${path}`, editing)({ cooling, label });
+              const value = clamp(v, cooling + padding, COOLING_MAX);
+              const label = createSetpointLabel("all", {
+                setpoint,
+                deadband,
+                heating,
+                cooling: value,
+              });
+              const clone = cloneDeep(editing ?? {});
+              clone.configuration = clone.configuration ?? {};
+              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+              clone.configuration.setpoint.cooling = value;
+              clone.configuration.setpoint.label = label;
+              setEditing?.(clone);
             }}
           />
         </MultiSlider>
@@ -158,8 +182,14 @@ export function Setpoints({ unit, editing, handleChange, readOnly = false }: Set
             <b>Setpoint Label</b>
             <InputGroup
               type="text"
-              value={getValue(`${path}.label`) || ""}
-              onChange={(e) => handleChange(`${path}.label`, editing)(e.target.value)}
+              value={label ?? ""}
+              onChange={(e) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.configuration = clone.configuration ?? {};
+                clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+                clone.configuration.setpoint.label = e.target.value;
+                setEditing?.(clone);
+              }}
               readOnly={readOnly}
               placeholder="Enter setpoint label"
             />
@@ -173,14 +203,20 @@ export function Setpoints({ unit, editing, handleChange, readOnly = false }: Set
               step={1}
               min={DEADBAND_MIN}
               max={DEADBAND_MAX}
-              value={getValue(`${path}.deadband`) || 4}
+              value={deadband}
               onValueChange={(v) => {
-                const setpoint = getValue(`${path}.setpoint`);
-                const deadband = v;
-                const heating = getValue(`${path}.heating`);
-                const cooling = getValue(`${path}.cooling`);
-                const label = createSetpointLabel("all", { setpoint, deadband, heating, cooling });
-                handleChange(`${path}`, editing)({ deadband, label });
+                const label = createSetpointLabel("all", {
+                  setpoint,
+                  deadband: v,
+                  heating,
+                  cooling,
+                });
+                const clone = cloneDeep(editing ?? {});
+                clone.configuration = clone.configuration ?? {};
+                clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+                clone.configuration.setpoint.deadband = v;
+                clone.configuration.setpoint.label = label;
+                setEditing?.(clone);
               }}
               disabled={readOnly}
               fill

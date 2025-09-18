@@ -1,30 +1,41 @@
 import { InputGroup, Label, NumericInput, Switch, FormGroup, HTMLSelect, Button, Tooltip } from "@blueprintjs/core";
 import { IconNames } from "@blueprintjs/icons";
-import { useCallback } from "react";
-import { get } from "lodash";
+import { cloneDeep, merge } from "lodash";
 import { createGoogleMapsUrl, formatLocationName } from "@/utils/location";
 import { Zone, DeepPartial } from "@local/common";
-import { Unit as UnitGraphQL } from "@/graphql-codegen/graphql";
+import { ReadUnitQuery } from "@/graphql-codegen/graphql";
 
-type UnitType = UnitGraphQL;
+type UnitType = NonNullable<ReadUnitQuery["readUnit"]>;
 
 interface UnitProps {
   unit: UnitType | null;
   editing: DeepPartial<UnitType> | null;
-  handleChange: (
-    field: string,
-    editingUnit?: DeepPartial<UnitType> | null,
-  ) => (value: string | number | boolean | object | null | undefined) => void;
+  setEditing?: (editing: DeepPartial<UnitType> | null) => void;
   readOnly?: boolean;
 }
 
-export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProps) {
-  const getValue = useCallback(
-    (field: string) => {
-      return get(editing, field, get(unit, field));
-    },
-    [editing, unit],
-  );
+export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps) {
+  const value = merge({}, unit, editing);
+  const {
+    location,
+    label,
+    zoneLocation,
+    heatPumpBackup,
+    heatPumpLockout,
+    economizer,
+    economizerSetpoint,
+    coolingLockout,
+    zoneMass,
+    zoneOrientation,
+    zoneBuilding,
+    coolingCapacity,
+    compressors,
+    optimalStartLockout,
+    optimalStartDeviation,
+    earliestStart,
+    latestStart,
+    heatPump,
+  } = value;
 
   return (
     <div style={{ padding: "1rem" }}>
@@ -33,8 +44,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <b>Unit Label</b>
           <InputGroup
             type="text"
-            value={getValue("label") || ""}
-            onChange={(e) => handleChange("label", editing)(e.target.value)}
+            value={label ?? ""}
+            onChange={(e) => {
+              const clone = cloneDeep(editing ?? {});
+              clone.label = e.target.value;
+              setEditing?.(clone);
+            }}
             readOnly={readOnly}
             placeholder="Enter unit label"
           />
@@ -47,13 +62,13 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
             <b>Unit Location</b>
             <InputGroup
               type="text"
-              value={formatLocationName(getValue("location"))}
+              value={formatLocationName(location)}
               readOnly
               rightElement={
-                <Tooltip content={createGoogleMapsUrl(getValue("location"))}>
+                <Tooltip content={createGoogleMapsUrl(location)}>
                   <Button
                     icon={IconNames.MAP}
-                    onClick={() => window.open(createGoogleMapsUrl(getValue("location")), "_blank")}
+                    onClick={() => window.open(createGoogleMapsUrl(location), "_blank")}
                     minimal
                   />
                 </Tooltip>
@@ -67,9 +82,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
             <b>Location Name</b>
             <InputGroup
               type="text"
-              value={getValue("location.name") || ""}
+              value={location?.name ?? ""}
               onChange={(e) => {
-                handleChange("location.name", editing)(e.target.value);
+                const clone = cloneDeep(editing ?? {});
+                clone.location = clone?.location ?? {};
+                clone.location.name = e.target.value;
+                setEditing?.(clone);
               }}
               disabled={readOnly}
               placeholder="Enter location name"
@@ -83,8 +101,13 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <Label>
             <b>Longitude</b>
             <NumericInput
-              value={getValue("location.longitude") || 0}
-              onValueChange={(value) => handleChange("location.longitude", editing)(value)}
+              value={location?.longitude || 0}
+              onValueChange={(value) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.location = clone.location ?? {};
+                clone.location.longitude = value;
+                setEditing?.(clone);
+              }}
               min={-180}
               max={180}
               stepSize={0.0001}
@@ -99,8 +122,13 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <Label>
             <b>Latitude</b>
             <NumericInput
-              value={getValue("location.latitude") || 0}
-              onValueChange={(value) => handleChange("location.latitude", editing)(value)}
+              value={location?.latitude || 0}
+              onValueChange={(value) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.location = clone.location ?? {};
+                clone.location.latitude = value;
+                setEditing?.(clone);
+              }}
               min={-90}
               max={90}
               stepSize={0.0001}
@@ -117,8 +145,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <Label>
             <b>Zone Location</b>
             <HTMLSelect
-              value={getValue("zoneLocation") || ""}
-              onChange={(e) => handleChange("zoneLocation", editing)(e.target.value)}
+              value={zoneLocation || ""}
+              onChange={(e) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.zoneLocation = e.target.value;
+                setEditing?.(clone);
+              }}
               disabled={readOnly}
               options={[
                 { value: "", label: "Select zone location..." },
@@ -132,8 +164,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <Label>
             <b>Zone Mass</b>
             <HTMLSelect
-              value={getValue("zoneMass") || ""}
-              onChange={(e) => handleChange("zoneMass", editing)(e.target.value)}
+              value={zoneMass || ""}
+              onChange={(e) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.zoneMass = e.target.value;
+                setEditing?.(clone);
+              }}
               disabled={readOnly}
               options={[
                 { value: "", label: "Select zone mass..." },
@@ -149,8 +185,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <Label>
             <b>Zone Orientation</b>
             <HTMLSelect
-              value={getValue("zoneOrientation") || ""}
-              onChange={(e) => handleChange("zoneOrientation", editing)(e.target.value)}
+              value={zoneOrientation || ""}
+              onChange={(e) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.zoneOrientation = e.target.value;
+                setEditing?.(clone);
+              }}
               disabled={readOnly}
               options={[
                 { value: "", label: "Select orientation..." },
@@ -164,8 +204,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <Label>
             <b>Building Type</b>
             <HTMLSelect
-              value={getValue("zoneBuilding") || ""}
-              onChange={(e) => handleChange("zoneBuilding", editing)(e.target.value)}
+              value={zoneBuilding || ""}
+              onChange={(e) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.zoneBuilding = e.target.value;
+                setEditing?.(clone);
+              }}
               disabled={readOnly}
               options={[
                 { value: "", label: "Select building type..." },
@@ -181,8 +225,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <Label>
             <b>Rated Cooling Capacity (tons)</b>
             <NumericInput
-              value={getValue("coolingCapacity") || 0}
-              onValueChange={(value) => handleChange("coolingCapacity", editing)(value)}
+              value={coolingCapacity || 0}
+              onValueChange={(value) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.coolingCapacity = value;
+                setEditing?.(clone);
+              }}
               min={0}
               max={100}
               stepSize={0.5}
@@ -196,8 +244,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <Label>
             <b>Number of Compressors</b>
             <NumericInput
-              value={getValue("compressors") || 1}
-              onValueChange={(value) => handleChange("compressors", editing)(value)}
+              value={compressors || 1}
+              onValueChange={(value) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.compressors = value;
+                setEditing?.(clone);
+              }}
               min={1}
               max={10}
               stepSize={1}
@@ -213,8 +265,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <Label>
             <b>Optimal Start Lockout Temperature (°F)</b>
             <NumericInput
-              value={getValue("optimalStartLockout") || 35}
-              onValueChange={(value) => handleChange("optimalStartLockout", editing)(value)}
+              value={optimalStartLockout || 35}
+              onValueChange={(value) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.optimalStartLockout = value;
+                setEditing?.(clone);
+              }}
               min={0}
               max={50}
               stepSize={1}
@@ -228,8 +284,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <Label>
             <b>Allowable Zone Temperature Deviation (°F)</b>
             <NumericInput
-              value={getValue("optimalStartDeviation") || 2}
-              onValueChange={(value) => handleChange("optimalStartDeviation", editing)(value)}
+              value={optimalStartDeviation || 2}
+              onValueChange={(value) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.optimalStartDeviation = value;
+                setEditing?.(clone);
+              }}
               min={0.5}
               max={5}
               stepSize={0.5}
@@ -245,8 +305,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <Label>
             <b>Earliest Start Time (minutes before occupancy)</b>
             <NumericInput
-              value={getValue("earliestStart") || 120}
-              onValueChange={(value) => handleChange("earliestStart", editing)(value)}
+              value={earliestStart || 120}
+              onValueChange={(value) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.earliestStart = value;
+                setEditing?.(clone);
+              }}
               min={30}
               max={300}
               stepSize={15}
@@ -260,8 +324,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
           <Label>
             <b>Latest Start Time (minutes before occupancy)</b>
             <NumericInput
-              value={getValue("latestStart") || 30}
-              onValueChange={(value) => handleChange("latestStart", editing)(value)}
+              value={latestStart || 30}
+              onValueChange={(value) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.latestStart = value;
+                setEditing?.(clone);
+              }}
               min={15}
               max={120}
               stepSize={15}
@@ -276,8 +344,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
         <FormGroup>
           <Label>
             <Switch
-              checked={getValue("heatPump") || false}
-              onChange={(e) => handleChange("heatPump", editing)(e.currentTarget.checked)}
+              checked={heatPump || false}
+              onChange={(e) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.heatPump = e.currentTarget.checked;
+                setEditing?.(clone);
+              }}
               disabled={readOnly}
               label="Heat Pump System"
             />
@@ -285,14 +357,18 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
         </FormGroup>
       </div>
 
-      {getValue("heatPump") && (
+      {heatPump && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
           <FormGroup label="Heat Pump Backup">
             <Label>
               <b>Electric Backup Capacity (kW)</b>
               <NumericInput
-                value={getValue("heatPumpBackup") || 0}
-                onValueChange={(value) => handleChange("heatPumpBackup", editing)(value)}
+                value={heatPumpBackup || 0}
+                onValueChange={(value) => {
+                  const clone = cloneDeep(editing ?? {});
+                  clone.heatPumpBackup = value;
+                  setEditing?.(clone);
+                }}
                 min={0}
                 max={50}
                 stepSize={0.5}
@@ -306,8 +382,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
             <Label>
               <b>Auxiliary Heat Lockout Temperature (°F)</b>
               <NumericInput
-                value={getValue("heatPumpLockout") || 25}
-                onValueChange={(value) => handleChange("heatPumpLockout", editing)(value)}
+                value={heatPumpLockout || 25}
+                onValueChange={(value) => {
+                  const clone = cloneDeep(editing ?? {});
+                  clone.heatPumpLockout = value;
+                  setEditing?.(clone);
+                }}
                 min={0}
                 max={50}
                 stepSize={1}
@@ -323,8 +403,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
         <FormGroup>
           <Label>
             <Switch
-              checked={getValue("economizer") || false}
-              onChange={(e) => handleChange("economizer", editing)(e.currentTarget.checked)}
+              checked={economizer || false}
+              onChange={(e) => {
+                const clone = cloneDeep(editing ?? {});
+                clone.economizer = e.currentTarget.checked;
+                setEditing?.(clone);
+              }}
               disabled={readOnly}
               label="Economizer System"
             />
@@ -332,14 +416,18 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
         </FormGroup>
       </div>
 
-      {getValue("economizer") && (
+      {economizer && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
           <FormGroup label="Economizer Setpoint">
             <Label>
               <b>Switchover Temperature Setpoint (°F)</b>
               <NumericInput
-                value={getValue("economizerSetpoint") || 65}
-                onValueChange={(value) => handleChange("economizerSetpoint", editing)(value)}
+                value={economizerSetpoint || 65}
+                onValueChange={(value) => {
+                  const clone = cloneDeep(editing ?? {});
+                  clone.economizerSetpoint = value;
+                  setEditing?.(clone);
+                }}
                 min={50}
                 max={80}
                 stepSize={1}
@@ -353,8 +441,12 @@ export function Unit({ unit, editing, handleChange, readOnly = false }: UnitProp
             <Label>
               <b>Compressor Cooling Lockout Temperature (°F)</b>
               <NumericInput
-                value={getValue("coolingLockout") || 55}
-                onValueChange={(value) => handleChange("coolingLockout", editing)(value)}
+                value={coolingLockout || 55}
+                onValueChange={(value) => {
+                  const clone = cloneDeep(editing ?? {});
+                  clone.coolingLockout = value;
+                  setEditing?.(clone);
+                }}
                 min={40}
                 max={70}
                 stepSize={1}

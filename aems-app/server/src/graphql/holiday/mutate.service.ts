@@ -6,6 +6,7 @@ import { HolidayObject } from "./object.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { ConfigurationQuery } from "../configuration/query.service";
 
 @Injectable()
 @PothosMutation()
@@ -19,9 +20,11 @@ export class HolidayMutation {
     subscriptionService: SubscriptionService,
     holidayQuery: HolidayQuery,
     holidayObject: HolidayObject,
+    configurationQuery: ConfigurationQuery,
   ) {
     const { HolidayWhereUnique } = holidayQuery;
     const { HolidayType } = holidayObject;
+    const { ConfigurationWhereUnique } = configurationQuery;
 
     this.HolidayCreate = builder.prismaCreate("Holiday", {
       fields: {
@@ -33,6 +36,7 @@ export class HolidayMutation {
         month: "Int",
         day: "Int",
         observance: "String",
+        configurations: ConfigurationWhereUnique,
       },
     });
 
@@ -46,6 +50,7 @@ export class HolidayMutation {
         month: "Int",
         day: "Int",
         observance: "String",
+        configurations: ConfigurationWhereUnique,
       },
     });
 

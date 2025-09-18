@@ -6,6 +6,7 @@ import { LocationObject } from "./object.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { UnitQuery } from "../unit/query.service";
 
 @Injectable()
 @PothosMutation()
@@ -19,14 +20,17 @@ export class LocationMutation {
     subscriptionService: SubscriptionService,
     locationQuery: LocationQuery,
     _locationObject: LocationObject,
+    unitQuery: UnitQuery,
   ) {
     const { LocationWhereUnique } = locationQuery;
+    const { UnitWhereUnique } = unitQuery;
 
     this.LocationCreate = builder.prismaCreate("Location", {
       fields: {
         name: "String",
         latitude: "Float",
         longitude: "Float",
+        units: UnitWhereUnique,
       },
     });
 
@@ -35,6 +39,7 @@ export class LocationMutation {
         name: "String",
         latitude: "Float",
         longitude: "Float",
+        units: UnitWhereUnique,
       },
     });
 

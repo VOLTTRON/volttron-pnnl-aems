@@ -5,6 +5,7 @@ import { ControlQuery } from "./query.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { UnitQuery } from "../unit/query.service";
 
 @Injectable()
 @PothosMutation()
@@ -17,8 +18,10 @@ export class ControlMutation {
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
     controlQuery: ControlQuery,
+    unitQuery: UnitQuery,
   ) {
     const { ControlWhereUnique } = controlQuery;
+    const { UnitWhereUnique } = unitQuery;
 
     this.ControlCreate = builder.prismaCreate("Control", {
       fields: {
@@ -30,6 +33,7 @@ export class ControlMutation {
         building: "String",
         label: "String",
         peakLoadExclude: "Boolean",
+        units: UnitWhereUnique,
       },
     });
 
@@ -43,6 +47,7 @@ export class ControlMutation {
         building: "String",
         label: "String",
         peakLoadExclude: "Boolean",
+        units: UnitWhereUnique,
       },
     });
 

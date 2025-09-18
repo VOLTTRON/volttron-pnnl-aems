@@ -15,14 +15,11 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import { useContext, useMemo, useState, useCallback } from "react";
-import { useSubscription, useMutation } from "@apollo/client";
+import { useSubscription, useMutation, useQuery } from "@apollo/client";
 import {
   ReadUnitsQuery,
   StringFilterMode,
   UpdateUnitDocument,
-  UpdateConfigurationDocument,
-  UpdateSetpointDocument,
-  UpdateScheduleDocument,
   CreateHolidayDocument,
   UpdateHolidayDocument,
   DeleteHolidayDocument,
@@ -32,23 +29,28 @@ import {
   OrderBy,
   ModelStage,
   SubscribeUnitsDocument,
-  SubscribeConfigurationsDocument,
+  HolidayType as HolidayEnum,
+  ReadUnitsDocument,
+  CreateLocationDocument,
+  UpdateLocationDocument,
+  DeleteLocationDocument,
 } from "@/graphql-codegen/graphql";
 import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { filter } from "@/utils/client";
 import { Search } from "../components/common";
 import { IconNames } from "@blueprintjs/icons";
-import { cloneDeep, get, isEqual, merge, set, isObject, isArray } from "lodash";
-import { Setpoints } from "./components/Setpoints";
+import { cloneDeep, isObject, merge, omit, set } from "lodash";
+import { Setpoint } from "./components/Setpoint";
 import { Schedules } from "./components/Schedules";
 import { Holidays } from "./components/Holidays";
-import { Occupancies } from "./components/Occupancies";
+import { Occupancies, OccupancyCreateDelete } from "./components/Occupancies";
 import { Unit } from "./components/Unit";
-import { Role, HolidayType, DeepPartial } from "@local/common";
+import { Role, HolidayType, DeepPartial, typeofNonNullable, typeofObject } from "@local/common";
+import { HolidayCreateDelete } from "./components/Holiday";
 
-type UnitType = NonNullable<ReadUnitsQuery["readUnits"]>[0];
+type UnitModel = NonNullable<ReadUnitsQuery["readUnits"]>[number];
 
-// Utility function to get common values across units (from deprecated app)
+// Utility function to get common values across units (simplified)
 const getCommon = <T extends Record<string, any>>(objects: T[], excludeKeys: string[] = []): Partial<T> => {
   if (!objects || objects.length === 0) return {};
 
@@ -79,17 +81,17 @@ const getCommon = <T extends Record<string, any>>(objects: T[], excludeKeys: str
 
 export default function Page() {
   const [search, setSearch] = useState("");
-  const [editing, setEditing] = useState<DeepPartial<UnitType> | null>(null);
-  const [editingAll, setEditingAll] = useState<DeepPartial<UnitType> | null>({});
+  const [editing, setEditing] = useState<DeepPartial<UnitModel> | null>(null);
+  const [editingAll, setEditingAll] = useState<DeepPartial<UnitModel> | null>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<(() => void) | null>(null);
+  const [saving, setSaving] = useState<string[]>([]);
 
   const { route } = useContext(RouteContext);
   const { createNotification } = useContext(NotificationContext);
   const { current } = useContext(CurrentContext);
 
-  // Subscribe to units for real-time updates
-  const { data, loading } = useSubscription(SubscribeUnitsDocument, {
+  const { data: queried, startPolling } = useQuery(ReadUnitsDocument, {
     variables: {
       orderBy: { createdAt: OrderBy.Desc },
       where: {
@@ -107,69 +109,131 @@ export default function Page() {
     },
   });
 
-  // Subscribe to configurations for real-time updates
-  const { data: configurationsData } = useSubscription(SubscribeConfigurationsDocument, {
+  const { data: subscribed } = useSubscription(SubscribeUnitsDocument, {
+    variables: {
+      orderBy: { createdAt: OrderBy.Desc },
+      where: {
+        OR: [
+          { label: { contains: search, mode: StringFilterMode.Insensitive } },
+          { name: { contains: search, mode: StringFilterMode.Insensitive } },
+          { campus: { contains: search, mode: StringFilterMode.Insensitive } },
+          { building: { contains: search, mode: StringFilterMode.Insensitive } },
+          { system: { contains: search, mode: StringFilterMode.Insensitive } },
+        ],
+      },
+    },
     onError(error) {
+      startPolling(5000);
       createNotification?.(error.message, NotificationType.Error);
     },
   });
+
+  const data = subscribed ?? queried;
 
   const [updateUnit] = useMutation(UpdateUnitDocument, {
-    onError(error) {
-      createNotification?.(error.message, NotificationType.Error);
+    onCompleted(data) {
+      setSaving(saving.filter((v) => v !== `updateUnit(${data.updateUnit?.id})` && v !== "updateUnit"));
     },
-  });
-
-  const [updateConfiguration] = useMutation(UpdateConfigurationDocument, {
-    onError(error) {
-      createNotification?.(error.message, NotificationType.Error);
-    },
-  });
-
-  const [updateSetpoint] = useMutation(UpdateSetpointDocument, {
-    onError(error) {
-      createNotification?.(error.message, NotificationType.Error);
-    },
-  });
-
-  const [updateSchedule] = useMutation(UpdateScheduleDocument, {
-    onError(error) {
+    onError(error, options) {
+      setSaving(saving.filter((v) => v !== `updateUnit(${options?.variables?.where?.id})` && v !== "updateUnit"));
       createNotification?.(error.message, NotificationType.Error);
     },
   });
 
   const [createHoliday] = useMutation(CreateHolidayDocument, {
+    onCompleted() {
+      setSaving(saving.filter((v) => v !== "createHoliday"));
+    },
     onError(error) {
+      setSaving(saving.filter((v) => v !== "createHoliday"));
       createNotification?.(error.message, NotificationType.Error);
     },
   });
 
   const [updateHoliday] = useMutation(UpdateHolidayDocument, {
-    onError(error) {
+    onCompleted(data) {
+      setSaving(saving.filter((v) => v !== `updateHoliday(${data.updateHoliday?.id})` && v !== "updateHoliday"));
+    },
+    onError(error, options) {
+      setSaving(saving.filter((v) => v !== `updateHoliday(${options?.variables?.where?.id})` && v !== "updateHoliday"));
       createNotification?.(error.message, NotificationType.Error);
     },
   });
 
   const [deleteHoliday] = useMutation(DeleteHolidayDocument, {
-    onError(error) {
+    onCompleted(data) {
+      setSaving(saving.filter((v) => v !== `deleteHoliday(${data.deleteHoliday?.id})` && v !== "deleteHoliday"));
+    },
+    onError(error, options) {
+      setSaving(saving.filter((v) => v !== `deleteHoliday(${options?.variables?.where?.id})` && v !== "deleteHoliday"));
       createNotification?.(error.message, NotificationType.Error);
     },
   });
 
   const [createOccupancy] = useMutation(CreateOccupancyDocument, {
+    onCompleted() {
+      setSaving(saving.filter((v) => v !== "createOccupancy"));
+    },
     onError(error) {
+      setSaving(saving.filter((v) => v !== "createOccupancy"));
       createNotification?.(error.message, NotificationType.Error);
     },
   });
 
   const [updateOccupancy] = useMutation(UpdateOccupancyDocument, {
-    onError(error) {
+    onCompleted(data) {
+      setSaving(saving.filter((v) => v !== `updateOccupancy(${data.updateOccupancy?.id})` && v !== "updateOccupancy"));
+    },
+    onError(error, options) {
+      setSaving(
+        saving.filter((v) => v !== `updateOccupancy(${options?.variables?.where?.id})` && v !== "updateOccupancy"),
+      );
       createNotification?.(error.message, NotificationType.Error);
     },
   });
 
   const [deleteOccupancy] = useMutation(DeleteOccupancyDocument, {
+    onCompleted(data) {
+      setSaving(saving.filter((v) => v !== `deleteOccupancy(${data.deleteOccupancy?.id})` && v !== "deleteOccupancy"));
+    },
+    onError(error, options) {
+      setSaving(
+        saving.filter((v) => v !== `deleteOccupancy(${options?.variables?.where?.id})` && v !== "deleteOccupancy"),
+      );
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
+
+  const [createLocation] = useMutation(CreateLocationDocument, {
+    onCompleted(data) {
+      setSaving(saving.filter((v) => v !== "createLocation"));
+    },
     onError(error) {
+      setSaving(saving.filter((v) => v !== "createLocation"));
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
+
+  const [updateLocation] = useMutation(UpdateLocationDocument, {
+    onCompleted(data) {
+      setSaving(saving.filter((v) => v !== `updateLocation(${data.updateLocation?.id})` && v !== "updateLocation"));
+    },
+    onError(error, options) {
+      setSaving(
+        saving.filter((v) => v !== `updateLocation(${options?.variables?.where?.id})` && v !== "updateLocation"),
+      );
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
+
+  const [deleteLocation] = useMutation(DeleteLocationDocument, {
+    onCompleted(data) {
+      setSaving(saving.filter((v) => v !== `deleteLocation(${data.deleteLocation?.id})` && v !== "deleteLocation"));
+    },
+    onError(error, options) {
+      setSaving(
+        saving.filter((v) => v !== `deleteLocation(${options?.variables?.where?.id})` && v !== "deleteLocation"),
+      );
       createNotification?.(error.message, NotificationType.Error);
     },
   });
@@ -203,524 +267,241 @@ export default function Page() {
     };
   }, [units]);
 
-  const getValue = useCallback(
-    (field: string, editingUnit?: DeepPartial<UnitType> | null, unit?: UnitType) => {
-      const temp = unit ? unit : units?.find((v) => v.id === editingUnit?.id);
-      return get(editingUnit, field, get(temp, field));
-    },
-    [units],
-  );
-
-  const handleChange = useCallback(
-    (field: string, editingUnit?: DeepPartial<UnitType> | null) => {
-      return (value: string | number | boolean | object | null | undefined) => {
-        if (editingUnit) {
-          const newEditing = cloneDeep(editingUnit);
-          if (typeof get(editingUnit, field) === "object" && value && typeof value === "object") {
-            set(newEditing, field, merge(cloneDeep(get(editingUnit, field)), value));
-          } else {
-            set(newEditing, field, value);
-          }
-
-          if (editingUnit === editing) {
-            setEditing(newEditing);
-          } else if (editingUnit === editingAll) {
-            setEditingAll(newEditing);
-          }
-        }
-      };
-    },
-    [editing, editingAll],
-  );
-
-  const isSaveAll = useCallback(() => {
-    if (!editingAll || !defaultUnit) return false;
-
-    const temp = merge({}, defaultUnit, editingAll);
-    return !isEqual(defaultUnit, temp);
-  }, [editingAll, defaultUnit]);
-
-  const isSave = useCallback(
-    (unit: UnitType, editingUnit?: DeepPartial<UnitType> | null) => {
-      editingUnit = editingUnit ?? editing;
-      if (!editingUnit) return false;
-
-      const temp = merge({}, unit, editingUnit);
-      return !isEqual(unit, temp);
-    },
-    [editing],
-  );
-
-  const handleEdit = useCallback(
-    (unit: UnitType) => {
-      const current = editing && units?.find((v) => v.id === editing.id);
-      if (current && isSave(current)) {
-        setConfirm(() => () => setEditing({ id: unit.id }));
-      } else {
-        setEditing({ id: unit.id });
-      }
-    },
-    [isSave, editing, units],
-  );
-
-  const handleCancel = useCallback(() => {
-    const current = editing && units?.find((v) => v.id === editing.id);
-    if (current && isSave(current)) {
-      setConfirm(() => () => {
-        setEditing(null);
-        setExpanded(null);
-      });
-    } else {
-      setEditing(null);
-      setExpanded(null);
-    }
-  }, [isSave, editing, units]);
-
-  // Helper function to process Configuration updates
-  const processConfigurationUpdates = async (originalUnit: UnitType, editedConfig: any) => {
-    if (!editedConfig || !originalUnit.configuration?.id) return;
-
-    const configUpdateData: any = {};
-    const originalConfig = originalUnit.configuration;
-
-    // Check for configuration label changes
-    if (editedConfig.label !== undefined && editedConfig.label !== originalConfig.label) {
-      configUpdateData.label = editedConfig.label;
-    }
-
-    if (Object.keys(configUpdateData).length > 0) {
-      console.log("Updating configuration with data:", { configId: originalConfig.id, configUpdateData });
-      await updateConfiguration({
-        variables: {
-          where: { id: originalConfig.id },
-          update: configUpdateData,
-        },
-      });
-    }
-  };
-
-  // Helper function to process Setpoint updates
-  const processSetpointUpdates = async (originalUnit: UnitType, editedSetpoint: any) => {
-    if (!editedSetpoint || !originalUnit.configuration?.setpoint?.id) return;
-
-    const setpointUpdateData: any = {};
-    const originalSetpoint = originalUnit.configuration.setpoint;
-
-    // Check for setpoint field changes - using correct field names from schema
-    const setpointFields = ['cooling', 'deadband', 'heating', 'setpoint', 'label'];
-
-    setpointFields.forEach(field => {
-      if (editedSetpoint[field] !== undefined && editedSetpoint[field] !== (originalSetpoint as any)[field]) {
-        setpointUpdateData[field] = editedSetpoint[field];
-      }
-    });
-
-    if (Object.keys(setpointUpdateData).length > 0) {
-      console.log("Updating setpoint with data:", { setpointId: originalSetpoint.id, setpointUpdateData });
-      await updateSetpoint({
-        variables: {
-          where: { id: originalSetpoint.id },
-          update: setpointUpdateData,
-        },
-      });
-    }
-  };
-
-  // Helper function to process Schedule updates
-  const processScheduleUpdates = async (originalUnit: UnitType, editedSchedules: any) => {
-    if (!editedSchedules) return;
-
-    // Process each day's schedule
-    for (const editedSchedule of editedSchedules) {
-      if (!editedSchedule.id) continue;
-
-      const scheduleUpdateData: any = {};
-      const scheduleFields = ['day', 'start', 'end'];
-
-      scheduleFields.forEach(field => {
-        if (editedSchedule[field] !== undefined) {
-          scheduleUpdateData[field] = editedSchedule[field];
-        }
-      });
-
-      if (Object.keys(scheduleUpdateData).length > 0) {
-        console.log("Updating schedule with data:", { scheduleId: editedSchedule.id, scheduleUpdateData });
-        await updateSchedule({
-          variables: {
-            where: { id: editedSchedule.id },
-            update: scheduleUpdateData,
-          },
-        });
-      }
-    }
-  };
-
-  // Helper function to process Holiday CRUD operations
-  const processHolidayUpdates = async (originalUnit: UnitType, editedHolidays: any) => {
-    if (!editedHolidays || !originalUnit.configuration?.id) return;
-
-    const configId = originalUnit.configuration.id;
-    const originalHolidays = originalUnit.configuration.holidays || [];
-
-    for (const editedHoliday of editedHolidays) {
-      if (!editedHoliday) continue;
-
-      // Handle delete operations
-      if (editedHoliday.action === 'delete' && editedHoliday.id) {
-        console.log("Deleting holiday:", { holidayId: editedHoliday.id });
-        await deleteHoliday({
-          variables: {
-            where: { id: editedHoliday.id },
-          },
-        });
-        continue;
-      }
-
-      // Handle create operations
-      if (editedHoliday.action === 'create') {
-        const createData: any = {};
-
-        // Use correct Holiday schema fields: label (required), type (required), day, month, observance, correlation, message, stage
-        const holidayFields = ['label', 'type', 'day', 'month', 'observance', 'correlation', 'message', 'stage'];
-        holidayFields.forEach(field => {
-          if (editedHoliday[field] !== undefined) {
-            createData[field] = editedHoliday[field];
-          }
-        });
-
-        // Ensure required fields are present
-        if (createData.label && createData.type) {
-          console.log("Creating holiday with data:", createData);
-          await createHoliday({
-            variables: {
-              create: createData,
-            },
-          });
-        }
-        continue;
-      }
-
-      // Handle update operations
-      if (editedHoliday.id) {
-        const originalHoliday = originalHolidays.find(h => h?.id === editedHoliday.id);
-        if (!originalHoliday) continue;
-
-        const holidayUpdateData: any = {};
-        // Use correct Holiday schema fields: label, type, day, month, observance, correlation, message, stage
-        const holidayFields = ['label', 'type', 'day', 'month', 'observance', 'correlation', 'message', 'stage'];
-
-        holidayFields.forEach(field => {
-          if (editedHoliday[field] !== undefined && editedHoliday[field] !== (originalHoliday as any)[field]) {
-            holidayUpdateData[field] = editedHoliday[field];
-          }
-        });
-
-        if (Object.keys(holidayUpdateData).length > 0) {
-          console.log("Updating holiday with data:", { holidayId: editedHoliday.id, holidayUpdateData });
-          await updateHoliday({
-            variables: {
-              where: { id: editedHoliday.id },
-              update: holidayUpdateData,
-            },
-          });
-        }
-      }
-    }
-  };
-
-  // Helper function to process Occupancy CRUD operations
-  const processOccupancyUpdates = async (originalUnit: UnitType, editedOccupancies: any) => {
-    if (!editedOccupancies || !originalUnit.configuration?.id) return;
-
-    const configId = originalUnit.configuration.id;
-    const originalOccupancies = originalUnit.configuration.occupancies || [];
-
-    for (const editedOccupancy of editedOccupancies) {
-      if (!editedOccupancy) continue;
-
-      // Handle delete operations
-      if (editedOccupancy.action === 'delete' && editedOccupancy.id) {
-        console.log("Deleting occupancy:", { occupancyId: editedOccupancy.id });
-        await deleteOccupancy({
-          variables: {
-            where: { id: editedOccupancy.id },
-          },
-        });
-        continue;
-      }
-
-      // Handle create operations
-      if (editedOccupancy.action === 'create') {
-        const createData: any = {
-          configurationId: configId,
-        };
-
-        const occupancyFields = ['start', 'end', 'enabled'];
-        occupancyFields.forEach(field => {
-          if (editedOccupancy[field] !== undefined) {
-            createData[field] = editedOccupancy[field];
-          }
-        });
-
-        if (Object.keys(createData).length > 1) { // More than just configurationId
-          console.log("Creating occupancy with data:", createData);
-          await createOccupancy({
-            variables: {
-              create: createData,
-            },
-          });
-        }
-        continue;
-      }
-
-      // Handle update operations
-      if (editedOccupancy.id) {
-        const originalOccupancy = originalOccupancies.find(o => o?.id === editedOccupancy.id);
-        if (!originalOccupancy) continue;
-
-        const occupancyUpdateData: any = {};
-        const occupancyFields = ['start', 'end', 'enabled'];
-
-        occupancyFields.forEach(field => {
-          if (editedOccupancy[field] !== undefined && editedOccupancy[field] !== (originalOccupancy as any)[field]) {
-            occupancyUpdateData[field] = editedOccupancy[field];
-          }
-        });
-
-        if (Object.keys(occupancyUpdateData).length > 0) {
-          console.log("Updating occupancy with data:", { occupancyId: editedOccupancy.id, occupancyUpdateData });
-          await updateOccupancy({
-            variables: {
-              where: { id: editedOccupancy.id },
-              update: occupancyUpdateData,
-            },
-          });
-        }
-      }
-    }
-  };
-
-  const handleSave = useCallback(async () => {
-    if (editing && editing.id) {
-      const originalUnit = units?.find((u) => u.id === editing.id);
-      if (!originalUnit) return;
-
+  const handleUpdateUnit = useCallback(
+    (updated: DeepPartial<UnitModel>) => {
+      setSaving([...saving, `updateUnit(${updated.id})`]);
       try {
-        // Process nested model updates first
-        if (editing.configuration) {
-          await processConfigurationUpdates(originalUnit, editing.configuration);
-          
-          if (editing.configuration.setpoint) {
-            await processSetpointUpdates(originalUnit, editing.configuration.setpoint);
-          }
-          
-          
-          if (editing.configuration.holidays) {
-            await processHolidayUpdates(originalUnit, editing.configuration.holidays);
-          }
-          
-          if (editing.configuration.occupancies) {
-            await processOccupancyUpdates(originalUnit, editing.configuration.occupancies);
-          }
-        }
-
-        // Now process Unit scalar fields and ID references
-        const updateData: any = {};
-        const validScalarFields = [
-          'stage', 'message', 'correlation', 'name', 'campus', 'building', 'system', 
-          'timezone', 'label', 'coolingCapacity', 'compressors', 'coolingLockout', 
-          'optimalStartLockout', 'optimalStartDeviation', 'earliestStart', 'latestStart', 
-          'zoneLocation', 'zoneMass', 'zoneOrientation', 'zoneBuilding', 'heatPump', 
-          'heatPumpBackup', 'economizer', 'heatPumpLockout', 'coolingPeakOffset', 
-          'heatingPeakOffset', 'peakLoadExclude', 'economizerSetpoint'
-        ];
-
-        // Process each field in editing
-        Object.keys(editing).forEach((key) => {
-          if (key === "id" || key === "configuration") return; // Skip ID and configuration (already processed)
-
-          const editedValue = get(editing, key);
-          const originalValue = get(originalUnit, key);
-
-          // Only process if value has changed
-          if (!isEqual(editedValue, originalValue)) {
-            // Handle nested objects by extracting ID references
-            if (key === "location" && editedValue && typeof editedValue === "object") {
-              if (editedValue.id && editedValue.id !== originalUnit.locationId) {
-                updateData.locationId = editedValue.id;
-              }
-            } else if (key === "control" && editedValue && typeof editedValue === "object") {
-              if (editedValue.id && editedValue.id !== originalUnit.controlId) {
-                updateData.controlId = editedValue.id;
-              }
-            } else if (validScalarFields.includes(key)) {
-              // Only include valid scalar fields
-              updateData[key] = editedValue;
-            }
-          }
-        });
-
-        // Also check for direct ID field changes
-        if (editing.locationId && editing.locationId !== originalUnit.locationId) {
-          updateData.locationId = editing.locationId;
-        }
-        if (editing.configurationId && editing.configurationId !== originalUnit.configurationId) {
-          updateData.configurationId = editing.configurationId;
-        }
-        if (editing.controlId && editing.controlId !== originalUnit.controlId) {
-          updateData.controlId = editing.controlId;
-        }
-
-        // Update Unit if there are changes
-        if (Object.keys(updateData).length > 0) {
-          console.log("Updating unit with data:", { unitId: editing.id, updateData });
-          await updateUnit({
-            variables: {
-              where: { id: editing.id },
-              update: updateData,
-            },
-          });
-        }
-
-        createNotification?.("Unit and configuration saved successfully", NotificationType.Notification);
-      } catch (error) {
-        console.error("Failed to save unit:", error);
-        createNotification?.("Failed to save unit changes", NotificationType.Error);
-      }
-
-      setEditing(null);
-      setExpanded(null);
-    }
-  }, [editing, units, updateUnit, updateConfiguration, updateSetpoint, updateSchedule, 
-      createHoliday, updateHoliday, deleteHoliday, createOccupancy, updateOccupancy, 
-      deleteOccupancy, createNotification]);
-
-  const handlePush = useCallback(
-    async (unit: UnitType) => {
-      if (unit.id) {
-        await updateUnit({
+        updateUnit({
           variables: {
-            where: { id: unit.id },
-            update: { stage: ModelStage.Update },
+            update: {
+              stage: ModelStage.Update,
+              ...(updated ? omit(updated, ["id", "location", "configuration"]) : {}),
+              ...(updated.configuration
+                ? {
+                    configuration: {
+                      update: {
+                        ...omit(updated.configuration, [
+                          "id",
+                          "setpoint",
+                          "holidays",
+                          "occupancies",
+                          "mondaySchedule",
+                          "tuesdaySchedule",
+                          "wednesdaySchedule",
+                          "thursdaySchedule",
+                          "fridaySchedule",
+                          "saturdaySchedule",
+                          "sundaySchedule",
+                          "holidaySchedule",
+                        ]),
+                        ...(updated.configuration.setpoint
+                          ? { setpoint: { update: omit(updated.configuration.setpoint, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.mondaySchedule
+                          ? { mondaySchedule: { update: omit(updated.configuration.mondaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.tuesdaySchedule
+                          ? { tuesdaySchedule: { update: omit(updated.configuration.tuesdaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.wednesdaySchedule
+                          ? { wednesdaySchedule: { update: omit(updated.configuration.wednesdaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.thursdaySchedule
+                          ? { thursdaySchedule: { update: omit(updated.configuration.thursdaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.fridaySchedule
+                          ? { fridaySchedule: { update: omit(updated.configuration.fridaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.saturdaySchedule
+                          ? { saturdaySchedule: { update: omit(updated.configuration.saturdaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.sundaySchedule
+                          ? { sundaySchedule: { update: omit(updated.configuration.sundaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.holidaySchedule
+                          ? { holidaySchedule: { update: omit(updated.configuration.holidaySchedule, ["id"]) } }
+                          : {}),
+                      },
+                    },
+                  }
+                : {}),
+            },
+            where: { id: updated.id },
           },
         });
+      } catch (error) {
+        setSaving(saving.filter((v) => v !== `updateUnit(${updated.id})` && v !== "updateUnit"));
+        createNotification?.((error as Error).message, NotificationType.Error);
       }
-    },
-    [updateUnit],
-  );
-
-  const handleClearAll = useCallback(() => {
-    setEditingAll({});
-    setExpanded(null);
-  }, []);
-
-  const handleSaveAll = useCallback(async () => {
-    if (!editingAll || !units) return;
-
-    try {
-      let updatedCount = 0;
-      const validScalarFields = [
-        'stage', 'message', 'correlation', 'name', 'campus', 'building', 'system', 
-        'timezone', 'label', 'coolingCapacity', 'compressors', 'coolingLockout', 
-        'optimalStartLockout', 'optimalStartDeviation', 'earliestStart', 'latestStart', 
-        'zoneLocation', 'zoneMass', 'zoneOrientation', 'zoneBuilding', 'heatPump', 
-        'heatPumpBackup', 'economizer', 'heatPumpLockout', 'coolingPeakOffset', 
-        'heatingPeakOffset', 'peakLoadExclude', 'economizerSetpoint'
-      ];
-
-      // Apply changes to all units
-      for (const unit of units) {
-        if (!unit.id) continue;
-
-        const updateData: any = {};
-
-        // Process each field in editingAll
-        Object.keys(editingAll).forEach((key) => {
-          if (key === "id") return; // Skip ID field
-
-          const editedValue = get(editingAll, key);
-          if (editedValue === null || editedValue === undefined) return; // Skip null/undefined values
-
-          // Handle nested objects by extracting ID references
-          if (key === "location" && editedValue && typeof editedValue === "object") {
-            if (editedValue.id && editedValue.id !== unit.locationId) {
-              updateData.locationId = editedValue.id;
-            }
-          } else if (key === "configuration" && editedValue && typeof editedValue === "object") {
-            if (editedValue.id && editedValue.id !== unit.configurationId) {
-              updateData.configurationId = editedValue.id;
-            }
-          } else if (key === "control" && editedValue && typeof editedValue === "object") {
-            if (editedValue.id && editedValue.id !== unit.controlId) {
-              updateData.controlId = editedValue.id;
-            }
-          } else if (validScalarFields.includes(key)) {
-            // Only include valid scalar fields that are different from current value
-            const currentValue = get(unit, key);
-            if (!isEqual(editedValue, currentValue)) {
-              updateData[key] = editedValue;
-            }
+      const location = updated?.location;
+      if (location) {
+        if (location.id) {
+          setSaving([...saving, `deleteLocation(${location.id})`]);
+          try {
+            deleteLocation({
+              variables: { where: { id: location.id } },
+            });
+          } catch (error) {
+            setSaving(saving.filter((v) => v !== `deleteLocation(${location.id})` && v !== "deleteLocation"));
+            createNotification?.((error as Error).message, NotificationType.Error);
           }
-        });
-
-        // Also check for direct ID field changes
-        if (editingAll.locationId && editingAll.locationId !== unit.locationId) {
-          updateData.locationId = editingAll.locationId;
         }
-        if (editingAll.configurationId && editingAll.configurationId !== unit.configurationId) {
-          updateData.configurationId = editingAll.configurationId;
-        }
-        if (editingAll.controlId && editingAll.controlId !== unit.controlId) {
-          updateData.controlId = editingAll.controlId;
-        }
-
-        // Only update if there are changes
-        if (Object.keys(updateData).length > 0) {
-          console.log("Bulk updating unit with data:", { unitId: unit.id, updateData });
-          await updateUnit({
+        setSaving([...saving, `createLocation(${updated.id})`]);
+        try {
+          createLocation({
             variables: {
-              where: { id: unit.id },
-              update: updateData,
+              create: {
+                name: location.name ?? "",
+                latitude: location.latitude ?? 0,
+                longitude: location.longitude ?? 0,
+                units: { id: updated.id ?? "" },
+              },
             },
           });
-          updatedCount++;
+        } catch (error) {
+          setSaving(saving.filter((v) => v !== `createLocation(${updated.id})` && v !== "createLocation"));
+          createNotification?.((error as Error).message, NotificationType.Error);
         }
       }
-
-      if (updatedCount > 0) {
-        createNotification?.(`Successfully updated ${updatedCount} unit${updatedCount > 1 ? 's' : ''}`, NotificationType.Notification);
-      } else {
-        createNotification?.("No changes to save", NotificationType.Notification);
-      }
-      handleClearAll();
-    } catch (error) {
-      console.error("Failed to update units:", error);
-      createNotification?.("Failed to update units", NotificationType.Error);
-    }
-  }, [editingAll, units, updateUnit, createNotification, handleClearAll]);
-
-  const isPush = useCallback(
-    (unit: UnitType) => {
-      switch (unit.stage?.toLowerCase()) {
-        case "update":
-        case "delete":
-        case "process":
-          return false;
-        case "create":
-        case "complete":
-        case "fail":
-        default:
-          return !isSave(unit);
-      }
+      updated.configuration?.holidays?.filter(typeofNonNullable).forEach((holiday) => {
+        const action = typeofObject<HolidayCreateDelete>(holiday, (v) => v.action) ? holiday.action : "update";
+        switch (action) {
+          case "create":
+            setSaving([...saving, `createHoliday`]);
+            try {
+              createHoliday({
+                variables: {
+                  create: {
+                    label: holiday.label ?? "",
+                    type: HolidayEnum.Custom,
+                    day: holiday.day ?? 0,
+                    month: holiday.month ?? 0,
+                    observance: holiday.observance ?? null,
+                    configurations: { id: updated.configuration?.id ?? "" },
+                  },
+                },
+              });
+            } catch (error) {
+              setSaving(saving.filter((v) => v !== "createHoliday"));
+              createNotification?.((error as Error).message, NotificationType.Error);
+            }
+            break;
+          case "update":
+            setSaving([...saving, `updateHoliday(${holiday.id})`]);
+            try {
+              updateHoliday({
+                variables: { update: omit(holiday, ["action"]), where: { id: holiday.id } },
+              });
+            } catch (error) {
+              setSaving(saving.filter((v) => v !== `updateHoliday(${holiday.id})` && v !== "updateHoliday"));
+              createNotification?.((error as Error).message, NotificationType.Error);
+            }
+            break;
+          case "delete":
+            setSaving([...saving, `deleteHoliday(${holiday.id})`]);
+            try {
+              deleteHoliday({
+                variables: { where: { id: holiday.id ?? "" } },
+              });
+            } catch (error) {
+              setSaving(saving.filter((v) => v !== `deleteHoliday(${holiday.id})` && v !== "deleteHoliday"));
+              createNotification?.((error as Error).message, NotificationType.Error);
+            }
+            break;
+          default:
+            createNotification?.(`Unknown holiday action: ${action}`, NotificationType.Error);
+        }
+      });
+      updated.configuration?.occupancies?.filter(typeofNonNullable).forEach((occupancy) => {
+        const action = typeofObject<OccupancyCreateDelete>(occupancy, (v) => v.action) ? occupancy.action : "update";
+        switch (action) {
+          case "create":
+            setSaving([...saving, `createOccupancy(${occupancy.id})`]);
+            try {
+              createOccupancy({
+                variables: {
+                  create: {
+                    label: occupancy.label ?? "",
+                    date: occupancy.date ?? new Date().toISOString(),
+                    schedule: {
+                      create: {
+                        label: occupancy.schedule?.label ?? "",
+                        endTime: occupancy.schedule?.endTime ?? "00:00",
+                        startTime: occupancy.schedule?.startTime ?? "00:00",
+                        occupied: occupancy.schedule?.occupied ?? false,
+                      },
+                    },
+                  },
+                },
+              });
+            } catch (error) {
+              setSaving(saving.filter((v) => v !== `createOccupancy(${occupancy.id})` && v !== "createOccupancy"));
+              createNotification?.((error as Error).message, NotificationType.Error);
+            }
+            break;
+          case "update":
+            setSaving([...saving, `updateOccupancy(${occupancy.id})`]);
+            try {
+              updateOccupancy({
+                variables: {
+                  update: { ...omit(occupancy, ["action", "schedule"]), schedule: { update: occupancy.schedule } },
+                  where: { id: occupancy.id },
+                },
+              });
+            } catch (error) {
+              setSaving(saving.filter((v) => v !== `updateOccupancy(${occupancy.id})` && v !== "updateOccupancy"));
+              createNotification?.((error as Error).message, NotificationType.Error);
+            }
+            break;
+          case "delete":
+            setSaving([...saving, `deleteOccupancy(${occupancy.id})`]);
+            try {
+              deleteOccupancy({
+                variables: { where: { id: occupancy.id ?? "" } },
+              });
+            } catch (error) {
+              setSaving(saving.filter((v) => v !== `deleteOccupancy(${occupancy.id})` && v !== "deleteOccupancy"));
+              createNotification?.((error as Error).message, NotificationType.Error);
+            }
+            break;
+          default:
+            createNotification?.(`Unknown occupancy action: ${action}`, NotificationType.Error);
+        }
+      });
     },
-    [isSave],
+    [
+      updateUnit,
+      createNotification,
+      saving,
+      createHoliday,
+      updateHoliday,
+      deleteHoliday,
+      createOccupancy,
+      updateOccupancy,
+      deleteOccupancy,
+    ],
   );
+
+  const handleSave = useCallback(() => {
+    if (editing?.id) {
+      handleUpdateUnit(editing);
+    }
+  }, [editing, handleUpdateUnit]);
+
+  const handleSaveAll = useCallback(() => {
+    if (editingAll) {
+      units.forEach((unit) => {
+        handleUpdateUnit(unit);
+      });
+    }
+  }, [editingAll, units, handleUpdateUnit]);
 
   const renderStatus = useCallback(
-    (unit: UnitType) => {
+    (unit: UnitModel) => {
       let icon = IconNames.ISSUE;
       let intent: Intent = Intent.WARNING;
       let message = "Push Unit Configuration";
+      let isPush = false;
 
       switch (unit.stage?.toLowerCase()) {
         case "update":
@@ -737,6 +518,7 @@ export default function Page() {
           icon = IconNames.ISSUE;
           intent = Intent.WARNING;
           message = "Push Unit Configuration";
+          isPush = !editing;
           break;
         case "delete":
           icon = IconNames.DELETE;
@@ -747,11 +529,13 @@ export default function Page() {
           icon = IconNames.CONFIRM;
           intent = Intent.SUCCESS;
           message = "Configuration Complete";
+          isPush = !editing;
           break;
         case "fail":
           icon = IconNames.ERROR;
           intent = Intent.DANGER;
           message = "Configuration Failed";
+          isPush = !editing;
           break;
         default:
           icon = IconNames.ISSUE;
@@ -759,13 +543,18 @@ export default function Page() {
           message = "Push Unit Configuration";
       }
 
+      const handlePush = () => {
+        setSaving([...saving, `updateUnit(${unit.id})`]);
+        updateUnit({ variables: { update: { stage: ModelStage.Update }, where: { id: unit.id } } });
+      };
+
       return (
-        <Tooltip content={message} position={Position.TOP} disabled={!isPush(unit)}>
-          <Button icon={icon} intent={intent} minimal onClick={() => handlePush(unit)} disabled={!isPush(unit)} />
+        <Tooltip content={message} position={Position.TOP}>
+          <Button icon={icon} intent={intent} minimal onClick={handlePush} disabled={!isPush || saving.length > 0} />
         </Tooltip>
       );
     },
-    [isPush, handlePush],
+    [updateUnit, editing, saving],
   );
 
   const renderConfirm = () => {
@@ -813,13 +602,26 @@ export default function Page() {
                 </Label>
               </div>
               <div className={styles.actions}>
-                {isSaveAll() ? (
+                {editingAll ? (
                   <>
                     <Tooltip content="Save All" position={Position.TOP}>
-                      <Button icon={IconNames.FLOPPY_DISK} intent={Intent.PRIMARY} minimal onClick={handleSaveAll} />
+                      <Button
+                        icon={saving.length > 0 ? IconNames.REFRESH : IconNames.FLOPPY_DISK}
+                        intent={Intent.PRIMARY}
+                        minimal
+                        onClick={handleSaveAll}
+                        disabled={saving.length > 0}
+                        loading={saving.length > 0}
+                      />
                     </Tooltip>
                     <Tooltip content="Clear All" position={Position.TOP}>
-                      <Button icon={IconNames.CROSS} intent={Intent.PRIMARY} minimal onClick={handleClearAll} />
+                      <Button
+                        icon={IconNames.CROSS}
+                        intent={Intent.PRIMARY}
+                        minimal
+                        onClick={() => setEditingAll(null)}
+                        disabled={saving.length > 0}
+                      />
                     </Tooltip>
                   </>
                 ) : null}
@@ -846,7 +648,7 @@ export default function Page() {
                   <Holidays
                     unit={defaultUnit}
                     editing={editingAll}
-                    handleChange={handleChange}
+                    setEditing={setEditingAll}
                     readOnly={false}
                     bulkUpdate={true}
                   />
@@ -869,7 +671,7 @@ export default function Page() {
               />
               <Collapse isOpen={expanded === "rtu-all"}>
                 <div className={styles.configSection}>
-                  <Unit unit={defaultUnit} editing={editingAll} handleChange={handleChange} />
+                  <Unit unit={defaultUnit} editing={editingAll} setEditing={setEditing} />
                 </div>
               </Collapse>
             </Collapse>
@@ -880,9 +682,10 @@ export default function Page() {
       <h1>Units</h1>
 
       <div className={styles.list}>
-        {units?.map((unit, i) => {
-          const isEditing = unit.id === editing?.id;
-          const currentUnit = (isEditing ? units.find((u) => u.id === editing?.id) : unit) || null;
+        {units?.map((v, i) => {
+          const isEditing = v.id === editing?.id;
+          const unit = isEditing ? merge({}, v, editing) : v;
+          const { id, campus, building, system, timezone, configuration } = unit;
 
           return (
             <Card key={unit.id ?? i} className={styles.unitCard}>
@@ -896,17 +699,28 @@ export default function Page() {
                   {renderStatus(unit)}
                   {isEditing ? (
                     <>
-                      <Tooltip content="Save" position={Position.TOP} disabled={!isSave(unit)}>
+                      <Tooltip
+                        content={saving.length > 0 ? "Saving..." : "Save"}
+                        position={Position.TOP}
+                        disabled={!editing || saving.length > 0}
+                      >
                         <Button
-                          icon={IconNames.FLOPPY_DISK}
+                          icon={saving.length > 0 ? IconNames.REFRESH : IconNames.FLOPPY_DISK}
                           intent={Intent.PRIMARY}
                           minimal
                           onClick={handleSave}
-                          disabled={!isSave(unit)}
+                          disabled={!editing || saving.length > 0}
+                          loading={saving.length > 0}
                         />
                       </Tooltip>
                       <Tooltip content="Cancel" position={Position.TOP}>
-                        <Button icon={IconNames.CROSS} intent={Intent.PRIMARY} minimal onClick={handleCancel} />
+                        <Button
+                          icon={IconNames.CROSS}
+                          intent={Intent.PRIMARY}
+                          minimal
+                          onClick={() => setEditing(null)}
+                          disabled={saving.length > 0}
+                        />
                       </Tooltip>
                     </>
                   ) : (
@@ -916,7 +730,7 @@ export default function Page() {
                           icon={IconNames.EDIT}
                           intent={Intent.PRIMARY}
                           minimal
-                          onClick={() => handleEdit(unit)}
+                          onClick={() => setEditing({ id: unit.id })}
                         />
                       </Tooltip>
                     </>
@@ -932,8 +746,12 @@ export default function Page() {
                         <b>Campus</b>
                         <InputGroup
                           type="text"
-                          value={getValue("campus", editing, currentUnit || undefined) || ""}
-                          onChange={(e) => handleChange("campus", editing)(e.target.value)}
+                          value={campus ?? ""}
+                          onChange={(e) => {
+                            const clone = cloneDeep(editing ?? {});
+                            clone.campus = e.target.value;
+                            setEditing(clone);
+                          }}
                           readOnly
                         />
                       </Label>
@@ -943,8 +761,12 @@ export default function Page() {
                         <b>Building</b>
                         <InputGroup
                           type="text"
-                          value={getValue("building", editing, currentUnit || undefined) || ""}
-                          onChange={(e) => handleChange("building", editing)(e.target.value)}
+                          value={building ?? ""}
+                          onChange={(e) => {
+                            const clone = cloneDeep(editing ?? {});
+                            clone.building = e.target.value;
+                            setEditing(clone);
+                          }}
                           readOnly
                         />
                       </Label>
@@ -954,8 +776,12 @@ export default function Page() {
                         <b>System</b>
                         <InputGroup
                           type="text"
-                          value={getValue("system", editing, currentUnit || undefined) || ""}
-                          onChange={(e) => handleChange("system", editing)(e.target.value)}
+                          value={system ?? ""}
+                          onChange={(e) => {
+                            const clone = cloneDeep(editing ?? {});
+                            clone.system = e.target.value;
+                            setEditing(clone);
+                          }}
                           readOnly
                         />
                       </Label>
@@ -965,8 +791,12 @@ export default function Page() {
                         <b>Timezone</b>
                         <InputGroup
                           type="text"
-                          value={getValue("timezone", editing, currentUnit || undefined) || ""}
-                          onChange={(e) => handleChange("timezone", editing)(e.target.value)}
+                          value={timezone ?? ""}
+                          onChange={(e) => {
+                            const clone = cloneDeep(editing ?? {});
+                            clone.timezone = e.target.value;
+                            setEditing(clone);
+                          }}
                           readOnly
                         />
                       </Label>
@@ -994,8 +824,13 @@ export default function Page() {
                           <b>Configuration Label</b>
                           <InputGroup
                             type="text"
-                            value={getValue("configuration.label", editing, currentUnit || undefined) || ""}
-                            onChange={(e) => handleChange("configuration.label", editing)(e.target.value)}
+                            value={configuration?.label ?? ""}
+                            onChange={(e) => {
+                              const clone = cloneDeep(editing ?? {});
+                              clone.configuration = clone.configuration ?? {};
+                              clone.configuration.label = e.target.value;
+                              setEditing(clone);
+                            }}
                           />
                         </Label>
                       </div>
@@ -1017,7 +852,7 @@ export default function Page() {
                     />
                     <Collapse isOpen={expanded === "setpoints"}>
                       <div className={styles.configSection}>
-                        <Setpoints unit={currentUnit} editing={editing} handleChange={handleChange} />
+                        <Setpoint unit={unit} editing={editing} setEditing={setEditing} />
                       </div>
                     </Collapse>
 
@@ -1037,7 +872,7 @@ export default function Page() {
                     />
                     <Collapse isOpen={expanded === "schedules"}>
                       <div className={styles.configSection}>
-                        <Schedules unit={currentUnit} editing={editing} handleChange={handleChange} />
+                        <Schedules unit={unit} editing={editing} setEditing={setEditing} />
                       </div>
                     </Collapse>
 
@@ -1057,7 +892,7 @@ export default function Page() {
                     />
                     <Collapse isOpen={expanded === "holidays"}>
                       <div className={styles.configSection}>
-                        <Holidays unit={currentUnit} editing={editing} handleChange={handleChange} />
+                        <Holidays unit={unit} editing={editing} setEditing={setEditing} />
                       </div>
                     </Collapse>
 
@@ -1077,7 +912,7 @@ export default function Page() {
                     />
                     <Collapse isOpen={expanded === "occupancies"}>
                       <div className={styles.configSection}>
-                        <Occupancies unit={currentUnit} editing={editing} handleChange={handleChange} />
+                        <Occupancies unit={unit} editing={editing} setEditing={setEditing} />
                       </div>
                     </Collapse>
 
@@ -1097,7 +932,7 @@ export default function Page() {
                     />
                     <Collapse isOpen={expanded === "rtu"}>
                       <div className={styles.configSection}>
-                        <Unit unit={currentUnit} editing={editing} handleChange={handleChange} />
+                        <Unit unit={unit} editing={editing} setEditing={setEditing} />
                       </div>
                     </Collapse>
                   </Collapse>

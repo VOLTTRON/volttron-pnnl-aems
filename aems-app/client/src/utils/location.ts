@@ -1,13 +1,8 @@
 // Location management utilities
 
-export interface ILocation {
-  id?: number;
-  name?: string;
-  latitude?: number;
-  longitude?: number;
-  createdAt?: string;
-  updatedAt?: string;
-}
+import { ReadUnitQuery } from "@/graphql-codegen/graphql";
+
+export type ILocation = NonNullable<NonNullable<ReadUnitQuery["readUnit"]>["location"]>;
 
 export interface LocationSearchInfo {
   autoComplete?: boolean;
@@ -40,6 +35,6 @@ export const createLocationFromSearchResult = (result: LocationSearchResult): IL
   return {
     name: result.display_name || result.name,
     latitude: parseFloat(result.lat),
-    longitude: parseFloat(result.lon)
+    longitude: parseFloat(result.lon),
   };
 };

@@ -1,33 +1,29 @@
-import { 
-  Alert,
-  Button,
-  InputGroup,
-  Intent,
-  Label,
-  Menu,
-  MenuItem,
-  Popover
-} from "@blueprintjs/core";
+import { Button, InputGroup, Intent, Label, Menu, MenuItem, Popover } from "@blueprintjs/core";
 import { DatePicker3 } from "@blueprintjs/datetime2";
 import { IconNames } from "@blueprintjs/icons";
-import { useCallback, useState } from "react";
-import { get, isEmpty, merge } from "lodash";
-import { Holiday } from "./Holiday";
-import { HolidayType, ObservanceType, DeepPartial } from "@local/common";
-import { Unit, Holiday as HolidayGraphQL } from "@/graphql-codegen/graphql";
+import { useState } from "react";
+import { cloneDeep, isEmpty, merge } from "lodash";
+import { Holiday, HolidayCreateDelete } from "./Holiday";
+import {
+  HolidayType as HolidayList,
+  ObservanceType,
+  DeepPartial,
+  typeofNonNullable,
+  typeofObject,
+} from "@local/common";
+import { HolidayType, ReadUnitQuery } from "@/graphql-codegen/graphql";
 
-type UnitType = Unit;
-type HolidayWithIndex = HolidayGraphQL & { index: number; action?: string };
+type UnitType = NonNullable<ReadUnitQuery["readUnit"]>;
 
 interface HolidaysProps {
-  unit: DeepPartial<UnitType> | UnitType | null;
+  unit: UnitType | null;
   editing: DeepPartial<UnitType> | null;
-  handleChange: (field: string, editingUnit?: DeepPartial<UnitType> | null) => (value: string | number | boolean | object | null | undefined) => void;
+  setEditing: (editing: DeepPartial<UnitType> | null) => void;
   readOnly?: boolean;
   bulkUpdate?: boolean;
 }
 
-const holidayOrder = HolidayType.values.map((a) => a.label);
+const holidayOrder = HolidayList.values.map((a) => a.label);
 
 const minDate = new Date("2024-01-01");
 minDate.setFullYear(2024, 0, 1);
@@ -44,13 +40,11 @@ const dateFactory = () => {
 function CreateHoliday({
   unit,
   editing,
-  handleChange,
-  holidays,
+  setEditing,
 }: {
-  unit: DeepPartial<UnitType> | UnitType | null;
+  unit: UnitType | null;
   editing: DeepPartial<UnitType> | null;
-  handleChange: (field: string, unit?: DeepPartial<UnitType> | null) => (value: string | number | boolean | object | null | undefined) => void;
-  holidays: HolidayWithIndex[];
+  setEditing: (editing: DeepPartial<UnitType> | null) => void;
 }) {
   const [label, setLabel] = useState("");
   const [date, setDate] = useState(dateFactory());
@@ -58,11 +52,19 @@ function CreateHoliday({
   const [open, setOpen] = useState(false);
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '1rem', alignItems: 'end', marginBottom: '1rem' }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "2fr 1fr 1fr auto",
+        gap: "1rem",
+        alignItems: "end",
+        marginBottom: "1rem",
+      }}
+    >
       <div>
         <Label>
           <b>Holiday Label</b>
@@ -121,26 +123,24 @@ function CreateHoliday({
           icon={IconNames.NEW_LAYER}
           intent={Intent.PRIMARY}
           minimal
-          disabled={isEmpty(label) || holidays.find((v) => v.label === label) !== undefined}
+          disabled={isEmpty(label)}
           onClick={() => {
-            const i = Math.max(
-              get(unit, "configuration.holidays.length", 0),
-              get(editing, "configuration.holidays.length", 0)
-            );
             const now = new Date().toISOString();
-            handleChange(
-              `configuration.holidays.${i}`,
-              editing
-            )({
-              type: "Custom",
+            const clone = cloneDeep(editing ?? {});
+            clone.configuration = clone.configuration ?? {};
+            clone.configuration.holidays = clone.configuration.holidays ?? [];
+            clone.configuration.holidays.push({
+              id: `${now}`,
+              type: HolidayType.Custom,
               label,
               month: date.getMonth() + 1,
               day: date.getDate(),
               observance,
-              configurationId: unit?.configuration?.id,
+              configurationId: unit?.configuration?.id ?? unit?.configurationId,
               createdAt: now,
               action: "create",
-            });
+            } as HolidayCreateDelete);
+            setEditing(clone);
             setLabel("");
             setDate(dateFactory());
             setObservance("");
@@ -153,39 +153,36 @@ function CreateHoliday({
   );
 }
 
-export function Holidays({ unit, editing, handleChange, readOnly = false, bulkUpdate = false }: HolidaysProps) {
-  const [deleting, setDeleting] = useState<HolidayWithIndex | undefined>(undefined);
+export function Holidays({ unit, editing, setEditing, readOnly = false, bulkUpdate = false }: HolidaysProps) {
+  const editingHolidays = (editing?.configuration?.holidays ?? [])
+    .filter(typeofNonNullable)
+    .reduce((a, h) => ({ ...a, [h?.id ?? ""]: h }), {} as Record<string, HolidayCreateDelete>);
+  const holidays = (unit?.configuration?.holidays ?? [])
+    .filter(typeofNonNullable)
+    .map((h) => merge({}, h, h.id ? editingHolidays[h.id] : undefined)) as HolidayCreateDelete[];
+  Object.values(editingHolidays)
+    .filter((h) => typeofObject<HolidayCreateDelete>(h, (h) => h.action === "create"))
+    .forEach((h) => holidays.push(h));
 
-  const holidays = merge([], unit?.configuration?.holidays, get(editing, "configuration.holidays")) as HolidayWithIndex[];
-  holidays.forEach((h, i) => (h.index = i));
-
-  const handleDelete = useCallback((holiday: HolidayWithIndex) => {
-    setDeleting(holiday);
-  }, []);
-
-  const confirmDelete = useCallback(() => {
-    if (deleting?.id) {
-      // For holidays with IDs, we need to mark them for deletion
-      const path = `configuration.holidays.${deleting.index}`;
-      handleChange(path, editing)({ id: deleting.id, action: "delete" });
-    }
-    setDeleting(undefined);
-  }, [deleting, handleChange, editing]);
+  console.log({ holidays });
 
   return (
-    <div style={{ padding: '1rem' }}>
+    <div style={{ padding: "1rem" }}>
       {!bulkUpdate && (
         <>
           <Label>
             <h3>Create Holiday</h3>
-            <CreateHoliday unit={unit} editing={editing} handleChange={handleChange} holidays={holidays} />
+            <CreateHoliday unit={unit} editing={editing} setEditing={setEditing} />
           </Label>
-          
+
           <Label>
             <h3>Custom Holidays</h3>
-            <ul style={{ listStyle: 'none', padding: 0 }}>
+            <ul style={{ listStyle: "none", padding: 0 }}>
               {isEmpty(holidays.filter((a) => a.type === "Custom" && a.action !== "delete")) ? (
-                <li key={"empty"} style={{ padding: '1rem', textAlign: 'center', color: 'var(--bp5-text-color-muted)' }}>
+                <li
+                  key={"empty"}
+                  style={{ padding: "1rem", textAlign: "center", color: "var(--bp5-text-color-muted)" }}
+                >
                   No Custom Holidays Defined
                 </li>
               ) : (
@@ -197,14 +194,13 @@ export function Holidays({ unit, editing, handleChange, readOnly = false, bulkUp
                     return bDate - aDate;
                   })
                   .map((holiday, i) => (
-                    <li key={holiday.index} style={{ marginBottom: '0.5rem' }}>
+                    <li key={holiday.id ?? i} style={{ marginBottom: "0.5rem" }}>
                       <Holiday
-                        key={holiday.index}
-                        path={`configuration.holidays.${holiday.index}`}
+                        key={holiday.id ?? i}
+                        id={holiday.id ?? ""}
                         unit={unit}
                         editing={editing}
-                        holiday={holiday}
-                        handleChange={handleChange}
+                        setEditing={setEditing}
                         readOnly={readOnly}
                       />
                     </li>
@@ -214,39 +210,27 @@ export function Holidays({ unit, editing, handleChange, readOnly = false, bulkUp
           </Label>
         </>
       )}
-      
+
       <Label>
         <h3>Predefined Holidays</h3>
-        <ul style={{ listStyle: 'none', padding: 0 }}>
+        <ul style={{ listStyle: "none", padding: 0 }}>
           {holidays
             .filter((a) => a.type !== "Custom")
             .sort((a, b) => holidayOrder.indexOf(a.label || "") - holidayOrder.indexOf(b.label || ""))
-            .map((holiday, i) => (
-              <li key={holiday.index} style={{ marginBottom: '0.5rem' }}>
+            .map((holiday) => (
+              <li key={holiday.id} style={{ marginBottom: "0.5rem" }}>
                 <Holiday
-                  key={holiday.index}
-                  path={`configuration.holidays.${holiday.index}`}
+                  key={holiday.id}
+                  id={holiday.id ?? ""}
                   unit={unit}
                   editing={editing}
-                  holiday={holiday}
-                  handleChange={handleChange}
+                  setEditing={setEditing}
                   readOnly={readOnly}
                 />
               </li>
             ))}
         </ul>
       </Label>
-      
-      <Alert
-        intent={Intent.DANGER}
-        isOpen={deleting !== undefined}
-        confirmButtonText="Yes"
-        cancelButtonText="Cancel"
-        onConfirm={confirmDelete}
-        onClose={() => setDeleting(undefined)}
-      >
-        <p>Permanently delete the holiday {deleting?.label}?</p>
-      </Alert>
     </div>
   );
 }

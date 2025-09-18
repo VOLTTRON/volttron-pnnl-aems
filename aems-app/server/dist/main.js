@@ -64,7 +64,6 @@ async function MainBootstrap() {
             void websocketAuthService
                 .authenticateWebSocket(copy)
                 .then((user) => {
-                mainLogger.log(`WebSocket connection upgrade request for user: ${(0, util_1.inspect)(user, { depth: 2, colors: true })}`);
                 request.user = user;
                 socket.user = user;
             })

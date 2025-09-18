@@ -6,6 +6,7 @@ import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { ScheduleMutation } from "../schedule/mutate.service";
+import { ConfigurationQuery } from "../configuration/query.service";
 
 @Injectable()
 @PothosMutation()
@@ -19,9 +20,11 @@ export class OccupancyMutation {
     subscriptionService: SubscriptionService,
     occupancyQuery: OccupancyQuery,
     scheduleMutation: ScheduleMutation,
+    configurationQuery: ConfigurationQuery,
   ) {
     const { OccupancyWhereUnique } = occupancyQuery;
     const { ScheduleCreate, ScheduleUpdate } = scheduleMutation;
+    const { ConfigurationWhereUnique } = configurationQuery;
 
     const OccupancyScheduleCreate = builder.prismaCreateRelation("Occupancy", "schedule", {
       fields: {
@@ -39,6 +42,7 @@ export class OccupancyMutation {
         scheduleId: "String",
         schedule: OccupancyScheduleCreate,
         configurationId: "String",
+        configuration: ConfigurationWhereUnique,
       },
     });
 
@@ -58,6 +62,7 @@ export class OccupancyMutation {
         scheduleId: "String",
         schedule: OccupancyScheduleUpdate,
         configurationId: "String",
+        configuration: ConfigurationWhereUnique,
       },
     });
 

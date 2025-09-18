@@ -66,7 +66,6 @@ async function MainBootstrap() {
       void websocketAuthService
         .authenticateWebSocket(copy)
         .then((user) => {
-          mainLogger.log(`WebSocket connection upgrade request for user: ${inspect(user, { depth: 2, colors: true })}`);
           (request as Request).user = user;
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           (socket as any).user = user;

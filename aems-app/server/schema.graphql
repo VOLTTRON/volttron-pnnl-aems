@@ -573,6 +573,7 @@ input ControlCreateInput {
   name: String!
   peakLoadExclude: Boolean
   stage: ModelStage
+  units: UnitUniqueFilter
 }
 
 enum ControlFields {
@@ -635,6 +636,7 @@ input ControlUpdateInput {
   name: String
   peakLoadExclude: Boolean
   stage: ModelStage
+  units: UnitUniqueFilter
 }
 
 input CurrentCreateInput {
@@ -917,6 +919,7 @@ input HolidayAggregate {
 }
 
 input HolidayCreateInput {
+  configurations: ConfigurationUniqueFilter
   correlation: String
   day: Int
   label: String!
@@ -985,6 +988,7 @@ input HolidayUniqueFilter {
 }
 
 input HolidayUpdateInput {
+  configurations: ConfigurationUniqueFilter
   correlation: String
   day: Int
   label: String
@@ -1029,6 +1033,7 @@ input LocationCreateInput {
   latitude: Float!
   longitude: Float!
   name: String!
+  units: UnitUniqueFilter
 }
 
 enum LocationFields {
@@ -1071,6 +1076,7 @@ input LocationUpdateInput {
   latitude: Float
   longitude: Float
   name: String
+  units: UnitUniqueFilter
 }
 
 type Log {
@@ -1348,6 +1354,7 @@ input OccupancyAggregate {
 }
 
 input OccupancyCreateInput {
+  configuration: ConfigurationUniqueFilter
   configurationId: String
   correlation: String
   date: DateTime!
@@ -1411,6 +1418,7 @@ input OccupancyUniqueFilter {
 }
 
 input OccupancyUpdateInput {
+  configuration: ConfigurationUniqueFilter
   configurationId: String
   correlation: String
   date: DateTime
