@@ -32,6 +32,12 @@ export class OccupancyMutation {
       },
     });
 
+    const OccupancyCreateConfiguration = builder.prismaCreateRelation("Occupancy", "configuration", {
+      fields: {
+        connect: ConfigurationWhereUnique,
+      },
+    });
+
     this.OccupancyCreate = builder.prismaCreate("Occupancy", {
       fields: {
         stage: builder.ModelStage,
@@ -42,13 +48,19 @@ export class OccupancyMutation {
         scheduleId: "String",
         schedule: OccupancyScheduleCreate,
         configurationId: "String",
-        configuration: ConfigurationWhereUnique,
+        configuration: OccupancyCreateConfiguration,
       },
     });
 
     const OccupancyScheduleUpdate = builder.prismaUpdateRelation("Occupancy", "schedule", {
       fields: {
         update: ScheduleUpdate,
+      },
+    });
+
+    const OccupancyUpdateConfiguration = builder.prismaUpdateRelation("Occupancy", "configuration", {
+      fields: {
+        connect: ConfigurationWhereUnique,
       },
     });
 
@@ -62,7 +74,7 @@ export class OccupancyMutation {
         scheduleId: "String",
         schedule: OccupancyScheduleUpdate,
         configurationId: "String",
-        configuration: ConfigurationWhereUnique,
+        configuration: OccupancyUpdateConfiguration,
       },
     });
 

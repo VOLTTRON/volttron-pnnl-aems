@@ -25,12 +25,24 @@ export class LocationMutation {
     const { LocationWhereUnique } = locationQuery;
     const { UnitWhereUnique } = unitQuery;
 
+    const LocationCreateUnits = builder.prismaCreateRelation("Location", "units", {
+      fields: {
+        connect: UnitWhereUnique,
+      },
+    });
+
     this.LocationCreate = builder.prismaCreate("Location", {
       fields: {
         name: "String",
         latitude: "Float",
         longitude: "Float",
-        units: UnitWhereUnique,
+        units: LocationCreateUnits,
+      },
+    });
+
+    const LocationUpdateUnits = builder.prismaUpdateRelation("Location", "units", {
+      fields: {
+        connect: UnitWhereUnique,
       },
     });
 
@@ -39,7 +51,7 @@ export class LocationMutation {
         name: "String",
         latitude: "Float",
         longitude: "Float",
-        units: UnitWhereUnique,
+        units: LocationUpdateUnits,
       },
     });
 

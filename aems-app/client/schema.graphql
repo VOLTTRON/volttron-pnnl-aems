@@ -918,8 +918,12 @@ input HolidayAggregate {
   sum: [HolidayFields!]
 }
 
+input HolidayCreateConfigurationsRelationInput {
+  connect: [ConfigurationUniqueFilter!]
+}
+
 input HolidayCreateInput {
-  configurations: ConfigurationUniqueFilter
+  configurations: HolidayCreateConfigurationsRelationInput
   correlation: String
   day: Int
   label: String!
@@ -987,8 +991,12 @@ input HolidayUniqueFilter {
   id: String
 }
 
+input HolidayUpdateConfigurationsRelationInput {
+  connect: [ConfigurationUniqueFilter!]
+}
+
 input HolidayUpdateInput {
-  configurations: ConfigurationUniqueFilter
+  configurations: HolidayUpdateConfigurationsRelationInput
   correlation: String
   day: Int
   label: String
@@ -1033,7 +1041,11 @@ input LocationCreateInput {
   latitude: Float!
   longitude: Float!
   name: String!
-  units: UnitUniqueFilter
+  units: LocationCreateUnitsRelationInput
+}
+
+input LocationCreateUnitsRelationInput {
+  connect: [UnitUniqueFilter!]
 }
 
 enum LocationFields {
@@ -1076,7 +1088,11 @@ input LocationUpdateInput {
   latitude: Float
   longitude: Float
   name: String
-  units: UnitUniqueFilter
+  units: LocationUpdateUnitsRelationInput
+}
+
+input LocationUpdateUnitsRelationInput {
+  connect: [UnitUniqueFilter!]
 }
 
 type Log {
@@ -1353,8 +1369,12 @@ input OccupancyAggregate {
   sum: [OccupancyFields!]
 }
 
+input OccupancyCreateConfigurationRelationInput {
+  connect: ConfigurationUniqueFilter
+}
+
 input OccupancyCreateInput {
-  configuration: ConfigurationUniqueFilter
+  configuration: OccupancyCreateConfigurationRelationInput
   configurationId: String
   correlation: String
   date: DateTime!
@@ -1417,8 +1437,12 @@ input OccupancyUniqueFilter {
   id: String
 }
 
+input OccupancyUpdateConfigurationRelationInput {
+  connect: ConfigurationUniqueFilter
+}
+
 input OccupancyUpdateInput {
-  configuration: ConfigurationUniqueFilter
+  configuration: OccupancyUpdateConfigurationRelationInput
   configurationId: String
   correlation: String
   date: DateTime

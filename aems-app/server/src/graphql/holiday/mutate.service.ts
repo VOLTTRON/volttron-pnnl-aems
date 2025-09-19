@@ -26,6 +26,12 @@ export class HolidayMutation {
     const { HolidayType } = holidayObject;
     const { ConfigurationWhereUnique } = configurationQuery;
 
+    const HolidayCreateConfigurations = builder.prismaCreateRelation("Holiday", "configurations", {
+      fields: {
+        connect: ConfigurationWhereUnique,
+      },
+    });
+
     this.HolidayCreate = builder.prismaCreate("Holiday", {
       fields: {
         stage: builder.ModelStage,
@@ -36,7 +42,13 @@ export class HolidayMutation {
         month: "Int",
         day: "Int",
         observance: "String",
-        configurations: ConfigurationWhereUnique,
+        configurations: HolidayCreateConfigurations,
+      },
+    });
+
+    const HolidayUpdateConfigurations = builder.prismaUpdateRelation("Holiday", "configurations", {
+      fields: {
+        connect: ConfigurationWhereUnique,
       },
     });
 
@@ -50,7 +62,7 @@ export class HolidayMutation {
         month: "Int",
         day: "Int",
         observance: "String",
-        configurations: ConfigurationWhereUnique,
+        configurations: HolidayUpdateConfigurations,
       },
     });
 

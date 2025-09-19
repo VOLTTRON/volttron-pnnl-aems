@@ -164,8 +164,6 @@ export function Holidays({ unit, editing, setEditing, readOnly = false, bulkUpda
     .filter((h) => typeofObject<HolidayCreateDelete>(h, (h) => h.action === "create"))
     .forEach((h) => holidays.push(h));
 
-  console.log({ holidays });
-
   return (
     <div style={{ padding: "1rem" }}>
       {!bulkUpdate && (

@@ -14,7 +14,7 @@ import {
   Position,
   Tooltip,
 } from "@blueprintjs/core";
-import { useContext, useMemo, useState, useCallback } from "react";
+import { useContext, useMemo, useState, useCallback, useEffect } from "react";
 import { useSubscription, useMutation, useQuery } from "@apollo/client";
 import {
   ReadUnitsQuery,
@@ -34,12 +34,13 @@ import {
   CreateLocationDocument,
   UpdateLocationDocument,
   DeleteLocationDocument,
+  SubscribeUnitsSubscription,
 } from "@/graphql-codegen/graphql";
 import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { filter } from "@/utils/client";
 import { Search } from "../components/common";
 import { IconNames } from "@blueprintjs/icons";
-import { cloneDeep, isObject, merge, omit, set } from "lodash";
+import { cloneDeep, isObject, merge, omit, pick, set } from "lodash";
 import { Setpoint } from "./components/Setpoint";
 import { Schedules } from "./components/Schedules";
 import { Holidays } from "./components/Holidays";
@@ -145,6 +146,7 @@ export default function Page() {
       setSaving(saving.filter((v) => v !== "createHoliday"));
     },
     onError(error) {
+      console.error(error);
       setSaving(saving.filter((v) => v !== "createHoliday"));
       createNotification?.(error.message, NotificationType.Error);
     },
@@ -268,8 +270,20 @@ export default function Page() {
   }, [units]);
 
   const handleUpdateUnit = useCallback(
-    (updated: DeepPartial<UnitModel>) => {
-      setSaving([...saving, `updateUnit(${updated.id})`]);
+    (
+      data: SubscribeUnitsSubscription | ReadUnitsQuery | undefined,
+      updated: DeepPartial<UnitModel>,
+      saving: string[],
+    ) => {
+      const unit = data?.readUnits?.find((u) => u.id === updated.id) ?? null;
+      if (!unit) {
+        createNotification?.("Unit not found", NotificationType.Error);
+        return;
+      } else if (updated.configuration) {
+        updated.configuration.id = updated.configuration.id ?? unit.configuration?.id;
+      }
+      saving = [...saving, `updateUnit(${updated.id})`];
+      setSaving(saving);
       try {
         updateUnit({
           variables: {
@@ -330,23 +344,27 @@ export default function Page() {
           },
         });
       } catch (error) {
-        setSaving(saving.filter((v) => v !== `updateUnit(${updated.id})` && v !== "updateUnit"));
+        saving = saving.filter((v) => v !== `updateUnit(${updated.id})` && v !== "updateUnit");
+        setSaving(saving);
         createNotification?.((error as Error).message, NotificationType.Error);
       }
       const location = updated?.location;
       if (location) {
         if (location.id) {
-          setSaving([...saving, `deleteLocation(${location.id})`]);
+          saving = [...saving, `deleteLocation(${location.id})`];
+          setSaving(saving);
           try {
             deleteLocation({
               variables: { where: { id: location.id } },
             });
           } catch (error) {
-            setSaving(saving.filter((v) => v !== `deleteLocation(${location.id})` && v !== "deleteLocation"));
+            saving = saving.filter((v) => v !== `deleteLocation(${location.id})` && v !== "deleteLocation");
+            setSaving(saving);
             createNotification?.((error as Error).message, NotificationType.Error);
           }
         }
-        setSaving([...saving, `createLocation(${updated.id})`]);
+        saving = [...saving, `createLocation(${updated.id})`];
+        setSaving(saving);
         try {
           createLocation({
             variables: {
@@ -354,12 +372,13 @@ export default function Page() {
                 name: location.name ?? "",
                 latitude: location.latitude ?? 0,
                 longitude: location.longitude ?? 0,
-                units: { id: updated.id ?? "" },
+                units: { connect: [{ id: updated.id ?? "" }] },
               },
             },
           });
         } catch (error) {
-          setSaving(saving.filter((v) => v !== `createLocation(${updated.id})` && v !== "createLocation"));
+          saving = saving.filter((v) => v !== `createLocation(${updated.id})` && v !== "createLocation");
+          setSaving(saving);
           createNotification?.((error as Error).message, NotificationType.Error);
         }
       }
@@ -367,7 +386,8 @@ export default function Page() {
         const action = typeofObject<HolidayCreateDelete>(holiday, (v) => v.action) ? holiday.action : "update";
         switch (action) {
           case "create":
-            setSaving([...saving, `createHoliday`]);
+            saving = [...saving, `createHoliday`];
+            setSaving(saving);
             try {
               createHoliday({
                 variables: {
@@ -377,34 +397,39 @@ export default function Page() {
                     day: holiday.day ?? 0,
                     month: holiday.month ?? 0,
                     observance: holiday.observance ?? null,
-                    configurations: { id: updated.configuration?.id ?? "" },
+                    configurations: { connect: [{ id: updated.configuration?.id ?? "" }] },
                   },
                 },
               });
             } catch (error) {
-              setSaving(saving.filter((v) => v !== "createHoliday"));
+              saving = saving.filter((v) => v !== "createHoliday");
+              setSaving(saving);
               createNotification?.((error as Error).message, NotificationType.Error);
             }
             break;
           case "update":
-            setSaving([...saving, `updateHoliday(${holiday.id})`]);
+            saving = [...saving, `updateHoliday(${holiday.id})`];
+            setSaving(saving);
             try {
               updateHoliday({
-                variables: { update: omit(holiday, ["action"]), where: { id: holiday.id } },
+                variables: { update: omit(holiday, ["id", "action"]), where: { id: holiday.id } },
               });
             } catch (error) {
-              setSaving(saving.filter((v) => v !== `updateHoliday(${holiday.id})` && v !== "updateHoliday"));
+              saving = saving.filter((v) => v !== `updateHoliday(${holiday.id})` && v !== "updateHoliday");
+              setSaving(saving);
               createNotification?.((error as Error).message, NotificationType.Error);
             }
             break;
           case "delete":
-            setSaving([...saving, `deleteHoliday(${holiday.id})`]);
+            saving = [...saving, `deleteHoliday(${holiday.id})`];
+            setSaving(saving);
             try {
               deleteHoliday({
                 variables: { where: { id: holiday.id ?? "" } },
               });
             } catch (error) {
-              setSaving(saving.filter((v) => v !== `deleteHoliday(${holiday.id})` && v !== "deleteHoliday"));
+              saving = saving.filter((v) => v !== `deleteHoliday(${holiday.id})` && v !== "deleteHoliday");
+              setSaving(saving);
               createNotification?.((error as Error).message, NotificationType.Error);
             }
             break;
@@ -416,7 +441,8 @@ export default function Page() {
         const action = typeofObject<OccupancyCreateDelete>(occupancy, (v) => v.action) ? occupancy.action : "update";
         switch (action) {
           case "create":
-            setSaving([...saving, `createOccupancy(${occupancy.id})`]);
+            saving = [...saving, `createOccupancy(${occupancy.id})`];
+            setSaving(saving);
             try {
               createOccupancy({
                 variables: {
@@ -435,12 +461,14 @@ export default function Page() {
                 },
               });
             } catch (error) {
-              setSaving(saving.filter((v) => v !== `createOccupancy(${occupancy.id})` && v !== "createOccupancy"));
+              saving = saving.filter((v) => v !== `createOccupancy(${occupancy.id})` && v !== "createOccupancy");
+              setSaving(saving);
               createNotification?.((error as Error).message, NotificationType.Error);
             }
             break;
           case "update":
-            setSaving([...saving, `updateOccupancy(${occupancy.id})`]);
+            saving = [...saving, `updateOccupancy(${occupancy.id})`];
+            setSaving(saving);
             try {
               updateOccupancy({
                 variables: {
@@ -449,18 +477,20 @@ export default function Page() {
                 },
               });
             } catch (error) {
-              setSaving(saving.filter((v) => v !== `updateOccupancy(${occupancy.id})` && v !== "updateOccupancy"));
+              saving = saving.filter((v) => v !== `updateOccupancy(${occupancy.id})` && v !== "updateOccupancy");
+              setSaving(saving);
               createNotification?.((error as Error).message, NotificationType.Error);
             }
             break;
           case "delete":
-            setSaving([...saving, `deleteOccupancy(${occupancy.id})`]);
+            saving = [...saving, `deleteOccupancy(${occupancy.id})`];
             try {
               deleteOccupancy({
                 variables: { where: { id: occupancy.id ?? "" } },
               });
             } catch (error) {
-              setSaving(saving.filter((v) => v !== `deleteOccupancy(${occupancy.id})` && v !== "deleteOccupancy"));
+              saving = saving.filter((v) => v !== `deleteOccupancy(${occupancy.id})` && v !== "deleteOccupancy");
+              setSaving(saving);
               createNotification?.((error as Error).message, NotificationType.Error);
             }
             break;
@@ -472,29 +502,50 @@ export default function Page() {
     [
       updateUnit,
       createNotification,
-      saving,
       createHoliday,
       updateHoliday,
       deleteHoliday,
       createOccupancy,
       updateOccupancy,
       deleteOccupancy,
+      createLocation,
+      deleteLocation,
     ],
   );
 
-  const handleSave = useCallback(() => {
+  const handleSave = () => {
     if (editing?.id) {
-      handleUpdateUnit(editing);
+      handleUpdateUnit(data, editing, saving);
+      const checkSaving = () =>
+        setTimeout(() => {
+          if (saving.length === 0) {
+            createNotification?.("All changes saved successfully", NotificationType.Notification);
+          } else {
+            checkSaving();
+          }
+        }, 1000);
+      checkSaving();
+      setEditing(null);
     }
-  }, [editing, handleUpdateUnit]);
+  };
 
-  const handleSaveAll = useCallback(() => {
+  const handleSaveAll = () => {
     if (editingAll) {
       units.forEach((unit) => {
-        handleUpdateUnit(unit);
+        handleUpdateUnit(data, unit, saving);
       });
+      const checkSaving = () =>
+        setTimeout(() => {
+          if (saving.length === 0) {
+            createNotification?.("All changes saved successfully", NotificationType.Notification);
+          } else {
+            checkSaving();
+          }
+        }, 1000);
+      checkSaving();
+      setEditingAll(null);
     }
-  }, [editingAll, units, handleUpdateUnit]);
+  };
 
   const renderStatus = useCallback(
     (unit: UnitModel) => {
@@ -682,10 +733,14 @@ export default function Page() {
       <h1>Units</h1>
 
       <div className={styles.list}>
-        {units?.map((v, i) => {
-          const isEditing = v.id === editing?.id;
-          const unit = isEditing ? merge({}, v, editing) : v;
-          const { id, campus, building, system, timezone, configuration } = unit;
+        {units?.map((unit, i) => {
+          const isEditing = unit.id === editing?.id;
+          const { campus, building, system, timezone } = merge(
+            {},
+            pick(unit, ["campus", "building", "system", "timezone"]),
+            pick(editing, ["campus", "building", "system", "timezone"]),
+          );
+          const label = editing?.configuration?.label ?? unit.configuration?.label ?? "";
 
           return (
             <Card key={unit.id ?? i} className={styles.unitCard}>
@@ -824,7 +879,7 @@ export default function Page() {
                           <b>Configuration Label</b>
                           <InputGroup
                             type="text"
-                            value={configuration?.label ?? ""}
+                            value={label ?? ""}
                             onChange={(e) => {
                               const clone = cloneDeep(editing ?? {});
                               clone.configuration = clone.configuration ?? {};

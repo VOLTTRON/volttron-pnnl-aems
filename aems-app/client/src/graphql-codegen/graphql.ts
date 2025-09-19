@@ -942,8 +942,12 @@ export type HolidayAggregate = {
   sum?: InputMaybe<Array<HolidayFields>>;
 };
 
+export type HolidayCreateConfigurationsRelationInput = {
+  connect?: InputMaybe<Array<ConfigurationUniqueFilter>>;
+};
+
 export type HolidayCreateInput = {
-  configurations?: InputMaybe<ConfigurationUniqueFilter>;
+  configurations?: InputMaybe<HolidayCreateConfigurationsRelationInput>;
   correlation?: InputMaybe<Scalars['String']['input']>;
   day?: InputMaybe<Scalars['Int']['input']>;
   label: Scalars['String']['input'];
@@ -1009,8 +1013,12 @@ export type HolidayUniqueFilter = {
   id?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type HolidayUpdateConfigurationsRelationInput = {
+  connect?: InputMaybe<Array<ConfigurationUniqueFilter>>;
+};
+
 export type HolidayUpdateInput = {
-  configurations?: InputMaybe<ConfigurationUniqueFilter>;
+  configurations?: InputMaybe<HolidayUpdateConfigurationsRelationInput>;
   correlation?: InputMaybe<Scalars['String']['input']>;
   day?: InputMaybe<Scalars['Int']['input']>;
   label?: InputMaybe<Scalars['String']['input']>;
@@ -1054,7 +1062,11 @@ export type LocationCreateInput = {
   latitude: Scalars['Float']['input'];
   longitude: Scalars['Float']['input'];
   name: Scalars['String']['input'];
-  units?: InputMaybe<UnitUniqueFilter>;
+  units?: InputMaybe<LocationCreateUnitsRelationInput>;
+};
+
+export type LocationCreateUnitsRelationInput = {
+  connect?: InputMaybe<Array<UnitUniqueFilter>>;
 };
 
 export enum LocationFields {
@@ -1095,7 +1107,11 @@ export type LocationUpdateInput = {
   latitude?: InputMaybe<Scalars['Float']['input']>;
   longitude?: InputMaybe<Scalars['Float']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
-  units?: InputMaybe<UnitUniqueFilter>;
+  units?: InputMaybe<LocationUpdateUnitsRelationInput>;
+};
+
+export type LocationUpdateUnitsRelationInput = {
+  connect?: InputMaybe<Array<UnitUniqueFilter>>;
 };
 
 export type Log = {
@@ -1589,8 +1605,12 @@ export type OccupancyAggregate = {
   sum?: InputMaybe<Array<OccupancyFields>>;
 };
 
+export type OccupancyCreateConfigurationRelationInput = {
+  connect?: InputMaybe<ConfigurationUniqueFilter>;
+};
+
 export type OccupancyCreateInput = {
-  configuration?: InputMaybe<ConfigurationUniqueFilter>;
+  configuration?: InputMaybe<OccupancyCreateConfigurationRelationInput>;
   configurationId?: InputMaybe<Scalars['String']['input']>;
   correlation?: InputMaybe<Scalars['String']['input']>;
   date: Scalars['DateTime']['input'];
@@ -1651,8 +1671,12 @@ export type OccupancyUniqueFilter = {
   id?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type OccupancyUpdateConfigurationRelationInput = {
+  connect?: InputMaybe<ConfigurationUniqueFilter>;
+};
+
 export type OccupancyUpdateInput = {
-  configuration?: InputMaybe<ConfigurationUniqueFilter>;
+  configuration?: InputMaybe<OccupancyUpdateConfigurationRelationInput>;
   configurationId?: InputMaybe<Scalars['String']['input']>;
   correlation?: InputMaybe<Scalars['String']['input']>;
   date?: InputMaybe<Scalars['DateTime']['input']>;
