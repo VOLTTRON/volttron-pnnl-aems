@@ -350,20 +350,20 @@ export default function Page() {
       }
       const location = updated?.location;
       if (location) {
-        if (location.id) {
-          saving = [...saving, `deleteLocation(${location.id})`];
+        if (unit.location?.id) {
+          saving = [...saving, `deleteLocation(${unit.location?.id})`];
           setSaving(saving);
           try {
             deleteLocation({
-              variables: { where: { id: location.id } },
+              variables: { where: { id: unit.location?.id } },
             });
           } catch (error) {
-            saving = saving.filter((v) => v !== `deleteLocation(${location.id})` && v !== "deleteLocation");
+            saving = saving.filter((v) => v !== `deleteLocation(${unit.location?.id})` && v !== "deleteLocation");
             setSaving(saving);
             createNotification?.((error as Error).message, NotificationType.Error);
           }
         }
-        saving = [...saving, `createLocation(${updated.id})`];
+        saving = [...saving, `createLocation`];
         setSaving(saving);
         try {
           createLocation({
@@ -377,7 +377,7 @@ export default function Page() {
             },
           });
         } catch (error) {
-          saving = saving.filter((v) => v !== `createLocation(${updated.id})` && v !== "createLocation");
+          saving = saving.filter((v) => v !== "createLocation");
           setSaving(saving);
           createNotification?.((error as Error).message, NotificationType.Error);
         }

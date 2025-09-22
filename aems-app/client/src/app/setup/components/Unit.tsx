@@ -1,9 +1,8 @@
-import { InputGroup, Label, NumericInput, Switch, FormGroup, HTMLSelect, Button, Tooltip } from "@blueprintjs/core";
-import { IconNames } from "@blueprintjs/icons";
+import { InputGroup, Label, NumericInput, Switch, FormGroup, HTMLSelect } from "@blueprintjs/core";
 import { cloneDeep, merge } from "lodash";
-import { createGoogleMapsUrl, formatLocationName } from "@/utils/location";
 import { Zone, DeepPartial } from "@local/common";
 import { ReadUnitQuery } from "@/graphql-codegen/graphql";
+import { Location } from "./Location";
 
 type UnitType = NonNullable<ReadUnitQuery["readUnit"]>;
 
@@ -17,8 +16,10 @@ interface UnitProps {
 export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps) {
   const value = merge({}, unit, editing);
   const {
-    location,
     label,
+    peakLoadExclude,
+    coolingPeakOffset,
+    heatingPeakOffset,
     zoneLocation,
     heatPumpBackup,
     heatPumpLockout,
@@ -56,89 +57,66 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
         </Label>
       </FormGroup>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-        <FormGroup label="Unit Location">
-          <Label>
-            <b>Unit Location</b>
-            <InputGroup
-              type="text"
-              value={formatLocationName(location)}
-              readOnly
-              rightElement={
-                <Tooltip content={createGoogleMapsUrl(location)}>
-                  <Button
-                    icon={IconNames.MAP}
-                    onClick={() => window.open(createGoogleMapsUrl(location), "_blank")}
-                    minimal
-                  />
-                </Tooltip>
-              }
-            />
-          </Label>
-        </FormGroup>
+      <Location unit={unit} editing={editing} setEditing={setEditing} readOnly={readOnly} />
 
-        <FormGroup label="Location Update">
+      <div style={{ marginTop: "1rem" }}>
+        <FormGroup>
           <Label>
-            <b>Location Name</b>
-            <InputGroup
-              type="text"
-              value={location?.name ?? ""}
+            <Switch
+              checked={!peakLoadExclude}
               onChange={(e) => {
                 const clone = cloneDeep(editing ?? {});
-                clone.location = clone?.location ?? {};
-                clone.location.name = e.target.value;
+                clone.peakLoadExclude = !e.currentTarget.checked;
                 setEditing?.(clone);
               }}
               disabled={readOnly}
-              placeholder="Enter location name"
+              label="Participate in Grid Services"
             />
           </Label>
         </FormGroup>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-        <FormGroup label="Coordinates">
-          <Label>
-            <b>Longitude</b>
-            <NumericInput
-              value={location?.longitude || 0}
-              onValueChange={(value) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.location = clone.location ?? {};
-                clone.location.longitude = value;
-                setEditing?.(clone);
-              }}
-              min={-180}
-              max={180}
-              stepSize={0.0001}
-              minorStepSize={0.0001}
-              fill
-              disabled={readOnly}
-            />
-          </Label>
-        </FormGroup>
+      {!peakLoadExclude && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
+          <FormGroup label="Cooling Offset During Grid Services">
+            <Label>
+              <b>Cooling Offset During Grid Services (°F)</b>
+              <NumericInput
+                value={coolingPeakOffset || 0}
+                onValueChange={(value) => {
+                  const clone = cloneDeep(editing ?? {});
+                  clone.coolingPeakOffset = value;
+                  setEditing?.(clone);
+                }}
+                min={0}
+                max={10}
+                stepSize={0.5}
+                fill
+                disabled={readOnly}
+              />
+            </Label>
+          </FormGroup>
 
-        <FormGroup label="Latitude">
-          <Label>
-            <b>Latitude</b>
-            <NumericInput
-              value={location?.latitude || 0}
-              onValueChange={(value) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.location = clone.location ?? {};
-                clone.location.latitude = value;
-                setEditing?.(clone);
-              }}
-              min={-90}
-              max={90}
-              stepSize={0.0001}
-              minorStepSize={0.0001}
-              fill
-              disabled={readOnly}
-            />
-          </Label>
-        </FormGroup>
-      </div>
+          <FormGroup label="Heating Offset During Grid Services">
+            <Label>
+              <b>Heating Offset During Grid Services (°F)</b>
+              <NumericInput
+                value={heatingPeakOffset || 0}
+                onValueChange={(value) => {
+                  const clone = cloneDeep(editing ?? {});
+                  clone.heatingPeakOffset = value;
+                  setEditing?.(clone);
+                }}
+                min={0}
+                max={10}
+                stepSize={0.5}
+                fill
+                disabled={readOnly}
+              />
+            </Label>
+          </FormGroup>
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
         <FormGroup label="Zone Configuration">
