@@ -30,7 +30,7 @@ export function Schedules({ unit, editing, setEditing, readOnly = false }: Sched
             unit={unit}
             editing={editing}
             setEditing={setEditing}
-            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+            readOnly={readOnly}
           />
           <Schedule
             title="Tuesday Schedule"
@@ -38,7 +38,7 @@ export function Schedules({ unit, editing, setEditing, readOnly = false }: Sched
             unit={unit}
             editing={editing}
             setEditing={setEditing}
-            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+            readOnly={readOnly}
           />
           <Schedule
             title="Wednesday Schedule"
@@ -46,7 +46,7 @@ export function Schedules({ unit, editing, setEditing, readOnly = false }: Sched
             unit={unit}
             editing={editing}
             setEditing={setEditing}
-            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+            readOnly={readOnly}
           />
           <Schedule
             title="Thursday Schedule"
@@ -54,7 +54,7 @@ export function Schedules({ unit, editing, setEditing, readOnly = false }: Sched
             unit={unit}
             editing={editing}
             setEditing={setEditing}
-            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+            readOnly={readOnly}
           />
           <Schedule
             title="Friday Schedule"
@@ -62,7 +62,7 @@ export function Schedules({ unit, editing, setEditing, readOnly = false }: Sched
             unit={unit}
             editing={editing}
             setEditing={setEditing}
-            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+            readOnly={readOnly}
           />
           <Schedule
             title="Saturday Schedule"
@@ -70,7 +70,7 @@ export function Schedules({ unit, editing, setEditing, readOnly = false }: Sched
             unit={unit}
             editing={editing}
             setEditing={setEditing}
-            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+            readOnly={readOnly}
           />
           <Schedule
             title="Sunday Schedule"
@@ -78,7 +78,7 @@ export function Schedules({ unit, editing, setEditing, readOnly = false }: Sched
             unit={unit}
             editing={editing}
             setEditing={setEditing}
-            readOnly={readOnly ? ["title", "occupied", "unoccupied"] : undefined}
+            readOnly={readOnly}
           />
         </div>
       </div>

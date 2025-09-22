@@ -21,12 +21,12 @@ interface ScheduleProps {
   unit: UnitType | null;
   editing: DeepPartial<UnitType> | null;
   setEditing?: (editing: DeepPartial<UnitType> | null) => void;
-  readOnly?: Array<"title" | "occupied" | "unoccupied">;
+  readOnly?: boolean;
 }
 
 function getSchedule(id: string, unit: UnitType | null, editing: DeepPartial<UnitType> | null): ScheduleType {
   return merge(
-    { label: "", occupied: true, startTime: "08:00", endTime: "17:00" },
+    {},
     unit?.configuration?.occupancies?.filter(typeofNonNullable).find((v) => v.schedule?.id === id)?.schedule ??
       (unit?.configuration?.mondaySchedule?.id === id ? unit?.configuration?.mondaySchedule : undefined) ??
       (unit?.configuration?.tuesdaySchedule?.id === id ? unit?.configuration?.tuesdaySchedule : undefined) ??
@@ -52,59 +52,58 @@ function setSchedule(id: string, unit: UnitType | null, editing: DeepPartial<Uni
   if (unit?.configuration?.mondaySchedule?.id === id) {
     editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
-    editing.configuration.mondaySchedule = editing.configuration?.mondaySchedule ?? {};
-    merge(editing?.configuration?.mondaySchedule, schedule);
+    editing.configuration.mondaySchedule = schedule;
   } else if (unit?.configuration?.tuesdaySchedule?.id === id) {
     editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
     editing.configuration.tuesdaySchedule = editing.configuration?.tuesdaySchedule ?? {};
-    merge(editing?.configuration?.tuesdaySchedule, schedule);
+    editing.configuration.tuesdaySchedule = schedule;
   } else if (unit?.configuration?.wednesdaySchedule?.id === id) {
     editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
     editing.configuration.wednesdaySchedule = editing.configuration?.wednesdaySchedule ?? {};
-    merge(editing?.configuration?.wednesdaySchedule, schedule);
+    editing.configuration.wednesdaySchedule = schedule;
   } else if (unit?.configuration?.thursdaySchedule?.id === id) {
     editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
     editing.configuration.thursdaySchedule = editing.configuration?.thursdaySchedule ?? {};
-    merge(editing?.configuration?.thursdaySchedule, schedule);
+    editing.configuration.thursdaySchedule = schedule;
   } else if (unit?.configuration?.fridaySchedule?.id === id) {
     editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
     editing.configuration.fridaySchedule = editing.configuration?.fridaySchedule ?? {};
-    merge(editing?.configuration?.fridaySchedule, schedule);
+    editing.configuration.fridaySchedule = schedule;
   } else if (unit?.configuration?.saturdaySchedule?.id === id) {
     editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
     editing.configuration.saturdaySchedule = editing.configuration?.saturdaySchedule ?? {};
-    merge(editing?.configuration?.saturdaySchedule, schedule);
+    editing.configuration.saturdaySchedule = schedule;
   } else if (unit?.configuration?.sundaySchedule?.id === id) {
     editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
     editing.configuration.sundaySchedule = editing.configuration?.sundaySchedule ?? {};
-    merge(editing?.configuration?.sundaySchedule, schedule);
+    editing.configuration.sundaySchedule = schedule;
   } else if (unit?.configuration?.holidaySchedule?.id === id) {
     editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
     editing.configuration.holidaySchedule = editing.configuration?.holidaySchedule ?? {};
-    merge(editing?.configuration?.holidaySchedule, schedule);
+    editing.configuration.holidaySchedule = schedule;
   } else {
     editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
     editing.configuration.occupancies = editing.configuration?.occupancies ?? [];
-    let value = editing?.configuration?.occupancies
-      ?.filter(typeofNonNullable)
-      .find((v) => v.schedule?.id === id)?.schedule;
-    if (!value) {
-      value = { id };
-      editing.configuration.occupancies.push({ schedule: value });
+    let occupancy = editing?.configuration?.occupancies?.filter(typeofNonNullable).find((v) => v.schedule?.id === id);
+    if (!occupancy) {
+      const occupancyId = unit?.configuration?.occupancies
+        ?.filter(typeofNonNullable)
+        .find((v) => v.schedule?.id === id)?.id;
+      occupancy = { id: occupancyId, schedule };
+      editing.configuration.occupancies.push(occupancy);
     }
-    merge(value, schedule);
   }
 }
 
-export function Schedule({ title, id, unit, editing, setEditing, readOnly = ["title"] }: ScheduleProps) {
+export function Schedule({ title, id, unit, editing, setEditing, readOnly = false }: ScheduleProps) {
   const schedule = getSchedule(id, unit, editing);
   const { label, occupied, startTime, endTime } = schedule || {};
 
@@ -126,8 +125,6 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = ["ti
             value={label ?? ""}
             onChange={(e) => {
               const clone = cloneDeep(editing ?? {});
-              clone.configuration = clone.configuration ?? {};
-              clone.configuration.occupancies = clone.configuration?.occupancies ?? [];
               let value = getSchedule(id, null, clone);
               if (!value) {
                 value = { id };
@@ -136,7 +133,7 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = ["ti
               setSchedule(id, unit, clone, value);
               setEditing?.(clone);
             }}
-            readOnly={readOnly?.includes("title")}
+            readOnly={readOnly}
             placeholder="Schedule label"
           />
         </Label>
@@ -157,7 +154,7 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = ["ti
           labelRenderer={(v, o) =>
             o?.isHandleTooltip || (v > START_TIME_MIN && v < END_TIME_MAX) ? toTimeFormat(v) : ""
           }
-          disabled={readOnly?.includes("occupied") || !occupied}
+          disabled={readOnly || !occupied}
           onChange={(v) => {
             const startTime = clamp(
               (v as NumberRange)[0],
@@ -171,8 +168,6 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = ["ti
             );
             const label = createScheduleLabel("all", { occupied: occupied ?? false, startTime, endTime });
             const clone = cloneDeep(editing ?? {});
-            clone.configuration = clone.configuration ?? {};
-            clone.configuration.occupancies = clone.configuration?.occupancies ?? [];
             let value = getSchedule(id, null, clone);
             if (!value) {
               value = { id };
@@ -191,23 +186,20 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = ["ti
           label="Unoccupied"
           checked={!occupied}
           onChange={() => {
-            const value = !occupied;
             const st = toMinutes(startTime ?? "", false);
             const et = toMinutes(endTime ?? "", true);
-            const label = createScheduleLabel("all", { occupied: value, startTime: st, endTime: et });
+            const label = createScheduleLabel("all", { occupied: !occupied, startTime: st, endTime: et });
             const clone = cloneDeep(editing ?? {});
-            clone.configuration = clone.configuration ?? {};
-            clone.configuration.occupancies = clone.configuration?.occupancies ?? [];
-            let v = getSchedule(id, null, clone);
-            if (!v) {
-              v = { id };
+            let value = getSchedule(id, null, clone);
+            if (!value) {
+              value = { id };
             }
-            v.occupied = value;
-            v.label = label;
-            setSchedule(id, unit, clone, v);
+            value.occupied = !occupied;
+            value.label = label;
+            setSchedule(id, unit, clone, value);
             setEditing?.(clone);
           }}
-          disabled={readOnly?.includes("unoccupied")}
+          disabled={readOnly}
         />
       </div>
     </div>
