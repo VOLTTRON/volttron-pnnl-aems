@@ -48,48 +48,32 @@ function getSchedule(id: string, unit: UnitType | null, editing: DeepPartial<Uni
   );
 }
 
-function setSchedule(id: string, unit: UnitType | null, editing: DeepPartial<UnitType> | null, schedule: ScheduleType) {
+function setSchedule(id: string, unit: UnitType | null, editing: DeepPartial<UnitType>, schedule: ScheduleType) {
   if (unit?.configuration?.mondaySchedule?.id === id) {
-    editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
     editing.configuration.mondaySchedule = schedule;
   } else if (unit?.configuration?.tuesdaySchedule?.id === id) {
-    editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
-    editing.configuration.tuesdaySchedule = editing.configuration?.tuesdaySchedule ?? {};
     editing.configuration.tuesdaySchedule = schedule;
   } else if (unit?.configuration?.wednesdaySchedule?.id === id) {
-    editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
-    editing.configuration.wednesdaySchedule = editing.configuration?.wednesdaySchedule ?? {};
     editing.configuration.wednesdaySchedule = schedule;
   } else if (unit?.configuration?.thursdaySchedule?.id === id) {
-    editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
-    editing.configuration.thursdaySchedule = editing.configuration?.thursdaySchedule ?? {};
     editing.configuration.thursdaySchedule = schedule;
   } else if (unit?.configuration?.fridaySchedule?.id === id) {
-    editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
-    editing.configuration.fridaySchedule = editing.configuration?.fridaySchedule ?? {};
     editing.configuration.fridaySchedule = schedule;
   } else if (unit?.configuration?.saturdaySchedule?.id === id) {
-    editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
-    editing.configuration.saturdaySchedule = editing.configuration?.saturdaySchedule ?? {};
     editing.configuration.saturdaySchedule = schedule;
   } else if (unit?.configuration?.sundaySchedule?.id === id) {
-    editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
-    editing.configuration.sundaySchedule = editing.configuration?.sundaySchedule ?? {};
     editing.configuration.sundaySchedule = schedule;
   } else if (unit?.configuration?.holidaySchedule?.id === id) {
-    editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
-    editing.configuration.holidaySchedule = editing.configuration?.holidaySchedule ?? {};
     editing.configuration.holidaySchedule = schedule;
   } else {
-    editing = editing ?? {};
     editing.configuration = editing.configuration ?? {};
     editing.configuration.occupancies = editing.configuration?.occupancies ?? [];
     let occupancy = editing?.configuration?.occupancies?.filter(typeofNonNullable).find((v) => v.schedule?.id === id);
@@ -99,6 +83,8 @@ function setSchedule(id: string, unit: UnitType | null, editing: DeepPartial<Uni
         .find((v) => v.schedule?.id === id)?.id;
       occupancy = { id: occupancyId, schedule };
       editing.configuration.occupancies.push(occupancy);
+    } else {
+      occupancy.schedule = schedule;
     }
   }
 }
@@ -126,7 +112,7 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
             onChange={(e) => {
               const clone = cloneDeep(editing ?? {});
               let value = getSchedule(id, null, clone);
-              if (!value) {
+              if (!value?.id) {
                 value = { id };
               }
               value.label = e.target.value;
@@ -169,7 +155,7 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
             const label = createScheduleLabel("all", { occupied: occupied ?? false, startTime, endTime });
             const clone = cloneDeep(editing ?? {});
             let value = getSchedule(id, null, clone);
-            if (!value) {
+            if (!value?.id) {
               value = { id };
             }
             value.label = label;
@@ -191,7 +177,7 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
             const label = createScheduleLabel("all", { occupied: !occupied, startTime: st, endTime: et });
             const clone = cloneDeep(editing ?? {});
             let value = getSchedule(id, null, clone);
-            if (!value) {
+            if (!value?.id) {
               value = { id };
             }
             value.occupied = !occupied;
