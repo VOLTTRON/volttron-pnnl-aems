@@ -1,7 +1,7 @@
 .units {
   padding: 1rem;
   width: 100%;
-  
+
   h1 {
     margin: 1rem 0;
     color: var(--bp5-text-color);
@@ -20,7 +20,7 @@
 
 .unitCard {
   padding: 1rem;
-  
+
   &:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
@@ -32,19 +32,29 @@
   align-items: flex-start;
   gap: 1rem;
   margin-bottom: 1rem;
-  
+
   &:last-child {
     margin-bottom: 0;
   }
-  
-  > div {
+
+  >div {
     flex: 1;
     min-width: 0;
-    
+
     &:last-child {
       flex: 0 0 auto;
     }
   }
+}
+
+.unit {
+  flex: 1;
+  min-width: 0;
+}
+
+.select {
+  flex: 1;
+  min-width: 0;
 }
 
 .actions {
@@ -58,10 +68,10 @@
   border-left: 3px solid var(--bp5-intent-primary);
   margin-left: 1rem;
   background-color: var(--bp5-background-color-secondary);
-  
+
   .bp5-label {
     margin-bottom: 0.5rem;
-    
+
     b {
       display: block;
       margin-bottom: 0.25rem;
@@ -74,27 +84,27 @@
 @media (max-width: 768px) {
   .row {
     flex-direction: column;
-    
-    > div:last-child {
+
+    >div:last-child {
       align-self: flex-end;
     }
   }
-  
+
   .actions {
     justify-content: flex-end;
   }
 }
 
 // Tree styling
-.units :global(.bp5-tree-node-content) {
+.units .bp5-tree-node-content {
   padding: 0.5rem;
-  
+
   &:hover {
     background-color: var(--bp5-background-color-secondary);
   }
 }
 
-.units :global(.bp5-tree-node-label) {
+.units .bp5-tree-node-label {
   font-weight: 500;
 }
 
@@ -102,25 +112,25 @@
 .unitCard {
   transition: all 0.2s ease;
   border: 1px solid var(--bp5-border-color);
-  
+
   &:hover {
     border-color: var(--bp5-intent-primary);
   }
 }
 
 // Input styling within cards
-.unitCard :global(.bp5-input-group) {
+.unitCard .bp5-input-group {
   margin-top: 0.25rem;
 }
 
-.unitCard :global(.bp5-label) {
+.unitCard .bp5-label {
   margin-bottom: 0.75rem;
-  
+
   h3 {
     margin: 0;
     color: var(--bp5-heading-color);
   }
-  
+
   b {
     color: var(--bp5-text-color-muted);
     font-size: 0.875rem;
@@ -130,12 +140,60 @@
 }
 
 // Collapse styling
-.units :global(.bp5-collapse-body) {
+.units .bp5-collapse-body {
   padding-top: 0.5rem;
 }
 
 // Alert styling
-.units :global(.bp5-alert) {
+.units .bp5-alert {
   max-width: 500px;
   margin: 0 auto;
+}
+
+// MultiSlider styling (matching deprecated version)
+.units .bp5-slider {
+  // padding-left: 2em;
+  // padding-right: 2em;
+}
+
+.units .bp5-slider.bp5-disabled {
+  >.bp5-slider-handle {
+    visibility: hidden;
+  }
+}
+
+// Unit and select field styling
+.unit {
+  .bp5-label {
+    margin-bottom: 0.75rem;
+
+    b {
+      color: var(--bp5-text-color-muted);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+  }
+}
+
+.select {
+  .bp5-label {
+    margin-bottom: 0.75rem;
+
+    b {
+      color: var(--bp5-text-color-muted);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+  }
+}
+
+// Tooltip icon styling (from deprecated version)
+.tooltip-icon .bp5-popover2-target {
+  margin-top: 0px !important;
 }

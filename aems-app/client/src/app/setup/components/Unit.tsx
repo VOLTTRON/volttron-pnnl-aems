@@ -1,8 +1,36 @@
-import { InputGroup, Label, NumericInput, Switch, FormGroup, HTMLSelect } from "@blueprintjs/core";
+import {
+  InputGroup,
+  Label,
+  FormGroup,
+  Button,
+  Menu,
+  MenuItem,
+  MultiSlider,
+  HandleType,
+  HandleInteractionKind,
+  Popover,
+} from "@blueprintjs/core";
+import { IconNames } from "@blueprintjs/icons";
 import { cloneDeep, merge } from "lodash";
-import { Zone, DeepPartial } from "@local/common";
+import { DeepPartial, Validate } from "@local/common";
 import { ReadUnitQuery } from "@/graphql-codegen/graphql";
 import { Location } from "./Location";
+
+// Constants for validation (matching deprecated version)
+const OPTIMAL_START_LOCKOUT_MIN = (Validate.OptimalStartLockout.options?.min as number) ?? 0;
+const OPTIMAL_START_LOCKOUT_MAX = (Validate.OptimalStartLockout.options?.max as number) ?? 50;
+const OPTIMAL_START_DEVIATION_MIN = (Validate.OptimalStartDeviation.options?.min as number) ?? 0.5;
+const OPTIMAL_START_DEVIATION_MAX = (Validate.OptimalStartDeviation.options?.max as number) ?? 5;
+const EARLIEST_START_MIN = (Validate.EarliestStart.options?.min as number) ?? 30;
+const EARLIEST_START_MAX = (Validate.EarliestStart.options?.max as number) ?? 300;
+const LATEST_START_MIN = (Validate.LatestStart.options?.min as number) ?? 15;
+const LATEST_START_MAX = (Validate.LatestStart.options?.max as number) ?? 120;
+const HEAT_PUMP_LOCKOUT_MIN = (Validate.HeatPumpLockout.options?.min as number) ?? 0;
+const HEAT_PUMP_LOCKOUT_MAX = (Validate.HeatPumpLockout.options?.max as number) ?? 50;
+const ECONOMIZER_SETPOINT_MIN = (Validate.EconomizerSetpoint.options?.min as number) ?? 50;
+const ECONOMIZER_SETPOINT_MAX = (Validate.EconomizerSetpoint.options?.max as number) ?? 80;
+const COOLING_LOCKOUT_MIN = (Validate.CoolingLockout.options?.min as number) ?? 40;
+const COOLING_LOCKOUT_MAX = (Validate.CoolingLockout.options?.max as number) ?? 70;
 
 type UnitType = NonNullable<ReadUnitQuery["readUnit"]>;
 
@@ -59,381 +87,309 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
 
       <Location unit={unit} editing={editing} setEditing={setEditing} readOnly={readOnly} />
 
-      <div style={{ marginTop: "1rem" }}>
-        <FormGroup>
+      <div className="row">
+        <div className="unit">
           <Label>
-            <Switch
-              checked={!peakLoadExclude}
-              onChange={(e) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.peakLoadExclude = !e.currentTarget.checked;
-                setEditing?.(clone);
-              }}
+            <b>Disable Optimal Start when Outdoor Temperatures are below</b>
+            <MultiSlider
+              min={OPTIMAL_START_LOCKOUT_MIN}
+              max={OPTIMAL_START_LOCKOUT_MAX}
+              stepSize={0.5}
+              labelStepSize={5}
+              labelRenderer={(v, o) =>
+                o?.isHandleTooltip || (v > OPTIMAL_START_LOCKOUT_MIN && v < OPTIMAL_START_LOCKOUT_MAX)
+                  ? `${v}º\xa0F`
+                  : ""
+              }
               disabled={readOnly}
-              label="Participate in Grid Services"
-            />
+            >
+              <MultiSlider.Handle
+                type={HandleType.FULL}
+                interactionKind={HandleInteractionKind.LOCK}
+                value={optimalStartLockout || 35}
+                onChange={(v) => {
+                  const clone = cloneDeep(editing ?? {});
+                  clone.optimalStartLockout = v;
+                  setEditing?.(clone);
+                }}
+              />
+            </MultiSlider>
           </Label>
-        </FormGroup>
-      </div>
-
-      {!peakLoadExclude && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-          <FormGroup label="Cooling Offset During Grid Services">
-            <Label>
-              <b>Cooling Offset During Grid Services (°F)</b>
-              <NumericInput
-                value={coolingPeakOffset || 0}
-                onValueChange={(value) => {
-                  const clone = cloneDeep(editing ?? {});
-                  clone.coolingPeakOffset = value;
-                  setEditing?.(clone);
-                }}
-                min={0}
-                max={10}
-                stepSize={0.5}
-                fill
-                disabled={readOnly}
-              />
-            </Label>
-          </FormGroup>
-
-          <FormGroup label="Heating Offset During Grid Services">
-            <Label>
-              <b>Heating Offset During Grid Services (°F)</b>
-              <NumericInput
-                value={heatingPeakOffset || 0}
-                onValueChange={(value) => {
-                  const clone = cloneDeep(editing ?? {});
-                  clone.heatingPeakOffset = value;
-                  setEditing?.(clone);
-                }}
-                min={0}
-                max={10}
-                stepSize={0.5}
-                fill
-                disabled={readOnly}
-              />
-            </Label>
-          </FormGroup>
         </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-        <FormGroup label="Zone Configuration">
-          <Label>
-            <b>Zone Location</b>
-            <HTMLSelect
-              value={zoneLocation || ""}
-              onChange={(e) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.zoneLocation = e.target.value;
-                setEditing?.(clone);
-              }}
-              disabled={readOnly}
-              options={[
-                { value: "", label: "Select zone location..." },
-                ...Zone.values.filter((v) => v.type === "location").map((z) => ({ value: z.name, label: z.label })),
-              ]}
-            />
-          </Label>
-        </FormGroup>
-
-        <FormGroup label="Zone Mass">
-          <Label>
-            <b>Zone Mass</b>
-            <HTMLSelect
-              value={zoneMass || ""}
-              onChange={(e) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.zoneMass = e.target.value;
-                setEditing?.(clone);
-              }}
-              disabled={readOnly}
-              options={[
-                { value: "", label: "Select zone mass..." },
-                ...Zone.values.filter((v) => v.type === "mass").map((z) => ({ value: z.name, label: z.label })),
-              ]}
-            />
-          </Label>
-        </FormGroup>
+        <div />
+        <div />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-        <FormGroup label="Zone Orientation">
+      <div className="row">
+        <div className="unit">
           <Label>
-            <b>Zone Orientation</b>
-            <HTMLSelect
-              value={zoneOrientation || ""}
-              onChange={(e) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.zoneOrientation = e.target.value;
-                setEditing?.(clone);
-              }}
-              disabled={readOnly}
-              options={[
-                { value: "", label: "Select orientation..." },
-                ...Zone.values.filter((v) => v.type === "orientation").map((z) => ({ value: z.name, label: z.label })),
-              ]}
-            />
-          </Label>
-        </FormGroup>
-
-        <FormGroup label="Zone Building Type">
-          <Label>
-            <b>Building Type</b>
-            <HTMLSelect
-              value={zoneBuilding || ""}
-              onChange={(e) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.zoneBuilding = e.target.value;
-                setEditing?.(clone);
-              }}
-              disabled={readOnly}
-              options={[
-                { value: "", label: "Select building type..." },
-                ...Zone.values.filter((v) => v.type === "building").map((z) => ({ value: z.name, label: z.label })),
-              ]}
-            />
-          </Label>
-        </FormGroup>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-        <FormGroup label="Cooling Capacity">
-          <Label>
-            <b>Rated Cooling Capacity (tons)</b>
-            <NumericInput
-              value={coolingCapacity || 0}
-              onValueChange={(value) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.coolingCapacity = value;
-                setEditing?.(clone);
-              }}
-              min={0}
-              max={100}
+            <b>Optimal Start Allowable Zone Temperature Deviation</b>
+            <MultiSlider
+              min={OPTIMAL_START_DEVIATION_MIN}
+              max={OPTIMAL_START_DEVIATION_MAX}
               stepSize={0.5}
-              fill
+              labelStepSize={0.5}
+              labelRenderer={(v, o) =>
+                o?.isHandleTooltip || (v > OPTIMAL_START_DEVIATION_MIN && v < OPTIMAL_START_DEVIATION_MAX)
+                  ? `${v}º\xa0F`
+                  : ""
+              }
               disabled={readOnly}
-            />
+            >
+              <MultiSlider.Handle
+                type={HandleType.FULL}
+                interactionKind={HandleInteractionKind.LOCK}
+                value={optimalStartDeviation || 2}
+                onChange={(v) => {
+                  const clone = cloneDeep(editing ?? {});
+                  clone.optimalStartDeviation = v;
+                  setEditing?.(clone);
+                }}
+              />
+            </MultiSlider>
           </Label>
-        </FormGroup>
-
-        <FormGroup label="Compressors">
-          <Label>
-            <b>Number of Compressors</b>
-            <NumericInput
-              value={compressors || 1}
-              onValueChange={(value) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.compressors = value;
-                setEditing?.(clone);
-              }}
-              min={1}
-              max={10}
-              stepSize={1}
-              fill
-              disabled={readOnly}
-            />
-          </Label>
-        </FormGroup>
+        </div>
+        <div />
+        <div />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-        <FormGroup label="Optimal Start Configuration">
+      <div className="row">
+        <div className="unit">
           <Label>
-            <b>Optimal Start Lockout Temperature (°F)</b>
-            <NumericInput
-              value={optimalStartLockout || 35}
-              onValueChange={(value) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.optimalStartLockout = value;
-                setEditing?.(clone);
-              }}
-              min={0}
-              max={50}
-              stepSize={1}
-              fill
+            <b>Earliest Start Time Before Occupancy</b>
+            <MultiSlider
+              min={EARLIEST_START_MIN}
+              max={EARLIEST_START_MAX}
+              stepSize={5}
+              labelStepSize={30}
+              labelRenderer={(v, o) =>
+                o?.isHandleTooltip || (v > EARLIEST_START_MIN && v < EARLIEST_START_MAX) ? `${v}\xa0min` : ""
+              }
               disabled={readOnly}
-            />
+            >
+              <MultiSlider.Handle
+                type={HandleType.FULL}
+                interactionKind={HandleInteractionKind.LOCK}
+                value={earliestStart || 120}
+                onChange={(v) => {
+                  const clone = cloneDeep(editing ?? {});
+                  clone.earliestStart = v;
+                  setEditing?.(clone);
+                }}
+              />
+            </MultiSlider>
           </Label>
-        </FormGroup>
-
-        <FormGroup label="Temperature Deviation">
-          <Label>
-            <b>Allowable Zone Temperature Deviation (°F)</b>
-            <NumericInput
-              value={optimalStartDeviation || 2}
-              onValueChange={(value) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.optimalStartDeviation = value;
-                setEditing?.(clone);
-              }}
-              min={0.5}
-              max={5}
-              stepSize={0.5}
-              fill
-              disabled={readOnly}
-            />
-          </Label>
-        </FormGroup>
+        </div>
+        <div />
+        <div />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-        <FormGroup label="Start Time Limits">
+      <div className="row">
+        <div className="unit">
           <Label>
-            <b>Earliest Start Time (minutes before occupancy)</b>
-            <NumericInput
-              value={earliestStart || 120}
-              onValueChange={(value) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.earliestStart = value;
-                setEditing?.(clone);
-              }}
-              min={30}
-              max={300}
-              stepSize={15}
-              fill
+            <b>Latest Start Time Before Occupancy</b>
+            <MultiSlider
+              min={LATEST_START_MIN}
+              max={LATEST_START_MAX}
+              stepSize={5}
+              labelStepSize={15}
+              labelRenderer={(v, o) =>
+                o?.isHandleTooltip || (v > LATEST_START_MIN && v < LATEST_START_MAX) ? `${v}\xa0min` : ""
+              }
               disabled={readOnly}
-            />
+            >
+              <MultiSlider.Handle
+                type={HandleType.FULL}
+                interactionKind={HandleInteractionKind.LOCK}
+                value={latestStart || 30}
+                onChange={(v) => {
+                  const clone = cloneDeep(editing ?? {});
+                  clone.latestStart = v;
+                  setEditing?.(clone);
+                }}
+              />
+            </MultiSlider>
           </Label>
-        </FormGroup>
-
-        <FormGroup label="Latest Start Time">
-          <Label>
-            <b>Latest Start Time (minutes before occupancy)</b>
-            <NumericInput
-              value={latestStart || 30}
-              onValueChange={(value) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.latestStart = value;
-                setEditing?.(clone);
-              }}
-              min={15}
-              max={120}
-              stepSize={15}
-              fill
-              disabled={readOnly}
-            />
-          </Label>
-        </FormGroup>
+        </div>
+        <div />
+        <div />
       </div>
 
-      <div style={{ marginTop: "1rem" }}>
-        <FormGroup>
+      <div className="row">
+        <div className="select">
           <Label>
-            <Switch
-              checked={heatPump || false}
-              onChange={(e) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.heatPump = e.currentTarget.checked;
-                setEditing?.(clone);
-              }}
+            <b>Heat Pump</b>
+            <Popover
+              content={
+                <Menu>
+                  <MenuItem
+                    text="Yes"
+                    onClick={() => {
+                      const clone = cloneDeep(editing ?? {});
+                      clone.heatPump = true;
+                      setEditing?.(clone);
+                    }}
+                  />
+                  <MenuItem
+                    text="No"
+                    onClick={() => {
+                      const clone = cloneDeep(editing ?? {});
+                      clone.heatPump = false;
+                      setEditing?.(clone);
+                    }}
+                  />
+                </Menu>
+              }
+              placement="bottom-start"
               disabled={readOnly}
-              label="Heat Pump System"
-            />
+            >
+              <Button rightIcon={IconNames.CARET_DOWN} minimal disabled={readOnly}>
+                {heatPump ? "Yes" : "No"}
+              </Button>
+            </Popover>
           </Label>
-        </FormGroup>
+        </div>
+        <div />
+        <div />
       </div>
 
       {heatPump && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-          <FormGroup label="Heat Pump Backup">
+        <div className="row">
+          <div className="unit">
             <Label>
-              <b>Electric Backup Capacity (kW)</b>
-              <NumericInput
-                value={heatPumpBackup || 0}
-                onValueChange={(value) => {
-                  const clone = cloneDeep(editing ?? {});
-                  clone.heatPumpBackup = value;
-                  setEditing?.(clone);
-                }}
-                min={0}
-                max={50}
+              <b>Heat Pump Auxiliary Heat Lockout</b>
+              <MultiSlider
+                min={HEAT_PUMP_LOCKOUT_MIN}
+                max={HEAT_PUMP_LOCKOUT_MAX}
                 stepSize={0.5}
-                fill
+                labelStepSize={8}
+                labelRenderer={(v, o) =>
+                  o?.isHandleTooltip || (v > HEAT_PUMP_LOCKOUT_MIN && v < HEAT_PUMP_LOCKOUT_MAX) ? `${v}º\xa0F` : ""
+                }
                 disabled={readOnly}
-              />
+              >
+                <MultiSlider.Handle
+                  type={HandleType.FULL}
+                  interactionKind={HandleInteractionKind.LOCK}
+                  value={heatPumpLockout || 25}
+                  onChange={(v) => {
+                    const clone = cloneDeep(editing ?? {});
+                    clone.heatPumpLockout = v;
+                    setEditing?.(clone);
+                  }}
+                />
+              </MultiSlider>
             </Label>
-          </FormGroup>
-
-          <FormGroup label="Heat Pump Lockout">
-            <Label>
-              <b>Auxiliary Heat Lockout Temperature (°F)</b>
-              <NumericInput
-                value={heatPumpLockout || 25}
-                onValueChange={(value) => {
-                  const clone = cloneDeep(editing ?? {});
-                  clone.heatPumpLockout = value;
-                  setEditing?.(clone);
-                }}
-                min={0}
-                max={50}
-                stepSize={1}
-                fill
-                disabled={readOnly}
-              />
-            </Label>
-          </FormGroup>
+          </div>
+          <div />
+          <div />
         </div>
       )}
 
-      <div style={{ marginTop: "1rem" }}>
-        <FormGroup>
+      <div className="row">
+        <div className="select">
           <Label>
-            <Switch
-              checked={economizer || false}
-              onChange={(e) => {
-                const clone = cloneDeep(editing ?? {});
-                clone.economizer = e.currentTarget.checked;
-                setEditing?.(clone);
-              }}
+            <b>Economizer</b>
+            <Popover
+              content={
+                <Menu>
+                  <MenuItem
+                    text="Yes"
+                    onClick={() => {
+                      const clone = cloneDeep(editing ?? {});
+                      clone.economizer = true;
+                      setEditing?.(clone);
+                    }}
+                  />
+                  <MenuItem
+                    text="No"
+                    onClick={() => {
+                      const clone = cloneDeep(editing ?? {});
+                      clone.economizer = false;
+                      setEditing?.(clone);
+                    }}
+                  />
+                </Menu>
+              }
+              placement="bottom-start"
               disabled={readOnly}
-              label="Economizer System"
-            />
+            >
+              <Button rightIcon={IconNames.CARET_DOWN} minimal disabled={readOnly}>
+                {economizer ? "Yes" : "No"}
+              </Button>
+            </Popover>
           </Label>
-        </FormGroup>
+        </div>
+        <div />
+        <div />
       </div>
 
       {economizer && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-          <FormGroup label="Economizer Setpoint">
-            <Label>
-              <b>Switchover Temperature Setpoint (°F)</b>
-              <NumericInput
-                value={economizerSetpoint || 65}
-                onValueChange={(value) => {
-                  const clone = cloneDeep(editing ?? {});
-                  clone.economizerSetpoint = value;
-                  setEditing?.(clone);
-                }}
-                min={50}
-                max={80}
-                stepSize={1}
-                fill
-                disabled={readOnly}
-              />
-            </Label>
-          </FormGroup>
+        <>
+          <div className="row">
+            <div className="unit">
+              <Label>
+                <b>Economizer Switchover Temperature Setpoint</b>
+                <MultiSlider
+                  min={ECONOMIZER_SETPOINT_MIN}
+                  max={ECONOMIZER_SETPOINT_MAX}
+                  stepSize={0.5}
+                  labelStepSize={5}
+                  labelRenderer={(v, o) =>
+                    o?.isHandleTooltip || (v > ECONOMIZER_SETPOINT_MIN && v < ECONOMIZER_SETPOINT_MAX)
+                      ? `${v}º\xa0F`
+                      : ""
+                  }
+                  disabled={readOnly}
+                >
+                  <MultiSlider.Handle
+                    type={HandleType.FULL}
+                    interactionKind={HandleInteractionKind.LOCK}
+                    value={economizerSetpoint || 65}
+                    onChange={(v) => {
+                      const clone = cloneDeep(editing ?? {});
+                      clone.economizerSetpoint = v;
+                      setEditing?.(clone);
+                    }}
+                  />
+                </MultiSlider>
+              </Label>
+            </div>
+            <div />
+            <div />
+          </div>
 
-          <FormGroup label="Cooling Lockout">
-            <Label>
-              <b>Compressor Cooling Lockout Temperature (°F)</b>
-              <NumericInput
-                value={coolingLockout || 55}
-                onValueChange={(value) => {
-                  const clone = cloneDeep(editing ?? {});
-                  clone.coolingLockout = value;
-                  setEditing?.(clone);
-                }}
-                min={40}
-                max={70}
-                stepSize={1}
-                fill
-                disabled={readOnly}
-              />
-            </Label>
-          </FormGroup>
-        </div>
+          <div className="row">
+            <div className="unit">
+              <Label>
+                <b>Compressor Cooling Lockout Temperature</b>
+                <MultiSlider
+                  min={COOLING_LOCKOUT_MIN}
+                  max={COOLING_LOCKOUT_MAX}
+                  stepSize={0.5}
+                  labelStepSize={5}
+                  labelRenderer={(v, o) =>
+                    o?.isHandleTooltip || (v > COOLING_LOCKOUT_MIN && v < COOLING_LOCKOUT_MAX) ? `${v}º\xa0F` : ""
+                  }
+                  disabled={readOnly}
+                >
+                  <MultiSlider.Handle
+                    type={HandleType.FULL}
+                    interactionKind={HandleInteractionKind.LOCK}
+                    value={coolingLockout || 55}
+                    onChange={(v) => {
+                      const clone = cloneDeep(editing ?? {});
+                      clone.coolingLockout = v;
+                      setEditing?.(clone);
+                    }}
+                  />
+                </MultiSlider>
+              </Label>
+            </div>
+            <div />
+            <div />
+          </div>
+        </>
       )}
 
       <div

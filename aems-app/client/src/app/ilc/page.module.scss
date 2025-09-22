@@ -1,7 +1,7 @@
 .controls {
   padding: 1rem;
   width: 100%;
-  
+
   h1 {
     margin: 1rem 0;
     color: var(--bp5-text-color);
@@ -54,7 +54,7 @@
     margin-bottom: 0;
   }
 
-  > div {
+  >div {
     flex: 1;
     min-width: 0;
 
@@ -84,10 +84,10 @@
   border-left: 3px solid var(--bp5-intent-primary);
   margin-left: 1rem;
   background-color: var(--bp5-background-color-secondary);
-  
+
   .bp5-label {
     margin-bottom: 0.5rem;
-    
+
     b {
       display: block;
       margin-bottom: 0.25rem;
@@ -98,10 +98,10 @@
 
 // Blueprint.js overrides for better spacing
 .controls {
-  :global(.bp5-label) {
+  .bp5-label {
     margin-bottom: 0.75rem;
 
-    > b {
+    >b {
       display: block;
       margin-bottom: 0.25rem;
       font-weight: 500;
@@ -110,20 +110,20 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-    
+
     h3 {
       margin: 0;
       color: var(--bp5-heading-color);
     }
   }
 
-  :global(.bp5-input-group) {
+  .bp5-input-group {
     margin-top: 0.25rem;
-    
+
     .bp5-input {
       border-radius: 4px;
       border: 1px solid var(--bp5-border-color);
-      
+
       &:focus {
         border-color: var(--bp5-intent-primary);
         box-shadow: 0 0 0 1px var(--bp5-intent-primary);
@@ -136,11 +136,11 @@
     }
   }
 
-  :global(.bp5-html-select) {
+  .bp5-html-select {
     select {
       border-radius: 4px;
       border: 1px solid var(--bp5-border-color);
-      
+
       &:focus {
         border-color: var(--bp5-intent-primary);
         box-shadow: 0 0 0 1px var(--bp5-intent-primary);
@@ -148,61 +148,61 @@
     }
   }
 
-  :global(.bp5-numeric-input) {
+  .bp5-numeric-input {
     .bp5-input-group .bp5-input {
       border-radius: 4px;
     }
   }
 
-  :global(.bp5-card) {
+  .bp5-card {
     border-radius: 6px;
   }
 
-  :global(.bp5-tree) {
+  .bp5-tree {
     margin: 0.5rem 0;
-    
+
     .bp5-tree-node {
       padding: 0.5rem;
       border-radius: 4px;
-      
+
       &:hover {
         background-color: var(--bp5-background-color-secondary);
       }
-      
+
       &.bp5-tree-node-expanded {
         background-color: var(--bp5-background-color-secondary);
       }
     }
-    
+
     .bp5-tree-node-label {
       font-weight: 500;
     }
   }
 
-  :global(.bp5-collapse) {
+  .bp5-collapse {
     .bp5-collapse-body {
       padding-top: 0.5rem;
     }
   }
 
-  :global(.bp5-button) {
+  .bp5-button {
     &.bp5-minimal {
       border-radius: 4px;
-      
+
       &:hover {
         background-color: var(--bp5-background-color-secondary);
       }
     }
   }
 
-  :global(.bp5-alert) {
+  .bp5-alert {
     max-width: 500px;
     margin: 0 auto;
-    
+
     .bp5-alert-body {
       padding: 1rem;
     }
-    
+
     .bp5-alert-footer {
       padding: 0.75rem 1rem;
       border-top: 1px solid var(--bp5-border-color);
@@ -211,13 +211,13 @@
 }
 
 // Unit Editor Styling
-.controls :global(.unit-editor) {
+.controls .unit-editor {
   padding: 1rem;
   border-left: 3px solid var(--bp5-intent-primary);
   margin-left: 1rem;
   background-color: var(--bp5-background-color-secondary);
   border-radius: 4px;
-  
+
   .row {
     display: flex;
     justify-content: space-between;
@@ -229,18 +229,18 @@
       margin-bottom: 0;
     }
 
-    > div {
+    >div {
       flex: 1;
       min-width: 0;
 
       &:last-child {
         flex: 0 0 auto;
       }
-      
+
       &.unit {
         flex: 1.5;
       }
-      
+
       &.select {
         flex: 1.2;
       }
@@ -253,11 +253,11 @@
       width: 2rem;
     }
   }
-  
-  :global(.bp5-label) {
+
+  .bp5-label {
     margin-bottom: 0.5rem;
-    
-    > b {
+
+    >b {
       display: block;
       margin-bottom: 0.25rem;
       color: var(--bp5-text-color);
@@ -267,20 +267,20 @@
       font-weight: 500;
     }
   }
-  
-  :global(.bp5-input-group) {
+
+  .bp5-input-group {
     margin-top: 0.25rem;
   }
-  
-  :global(.bp5-html-select) {
+
+  .bp5-html-select {
     margin-top: 0.25rem;
   }
-  
-  :global(.bp5-numeric-input) {
+
+  .bp5-numeric-input {
     margin-top: 0.25rem;
   }
-  
-  :global(.bp5-slider) {
+
+  .bp5-slider {
     margin: 0.5rem 0;
   }
 }
@@ -295,9 +295,9 @@
     flex-direction: column;
     gap: 0.75rem;
 
-    > div {
+    >div {
       flex: 1 1 auto;
-      
+
       &:last-child {
         align-self: flex-end;
       }
@@ -308,8 +308,8 @@
     flex-direction: row;
     justify-content: flex-end;
   }
-  
-  .controls :global(.unit-editor) {
+
+  .controls .unit-editor {
     margin-left: 0.5rem;
     padding: 0.75rem;
   }
@@ -332,8 +332,8 @@
   .actions {
     gap: 0.25rem;
   }
-  
-  .controls :global(.unit-editor) {
+
+  .controls .unit-editor {
     margin-left: 0.25rem;
     padding: 0.5rem;
   }
