@@ -63,10 +63,11 @@ function allUnit(units: UnitModel[]): Partial<UnitModel> | null {
       pick(unit.location, ["name", "latitude", "longitude"]),
     ),
   )
-    ? unit.location
+    ? cloneDeep(unit.location)
     : undefined;
-  const holidays =
-    unit.configuration?.holidays?.filter(typeofNonNullable).filter((v) => v.type !== HolidayEnum.Custom) ?? [];
+  const holidays = cloneDeep(
+    unit.configuration?.holidays?.filter(typeofNonNullable).filter((v) => v.type !== HolidayEnum.Custom) ?? [],
+  );
   holidays.forEach(
     (v) =>
       (v.type = units.every((u) => u.configuration?.holidays?.find((h) => h.label === v.label)?.type === v.type)
@@ -517,11 +518,76 @@ export default function Page() {
     }
   };
 
-  const handleSaveAll = () => {
-    if (!isEqual(editingAll, {})) {
-      units.forEach((unit) => {
-        handleUpdateUnit(data, { id: unit.id, ...updateIds(unit, editingAll) }, saving);
+  const updateIds = (unit: UnitModel, editingAll: DeepPartial<UnitModel | null>): DeepPartial<UnitModel> => {
+    const clone = cloneDeep(editingAll);
+
+    // Return empty object if clone is null
+    if (!clone) {
+      return {};
+    }
+
+    // Handle location ID matching
+    if (clone.location && unit.location) {
+      clone.location.id = unit.location.id;
+    }
+
+    // Handle holiday ID matching by label
+    if (clone.configuration?.holidays) {
+      clone.configuration.holidays = clone.configuration.holidays.map((editingHoliday) => {
+        if (
+          editingHoliday &&
+          (editingHoliday.type === HolidayEnum.Enabled || editingHoliday.type === HolidayEnum.Disabled)
+        ) {
+          // Find matching holiday in unit by label
+          const matchingHoliday = unit.configuration?.holidays?.find(
+            (unitHoliday) => unitHoliday?.label === editingHoliday.label,
+          );
+          if (matchingHoliday) {
+            return { ...editingHoliday, id: matchingHoliday.id };
+          }
+        }
+        return editingHoliday;
       });
+    }
+
+    return clone;
+  };
+
+  const handleSaveAll = () => {
+    if (!isEqual(editingAll, {}) && editingAll) {
+      // Pre-process editingAll to add holiday labels from the first unit
+      const firstUnit = units[0];
+      if (firstUnit && editingAll.configuration?.holidays) {
+        const updatedEditingAll = cloneDeep(editingAll);
+        if (updatedEditingAll && updatedEditingAll.configuration?.holidays) {
+          updatedEditingAll.configuration.holidays = updatedEditingAll.configuration.holidays.map((editingHoliday) => {
+            if (
+              editingHoliday &&
+              editingHoliday.id &&
+              (editingHoliday.type === HolidayEnum.Enabled || editingHoliday.type === HolidayEnum.Disabled)
+            ) {
+              // Find matching holiday in first unit by ID
+              const matchingHoliday = firstUnit.configuration?.holidays?.find(
+                (unitHoliday) => unitHoliday?.id === editingHoliday.id,
+              );
+              if (matchingHoliday) {
+                return { ...editingHoliday, label: matchingHoliday.label };
+              }
+            }
+            return editingHoliday;
+          });
+        }
+
+        // Use the updated editingAll for processing units
+        units.forEach((unit) => {
+          handleUpdateUnit(data, { id: unit.id, ...updateIds(unit, updatedEditingAll) }, saving);
+        });
+      } else {
+        // Fallback for cases without holidays
+        units.forEach((unit) => {
+          handleUpdateUnit(data, { id: unit.id, ...updateIds(unit, editingAll) }, saving);
+        });
+      }
       setEditingAll({});
     }
   };
