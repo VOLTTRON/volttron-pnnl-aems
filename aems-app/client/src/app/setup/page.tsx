@@ -40,51 +40,53 @@ import { CurrentContext, NotificationContext, NotificationType, RouteContext } f
 import { filter } from "@/utils/client";
 import { Search } from "../components/common";
 import { IconNames } from "@blueprintjs/icons";
-import { cloneDeep, isObject, merge, omit, pick, set } from "lodash";
+import { cloneDeep, isEqual, merge, omit, pick } from "lodash";
 import { Setpoint } from "./components/Setpoint";
 import { Schedules } from "./components/Schedules";
 import { Holidays } from "./components/Holidays";
 import { Occupancies, OccupancyCreateDelete } from "./components/Occupancies";
 import { Unit } from "./components/Unit";
-import { Role, HolidayType, DeepPartial, typeofNonNullable, typeofObject } from "@local/common";
+import { Role, DeepPartial, typeofNonNullable, typeofObject } from "@local/common";
 import { HolidayCreateDelete } from "./components/Holiday";
 import { Location } from "./components/Location";
 
 type UnitModel = NonNullable<ReadUnitsQuery["readUnits"]>[number];
 
-// Utility function to get common values across units (simplified)
-const getCommon = <T extends Record<string, any>>(objects: T[], excludeKeys: string[] = []): Partial<T> => {
-  if (!objects || objects.length === 0) return {};
-
-  const first = objects[0];
-  const result: any = {};
-
-  Object.keys(first).forEach((key) => {
-    if (excludeKeys.includes(key)) return;
-
-    const firstValue = first[key];
-    const allSame = objects.every((obj) => {
-      if (isObject(firstValue) && isObject(obj[key])) {
-        return JSON.stringify(firstValue) === JSON.stringify(obj[key]);
-      }
-      return obj[key] === firstValue;
-    });
-
-    if (allSame) {
-      result[key] = firstValue;
-    } else {
-      // Set to null when values differ to trigger indeterminate state
-      result[key] = null;
-    }
-  });
-
-  return result;
-};
+function allUnit(units: UnitModel[]): Partial<UnitModel> | null {
+  const unit = units[0];
+  if (!unit) {
+    return null;
+  }
+  const location = units.every((u) =>
+    isEqual(
+      pick(u.location, ["name", "latitude", "longitude"]),
+      pick(unit.location, ["name", "latitude", "longitude"]),
+    ),
+  )
+    ? unit.location
+    : undefined;
+  const holidays =
+    unit.configuration?.holidays?.filter(typeofNonNullable).filter((v) => v.type !== HolidayEnum.Custom) ?? [];
+  holidays.forEach(
+    (v) =>
+      (v.type = units.every((u) => u.configuration?.holidays?.find((h) => h.label === v.label)?.type === v.type)
+        ? v.type
+        : null),
+  );
+  return {
+    id: unit.id,
+    location,
+    configuration: {
+      id: unit.configuration?.id,
+      holidays,
+    },
+  };
+}
 
 export default function Page() {
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<DeepPartial<UnitModel> | null>(null);
-  const [editingAll, setEditingAll] = useState<DeepPartial<UnitModel> | null>({});
+  const [editingAll, setEditingAll] = useState<DeepPartial<UnitModel | null>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<(() => void) | null>(null);
   const [saving, setSaving] = useState<string[]>([]);
@@ -246,29 +248,22 @@ export default function Page() {
     [data?.readUnits, search],
   );
 
-  // Create default unit with common values for bulk editing
-  const defaultUnit = useMemo(() => {
-    if (!units || units.length === 0) return null;
+  const all = useMemo(() => {
+    const values = data?.readUnits ?? [];
+    return values.length > 0 ? allUnit(values) : null;
+  }, [data?.readUnits]);
 
-    return {
-      location: getCommon(
-        units.map((u) => u.location ?? {}),
-        ["id", "createdAt", "updatedAt"],
-      ),
-      configuration: {
-        holidays: HolidayType.values.map((holidayType) =>
-          getCommon(
-            units.map((u) => u.configuration?.holidays?.find((h) => h?.label === holidayType.label) ?? {}),
-            ["id", "createdAt", "updatedAt"],
-          ),
-        ),
-        setpoint: getCommon(
-          units.map((u) => u.configuration?.setpoint ?? {}),
-          ["id", "createdAt", "updatedAt"],
-        ),
-      },
-    };
-  }, [units]);
+  // Track previous saving state to detect when operations complete
+  const [previousSavingLength, setPreviousSavingLength] = useState(0);
+
+  // Monitor saving state and show completion notification
+  useEffect(() => {
+    // Only show notification when we transition from saving to not saving
+    if (previousSavingLength > 0 && saving.length === 0) {
+      createNotification?.("All changes saved successfully", NotificationType.Notification);
+    }
+    setPreviousSavingLength(saving.length);
+  }, [saving.length, previousSavingLength, createNotification]);
 
   const handleUpdateUnit = useCallback(
     (
@@ -518,34 +513,16 @@ export default function Page() {
   const handleSave = () => {
     if (editing?.id) {
       handleUpdateUnit(data, editing, saving);
-      const checkSaving = () =>
-        setTimeout(() => {
-          if (saving.length === 0) {
-            createNotification?.("All changes saved successfully", NotificationType.Notification);
-          } else {
-            checkSaving();
-          }
-        }, 1000);
-      checkSaving();
       setEditing(null);
     }
   };
 
   const handleSaveAll = () => {
-    if (editingAll) {
-      units.forEach(() => {
-        handleUpdateUnit(data, editingAll, saving);
+    if (!isEqual(editingAll, {})) {
+      units.forEach((unit) => {
+        handleUpdateUnit(data, { id: unit.id, ...updateIds(unit, editingAll) }, saving);
       });
-      const checkSaving = () =>
-        setTimeout(() => {
-          if (saving.length === 0) {
-            createNotification?.("All changes saved successfully", NotificationType.Notification);
-          } else {
-            checkSaving();
-          }
-        }, 1000);
-      checkSaving();
-      setEditingAll(null);
+      setEditingAll({});
     }
   };
 
@@ -644,93 +621,90 @@ export default function Page() {
 
       <h4> </h4>
 
-      {/* Update All Units Card */}
-      {defaultUnit && (
-        <div className={styles.list}>
-          <Card className={styles.unitCard}>
-            <div className={styles.row}>
-              <div>
-                <Label>
-                  <h3>Update All Units</h3>
-                </Label>
-              </div>
-              <div className={styles.actions}>
-                {editingAll ? (
-                  <>
-                    <Tooltip content="Save All" position={Position.TOP}>
-                      <Button
-                        icon={saving.length > 0 ? IconNames.REFRESH : IconNames.FLOPPY_DISK}
-                        intent={Intent.PRIMARY}
-                        minimal
-                        onClick={handleSaveAll}
-                        disabled={saving.length > 0}
-                        loading={saving.length > 0}
-                      />
-                    </Tooltip>
-                    <Tooltip content="Clear All" position={Position.TOP}>
-                      <Button
-                        icon={IconNames.CROSS}
-                        intent={Intent.PRIMARY}
-                        minimal
-                        onClick={() => setEditingAll(null)}
-                        disabled={saving.length > 0}
-                      />
-                    </Tooltip>
-                  </>
-                ) : null}
-              </div>
+      <div className={styles.list}>
+        <Card className={styles.unitCard}>
+          <div className={styles.row}>
+            <div>
+              <Label>
+                <h3>Update All Units</h3>
+              </Label>
             </div>
+            <div className={styles.actions}>
+              {!isEqual(editingAll, {}) ? (
+                <>
+                  <Tooltip content="Save All" position={Position.TOP}>
+                    <Button
+                      icon={saving.length > 0 ? IconNames.REFRESH : IconNames.FLOPPY_DISK}
+                      intent={Intent.PRIMARY}
+                      minimal
+                      onClick={handleSaveAll}
+                      disabled={saving.length > 0}
+                      loading={saving.length > 0}
+                    />
+                  </Tooltip>
+                  <Tooltip content="Clear All" position={Position.TOP}>
+                    <Button
+                      icon={IconNames.CROSS}
+                      intent={Intent.PRIMARY}
+                      minimal
+                      onClick={() => setEditingAll({})}
+                      disabled={saving.length > 0}
+                    />
+                  </Tooltip>
+                </>
+              ) : null}
+            </div>
+          </div>
 
-            <Collapse isOpen={true}>
-              <Tree
-                contents={[
-                  {
-                    id: "holidays-all",
-                    label: "Holidays",
-                    icon: IconNames.TIMELINE_EVENTS,
-                    hasCaret: true,
-                    isExpanded: expanded === "holidays-all",
-                  },
-                ]}
-                onNodeExpand={(e) => setExpanded(e.id as string)}
-                onNodeCollapse={() => setExpanded(null)}
-                onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
-              />
-              <Collapse isOpen={expanded === "holidays-all"}>
-                <div className={styles.configSection}>
-                  <Holidays
-                    unit={defaultUnit}
-                    editing={editingAll}
-                    setEditing={setEditingAll}
-                    readOnly={false}
-                    bulkUpdate={true}
-                  />
-                </div>
-              </Collapse>
-
-              <Tree
-                contents={[
-                  {
-                    id: "rtu-all",
-                    label: "RTU Configuration",
-                    icon: IconNames.COG,
-                    hasCaret: true,
-                    isExpanded: expanded === "rtu-all",
-                  },
-                ]}
-                onNodeExpand={(e) => setExpanded(e.id as string)}
-                onNodeCollapse={() => setExpanded(null)}
-                onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
-              />
-              <Collapse isOpen={expanded === "rtu-all"}>
-                <div className={styles.configSection}>
-                  <Location unit={defaultUnit} editing={editingAll} setEditing={setEditingAll} readOnly={false} />
-                </div>
-              </Collapse>
+          <Collapse isOpen={true}>
+            <Tree
+              contents={[
+                {
+                  id: "holidays-all",
+                  label: "Holidays",
+                  icon: IconNames.TIMELINE_EVENTS,
+                  hasCaret: true,
+                  isExpanded: expanded === "holidays-all",
+                },
+              ]}
+              onNodeExpand={(e) => setExpanded(e.id as string)}
+              onNodeCollapse={() => setExpanded(null)}
+              onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
+            />
+            <Collapse isOpen={expanded === "holidays-all"}>
+              <div className={styles.configSection}>
+                <Holidays
+                  unit={all}
+                  editing={editingAll}
+                  setEditing={setEditingAll}
+                  readOnly={false}
+                  hideCustom={true}
+                />
+              </div>
             </Collapse>
-          </Card>
-        </div>
-      )}
+
+            <Tree
+              contents={[
+                {
+                  id: "rtu-all",
+                  label: "RTU Configuration",
+                  icon: IconNames.COG,
+                  hasCaret: true,
+                  isExpanded: expanded === "rtu-all",
+                },
+              ]}
+              onNodeExpand={(e) => setExpanded(e.id as string)}
+              onNodeCollapse={() => setExpanded(null)}
+              onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
+            />
+            <Collapse isOpen={expanded === "rtu-all"}>
+              <div className={styles.configSection}>
+                <Location unit={all} editing={editingAll} setEditing={setEditingAll} readOnly={false} />
+              </div>
+            </Collapse>
+          </Collapse>
+        </Card>
+      </div>
 
       <h1>Units</h1>
 

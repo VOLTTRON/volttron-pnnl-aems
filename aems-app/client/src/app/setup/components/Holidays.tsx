@@ -20,7 +20,7 @@ interface HolidaysProps {
   editing: DeepPartial<UnitType> | null;
   setEditing: (editing: DeepPartial<UnitType> | null) => void;
   readOnly?: boolean;
-  bulkUpdate?: boolean;
+  hideCustom?: boolean;
 }
 
 const holidayOrder = HolidayList.values.map((a) => a.label);
@@ -153,7 +153,7 @@ function CreateHoliday({
   );
 }
 
-export function Holidays({ unit, editing, setEditing, readOnly = false, bulkUpdate = false }: HolidaysProps) {
+export function Holidays({ unit, editing, setEditing, readOnly = false, hideCustom = false }: HolidaysProps) {
   const editingHolidays = (editing?.configuration?.holidays ?? [])
     .filter(typeofNonNullable)
     .reduce((a, h) => ({ ...a, [h?.id ?? ""]: h }), {} as Record<string, HolidayCreateDelete>);
@@ -166,7 +166,7 @@ export function Holidays({ unit, editing, setEditing, readOnly = false, bulkUpda
 
   return (
     <div style={{ padding: "1rem" }}>
-      {!bulkUpdate && (
+      {!hideCustom && (
         <>
           <Label>
             <h3>Create Holiday</h3>
