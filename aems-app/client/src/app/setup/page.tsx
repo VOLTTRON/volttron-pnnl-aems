@@ -48,6 +48,7 @@ import { Occupancies, OccupancyCreateDelete } from "./components/Occupancies";
 import { Unit } from "./components/Unit";
 import { Role, HolidayType, DeepPartial, typeofNonNullable, typeofObject } from "@local/common";
 import { HolidayCreateDelete } from "./components/Holiday";
+import { Location } from "./components/Location";
 
 type UnitModel = NonNullable<ReadUnitsQuery["readUnits"]>[number];
 
@@ -532,8 +533,8 @@ export default function Page() {
 
   const handleSaveAll = () => {
     if (editingAll) {
-      units.forEach((unit) => {
-        handleUpdateUnit(data, unit, saving);
+      units.forEach(() => {
+        handleUpdateUnit(data, editingAll, saving);
       });
       const checkSaving = () =>
         setTimeout(() => {
@@ -723,7 +724,7 @@ export default function Page() {
               />
               <Collapse isOpen={expanded === "rtu-all"}>
                 <div className={styles.configSection}>
-                  <Unit unit={defaultUnit} editing={editingAll} setEditing={setEditing} />
+                  <Location unit={defaultUnit} editing={editingAll} setEditing={setEditingAll} readOnly={false} />
                 </div>
               </Collapse>
             </Collapse>
