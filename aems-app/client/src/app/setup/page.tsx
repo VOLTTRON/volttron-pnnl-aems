@@ -282,72 +282,6 @@ export default function Page() {
       } else if (updated.configuration) {
         updated.configuration.id = updated.configuration.id ?? unit.configuration?.id;
       }
-      saving = [...saving, `updateUnit(${updated.id})`];
-      setSaving(saving);
-      try {
-        updateUnit({
-          variables: {
-            update: {
-              stage: ModelStage.Update,
-              ...(updated ? omit(updated, ["id", "location", "configuration"]) : {}),
-              ...(updated.configuration
-                ? {
-                    configuration: {
-                      update: {
-                        ...omit(updated.configuration, [
-                          "id",
-                          "setpoint",
-                          "holidays",
-                          "occupancies",
-                          "mondaySchedule",
-                          "tuesdaySchedule",
-                          "wednesdaySchedule",
-                          "thursdaySchedule",
-                          "fridaySchedule",
-                          "saturdaySchedule",
-                          "sundaySchedule",
-                          "holidaySchedule",
-                        ]),
-                        ...(updated.configuration.setpoint
-                          ? { setpoint: { update: omit(updated.configuration.setpoint, ["id"]) } }
-                          : {}),
-                        ...(updated.configuration.mondaySchedule
-                          ? { mondaySchedule: { update: omit(updated.configuration.mondaySchedule, ["id"]) } }
-                          : {}),
-                        ...(updated.configuration.tuesdaySchedule
-                          ? { tuesdaySchedule: { update: omit(updated.configuration.tuesdaySchedule, ["id"]) } }
-                          : {}),
-                        ...(updated.configuration.wednesdaySchedule
-                          ? { wednesdaySchedule: { update: omit(updated.configuration.wednesdaySchedule, ["id"]) } }
-                          : {}),
-                        ...(updated.configuration.thursdaySchedule
-                          ? { thursdaySchedule: { update: omit(updated.configuration.thursdaySchedule, ["id"]) } }
-                          : {}),
-                        ...(updated.configuration.fridaySchedule
-                          ? { fridaySchedule: { update: omit(updated.configuration.fridaySchedule, ["id"]) } }
-                          : {}),
-                        ...(updated.configuration.saturdaySchedule
-                          ? { saturdaySchedule: { update: omit(updated.configuration.saturdaySchedule, ["id"]) } }
-                          : {}),
-                        ...(updated.configuration.sundaySchedule
-                          ? { sundaySchedule: { update: omit(updated.configuration.sundaySchedule, ["id"]) } }
-                          : {}),
-                        ...(updated.configuration.holidaySchedule
-                          ? { holidaySchedule: { update: omit(updated.configuration.holidaySchedule, ["id"]) } }
-                          : {}),
-                      },
-                    },
-                  }
-                : {}),
-            },
-            where: { id: updated.id },
-          },
-        });
-      } catch (error) {
-        saving = saving.filter((v) => v !== `updateUnit(${updated.id})` && v !== "updateUnit");
-        setSaving(saving);
-        createNotification?.((error as Error).message, NotificationType.Error);
-      }
       const location = updated?.location;
       if (location) {
         if (unit.location?.id) {
@@ -441,14 +375,14 @@ export default function Page() {
         const action = typeofObject<OccupancyCreateDelete>(occupancy, (v) => v.action) ? occupancy.action : "update";
         switch (action) {
           case "create":
-            saving = [...saving, `createOccupancy(${occupancy.id})`];
+            saving = [...saving, `createOccupancy`];
             setSaving(saving);
             try {
               createOccupancy({
                 variables: {
                   create: {
                     label: occupancy.label ?? "",
-                    date: occupancy.date ?? new Date().toISOString(),
+                    date: occupancy.date ? new Date(occupancy.date).toISOString() : new Date().toISOString(),
                     schedule: {
                       create: {
                         label: occupancy.schedule?.label ?? "",
@@ -457,11 +391,12 @@ export default function Page() {
                         occupied: occupancy.schedule?.occupied ?? false,
                       },
                     },
+                    configuration: { connect: { id: updated.configuration?.id ?? "" } },
                   },
                 },
               });
             } catch (error) {
-              saving = saving.filter((v) => v !== `createOccupancy(${occupancy.id})` && v !== "createOccupancy");
+              saving = saving.filter((v) => v !== "createOccupancy");
               setSaving(saving);
               createNotification?.((error as Error).message, NotificationType.Error);
             }
@@ -498,6 +433,72 @@ export default function Page() {
             createNotification?.(`Unknown occupancy action: ${action}`, NotificationType.Error);
         }
       });
+      saving = [...saving, `updateUnit(${updated.id})`];
+      setSaving(saving);
+      try {
+        updateUnit({
+          variables: {
+            update: {
+              stage: ModelStage.Update,
+              ...(updated ? omit(updated, ["id", "location", "configuration"]) : {}),
+              ...(updated.configuration
+                ? {
+                    configuration: {
+                      update: {
+                        ...omit(updated.configuration, [
+                          "id",
+                          "setpoint",
+                          "holidays",
+                          "occupancies",
+                          "mondaySchedule",
+                          "tuesdaySchedule",
+                          "wednesdaySchedule",
+                          "thursdaySchedule",
+                          "fridaySchedule",
+                          "saturdaySchedule",
+                          "sundaySchedule",
+                          "holidaySchedule",
+                        ]),
+                        ...(updated.configuration.setpoint
+                          ? { setpoint: { update: omit(updated.configuration.setpoint, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.mondaySchedule
+                          ? { mondaySchedule: { update: omit(updated.configuration.mondaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.tuesdaySchedule
+                          ? { tuesdaySchedule: { update: omit(updated.configuration.tuesdaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.wednesdaySchedule
+                          ? { wednesdaySchedule: { update: omit(updated.configuration.wednesdaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.thursdaySchedule
+                          ? { thursdaySchedule: { update: omit(updated.configuration.thursdaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.fridaySchedule
+                          ? { fridaySchedule: { update: omit(updated.configuration.fridaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.saturdaySchedule
+                          ? { saturdaySchedule: { update: omit(updated.configuration.saturdaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.sundaySchedule
+                          ? { sundaySchedule: { update: omit(updated.configuration.sundaySchedule, ["id"]) } }
+                          : {}),
+                        ...(updated.configuration.holidaySchedule
+                          ? { holidaySchedule: { update: omit(updated.configuration.holidaySchedule, ["id"]) } }
+                          : {}),
+                      },
+                    },
+                  }
+                : {}),
+            },
+            where: { id: updated.id },
+          },
+        });
+      } catch (error) {
+        saving = saving.filter((v) => v !== `updateUnit(${updated.id})` && v !== "updateUnit");
+        setSaving(saving);
+        createNotification?.((error as Error).message, NotificationType.Error);
+      }
     },
     [
       updateUnit,
