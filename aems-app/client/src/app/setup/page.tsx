@@ -16,6 +16,8 @@ import {
 } from "@blueprintjs/core";
 import { useContext, useMemo, useState, useCallback, useEffect } from "react";
 import { useSubscription, useMutation, useQuery } from "@apollo/client";
+import { useOperationManager } from "./hooks/useOperationManager";
+import { useMutationWithTracking } from "./hooks/useMutationWithTracking";
 import {
   ReadUnitsQuery,
   StringFilterMode,
@@ -90,11 +92,10 @@ export default function Page() {
   const [editingAll, setEditingAll] = useState<DeepPartial<UnitModel | null>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<(() => void) | null>(null);
-  const [saving, setSaving] = useState<string[]>([]);
-
   const { route } = useContext(RouteContext);
   const { createNotification } = useContext(NotificationContext);
   const { current } = useContext(CurrentContext);
+  const { hasAnyOperations, waitForAllOperations } = useOperationManager();
 
   const { data: queried, startPolling } = useQuery(ReadUnitsDocument, {
     variables: {
@@ -135,113 +136,74 @@ export default function Page() {
 
   const data = subscribed ?? queried;
 
-  const [updateUnit] = useMutation(UpdateUnitDocument, {
-    onCompleted(data) {
-      setSaving(saving.filter((v) => v !== `updateUnit(${data.updateUnit?.id})` && v !== "updateUnit"));
-    },
-    onError(error, options) {
-      setSaving(saving.filter((v) => v !== `updateUnit(${options?.variables?.where?.id})` && v !== "updateUnit"));
-      createNotification?.(error.message, NotificationType.Error);
-    },
+  const [updateUnit] = useMutationWithTracking(UpdateUnitDocument, {
+    operationType: 'unit',
+    getEntityId: (variables) => variables?.where?.id,
+    getDescription: (variables) => `Update unit ${variables?.where?.id}`,
+    onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
-  const [createHoliday] = useMutation(CreateHolidayDocument, {
-    onCompleted() {
-      setSaving(saving.filter((v) => v !== "createHoliday"));
-    },
-    onError(error) {
+  const [createHoliday] = useMutationWithTracking(CreateHolidayDocument, {
+    operationType: 'holiday',
+    getDescription: (variables) => `Create holiday ${variables?.create?.label}`,
+    onError: (error) => {
       console.error(error);
-      setSaving(saving.filter((v) => v !== "createHoliday"));
       createNotification?.(error.message, NotificationType.Error);
     },
   });
 
-  const [updateHoliday] = useMutation(UpdateHolidayDocument, {
-    onCompleted(data) {
-      setSaving(saving.filter((v) => v !== `updateHoliday(${data.updateHoliday?.id})` && v !== "updateHoliday"));
-    },
-    onError(error, options) {
-      setSaving(saving.filter((v) => v !== `updateHoliday(${options?.variables?.where?.id})` && v !== "updateHoliday"));
-      createNotification?.(error.message, NotificationType.Error);
-    },
+  const [updateHoliday] = useMutationWithTracking(UpdateHolidayDocument, {
+    operationType: 'holiday',
+    getEntityId: (variables) => variables?.where?.id,
+    getDescription: (variables) => `Update holiday ${variables?.where?.id}`,
+    onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
-  const [deleteHoliday] = useMutation(DeleteHolidayDocument, {
-    onCompleted(data) {
-      setSaving(saving.filter((v) => v !== `deleteHoliday(${data.deleteHoliday?.id})` && v !== "deleteHoliday"));
-    },
-    onError(error, options) {
-      setSaving(saving.filter((v) => v !== `deleteHoliday(${options?.variables?.where?.id})` && v !== "deleteHoliday"));
-      createNotification?.(error.message, NotificationType.Error);
-    },
+  const [deleteHoliday] = useMutationWithTracking(DeleteHolidayDocument, {
+    operationType: 'holiday',
+    getEntityId: (variables) => variables?.where?.id,
+    getDescription: (variables) => `Delete holiday ${variables?.where?.id}`,
+    onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
-  const [createOccupancy] = useMutation(CreateOccupancyDocument, {
-    onCompleted() {
-      setSaving(saving.filter((v) => v !== "createOccupancy"));
-    },
-    onError(error) {
-      setSaving(saving.filter((v) => v !== "createOccupancy"));
-      createNotification?.(error.message, NotificationType.Error);
-    },
+  const [createOccupancy] = useMutationWithTracking(CreateOccupancyDocument, {
+    operationType: 'occupancy',
+    getDescription: (variables) => `Create occupancy ${variables?.create?.label}`,
+    onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
-  const [updateOccupancy] = useMutation(UpdateOccupancyDocument, {
-    onCompleted(data) {
-      setSaving(saving.filter((v) => v !== `updateOccupancy(${data.updateOccupancy?.id})` && v !== "updateOccupancy"));
-    },
-    onError(error, options) {
-      setSaving(
-        saving.filter((v) => v !== `updateOccupancy(${options?.variables?.where?.id})` && v !== "updateOccupancy"),
-      );
-      createNotification?.(error.message, NotificationType.Error);
-    },
+  const [updateOccupancy] = useMutationWithTracking(UpdateOccupancyDocument, {
+    operationType: 'occupancy',
+    getEntityId: (variables) => variables?.where?.id,
+    getDescription: (variables) => `Update occupancy ${variables?.where?.id}`,
+    onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
-  const [deleteOccupancy] = useMutation(DeleteOccupancyDocument, {
-    onCompleted(data) {
-      setSaving(saving.filter((v) => v !== `deleteOccupancy(${data.deleteOccupancy?.id})` && v !== "deleteOccupancy"));
-    },
-    onError(error, options) {
-      setSaving(
-        saving.filter((v) => v !== `deleteOccupancy(${options?.variables?.where?.id})` && v !== "deleteOccupancy"),
-      );
-      createNotification?.(error.message, NotificationType.Error);
-    },
+  const [deleteOccupancy] = useMutationWithTracking(DeleteOccupancyDocument, {
+    operationType: 'occupancy',
+    getEntityId: (variables) => variables?.where?.id,
+    getDescription: (variables) => `Delete occupancy ${variables?.where?.id}`,
+    onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
-  const [createLocation] = useMutation(CreateLocationDocument, {
-    onCompleted(data) {
-      setSaving(saving.filter((v) => v !== "createLocation"));
-    },
-    onError(error) {
-      setSaving(saving.filter((v) => v !== "createLocation"));
-      createNotification?.(error.message, NotificationType.Error);
-    },
+  const [createLocation] = useMutationWithTracking(CreateLocationDocument, {
+    operationType: 'location',
+    getDescription: (variables) => `Create location ${variables?.create?.name}`,
+    onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
-  const [updateLocation] = useMutation(UpdateLocationDocument, {
-    onCompleted(data) {
-      setSaving(saving.filter((v) => v !== `updateLocation(${data.updateLocation?.id})` && v !== "updateLocation"));
-    },
-    onError(error, options) {
-      setSaving(
-        saving.filter((v) => v !== `updateLocation(${options?.variables?.where?.id})` && v !== "updateLocation"),
-      );
-      createNotification?.(error.message, NotificationType.Error);
-    },
+  const [updateLocation] = useMutationWithTracking(UpdateLocationDocument, {
+    operationType: 'location',
+    getEntityId: (variables) => variables?.where?.id,
+    getDescription: (variables) => `Update location ${variables?.where?.id}`,
+    onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
-  const [deleteLocation] = useMutation(DeleteLocationDocument, {
-    onCompleted(data) {
-      setSaving(saving.filter((v) => v !== `deleteLocation(${data.deleteLocation?.id})` && v !== "deleteLocation"));
-    },
-    onError(error, options) {
-      setSaving(
-        saving.filter((v) => v !== `deleteLocation(${options?.variables?.where?.id})` && v !== "deleteLocation"),
-      );
-      createNotification?.(error.message, NotificationType.Error);
-    },
+  const [deleteLocation] = useMutationWithTracking(DeleteLocationDocument, {
+    operationType: 'location',
+    getEntityId: (variables) => variables?.where?.id,
+    getDescription: (variables) => `Delete location ${variables?.where?.id}`,
+    onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
   const units = useMemo(
@@ -254,49 +216,53 @@ export default function Page() {
     return values.length > 0 ? allUnit(values) : null;
   }, [data?.readUnits]);
 
-  // Track previous saving state to detect when operations complete
-  const [previousSavingLength, setPreviousSavingLength] = useState(0);
-
-  // Monitor saving state and show completion notification
+  // Monitor operation completion and show notification
   useEffect(() => {
-    // Only show notification when we transition from saving to not saving
-    if (previousSavingLength > 0 && saving.length === 0) {
-      createNotification?.("All changes saved successfully", NotificationType.Notification);
+    let timeoutId: NodeJS.Timeout;
+    
+    if (!hasAnyOperations()) {
+      // Debounce the completion notification to avoid showing it immediately on page load
+      timeoutId = setTimeout(() => {
+        // Only show if we had operations before (not on initial load)
+        if (document.hasFocus()) {
+          createNotification?.("All changes saved successfully", NotificationType.Notification);
+        }
+      }, 500);
     }
-    setPreviousSavingLength(saving.length);
-  }, [saving.length, previousSavingLength, createNotification]);
+    
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [hasAnyOperations, createNotification]);
 
   const handleUpdateUnit = useCallback(
-    (
-      data: SubscribeUnitsSubscription | ReadUnitsQuery | undefined,
-      updated: DeepPartial<UnitModel>,
-      saving: string[],
-    ) => {
+    async (updated: DeepPartial<UnitModel>) => {
       const unit = data?.readUnits?.find((u) => u.id === updated.id) ?? null;
       if (!unit) {
         createNotification?.("Unit not found", NotificationType.Error);
         return;
-      } else if (updated.configuration) {
+      }
+
+      // Ensure configuration ID is set
+      if (updated.configuration) {
         updated.configuration.id = updated.configuration.id ?? unit.configuration?.id;
       }
+
+      const operations: Promise<any>[] = [];
+
+      // Handle location updates
       const location = updated?.location;
       if (location) {
         if (unit.location?.id) {
-          saving = [...saving, `deleteLocation(${unit.location?.id})`];
-          setSaving(saving);
-          try {
+          operations.push(
             deleteLocation({
-              variables: { where: { id: unit.location?.id } },
-            });
-          } catch (error) {
-            saving = saving.filter((v) => v !== `deleteLocation(${unit.location?.id})` && v !== "deleteLocation");
-            setSaving(saving);
-            createNotification?.((error as Error).message, NotificationType.Error);
-          }
+              variables: { where: { id: unit.location.id } },
+            })
+          );
         }
-        saving = [...saving, `createLocation`];
-        setSaving(saving);
-        try {
+        operations.push(
           createLocation({
             variables: {
               create: {
@@ -306,20 +272,16 @@ export default function Page() {
                 units: { connect: [{ id: updated.id ?? "" }] },
               },
             },
-          });
-        } catch (error) {
-          saving = saving.filter((v) => v !== "createLocation");
-          setSaving(saving);
-          createNotification?.((error as Error).message, NotificationType.Error);
-        }
+          })
+        );
       }
+
+      // Handle holiday updates
       updated.configuration?.holidays?.filter(typeofNonNullable).forEach((holiday) => {
         const action = typeofObject<HolidayCreateDelete>(holiday, (v) => v.action) ? holiday.action : "update";
         switch (action) {
           case "create":
-            saving = [...saving, `createHoliday`];
-            setSaving(saving);
-            try {
+            operations.push(
               createHoliday({
                 variables: {
                   create: {
@@ -331,50 +293,34 @@ export default function Page() {
                     configurations: { connect: [{ id: updated.configuration?.id ?? "" }] },
                   },
                 },
-              });
-            } catch (error) {
-              saving = saving.filter((v) => v !== "createHoliday");
-              setSaving(saving);
-              createNotification?.((error as Error).message, NotificationType.Error);
-            }
+              })
+            );
             break;
           case "update":
-            saving = [...saving, `updateHoliday(${holiday.id})`];
-            setSaving(saving);
-            try {
+            operations.push(
               updateHoliday({
                 variables: { update: omit(holiday, ["id", "action"]), where: { id: holiday.id } },
-              });
-            } catch (error) {
-              saving = saving.filter((v) => v !== `updateHoliday(${holiday.id})` && v !== "updateHoliday");
-              setSaving(saving);
-              createNotification?.((error as Error).message, NotificationType.Error);
-            }
+              })
+            );
             break;
           case "delete":
-            saving = [...saving, `deleteHoliday(${holiday.id})`];
-            setSaving(saving);
-            try {
+            operations.push(
               deleteHoliday({
                 variables: { where: { id: holiday.id ?? "" } },
-              });
-            } catch (error) {
-              saving = saving.filter((v) => v !== `deleteHoliday(${holiday.id})` && v !== "deleteHoliday");
-              setSaving(saving);
-              createNotification?.((error as Error).message, NotificationType.Error);
-            }
+              })
+            );
             break;
           default:
             createNotification?.(`Unknown holiday action: ${action}`, NotificationType.Error);
         }
       });
+
+      // Handle occupancy updates
       updated.configuration?.occupancies?.filter(typeofNonNullable).forEach((occupancy) => {
         const action = typeofObject<OccupancyCreateDelete>(occupancy, (v) => v.action) ? occupancy.action : "update";
         switch (action) {
           case "create":
-            saving = [...saving, `createOccupancy`];
-            setSaving(saving);
-            try {
+            operations.push(
               createOccupancy({
                 variables: {
                   create: {
@@ -391,48 +337,33 @@ export default function Page() {
                     configuration: { connect: { id: updated.configuration?.id ?? "" } },
                   },
                 },
-              });
-            } catch (error) {
-              saving = saving.filter((v) => v !== "createOccupancy");
-              setSaving(saving);
-              createNotification?.((error as Error).message, NotificationType.Error);
-            }
+              })
+            );
             break;
           case "update":
-            saving = [...saving, `updateOccupancy(${occupancy.id})`];
-            setSaving(saving);
-            try {
+            operations.push(
               updateOccupancy({
                 variables: {
                   update: { ...omit(occupancy, ["action", "schedule"]), schedule: { update: occupancy.schedule } },
                   where: { id: occupancy.id },
                 },
-              });
-            } catch (error) {
-              saving = saving.filter((v) => v !== `updateOccupancy(${occupancy.id})` && v !== "updateOccupancy");
-              setSaving(saving);
-              createNotification?.((error as Error).message, NotificationType.Error);
-            }
+              })
+            );
             break;
           case "delete":
-            saving = [...saving, `deleteOccupancy(${occupancy.id})`];
-            try {
+            operations.push(
               deleteOccupancy({
                 variables: { where: { id: occupancy.id ?? "" } },
-              });
-            } catch (error) {
-              saving = saving.filter((v) => v !== `deleteOccupancy(${occupancy.id})` && v !== "deleteOccupancy");
-              setSaving(saving);
-              createNotification?.((error as Error).message, NotificationType.Error);
-            }
+              })
+            );
             break;
           default:
             createNotification?.(`Unknown occupancy action: ${action}`, NotificationType.Error);
         }
       });
-      saving = [...saving, `updateUnit(${updated.id})`];
-      setSaving(saving);
-      try {
+
+      // Handle unit update
+      operations.push(
         updateUnit({
           variables: {
             update: {
@@ -490,14 +421,14 @@ export default function Page() {
             },
             where: { id: updated.id },
           },
-        });
-      } catch (error) {
-        saving = saving.filter((v) => v !== `updateUnit(${updated.id})` && v !== "updateUnit");
-        setSaving(saving);
-        createNotification?.((error as Error).message, NotificationType.Error);
-      }
+        })
+      );
+
+      // Wait for all operations to complete
+      await Promise.allSettled(operations);
     },
     [
+      data,
       updateUnit,
       createNotification,
       createHoliday,
@@ -511,9 +442,9 @@ export default function Page() {
     ],
   );
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (editing?.id) {
-      handleUpdateUnit(data, editing, saving);
+      await handleUpdateUnit(editing);
       setEditing(null);
     }
   };
@@ -553,42 +484,49 @@ export default function Page() {
     return clone;
   };
 
-  const handleSaveAll = () => {
+  const handleSaveAll = async () => {
     if (!isEqual(editingAll, {}) && editingAll) {
-      // Pre-process editingAll to add holiday labels from the first unit
-      const firstUnit = units[0];
-      if (firstUnit && editingAll.configuration?.holidays) {
-        const updatedEditingAll = cloneDeep(editingAll);
-        if (updatedEditingAll && updatedEditingAll.configuration?.holidays) {
-          updatedEditingAll.configuration.holidays = updatedEditingAll.configuration.holidays.map((editingHoliday) => {
-            if (
-              editingHoliday &&
-              editingHoliday.id &&
-              (editingHoliday.type === HolidayEnum.Enabled || editingHoliday.type === HolidayEnum.Disabled)
-            ) {
-              // Find matching holiday in first unit by ID
-              const matchingHoliday = firstUnit.configuration?.holidays?.find(
-                (unitHoliday) => unitHoliday?.id === editingHoliday.id,
-              );
-              if (matchingHoliday) {
-                return { ...editingHoliday, label: matchingHoliday.label };
+      try {
+        // Pre-process editingAll to add holiday labels from the first unit
+        const firstUnit = units[0];
+        let updatedEditingAll = editingAll;
+        
+        if (firstUnit && editingAll.configuration?.holidays) {
+          updatedEditingAll = cloneDeep(editingAll);
+          if (updatedEditingAll && updatedEditingAll.configuration?.holidays) {
+            updatedEditingAll.configuration.holidays = updatedEditingAll.configuration.holidays.map((editingHoliday) => {
+              if (
+                editingHoliday &&
+                editingHoliday.id &&
+                (editingHoliday.type === HolidayEnum.Enabled || editingHoliday.type === HolidayEnum.Disabled)
+              ) {
+                // Find matching holiday in first unit by ID
+                const matchingHoliday = firstUnit.configuration?.holidays?.find(
+                  (unitHoliday) => unitHoliday?.id === editingHoliday.id,
+                );
+                if (matchingHoliday) {
+                  return { ...editingHoliday, label: matchingHoliday.label };
+                }
               }
-            }
-            return editingHoliday;
-          });
+              return editingHoliday;
+            });
+          }
         }
 
-        // Use the updated editingAll for processing units
-        units.forEach((unit) => {
-          handleUpdateUnit(data, { id: unit.id, ...updateIds(unit, updatedEditingAll) }, saving);
-        });
-      } else {
-        // Fallback for cases without holidays
-        units.forEach((unit) => {
-          handleUpdateUnit(data, { id: unit.id, ...updateIds(unit, editingAll) }, saving);
-        });
+        // Process all units in parallel
+        const updatePromises = units.map((unit) => 
+          handleUpdateUnit({ id: unit.id, ...updateIds(unit, updatedEditingAll) })
+        );
+
+        // Wait for all updates to complete
+        await Promise.allSettled(updatePromises);
+        
+        // Clear editing state after all operations complete
+        setEditingAll({});
+        
+      } catch (error) {
+        createNotification?.("Some operations failed during bulk save", NotificationType.Error);
       }
-      setEditingAll({});
     }
   };
 
@@ -640,17 +578,18 @@ export default function Page() {
       }
 
       const handlePush = () => {
-        setSaving([...saving, `updateUnit(${unit.id})`]);
         updateUnit({ variables: { update: { stage: ModelStage.Update }, where: { id: unit.id } } });
       };
 
+      const isOperationPending = hasAnyOperations();
+
       return (
         <Tooltip content={message} position={Position.TOP}>
-          <Button icon={icon} intent={intent} minimal onClick={handlePush} disabled={!isPush || saving.length > 0} />
+          <Button icon={icon} intent={intent} minimal onClick={handlePush} disabled={!isPush || isOperationPending} />
         </Tooltip>
       );
     },
-    [updateUnit, editing, saving],
+    [updateUnit, editing, hasAnyOperations],
   );
 
   const renderConfirm = () => {
@@ -700,12 +639,12 @@ export default function Page() {
                 <>
                   <Tooltip content="Save All" position={Position.TOP}>
                     <Button
-                      icon={saving.length > 0 ? IconNames.REFRESH : IconNames.FLOPPY_DISK}
+                      icon={hasAnyOperations() ? IconNames.REFRESH : IconNames.FLOPPY_DISK}
                       intent={Intent.PRIMARY}
                       minimal
                       onClick={handleSaveAll}
-                      disabled={saving.length > 0}
-                      loading={saving.length > 0}
+                      disabled={hasAnyOperations()}
+                      loading={hasAnyOperations()}
                     />
                   </Tooltip>
                   <Tooltip content="Clear All" position={Position.TOP}>
@@ -714,7 +653,7 @@ export default function Page() {
                       intent={Intent.PRIMARY}
                       minimal
                       onClick={() => setEditingAll({})}
-                      disabled={saving.length > 0}
+                      disabled={hasAnyOperations()}
                     />
                   </Tooltip>
                 </>
@@ -797,17 +736,17 @@ export default function Page() {
                   {isEditing ? (
                     <>
                       <Tooltip
-                        content={saving.length > 0 ? "Saving..." : "Save"}
+                        content={hasAnyOperations() ? "Saving..." : "Save"}
                         position={Position.TOP}
-                        disabled={!editing || saving.length > 0}
+                        disabled={!editing || hasAnyOperations()}
                       >
                         <Button
-                          icon={saving.length > 0 ? IconNames.REFRESH : IconNames.FLOPPY_DISK}
+                          icon={hasAnyOperations() ? IconNames.REFRESH : IconNames.FLOPPY_DISK}
                           intent={Intent.PRIMARY}
                           minimal
                           onClick={handleSave}
-                          disabled={!editing || saving.length > 0}
-                          loading={saving.length > 0}
+                          disabled={!editing || hasAnyOperations()}
+                          loading={hasAnyOperations()}
                         />
                       </Tooltip>
                       <Tooltip content="Cancel" position={Position.TOP}>
@@ -816,7 +755,7 @@ export default function Page() {
                           intent={Intent.PRIMARY}
                           minimal
                           onClick={() => setEditing(null)}
-                          disabled={saving.length > 0}
+                          disabled={hasAnyOperations()}
                         />
                       </Tooltip>
                     </>
