@@ -24,6 +24,8 @@ import {
   OrderBy,
   SubscribeControlsDocument,
   ReadControlsDocument,
+  CreateLocationDocument,
+  DeleteLocationDocument,
 } from "@/graphql-codegen/graphql";
 import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { Term } from "@/utils/client";
@@ -31,6 +33,7 @@ import { Unit } from "./components/Unit";
 import { Role, Stage, StageType } from "@local/common";
 import { useOperationManager } from "../components/hooks/useOperationManager";
 import { useMutationWithTracking } from "../components/hooks/useMutationWithTracking";
+import { omit } from "lodash";
 
 interface ILCState {
   editing: Partial<Term<NonNullable<ReadControlsQuery["readControls"]>[0]>> | null;
@@ -86,6 +89,19 @@ export default function ILCPage() {
     operationType: "unit",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Update unit ${variables?.where?.id}`,
+    onError: (error: any) => createNotification?.(error.message, NotificationType.Error),
+  });
+
+  const [createLocation] = useMutationWithTracking(CreateLocationDocument, {
+    operationType: "location",
+    getDescription: (variables) => `Create location ${variables?.create?.name}`,
+    onError: (error: any) => createNotification?.(error.message, NotificationType.Error),
+  });
+
+  const [deleteLocation] = useMutationWithTracking(DeleteLocationDocument, {
+    operationType: "location",
+    getEntityId: (variables) => variables?.where?.id,
+    getDescription: (variables) => `Delete location ${variables?.where?.id}`,
     onError: (error: any) => createNotification?.(error.message, NotificationType.Error),
   });
 
@@ -203,52 +219,42 @@ export default function ILCPage() {
   const handleSave = async () => {
     if (state.editing?.id) {
       const operations: Promise<any>[] = [];
-
-      // Update control fields - only send scalar fields that match ControlUpdateInput
       const controlUpdateData: any = {};
 
       if (state.editing.label !== undefined) {
         controlUpdateData.label = state.editing.label as string;
       }
-      if (state.editing.correlation !== undefined) {
-        controlUpdateData.correlation = state.editing.correlation as string;
-      }
 
-      // Update unit fields if they exist
       if (state.editing.units && state.editing.units.length > 0) {
-        state.editing.units.forEach((editedUnit: any) => {
+        for (const editedUnit of state.editing.units) {
           if (editedUnit.id) {
-            const updateData: any = {};
+            const originalControl = controls?.find((c) => c.id === state.editing?.id);
+            const originalUnit = originalControl?.units?.find((u: any) => u.id === editedUnit.id);
 
-            // Only include scalar fields and ID references that match UnitUpdateInput
-            Object.keys(editedUnit).forEach((key) => {
-              if (key !== "id") {
-                // Handle nested location object - extract locationId only
-                if (key === "location" && editedUnit.location) {
-                  if (editedUnit.location.id) {
-                    updateData.locationId = editedUnit.location.id;
-                  }
-                  // Skip the location object itself
-                } else if (key === "configuration" && editedUnit.configuration) {
-                  // Handle nested configuration object - extract configurationId only
-                  if (editedUnit.configuration.id) {
-                    updateData.configurationId = editedUnit.configuration.id;
-                  }
-                  // Skip the configuration object itself
-                } else if (key === "control" && editedUnit.control) {
-                  // Handle nested control object - extract controlId only
-                  if (editedUnit.control.id) {
-                    updateData.controlId = editedUnit.control.id;
-                  }
-                  // Skip the control object itself
-                } else if (typeof editedUnit[key] !== "object" || editedUnit[key] === null) {
-                  // Only include scalar values (string, number, boolean, null)
-                  updateData[key] = editedUnit[key];
-                }
-                // Skip any other nested objects that don't match the schema
+            const location = editedUnit.location;
+            if (location) {
+              if (originalUnit?.location?.id) {
+                operations.push(
+                  deleteLocation({
+                    variables: { where: { id: originalUnit.location.id } },
+                  }),
+                );
               }
-            });
+              operations.push(
+                createLocation({
+                  variables: {
+                    create: {
+                      name: location.name ?? "",
+                      latitude: location.latitude ?? 0,
+                      longitude: location.longitude ?? 0,
+                      units: { connect: [{ id: editedUnit.id }] },
+                    },
+                  },
+                }),
+              );
+            }
 
+            const updateData = omit(editedUnit, ["id", "location"])
             if (Object.keys(updateData).length > 0) {
               operations.push(
                 updateUnit({
@@ -260,9 +266,10 @@ export default function ILCPage() {
               );
             }
           }
-        });
+        }
       }
 
+      // Update control if there are changes
       if (Object.keys(controlUpdateData).length > 0) {
         operations.push(
           updateControl({
