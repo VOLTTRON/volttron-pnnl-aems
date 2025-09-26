@@ -39,6 +39,7 @@ let UserObject = class UserObject {
                 comments: t.relation("comments", { nullable: true }),
                 accounts: t.relation("accounts", { nullable: true }),
                 banners: t.relation("banners", { nullable: true }),
+                units: t.relation("units", { nullable: true }),
             }),
         });
         this.UserFields = builder.enumType("UserFields", {

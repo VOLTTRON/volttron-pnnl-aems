@@ -9,6 +9,7 @@ import {
   DeleteUserDocument,
   CreateUserDocument,
   UpdateUserDocument,
+  ReadUnitsQuery,
 } from "@/graphql-codegen/graphql";
 import { useMutation } from "@apollo/client";
 import { Term } from "@/utils/client";
@@ -95,16 +96,19 @@ export function UpdateUser({
   setOpen,
   icon,
   user,
+  units,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
   icon?: IconName;
   user?: Term<NonNullable<ReadUsersQuery["readUsers"]>[0]>;
+  units?: NonNullable<ReadUnitsQuery["readUnits"]>;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
+  const [unitIds, setUnitIds] = useState<string[]>([]);
 
   const { current, refetchCurrent } = useContext(CurrentContext);
 
@@ -113,6 +117,10 @@ export function UpdateUser({
   });
 
   const onUpdate = useCallback(async () => {
+    const currentUnitIds = user?.units?.map((u) => u.id ?? "") ?? [];
+    const connect = unitIds.filter((u) => !currentUnitIds.includes(u));
+    const disconnect = currentUnitIds.filter((u) => !unitIds.includes(u));
+    console.log({ unitIds, currentUnitIds, connect, disconnect });
     await updateUser({
       variables: {
         where: { id: user?.id },
@@ -121,6 +129,12 @@ export function UpdateUser({
           ...(email !== user?.email && { email }),
           ...(password && { password }),
           ...(role !== user?.role && { role }),
+          ...((connect || disconnect) && {
+            units: {
+              ...(connect && { connect: connect.map((id) => ({ id })) }),
+              ...(disconnect && { disconnect: disconnect.map((id) => ({ id })) }),
+            },
+          }),
         },
       },
     }).then(async () => {
@@ -128,13 +142,14 @@ export function UpdateUser({
         await refetchCurrent?.();
       }
     });
-  }, [updateUser, user, name, email, password, role, current, refetchCurrent]);
+  }, [updateUser, user, name, email, password, role, unitIds, current, refetchCurrent]);
 
   useEffect(() => {
     setName(user?.name ?? "");
     setEmail(user?.email ?? "");
     setPassword("");
     setRole(user?.role ?? "");
+    setUnitIds(user?.units?.map((u) => u.id ?? "") ?? []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -169,6 +184,20 @@ export function UpdateUser({
           />
         ))}
       </FormGroup>
+      {units && (
+        <FormGroup label="Units">
+          {units.map((unit) => (
+            <Checkbox
+              key={`unit-${unit.id}`}
+              id={`unit-${unit.id}`}
+              label={unit.name ?? unit.id ?? "Unknown"}
+              checked={unitIds.includes(unit.id ?? "")}
+              onClick={() => setUnitIds(xor(unitIds, [unit.id ?? ""]))}
+              inline
+            />
+          ))}
+        </FormGroup>
+      )}
     </UpdateDialog>
   );
 }

@@ -81,8 +81,8 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     path: `ilc`,
     name: "ILC",
     icon: IconNames.DASHBOARD,
-    scope: "user",
-    display: true,
+    scope: "admin",
+    display: "admin",
     components: components,
   },
   {

@@ -12,6 +12,7 @@ import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { UserObject } from "./object.service";
+import { UnitQuery } from "../unit/query.service";
 
 @Injectable()
 @PothosMutation()
@@ -31,6 +32,7 @@ export class UserMutation {
     accountQuery: AccountQuery,
     commentQuery: CommentQuery,
     bannerQuery: BannerQuery,
+    unitQuery: UnitQuery,
     accountMutation: AccountMutation,
     commentMutation: CommentMutation,
     bannerMutation: BannerMutation,
@@ -40,9 +42,17 @@ export class UserMutation {
     const { AccountWhereUnique } = accountQuery;
     const { CommentWhereUnique } = commentQuery;
     const { BannerWhereUnique } = bannerQuery;
+    const { UnitWhereUnique } = unitQuery;
     const { AccountCreate } = accountMutation;
     const { CommentCreate } = commentMutation;
     const { BannerCreate } = bannerMutation;
+
+    const UserUpdateUnits = builder.prismaUpdateRelation("User", "units", {
+      fields: {
+        connect: UnitWhereUnique,
+        disconnect: UnitWhereUnique,
+      },
+    });
 
     this.UserCreate = builder.prismaCreate("User", {
       fields: {
@@ -53,6 +63,7 @@ export class UserMutation {
         emailVerified: builder.DateTime,
         preferences: UserPreferences,
         password: "String",
+        units: UserUpdateUnits,
       },
     });
 
@@ -65,6 +76,7 @@ export class UserMutation {
         emailVerified: builder.DateTime,
         preferences: UserPreferences,
         password: "String",
+        units: UserUpdateUnits,
       },
     });
 
@@ -133,7 +145,7 @@ export class UserMutation {
           if (!ctx.user?.authRoles.admin && ctx.user?.id !== args.where.id) {
             throw new Error("Unauthorized: You can only update your own user data");
           }
-          
+
           // If not admin, restrict what fields can be updated (only password and preferences)
           let updateData = args.update;
           if (!ctx.user?.authRoles.admin) {
@@ -145,7 +157,7 @@ export class UserMutation {
               updateData.preferences = args.update.preferences;
             }
           }
-          
+
           return prismaService.prisma.user
             .update({
               ...query,

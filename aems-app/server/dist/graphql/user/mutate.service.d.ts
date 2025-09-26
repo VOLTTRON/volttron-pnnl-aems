@@ -9,6 +9,7 @@ import { BannerMutation } from "../banner/mutate.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { UserObject } from "./object.service";
+import { UnitQuery } from "../unit/query.service";
 export declare class UserMutation {
     readonly UserCreate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -33,6 +34,12 @@ export declare class UserMutation {
             Scalars: import("..").Scalars;
         }>, Partial<import("@local/prisma").Preferences>, Partial<import("@local/prisma").Preferences>, Partial<import("@local/prisma").Preferences>>;
         password: "String";
+        units: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
+            Context: import("..").Context;
+            AuthScopes: import("../../auth").AuthRoles;
+            PrismaTypes: import("@local/prisma/dist/pothos").default;
+            Scalars: import("..").Scalars;
+        }>, import(".prisma/client").Prisma.UnitUpdateManyWithoutUsersNestedInput>;
     }>>;
     readonly UserUpdate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -57,6 +64,12 @@ export declare class UserMutation {
             Scalars: import("..").Scalars;
         }>, Partial<import("@local/prisma").Preferences>, Partial<import("@local/prisma").Preferences>, Partial<import("@local/prisma").Preferences>>;
         password: "String";
+        units: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
+            Context: import("..").Context;
+            AuthScopes: import("../../auth").AuthRoles;
+            PrismaTypes: import("@local/prisma/dist/pothos").default;
+            Scalars: import("..").Scalars;
+        }>, import(".prisma/client").Prisma.UnitUpdateManyWithoutUsersNestedInput>;
     }>>;
     readonly UserUpdateAccounts: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -76,5 +89,5 @@ export declare class UserMutation {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
     }>, import(".prisma/client").Prisma.BannerUpdateManyWithoutUsersNestedInput>;
-    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, userObject: UserObject, userQuery: UserQuery, accountQuery: AccountQuery, commentQuery: CommentQuery, bannerQuery: BannerQuery, accountMutation: AccountMutation, commentMutation: CommentMutation, bannerMutation: BannerMutation);
+    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, userObject: UserObject, userQuery: UserQuery, accountQuery: AccountQuery, commentQuery: CommentQuery, bannerQuery: BannerQuery, unitQuery: UnitQuery, accountMutation: AccountMutation, commentMutation: CommentMutation, bannerMutation: BannerMutation);
 }

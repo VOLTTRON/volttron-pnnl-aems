@@ -24,16 +24,24 @@ const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
 const object_service_1 = require("./object.service");
+const query_service_5 = require("../unit/query.service");
 let UserMutation = class UserMutation {
-    constructor(builder, prismaService, subscriptionService, userObject, userQuery, accountQuery, commentQuery, bannerQuery, accountMutation, commentMutation, bannerMutation) {
+    constructor(builder, prismaService, subscriptionService, userObject, userQuery, accountQuery, commentQuery, bannerQuery, unitQuery, accountMutation, commentMutation, bannerMutation) {
         const { UserPreferences } = userObject;
         const { UserWhereUnique } = userQuery;
         const { AccountWhereUnique } = accountQuery;
         const { CommentWhereUnique } = commentQuery;
         const { BannerWhereUnique } = bannerQuery;
+        const { UnitWhereUnique } = unitQuery;
         const { AccountCreate } = accountMutation;
         const { CommentCreate } = commentMutation;
         const { BannerCreate } = bannerMutation;
+        const UserUpdateUnits = builder.prismaUpdateRelation("User", "units", {
+            fields: {
+                connect: UnitWhereUnique,
+                disconnect: UnitWhereUnique,
+            },
+        });
         this.UserCreate = builder.prismaCreate("User", {
             fields: {
                 name: "String",
@@ -43,6 +51,7 @@ let UserMutation = class UserMutation {
                 emailVerified: builder.DateTime,
                 preferences: UserPreferences,
                 password: "String",
+                units: UserUpdateUnits,
             },
         });
         this.UserUpdate = builder.prismaUpdate("User", {
@@ -54,6 +63,7 @@ let UserMutation = class UserMutation {
                 emailVerified: builder.DateTime,
                 preferences: UserPreferences,
                 password: "String",
+                units: UserUpdateUnits,
             },
         });
         const { UserCreate, UserUpdate } = this;
@@ -177,6 +187,7 @@ exports.UserMutation = UserMutation = __decorate([
         query_service_2.AccountQuery,
         query_service_3.CommentQuery,
         query_service_4.BannerQuery,
+        query_service_5.UnitQuery,
         mutate_service_1.AccountMutation,
         mutate_service_2.CommentMutation,
         mutate_service_3.BannerMutation])

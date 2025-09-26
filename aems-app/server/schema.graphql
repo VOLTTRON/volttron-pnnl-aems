@@ -2612,6 +2612,7 @@ type User {
   """[UserPreferences]"""
   preferences: UserPreferences
   role: String
+  units: [Unit!]
   updatedAt: DateTime
 }
 
@@ -2631,6 +2632,7 @@ input UserCreateInput {
   password: String
   preferences: UserPreferences
   role: String
+  units: UserUpdateUnitsRelationInput
 }
 
 enum UserFields {
@@ -2707,4 +2709,10 @@ input UserUpdateInput {
   password: String
   preferences: UserPreferences
   role: String
+  units: UserUpdateUnitsRelationInput
+}
+
+input UserUpdateUnitsRelationInput {
+  connect: [UnitUniqueFilter!]
+  disconnect: [UnitUniqueFilter!]
 }

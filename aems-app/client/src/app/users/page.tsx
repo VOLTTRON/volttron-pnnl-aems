@@ -4,7 +4,7 @@ import styles from "./page.module.scss";
 import { Button, ControlGroup, Intent } from "@blueprintjs/core";
 import { useContext, useMemo, useState } from "react";
 import { useQuery } from "@apollo/client";
-import { ReadUsersQuery, StringFilterMode, ReadUsersDocument } from "@/graphql-codegen/graphql";
+import { ReadUsersQuery, StringFilterMode, ReadUsersDocument, ReadUnitsDocument } from "@/graphql-codegen/graphql";
 import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { Term, filter } from "@/utils/client";
 import { Paging, Search, Table } from "../components/common";
@@ -35,6 +35,13 @@ export default function Page() {
   const isSuperAdmin =
     RoleType.Admin.granted(...(current?.role?.split(" ") ?? [""])) &&
     RoleType.Super.granted(...(current?.role?.split(" ") ?? [""]));
+
+  const { data: unitsData } = useQuery(ReadUnitsDocument, {
+    variables: { where: {} },
+    onError(error) {
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
 
   const { data, loading, refetch } = useQuery(ReadUsersDocument, {
     variables: {
@@ -70,6 +77,7 @@ export default function Page() {
         setOpen={(v) => (v ? setDialog({ type: DialogType.Update }) : setDialog(undefined))}
         icon={route?.data?.icon}
         user={dialog?.user}
+        units={unitsData?.readUnits ?? []}
       />
       <DeleteUser
         open={dialog?.type === DialogType.Delete}

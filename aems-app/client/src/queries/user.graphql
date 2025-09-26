@@ -8,6 +8,9 @@ fragment UserFields on User {
   preferences
   createdAt
   updatedAt
+  units {
+    id
+  }
 }
 
 query ReadUser($where: UserUniqueFilter!) {
@@ -21,6 +24,9 @@ query ReadUser($where: UserUniqueFilter!) {
     preferences
     createdAt
     updatedAt
+    units {
+      id
+    }
   }
 }
 
@@ -35,6 +41,9 @@ query ReadUsers($where: UserFilter, $paging: PagingInput, $orderBy: [UserOrderBy
     preferences
     createdAt
     updatedAt
+    units {
+      id
+    }
   }
 
   countUsers(where: $where)
@@ -51,6 +60,9 @@ mutation CreateUser($create: UserCreateInput!) {
     preferences
     createdAt
     updatedAt
+    units {
+      id
+    }
   }
 }
 
@@ -65,6 +77,9 @@ mutation UpdateUser($where: UserUniqueFilter!, $update: UserUpdateInput!) {
     preferences
     createdAt
     updatedAt
+    units {
+      id
+    }
   }
 }
 
