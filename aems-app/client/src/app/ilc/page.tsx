@@ -15,7 +15,7 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import { IconName, IconNames } from "@blueprintjs/icons";
-import { useContext, useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useContext, useMemo, useState, useCallback } from "react";
 import { useSubscription, useQuery } from "@apollo/client";
 import {
   ReadControlsQuery,
@@ -49,18 +49,6 @@ export default function ILCPage() {
   const { createNotification } = useContext(NotificationContext);
   const { current } = useContext(CurrentContext);
   const { hasAnyOperations, waitForAllOperations } = useOperationManager();
-  const operationsInitiatedRef = useRef(false);
-  const previousOperationsRef = useRef(false);
-
-  // Subscribe to controls with full unit details for real-time updates
-  const { data: subscribed } = useSubscription(SubscribeControlsDocument, {
-    variables: {
-      orderBy: { createdAt: OrderBy.Desc },
-    },
-    onError(error) {
-      createNotification?.(error.message, NotificationType.Error);
-    },
-  });
 
   const {
     data: queried,
@@ -71,6 +59,16 @@ export default function ILCPage() {
       orderBy: { createdAt: OrderBy.Desc },
     },
     onError(error) {
+      createNotification?.(error.message, NotificationType.Error);
+    },
+  });
+
+  const { data: subscribed } = useSubscription(SubscribeControlsDocument, {
+    variables: {
+      orderBy: { createdAt: OrderBy.Desc },
+    },
+    onError(error) {
+      startPolling(5000);
       createNotification?.(error.message, NotificationType.Error);
     },
   });
@@ -90,30 +88,6 @@ export default function ILCPage() {
     getDescription: (variables) => `Update unit ${variables?.where?.id}`,
     onError: (error: any) => createNotification?.(error.message, NotificationType.Error),
   });
-
-  // Monitor operation completion and show notification
-  useEffect(() => {
-    const currentHasOperations = hasAnyOperations();
-
-    // Track when operations start
-    if (currentHasOperations && !previousOperationsRef.current) {
-      operationsInitiatedRef.current = true;
-    }
-
-    // Show success notification when operations complete
-    if (!currentHasOperations && previousOperationsRef.current && operationsInitiatedRef.current) {
-      const timeoutId = setTimeout(() => {
-        if (document.hasFocus()) {
-          createNotification?.("All changes saved successfully", NotificationType.Notification);
-        }
-        operationsInitiatedRef.current = false;
-      }, 500);
-
-      return () => clearTimeout(timeoutId);
-    }
-
-    previousOperationsRef.current = currentHasOperations;
-  }, [hasAnyOperations, createNotification]);
 
   const controls = useMemo(() => data?.readControls ?? [], [data?.readControls]);
 
@@ -226,8 +200,10 @@ export default function ILCPage() {
     confirm?.();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (state.editing?.id) {
+      const operations: Promise<any>[] = [];
+
       // Update control fields - only send scalar fields that match ControlUpdateInput
       const controlUpdateData: any = {};
 
@@ -236,15 +212,6 @@ export default function ILCPage() {
       }
       if (state.editing.correlation !== undefined) {
         controlUpdateData.correlation = state.editing.correlation as string;
-      }
-
-      if (Object.keys(controlUpdateData).length > 0) {
-        updateControl({
-          variables: {
-            where: { id: state.editing.id },
-            update: controlUpdateData,
-          },
-        });
       }
 
       // Update unit fields if they exist
@@ -283,16 +250,34 @@ export default function ILCPage() {
             });
 
             if (Object.keys(updateData).length > 0) {
-              updateUnit({
-                variables: {
-                  where: { id: editedUnit.id },
-                  update: { stage: Stage.Update.enum, ...updateData },
-                },
-              });
+              operations.push(
+                updateUnit({
+                  variables: {
+                    where: { id: editedUnit.id },
+                    update: { stage: Stage.Update.enum, ...updateData },
+                  },
+                }),
+              );
             }
           }
         });
       }
+
+      if (Object.keys(controlUpdateData).length > 0) {
+        operations.push(
+          updateControl({
+            variables: {
+              where: { id: state.editing.id },
+              update: { stage: Stage.Update.enum, ...controlUpdateData },
+            },
+          }),
+        );
+      }
+
+      // Wait for all operations to complete
+      await Promise.allSettled(operations);
+      createNotification?.("All changes saved successfully", NotificationType.Notification);
+      setState((prev) => ({ ...prev, editing: null }));
     }
   };
 

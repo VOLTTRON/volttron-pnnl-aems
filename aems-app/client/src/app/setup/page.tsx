@@ -15,7 +15,7 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import { useContext, useMemo, useState, useCallback, useEffect } from "react";
-import { useSubscription, useMutation, useQuery } from "@apollo/client";
+import { useSubscription, useQuery } from "@apollo/client";
 import { useOperationManager } from "../components/hooks/useOperationManager";
 import { useMutationWithTracking } from "../components/hooks/useMutationWithTracking";
 import {
@@ -36,7 +36,6 @@ import {
   CreateLocationDocument,
   UpdateLocationDocument,
   DeleteLocationDocument,
-  SubscribeUnitsSubscription,
 } from "@/graphql-codegen/graphql";
 import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { filter } from "@/utils/client";
@@ -137,14 +136,14 @@ export default function Page() {
   const data = subscribed ?? queried;
 
   const [updateUnit] = useMutationWithTracking(UpdateUnitDocument, {
-    operationType: 'unit',
+    operationType: "unit",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Update unit ${variables?.where?.id}`,
     onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
   const [createHoliday] = useMutationWithTracking(CreateHolidayDocument, {
-    operationType: 'holiday',
+    operationType: "holiday",
     getDescription: (variables) => `Create holiday ${variables?.create?.label}`,
     onError: (error) => {
       console.error(error);
@@ -153,54 +152,54 @@ export default function Page() {
   });
 
   const [updateHoliday] = useMutationWithTracking(UpdateHolidayDocument, {
-    operationType: 'holiday',
+    operationType: "holiday",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Update holiday ${variables?.where?.id}`,
     onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
   const [deleteHoliday] = useMutationWithTracking(DeleteHolidayDocument, {
-    operationType: 'holiday',
+    operationType: "holiday",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Delete holiday ${variables?.where?.id}`,
     onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
   const [createOccupancy] = useMutationWithTracking(CreateOccupancyDocument, {
-    operationType: 'occupancy',
+    operationType: "occupancy",
     getDescription: (variables) => `Create occupancy ${variables?.create?.label}`,
     onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
   const [updateOccupancy] = useMutationWithTracking(UpdateOccupancyDocument, {
-    operationType: 'occupancy',
+    operationType: "occupancy",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Update occupancy ${variables?.where?.id}`,
     onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
   const [deleteOccupancy] = useMutationWithTracking(DeleteOccupancyDocument, {
-    operationType: 'occupancy',
+    operationType: "occupancy",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Delete occupancy ${variables?.where?.id}`,
     onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
   const [createLocation] = useMutationWithTracking(CreateLocationDocument, {
-    operationType: 'location',
+    operationType: "location",
     getDescription: (variables) => `Create location ${variables?.create?.name}`,
     onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
   const [updateLocation] = useMutationWithTracking(UpdateLocationDocument, {
-    operationType: 'location',
+    operationType: "location",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Update location ${variables?.where?.id}`,
     onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
   const [deleteLocation] = useMutationWithTracking(DeleteLocationDocument, {
-    operationType: 'location',
+    operationType: "location",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Delete location ${variables?.where?.id}`,
     onError: (error) => createNotification?.(error.message, NotificationType.Error),
@@ -215,27 +214,6 @@ export default function Page() {
     const values = data?.readUnits ?? [];
     return values.length > 0 ? allUnit(values) : null;
   }, [data?.readUnits]);
-
-  // Monitor operation completion and show notification
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    
-    if (!hasAnyOperations()) {
-      // Debounce the completion notification to avoid showing it immediately on page load
-      timeoutId = setTimeout(() => {
-        // Only show if we had operations before (not on initial load)
-        if (document.hasFocus()) {
-          createNotification?.("All changes saved successfully", NotificationType.Notification);
-        }
-      }, 500);
-    }
-    
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [hasAnyOperations, createNotification]);
 
   const handleUpdateUnit = useCallback(
     async (updated: DeepPartial<UnitModel>) => {
@@ -259,7 +237,7 @@ export default function Page() {
           operations.push(
             deleteLocation({
               variables: { where: { id: unit.location.id } },
-            })
+            }),
           );
         }
         operations.push(
@@ -272,7 +250,7 @@ export default function Page() {
                 units: { connect: [{ id: updated.id ?? "" }] },
               },
             },
-          })
+          }),
         );
       }
 
@@ -293,21 +271,21 @@ export default function Page() {
                     configurations: { connect: [{ id: updated.configuration?.id ?? "" }] },
                   },
                 },
-              })
+              }),
             );
             break;
           case "update":
             operations.push(
               updateHoliday({
                 variables: { update: omit(holiday, ["id", "action"]), where: { id: holiday.id } },
-              })
+              }),
             );
             break;
           case "delete":
             operations.push(
               deleteHoliday({
                 variables: { where: { id: holiday.id ?? "" } },
-              })
+              }),
             );
             break;
           default:
@@ -337,7 +315,7 @@ export default function Page() {
                     configuration: { connect: { id: updated.configuration?.id ?? "" } },
                   },
                 },
-              })
+              }),
             );
             break;
           case "update":
@@ -347,14 +325,14 @@ export default function Page() {
                   update: { ...omit(occupancy, ["action", "schedule"]), schedule: { update: occupancy.schedule } },
                   where: { id: occupancy.id },
                 },
-              })
+              }),
             );
             break;
           case "delete":
             operations.push(
               deleteOccupancy({
                 variables: { where: { id: occupancy.id ?? "" } },
-              })
+              }),
             );
             break;
           default:
@@ -421,7 +399,7 @@ export default function Page() {
             },
             where: { id: updated.id },
           },
-        })
+        }),
       );
 
       // Wait for all operations to complete
@@ -445,6 +423,7 @@ export default function Page() {
   const handleSave = async () => {
     if (editing?.id) {
       await handleUpdateUnit(editing);
+      createNotification?.("All changes saved successfully", NotificationType.Notification);
       setEditing(null);
     }
   };
@@ -490,40 +469,42 @@ export default function Page() {
         // Pre-process editingAll to add holiday labels from the first unit
         const firstUnit = units[0];
         let updatedEditingAll = editingAll;
-        
+
         if (firstUnit && editingAll.configuration?.holidays) {
           updatedEditingAll = cloneDeep(editingAll);
           if (updatedEditingAll && updatedEditingAll.configuration?.holidays) {
-            updatedEditingAll.configuration.holidays = updatedEditingAll.configuration.holidays.map((editingHoliday) => {
-              if (
-                editingHoliday &&
-                editingHoliday.id &&
-                (editingHoliday.type === HolidayEnum.Enabled || editingHoliday.type === HolidayEnum.Disabled)
-              ) {
-                // Find matching holiday in first unit by ID
-                const matchingHoliday = firstUnit.configuration?.holidays?.find(
-                  (unitHoliday) => unitHoliday?.id === editingHoliday.id,
-                );
-                if (matchingHoliday) {
-                  return { ...editingHoliday, label: matchingHoliday.label };
+            updatedEditingAll.configuration.holidays = updatedEditingAll.configuration.holidays.map(
+              (editingHoliday) => {
+                if (
+                  editingHoliday &&
+                  editingHoliday.id &&
+                  (editingHoliday.type === HolidayEnum.Enabled || editingHoliday.type === HolidayEnum.Disabled)
+                ) {
+                  // Find matching holiday in first unit by ID
+                  const matchingHoliday = firstUnit.configuration?.holidays?.find(
+                    (unitHoliday) => unitHoliday?.id === editingHoliday.id,
+                  );
+                  if (matchingHoliday) {
+                    return { ...editingHoliday, label: matchingHoliday.label };
+                  }
                 }
-              }
-              return editingHoliday;
-            });
+                return editingHoliday;
+              },
+            );
           }
         }
 
         // Process all units in parallel
-        const updatePromises = units.map((unit) => 
-          handleUpdateUnit({ id: unit.id, ...updateIds(unit, updatedEditingAll) })
+        const updatePromises = units.map((unit) =>
+          handleUpdateUnit({ id: unit.id, ...updateIds(unit, updatedEditingAll) }),
         );
 
         // Wait for all updates to complete
         await Promise.allSettled(updatePromises);
-        
+        createNotification?.("All changes saved successfully", NotificationType.Notification);
+
         // Clear editing state after all operations complete
         setEditingAll({});
-        
       } catch (error) {
         createNotification?.("Some operations failed during bulk save", NotificationType.Error);
       }
