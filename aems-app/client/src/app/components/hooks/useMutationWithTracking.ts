@@ -3,7 +3,7 @@ import { useOperationManager } from "./useOperationManager";
 import { useRef } from "react";
 
 interface TrackedMutationOptions<TData, TVariables extends OperationVariables> {
-  operationType: "unit" | "holiday" | "location" | "occupancy";
+  operationType: "control" | "unit" | "holiday" | "location" | "occupancy";
   getEntityId?: (variables: TVariables) => string | undefined;
   getDescription?: (variables: TVariables) => string;
   onCompleted?: (data: TData) => void;

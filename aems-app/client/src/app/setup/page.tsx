@@ -16,8 +16,8 @@ import {
 } from "@blueprintjs/core";
 import { useContext, useMemo, useState, useCallback, useEffect } from "react";
 import { useSubscription, useMutation, useQuery } from "@apollo/client";
-import { useOperationManager } from "./hooks/useOperationManager";
-import { useMutationWithTracking } from "./hooks/useMutationWithTracking";
+import { useOperationManager } from "../components/hooks/useOperationManager";
+import { useMutationWithTracking } from "../components/hooks/useMutationWithTracking";
 import {
   ReadUnitsQuery,
   StringFilterMode,

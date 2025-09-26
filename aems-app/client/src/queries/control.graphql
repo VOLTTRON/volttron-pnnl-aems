@@ -9,6 +9,45 @@ query ReadControl($where: ControlUniqueFilter!) {
     updatedAt
     units {
       id
+      name
+      campus
+      building
+      system
+      timezone
+      label
+      stage
+      message
+      correlation
+      coolingCapacity
+      compressors
+      coolingLockout
+      optimalStartLockout
+      optimalStartDeviation
+      earliestStart
+      latestStart
+      zoneLocation
+      zoneMass
+      zoneOrientation
+      zoneBuilding
+      heatPump
+      heatPumpBackup
+      economizer
+      heatPumpLockout
+      coolingPeakOffset
+      heatingPeakOffset
+      peakLoadExclude
+      economizerSetpoint
+      configurationId
+      controlId
+      locationId
+      createdAt
+      updatedAt
+      location {
+        id
+        name
+        latitude
+        longitude
+      }
     }
   }
 }
@@ -136,6 +175,45 @@ subscription SubscribeControls(
     updatedAt
     units {
       id
+      name
+      campus
+      building
+      system
+      timezone
+      label
+      stage
+      message
+      correlation
+      coolingCapacity
+      compressors
+      coolingLockout
+      optimalStartLockout
+      optimalStartDeviation
+      earliestStart
+      latestStart
+      zoneLocation
+      zoneMass
+      zoneOrientation
+      zoneBuilding
+      heatPump
+      heatPumpBackup
+      economizer
+      heatPumpLockout
+      coolingPeakOffset
+      heatingPeakOffset
+      peakLoadExclude
+      economizerSetpoint
+      configurationId
+      controlId
+      locationId
+      createdAt
+      updatedAt
+      location {
+        id
+        name
+        latitude
+        longitude
+      }
     }
   }
 }

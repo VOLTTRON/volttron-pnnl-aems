@@ -133,10 +133,11 @@ export class UnitQuery {
         args: {
           where: t.arg({ type: UnitWhere }),
         },
-        resolve: async (query, _parent, args, _ctx, _info) => {
+        resolve: async (query, _parent, args, ctx, _info) => {
+          const filtered = { ...(args.where ?? {}), users: { some: { id: ctx.user?.id } } };
           return prismaService.prisma.unit.findMany({
             ...query,
-            where: args.where ?? {},
+            where: !ctx.user?.authRoles.admin ? filtered : (args.where ?? {}),
           });
         },
       }),
@@ -154,10 +155,11 @@ export class UnitQuery {
         subscribe: (subscriptions, _parent, args, _context, _info) => {
           subscriptions.register(`Unit/${args.where.id}`);
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
+          const filtered = { ...(args.where ?? {}), users: { some: { id: ctx.user?.id } } };
           return prismaService.prisma.unit.findUniqueOrThrow({
             ...query,
-            where: args.where,
+            where: !ctx.user?.authRoles.admin ? filtered : (args.where ?? {}),
           });
         },
       }),
@@ -178,10 +180,11 @@ export class UnitQuery {
         subscribe: (subscriptions, _parent, _args, _context, _info) => {
           subscriptions.register("Unit");
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
+          const filtered = { ...(args.where ?? {}), users: { some: { id: ctx.user?.id } } };
           return prismaService.prisma.unit.findMany({
             ...query,
-            where: args.where ?? {},
+            where: !ctx.user?.authRoles.admin ? filtered : (args.where ?? {}),
             distinct: args.distinct ?? undefined,
             orderBy: args.orderBy ?? {},
             ...(args.paging ?? {}),
@@ -202,9 +205,10 @@ export class UnitQuery {
         subscribe: (subscriptions, _parent, _args, _context, _info) => {
           subscriptions.register("Unit");
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
+          const filtered = { ...(args.where ?? {}), users: { some: { id: ctx.user?.id } } };
           return prismaService.prisma.unit.count({
-            where: args.where ?? {},
+            where: !ctx.user?.authRoles.admin ? filtered : (args.where ?? {}),
           });
         },
       }),
@@ -224,11 +228,12 @@ export class UnitQuery {
         subscribe: (subscriptions, _parent, _args, _context, _info) => {
           subscriptions.register("Unit");
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
+          const filtered = { ...(args.where ?? {}), users: { some: { id: ctx.user?.id } } };
           return prismaService.prisma.unit.groupBy({
             by: args.by ?? [],
             ...SchemaBuilderService.aggregateToGroupBy(args.aggregate),
-            where: args.where ?? {},
+            where: !ctx.user?.authRoles.admin ? filtered : (args.where ?? {}),
           });
         },
       }),

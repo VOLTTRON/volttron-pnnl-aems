@@ -3,7 +3,7 @@ import { NotificationContext, NotificationType } from "@/app/components/provider
 
 export interface Operation {
   id: string;
-  type: "unit" | "holiday" | "location" | "occupancy";
+  type: "control" | "unit" | "holiday" | "location" | "occupancy";
   entityId?: string;
   promise: Promise<any>;
   description: string;

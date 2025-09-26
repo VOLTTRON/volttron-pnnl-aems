@@ -15,19 +15,22 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import { IconName, IconNames } from "@blueprintjs/icons";
-import { useContext, useMemo, useState } from "react";
-import { useSubscription, useMutation } from "@apollo/client";
+import { useContext, useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useSubscription, useQuery } from "@apollo/client";
 import {
   ReadControlsQuery,
   UpdateControlDocument,
   UpdateUnitDocument,
   OrderBy,
   SubscribeControlsDocument,
+  ReadControlsDocument,
 } from "@/graphql-codegen/graphql";
 import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { Term } from "@/utils/client";
-import { UnitEditor } from "./components/UnitEditor";
-import { Role, StageType } from "@local/common";
+import { Unit } from "./components/Unit";
+import { Role, Stage, StageType } from "@local/common";
+import { useOperationManager } from "../components/hooks/useOperationManager";
+import { useMutationWithTracking } from "../components/hooks/useMutationWithTracking";
 
 interface ILCState {
   editing: Partial<Term<NonNullable<ReadControlsQuery["readControls"]>[0]>> | null;
@@ -45,9 +48,12 @@ export default function ILCPage() {
   const { route } = useContext(RouteContext);
   const { createNotification } = useContext(NotificationContext);
   const { current } = useContext(CurrentContext);
+  const { hasAnyOperations, waitForAllOperations } = useOperationManager();
+  const operationsInitiatedRef = useRef(false);
+  const previousOperationsRef = useRef(false);
 
   // Subscribe to controls with full unit details for real-time updates
-  const { data, loading } = useSubscription(SubscribeControlsDocument, {
+  const { data: subscribed } = useSubscription(SubscribeControlsDocument, {
     variables: {
       orderBy: { createdAt: OrderBy.Desc },
     },
@@ -56,23 +62,58 @@ export default function ILCPage() {
     },
   });
 
-  const [updateControl] = useMutation(UpdateControlDocument, {
-    onCompleted() {
-      createNotification?.("Control updated successfully", NotificationType.Notification);
+  const {
+    data: queried,
+    loading,
+    startPolling,
+  } = useQuery(ReadControlsDocument, {
+    variables: {
+      orderBy: { createdAt: OrderBy.Desc },
     },
     onError(error) {
       createNotification?.(error.message, NotificationType.Error);
     },
   });
 
-  const [updateUnit] = useMutation(UpdateUnitDocument, {
-    onCompleted() {
-      createNotification?.("Unit updated successfully", NotificationType.Notification);
-    },
-    onError(error) {
-      createNotification?.(error.message, NotificationType.Error);
-    },
+  const data = subscribed ?? queried;
+
+  const [updateControl] = useMutationWithTracking(UpdateControlDocument, {
+    operationType: "control",
+    getEntityId: (variables) => variables?.where?.id,
+    getDescription: (variables) => `Update control ${variables?.where?.id}`,
+    onError: (error: any) => createNotification?.(error.message, NotificationType.Error),
   });
+
+  const [updateUnit] = useMutationWithTracking(UpdateUnitDocument, {
+    operationType: "unit",
+    getEntityId: (variables) => variables?.where?.id,
+    getDescription: (variables) => `Update unit ${variables?.where?.id}`,
+    onError: (error: any) => createNotification?.(error.message, NotificationType.Error),
+  });
+
+  // Monitor operation completion and show notification
+  useEffect(() => {
+    const currentHasOperations = hasAnyOperations();
+
+    // Track when operations start
+    if (currentHasOperations && !previousOperationsRef.current) {
+      operationsInitiatedRef.current = true;
+    }
+
+    // Show success notification when operations complete
+    if (!currentHasOperations && previousOperationsRef.current && operationsInitiatedRef.current) {
+      const timeoutId = setTimeout(() => {
+        if (document.hasFocus()) {
+          createNotification?.("All changes saved successfully", NotificationType.Notification);
+        }
+        operationsInitiatedRef.current = false;
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+
+    previousOperationsRef.current = currentHasOperations;
+  }, [hasAnyOperations, createNotification]);
 
   const controls = useMemo(() => data?.readControls ?? [], [data?.readControls]);
 
@@ -87,7 +128,16 @@ export default function ILCPage() {
     }
 
     if (field === "peakLoadExclude") {
-      // Aggregate from units - if any unit excludes peak load, show as excluded
+      // If we're editing, check if any edited units have peakLoadExclude set
+      if (state.editing?.units && state.editing.units.length > 0) {
+        const editedUnits = state.editing.units.filter((u: any) => u.peakLoadExclude !== undefined);
+        if (editedUnits.length > 0) {
+          // Return true if any edited unit excludes peak load
+          return editedUnits.some((unit: any) => unit.peakLoadExclude);
+        }
+      }
+
+      // Fall back to aggregating from original units
       const units = temp?.units || [];
       if (units.length === 0) return false;
       return units.some((unit: any) => unit.peakLoadExclude);
@@ -233,11 +283,10 @@ export default function ILCPage() {
             });
 
             if (Object.keys(updateData).length > 0) {
-              console.log("Updating unit with data:", { unitId: editedUnit.id, updateData });
               updateUnit({
                 variables: {
                   where: { id: editedUnit.id },
-                  update: updateData,
+                  update: { stage: Stage.Update.enum, ...updateData },
                 },
               });
             }
@@ -247,18 +296,21 @@ export default function ILCPage() {
     }
   };
 
-  const handlePush = (control: any) => {
-    if (control.id) {
-      updateControl({
-        variables: {
-          where: { id: control.id },
-          update: {
-            stage: StageType.UpdateType.label as any,
+  const handlePush = useCallback(
+    (control: any) => {
+      if (control.id) {
+        updateControl({
+          variables: {
+            where: { id: control.id },
+            update: {
+              stage: StageType.UpdateType.label as any,
+            },
           },
-        },
-      });
-    }
-  };
+        });
+      }
+    },
+    [updateControl],
+  );
 
   const isSave = (control: any) => {
     if (!state.editing) return false;
@@ -313,67 +365,84 @@ export default function ILCPage() {
     }
   };
 
-  const renderStatus = (item: any) => {
-    let icon: IconName = IconNames.ISSUE;
-    let intent: Intent = Intent.WARNING;
-    let message: string = "Push ILC Configuration";
+  const renderStatus = useCallback(
+    (item: any) => {
+      let icon: IconName = IconNames.ISSUE;
+      let intent: Intent = Intent.WARNING;
+      let message: string = "Push ILC Configuration";
+      let isPushEnabled = false;
 
-    switch (item.stage) {
-      case StageType.UpdateType.label:
-        icon = IconNames.REFRESH;
-        intent = Intent.PRIMARY;
-        message = "Updating Configuration";
-        break;
-      case StageType.ProcessType.label:
-        icon = IconNames.REFRESH;
-        intent = Intent.SUCCESS;
-        message = "Processing Configuration";
-        break;
-      case StageType.CreateType.label:
-        icon = IconNames.ISSUE;
-        intent = Intent.WARNING;
-        message = "Push ILC Configuration";
-        break;
-      case StageType.DeleteType.label:
-        icon = IconNames.DELETE;
-        intent = Intent.DANGER;
-        message = "Deleting Configuration";
-        break;
-      case StageType.CompleteType.label:
-        icon = IconNames.CONFIRM;
-        intent = Intent.SUCCESS;
-        message = "Configuration Complete";
-        break;
-      case StageType.FailType.label:
-        icon = IconNames.ERROR;
-        intent = Intent.DANGER;
-        message = "Configuration Failed";
-        break;
-      default:
-        message = "Push ILC Configuration";
-    }
+      switch (item.stage) {
+        case StageType.UpdateType.label:
+          icon = IconNames.REFRESH;
+          intent = Intent.PRIMARY;
+          message = "Updating Configuration";
+          break;
+        case StageType.ProcessType.label:
+          icon = IconNames.REFRESH;
+          intent = Intent.SUCCESS;
+          message = "Processing Configuration";
+          break;
+        case StageType.CreateType.label:
+          icon = IconNames.ISSUE;
+          intent = Intent.WARNING;
+          message = "Push ILC Configuration";
+          isPushEnabled = !state.editing;
+          break;
+        case StageType.DeleteType.label:
+          icon = IconNames.DELETE;
+          intent = Intent.DANGER;
+          message = "Deleting Configuration";
+          break;
+        case StageType.CompleteType.label:
+          icon = IconNames.CONFIRM;
+          intent = Intent.SUCCESS;
+          message = "Configuration Complete";
+          isPushEnabled = !state.editing;
+          break;
+        case StageType.FailType.label:
+          icon = IconNames.ERROR;
+          intent = Intent.DANGER;
+          message = "Configuration Failed";
+          isPushEnabled = !state.editing;
+          break;
+        default:
+          message = "Push ILC Configuration";
+          isPushEnabled = !state.editing;
+      }
 
-    const notParticipating = item.peakLoadExclude;
-    if (notParticipating) {
-      icon = IconNames.DISABLE;
-      intent = Intent.NONE;
-      message = "Not Participating in Grid Services";
-    }
+      const notParticipating = item.peakLoadExclude;
+      if (notParticipating) {
+        icon = IconNames.DISABLE;
+        intent = Intent.NONE;
+        message = "Not Participating in Grid Services";
+      }
 
-    if (item.units) {
-      return (
-        <Tooltip content={message} position={Position.TOP} disabled={!isPush(item)}>
-          <Button icon={icon} intent={intent} minimal onClick={() => handlePush(item)} disabled={!isPush(item)} />
-        </Tooltip>
-      );
-    } else {
-      return (
-        <Tooltip content={message} position={Position.TOP}>
-          <Button icon={icon} intent={intent} minimal />
-        </Tooltip>
-      );
-    }
-  };
+      const isOperationPending = hasAnyOperations();
+
+      if (item.units) {
+        return (
+          <Tooltip content={message} position={Position.TOP}>
+            <Button
+              icon={icon}
+              intent={intent}
+              minimal
+              onClick={() => handlePush(item)}
+              disabled={!isPushEnabled || isOperationPending}
+              loading={isOperationPending}
+            />
+          </Tooltip>
+        );
+      } else {
+        return (
+          <Tooltip content={message} position={Position.TOP}>
+            <Button icon={icon} intent={intent} minimal />
+          </Tooltip>
+        );
+      }
+    },
+    [state.editing, hasAnyOperations, handlePush],
+  );
 
   const renderConfirm = () => {
     if (state.confirm === null) {
@@ -418,17 +487,28 @@ export default function ILCPage() {
                 </div>
                 <div className={styles.actions}>
                   {renderStatus(control)}
-                  <Tooltip content="Save" position={Position.TOP} disabled={!isSave(control)}>
+                  <Tooltip
+                    content={hasAnyOperations() ? "Saving..." : "Save"}
+                    position={Position.TOP}
+                    disabled={!isSave(control) || hasAnyOperations()}
+                  >
                     <Button
-                      icon={IconNames.FLOPPY_DISK}
+                      icon={hasAnyOperations() ? IconNames.REFRESH : IconNames.FLOPPY_DISK}
                       intent={Intent.PRIMARY}
                       minimal
                       onClick={handleSave}
-                      disabled={!isSave(control)}
+                      disabled={!isSave(control) || hasAnyOperations()}
+                      loading={hasAnyOperations()}
                     />
                   </Tooltip>
                   <Tooltip content="Cancel" position={Position.TOP}>
-                    <Button icon={IconNames.CROSS} intent={Intent.PRIMARY} minimal onClick={handleCancel} />
+                    <Button
+                      icon={IconNames.CROSS}
+                      intent={Intent.PRIMARY}
+                      minimal
+                      onClick={handleCancel}
+                      disabled={hasAnyOperations()}
+                    />
                   </Tooltip>
                 </div>
               </div>
@@ -468,12 +548,12 @@ export default function ILCPage() {
                   <Label>
                     <b>Participate in Grid Services</b>
                     <HTMLSelect
-                      value={getValue("peakLoadExclude", control) ? "true" : "false"}
-                      onChange={(e) => handleChange("peakLoadExclude")(e.target.value === "true")}
+                      value={getValue("peakLoadExclude", control) ? "false" : "true"}
+                      onChange={(e) => handleChange("peakLoadExclude")(e.target.value === "false")}
                       fill
                     >
-                      <option value="false">Yes</option>
-                      <option value="true">No</option>
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
                     </HTMLSelect>
                   </Label>
                 </div>
@@ -506,45 +586,32 @@ export default function ILCPage() {
                     }
                   />
                   <Collapse isOpen={state.expanded === `${control.id}-${unit.id}`}>
-                    <UnitEditor
+                    <Unit
                       unit={unit}
                       editing={state.editing?.units?.find((v: any) => v?.id === unit.id) ?? null}
-                      handleChange={(field: string) => (value: any) => {
+                      setEditing={(unitEditing) => {
                         setState((prev) => {
                           if (!prev.editing) return prev;
 
                           const updatedUnits = [...(prev.editing.units || [])];
                           const unitIndex = updatedUnits.findIndex((u: any) => u?.id === unit.id);
 
-                          if (unitIndex >= 0) {
-                            // Update existing unit
-                            const updatedUnit = { ...updatedUnits[unitIndex] } as any;
-
-                            // Handle nested field paths (e.g., "location.name")
-                            if (field.includes(".")) {
-                              const [parentField, childField] = field.split(".");
-                              updatedUnit[parentField] = {
-                                ...updatedUnit[parentField],
-                                [childField]: value,
-                              };
-                            } else {
-                              updatedUnit[field] = value;
+                          if (unitEditing === null) {
+                            // Remove unit from editing if unitEditing is null
+                            if (unitIndex >= 0) {
+                              updatedUnits.splice(unitIndex, 1);
                             }
-
-                            updatedUnits[unitIndex] = updatedUnit;
                           } else {
-                            // Add new unit with the field
-                            const newUnit: any = { id: unit.id };
+                            // Ensure the unit has an ID
+                            const unitWithId = { ...unitEditing, id: unit.id };
 
-                            // Handle nested field paths
-                            if (field.includes(".")) {
-                              const [parentField, childField] = field.split(".");
-                              newUnit[parentField] = { [childField]: value };
+                            if (unitIndex >= 0) {
+                              // Update existing unit
+                              updatedUnits[unitIndex] = unitWithId;
                             } else {
-                              newUnit[field] = value;
+                              // Add new unit
+                              updatedUnits.push(unitWithId);
                             }
-
-                            updatedUnits.push(newUnit);
                           }
 
                           return {
@@ -565,26 +632,15 @@ export default function ILCPage() {
                         const unitPeakLoadExclude = editingUnit?.peakLoadExclude ?? (unit as any).peakLoadExclude;
 
                         return [
-                          // Hide fields based on control-level peakLoadExclude
-                          ...(controlPeakLoadExclude ? ["peakLoadExclude"] : []),
+                          // Hide unit-level peakLoadExclude field since it's controlled at the control level
+                          "peakLoadExclude",
 
                           // Hide grid services related fields if control or unit excludes peak load
                           ...(controlPeakLoadExclude || unitPeakLoadExclude
-                            ? [
-                                "zoneLocation",
-                                "zoneMass",
-                                "zoneOrientation",
-                                "zoneBuilding",
-                                "coolingCapacity",
-                                "compressors",
-                                "heatPump",
-                                "heatPumpBackup",
-                                "coolingPeakOffset",
-                                "heatingPeakOffset",
-                              ]
+                            ? ["coolingPeakOffset", "heatingPeakOffset"]
                             : []),
 
-                          // Always hide these advanced fields (matching original implementation)
+                          // Always hide these advanced fields for ILC (they're for RTU configuration in setup page)
                           "optimalStartLockout",
                           "optimalStartDeviation",
                           "earliestStart",
