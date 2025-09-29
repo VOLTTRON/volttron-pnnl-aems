@@ -33,20 +33,12 @@ import { Unit } from "./components/Unit";
 import { Role, Stage, StageType } from "@local/common";
 import { useOperationManager } from "../components/hooks/useOperationManager";
 import { useMutationWithTracking } from "../components/hooks/useMutationWithTracking";
-import { omit } from "lodash";
-
-interface ILCState {
-  editing: Partial<Term<NonNullable<ReadControlsQuery["readControls"]>[0]>> | null;
-  expanded: string | null;
-  confirm: (() => void) | null;
-}
+import { omit, cloneDeep, merge } from "lodash";
 
 export default function ILCPage() {
-  const [state, setState] = useState<ILCState>({
-    editing: null,
-    expanded: null,
-    confirm: null,
-  });
+  const [editing, setEditing] = useState<Partial<Term<NonNullable<ReadControlsQuery["readControls"]>[0]>> | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<(() => void) | null>(null);
 
   const { route } = useContext(RouteContext);
   const { createNotification } = useContext(NotificationContext);
@@ -107,128 +99,57 @@ export default function ILCPage() {
 
   const controls = useMemo(() => data?.readControls ?? [], [data?.readControls]);
 
-  const getValue = (field: string, control?: any) => {
-    const temp = control ?? controls?.find((v) => v.id === state.editing?.id);
-
-    // Handle special cases for fields that should aggregate from units
-    if (field === "campus" || field === "building") {
-      // Get from first unit if available
-      const firstUnit = temp?.units?.[0];
-      return firstUnit?.[field] || "";
-    }
-
-    if (field === "peakLoadExclude") {
-      // If we're editing, check if any edited units have peakLoadExclude set
-      if (state.editing?.units && state.editing.units.length > 0) {
-        const editedUnits = state.editing.units.filter((u: any) => u.peakLoadExclude !== undefined);
-        if (editedUnits.length > 0) {
-          // Return true if any edited unit excludes peak load
-          return editedUnits.some((unit: any) => unit.peakLoadExclude);
-        }
-      }
-
-      // Fall back to aggregating from original units
-      const units = temp?.units || [];
-      if (units.length === 0) return false;
-      return units.some((unit: any) => unit.peakLoadExclude);
-    }
-
-    return (state.editing as any)?.[field] ?? temp?.[field];
-  };
-
-  const handleChange = (field: string) => {
-    return (value: any) => {
-      if (state.editing) {
-        // Special handling for peakLoadExclude - update all units
-        if (field === "peakLoadExclude") {
-          const control = controls?.find((v) => v.id === state.editing?.id);
-          if (control?.units) {
-            const updatedUnits = control.units.map((unit: any) => ({
-              id: unit.id,
-              peakLoadExclude: value,
-            }));
-
-            setState((prev) => ({
-              ...prev,
-              editing: {
-                ...prev.editing,
-                units: updatedUnits,
-              } as any,
-            }));
-          }
-        } else {
-          setState((prev) => ({
-            ...prev,
-            editing: {
-              ...prev.editing,
-              [field]: value,
-            } as any,
-          }));
-        }
-      }
-    };
-  };
-
   const handleEdit = (control: Term<NonNullable<ReadControlsQuery["readControls"]>[0]>) => {
-    const current = state.editing && controls?.find((v) => v.id === state.editing?.id);
+    const current = editing && controls?.find((v) => v.id === editing?.id);
     if (current && isSave(current)) {
-      setState((prev) => ({
-        ...prev,
-        confirm: () =>
-          setState((prev) => ({
-            ...prev,
-            editing: {
-              id: control.id,
-              label: control.label,
-              correlation: control.correlation,
-              units: control.units?.map((v) => ({ id: v.id })) || [],
-            },
-          })),
-      }));
+      setConfirm(
+        () => () =>
+          setEditing({
+            id: control.id,
+            label: control.label,
+            correlation: control.correlation,
+            units: control.units?.map((v) => ({ id: v.id })) || [],
+          }),
+      );
     } else {
-      setState((prev) => ({
-        ...prev,
-        editing: {
-          id: control.id,
-          label: control.label,
-          correlation: control.correlation,
-          units: control.units?.map((v) => ({ id: v.id })) || [],
-        },
-      }));
+      setEditing({
+        id: control.id,
+        label: control.label,
+        correlation: control.correlation,
+        units: control.units?.map((v) => ({ id: v.id })) || [],
+      });
     }
   };
 
   const handleCancel = () => {
-    const current = state.editing && controls?.find((v) => v.id === state.editing?.id);
+    const current = editing && controls?.find((v) => v.id === editing?.id);
     if (current && isSave(current)) {
-      setState((prev) => ({
-        ...prev,
-        confirm: () => setState((prev) => ({ ...prev, editing: null })),
-      }));
+      setConfirm(() => () => setEditing(null));
     } else {
-      setState((prev) => ({ ...prev, editing: null }));
+      setEditing(null);
     }
   };
 
   const handleConfirm = () => {
-    const { confirm } = state;
-    setState((prev) => ({ ...prev, confirm: null }));
-    confirm?.();
+    if (confirm) {
+      confirm();
+      setConfirm(null);
+    }
   };
 
   const handleSave = async () => {
-    if (state.editing?.id) {
+    if (editing?.id) {
       const operations: Promise<any>[] = [];
       const controlUpdateData: any = {};
 
-      if (state.editing.label !== undefined) {
-        controlUpdateData.label = state.editing.label as string;
+      if (editing.label !== undefined) {
+        controlUpdateData.label = editing.label as string;
       }
 
-      if (state.editing.units && state.editing.units.length > 0) {
-        for (const editedUnit of state.editing.units) {
+      if (editing.units && editing.units.length > 0) {
+        for (const editedUnit of editing.units) {
           if (editedUnit.id) {
-            const originalControl = controls?.find((c) => c.id === state.editing?.id);
+            const originalControl = controls?.find((c) => c.id === editing?.id);
             const originalUnit = originalControl?.units?.find((u: any) => u.id === editedUnit.id);
 
             const location = editedUnit.location;
@@ -254,7 +175,7 @@ export default function ILCPage() {
               );
             }
 
-            const updateData = omit(editedUnit, ["id", "location"])
+            const updateData = omit(editedUnit, ["id", "location"]);
             if (Object.keys(updateData).length > 0) {
               operations.push(
                 updateUnit({
@@ -274,7 +195,7 @@ export default function ILCPage() {
         operations.push(
           updateControl({
             variables: {
-              where: { id: state.editing.id },
+              where: { id: editing.id },
               update: { stage: Stage.Update.enum, ...controlUpdateData },
             },
           }),
@@ -284,7 +205,7 @@ export default function ILCPage() {
       // Wait for all operations to complete
       await Promise.allSettled(operations);
       createNotification?.("All changes saved successfully", NotificationType.Notification);
-      setState((prev) => ({ ...prev, editing: null }));
+      setEditing(null);
     }
   };
 
@@ -305,17 +226,16 @@ export default function ILCPage() {
   );
 
   const isSave = (control: any) => {
-    if (!state.editing) return false;
+    if (!editing) return false;
     const original = controls.find((c) => c.id === control.id);
 
     // Check control-level changes
-    const controlChanged =
-      state.editing.label !== original?.label || state.editing.correlation !== original?.correlation;
+    const controlChanged = editing.label !== original?.label || editing.correlation !== original?.correlation;
 
     // Check unit-level changes
     let unitsChanged = false;
-    if (state.editing.units && state.editing.units.length > 0) {
-      unitsChanged = state.editing.units.some((editedUnit: any) => {
+    if (editing.units && editing.units.length > 0) {
+      unitsChanged = editing.units.some((editedUnit: any) => {
         if (!editedUnit.id) return false;
 
         const originalUnit = original?.units?.find((u: any) => u.id === editedUnit.id);
@@ -379,7 +299,7 @@ export default function ILCPage() {
           icon = IconNames.ISSUE;
           intent = Intent.WARNING;
           message = "Push ILC Configuration";
-          isPushEnabled = !state.editing;
+          isPushEnabled = !editing;
           break;
         case StageType.DeleteType.label:
           icon = IconNames.DELETE;
@@ -390,17 +310,17 @@ export default function ILCPage() {
           icon = IconNames.CONFIRM;
           intent = Intent.SUCCESS;
           message = "Configuration Complete";
-          isPushEnabled = !state.editing;
+          isPushEnabled = !editing;
           break;
         case StageType.FailType.label:
           icon = IconNames.ERROR;
           intent = Intent.DANGER;
           message = "Configuration Failed";
-          isPushEnabled = !state.editing;
+          isPushEnabled = !editing;
           break;
         default:
           message = "Push ILC Configuration";
-          isPushEnabled = !state.editing;
+          isPushEnabled = !editing;
       }
 
       const notParticipating = item.peakLoadExclude;
@@ -433,11 +353,11 @@ export default function ILCPage() {
         );
       }
     },
-    [state.editing, hasAnyOperations, handlePush],
+    [editing, hasAnyOperations, handlePush],
   );
 
   const renderConfirm = () => {
-    if (state.confirm === null) {
+    if (confirm === null) {
       return null;
     }
     return (
@@ -447,7 +367,7 @@ export default function ILCPage() {
         confirmButtonText="Yes"
         cancelButtonText="Cancel"
         onConfirm={handleConfirm}
-        onClose={() => setState((prev) => ({ ...prev, confirm: null }))}
+        onClose={() => setConfirm(null)}
       >
         <p>There are changes which have not been saved. Do you still want to continue?</p>
       </Alert>
@@ -467,7 +387,16 @@ export default function ILCPage() {
       <h1>Intelligent Load Control</h1>
       <div className={styles.list}>
         {controls?.map((control, i) => {
-          const isEditing = control.id === state.editing?.id;
+          const isEditing = control.id === editing?.id;
+
+          const value = merge({}, control, editing);
+          const { units, label } = value;
+          const { campus, building } = units?.[0] ?? {};
+          const peakLoadExclude = units?.every((u) => u.peakLoadExclude === true)
+            ? "true"
+            : units?.every((u) => u.peakLoadExclude === false)
+            ? "false"
+            : "mixed";
 
           return isEditing ? (
             <Card key={`control-${control.id ?? i}-editing`} interactive className={styles.editingCard}>
@@ -509,13 +438,13 @@ export default function ILCPage() {
                 <div>
                   <Label>
                     <b>Campus</b>
-                    <InputGroup type="text" value={getValue("campus", control)} readOnly />
+                    <InputGroup type="text" value={campus ?? ""} readOnly />
                   </Label>
                 </div>
                 <div>
                   <Label>
                     <b>Building</b>
-                    <InputGroup type="text" value={getValue("building", control)} readOnly />
+                    <InputGroup type="text" value={building ?? ""} readOnly />
                   </Label>
                 </div>
                 <div />
@@ -527,8 +456,12 @@ export default function ILCPage() {
                     <b>ILC Label</b>
                     <InputGroup
                       type="text"
-                      value={getValue("label", control)}
-                      onChange={(e) => handleChange("label")(e.target.value)}
+                      value={label ?? ""}
+                      onChange={(e) => {
+                        const clone = cloneDeep(editing ?? {});
+                        clone.label = e.target.value;
+                        setEditing(clone);
+                      }}
                     />
                   </Label>
                 </div>
@@ -540,12 +473,30 @@ export default function ILCPage() {
                   <Label>
                     <b>Participate in Grid Services</b>
                     <HTMLSelect
-                      value={getValue("peakLoadExclude", control) ? "false" : "true"}
-                      onChange={(e) => handleChange("peakLoadExclude")(e.target.value === "false")}
+                      value={peakLoadExclude}
+                      onChange={(e) => {
+                        const peakLoadExclude = e.target.value;
+                        const clone = cloneDeep(editing ?? {});
+                        clone.units = (control.units || []).map((u: any) => {
+                          const existing = clone.units?.find((eu: any) => eu?.id === u.id) || {};
+                          switch (peakLoadExclude) {
+                            case "true":
+                              return { ...existing, id: u.id, peakLoadExclude: true };
+                            case "false":
+                              return { ...existing, id: u.id, peakLoadExclude: false };
+                            case "mixed":
+                            default:
+                              delete existing.peakLoadExclude;
+                              return existing;
+                          }
+                        });
+                        setEditing(clone);
+                      }}
                       fill
                     >
                       <option value="true">Yes</option>
                       <option value="false">No</option>
+                      <option value="mixed">Mixed</option>
                     </HTMLSelect>
                   </Label>
                 </div>
@@ -565,62 +516,50 @@ export default function ILCPage() {
                         id: `unit-${unit.id}`,
                         label: (unit as any).label || `Unit ${unit.id}`,
                         hasCaret: true,
-                        isExpanded: state.expanded === `${control.id}-${unit.id}`,
+                        isExpanded: expanded === `${control.id}-${unit.id}`,
                       },
                     ]}
-                    onNodeExpand={() => setState((prev) => ({ ...prev, expanded: `${control.id}-${unit.id}` }))}
-                    onNodeCollapse={() => setState((prev) => ({ ...prev, expanded: null }))}
+                    onNodeExpand={() => setExpanded(`${control.id}-${unit.id}`)}
+                    onNodeCollapse={() => setExpanded(null)}
                     onNodeClick={() =>
-                      setState((prev) => ({
-                        ...prev,
-                        expanded: `${control.id}-${unit.id}` === prev.expanded ? null : `${control.id}-${unit.id}`,
-                      }))
+                      setExpanded(`${control.id}-${unit.id}` === expanded ? null : `${control.id}-${unit.id}`)
                     }
                   />
-                  <Collapse isOpen={state.expanded === `${control.id}-${unit.id}`}>
+                  <Collapse isOpen={expanded === `${control.id}-${unit.id}`}>
                     <Unit
                       unit={unit}
-                      editing={state.editing?.units?.find((v: any) => v?.id === unit.id) ?? null}
+                      editing={editing?.units?.find((v: any) => v?.id === unit.id) ?? null}
                       setEditing={(unitEditing) => {
-                        setState((prev) => {
-                          if (!prev.editing) return prev;
+                        if (!editing) return;
 
-                          const updatedUnits = [...(prev.editing.units || [])];
-                          const unitIndex = updatedUnits.findIndex((u: any) => u?.id === unit.id);
+                        const clone = cloneDeep(editing);
+                        const updatedUnits = [...(clone.units || [])];
+                        const unitIndex = updatedUnits.findIndex((u: any) => u?.id === unit.id);
 
-                          if (unitEditing === null) {
-                            // Remove unit from editing if unitEditing is null
-                            if (unitIndex >= 0) {
-                              updatedUnits.splice(unitIndex, 1);
-                            }
-                          } else {
-                            // Ensure the unit has an ID
-                            const unitWithId = { ...unitEditing, id: unit.id };
-
-                            if (unitIndex >= 0) {
-                              // Update existing unit
-                              updatedUnits[unitIndex] = unitWithId;
-                            } else {
-                              // Add new unit
-                              updatedUnits.push(unitWithId);
-                            }
+                        if (unitEditing === null) {
+                          // Remove unit from editing if unitEditing is null
+                          if (unitIndex >= 0) {
+                            updatedUnits.splice(unitIndex, 1);
                           }
+                        } else {
+                          // Ensure the unit has an ID
+                          const unitWithId = { ...unitEditing, id: unit.id };
 
-                          return {
-                            ...prev,
-                            editing: {
-                              ...prev.editing,
-                              units: updatedUnits,
-                            },
-                          };
-                        });
+                          if (unitIndex >= 0) {
+                            // Update existing unit
+                            updatedUnits[unitIndex] = unitWithId;
+                          } else {
+                            // Add new unit
+                            updatedUnits.push(unitWithId);
+                          }
+                        }
+
+                        clone.units = updatedUnits;
+                        setEditing(clone);
                       }}
                       hidden={(() => {
-                        // Get the control's peakLoadExclude value (from editing state or original control)
-                        const controlPeakLoadExclude = getValue("peakLoadExclude", control);
-
                         // Get the unit's peakLoadExclude value (from editing state or original unit)
-                        const editingUnit = state.editing?.units?.find((v: any) => v?.id === unit.id);
+                        const editingUnit = editing?.units?.find((v: any) => v?.id === unit.id);
                         const unitPeakLoadExclude = editingUnit?.peakLoadExclude ?? (unit as any).peakLoadExclude;
 
                         return [
@@ -628,9 +567,7 @@ export default function ILCPage() {
                           "peakLoadExclude",
 
                           // Hide grid services related fields if control or unit excludes peak load
-                          ...(controlPeakLoadExclude || unitPeakLoadExclude
-                            ? ["coolingPeakOffset", "heatingPeakOffset"]
-                            : []),
+                          ...(unitPeakLoadExclude ? ["coolingPeakOffset", "heatingPeakOffset"] : []),
 
                           // Always hide these advanced fields for ILC (they're for RTU configuration in setup page)
                           "optimalStartLockout",
