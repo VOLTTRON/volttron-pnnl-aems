@@ -1,6 +1,8 @@
 import { registerAs } from "@nestjs/config";
-import { parseBoolean, RoleType } from "@local/common";
+import { Normalization, parseBoolean, RoleType } from "@local/common";
 import { Logger } from "@nestjs/common";
+import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
 
 export interface ExtConfig {
   path?: `/ext/${string}`;
@@ -8,6 +10,50 @@ export interface ExtConfig {
   authorized?: string;
   unauthorized?: string;
 }
+
+const typeofChecks = (value: string): value is "pkce" | "state" | "none" | "nonce" => {
+  return ["pkce", "state", "none", "nonce"].includes(value);
+};
+
+const toDurationUnit = (value: string) => {
+  switch (value?.toLowerCase()) {
+    case "s":
+    case "sec":
+    case "second":
+    case "seconds":
+      return "seconds" as const;
+    case "m":
+    case "min":
+    case "minute":
+    case "minutes":
+      return "minutes" as const;
+    case "h":
+    case "hr":
+    case "hour":
+    case "hours":
+      return "hours" as const;
+    case "d":
+    case "day":
+    case "days":
+      return "days" as const;
+    case "w":
+    case "wk":
+    case "week":
+    case "weeks":
+      return "weeks" as const;
+    case "mo":
+    case "month":
+    case "months":
+      return "months" as const;
+    case "y":
+    case "yr":
+    case "year":
+    case "years":
+      return "years" as const;
+    default:
+      return "milliseconds" as const;
+  }
+};
 
 /**
  * This service requires a key when injecting it into a module.
@@ -68,6 +114,7 @@ export class AppConfigService {
   auth: {
     framework: string;
     providers: string[];
+    debug: boolean;
   };
   jwt: {
     secret: string;
@@ -87,6 +134,7 @@ export class AppConfigService {
     wellKnownUrl: string;
     passRoles: boolean;
     defaultRole: string;
+    checks?: ("pkce" | "state" | "none" | "nonce")[];
   };
   password: {
     strength: number;
@@ -116,10 +164,38 @@ export class AppConfigService {
       batchSize: number;
       geojsonContribution: string;
     };
+    cleanup: {
+      age: {
+        value: number;
+        unit: ReturnType<typeof toDurationUnit>;
+      };
+    };
+    config: {
+      timeout: number;
+      authUrl: string;
+      apiUrl: string;
+      username: string;
+      password: string;
+      verbose: boolean;
+      holidaySchedule: boolean;
+    };
+    control: {
+      templatePaths: string[];
+    };
+    setup: {
+      ilcPaths: string[];
+      thermostatPaths: string[];
+    };
+  };
+  volttron: {
+    ca: string;
+    mocked: boolean;
   };
   cors: {
     origin?: string;
   };
+
+  normalize = Normalization.process(Normalization.Trim, Normalization.Compact, Normalization.Lowercase);
 
   constructor() {
     this.nodeEnv = process.env.NODE_ENV ?? "development";
@@ -166,6 +242,7 @@ export class AppConfigService {
     this.auth = {
       framework: process.env.AUTH_FRAMEWORK ?? "passport",
       providers: process.env.AUTH_PROVIDERS?.split(",") ?? [],
+      debug: parseBoolean(process.env.AUTH_DEBUG),
     };
     this.jwt = {
       secret: process.env.JWT_SECRET ?? "",
@@ -185,6 +262,7 @@ export class AppConfigService {
       wellKnownUrl: process.env.KEYCLOAK_WELL_KNOWN_URL ?? "",
       passRoles: parseBoolean(process.env.KEYCLOAK_PASS_ROLES),
       defaultRole: process.env.KEYCLOAK_DEFAULT_ROLE ?? "",
+      checks: process.env.KEYCLOAK_CHECKS?.split(/[, ]/g).map(this.normalize).filter(typeofChecks) || undefined,
     };
     this.password = {
       strength: parseInt(process.env.PASSWORD_STRENGTH ?? "0"),
@@ -256,6 +334,43 @@ export class AppConfigService {
         batchSize: parseInt(process.env.SERVICE_SEED_BATCH_SIZE ?? "100"),
         geojsonContribution: process.env.SERVICE_SEED_GEOJSON_CONTRIBUTION ?? "",
       },
+      cleanup: {
+        age: {
+          value: parseInt(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_CLEANUP_AGE ?? "")?.[1] ?? "0"),
+          unit: toDurationUnit(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_CLEANUP_AGE ?? "")?.[0] ?? "milliseconds"),
+        },
+      },
+      config: {
+        timeout: parseInt(process.env.SERVICE_CONFIG_TIMEOUT ?? "5000"),
+        authUrl: process.env.SERVICE_CONFIG_AUTH_URL ?? "",
+        apiUrl: process.env.SERVICE_CONFIG_API_URL ?? "",
+        username: process.env.SERVICE_CONFIG_USERNAME ?? "",
+        password: process.env.SERVICE_CONFIG_PASSWORD ?? "",
+        verbose: parseBoolean(process.env.SERVICE_CONFIG_VERBOSE),
+        holidaySchedule: parseBoolean(process.env.SERVICE_CONFIG_HOLIDAY_SCHEDULE),
+      },
+      control: {
+        templatePaths: (process.env.SERVICE_SETUP_TEMPLATE_PATHS ?? "")
+          .split(",")
+          .map((f) => f.trim())
+          .filter(Boolean),
+      },
+      setup: {
+        ilcPaths: (process.env.SERVICE_SETUP_ILC_PATHS ?? "")
+          .split(",")
+          .map((f) => f.trim())
+          .filter(Boolean),
+        thermostatPaths: (process.env.SERVICE_SETUP_THERMOSTAT_PATHS ?? "")
+          .split(",")
+          .map((f) => f.trim())
+          .filter(Boolean),
+      },
+    };
+    this.volttron = {
+      ca: process.env.VOLTTRON_CA
+        ? readFileSync(resolve(__dirname, process.env.VOLTTRON_CA ?? "")).toString("utf-8")
+        : "",
+      mocked: parseBoolean(process.env.VOLTTRON_MOCKED),
     };
     this.cors = {
       origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,

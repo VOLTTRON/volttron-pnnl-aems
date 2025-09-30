@@ -163,7 +163,7 @@ export const buildConfig = (
         return session;
       },
     },
-    debug: configService.nodeEnv !== "production",
+    debug: configService.auth.debug || configService.nodeEnv !== "production",
     providers: authService
       .getProviderNames()
       .map((name) => authService.getProvider(name))

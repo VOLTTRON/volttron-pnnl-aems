@@ -3,13 +3,21 @@
 import { Breadcrumbs, NavbarDivider, NavbarHeading } from "@blueprintjs/core";
 import { useRouter } from "next/navigation";
 import { useCallback, useContext, useState } from "react";
-import { RouteContext, CurrentContext, findPath, PreferencesContext, compilePreferences } from "../providers";
+import {
+  RouteContext,
+  CurrentContext,
+  findPath,
+  PreferencesContext,
+  compilePreferences,
+  ScreenSizeContext,
+} from "../providers";
 import { Menu, MenuItem, PopoverPosition } from "@blueprintjs/core";
 import { IconNames } from "@blueprintjs/icons";
 import { Preferences } from "./preferences";
 import { Mode } from "@local/prisma";
 
 export function NavbarLeft() {
+  const { isDesktop } = useContext(ScreenSizeContext);
   const { items } = useContext(RouteContext);
   const router = useRouter();
 
@@ -28,10 +36,14 @@ export function NavbarLeft() {
 
   return (
     <>
-      <NavbarHeading>
-        <h3>{process.env.NEXT_PUBLIC_TITLE}</h3>
-      </NavbarHeading>
-      <NavbarDivider />
+      {isDesktop && (
+        <>
+          <NavbarHeading>
+            <h3>{process.env.NEXT_PUBLIC_TITLE}</h3>
+          </NavbarHeading>
+          <NavbarDivider />
+        </>
+      )}
       <Breadcrumbs items={breadcrumbs} />
     </>
   );

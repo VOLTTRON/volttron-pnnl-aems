@@ -26,7 +26,7 @@ export class AuthjsMiddleware implements NestMiddleware, OnModuleDestroy {
       this.logger.log("Initializing Authjs middleware");
       this.use = async (req, _res, next) => {
         try {
-          req.user = await this.getAuthjsUser(req);
+          req.user = (await this.getAuthjsUser(req)) ?? req.user;
         } catch (error) {
           this.logger.error("Auth.js session middleware error:", error);
         }

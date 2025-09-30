@@ -7,6 +7,8 @@ import { AuthModule } from "../auth.module";
 
 @Module({
   imports: [PrismaModule, SubscriptionModule, AuthModule],
+  providers: [AuthjsMiddleware],
+  exports: [AuthjsMiddleware],
 })
 export class AuthjsModule {
   configure(consumer: MiddlewareConsumer) {

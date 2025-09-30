@@ -194,11 +194,15 @@ export class KeycloakAuthjsService implements AuthjsProvider {
       // we trust our Keycloak server to provide the correct user information
       allowDangerousEmailAccountLinking: true,
       id: Provider,
+      checks: this.configService.keycloak.checks,
       clientId: this.configService.keycloak.clientId,
       clientSecret: this.configService.keycloak.clientSecret,
       issuer: this.configService.keycloak.issuerUrl || undefined,
       redirectProxyUrl: this.configService.keycloak.callbackUrl || undefined,
       wellKnown: this.configService.keycloak.wellKnownUrl || undefined,
+      authorization: this.configService.keycloak.authUrl || undefined,
+      token: this.configService.keycloak.tokenUrl || undefined,
+      userinfo: this.configService.keycloak.userinfoUrl || undefined,
     });
   }
 }

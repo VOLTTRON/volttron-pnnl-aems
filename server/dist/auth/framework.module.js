@@ -14,6 +14,7 @@ const auth_module_1 = require("./auth.module");
 const authjs_module_1 = require("./authjs/authjs.module");
 const passport_module_1 = require("./passport/passport.module");
 const prisma_module_1 = require("../prisma/prisma.module");
+const websocket_service_1 = require("./websocket.service");
 let FrameworkModule = FrameworkModule_1 = class FrameworkModule {
     static register(options) {
         return {
@@ -29,6 +30,8 @@ let FrameworkModule = FrameworkModule_1 = class FrameworkModule {
                     ]
                     : [authjs_module_1.AuthjsModule, passport_module_1.PassportModule]),
             ],
+            providers: [websocket_service_1.WebSocketAuthService],
+            exports: [websocket_service_1.WebSocketAuthService],
         };
     }
 };

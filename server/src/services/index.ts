@@ -2,7 +2,6 @@ import { AppConfigService } from "@/app.config";
 import { typeofNonNullable } from "@local/common";
 import { Logger } from "@nestjs/common";
 import { toLower, trim } from "lodash";
-import { inspect } from "node:util";
 
 export abstract class BaseService {
   private baseLogger = new Logger(BaseService.name);
@@ -31,18 +30,6 @@ export abstract class BaseService {
     const disabled = types.map((type) => /^!([^*!^]+)$/.exec(type)?.[1]).filter(typeofNonNullable);
     this.shutdown = shutdown.includes(this.service);
     this.runTask = enabled.includes(this.service) && !disabled.includes(this.service);
-    console.log(
-      inspect(
-        {
-          instance: instance,
-          service: { service: this.service, shutdown: this.shutdown, runTask: this.runTask },
-          lists: { types, wildcard, enabled, disabled, shutdown },
-        },
-        undefined,
-        10,
-        true,
-      ),
-    );
   }
 
   schedule() {

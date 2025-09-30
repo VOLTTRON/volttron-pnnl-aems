@@ -5,6 +5,7 @@ export interface ExtConfig {
     authorized?: string;
     unauthorized?: string;
 }
+declare const toDurationUnit: (value: string) => "seconds" | "minutes" | "hours" | "days" | "weeks" | "months" | "years" | "milliseconds";
 export declare class AppConfigService {
     static Key: string;
     private logger;
@@ -52,6 +53,7 @@ export declare class AppConfigService {
     auth: {
         framework: string;
         providers: string[];
+        debug: boolean;
     };
     jwt: {
         secret: string;
@@ -71,6 +73,7 @@ export declare class AppConfigService {
         wellKnownUrl: string;
         passRoles: boolean;
         defaultRole: string;
+        checks?: ("pkce" | "state" | "none" | "nonce")[];
     };
     password: {
         strength: number;
@@ -100,10 +103,37 @@ export declare class AppConfigService {
             batchSize: number;
             geojsonContribution: string;
         };
+        cleanup: {
+            age: {
+                value: number;
+                unit: ReturnType<typeof toDurationUnit>;
+            };
+        };
+        config: {
+            timeout: number;
+            authUrl: string;
+            apiUrl: string;
+            username: string;
+            password: string;
+            verbose: boolean;
+            holidaySchedule: boolean;
+        };
+        control: {
+            templatePaths: string[];
+        };
+        setup: {
+            ilcPaths: string[];
+            thermostatPaths: string[];
+        };
+    };
+    volttron: {
+        ca: string;
+        mocked: boolean;
     };
     cors: {
         origin?: string;
     };
+    normalize: import("@local/common/dist/constants").IProcess;
     constructor();
 }
 declare const AppConfigToken: (() => AppConfigService) & import("@nestjs/config").ConfigFactoryKeyHost<AppConfigService>;

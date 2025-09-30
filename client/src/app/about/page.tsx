@@ -1,76 +1,59 @@
-"use server";
+"use client";
 
 import styles from "./page.module.scss";
-import Image from "next/image";
+import { Card } from "@blueprintjs/core";
 
-export default async function Page() {
+export default function Page() {
   return (
     <div className={styles.page}>
-      <div>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image src="/vercel.svg" alt="Vercel Logo" className={styles.vercelLogo} width={100} height={24} priority />
-          </a>
-        </div>
-      </div>
+      <Card>
+        <h2>About This Application</h2>
+        <p>
+          This is a full-stack TypeScript application built with modern web technologies. It demonstrates a complete
+          development stack with frontend, backend, and database integration.
+        </p>
+      </Card>
 
-      <div className={styles.center}>
-        <Image className={styles.logo} src="/next.svg" alt="Next.js Logo" width={180} height={37} priority />
-      </div>
+      <Card>
+        <h3>Technology Stack</h3>
+        <ul>
+          <li>
+            <strong>Frontend:</strong> Next.js 14+ with React 18, TypeScript, SCSS, Blueprint.js UI
+          </li>
+          <li>
+            <strong>Backend:</strong> NestJS with GraphQL (Apollo Server), Pothos schema builders
+          </li>
+          <li>
+            <strong>Database:</strong> PostgreSQL + PostGIS with Prisma ORM
+          </li>
+          <li>
+            <strong>Authentication:</strong> Auth.js with optional Keycloak SSO
+          </li>
+          <li>
+            <strong>Maps:</strong> MapLibre GL for geospatial features
+          </li>
+          <li>
+            <strong>Cache:</strong> Redis for sessions and GraphQL subscriptions
+          </li>
+        </ul>
+      </Card>
 
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
+      <Card>
+        <h3>Project Structure</h3>
+        <p>
+          This is a monorepo with separate modules for client, server, common utilities, and database schema. The build
+          order follows dependency requirements: prisma → common → server → client.
+        </p>
+      </Card>
 
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore starter templates for Next.js.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>Instantly deploy your Next.js site to a shareable URL with Vercel.</p>
-        </a>
-      </div>
+      <Card>
+        <h3>Development</h3>
+        <p>
+          The application uses Yarn 4.x as the package manager and includes comprehensive tooling for development,
+          testing, and deployment. Docker Compose is available for full-stack deployment with optional services like
+          proxy, maps, and wiki integration.
+        </p>
+      </Card>
     </div>
   );
 }

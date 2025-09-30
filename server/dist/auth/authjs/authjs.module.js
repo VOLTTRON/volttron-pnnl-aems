@@ -23,6 +23,8 @@ exports.AuthjsModule = AuthjsModule;
 exports.AuthjsModule = AuthjsModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule, auth_module_1.AuthModule],
+        providers: [authjs_middleware_1.AuthjsMiddleware],
+        exports: [authjs_middleware_1.AuthjsMiddleware],
     })
 ], AuthjsModule);
 //# sourceMappingURL=authjs.module.js.map

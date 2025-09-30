@@ -4,9 +4,54 @@ exports.AppConfigToken = exports.AppConfigService = void 0;
 const config_1 = require("@nestjs/config");
 const common_1 = require("@local/common");
 const common_2 = require("@nestjs/common");
+const node_path_1 = require("node:path");
+const node_fs_1 = require("node:fs");
+const typeofChecks = (value) => {
+    return ["pkce", "state", "none", "nonce"].includes(value);
+};
+const toDurationUnit = (value) => {
+    switch (value?.toLowerCase()) {
+        case "s":
+        case "sec":
+        case "second":
+        case "seconds":
+            return "seconds";
+        case "m":
+        case "min":
+        case "minute":
+        case "minutes":
+            return "minutes";
+        case "h":
+        case "hr":
+        case "hour":
+        case "hours":
+            return "hours";
+        case "d":
+        case "day":
+        case "days":
+            return "days";
+        case "w":
+        case "wk":
+        case "week":
+        case "weeks":
+            return "weeks";
+        case "mo":
+        case "month":
+        case "months":
+            return "months";
+        case "y":
+        case "yr":
+        case "year":
+        case "years":
+            return "years";
+        default:
+            return "milliseconds";
+    }
+};
 class AppConfigService {
     constructor() {
         this.logger = new common_2.Logger(AppConfigService.name);
+        this.normalize = common_1.Normalization.process(common_1.Normalization.Trim, common_1.Normalization.Compact, common_1.Normalization.Lowercase);
         this.nodeEnv = process.env.NODE_ENV ?? "development";
         this.printEnv = (0, common_1.parseBoolean)(process.env.PRINT_ENV);
         this.port = parseInt(process.env.PORT ?? "3000");
@@ -51,6 +96,7 @@ class AppConfigService {
         this.auth = {
             framework: process.env.AUTH_FRAMEWORK ?? "passport",
             providers: process.env.AUTH_PROVIDERS?.split(",") ?? [],
+            debug: (0, common_1.parseBoolean)(process.env.AUTH_DEBUG),
         };
         this.jwt = {
             secret: process.env.JWT_SECRET ?? "",
@@ -70,6 +116,7 @@ class AppConfigService {
             wellKnownUrl: process.env.KEYCLOAK_WELL_KNOWN_URL ?? "",
             passRoles: (0, common_1.parseBoolean)(process.env.KEYCLOAK_PASS_ROLES),
             defaultRole: process.env.KEYCLOAK_DEFAULT_ROLE ?? "",
+            checks: process.env.KEYCLOAK_CHECKS?.split(/[, ]/g).map(this.normalize).filter(typeofChecks) || undefined,
         };
         this.password = {
             strength: parseInt(process.env.PASSWORD_STRENGTH ?? "0"),
@@ -136,6 +183,43 @@ class AppConfigService {
                 batchSize: parseInt(process.env.SERVICE_SEED_BATCH_SIZE ?? "100"),
                 geojsonContribution: process.env.SERVICE_SEED_GEOJSON_CONTRIBUTION ?? "",
             },
+            cleanup: {
+                age: {
+                    value: parseInt(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_CLEANUP_AGE ?? "")?.[1] ?? "0"),
+                    unit: toDurationUnit(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_CLEANUP_AGE ?? "")?.[0] ?? "milliseconds"),
+                },
+            },
+            config: {
+                timeout: parseInt(process.env.SERVICE_CONFIG_TIMEOUT ?? "5000"),
+                authUrl: process.env.SERVICE_CONFIG_AUTH_URL ?? "",
+                apiUrl: process.env.SERVICE_CONFIG_API_URL ?? "",
+                username: process.env.SERVICE_CONFIG_USERNAME ?? "",
+                password: process.env.SERVICE_CONFIG_PASSWORD ?? "",
+                verbose: (0, common_1.parseBoolean)(process.env.SERVICE_CONFIG_VERBOSE),
+                holidaySchedule: (0, common_1.parseBoolean)(process.env.SERVICE_CONFIG_HOLIDAY_SCHEDULE),
+            },
+            control: {
+                templatePaths: (process.env.SERVICE_SETUP_TEMPLATE_PATHS ?? "")
+                    .split(",")
+                    .map((f) => f.trim())
+                    .filter(Boolean),
+            },
+            setup: {
+                ilcPaths: (process.env.SERVICE_SETUP_ILC_PATHS ?? "")
+                    .split(",")
+                    .map((f) => f.trim())
+                    .filter(Boolean),
+                thermostatPaths: (process.env.SERVICE_SETUP_THERMOSTAT_PATHS ?? "")
+                    .split(",")
+                    .map((f) => f.trim())
+                    .filter(Boolean),
+            },
+        };
+        this.volttron = {
+            ca: process.env.VOLTTRON_CA
+                ? (0, node_fs_1.readFileSync)((0, node_path_1.resolve)(__dirname, process.env.VOLTTRON_CA ?? "")).toString("utf-8")
+                : "",
+            mocked: (0, common_1.parseBoolean)(process.env.VOLTTRON_MOCKED),
         };
         this.cors = {
             origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,

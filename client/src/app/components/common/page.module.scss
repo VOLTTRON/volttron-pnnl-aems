@@ -13,9 +13,14 @@
     }
 }
 
+.compact {
+    min-width: 37px;
+    width: auto;
+}
+
 .notice {
     text-align: center;
-    min-width: 600px;
+    min-width: 400px;
     width: 60%;
 }
 
@@ -102,9 +107,11 @@ button.color {
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Default to cover */
+    object-fit: cover;
+    /* Default to cover */
     object-position: center;
-    transition: object-fit 0.3s ease; /* Smooth transition for object-fit change */
+    transition: object-fit 0.3s ease;
+    /* Smooth transition for object-fit change */
 }
 
 .image.expand {

@@ -198,11 +198,15 @@ let KeycloakAuthjsService = KeycloakAuthjsService_1 = class KeycloakAuthjsServic
         return (0, keycloak_1.default)({
             allowDangerousEmailAccountLinking: true,
             id: _1.Provider,
+            checks: this.configService.keycloak.checks,
             clientId: this.configService.keycloak.clientId,
             clientSecret: this.configService.keycloak.clientSecret,
             issuer: this.configService.keycloak.issuerUrl || undefined,
             redirectProxyUrl: this.configService.keycloak.callbackUrl || undefined,
             wellKnown: this.configService.keycloak.wellKnownUrl || undefined,
+            authorization: this.configService.keycloak.authUrl || undefined,
+            token: this.configService.keycloak.tokenUrl || undefined,
+            userinfo: this.configService.keycloak.userinfoUrl || undefined,
         });
     }
 };

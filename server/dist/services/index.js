@@ -4,7 +4,6 @@ exports.BaseService = void 0;
 const common_1 = require("@local/common");
 const common_2 = require("@nestjs/common");
 const lodash_1 = require("lodash");
-const node_util_1 = require("node:util");
 class BaseService {
     constructor(service, configService) {
         this.baseLogger = new common_2.Logger(BaseService.name);
@@ -28,11 +27,6 @@ class BaseService {
         const disabled = types.map((type) => /^!([^*!^]+)$/.exec(type)?.[1]).filter(common_1.typeofNonNullable);
         this.shutdown = shutdown.includes(this.service);
         this.runTask = enabled.includes(this.service) && !disabled.includes(this.service);
-        console.log((0, node_util_1.inspect)({
-            instance: instance,
-            service: { service: this.service, shutdown: this.shutdown, runTask: this.runTask },
-            lists: { types, wildcard, enabled, disabled, shutdown },
-        }, undefined, 10, true));
     }
     schedule() {
         if (this.running || !this.runTask) {
