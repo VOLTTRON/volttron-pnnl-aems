@@ -3,18 +3,21 @@
 import { Intent, Menu, MenuItem } from "@blueprintjs/core";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useContext } from "react";
-import { CurrentContext, findPath, isDisplay, RouteContext } from "../providers";
+import { CurrentContext, findPath, isDisplay, RouteContext, ScreenSizeContext } from "../providers";
 import { Route } from "../../types";
 import { DefaultNode } from "@local/common";
+import styles from "./page.module.scss";
 
 function Items({
   routes,
   route,
   callback,
+  minimal,
 }: {
   routes: DefaultNode<Route>[];
   route: DefaultNode<Route> | undefined;
   callback: (url: string) => () => void;
+  minimal?: boolean;
 }) {
   const { current } = useContext(CurrentContext);
 
@@ -29,11 +32,11 @@ function Items({
               <MenuItem
                 key={v.data.id}
                 icon={v.data.icon}
-                text={v.data.name}
+                text={minimal ? null : v.data.name}
                 intent={route?.isAncestor(v) || route?.data?.id === v.data?.id ? Intent.PRIMARY : undefined}
                 onClick={!index ? callback(findPath(v)) : undefined}
               >
-                <Items routes={v.children} route={route} callback={callback} />
+                <Items routes={v.children} route={route} callback={callback} minimal={!index && minimal} />
               </MenuItem>
             );
           } else if (display && !index) {
@@ -41,13 +44,13 @@ function Items({
               <MenuItem
                 key={v.data.id}
                 icon={v.data.icon}
-                text={v.data.name}
+                text={minimal ? null : v.data.name}
                 intent={route?.isAncestor(v) || route?.data?.id === v.data?.id ? Intent.PRIMARY : undefined}
                 onClick={callback(findPath(v))}
               />
             );
           } else if (v.children.length > 0) {
-            return <Items key={v.data.id} routes={v.children} route={route} callback={callback} />;
+            return <Items key={v.data.id} routes={v.children} route={route} callback={callback} minimal={minimal} />;
           }
         }
       })}
@@ -56,6 +59,7 @@ function Items({
 }
 
 export function Navigation() {
+  const { isDesktop } = useContext(ScreenSizeContext);
   const { routes, route } = useContext(RouteContext);
   const router = useRouter();
 
@@ -67,8 +71,8 @@ export function Navigation() {
   );
 
   return (
-    <Menu>
-      <Items routes={[routes.root]} route={route} callback={callback} />
+    <Menu className={isDesktop ? "" : styles.compact}>
+      <Items routes={[routes.root]} route={route} callback={callback} minimal={!isDesktop} />
     </Menu>
   );
 }

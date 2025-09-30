@@ -1,0 +1,26 @@
+# Common Shared Library - Foundation Module
+
+## Technology Stack
+- **Shared Library**: TypeScript utilities, constants, and type definitions
+- **Integration**: Prisma database types and client re-exports
+- **Package Manager**: Yarn 4.x (use `yarn` not `npm`)
+
+## Development Workflow
+- **Build**: `yarn build` (must be built before server and client modules)
+- **Testing**: `yarn test` with Jest and full coverage
+- **Linting**: `yarn lint` with ESLint and Prettier
+
+## File Conventions
+- **Constants**: Type-safe enumerations in `src/constants/`
+- **Utilities**: Helper functions in `src/utils/`
+- **Types**: Shared TypeScript definitions and interfaces
+- **Exports**: Public API defined in `src/index.ts`
+
+## Integration Dependencies
+- **Foundation Role**: Server and client modules depend on this module
+- **Build Order**: Must be compiled before dependent modules
+- **Prisma Integration**: Re-exports database types and client
+
+## Important Notes
+- This module provides shared utilities and constants across the application
+- README files should contain documentation only - no code examples belong in README files

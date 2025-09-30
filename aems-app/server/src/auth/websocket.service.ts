@@ -20,7 +20,6 @@ export class WebSocketAuthService {
     try {
       const response = {} as Response;
       const next = () => {};
-
       switch (this.configService.auth.framework) {
         case "authjs":
           await this.authjsMiddleware.use(request, response, next);

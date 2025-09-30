@@ -1,5 +1,5 @@
 import { registerAs } from "@nestjs/config";
-import { parseBoolean, RoleType } from "@local/common";
+import { Normalization, parseBoolean, RoleType } from "@local/common";
 import { Logger } from "@nestjs/common";
 import { resolve } from "node:path";
 import { readFileSync } from "node:fs";
@@ -10,6 +10,10 @@ export interface ExtConfig {
   authorized?: string;
   unauthorized?: string;
 }
+
+const typeofChecks = (value: string): value is "pkce" | "state" | "none" | "nonce" => {
+  return ["pkce", "state", "none", "nonce"].includes(value);
+};
 
 const toDurationUnit = (value: string) => {
   switch (value?.toLowerCase()) {
@@ -130,6 +134,7 @@ export class AppConfigService {
     wellKnownUrl: string;
     passRoles: boolean;
     defaultRole: string;
+    checks?: ("pkce" | "state" | "none" | "nonce")[];
   };
   password: {
     strength: number;
@@ -189,6 +194,8 @@ export class AppConfigService {
   cors: {
     origin?: string;
   };
+
+  normalize = Normalization.process(Normalization.Trim, Normalization.Compact, Normalization.Lowercase);
 
   constructor() {
     this.nodeEnv = process.env.NODE_ENV ?? "development";
@@ -255,6 +262,7 @@ export class AppConfigService {
       wellKnownUrl: process.env.KEYCLOAK_WELL_KNOWN_URL ?? "",
       passRoles: parseBoolean(process.env.KEYCLOAK_PASS_ROLES),
       defaultRole: process.env.KEYCLOAK_DEFAULT_ROLE ?? "",
+      checks: process.env.KEYCLOAK_CHECKS?.split(/[, ]/g).map(this.normalize).filter(typeofChecks) || undefined,
     };
     this.password = {
       strength: parseInt(process.env.PASSWORD_STRENGTH ?? "0"),

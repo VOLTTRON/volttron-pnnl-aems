@@ -1,0 +1,40 @@
+# Skeleton App - Full-Stack TypeScript Application
+
+## Project Structure
+- **Monorepo**: client/, server/, common/, prisma/ modules
+- **Build Order**: prisma → common → server → client (dependencies matter)
+- **Package Manager**: Yarn 4.x (use `yarn` not `npm`)
+
+## Technology Stack
+- **Frontend**: Next.js 14+ with React 18, TypeScript, SCSS, Blueprint.js UI
+- **Backend**: NestJS with GraphQL (Apollo Server), Pothos schema builders
+- **Database**: PostgreSQL + PostGIS with Prisma ORM
+- **Auth**: Auth.js (primary) or Passport (optional), optional Keycloak SSO
+- **Maps**: MapLibre GL for geospatial features
+- **Cache**: Redis for sessions and GraphQL subscriptions
+
+## Development Patterns
+- **TypeScript**: Required throughout - no plain JS
+- **GraphQL**: Use Pothos builders, not SDL files
+- **Database**: Prisma migrations for schema changes
+- **Testing**: Jest with coverage, run tests before changes
+- **Linting**: ESLint configured per module
+
+## Key Commands
+- **Build All**: `./build.sh` (or `.\build.ps1` on Windows) currently very slow
+- **Test All**: `./test.sh` (or `.\test.ps1` on Windows) currently very slow
+- **Dev Server**: `yarn start` in client/ and server/ directories
+- **Docker**: `docker compose up -d` for full deployment
+
+## File Conventions
+- **Config**: Environment files in docker/ directory override defaults
+- **GraphQL**: Queries in client/src/queries/, schema builders in server/src/
+- **Styles**: SCSS modules with .module.scss suffix
+- **Types**: Generated types from Prisma and GraphQL codegen
+
+## Important Notes
+- Always run `yarn compile` after Prisma schema changes
+- Database requires PostGIS extension for geospatial features
+- Use build scripts for proper dependency compilation order
+- Docker deployment includes optional services (proxy, maps, wiki)
+- README files should contain documentation only - no code examples belong in README files

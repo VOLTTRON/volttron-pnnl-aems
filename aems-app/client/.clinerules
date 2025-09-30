@@ -1,0 +1,31 @@
+# Client Frontend - Next.js Application
+
+## Technology Stack
+- **Frontend**: Next.js 14 with React 18, TypeScript, SCSS modules
+- **UI Library**: Blueprint.js for consistent enterprise components
+- **GraphQL**: Apollo Client with real-time subscriptions
+- **Package Manager**: Yarn 4.x (use `yarn` not `npm`)
+
+## Development Workflow
+- **Compile**: `yarn check` to check for compile issues
+- **Dev Server**: `yarn start` or `yarn start:dev`
+- **Build**: `yarn build` (includes schema compilation) do not run automatically
+- **Schema Compilation**: `yarn compile:schema` (run after schema changes)
+- **Testing**: `yarn test` with Jest
+
+## File Conventions
+- **Components**: Functional components with TypeScript in `src/app/components/`
+- **Styles**: SCSS modules with `.module.scss` suffix
+- **GraphQL**: Query definitions in `src/queries/`, generated types in `src/graphql-codegen/`
+- **Routes**: Defined in `src/app/routes.ts` with role-based access control
+
+## Integration Dependencies
+- **Server**: Requires running server instance for GraphQL schema and API
+- **Common Module**: Shared utilities and constants from `@local/common`
+- **Prisma Module**: Database types from `@local/prisma`
+
+## Important Notes
+- Always run `yarn compile:graphql` after GraphQL schema changes
+- Use Blueprint.js components and theming system
+- Follow Next.js App Router patterns with server components
+- README files should contain documentation only - no code examples belong in README files

@@ -6,6 +6,9 @@ const common_1 = require("@local/common");
 const common_2 = require("@nestjs/common");
 const node_path_1 = require("node:path");
 const node_fs_1 = require("node:fs");
+const typeofChecks = (value) => {
+    return ["pkce", "state", "none", "nonce"].includes(value);
+};
 const toDurationUnit = (value) => {
     switch (value?.toLowerCase()) {
         case "s":
@@ -48,6 +51,7 @@ const toDurationUnit = (value) => {
 class AppConfigService {
     constructor() {
         this.logger = new common_2.Logger(AppConfigService.name);
+        this.normalize = common_1.Normalization.process(common_1.Normalization.Trim, common_1.Normalization.Compact, common_1.Normalization.Lowercase);
         this.nodeEnv = process.env.NODE_ENV ?? "development";
         this.printEnv = (0, common_1.parseBoolean)(process.env.PRINT_ENV);
         this.port = parseInt(process.env.PORT ?? "3000");
@@ -112,6 +116,7 @@ class AppConfigService {
             wellKnownUrl: process.env.KEYCLOAK_WELL_KNOWN_URL ?? "",
             passRoles: (0, common_1.parseBoolean)(process.env.KEYCLOAK_PASS_ROLES),
             defaultRole: process.env.KEYCLOAK_DEFAULT_ROLE ?? "",
+            checks: process.env.KEYCLOAK_CHECKS?.split(/[, ]/g).map(this.normalize).filter(typeofChecks) || undefined,
         };
         this.password = {
             strength: parseInt(process.env.PASSWORD_STRENGTH ?? "0"),

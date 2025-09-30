@@ -174,7 +174,6 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
         paths = [String(v.path), ...paths];
       }
       if (!cancelled && update) {
-        console.log("update", items);
         setItems([...items]);
       }
     };

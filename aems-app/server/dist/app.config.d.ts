@@ -73,6 +73,7 @@ export declare class AppConfigService {
         wellKnownUrl: string;
         passRoles: boolean;
         defaultRole: string;
+        checks?: ("pkce" | "state" | "none" | "nonce")[];
     };
     password: {
         strength: number;
@@ -132,6 +133,7 @@ export declare class AppConfigService {
     cors: {
         origin?: string;
     };
+    normalize: import("@local/common/dist/constants").IProcess;
     constructor();
 }
 declare const AppConfigToken: (() => AppConfigService) & import("@nestjs/config").ConfigFactoryKeyHost<AppConfigService>;

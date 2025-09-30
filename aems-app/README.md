@@ -1045,6 +1045,67 @@ API_KEY=your_api_key
 # Comments are ignored
 ```
 
+#### `update-user-role.[ps1|sh]`
+
+Database user role management scripts for updating or removing user roles directly in the PostgreSQL database through Docker containers.
+
+**Features:**
+
+- **Role Management**: Update or remove user roles by email address
+- **Input Processing**: Automatically trims whitespace and converts roles to lowercase
+- **Email Validation**: Basic email format validation before database operations
+- **Docker Integration**: Connects to database container using project environment variables
+- **Error Handling**: Comprehensive error checking with colored output messages
+- **Empty Role Support**: Empty roles remove/clear the user's role assignment
+- **Container Detection**: Verifies database container is running before attempting connection
+
+**Usage:**
+
+```bash
+# Windows
+.\update-user-role.ps1 <email> <role>
+.\update-user-role.ps1 [-h|--help]
+
+# Linux/Mac
+./update-user-role.sh <email> <role>
+./update-user-role.sh [-h|--help]
+```
+
+**Examples:**
+
+```bash
+# Assign admin role
+.\update-user-role.ps1 user@example.com admin
+./update-user-role.sh user@example.com admin
+
+# Assign role with spaces
+.\update-user-role.ps1 user@example.com "project manager"
+./update-user-role.sh user@example.com "project manager"
+
+# Remove user's role (empty string)
+.\update-user-role.ps1 user@example.com ""
+./update-user-role.sh user@example.com " "  # Space gets trimmed to empty
+```
+
+**Environment Variables:**
+
+- `COMPOSE_PROJECT_NAME` - Docker Compose project name (default: skeleton)
+- `DATABASE_NAME` - PostgreSQL database name (default: skeleton)
+- `DATABASE_USERNAME` - PostgreSQL username (default: postgres)
+
+**Prerequisites:**
+
+- Database container must be running (`docker compose up -d database`)
+- User must exist in the database (scripts only update existing users)
+- Docker must be installed and accessible from command line
+
+**Security:**
+
+- Uses parameterized queries to prevent SQL injection
+- Validates email format before database operations
+- Provides clear feedback on operation success/failure
+- Logs number of affected rows for verification
+
 ## Development
 
 ### Node.js

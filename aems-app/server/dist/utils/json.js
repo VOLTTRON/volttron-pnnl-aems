@@ -213,7 +213,9 @@ class JsonStreamParser {
                             : typeof error === "string"
                                 ? error
                                 : "Unknown error";
-                        console.log((0, node_util_1.inspect)({ ...this, query }, undefined, 10, true));
+                        if (this.debug) {
+                            console.log((0, node_util_1.inspect)({ ...this, query }, undefined, 10, true));
+                        }
                         throw new Error(`Unable to parse JSON match at ${this.cursor}: ${this.cache.replace(this.target, "")}${(0, common_1.colorize)(this.target, { color: "blue" })} (${(0, common_1.colorize)(reason, { color: "red" })})`);
                     }
                     this.target = "";
@@ -306,7 +308,9 @@ class JsonStreamParser {
                     this.stack.pop();
                 }
                 else {
-                    console.log((0, node_util_1.inspect)(this.stack, undefined, 10, true));
+                    if (this.debug) {
+                        console.log((0, node_util_1.inspect)(this.stack, undefined, 10, true));
+                    }
                     throw new Error(`Unexpected character "${char}" in JSON object at '${(0, common_1.colorize)(this.cache, { color: "blue" })}'[${this.cursor}].`);
                 }
                 break;

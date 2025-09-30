@@ -11,6 +11,7 @@ import {
   LoadingProvider,
   NotificationProvider,
   PreferencesProvider,
+  ScreenSizeProvider,
 } from "./components/providers";
 import { BlueprintProvider } from "@blueprintjs/core";
 import { Suspense } from "react";
@@ -27,16 +28,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <NotificationProvider>
                     <LoadingProvider>
                       <PreferencesProvider>
-                        <CurrentProvider>
-                          <Theme>
-                            <Suspense>
-                              {children}
-                              <Banner />
-                              <Notification />
-                              <GlobalLoading />
-                            </Suspense>
-                          </Theme>
-                        </CurrentProvider>
+                        <ScreenSizeProvider>
+                          <CurrentProvider>
+                            <Theme>
+                              <Suspense>
+                                {children}
+                                <Banner />
+                                <Notification />
+                                <GlobalLoading />
+                              </Suspense>
+                            </Theme>
+                          </CurrentProvider>
+                        </ScreenSizeProvider>
                       </PreferencesProvider>
                     </LoadingProvider>
                   </NotificationProvider>
