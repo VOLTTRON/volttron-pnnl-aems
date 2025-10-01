@@ -7,9 +7,10 @@ import { VolttronService } from "./volttron.service";
 import { ConfigService } from "./config/config.service";
 import { ControlService } from "./control/control.service";
 import { SetupService } from "./setup/setup.service";
+import { SubscriptionModule } from "@/subscription/subscription.module";
 
 @Module({
-  imports: [ScheduleModule.forRoot(), PrismaModule],
+  imports: [ScheduleModule.forRoot(), PrismaModule, SubscriptionModule],
   controllers: [],
   providers: [LogService, SeedService, VolttronService, ConfigService, ControlService, SetupService],
 })

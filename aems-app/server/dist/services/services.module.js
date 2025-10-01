@@ -16,12 +16,13 @@ const volttron_service_1 = require("./volttron.service");
 const config_service_1 = require("./config/config.service");
 const control_service_1 = require("./control/control.service");
 const setup_service_1 = require("./setup/setup.service");
+const subscription_module_1 = require("../subscription/subscription.module");
 let ServicesModule = class ServicesModule {
 };
 exports.ServicesModule = ServicesModule;
 exports.ServicesModule = ServicesModule = __decorate([
     (0, common_1.Module)({
-        imports: [schedule_1.ScheduleModule.forRoot(), prisma_module_1.PrismaModule],
+        imports: [schedule_1.ScheduleModule.forRoot(), prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule],
         controllers: [],
         providers: [log_service_1.LogService, seed_service_1.SeedService, volttron_service_1.VolttronService, config_service_1.ConfigService, control_service_1.ControlService, setup_service_1.SetupService],
     })

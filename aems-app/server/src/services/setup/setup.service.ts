@@ -5,6 +5,7 @@ import {
   Chainable,
   DeepPartial,
   HolidayType as Holidays,
+  Mutation,
   Normalization,
   StageType,
   toOrdinal,
@@ -33,6 +34,7 @@ import { Timeout } from "@nestjs/schedule";
 import { extname, resolve } from "node:path";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { getConfigFiles } from "@/utils/file";
+import { SubscriptionService } from "@/subscription/subscription.service";
 
 type UnitFull = Unit & {
   configuration: Configuration & {
@@ -267,6 +269,7 @@ export class SetupService extends BaseService {
 
   constructor(
     private prismaService: PrismaService,
+    private subscriptionService: SubscriptionService,
     @Inject(AppConfigService.Key) private configService: AppConfigService,
   ) {
     super("setup", configService);
@@ -332,7 +335,14 @@ export class SetupService extends BaseService {
               .create({
                 data: record,
               })
-              .then((unit) => units.push(unit))
+              .then(async (unit) => {
+                await this.subscriptionService.publish("Unit", {
+                  topic: "Unit",
+                  id: unit.id,
+                  mutation: Mutation.Created,
+                });
+                units.push(unit);
+              })
               .catch((error) => this.logger.warn(`Failed to create unit "${name}":`, error));
           }
         })
@@ -372,6 +382,11 @@ export class SetupService extends BaseService {
           include: { units: true },
           data: { name, label, campus, building, stage },
         });
+        await this.subscriptionService.publish("Control", {
+          topic: "Control",
+          id: control.id,
+          mutation: Mutation.Created,
+        });
       }
       configs.push({ control: control.name, units: [] as string[] });
       for (const system of systems) {
@@ -383,6 +398,12 @@ export class SetupService extends BaseService {
         } else if (unit.controlId !== control.id) {
           this.logger.log(`Assigning unit "${unit.name}" to  control (ILC) "${name}".`);
           await this.prismaService.prisma.unit.update({ where: { id: unit.id }, data: { controlId: control.id } });
+          await this.subscriptionService.publish("Unit", { topic: "Unit", id: unit.id, mutation: Mutation.Updated });
+          await this.subscriptionService.publish(`Unit/${unit.id}`, {
+            topic: "Unit",
+            id: unit.id,
+            mutation: Mutation.Updated,
+          });
         }
       }
     }
@@ -395,6 +416,18 @@ export class SetupService extends BaseService {
         `Deleting control${removeControls.length === 1 ? "" : "s"} (ILC) ${removeControls.map((v) => `"${v}"`).join(", ")}.`,
       );
       await this.prismaService.prisma.control.deleteMany({ where: { name: { in: removeControls } } });
+      for (const control of controls?.filter((c) => removeControls.includes(c.name)) ?? []) {
+        await this.subscriptionService.publish("Control", {
+          topic: "Control",
+          id: control.id,
+          mutation: Mutation.Deleted,
+        });
+        await this.subscriptionService.publish(`Control/${control.id}`, {
+          topic: "Control",
+          id: control.id,
+          mutation: Mutation.Deleted,
+        });
+      }
     }
     const removeUnits = difference(
       units.map((v) => v?.name).filter((v) => v),
@@ -410,6 +443,14 @@ export class SetupService extends BaseService {
         where: { name: { in: removeUnits } },
         data: { controlId: null },
       });
+      for (const unit of units.filter((u) => removeUnits.includes(u.name))) {
+        await this.subscriptionService.publish("Unit", { topic: "Unit", id: unit.id, mutation: Mutation.Updated });
+        await this.subscriptionService.publish(`Unit/${unit.id}`, {
+          topic: "Unit",
+          id: unit.id,
+          mutation: Mutation.Updated,
+        });
+      }
     }
     this.logger.log(`Finished checking for controls (ILC) to create or update.`);
   }

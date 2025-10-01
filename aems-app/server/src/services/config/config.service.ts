@@ -3,9 +3,10 @@ import { BaseService } from "..";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/prisma/prisma.service";
 import { Cron } from "@nestjs/schedule";
-import { StageType, typeofObject } from "@local/common";
+import { Mutation, StageType, typeofObject } from "@local/common";
 import { merge } from "lodash";
 import { VolttronService } from "../volttron.service";
+import { SubscriptionService } from "@/subscription/subscription.service";
 
 @Injectable()
 export class ConfigService extends BaseService {
@@ -13,6 +14,7 @@ export class ConfigService extends BaseService {
 
   constructor(
     private prismaService: PrismaService,
+    private subscriptionService: SubscriptionService,
     @Inject(AppConfigService.Key) private configService: AppConfigService,
     private volttronService: VolttronService,
   ) {
@@ -64,7 +66,16 @@ export class ConfigService extends BaseService {
                 where: { id: unit.id },
                 data: { stage: StageType.ProcessType.enum, message: null },
               });
-
+              await this.subscriptionService.publish("Unit", {
+                topic: "Unit",
+                id: unit.id,
+                mutation: Mutation.Updated,
+              });
+              await this.subscriptionService.publish(`Unit/${unit.id}`, {
+                topic: "Unit",
+                id: unit.id,
+                mutation: Mutation.Updated,
+              });
               const set_temperature_setpoints = {
                 OccupiedSetPoint: unit.configuration?.setpoint?.setpoint ?? 0,
                 DeadBand: (unit.configuration?.setpoint?.deadband ?? 0) / 2,
@@ -233,6 +244,16 @@ export class ConfigService extends BaseService {
                 where: { id: unit.id },
                 data: { stage: StageType.CompleteType.enum },
               });
+              await this.subscriptionService.publish("Unit", {
+                topic: "Unit",
+                id: unit.id,
+                mutation: Mutation.Updated,
+              });
+              await this.subscriptionService.publish(`Unit/${unit.id}`, {
+                topic: "Unit",
+                id: unit.id,
+                mutation: Mutation.Updated,
+              });
               this.logger.log(`Finished pushing the unit config for: ${unit.label}`);
             } catch (error: any) {
               this.logger.warn(error, `Failed to push the unit config for: ${unit.label}`);
@@ -243,6 +264,16 @@ export class ConfigService extends BaseService {
               await this.prismaService.prisma.unit.update({
                 where: { id: unit.id },
                 data: { stage: StageType.FailType.enum, message: message },
+              });
+              await this.subscriptionService.publish("Unit", {
+                topic: "Unit",
+                id: unit.id,
+                mutation: Mutation.Updated,
+              });
+              await this.subscriptionService.publish(`Unit/${unit.id}`, {
+                topic: "Unit",
+                id: unit.id,
+                mutation: Mutation.Updated,
               });
             }
           }
