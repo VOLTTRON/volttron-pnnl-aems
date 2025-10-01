@@ -106,8 +106,6 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
             </MultiSlider>
           </Label>
         </div>
-        <div />
-        <div />
       </div>
 
       <div className="row">
@@ -139,8 +137,6 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
             </MultiSlider>
           </Label>
         </div>
-        <div />
-        <div />
       </div>
 
       <div className="row">
@@ -170,8 +166,6 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
             </MultiSlider>
           </Label>
         </div>
-        <div />
-        <div />
       </div>
 
       <div className="row">
@@ -201,8 +195,6 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
             </MultiSlider>
           </Label>
         </div>
-        <div />
-        <div />
       </div>
 
       <div className="row">
@@ -239,8 +231,6 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
             </Popover>
           </Label>
         </div>
-        <div />
-        <div />
       </div>
 
       {heatPump && (
@@ -271,8 +261,6 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
               </MultiSlider>
             </Label>
           </div>
-          <div />
-          <div />
         </div>
       )}
 
@@ -310,8 +298,6 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
             </Popover>
           </Label>
         </div>
-        <div />
-        <div />
       </div>
 
       {economizer && (
@@ -345,8 +331,6 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
                 </MultiSlider>
               </Label>
             </div>
-            <div />
-            <div />
           </div>
 
           <div className="row">
@@ -376,8 +360,6 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
                 </MultiSlider>
               </Label>
             </div>
-            <div />
-            <div />
           </div>
         </>
       )}

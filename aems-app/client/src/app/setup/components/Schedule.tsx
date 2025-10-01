@@ -94,16 +94,8 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
   const { label, occupied, startTime, endTime } = schedule || {};
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "200px 1fr 120px",
-        gap: "1rem",
-        alignItems: "center",
-        marginBottom: "1rem",
-      }}
-    >
-      <div>
+    <div className="schedule-row">
+      <div className="schedule-label">
         <Label>
           <b>{title}</b>
           <InputGroup
@@ -125,7 +117,7 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
         </Label>
       </div>
 
-      <div style={{ padding: "0 1rem" }}>
+      <div className="schedule-slider">
         <RangeSlider
           min={START_TIME_MIN}
           max={END_TIME_MAX}
@@ -167,7 +159,7 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
         />
       </div>
 
-      <div>
+      <div className="schedule-switch">
         <Switch
           label="Unoccupied"
           checked={!occupied}

@@ -2,11 +2,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
-  Chainable,
   DeepPartial,
   HolidayType as Holidays,
   Mutation,
-  Normalization,
   StageType,
   toOrdinal,
   typeofNonNullable,
@@ -20,6 +18,7 @@ import {
   get,
   isArray,
   isEmpty,
+  isNumber,
   isObject,
   isString,
   merge,
@@ -49,20 +48,6 @@ type UnitFull = Unit & {
     holidaySchedule: Schedule;
     holidays: Holiday[];
   };
-};
-
-const parseTime = (value: string): Date => {
-  const normalizer = Normalization.process(
-    Normalization.Concatenate,
-    Normalization.Letters,
-    Normalization.Lowercase,
-    Normalization.NFD,
-  );
-  const pm = /pm/i.test(normalizer(value));
-  const [_, hours, minutes] = /(\d{1,2}):(\d{2})/.exec(value) ?? ["0", "0"];
-  const date = new Date(0);
-  date.setHours(parseInt(hours) + (pm ? 12 : 0), parseInt(minutes), 0, 0);
-  return date;
 };
 
 const transform = (v: string): string => upperFirst(snakeCase(v));
@@ -95,34 +80,73 @@ const createSetpointLabel = (type: "all" | "setpoint" | "deadband" | "heating" |
   }
 };
 
-const toDataFormat = (value: string) =>
-  new Chainable(value)
-    .next(parseTime)
-    .next((date) => `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`)
-    .end();
+// Helper function to parse time string in various formats (HH:mm or h:mm a)
+const parseTimeStringToMinutes = (timeString: string, upper?: boolean): number => {
+  // Handle 12-hour format (h:mm a)
+  if (timeString.includes("a") || timeString.includes("p") || timeString.includes("A") || timeString.includes("P")) {
+    const cleanTime = timeString.replace(/\xa0/g, " ").trim();
+    const isPM = cleanTime.toLowerCase().includes("p");
+    const timeOnly = cleanTime.replace(/[ap]m?/gi, "").trim();
+    const [hours, minutes] = timeOnly.split(":").map(Number);
 
-const toTimeFormat = (value: number) =>
-  new Chainable(value)
-    .next((value) => ({ hours: Math.trunc(value / 60), minutes: value % 60 }))
-    .next(
-      ({ hours, minutes }) =>
-        `${(hours > 12 ? hours - 12 : hours).toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")} ${hours < 12 ? "am" : "pm"}`,
-    )
-    .end();
+    let adjustedHours = hours;
+    if (isPM && hours !== 12) {
+      adjustedHours += 12;
+    } else if (!isPM && hours === 12) {
+      adjustedHours = 0;
+    }
+
+    return toUpperBound(adjustedHours, 24, upper) * 60 + minutes;
+  }
+
+  // Handle 24-hour format (HH:mm)
+  const [hours, minutes] = timeString.split(":").map(Number);
+  return toUpperBound(hours, 24, upper) * 60 + minutes;
+};
+
+// Helper function to format minutes to HH:mm format
+const formatToDataFormat = (totalMinutes: number): string => {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+};
+
+// Helper function to format minutes to h:mm a format
+const formatToTimeFormat = (totalMinutes: number): string => {
+  const hours24 = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  let hours12 = hours24;
+  let period = "a";
+
+  if (hours24 === 0) {
+    hours12 = 12;
+  } else if (hours24 === 12) {
+    hours12 = 12;
+    period = "p";
+  } else if (hours24 > 12) {
+    hours12 = hours24 - 12;
+    period = "p";
+  }
+
+  return `${hours12}:${minutes.toString().padStart(2, "0")}\xa0${period}`;
+};
+
+const toDataFormat = (value: number) => formatToDataFormat(value);
+
+const toTimeFormat = (value: number) => formatToTimeFormat(value);
 
 const toUpperBound = (value: number, boundary: number, upper?: boolean) => (upper && value === 0 ? boundary : value);
 
-const toMinutes = (value: string, upper?: boolean) =>
-  new Chainable(value)
-    .next(parseTime)
-    .next((value) => toUpperBound(value.getHours(), 24, upper) * 60 + value.getMinutes());
+const toMinutes = (value?: string, upper?: boolean) => {
+  if (!value) return 0;
+  return parseTimeStringToMinutes(value, upper);
+};
 
-const createScheduleLabel = (type: "all" | "startTime" | "endTime", schedule: any): string => {
-  const occupied = schedule?.occupied === undefined ? true : schedule?.occupied;
-  const startTime: number =
-    typeof schedule?.startTime === "number" ? schedule.startTime : toMinutes(schedule?.startTime ?? "", false);
-  const endTime: number =
-    typeof schedule?.endTime === "number" ? schedule.endTime : toMinutes(schedule?.endTime ?? "", true);
+const createScheduleLabel = (type: "all" | "startTime" | "endTime", schedule: Partial<Schedule>): string => {
+  const occupied = schedule?.occupied === undefined ? true : schedule.occupied;
+  const startTime = isNumber(schedule.startTime) ? schedule.startTime : toMinutes(schedule.startTime, false);
+  const endTime = isNumber(schedule.endTime) ? schedule.endTime : toMinutes(schedule.endTime, true);
   switch (type) {
     case "startTime":
       return `${toTimeFormat(startTime)}`;
@@ -194,6 +218,7 @@ const createConfigurationDefault = (unit: Partial<Unit>): DeepPartial<UnitFull> 
   });
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const updateConfigurationDefaults = (unit: DeepPartial<UnitFull>, json: any) => {
   set(
     unit,
@@ -328,7 +353,7 @@ export class SetupService extends BaseService {
           } else {
             this.logger.log(`Creating thermostat unit "${name}".`);
             const data = createConfigurationDefault({ name, label, campus, building, system, timezone });
-            updateConfigurationDefaults(data, json);
+            // updateConfigurationDefaults(data, json);
             const record = transformUnit(data, "create");
             record.stage = StageType.Update.enum;
             await this.prismaService.prisma.unit

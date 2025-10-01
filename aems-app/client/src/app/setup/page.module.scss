@@ -40,6 +40,8 @@
   >div {
     flex: 1;
     min-width: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 
     &:last-child {
       flex: 0 0 auto;
@@ -82,16 +84,95 @@
 
 // Responsive design
 @media (max-width: 768px) {
+  .units {
+    padding: 0.75rem;
+  }
+
   .row {
     flex-direction: column;
+    gap: 0.75rem;
 
-    >div:last-child {
-      align-self: flex-end;
+    >div {
+      flex: 1 1 auto;
+      max-width: 100%;
+
+      &:last-child {
+        align-self: flex-end;
+      }
     }
   }
 
   .actions {
     justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .unit,
+  .select {
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+
+  .unitCard {
+    padding: 0.75rem;
+  }
+
+  .configSection {
+    margin-left: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .units .bp5-input-group {
+    width: 100%;
+
+    .bp5-input {
+      width: 100%;
+    }
+  }
+
+  .units .bp5-html-select {
+    width: 100%;
+
+    select {
+      width: 100%;
+    }
+  }
+
+  .units .bp5-control-group {
+    flex-direction: column;
+
+    .bp5-input-group,
+    .bp5-button {
+      width: 100%;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .units {
+    padding: 0.5rem;
+  }
+
+  .unitCard {
+    padding: 0.5rem;
+  }
+
+  .row {
+    gap: 0.5rem;
+  }
+
+  .actions {
+    gap: 0.25rem;
+  }
+
+  .configSection {
+    margin-left: 0.25rem;
+    padding: 0.5rem;
+  }
+
+  .units .bp5-slider {
+    margin: 0.25rem 0;
   }
 }
 
@@ -196,4 +277,56 @@
 // Tooltip icon styling (from deprecated version)
 .tooltip-icon .bp5-popover2-target {
   margin-top: 0px !important;
+}
+
+// Schedule component styling
+.schedule-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 120px;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+
+  .schedule-label {
+    min-width: 0;
+  }
+
+  .schedule-slider {
+    padding: 0 1rem;
+    min-width: 0;
+  }
+
+  .schedule-switch {
+    display: flex;
+    justify-content: center;
+  }
+}
+
+// Responsive schedule styling
+@media (max-width: 768px) {
+  .schedule-row {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+
+    .schedule-label {
+      order: 1;
+    }
+
+    .schedule-slider {
+      order: 2;
+      padding: 0;
+    }
+
+    .schedule-switch {
+      order: 3;
+      justify-content: flex-start;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .schedule-row {
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
 }

@@ -57,6 +57,8 @@
   >div {
     flex: 1;
     min-width: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 
     &:last-child {
       flex: 0 0 auto;
@@ -297,6 +299,7 @@
 
     >div {
       flex: 1 1 auto;
+      max-width: 100%;
 
       &:last-child {
         align-self: flex-end;
@@ -307,9 +310,50 @@
   .actions {
     flex-direction: row;
     justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .label,
+  .select {
+    flex: 1 1 auto !important;
   }
 
   .controls .unit-editor {
+    margin-left: 0.5rem;
+    padding: 0.75rem;
+
+    .row {
+      flex-direction: column;
+      
+      >div {
+        flex: 1 1 auto;
+        max-width: 100%;
+
+        &.unit,
+        &.select {
+          flex: 1 1 auto;
+        }
+      }
+    }
+  }
+
+  .controls .bp5-input-group {
+    width: 100%;
+    
+    .bp5-input {
+      width: 100%;
+    }
+  }
+
+  .controls .bp5-html-select {
+    width: 100%;
+    
+    select {
+      width: 100%;
+    }
+  }
+
+  .configSection {
     margin-left: 0.5rem;
     padding: 0.75rem;
   }
