@@ -61,13 +61,16 @@ services:
       additional_contexts:
         common: service:common
       args:
-        - TAG:${TAG}
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
         - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
     # container_name: ${COMPOSE_PROJECT_NAME}-client
     depends_on:
+      common:
+        condition: service_completed_successfully
       init:
         condition: service_completed_successfully
       database:
@@ -118,13 +121,16 @@ services:
       additional_contexts:
         common: service:common
       args:
-        - TAG:${TAG}
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
         - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
     # container_name: ${COMPOSE_PROJECT_NAME}-server
     depends_on:
+      common:
+        condition: service_completed_successfully
       init:
         condition: service_completed_successfully
       database:
@@ -175,13 +181,16 @@ services:
       additional_contexts:
         common: service:common
       args:
-        - TAG:${TAG}
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
         - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
     container_name: ${COMPOSE_PROJECT_NAME}-services
     depends_on:
+      common:
+        condition: service_completed_successfully
       init:
         condition: service_completed_successfully
       database:
@@ -208,13 +217,16 @@ services:
       additional_contexts:
         common: service:common
       args:
-        - TAG:${TAG}
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
         - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
     container_name: ${COMPOSE_PROJECT_NAME}-seeders
     depends_on:
+      common:
+        condition: service_completed_successfully
       init:
         condition: service_completed_successfully
       database:
