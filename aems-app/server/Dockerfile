@@ -1,7 +1,10 @@
-ARG COMPOSE_PROJECT_NAME
-ARG IMAGE=common
+ARG COMPOSE_PROJECT_NAME=skeleton
 ARG TAG=latest
-FROM ${COMPOSE_PROJECT_NAME}/${IMAGE}:${TAG} AS base
+FROM ${COMPOSE_PROJECT_NAME}/common:${TAG} AS common-base
+FROM node:22.14.0-alpine AS base
+
+# Copy shared libraries from common image
+COPY --from=common-base /app /app
 # arguments
 ARG HTTP_PROXY
 ARG HTTPS_PROXY

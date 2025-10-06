@@ -58,8 +58,6 @@ services:
     build:
       context: ../client
       dockerfile: ./Dockerfile
-      additional_contexts:
-        common: service:common
       args:
         - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
         - TAG=${TAG}
@@ -118,8 +116,6 @@ services:
     build:
       context: ../server
       dockerfile: ./Dockerfile
-      additional_contexts:
-        common: service:common
       args:
         - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
         - TAG=${TAG}
@@ -178,8 +174,6 @@ services:
     build:
       context: ../server
       dockerfile: ./Dockerfile
-      additional_contexts:
-        common: service:common
       args:
         - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
         - TAG=${TAG}
@@ -214,8 +208,6 @@ services:
     build:
       context: ../server
       dockerfile: ./Dockerfile
-      additional_contexts:
-        common: service:common
       args:
         - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
         - TAG=${TAG}
