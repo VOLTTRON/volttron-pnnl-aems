@@ -12,6 +12,7 @@ import {
   typeofObject,
 } from "@local/common";
 import { HolidayType, ReadUnitQuery } from "@/graphql-codegen/graphql";
+import styles from "../page.module.scss";
 
 type UnitType = NonNullable<ReadUnitQuery["readUnit"]>;
 
@@ -56,25 +57,23 @@ function CreateHoliday({
   };
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "2fr 1fr 1fr auto",
-        gap: "1rem",
-        alignItems: "end",
-        marginBottom: "1rem",
-      }}
-    >
-      <div>
+    <div className={styles.createHolidayForm}>
+      <div className={styles.formField}>
         <Label>
           <b>Holiday Label</b>
           <InputGroup type="text" value={label} onChange={(e) => setLabel(e.target.value)} />
         </Label>
       </div>
-      <div>
+      <div className={styles.formField}>
         <Label>
           <b>Date</b>
           <Popover
+            onOpening={(v) =>
+              v
+                .getElementsByClassName("bp5-datepicker-year-select")
+                ?.item(0)
+                ?.classList.add(styles["date-picker-hide-year"])
+            }
             content={
               <DatePicker3
                 canClearSelection={false}
@@ -98,7 +97,7 @@ function CreateHoliday({
           </Popover>
         </Label>
       </div>
-      <div>
+      <div className={styles.formField}>
         <Label>
           <b>Observance</b>
           <Popover
@@ -118,7 +117,7 @@ function CreateHoliday({
           </Popover>
         </Label>
       </div>
-      <div>
+      <div className={styles.createButton}>
         <Button
           icon={IconNames.NEW_LAYER}
           intent={Intent.PRIMARY}

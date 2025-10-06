@@ -117,16 +117,16 @@ const formatToTimeFormat = (totalMinutes: number): string => {
   const minutes = totalMinutes % 60;
 
   let hours12 = hours24;
-  let period = "a";
+  let period = "am";
 
   if (hours24 === 0) {
     hours12 = 12;
   } else if (hours24 === 12) {
     hours12 = 12;
-    period = "p";
+    period = "pm";
   } else if (hours24 > 12) {
     hours12 = hours24 - 12;
-    period = "p";
+    period = "pm";
   }
 
   return `${hours12}:${minutes.toString().padStart(2, "0")}\xa0${period}`;

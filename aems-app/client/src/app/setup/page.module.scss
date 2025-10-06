@@ -82,8 +82,60 @@
   }
 }
 
+.date-picker-hide-year {
+  display: none !important;
+}
+
+// Create Holiday Form styling
+.createHolidayForm {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1rem;
+
+  .formField {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .createButton {
+    align-self: end;
+  }
+}
+
 // Responsive design
+@media (max-width: 1024px) {
+  .createHolidayForm {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+
+    .formField:nth-child(1) {
+      grid-column: 1 / -1;
+    }
+
+    .createButton {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+  }
+}
+
 @media (max-width: 768px) {
+  .createHolidayForm {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+
+    .formField,
+    .createButton {
+      grid-column: 1;
+    }
+
+    .createButton {
+      justify-self: stretch;
+    }
+  }
+
   .units {
     padding: 0.75rem;
   }
