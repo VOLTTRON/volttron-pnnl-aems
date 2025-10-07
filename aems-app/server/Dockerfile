@@ -4,7 +4,7 @@ FROM ${COMPOSE_PROJECT_NAME}/common:${TAG} AS common-base
 FROM node:22.14.0-alpine AS base
 
 # Copy shared libraries from common image
-COPY --from=common-base /app /app
+COPY --from=common-base --chmod=755 /app /app
 # arguments
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
@@ -42,7 +42,7 @@ RUN yarn install
 FROM base AS runner
 WORKDIR /app/server
 COPY ./.env ./
-COPY ./dist ./dist
+COPY --chmod=755 ./dist ./dist
 COPY --from=builder /app/server/node_modules ./node_modules
 
 EXPOSE 3000
