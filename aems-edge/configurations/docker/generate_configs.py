@@ -199,7 +199,7 @@ weather_config_template = """{{
 
 platform_config_template = """ # Properties to be added to the root config file
 # the properties should be ingestible for volttron
-# the values will be presented in the config file
+# the values will be presented in the config files
 # as key=value
 config:
   vip-address: tcp://0.0.0.0:22916
@@ -210,7 +210,10 @@ config:
   instance-name: volttron1
   message-bus: zmq # allowed values: zmq, rmq
   # volttron-central-serverkey: a different key
-
+web_users:
+  username: "admin"
+  password: "admin"
+  groups: ["admin", "vui"]
 # Agents dictionary to install. The key must be a valid
 # identity for the agent to be installed correctly.
 agents:
