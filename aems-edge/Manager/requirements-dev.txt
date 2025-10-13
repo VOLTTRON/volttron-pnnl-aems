@@ -1,0 +1,32 @@
+# Development requirements - includes base requirements plus dev tools
+-r requirements.txt
+
+# Code formatting and linting tools
+black>=23.0.0
+flake8>=6.0.0
+isort>=5.12.0
+autopep8>=2.0.0
+
+# Type checking
+mypy>=1.0.0
+
+# Additional linting tools
+pylint>=2.17.0
+bandit>=1.7.0  # Security linting
+pydocstyle>=6.3.0  # Docstring style checking
+
+# Testing tools
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+
+# Pre-commit hooks for code quality
+pre-commit>=3.0.0
+
+# Documentation tools
+sphinx>=6.0.0
+sphinx-rtd-theme>=1.2.0
+
+# Development utilities
+ipython>=8.0.0  # Better REPL
+jupyter>=1.0.0  # Notebook support

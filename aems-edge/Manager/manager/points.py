@@ -59,30 +59,63 @@ class OccupancyTypes(Enum):
     UNOCCUPIED = 'unoccupied'
     RELEASE = None
 
+def asdict_factory(data):
+
+    return {
+        field: value.value if isinstance(value, Enum) else value
+        for field, value in data
+    }
 
 class DFPoints(Enum):
-    """
-    A class representing the data points in the dataframe used within the manager.
+    """Enumeration of data field points.
 
-    Each data point is represented as an enumeration constant.
+    Defines a set of standardized fields that represent various operational
+    and environmental parameters related to heating, ventilation, and air
+    conditioning (HVAC) systems. This enumeration is used to provide a
+    uniform way of referencing these parameters across the system.
 
-    Attributes:
-        zonetemperature (str): The zone temperature.
-        coolingsetpoint (str): The cooling setpoint.
-        heatingsetpoint (str): The heating setpoint.
-        supplyfanstatus (str): The supply fan status.
-        outdoortemperature (str): The outdoor air temperature.
-        heating (str): The heating status.
-        cooling (str): The cooling status.
-        occupancy (str): The occupancy status.
-        auxiliaryheatcommand (str): The auxiliary heat command.
-        economizersetpoint (str): The economizer setpoint.
-        deadband (str): The deadband.
-        unoccupiedheatingsetpoint (str): The unoccupied heating setpoint.
-        unoccupiedcoolingsetpoint (str): The unoccupied cooling setpoint.
-        occupiedsetpoint (str): The occupied setpoint.
-        conditioning (str): The conditioning status.
-        tempdiff (str): The temperature difference.
+    :ivar zonetemperature: Represents the temperature of a specified zone.
+    :type zonetemperature: str
+    :ivar coolingsetpoint: Represents the cooling setpoint of a zone.
+    :type coolingsetpoint: str
+    :ivar heatingsetpoint: Represents the heating setpoint of a zone.
+    :type heatingsetpoint: str
+    :ivar supplyfanstatus: Indicates the status of the supply fan.
+    :type supplyfanstatus: str
+    :ivar outdoortemperature: Represents the outdoor temperature.
+    :type outdoortemperature: str
+    :ivar heating: Indicates if heating is active.
+    :type heating: str
+    :ivar cooling: Indicates if cooling is active.
+    :type cooling: str
+    :ivar occupancy: Indicates if a zone is occupied.
+    :type occupancy: str
+    :ivar auxiliaryheatcommand: Represents the auxiliary heat command.
+    :type auxiliaryheatcommand: str
+    :ivar economizersetpoint: Represents the economizer setpoint.
+    :type economizersetpoint: str
+    :ivar deadband: Represents the deadband setting.
+    :type deadband: str
+    :ivar unoccupiedheatingsetpoint: Represents the heating setpoint for unoccupied periods.
+    :type unoccupiedheatingsetpoint: str
+    :ivar unoccupiedcoolingsetpoint: Represents the cooling setpoint for unoccupied periods.
+    :type unoccupiedcoolingsetpoint: str
+    :ivar occupiedsetpoint: Represents the setpoint when a zone is occupied.
+    :type occupiedsetpoint: str
+    :ivar conditioning: Indicates if conditioning (cooling or heating) is active.
+    :type conditioning: str
+    :ivar tempdiff: Represents the temperature difference.
+    :type tempdiff: str
+    :ivar timediff: Represents the time difference.
+    :type timediff: str
+    :ivar reversingvalve: Indicates the state of the reversing valve.
+    :type reversingvalve: str
+    :ivar compressorcommand: Represents the compressor command state.
+    :type compressorcommand: str
+    :ivar warmcooladjust: Represents the warm/cool adjust setting.
+    :type warmcooladjust: str
+    :ivar standbytemperatureoffset: Represents the standby temperature offset.
+    :type standbytemperatureoffset: str
     """
     zonetemperature = 'zonetemperature'
     coolingsetpoint = 'coolingsetpoint'
@@ -104,6 +137,7 @@ class DFPoints(Enum):
     reversingvalve = 'reversingvalve'
     compressorcommand = 'compressorcommand'
     warmcooladjust = 'warmcooladjust'
+    standbytemperatureoffset = 'standbytemperatureoffset'
 
 
 @dataclass
@@ -156,6 +190,7 @@ Points.add_item(DFPoints.deadband.name, 'DeadBand')
 Points.add_item(DFPoints.unoccupiedheatingsetpoint.name, 'UnoccupiedHeatingSetPoint')
 Points.add_item(DFPoints.unoccupiedcoolingsetpoint.name, 'UnoccupiedCoolingSetPoint')
 Points.add_item(DFPoints.occupiedsetpoint.name, 'OccupiedSetPoint')
+Points.add_item(DFPoints.standbytemperatureoffset.name, 'StandbyTemperatureOffset')
 
 
 class DaysOfWeek(IntEnum):

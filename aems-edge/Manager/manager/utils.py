@@ -22,13 +22,21 @@
 # ===----------------------------------------------------------------------===
 # }}}
 import datetime as dt
+import pytz
+import os
 import logging
+import yaml, json
+import re
 from typing import Literal
 
 import numpy as np
 import pandas as pd
 from manager.points import DFPoints as dfpts
-from volttron.platform.agent.utils import format_timestamp
+# try:
+#     from volttron.utils import format_timestamp
+# except ImportError:
+#     from volttron.platform.agent.utils import format_timestamp
+    
 
 pd.options.mode.chained_assignment = None
 _log = logging.getLogger(__name__)
@@ -261,3 +269,98 @@ def get_operating_mode(data: pd.DataFrame) -> Literal['heating', 'cooling', None
     elif heating_count > 0:
         mode = 'heating'
     return mode
+
+
+def format_timestamp(time_stamp):
+    """Create a consistent datetime string representation based on
+    ISO 8601 format.
+
+    YYYY-MM-DDTHH:MM:SS.mmmmmm for unaware datetime objects.
+    YYYY-MM-DDTHH:MM:SS.mmmmmm+HH:MM for aware datetime objects
+
+    :param time_stamp: value to convert
+    :type time_stamp: datetime
+    :returns: datetime in string format
+    :rtype: str
+    """
+
+    time_str = time_stamp.strftime("%Y-%m-%dT%H:%M:%S.%f")
+
+    if time_stamp.tzinfo is not None:
+        sign = '+'
+        td = time_stamp.tzinfo.utcoffset(time_stamp)
+        if td.days < 0:
+            sign = '-'
+            td = -td
+
+        seconds = td.seconds
+        minutes, seconds = divmod(seconds, 60)
+        hours, minutes = divmod(minutes, 60)
+        time_str += "{sign}{HH:02}:{MM:02}".format(sign=sign, HH=hours, MM=minutes)
+
+    return time_str
+
+
+def get_aware_utc_now():
+    """Create a timezone aware UTC datetime object from the system time.
+
+    :returns: an aware UTC datetime object
+    :rtype: datetime
+    """
+    utcnow = dt.datetime.utcnow()
+    utcnow = pytz.UTC.localize(utcnow)
+    return utcnow
+
+
+def load_config(config_path):
+    """Load a JSON-encoded configuration file."""
+    if config_path is None:
+        _log.info(
+            "AGENT_CONFIG does not exist in environment. load_config returning empty configuration."
+        )
+        return {}
+
+    if not os.path.exists(config_path):
+        raise ValueError(
+             f"Config file specified by path {config_path} does not exist."
+        )
+
+    # First attempt parsing the file with a yaml parser (allows comments natively)
+    # Then if that fails we fallback to our modified json parser.
+    try:
+        with open(config_path) as f:
+            config = yaml.safe_load(f.read())
+            if config is None:
+                return {}
+            return config
+    except yaml.scanner.ScannerError as e:
+        try:
+            with open(config_path) as f:
+                return parse_json_config(f.read())
+        except Exception as e:
+            _log.error(f"Problem parsing configuration {config_path}: {e}")
+            raise
+
+
+def parse_json_config(config_str):
+    """Parse a JSON-encoded configuration file."""
+    return json.loads(strip_comments(config_str).decode("utf-8"))
+
+
+def strip_comments(string):
+    """Return string with all comments stripped.
+
+    Both JavaScript-style comments (//... and /*...*/) and hash (#...)
+    comments are removed.
+    """
+    _comment_re = re.compile(r'((["\'])(?:\\?.)*?\2)|(/\*.*?\*/)|((?:#|//).*?(?=\n|$))',
+                             re.MULTILINE | re.DOTALL)
+    return _comment_re.sub(_repl, string)
+
+
+def _repl(match):
+    """Replace the matched group with an appropriate string."""
+    # If the first group matched, a quoted string was matched and should
+    # be returned unchanged.  Otherwise a comment was matched and the
+    # empty string should be returned.
+    return match.group(1) or ''

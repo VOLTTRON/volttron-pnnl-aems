@@ -2,11 +2,51 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "main_manager",
+      "type": "debugpy",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/aems-edge/Manager",
+      "module": "manager.main_manager",
+      "env": {
+        //"GEVENT_SUPPORT": "True",
+        "VOLTTTRON_HOME": "${workspaceFolder}/aems-edge/Manager/voltttron_home",
+      },
+      "args": [
+        "--config",
+        "${workspaceFolder}/aems-edge/configurations/thermostats/schneider.config",
+        "--host", "localhost",
+        "--port", "8000",
+        "--identity", "main_manager"
+      ]
+    },
+    {
+      "name": "normal driver",
+      "type": "debugpy",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/aems-edge/Normal",
+      "module": "nf.driver",
+      "env": {
+        "GEVENT_SUPPORT": "True",
+        "VOLTTTRON_HOME": "${workspaceFolder}/aems-edge/Manager/voltttron_home",
+        "AGENT_VIP_IDENTITY": "platform.driver"
+      },
+      "justMyCode": false,
+      "args": [
+        "--config",
+        "${workspaceFolder}/aems-edge/Normal/config",
+        "--host", "localhost",
+        "--port", "8000",
+        "--identity", "platform.driver"
+      ]
+    },
+    {
       "name": "Next.js: debug server-side",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "yarn",
-      "runtimeArgs": ["dev"],
+      "runtimeArgs": [
+        "dev"
+      ],
       "cwd": "${workspaceRoot}/aems-app/app",
       "timeout": 10000
     },
@@ -21,8 +61,12 @@
       "type": "node",
       "request": "launch",
       "program": "${workspaceFolder}/aems-app/app/node_modules/.bin/next",
-      "runtimeArgs": ["--inspect"],
-      "skipFiles": ["<node_internals>/**"],
+      "runtimeArgs": [
+        "--inspect"
+      ],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
       "serverReadyAction": {
         "action": "debugWithEdge",
         "killOnServerStop": true,

@@ -1,14 +1,16 @@
-[tool.yapfignore]
-ignore_patterns = [
-    ".pytest_cache/**",
-    "dist/**",
-    "docs/**",
-    "build/**",
-    "dist/**"
-]
 
-[tool.yapf]
-based_on_style = "pep8"
-spaces_before_comment = 4
-column_limit = 120
-split_before_logical_operator = true
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-select = ["E", "F", "I"]
+
+
+[project]
+name = "aems-edge"
+version = "0.1.0"
+description = "AEMS Edge project."
+dependencies = [
+	"pandas",
+	"aems-lib-fastapi @ file://../aems-lib-fastapi",
+	"volttron-core"
+]

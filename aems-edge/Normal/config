@@ -1,0 +1,13 @@
+---
+polling_interval: 60
+driver_config:
+  url: http://aems1.pnl.gov:8081
+  user:
+  client_id:
+  client_secret:
+device_list:
+- device_id: 2
+  registry_file: /home/volttron/aems-nf/aems-edge/configurations/driver/schneider.csv
+  points_per_request: 25
+  topic: PNNL/ROB/RTU02
+  heartbeat: HeartBeat

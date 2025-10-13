@@ -29,8 +29,16 @@ from datetime import datetime as dt
 from datetime import timedelta as td
 
 import numpy as np
-from volttron.platform.agent.utils import format_timestamp, get_aware_utc_now
-from volttron.platform.scheduling import cron
+try:
+    from aems.client.agent import Scheduler
+    cron = Scheduler.cron
+    from volttron.utils import format_timestamp, get_aware_utc_now
+    from volttron.client.messaging import headers as headers_mod
+except ImportError:
+    from volttron.platform.agent.utils import format_timestamp, get_aware_utc_now
+    from volttron.platform.messaging import headers as headers_mod
+    from volttron.platform.scheduling import cron
+
 
 from . import DefaultConfig, OptimalStartConfig
 from .data_utils import Data

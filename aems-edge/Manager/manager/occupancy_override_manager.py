@@ -30,6 +30,7 @@ from typing import Union
 
 from dateutil import parser
 
+from .colors import Colors
 from .points import OccupancyTypes
 
 _log = logging.getLogger(__name__)
@@ -150,7 +151,7 @@ class OccupancyOverride:
                     self.update_override(gid, override)
 
         if not occupancy_data:
-            _log.debug('No occupancy overrides found. canceling greenlets')
+            _log.debug(f'No occupancy overrides found. canceling greenlets {len(self.override_greenlets)}')
             for gid, tasks in self.override_greenlets.items():
                 for schedule in tasks:
                     schedule.cancel()
@@ -159,7 +160,7 @@ class OccupancyOverride:
             self.sync_occupancy_state_fn()
 
     def _do_control_action(self, gid: str, state: str):
-        _log.debug(f'Occupancy override {gid} changed to {state}')
+        _log.debug(f'{Colors.BG_GREEN}OVERRIDE _do_control_action {gid} changed to {state}{Colors.RESET}')
         new_occupancy = OccupancyTypes(state)
         self.change_occupancy_fn(new_occupancy)
         if new_occupancy == OccupancyTypes.UNOCCUPIED:
@@ -181,7 +182,7 @@ class OccupancyOverride:
         return True
 
     def create_override(self, gid: str, override: Override):
-
+        _log.debug(f'Creating occupancy override {gid} changed to {override.start} - {override.end}')
         _now = dt.now()
         if _now > override.end:
             _log.debug('Current time is greater than override time!')
@@ -191,6 +192,6 @@ class OccupancyOverride:
             self.scheduler_fn(override.start, self._do_control_action, gid, OccupancyTypes.OCCUPIED.value),
             self.scheduler_fn(override.end, self._do_control_action, gid, OccupancyTypes.UNOCCUPIED.value)
         ]
-
+        _log.debug(f'Current OVRR - {gid} -- {overrides}')
         self.override_greenlets[gid] = overrides
         return True

@@ -31,8 +31,13 @@ from typing import Optional
 
 import pandas as pd
 from dateutil import parser, tz
-from volttron.platform.agent.utils import format_timestamp
-from volttron.platform.messaging import headers as headers_mod
+
+try:
+    from volttron.utils import format_timestamp
+    from volttron.client.messaging import headers as headers_mod
+except ImportError:
+    from volttron.platform.agent.utils import format_timestamp
+    from volttron.platform.messaging import headers as headers_mod
 
 from .points import DFPoints as dfpts
 from .points import Points
