@@ -440,6 +440,34 @@ services:
     volumes:
       - keycloak-data:/var/lib/postgresql/data
 
+  # Volttron
+  volttron:
+    build:
+      context: ../aems-edge
+      dockerfile: ./configurations/docker/Dockerfile-aems
+      args:
+        install_rmq: "false"
+    container_name: volttron
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+    environment:
+      - CONFIG=/home/volttron/configs
+      - AEMS=/code/aems
+      - LOCAL_USER_ID=1000
+      - TZ=${VOLTTRON_TIMEZONE}
+    hostname: volttron
+    image: ${COMPOSE_PROJECT_NAME}/volttron:${TAG}
+    network_mode: host
+    profiles:
+      - volttron
+    restart: unless-stopped
+    volumes:
+      - volttron-data:/home/volttron/db
+      - certs-data:/certs/:ro
+      - ../../aems-edge/configurations/docker/platform_config.yml:/platform_config.yml
+      - ../../aems-edge/configurations/:/home/volttron/configurations/
+
 volumes:
   certs-data:
     driver: local
@@ -460,4 +488,6 @@ volumes:
   keycloak-data:
     driver: local
   keycloak-cache:
+    driver: local
+  volttron-data:
     driver: local
