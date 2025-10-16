@@ -201,7 +201,7 @@ services:
     restart: unless-stopped
     volumes:
       - file-upload:/app/upload/
-      - ../../aems-edge/configurations/:/app/aems-edge/configurations/
+      - ./volttron/:/app/configurations/
 
     # Runs application seeders
   seeders:
@@ -440,24 +440,43 @@ services:
     volumes:
       - keycloak-data:/var/lib/postgresql/data
 
+  # Creates Volttron configurations on startup
+  setup:
+    build:
+      context: ../../aems-edge
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - VOLTTRON_CAMPUS=${VOLTTRON_CAMPUS}
+        - VOLTTRON_BUILDING=${VOLTTRON_BUILDING}
+        - VOLTTRON_PREFIX=${VOLTTRON_PREFIX}
+        - VOLTTRON_GATEWAY_ADDRESS=${VOLTTRON_GATEWAY_ADDRESS}
+        - VOLTTRON_TIMEZONE=${VOLTTRON_TIMEZONE}
+    container_name: ${COMPOSE_PROJECT_NAME}-setup
+    hostname: setup
+    image: ${COMPOSE_PROJECT_NAME}/setup:${TAG}
+    restart: no
+    volumes:
+      - ./volttron/:/home/user/configs/
+
   # Volttron
   volttron:
-    build:
-      context: ../aems-edge
-      dockerfile: ./configurations/docker/Dockerfile-aems
-      args:
-        install_rmq: "false"
-    container_name: volttron
+    container_name: ${COMPOSE_PROJECT_NAME}-volttron
     depends_on:
+      setup:
+        condition: service_completed_successfully
       certs:
         condition: service_completed_successfully
     environment:
-      - CONFIG=/home/volttron/configs
+      - CONFIG=/home/volttron/configurations/configs
       - AEMS=/code/aems
+      - ILC=/code/ilc
       - LOCAL_USER_ID=1000
       - TZ=${VOLTTRON_TIMEZONE}
     hostname: volttron
-    image: ${COMPOSE_PROJECT_NAME}/volttron:${TAG}
+    image: eclipsevolttron/volttron-aems-ilc
     network_mode: host
     profiles:
       - volttron
@@ -465,8 +484,8 @@ services:
     volumes:
       - volttron-data:/home/volttron/db
       - certs-data:/certs/:ro
-      - ../../aems-edge/configurations/docker/platform_config.yml:/platform_config.yml
-      - ../../aems-edge/configurations/:/home/volttron/configurations/
+      - ./volttron/platform_config.yml:/platform_config.yml
+      - ./volttron/configs/:/home/volttron/configurations/
 
 volumes:
   certs-data:

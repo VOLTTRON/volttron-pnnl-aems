@@ -1,5 +1,7 @@
 {
   "campus": "PNNL",
   "building": "ROB",
-  "systems": ["schneider", "tstat"]
+  "systems": [
+    "schneider"
+  ]
 }
