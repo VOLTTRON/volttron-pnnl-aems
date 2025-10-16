@@ -199,7 +199,7 @@ weather_config_template = """{{
 
 platform_config_template = """ # Properties to be added to the root config file
 # the properties should be ingestible for volttron
-# the values will be presented in the config file
+# the values will be presented in the config files
 # as key=value
 config:
   vip-address: tcp://0.0.0.0:22916
@@ -210,7 +210,10 @@ config:
   instance-name: volttron1
   message-bus: zmq # allowed values: zmq, rmq
   # volttron-central-serverkey: a different key
-
+web_users:
+  username: "admin"
+  password: "admin"
+  groups: ["admin", "vui"]
 # Agents dictionary to install. The key must be a valid
 # identity for the agent to be installed correctly.
 agents:
@@ -247,6 +250,7 @@ agents:
     source: $VOLTTRON_ROOT/services/core/WeatherDotGov
     config: $CONFIG/weather.config
     tag: weather
+{ilc_block}
 """
 
 
@@ -343,7 +347,7 @@ def generate_platform_config_driver_device_block(num_configs: int, prefix: str, 
     return ''.join(devices)
 
 
-def generate_platform_config(num_configs: int, output_dir: str, prefix, campus, building, gateway_address):
+def generate_platform_config(num_configs: int, output_dir: str, prefix, campus, building, gateway_address, generate_ilc):
     """
     Generates a platform configuration file for a specified number of configurations, including
     blocks for manager agents and driver devices. The generated configuration file is saved in
@@ -363,8 +367,12 @@ def generate_platform_config(num_configs: int, output_dir: str, prefix, campus, 
     """
     manager_agent_block = generate_platform_config_manager_agent_block(num_configs, prefix, campus, building)
     platform_driver_devices_block = generate_platform_config_driver_device_block(num_configs, prefix, campus, building)
+    ilc_block = f"""  agent.ilc:
+      source: $ILC
+      tag: ilc
+    """
 
-    platform_config = platform_config_template.format(devices_block=platform_driver_devices_block, manager_agents_block=manager_agent_block)
+    platform_config = platform_config_template.format(devices_block=platform_driver_devices_block, manager_agents_block=manager_agent_block, ilc_block=ilc_block if generate_ilc else "")
 
     with open(os.path.join(output_dir, 'platform_config.yml'), 'w') as f:
         f.write(platform_config)
@@ -576,6 +584,7 @@ def main():
     parser.add('--bacnet-address', help='bacnet address', default=None)
     parser.add('--registry-file-path', help='registry file path', default="")
     parser.add('--weather-station', help='weather station', default="")
+    parser.add('--ilc', help='Generate ILC section in platform.cfg', action='store_true')
     parser.add('-g', '--gateway-address', help='Gateway address', default='192.168.0.1')
     parser.add('-t', '--timezone', help='Timezone', default='America/Los_Angeles')
     args = parser.parse_args()
@@ -599,8 +608,8 @@ def main():
     generate_bacnet_proxy_config(output_path, args.building, args.gateway_address)
     generate_historian_config(output_path)
     generate_weather_config(output_path, args.weather_station)
-    generate_platform_config(args.num_configs, output_path, args.prefix,
-                             args.campus, args.building, args.gateway_address)
+    generate_platform_config(args.num_configs, args.output_dir, args.prefix,
+                             args.campus, args.building, args.gateway_address, args.ilc)
 
     # Copy docker-compose file
     shutil.copy('docker-compose-aems.yml', os.path.join(output_path, 'docker-compose-aems.yml'))
