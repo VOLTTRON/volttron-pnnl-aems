@@ -19,7 +19,7 @@ services:
       certs:
         condition: service_completed_successfully
     hostname: proxy
-    image: traefik:v2.10
+    image: traefik:v3.5.3
     labels:
       - traefik.tls.stores.default.defaultgeneratedcert.resolver=${CERT_RESOLVER}
       - traefik.tls.stores.default.defaultgeneratedcert.domain.main=${HOSTNAME}
@@ -37,6 +37,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - certs-data:/etc/certs/:ro
       - ./proxy/certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
+      - ./proxy/volttron-transport.yml:/etc/traefik/dynamic/volttron-transport.yml
 
   # Common libraries
   common:
@@ -101,7 +102,7 @@ services:
       - traefik.http.routers.client-http.middlewares=client-https
       - traefik.http.middlewares.client-https.redirectscheme.scheme=https
       - traefik.http.routers.client.entrypoints=websecure
-      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`) && !PathPrefix(`/authjs`, `/graphql`, `/api`, `/ext`, `/auth/sso/`)
+      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`) && !PathPrefix(`/authjs`) && !PathPrefix(`/graphql`) && !PathPrefix(`/api`) && !PathPrefix(`/ext`) && !PathPrefix(`/auth/sso/`) && !PathPrefix(`/volttron`)
       - traefik.http.routers.client.middlewares=client-security
       - traefik.http.routers.client.tls=true
       - traefik.http.routers.client.tls.certresolver=${CERT_RESOLVER}
@@ -159,7 +160,7 @@ services:
       - traefik.http.routers.server-http.middlewares=server-https
       - traefik.http.middlewares.server-https.redirectscheme.scheme=https
       - traefik.http.routers.server.entrypoints=websecure
-      - traefik.http.routers.server.rule=Host(`${HOSTNAME}`) && PathPrefix(`/authjs`, `/graphql`, `/api`, `/ext`) && !PathPrefix(`/auth/sso/`)
+      - traefik.http.routers.server.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/authjs`) || PathPrefix(`/graphql`) || PathPrefix(`/api`) || PathPrefix(`/ext`))
       - traefik.http.routers.server.middlewares=server-security
       - traefik.http.routers.server.tls=true
       - traefik.http.routers.server.tls.certresolver=${CERT_RESOLVER}
@@ -201,6 +202,7 @@ services:
     restart: unless-stopped
     volumes:
       - file-upload:/app/upload/
+      - certs-data:/certs/:ro
       - ./volttron/:/app/configurations/
 
     # Runs application seeders
@@ -398,11 +400,11 @@ services:
       - traefik.http.middlewares.keycloak-security.headers.sslRedirect=true
       - traefik.http.middlewares.keycloak-security.headers.stsSeconds=31536000
       - traefik.http.routers.keycloak-http.entrypoints=web
-      - traefik.http.routers.keycloak-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/auth/sso/js/`, `/auth/sso/realms/`, `/auth/sso/resources/`, `/auth/sso/robots.txt`)
+      - traefik.http.routers.keycloak-http.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/auth/sso/js/`) || PathPrefix(`/auth/sso/realms/`) || PathPrefix(`/auth/sso/resources/`) || PathPrefix(`/auth/sso/robots.txt`))
       - traefik.http.routers.keycloak-http.middlewares=keycloak-https
       - traefik.http.middlewares.keycloak-https.redirectscheme.scheme=https
       - traefik.http.routers.keycloak.entrypoints=websecure
-      - traefik.http.routers.keycloak.rule=Host(`${HOSTNAME}`) && PathPrefix(`/auth/sso/js/`, `/auth/sso/realms/`, `/auth/sso/resources/`, `/auth/sso/robots.txt`)
+      - traefik.http.routers.keycloak.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/auth/sso/js/`) || PathPrefix(`/auth/sso/realms/`) || PathPrefix(`/auth/sso/resources/`) || PathPrefix(`/auth/sso/robots.txt`))
       - traefik.http.routers.keycloak.middlewares=keycloak-security
       - traefik.http.routers.keycloak.tls=true
       - traefik.http.routers.keycloak.tls.certresolver=${CERT_RESOLVER}
@@ -474,18 +476,53 @@ services:
       - AEMS=/code/aems
       - ILC=/code/ilc
       - LOCAL_USER_ID=1000
-      - TZ=${VOLTTRON_TIMEZONE}
     hostname: volttron
     image: eclipsevolttron/volttron-aems-ilc
-    network_mode: host
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.volttron.loadbalancer.server.port=8443
+      - traefik.http.services.volttron.loadbalancer.server.scheme=https
+      - traefik.http.services.volttron.loadbalancer.serversTransport=volttron-transport@file
+      - traefik.http.middlewares.volttron-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.volttron-security.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.volttron-security.headers.forceSTSHeader=true
+      - traefik.http.middlewares.volttron-security.headers.frameDeny=false
+      - traefik.http.middlewares.volttron-security.headers.referrerPolicy=same-origin
+      - traefik.http.middlewares.volttron-security.headers.sslRedirect=true
+      - traefik.http.middlewares.volttron-security.headers.stsSeconds=31536000
+      - traefik.http.middlewares.volttron-stripprefix.stripprefix.prefixes=/volttron
+      - traefik.http.middlewares.volttron-redirect.redirectregex.regex=^(.*)volttron$$
+      - traefik.http.middlewares.volttron-redirect.redirectregex.replacement=$${1}volttron/index.html
+      - traefik.http.routers.volttron-http.entrypoints=web
+      - traefik.http.routers.volttron-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/volttron`)
+      - traefik.http.routers.volttron-http.middlewares=volttron-https
+      - traefik.http.middlewares.volttron-https.redirectscheme.scheme=https
+      - traefik.http.routers.volttron-root.entrypoints=websecure
+      - traefik.http.routers.volttron-root.rule=Host(`${HOSTNAME}`) && Path(`/volttron`)
+      - traefik.http.routers.volttron-root.middlewares=volttron-redirect
+      - traefik.http.routers.volttron-root.tls=true
+      - traefik.http.routers.volttron-root.tls.certresolver=${CERT_RESOLVER}
+      - traefik.http.routers.volttron.entrypoints=websecure
+      - traefik.http.routers.volttron.rule=Host(`${HOSTNAME}`) && PathPrefix(`/volttron`) && !Path(`/volttron`)
+      - traefik.http.routers.volttron.middlewares=volttron-stripprefix,volttron-security
+      - traefik.http.routers.volttron.tls=true
+      - traefik.http.routers.volttron.tls.certresolver=${CERT_RESOLVER}
+    # networks:
+    #   - default
+    #   - volttron
     profiles:
       - volttron
     restart: unless-stopped
     volumes:
       - volttron-data:/home/volttron/db
-      - certs-data:/certs/:ro
       - ./volttron/platform_config.yml:/platform_config.yml
       - ./volttron/configs/:/home/volttron/configurations/
+
+networks:
+  volttron:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: ${HOSTNAME}
 
 volumes:
   certs-data:

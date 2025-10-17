@@ -1,0 +1,4 @@
+http:
+  serversTransports:
+    volttron-transport:
+      insecureSkipVerify: true

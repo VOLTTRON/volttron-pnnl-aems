@@ -2,6 +2,6 @@
   "campus": "PNNL",
   "building": "ROB",
   "systems": [
-    "schneider"
+    "rtu01"
   ]
 }
