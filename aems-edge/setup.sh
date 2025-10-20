@@ -30,14 +30,89 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Function to generate site.json dynamically
+generate_site_json() {
+    local output_dir="$1"
+    local campus="$2"
+    local building="$3"
+    local prefix="$4"
+    local num_configs="$5"
+    
+    log_info "Generating site.json with campus: ${campus}, building: ${building}, prefix: ${prefix}, configs: ${num_configs}"
+    log_info "Output directory: ${output_dir}"
+    
+    # Validate inputs
+    if [[ -z "${output_dir}" || -z "${campus}" || -z "${building}" || -z "${prefix}" || -z "${num_configs}" ]]; then
+        log_error "Missing required parameters for site.json generation"
+        log_error "output_dir='${output_dir}', campus='${campus}', building='${building}', prefix='${prefix}', num_configs='${num_configs}'"
+        return 1
+    fi
+    
+    # Ensure output directory exists
+    if [[ ! -d "${output_dir}" ]]; then
+        log_error "Output directory does not exist: ${output_dir}"
+        return 1
+    fi
+    
+    # Start building the systems array
+    local systems_array=""
+    for ((i=1; i<=num_configs; i++)); do
+        local device_name="${prefix}$(printf "%02d" $i)"
+        if [[ $i -eq 1 ]]; then
+            systems_array="\"${device_name}\""
+        else
+            systems_array="${systems_array}, \"${device_name}\""
+        fi
+    done
+    
+    log_info "Generated systems array: [${systems_array}]"
+    
+    # Generate the site.json content
+    local site_json_path="${output_dir}/site.json"
+    log_info "Writing site.json to: ${site_json_path}"
+    
+    cat > "${site_json_path}" << EOF
+{
+  "campus": "${campus}",
+  "building": "${building}",
+  "systems": [
+    ${systems_array}
+  ]
+}
+EOF
+    
+    local result=$?
+    if [[ $result -eq 0 ]]; then
+        log_info "site.json file created successfully"
+        if [[ -f "${site_json_path}" ]]; then
+            log_info "Verifying site.json content:"
+            cat "${site_json_path}"
+        else
+            log_error "site.json file was not created despite successful return code"
+            return 1
+        fi
+    else
+        log_error "Failed to create site.json file, return code: ${result}"
+        return $result
+    fi
+    
+    return 0
+}
+
 # Set default values for environment variables if not provided
 VOLTTRON_CAMPUS=${VOLTTRON_CAMPUS:-"PNNL"}
 VOLTTRON_BUILDING=${VOLTTRON_BUILDING:-"ROB"}
 VOLTTRON_PREFIX=${VOLTTRON_PREFIX:-"rtu"}
 VOLTTRON_GATEWAY_ADDRESS=${VOLTTRON_GATEWAY_ADDRESS:-"192.168.0.1"}
 VOLTTRON_TIMEZONE=${VOLTTRON_TIMEZONE:-"America/Los_Angeles"}
+VOLTTRON_NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS:-"1"}
+VOLTTRON_WEATHER_STATION=${VOLTTRON_WEATHER_STATION:-""}
+VOLTTRON_REGISTRY_FILE_PATH=${VOLTTRON_REGISTRY_FILE_PATH:-""}
+VOLTTRON_BACNET_ADDRESS=${VOLTTRON_BACNET_ADDRESS:-""}
+VOLTTRON_ILC=${VOLTTRON_ILC:-"false"}
 OUTPUT_DIR=${OUTPUT_DIR:-"/home/user/configs/"}
-NUM_CONFIGS=${NUM_CONFIGS:-"1"}
+# Legacy support for NUM_CONFIGS (use VOLTTRON_NUM_CONFIGS if available)
+NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS:-${NUM_CONFIGS:-"1"}}
 
 # Base directories
 BASE_DIR="/home/user"
@@ -72,10 +147,7 @@ if [[ ! -d "${DOCKER_DIR}" ]]; then
     exit 1
 fi
 
-if [[ ! -f "${SITE_JSON}" ]]; then
-    log_error "Site configuration file not found: ${SITE_JSON}"
-    exit 1
-fi
+# Note: site.json will be generated dynamically, so no need to check for its existence
 
 if [[ ! -d "${TEMPLATES_DIR}" ]]; then
     log_error "Templates directory not found: ${TEMPLATES_DIR}"
@@ -106,14 +178,36 @@ mkdir -p "${OUTPUT_DIR}"
 
 # Execute the Volttron configuration generation
 log_info "Executing Volttron configuration generation"
-python generate_configs.py \
-    -n "${NUM_CONFIGS}" \
-    --output-dir "${OUTPUT_DIR}" \
-    --campus "${VOLTTRON_CAMPUS}" \
-    --building "${VOLTTRON_BUILDING}" \
-    --prefix "${VOLTTRON_PREFIX}" \
-    -g "${VOLTTRON_GATEWAY_ADDRESS}" \
-    -t "${VOLTTRON_TIMEZONE}"
+
+# Build the command with conditional arguments
+GENERATE_CMD="python generate_configs.py \
+    -n \"${NUM_CONFIGS}\" \
+    --output-dir \"${OUTPUT_DIR}\" \
+    --campus \"${VOLTTRON_CAMPUS}\" \
+    --building \"${VOLTTRON_BUILDING}\" \
+    --prefix \"${VOLTTRON_PREFIX}\" \
+    -g \"${VOLTTRON_GATEWAY_ADDRESS}\" \
+    -t \"${VOLTTRON_TIMEZONE}\""
+
+# Add optional arguments if they are provided
+if [[ -n "${VOLTTRON_WEATHER_STATION}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --weather-station \"${VOLTTRON_WEATHER_STATION}\""
+fi
+
+if [[ -n "${VOLTTRON_REGISTRY_FILE_PATH}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --registry-file-path \"${VOLTTRON_REGISTRY_FILE_PATH}\""
+fi
+
+if [[ -n "${VOLTTRON_BACNET_ADDRESS}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --bacnet-address \"${VOLTTRON_BACNET_ADDRESS}\""
+fi
+
+if [[ "${VOLTTRON_ILC}" == "true" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --ilc"
+fi
+
+log_info "Command: ${GENERATE_CMD}"
+eval "${GENERATE_CMD}"
 
 if [[ $? -eq 0 ]]; then
     log_success "Configuration generation completed successfully"
@@ -122,13 +216,13 @@ else
     exit 1
 fi
 
-# Copy site.json to the output directory
-log_info "Copying site.json to output directory"
-cp "${SITE_JSON}" "${OUTPUT_DIR}/"
+# Generate site.json with dynamic values
+log_info "Generating site.json with dynamic values"
+generate_site_json "${OUTPUT_DIR}" "${VOLTTRON_CAMPUS}" "${VOLTTRON_BUILDING}" "${VOLTTRON_PREFIX}" "${NUM_CONFIGS}"
 if [[ $? -eq 0 ]]; then
-    log_success "site.json copied successfully"
+    log_success "site.json generated successfully"
 else
-    log_error "Failed to copy site.json"
+    log_error "Failed to generate site.json"
     exit 1
 fi
 
