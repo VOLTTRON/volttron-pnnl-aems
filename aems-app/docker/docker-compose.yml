@@ -463,7 +463,7 @@ services:
     volumes:
       - ./volttron/:/home/user/configs/
 
-  # Volttron
+  # Volttron - runs on host network for direct access
   volttron:
     container_name: ${COMPOSE_PROJECT_NAME}-volttron
     depends_on:
@@ -478,10 +478,28 @@ services:
       - LOCAL_USER_ID=1000
     hostname: volttron
     image: eclipsevolttron/volttron-aems-ilc
+    network_mode: host
+    profiles:
+      - volttron
+    restart: unless-stopped
+    volumes:
+      - volttron-data:/home/volttron/db
+      - ./volttron/platform_config.yml:/platform_config.yml
+      - ./volttron/configs/:/home/volttron/configurations/
+
+  # Volttron proxy bridge - connects Docker network to host-networked VOLTTRON
+  volttron-bridge:
+    container_name: ${COMPOSE_PROJECT_NAME}-volttron-bridge
+    depends_on:
+      volttron:
+        condition: service_started
+    image: alpine:latest
+    hostname: volttron-bridge
+    command: ["/proxy/volttron-socat.sh"]
     labels:
       - traefik.enable=true
       - traefik.http.services.volttron.loadbalancer.server.port=8443
-      - traefik.http.services.volttron.loadbalancer.server.scheme=https
+      - traefik.http.services.volttron.loadbalancer.server.scheme=http
       - traefik.http.services.volttron.loadbalancer.serversTransport=volttron-transport@file
       - traefik.http.middlewares.volttron-security.headers.browserXssFilter=true
       - traefik.http.middlewares.volttron-security.headers.contentTypeNosniff=true
@@ -500,29 +518,20 @@ services:
       - traefik.http.routers.volttron-root.entrypoints=websecure
       - traefik.http.routers.volttron-root.rule=Host(`${HOSTNAME}`) && Path(`/volttron`)
       - traefik.http.routers.volttron-root.middlewares=volttron-redirect
+      - traefik.http.routers.volttron-root.priority=100
       - traefik.http.routers.volttron-root.tls=true
       - traefik.http.routers.volttron-root.tls.certresolver=${CERT_RESOLVER}
       - traefik.http.routers.volttron.entrypoints=websecure
       - traefik.http.routers.volttron.rule=Host(`${HOSTNAME}`) && PathPrefix(`/volttron`) && !Path(`/volttron`)
       - traefik.http.routers.volttron.middlewares=volttron-stripprefix,volttron-security
+      - traefik.http.routers.volttron.priority=100
       - traefik.http.routers.volttron.tls=true
       - traefik.http.routers.volttron.tls.certresolver=${CERT_RESOLVER}
-    # networks:
-    #   - default
-    #   - volttron
     profiles:
       - volttron
     restart: unless-stopped
     volumes:
-      - volttron-data:/home/volttron/db
-      - ./volttron/platform_config.yml:/platform_config.yml
-      - ./volttron/configs/:/home/volttron/configurations/
-
-networks:
-  volttron:
-    driver: bridge
-    driver_opts:
-      com.docker.network.bridge.host_binding_ipv4: ${HOSTNAME}
+      - ./proxy/volttron-socat.sh:/proxy/volttron-socat.sh:ro
 
 volumes:
   certs-data:
