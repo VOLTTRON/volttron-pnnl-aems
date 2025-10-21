@@ -60,6 +60,8 @@ services:
     build:
       context: ../client
       dockerfile: ./Dockerfile
+      additional_contexts:
+        common: service:common
       args:
         - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
         - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
@@ -119,6 +121,8 @@ services:
     build:
       context: ../server
       dockerfile: ./Dockerfile
+      additional_contexts:
+        common: service:common
       args:
         - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
         - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
@@ -175,17 +179,6 @@ services:
 
   # Runs application services
   services:
-    build:
-      context: ../server
-      dockerfile: ./Dockerfile
-      args:
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
-        - TAG=${TAG}
-        - HTTP_PROXY=${HTTP_PROXY}
-        - HTTPS_PROXY=${HTTPS_PROXY}
-        - NO_PROXY=${NO_PROXY}
-        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
     container_name: ${COMPOSE_PROJECT_NAME}-services
     depends_on:
       common:
@@ -208,19 +201,9 @@ services:
       - file-upload:/app/upload/
       - certs-data:/certs/:ro
       - ./volttron/:/app/configurations/
+
     # Runs application seeders
   seeders:
-    build:
-      context: ../server
-      dockerfile: ./Dockerfile
-      args:
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
-        - TAG=${TAG}
-        - HTTP_PROXY=${HTTP_PROXY}
-        - HTTPS_PROXY=${HTTPS_PROXY}
-        - NO_PROXY=${NO_PROXY}
-        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
     container_name: ${COMPOSE_PROJECT_NAME}-seeders
     depends_on:
       common:
