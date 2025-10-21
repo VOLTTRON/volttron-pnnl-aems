@@ -22,6 +22,8 @@ export declare class SetpointMutation {
         deadband: "Float";
         heating: "Float";
         cooling: "Float";
+        standbyTime: "Int";
+        standbyOffset: "Float";
     }>>;
     readonly SetpointUpdate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -42,6 +44,8 @@ export declare class SetpointMutation {
         deadband: "Float";
         heating: "Float";
         cooling: "Float";
+        standbyTime: "Int";
+        standbyOffset: "Float";
     }>>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, setpointQuery: SetpointQuery);
 }

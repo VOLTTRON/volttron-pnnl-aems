@@ -1,6 +1,5 @@
 import { ReadSetpointQuery } from "@/graphql-codegen/graphql";
 import { Validate } from "@local/common";
-import { isNumber } from "lodash";
 
 // Constants for setpoint validation and defaults
 const SETPOINT_PADDING = 2;
@@ -14,10 +13,16 @@ const COOLING_DEFAULT = Validate.Cooling.options?.default as number;
 const SETPOINT_MIN = Validate.Setpoint.options?.min as number;
 const SETPOINT_MAX = Validate.Setpoint.options?.max as number;
 const SETPOINT_DEFAULT = Validate.Setpoint.options?.default as number;
+const STANDBY_TIME_MIN = Validate.StandbyTime.options?.min as number;
+const STANDBY_TIME_MAX = Validate.StandbyTime.options?.max as number;
+const STANDBY_TIME_DEFAULT = Validate.StandbyTime.options?.default as number;
+const STANDBY_OFFSET_MIN = Validate.StandbyOffset.options?.min as number;
+const STANDBY_OFFSET_MAX = Validate.StandbyOffset.options?.max as number;
+const STANDBY_OFFSET_DEFAULT = Validate.StandbyOffset.options?.default as number;
 
 type SetpointType = NonNullable<ReadSetpointQuery["readSetpoint"]>;
 
-type Required = "setpoint" | "deadband" | "heating" | "cooling";
+type Required = "setpoint" | "deadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset";
 
 const createSetpointLabel = (type: "all" | Required, setpoint: SetpointType): string => {
   switch (type) {
@@ -29,10 +34,13 @@ const createSetpointLabel = (type: "all" | Required, setpoint: SetpointType): st
         "cooling",
         setpoint,
       )}`;
+    case "standbyTime":
+      return `${setpoint.standbyTime} min`;
     case "setpoint":
     case "deadband":
     case "heating":
     case "cooling":
+    case "standbyOffset":
     default:
       return `${setpoint[type]}º\xa0F`;
   }
@@ -56,6 +64,13 @@ const getSetpointMessage = (setpoint: SetpointType): string | undefined => {
     return "Deadband must be a whole degree.";
   } else if ((setpoint?.heating ?? 0) % 0.5 !== 0 || (setpoint?.cooling ?? 0) % 0.5 !== 0) {
     return "Unoccupied heating or cooling must be a whole or half degree.";
+  } else if ((setpoint?.standbyTime ?? 0) < STANDBY_TIME_MIN || (setpoint?.standbyTime ?? 0) > STANDBY_TIME_MAX) {
+    return `Standby time must be in the range [${STANDBY_TIME_MIN},${STANDBY_TIME_MAX}] minutes.`;
+  } else if (
+    (setpoint?.standbyOffset ?? 0) < STANDBY_OFFSET_MIN ||
+    (setpoint?.standbyOffset ?? 0) > STANDBY_OFFSET_MAX
+  ) {
+    return `Standby temperature offset must be in the range [${STANDBY_OFFSET_MIN},${STANDBY_OFFSET_MAX}]º F.`;
   }
 };
 
@@ -65,7 +80,9 @@ const isSetpointValid = (setpoint: SetpointType | undefined): boolean => {
     typeof setpoint.setpoint !== "number" ||
     typeof setpoint.deadband !== "number" ||
     typeof setpoint.heating !== "number" ||
-    typeof setpoint.cooling !== "number"
+    typeof setpoint.cooling !== "number" ||
+    typeof setpoint.standbyTime !== "number" ||
+    typeof setpoint.standbyOffset !== "number"
   ) {
     return false;
   }
@@ -88,6 +105,12 @@ export {
   SETPOINT_MIN,
   SETPOINT_MAX,
   SETPOINT_DEFAULT,
+  STANDBY_TIME_MIN,
+  STANDBY_TIME_MAX,
+  STANDBY_TIME_DEFAULT,
+  STANDBY_OFFSET_MIN,
+  STANDBY_OFFSET_MAX,
+  STANDBY_OFFSET_DEFAULT,
   createSetpointLabel,
   getSetpointMessage,
   isSetpointValid,

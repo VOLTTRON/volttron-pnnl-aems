@@ -47,6 +47,8 @@ query ReadUnit($where: UnitUniqueFilter!) {
         deadband
         heating
         cooling
+        standbyTime
+        standbyOffset
       }
       holidays {
         id
@@ -183,6 +185,8 @@ query ReadUnits($where: UnitFilter, $paging: PagingInput, $orderBy: [UnitOrderBy
         deadband
         heating
         cooling
+        standbyTime
+        standbyOffset
       }
       holidays {
         id
@@ -403,6 +407,8 @@ subscription SubscribeUnit($where: UnitUniqueFilter!) {
         deadband
         heating
         cooling
+        standbyTime
+        standbyOffset
       }
       holidays {
         id
@@ -544,6 +550,8 @@ subscription SubscribeUnits(
         deadband
         heating
         cooling
+        standbyTime
+        standbyOffset
       }
       holidays {
         id

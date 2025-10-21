@@ -45,6 +45,7 @@ services:
       context: ../
       dockerfile: ./common/Dockerfile
       args:
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -52,15 +53,18 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}-common
     env_file:
       - .env.init
-    image: ${COMPOSE_PROJECT_NAME}/common:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/common:${TAG}
 
   # Application that hosts static files and API
   client:
     build:
       context: ../client
       dockerfile: ./Dockerfile
+      additional_contexts:
+        common: service:common
       args:
         - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
         - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
@@ -86,7 +90,7 @@ services:
       timeout: 10s
       retries: 120
     hostname: client
-    image: ${COMPOSE_PROJECT_NAME}/client:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/client:${TAG}
     labels:
       - traefik.enable=true
       - traefik.http.services.client.loadbalancer.server.port=3000
@@ -117,8 +121,11 @@ services:
     build:
       context: ../server
       dockerfile: ./Dockerfile
+      additional_contexts:
+        common: service:common
       args:
         - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
         - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
@@ -144,7 +151,7 @@ services:
       timeout: 10s
       retries: 120
     hostname: server
-    image: ${COMPOSE_PROJECT_NAME}/server:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/server:${TAG}
     labels:
       - traefik.enable=true
       - traefik.http.services.server.loadbalancer.server.port=3000
@@ -172,16 +179,6 @@ services:
 
   # Runs application services
   services:
-    build:
-      context: ../server
-      dockerfile: ./Dockerfile
-      args:
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-        - TAG=${TAG}
-        - HTTP_PROXY=${HTTP_PROXY}
-        - HTTPS_PROXY=${HTTPS_PROXY}
-        - NO_PROXY=${NO_PROXY}
-        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
     container_name: ${COMPOSE_PROJECT_NAME}-services
     depends_on:
       common:
@@ -198,24 +195,15 @@ services:
       timeout: 10s
       retries: 120
     hostname: services
-    image: ${COMPOSE_PROJECT_NAME}/server:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/server:${TAG}
     restart: unless-stopped
     volumes:
       - file-upload:/app/upload/
       - certs-data:/certs/:ro
       - ./volttron/:/app/configurations/
+
     # Runs application seeders
   seeders:
-    build:
-      context: ../server
-      dockerfile: ./Dockerfile
-      args:
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-        - TAG=${TAG}
-        - HTTP_PROXY=${HTTP_PROXY}
-        - HTTPS_PROXY=${HTTPS_PROXY}
-        - NO_PROXY=${NO_PROXY}
-        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
     container_name: ${COMPOSE_PROJECT_NAME}-seeders
     depends_on:
       common:
@@ -232,7 +220,7 @@ services:
       timeout: 10s
       retries: 120
     hostname: seeders
-    image: ${COMPOSE_PROJECT_NAME}/server:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/server:${TAG}
     restart: on-failure:3
     volumes:
       - ./seed/:/app/seed/:ro
@@ -243,6 +231,7 @@ services:
       context: ../prisma
       dockerfile: ./Dockerfile
       args:
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -254,7 +243,7 @@ services:
     env_file:
       - .env.init
     hostname: init
-    image: ${COMPOSE_PROJECT_NAME}/init:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/init:${TAG}
 
   # Creates self-signed TLS certs for localhost and domain
   certs:
@@ -270,7 +259,7 @@ services:
     env_file:
       - .env.certs
     hostname: certs
-    image: ${COMPOSE_PROJECT_NAME}/certs:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/certs:${TAG}
     volumes:
       - certs-data:/etc/certs/
 
@@ -463,7 +452,7 @@ services:
       - VOLTTRON_BACNET_ADDRESS=${VOLTTRON_BACNET_ADDRESS}
       - VOLTTRON_ILC=${VOLTTRON_ILC}
     hostname: setup
-    image: ${COMPOSE_PROJECT_NAME}/setup:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
     restart: no
     volumes:
       - ./volttron/:/home/user/configs/

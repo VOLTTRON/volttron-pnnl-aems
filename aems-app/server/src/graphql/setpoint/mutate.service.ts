@@ -30,6 +30,8 @@ export class SetpointMutation {
         deadband: "Float",
         heating: "Float",
         cooling: "Float",
+        standbyTime: "Int",
+        standbyOffset: "Float",
       },
     });
 
@@ -43,6 +45,8 @@ export class SetpointMutation {
         deadband: "Float",
         heating: "Float",
         cooling: "Float",
+        standbyTime: "Int",
+        standbyOffset: "Float",
       },
     });
 

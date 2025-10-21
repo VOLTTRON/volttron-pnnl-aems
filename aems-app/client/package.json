@@ -35,6 +35,7 @@
     "@prisma/client": "^6.9.0",
     "ansi_up": "^6.0.5",
     "clsx": "^2.1.1",
+    "deck.gl": "^9.2.1",
     "echarts": "^5.5.1",
     "graphql": "^16.10.0",
     "graphql-ws": "^5.5.5",

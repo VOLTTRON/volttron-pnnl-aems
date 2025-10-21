@@ -37,8 +37,8 @@ export declare class ChangeObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        data: PrismaJson.ChangeData | null;
         userId: string | null;
+        data: PrismaJson.ChangeData | null;
         table: string;
         mutation: import(".prisma/client").$Enums.ChangeMutation;
     }>;
@@ -47,7 +47,7 @@ export declare class ChangeObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
-    }>, "key" | "id" | "createdAt" | "updatedAt" | "data" | "userId" | "table" | "mutation", "key" | "id" | "createdAt" | "updatedAt" | "data" | "userId" | "table" | "mutation">;
+    }>, "key" | "id" | "createdAt" | "updatedAt" | "userId" | "data" | "table" | "mutation", "key" | "id" | "createdAt" | "updatedAt" | "userId" | "data" | "table" | "mutation">;
     readonly ChangeMutation: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;

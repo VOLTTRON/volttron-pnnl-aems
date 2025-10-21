@@ -6,6 +6,8 @@ query ReadSetpoint($where: SetpointUniqueFilter!) {
     deadband
     heating
     cooling
+    standbyTime
+    standbyOffset
     correlation
     message
     stage
@@ -14,7 +16,12 @@ query ReadSetpoint($where: SetpointUniqueFilter!) {
   }
 }
 
-query ReadSetpoints($where: SetpointFilter, $paging: PagingInput, $orderBy: [SetpointOrderBy!], $distinct: [SetpointFields!]) {
+query ReadSetpoints(
+  $where: SetpointFilter
+  $paging: PagingInput
+  $orderBy: [SetpointOrderBy!]
+  $distinct: [SetpointFields!]
+) {
   readSetpoints(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
     id
     label
@@ -22,6 +29,8 @@ query ReadSetpoints($where: SetpointFilter, $paging: PagingInput, $orderBy: [Set
     deadband
     heating
     cooling
+    standbyTime
+    standbyOffset
     correlation
     message
     stage
@@ -39,6 +48,8 @@ mutation CreateSetpoint($create: SetpointCreateInput!) {
     deadband
     heating
     cooling
+    standbyTime
+    standbyOffset
     correlation
     message
     stage
@@ -55,6 +66,8 @@ mutation UpdateSetpoint($where: SetpointUniqueFilter!, $update: SetpointUpdateIn
     deadband
     heating
     cooling
+    standbyTime
+    standbyOffset
     correlation
     message
     stage

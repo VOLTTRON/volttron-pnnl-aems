@@ -1,6 +1,6 @@
 # Volttron PNNL AEMS
 
-This repository contains two projects: `aems-edge` and `aems-app`. The `aems-ui` project is deprecated and will be removed in the future.
+This repository contains two projects: `aems-edge` and `aems-app`.
 
 ## Autonomous Energy Management Software (AEMS)
 

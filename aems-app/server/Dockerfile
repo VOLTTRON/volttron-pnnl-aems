@@ -1,10 +1,8 @@
 ARG COMPOSE_PROJECT_NAME=skeleton
+ARG COMPOSE_CONTAINER_REGISTRY=localhost
+ARG IMAGE=common
 ARG TAG=latest
-FROM ${COMPOSE_PROJECT_NAME}/common:${TAG} AS common-base
-FROM node:22.14.0-alpine AS base
-
-# Copy shared libraries from common image
-COPY --from=common-base --chmod=755 /app /app
+FROM ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/${IMAGE}:${TAG} AS base
 # arguments
 ARG HTTP_PROXY
 ARG HTTPS_PROXY

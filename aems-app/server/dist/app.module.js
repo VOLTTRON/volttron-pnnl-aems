@@ -10,7 +10,6 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const throttler_1 = require("@nestjs/throttler");
-const ext_middleware_1 = require("./ext/ext.middleware");
 const api_module_1 = require("./api/api.module");
 const core_1 = require("@nestjs/core");
 const pothos_module_1 = require("./graphql/pothos.module");
@@ -21,10 +20,8 @@ const app_config_1 = require("./app.config");
 const logging_module_1 = require("./logging/logging.module");
 const auth_module_1 = require("./auth/auth.module");
 const framework_module_1 = require("./auth/framework.module");
+const middleware_module_1 = require("./middleware/middleware.module");
 let AppModule = class AppModule {
-    configure(consumer) {
-        consumer.apply(ext_middleware_1.ExtRewriteMiddleware).forRoutes({ path: "ext/*path", method: common_1.RequestMethod.ALL });
-    }
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
@@ -38,6 +35,7 @@ exports.AppModule = AppModule = __decorate([
                 load: [app_config_1.AppConfigToken],
                 envFilePath: [".env", ".env.local"],
             }),
+            middleware_module_1.MiddlewareModule,
             framework_module_1.FrameworkModule.register(),
             logging_module_1.LoggingModule,
             prisma_module_1.PrismaModule,

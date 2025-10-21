@@ -9,11 +9,11 @@ export declare class SetpointQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling")[] | null | undefined;
-        sum?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling")[] | null | undefined;
-        maximum?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling")[] | null | undefined;
-        minimum?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling")[] | null | undefined;
-        average?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling")[] | null | undefined;
+        count?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
+        sum?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
+        maximum?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
+        minimum?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
+        average?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
     }>;
     readonly SetpointWhereUnique: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -79,6 +79,18 @@ export declare class SetpointQuery {
             Scalars: Scalars;
         }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<number>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt">>;
         cooling: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
+            Context: import("..").Context;
+            AuthScopes: import("../../auth").AuthRoles;
+            PrismaTypes: import("@local/prisma/dist/pothos").default;
+            Scalars: Scalars;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<number>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt">>;
+        standbyTime: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
+            Context: import("..").Context;
+            AuthScopes: import("../../auth").AuthRoles;
+            PrismaTypes: import("@local/prisma/dist/pothos").default;
+            Scalars: Scalars;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<number>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt">>;
+        standbyOffset: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;

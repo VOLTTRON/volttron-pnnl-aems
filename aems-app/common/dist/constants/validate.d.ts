@@ -27,6 +27,10 @@ declare class Validate extends Base<IValidate> implements IBase<IValidate> {
     HeatingType: IValidate;
     Cooling: IValidate;
     CoolingType: IValidate;
+    StandbyTime: IValidate;
+    StandbyTimeType: IValidate;
+    StandbyOffset: IValidate;
+    StandbyOffsetType: IValidate;
     StartTime: IValidate;
     StartTimeType: IValidate;
     EndTime: IValidate;

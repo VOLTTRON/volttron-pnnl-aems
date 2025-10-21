@@ -90,6 +90,8 @@ let ConfigService = ConfigService_1 = class ConfigService extends __1.BaseServic
                             DeadBand: (unit.configuration?.setpoint?.deadband ?? 0) / 2,
                             UnoccupiedCoolingSetPoint: unit.configuration?.setpoint?.cooling ?? 0,
                             UnoccupiedHeatingSetPoint: unit.configuration?.setpoint?.heating ?? 0,
+                            StandbyTime: unit.configuration?.setpoint?.standbyTime ?? 0,
+                            StandbyTemperatureOffset: unit.configuration?.setpoint?.standbyOffset ?? 0,
                         };
                         await this.volttronService.makeApiCall(`manager.${unit.system.toLowerCase()}`, "set_temperature_setpoints", token, set_temperature_setpoints);
                         const today = new Date();
