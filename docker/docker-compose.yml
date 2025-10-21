@@ -19,7 +19,7 @@ services:
       certs:
         condition: service_completed_successfully
     hostname: proxy
-    image: traefik:v2.10
+    image: traefik:v3.5.3
     labels:
       - traefik.tls.stores.default.defaultgeneratedcert.resolver=${CERT_RESOLVER}
       - traefik.tls.stores.default.defaultgeneratedcert.domain.main=${HOSTNAME}
@@ -44,6 +44,7 @@ services:
       context: ../
       dockerfile: ./common/Dockerfile
       args:
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -51,7 +52,7 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}-common
     env_file:
       - .env.init
-    image: ${COMPOSE_PROJECT_NAME}/common:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/common:${TAG}
 
   # Application that hosts static files and API
   client:
@@ -61,7 +62,9 @@ services:
       additional_contexts:
         common: service:common
       args:
-        - TAG:${TAG}
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -84,7 +87,7 @@ services:
       timeout: 10s
       retries: 120
     hostname: client
-    image: ${COMPOSE_PROJECT_NAME}/client:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/client:${TAG}
     labels:
       - traefik.enable=true
       - traefik.http.services.client.loadbalancer.server.port=3000
@@ -100,7 +103,7 @@ services:
       - traefik.http.routers.client-http.middlewares=client-https
       - traefik.http.middlewares.client-https.redirectscheme.scheme=https
       - traefik.http.routers.client.entrypoints=websecure
-      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`) && !PathPrefix(`/authjs`, `/graphql`, `/api`, `/ext`, `/auth/sso/`)
+      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`) && !PathPrefix(`/authjs`) && !PathPrefix(`/graphql`) && !PathPrefix(`/api`) && !PathPrefix(`/ext`) && !PathPrefix(`/auth/sso/`)
       - traefik.http.routers.client.middlewares=client-security
       - traefik.http.routers.client.tls=true
       - traefik.http.routers.client.tls.certresolver=${CERT_RESOLVER}
@@ -118,7 +121,9 @@ services:
       additional_contexts:
         common: service:common
       args:
-        - TAG:${TAG}
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -141,7 +146,7 @@ services:
       timeout: 10s
       retries: 120
     hostname: server
-    image: ${COMPOSE_PROJECT_NAME}/server:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/server:${TAG}
     labels:
       - traefik.enable=true
       - traefik.http.services.server.loadbalancer.server.port=3000
@@ -157,7 +162,7 @@ services:
       - traefik.http.routers.server-http.middlewares=server-https
       - traefik.http.middlewares.server-https.redirectscheme.scheme=https
       - traefik.http.routers.server.entrypoints=websecure
-      - traefik.http.routers.server.rule=Host(`${HOSTNAME}`) && PathPrefix(`/authjs`, `/graphql`, `/api`, `/ext`) && !PathPrefix(`/auth/sso/`)
+      - traefik.http.routers.server.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/authjs`) || PathPrefix(`/graphql`) || PathPrefix(`/api`) || PathPrefix(`/ext`))
       - traefik.http.routers.server.middlewares=server-security
       - traefik.http.routers.server.tls=true
       - traefik.http.routers.server.tls.certresolver=${CERT_RESOLVER}
@@ -175,7 +180,9 @@ services:
       additional_contexts:
         common: service:common
       args:
-        - TAG:${TAG}
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -194,7 +201,7 @@ services:
       timeout: 10s
       retries: 120
     hostname: services
-    image: ${COMPOSE_PROJECT_NAME}/server:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/server:${TAG}
     restart: unless-stopped
     volumes:
       - file-upload:/app/upload/
@@ -207,7 +214,9 @@ services:
       additional_contexts:
         common: service:common
       args:
-        - TAG:${TAG}
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -226,7 +235,7 @@ services:
       timeout: 10s
       retries: 120
     hostname: seeders
-    image: ${COMPOSE_PROJECT_NAME}/server:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/server:${TAG}
     restart: on-failure:3
     volumes:
       - ./seed/:/app/seed/:ro
@@ -237,6 +246,7 @@ services:
       context: ../prisma
       dockerfile: ./Dockerfile
       args:
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -248,7 +258,7 @@ services:
     env_file:
       - .env.init
     hostname: init
-    image: ${COMPOSE_PROJECT_NAME}/init:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/init:${TAG}
 
   # Creates self-signed TLS certs for localhost and domain
   certs:
@@ -264,7 +274,7 @@ services:
     env_file:
       - .env.certs
     hostname: certs
-    image: ${COMPOSE_PROJECT_NAME}/certs:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/certs:${TAG}
     volumes:
       - certs-data:/etc/certs/
 

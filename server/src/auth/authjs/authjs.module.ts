@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import { AuthjsMiddleware } from "./authjs.middleware";
 import { AuthjsController } from "./authjs.controller";
 import { PrismaModule } from "@/prisma/prisma.module";
@@ -7,12 +7,7 @@ import { AuthModule } from "../auth.module";
 
 @Module({
   imports: [PrismaModule, SubscriptionModule, AuthModule],
-  providers: [AuthjsMiddleware],
-  exports: [AuthjsMiddleware],
+  providers: [AuthjsMiddleware, AuthjsController],
+  exports: [AuthjsMiddleware, AuthjsController],
 })
-export class AuthjsModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(AuthjsMiddleware).forRoutes("*");
-    consumer.apply(AuthjsController).forRoutes("authjs");
-  }
-}
+export class AuthjsModule {}
