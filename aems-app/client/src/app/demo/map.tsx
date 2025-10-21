@@ -3,22 +3,32 @@
 import {
   FullscreenControl,
   GeolocateControl,
-  Layer,
   Map as MapGL,
   NavigationControl,
   ScaleControl,
-  Source,
+  useControl,
 } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useCallback, useContext, useMemo } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { compilePreferences, CurrentContext, PreferencesContext } from "../components/providers";
 import { MapLayerMouseEvent, RequestTransformFunction } from "maplibre-gl";
 import { useLazyQuery } from "@apollo/client";
 import { AreaGeographiesDocument } from "@/graphql-codegen/graphql";
 import { typeofObject } from "@local/common";
 import { Colors } from "@blueprintjs/core";
+import { MapboxOverlay, MapboxOverlayProps } from "@deck.gl/mapbox";
+import { LayersList } from "@deck.gl/core";
+import { GeoJsonLayer } from "@deck.gl/layers";
+
+function DeckGLOverlay(props: MapboxOverlayProps) {
+  const overlay = useControl<MapboxOverlay>(() => new MapboxOverlay(props));
+  overlay.setProps(props);
+  return null;
+}
 
 export function Map() {
+  const [layers, setLayers] = useState<LayersList>([]);
+
   const { preferences } = useContext(PreferencesContext);
   const { current } = useContext(CurrentContext);
 
@@ -35,6 +45,21 @@ export function Map() {
     }),
     [data],
   );
+
+  useEffect(() => {
+    setLayers([
+      new GeoJsonLayer({
+        id: "geojson-layer",
+        data: geojson,
+        filled: true,
+        pointRadiusMinPixels: 5,
+        pointRadiusMaxPixels: 10,
+        getFillColor: [0, 128, 255, 100],
+        getLineColor: [0, 0, 0, 200],
+        lineWidthMinPixels: 1,
+      }),
+    ]);
+  }, [setLayers, geojson]);
 
   // relative URLs don't work as the map data is fetched on the server
   const transformRequest: RequestTransformFunction = useCallback(
@@ -79,9 +104,7 @@ export function Map() {
       ]}
       onClick={handleMapClick}
     >
-      <Source type="geojson" data={geojson} id="areas">
-        <Layer id="areas" type="fill" paint={{ "fill-color": Colors.CERULEAN3, "fill-opacity": 0.5 }} />
-      </Source>
+      <DeckGLOverlay layers={layers} interleaved />
       <FullscreenControl />
       <GeolocateControl />
       <NavigationControl />

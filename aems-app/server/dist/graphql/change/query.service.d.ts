@@ -10,11 +10,11 @@ export declare class ChangeQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("key" | "id" | "createdAt" | "updatedAt" | "data" | "userId" | "table" | "mutation")[] | null | undefined;
-        sum?: ("key" | "id" | "createdAt" | "updatedAt" | "data" | "userId" | "table" | "mutation")[] | null | undefined;
-        maximum?: ("key" | "id" | "createdAt" | "updatedAt" | "data" | "userId" | "table" | "mutation")[] | null | undefined;
-        minimum?: ("key" | "id" | "createdAt" | "updatedAt" | "data" | "userId" | "table" | "mutation")[] | null | undefined;
-        average?: ("key" | "id" | "createdAt" | "updatedAt" | "data" | "userId" | "table" | "mutation")[] | null | undefined;
+        count?: ("key" | "id" | "createdAt" | "updatedAt" | "userId" | "data" | "table" | "mutation")[] | null | undefined;
+        sum?: ("key" | "id" | "createdAt" | "updatedAt" | "userId" | "data" | "table" | "mutation")[] | null | undefined;
+        maximum?: ("key" | "id" | "createdAt" | "updatedAt" | "userId" | "data" | "table" | "mutation")[] | null | undefined;
+        minimum?: ("key" | "id" | "createdAt" | "updatedAt" | "userId" | "data" | "table" | "mutation")[] | null | undefined;
+        average?: ("key" | "id" | "createdAt" | "updatedAt" | "userId" | "data" | "table" | "mutation")[] | null | undefined;
     }>;
     readonly ChangeWhereUnique: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;

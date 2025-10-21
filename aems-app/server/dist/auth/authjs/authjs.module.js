@@ -14,17 +14,13 @@ const prisma_module_1 = require("../../prisma/prisma.module");
 const subscription_module_1 = require("../../subscription/subscription.module");
 const auth_module_1 = require("../auth.module");
 let AuthjsModule = class AuthjsModule {
-    configure(consumer) {
-        consumer.apply(authjs_middleware_1.AuthjsMiddleware).forRoutes("*");
-        consumer.apply(authjs_controller_1.AuthjsController).forRoutes("authjs");
-    }
 };
 exports.AuthjsModule = AuthjsModule;
 exports.AuthjsModule = AuthjsModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule, auth_module_1.AuthModule],
-        providers: [authjs_middleware_1.AuthjsMiddleware],
-        exports: [authjs_middleware_1.AuthjsMiddleware],
+        providers: [authjs_middleware_1.AuthjsMiddleware, authjs_controller_1.AuthjsController],
+        exports: [authjs_middleware_1.AuthjsMiddleware, authjs_controller_1.AuthjsController],
     })
 ], AuthjsModule);
 //# sourceMappingURL=authjs.module.js.map
