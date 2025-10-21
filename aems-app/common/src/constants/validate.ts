@@ -38,6 +38,18 @@ class Validate extends Base<IValidate> implements IBase<IValidate> {
         type: "setpoint" as ValidateType,
         options: { default: 80, min: 55, max: 85 },
       },
+      {
+        name: "standbyTime",
+        label: "Standby Time",
+        type: "setpoint" as ValidateType,
+        options: { default: 15, min: 5, max: 60 },
+      },
+      {
+        name: "standbyOffset",
+        label: "Standby Temperature Offset",
+        type: "setpoint" as ValidateType,
+        options: { default: 2, min: 0.0, max: 5 },
+      },
       { name: "startTime", label: "Start Time", type: "schedule" as ValidateType, options: { default: "08:00" } },
       { name: "endTime", label: "End Time", type: "schedule" as ValidateType, options: { default: "18:00" } },
       { name: "occupied", label: "Occupied", type: "schedule" as ValidateType, options: { default: true } },
@@ -142,6 +154,10 @@ class Validate extends Base<IValidate> implements IBase<IValidate> {
   HeatingType = this.parseStrict("heating");
   Cooling = this.parseStrict("cooling");
   CoolingType = this.parseStrict("cooling");
+  StandbyTime = this.parseStrict("standbyTime");
+  StandbyTimeType = this.parseStrict("standbyTime");
+  StandbyOffset = this.parseStrict("standbyOffset");
+  StandbyOffsetType = this.parseStrict("standbyOffset");
 
   StartTime = this.parseStrict("startTime");
   StartTimeType = this.parseStrict("startTime");

@@ -18,7 +18,7 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const graphql_1 = require("graphql");
 let SetpointQuery = class SetpointQuery {
     constructor(builder, prismaService, setpointObject) {
-        const { StringFilter, FloatFilter, DateTimeFilter, PagingInput } = builder;
+        const { StringFilter, IntFilter, FloatFilter, DateTimeFilter, PagingInput } = builder;
         const { SetpointFields } = setpointObject;
         this.SetpointAggregate = builder.inputType("SetpointAggregate", {
             fields: (t) => ({
@@ -48,6 +48,8 @@ let SetpointQuery = class SetpointQuery {
                 deadband: FloatFilter,
                 heating: FloatFilter,
                 cooling: FloatFilter,
+                standbyTime: IntFilter,
+                standbyOffset: FloatFilter,
                 createdAt: DateTimeFilter,
                 updatedAt: DateTimeFilter,
             },
@@ -63,6 +65,8 @@ let SetpointQuery = class SetpointQuery {
                 deadband: true,
                 heating: true,
                 cooling: true,
+                standbyTime: true,
+                standbyOffset: true,
                 createdAt: true,
                 updatedAt: true,
             },

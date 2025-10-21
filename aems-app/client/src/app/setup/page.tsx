@@ -14,7 +14,7 @@ import {
   Position,
   Tooltip,
 } from "@blueprintjs/core";
-import { useContext, useMemo, useState, useCallback, useEffect } from "react";
+import { useContext, useMemo, useState, useCallback } from "react";
 import { useSubscription, useQuery } from "@apollo/client";
 import { useOperationManager } from "../components/hooks/useOperationManager";
 import { useMutationWithTracking } from "../components/hooks/useMutationWithTracking";

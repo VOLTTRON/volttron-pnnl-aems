@@ -1,5 +1,0 @@
-# declare your additional containers or compose files here
-
-include:
-  - path: ./docker/docker-compose.yml
-    project_directory: ./docker/

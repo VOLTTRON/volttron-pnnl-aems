@@ -33,6 +33,8 @@ let SetpointObject = class SetpointObject {
                 deadband: t.exposeFloat("deadband"),
                 heating: t.exposeFloat("heating"),
                 cooling: t.exposeFloat("cooling"),
+                standbyTime: t.exposeInt("standbyTime"),
+                standbyOffset: t.exposeFloat("standbyOffset"),
                 configurations: t.relation("configurations"),
                 schedules: t.relation("schedules"),
             }),

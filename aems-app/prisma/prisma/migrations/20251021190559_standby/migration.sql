@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Setpoint" ADD COLUMN     "standbyOffset" DOUBLE PRECISION NOT NULL DEFAULT 2,
+ADD COLUMN     "standbyTime" INTEGER NOT NULL DEFAULT 15;

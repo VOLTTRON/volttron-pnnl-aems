@@ -61,7 +61,10 @@ const createConfigurationLabel = (unit: Partial<Unit>) => {
   return `${unit.label} - ${parts.weekday}, ${parts.month} ${toOrdinal(now.getDate())} ${parts.year}`;
 };
 
-const createSetpointLabel = (type: "all" | "setpoint" | "deadband" | "heating" | "cooling", setpoint: any): string => {
+const createSetpointLabel = (
+  type: "all" | "setpoint" | "deadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset",
+  setpoint: any,
+): string => {
   switch (type) {
     case "all":
       return `Occupied Setpoint: ${createSetpointLabel("setpoint", setpoint)} Deadband: ${createSetpointLabel(
@@ -71,10 +74,13 @@ const createSetpointLabel = (type: "all" | "setpoint" | "deadband" | "heating" |
         "cooling",
         setpoint,
       )}`;
+    case "standbyTime":
+      return `${setpoint[type]}\xa0min`;
     case "setpoint":
     case "deadband":
     case "heating":
     case "cooling":
+    case "standbyOffset":
     default:
       return `${setpoint[type]}º\xa0F`;
   }
@@ -170,6 +176,8 @@ const createConfigurationDefault = (unit: Partial<Unit>): DeepPartial<UnitFull> 
     deadband: ValidateType.Deadband.options?.default as number,
     heating: ValidateType.Heating.options?.default as number,
     cooling: ValidateType.Cooling.options?.default as number,
+    standbyTime: ValidateType.StandbyTime.options?.default as number,
+    standbyOffset: ValidateType.StandbyOffset.options?.default as number,
   };
   setpoint.label = createSetpointLabel("all", setpoint);
   const schedule: Partial<Schedule> = {

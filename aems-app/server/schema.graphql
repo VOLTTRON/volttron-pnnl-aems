@@ -2035,6 +2035,8 @@ type Setpoint {
   schedules: [Schedule!]
   setpoint: Float
   stage: ModelStage
+  standbyOffset: Float
+  standbyTime: Int
   updatedAt: DateTime
 }
 
@@ -2055,6 +2057,8 @@ input SetpointCreateInput {
   message: String
   setpoint: Float
   stage: ModelStage
+  standbyOffset: Float
+  standbyTime: Int
 }
 
 enum SetpointFields {
@@ -2068,6 +2072,8 @@ enum SetpointFields {
   message
   setpoint
   stage
+  standbyOffset
+  standbyTime
   updatedAt
 }
 
@@ -2085,6 +2091,8 @@ input SetpointFilter {
   message: StringFilter
   setpoint: FloatFilter
   stage: ModelStage
+  standbyOffset: FloatFilter
+  standbyTime: IntFilter
   updatedAt: DateTimeFilter
 }
 
@@ -2101,6 +2109,8 @@ input SetpointOrderBy {
   message: OrderBy
   setpoint: OrderBy
   stage: OrderBy
+  standbyOffset: OrderBy
+  standbyTime: OrderBy
   updatedAt: OrderBy
 }
 
@@ -2117,6 +2127,8 @@ input SetpointUpdateInput {
   message: String
   setpoint: Float
   stage: ModelStage
+  standbyOffset: Float
+  standbyTime: Int
 }
 
 input StringFilter {

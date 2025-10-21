@@ -31,10 +31,6 @@
     {
       "name": "AEMS Edge",
       "path": "aems-edge"
-    },
-    {
-      "name": "Deprecated",
-      "path": "aems-app-deprecated"
     }
   ],
   "settings": {

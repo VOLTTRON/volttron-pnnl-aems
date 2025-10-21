@@ -95,21 +95,18 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
 
   return (
     <div style={{ padding: "1rem" }}>
-      <FormGroup label="Unit Information">
-        <Label>
-          <b>Unit Label</b>
-          <InputGroup
-            type="text"
-            value={label ?? ""}
-            onChange={(e) => {
-              const clone = cloneDeep(editing ?? {});
-              clone.label = e.target.value;
-              setEditing?.(clone);
-            }}
-            readOnly={readOnly}
-            placeholder="Enter unit label"
-          />
-        </Label>
+      <FormGroup label="Unit Label">
+        <InputGroup
+          type="text"
+          value={label ?? ""}
+          onChange={(e) => {
+            const clone = cloneDeep(editing ?? {});
+            clone.label = e.target.value;
+            setEditing?.(clone);
+          }}
+          readOnly={readOnly}
+          placeholder="Enter unit label"
+        />
       </FormGroup>
 
       <Location unit={unit} editing={editing} setEditing={setEditing} readOnly={readOnly} />
@@ -165,9 +162,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 stepSize={0.5}
                 labelStepSize={1}
                 labelRenderer={(v, o) =>
-                  o?.isHandleTooltip || (v > COOLING_PEAK_OFFSET_MIN && v < COOLING_PEAK_OFFSET_MAX)
-                    ? `${v}º\xa0F`
-                    : ""
+                  o?.isHandleTooltip || (v > COOLING_PEAK_OFFSET_MIN && v < COOLING_PEAK_OFFSET_MAX) ? `${v}º\xa0F` : ""
                 }
                 disabled={readOnly || !!peakLoadExclude}
               >
@@ -200,9 +195,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 stepSize={0.5}
                 labelStepSize={1}
                 labelRenderer={(v, o) =>
-                  o?.isHandleTooltip || (v > HEATING_PEAK_OFFSET_MIN && v < HEATING_PEAK_OFFSET_MAX)
-                    ? `${v}º\xa0F`
-                    : ""
+                  o?.isHandleTooltip || (v > HEATING_PEAK_OFFSET_MIN && v < HEATING_PEAK_OFFSET_MAX) ? `${v}º\xa0F` : ""
                 }
                 disabled={readOnly || !!peakLoadExclude}
               >
@@ -338,7 +331,8 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
               disabled={readOnly}
             >
               <Button rightIcon={IconNames.CARET_DOWN} minimal disabled={readOnly}>
-                {ZoneOrientationOptions.find((opt) => opt.name === zoneOrientation)?.label || "Select zone orientation..."}
+                {ZoneOrientationOptions.find((opt) => opt.name === zoneOrientation)?.label ||
+                  "Select zone orientation..."}
               </Button>
             </Popover>
           </Label>
@@ -740,9 +734,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 stepSize={0.5}
                 labelStepSize={5}
                 labelRenderer={(v, o) =>
-                  o?.isHandleTooltip || (v > ECONOMIZER_SETPOINT_MIN && v < ECONOMIZER_SETPOINT_MAX)
-                    ? `${v}º\xa0F`
-                    : ""
+                  o?.isHandleTooltip || (v > ECONOMIZER_SETPOINT_MIN && v < ECONOMIZER_SETPOINT_MAX) ? `${v}º\xa0F` : ""
                 }
                 disabled={readOnly}
               >

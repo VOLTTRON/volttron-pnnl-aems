@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { InputGroup, Button, FormGroup, Label, NumericInput, Tooltip, MenuItem } from "@blueprintjs/core";
+import { InputGroup, Button, FormGroup, NumericInput, Tooltip, MenuItem } from "@blueprintjs/core";
 import { Suggest } from "@blueprintjs/select";
 import { IconNames } from "@blueprintjs/icons";
 import { cloneDeep } from "lodash";
@@ -162,89 +162,77 @@ export function Location({ unit, editing, setEditing, readOnly = false }: Locati
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
         <FormGroup label="Unit Location">
-          <Label>
-            <b>Unit Location</b>
-            <InputGroup
-              type="text"
-              value={formatLocationName(location)}
-              readOnly
-              rightElement={
-                <Tooltip content={createGoogleMapsUrl(location)}>
-                  <Button
-                    icon={IconNames.MAP}
-                    onClick={() => window.open(createGoogleMapsUrl(location), "_blank")}
-                    minimal
-                  />
-                </Tooltip>
-              }
-            />
-          </Label>
+          <InputGroup
+            type="text"
+            value={formatLocationName(location)}
+            readOnly
+            rightElement={
+              <Tooltip content={createGoogleMapsUrl(location)}>
+                <Button
+                  icon={IconNames.MAP}
+                  onClick={() => window.open(createGoogleMapsUrl(location), "_blank")}
+                  minimal
+                />
+              </Tooltip>
+            }
+          />
         </FormGroup>
 
         <FormGroup label="Location Search">
-          <Label>
-            <b>Search Location</b>
-            <Suggest<LocationResult>
-              items={results}
-              itemRenderer={renderLocationItem}
-              onItemSelect={handleLocationSelect}
-              onQueryChange={handleQueryChange}
-              inputValueRenderer={(item) => item.display_name || item.name}
-              noResults={<MenuItem disabled text="No results found" />}
-              disabled={readOnly}
-              fill
-              inputProps={{
-                placeholder: "Search for location...",
-                rightElement: (
-                  <Button
-                    icon={IconNames.SEARCH}
-                    minimal
-                    onClick={() => handleManualSearch(query)}
-                    loading={loading}
-                    disabled={readOnly}
-                  />
-                ),
-              }}
-              popoverProps={{
-                minimal: true,
-                matchTargetWidth: true,
-              }}
-            />
-          </Label>
+          <Suggest<LocationResult>
+            items={results}
+            itemRenderer={renderLocationItem}
+            onItemSelect={handleLocationSelect}
+            onQueryChange={handleQueryChange}
+            inputValueRenderer={(item) => item.display_name || item.name}
+            noResults={<MenuItem disabled text="No results found" />}
+            disabled={readOnly}
+            fill
+            inputProps={{
+              placeholder: "Search for location...",
+              rightElement: (
+                <Button
+                  icon={IconNames.SEARCH}
+                  minimal
+                  onClick={() => handleManualSearch(query)}
+                  loading={loading}
+                  disabled={readOnly}
+                />
+              ),
+            }}
+            popoverProps={{
+              minimal: true,
+              matchTargetWidth: true,
+            }}
+          />
         </FormGroup>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-        <FormGroup label="Coordinates">
-          <Label>
-            <b>Longitude</b>
-            <NumericInput
-              value={location?.longitude || 0}
-              onValueChange={handleLongitudeChange}
-              min={-180}
-              max={180}
-              stepSize={0.0001}
-              minorStepSize={0.0001}
-              fill
-              disabled={readOnly}
-            />
-          </Label>
+        <FormGroup label="Longitude">
+          <NumericInput
+            value={location?.longitude || 0}
+            onValueChange={handleLongitudeChange}
+            min={-180}
+            max={180}
+            stepSize={0.0001}
+            minorStepSize={0.0001}
+            fill
+            disabled={readOnly}
+          />
         </FormGroup>
 
         <FormGroup label="Latitude">
-          <Label>
-            <b>Latitude</b>
-            <NumericInput
-              value={location?.latitude || 0}
-              onValueChange={handleLatitudeChange}
-              min={-90}
-              max={90}
-              stepSize={0.0001}
-              minorStepSize={0.0001}
-              fill
-              disabled={readOnly}
-            />
-          </Label>
+          <NumericInput
+            value={location?.latitude || 0}
+            onValueChange={handleLatitudeChange}
+            min={-90}
+            max={90}
+            stepSize={0.0001}
+            minorStepSize={0.0001}
+            fill
+            disabled={readOnly}
+          />
         </FormGroup>
       </div>
     </div>

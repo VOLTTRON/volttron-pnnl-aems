@@ -28,6 +28,18 @@ class Validate extends base_1.default {
                 type: "setpoint",
                 options: { default: 80, min: 55, max: 85 },
             },
+            {
+                name: "standbyTime",
+                label: "Standby Time",
+                type: "setpoint",
+                options: { default: 15, min: 5, max: 60 },
+            },
+            {
+                name: "standbyOffset",
+                label: "Standby Temperature Offset",
+                type: "setpoint",
+                options: { default: 2, min: 0.0, max: 5 },
+            },
             { name: "startTime", label: "Start Time", type: "schedule", options: { default: "08:00" } },
             { name: "endTime", label: "End Time", type: "schedule", options: { default: "18:00" } },
             { name: "occupied", label: "Occupied", type: "schedule", options: { default: true } },
@@ -129,6 +141,10 @@ class Validate extends base_1.default {
         this.HeatingType = this.parseStrict("heating");
         this.Cooling = this.parseStrict("cooling");
         this.CoolingType = this.parseStrict("cooling");
+        this.StandbyTime = this.parseStrict("standbyTime");
+        this.StandbyTimeType = this.parseStrict("standbyTime");
+        this.StandbyOffset = this.parseStrict("standbyOffset");
+        this.StandbyOffsetType = this.parseStrict("standbyOffset");
         this.StartTime = this.parseStrict("startTime");
         this.StartTimeType = this.parseStrict("startTime");
         this.EndTime = this.parseStrict("endTime");

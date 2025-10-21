@@ -13,6 +13,8 @@ model Setpoint {
     deadband       Float           @default(4)
     heating        Float           @default(60)
     cooling        Float           @default(80)
+    standbyTime    Int             @default(15)
+    standbyOffset  Float           @default(2)
     // indirect relations
     configurations Configuration[] @relation("Configurations_setpoints")
     schedules      Schedule[]      @relation("Schedules_setpoints")

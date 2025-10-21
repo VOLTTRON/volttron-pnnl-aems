@@ -15,7 +15,7 @@ export class SetpointQuery {
   readonly SetpointOrderBy;
 
   constructor(builder: SchemaBuilderService, prismaService: PrismaService, setpointObject: SetpointObject) {
-    const { StringFilter, FloatFilter, DateTimeFilter, PagingInput } = builder;
+    const { StringFilter, IntFilter, FloatFilter, DateTimeFilter, PagingInput } = builder;
     const { SetpointFields } = setpointObject;
 
     this.SetpointAggregate = builder.inputType("SetpointAggregate", {
@@ -48,6 +48,8 @@ export class SetpointQuery {
         deadband: FloatFilter,
         heating: FloatFilter,
         cooling: FloatFilter,
+        standbyTime: IntFilter,
+        standbyOffset: FloatFilter,
         createdAt: DateTimeFilter,
         updatedAt: DateTimeFilter,
       },
@@ -64,6 +66,8 @@ export class SetpointQuery {
         deadband: true,
         heating: true,
         cooling: true,
+        standbyTime: true,
+        standbyOffset: true,
         createdAt: true,
         updatedAt: true,
       },

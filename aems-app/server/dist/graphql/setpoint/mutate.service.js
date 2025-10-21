@@ -30,6 +30,8 @@ let SetpointMutation = class SetpointMutation {
                 deadband: "Float",
                 heating: "Float",
                 cooling: "Float",
+                standbyTime: "Int",
+                standbyOffset: "Float",
             },
         });
         this.SetpointUpdate = builder.prismaUpdate("Setpoint", {
@@ -42,6 +44,8 @@ let SetpointMutation = class SetpointMutation {
                 deadband: "Float",
                 heating: "Float",
                 cooling: "Float",
+                standbyTime: "Int",
+                standbyOffset: "Float",
             },
         });
         const { SetpointCreate, SetpointUpdate } = this;

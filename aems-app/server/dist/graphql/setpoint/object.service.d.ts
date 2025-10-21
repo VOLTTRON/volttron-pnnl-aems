@@ -42,12 +42,14 @@ export declare class SetpointObject {
         deadband: number;
         heating: number;
         cooling: number;
+        standbyTime: number;
+        standbyOffset: number;
     }>;
     readonly SetpointFields: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling", "id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling">;
+    }>, "id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset", "id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset">;
     constructor(builder: SchemaBuilderService);
 }

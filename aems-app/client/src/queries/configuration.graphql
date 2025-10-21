@@ -17,6 +17,8 @@ query ReadConfiguration($where: ConfigurationUniqueFilter!) {
       deadband
       heating
       cooling
+      standbyTime
+      standbyOffset
     }
     holidays {
       id
@@ -65,6 +67,8 @@ query ReadConfigurations(
       deadband
       heating
       cooling
+      standbyTime
+      standbyOffset
     }
     holidays {
       id
@@ -132,6 +136,8 @@ subscription SubscribeConfiguration($where: ConfigurationUniqueFilter!) {
       deadband
       heating
       cooling
+      standbyTime
+      standbyOffset
     }
     holidays {
       id
@@ -180,6 +186,8 @@ subscription SubscribeConfigurations(
       deadband
       heating
       cooling
+      standbyTime
+      standbyOffset
     }
     holidays {
       id

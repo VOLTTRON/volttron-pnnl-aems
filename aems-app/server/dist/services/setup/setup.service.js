@@ -39,10 +39,13 @@ const createSetpointLabel = (type, setpoint) => {
     switch (type) {
         case "all":
             return `Occupied Setpoint: ${createSetpointLabel("setpoint", setpoint)} Deadband: ${createSetpointLabel("deadband", setpoint)} Unoccupied Heating: ${createSetpointLabel("heating", setpoint)} Cooling: ${createSetpointLabel("cooling", setpoint)}`;
+        case "standbyTime":
+            return `${setpoint[type]}\xa0min`;
         case "setpoint":
         case "deadband":
         case "heating":
         case "cooling":
+        case "standbyOffset":
         default:
             return `${setpoint[type]}º\xa0F`;
     }
@@ -122,6 +125,8 @@ const createConfigurationDefault = (unit) => {
         deadband: common_1.ValidateType.Deadband.options?.default,
         heating: common_1.ValidateType.Heating.options?.default,
         cooling: common_1.ValidateType.Cooling.options?.default,
+        standbyTime: common_1.ValidateType.StandbyTime.options?.default,
+        standbyOffset: common_1.ValidateType.StandbyOffset.options?.default,
     };
     setpoint.label = createSetpointLabel("all", setpoint);
     const schedule = {
