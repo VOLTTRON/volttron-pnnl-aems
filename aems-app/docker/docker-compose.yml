@@ -1,5 +1,4 @@
 services:
-
   # Proxy that can be configured for HTTP or HTTPS
   proxy:
     command:
@@ -17,91 +16,176 @@ services:
       - --certificatesresolvers.letsencrypt.acme.storage=/etc/certs/letsencrypt.json
     container_name: ${COMPOSE_PROJECT_NAME}-proxy
     depends_on:
-      init:
+      certs:
         condition: service_completed_successfully
     hostname: proxy
-    image: traefik:v2.10
+    image: traefik:v3.5.3
     labels:
       - traefik.tls.stores.default.defaultgeneratedcert.resolver=${CERT_RESOLVER}
       - traefik.tls.stores.default.defaultgeneratedcert.domain.main=${HOSTNAME}
       - traefik.tls.stores.default.defaultgeneratedcert.domain.sans=*.${HOSTNAME}
+      - traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https,wss
     ports:
       - 80:80
       - 443:443
-      - ${TRAEFIK_PORT}:8080
+      - ${TRAEFIK_TEST_PORT}:8080
     profiles:
       - proxy
     restart: unless-stopped
     user: root:root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./certs/:/etc/certs/:ro
+      - certs-data:/etc/certs/:ro
       - ./proxy/certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
+      - ./proxy/volttron-transport.yml:/etc/traefik/dynamic/volttron-transport.yml
 
-  # Application that hosts static files and API
-  app:
+  # Common libraries
+  common:
     build:
-      context: ../app
-      dockerfile: ./Dockerfile
+      context: ../
+      dockerfile: ./common/Dockerfile
       args:
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
         - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
-    container_name: ${COMPOSE_PROJECT_NAME}-app
+    container_name: ${COMPOSE_PROJECT_NAME}-common
+    env_file:
+      - .env.init
+    image: ${COMPOSE_PROJECT_NAME}/common:${TAG}
+
+  # Application that hosts static files and API
+  client:
+    build:
+      context: ../client
+      dockerfile: ./Dockerfile
+      args:
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - TAG=${TAG}
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+    # container_name: ${COMPOSE_PROJECT_NAME}-client
     depends_on:
+      common:
+        condition: service_completed_successfully
       init:
         condition: service_completed_successfully
       database:
         condition: service_started
+    # deploy:
+    #   mode: replicated
+    #   endpoint_mode: vip
+    #   replicas: 2
     env_file:
-      - .env.app
+      - .env.client
     healthcheck:
       test: "curl --fail http://localhost:3000 || exit 1"
       interval: 10s
       timeout: 10s
       retries: 120
-    hostname: app
-    image: nextapp:${TAG}
+    hostname: client
+    image: ${COMPOSE_PROJECT_NAME}/client:${TAG}
     labels:
       - traefik.enable=true
-      - traefik.http.services.nextapp.loadbalancer.server.port=3000
-      - traefik.http.middlewares.app-security.headers.browserXssFilter=true
-      - traefik.http.middlewares.app-security.headers.contentTypeNosniff=true
-      - traefik.http.middlewares.app-security.headers.forceSTSHeader=true
-      - traefik.http.middlewares.app-security.headers.frameDeny=true
-      - traefik.http.middlewares.app-security.headers.referrerPolicy=same-origin
-      - traefik.http.middlewares.app-security.headers.sslRedirect=true
-      - traefik.http.middlewares.app-security.headers.stsSeconds=31536000
-      - traefik.http.routers.app-http.entrypoints=web
-      - traefik.http.routers.app-http.rule=Host(`${HOSTNAME}`)
-      - traefik.http.routers.app-http.middlewares=app-https
-      - traefik.http.middlewares.app-https.redirectscheme.scheme=https
-      - traefik.http.routers.app.entrypoints=websecure
-      - traefik.http.routers.app.rule=Host(`${HOSTNAME}`)
-      - traefik.http.routers.app.middlewares=app-security
-      - traefik.http.routers.app.tls=true
-      - traefik.http.routers.app.tls.certresolver=${CERT_RESOLVER}
+      - traefik.http.services.client.loadbalancer.server.port=3000
+      - traefik.http.middlewares.client-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.client-security.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.client-security.headers.forceSTSHeader=true
+      - traefik.http.middlewares.client-security.headers.frameDeny=true
+      - traefik.http.middlewares.client-security.headers.referrerPolicy=same-origin
+      - traefik.http.middlewares.client-security.headers.sslRedirect=true
+      - traefik.http.middlewares.client-security.headers.stsSeconds=31536000
+      - traefik.http.routers.client-http.entrypoints=web
+      - traefik.http.routers.client-http.rule=Host(`${HOSTNAME}`)
+      - traefik.http.routers.client-http.middlewares=client-https
+      - traefik.http.middlewares.client-https.redirectscheme.scheme=https
+      - traefik.http.routers.client.entrypoints=websecure
+      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`) && !PathPrefix(`/authjs`) && !PathPrefix(`/graphql`) && !PathPrefix(`/api`) && !PathPrefix(`/ext`) && !PathPrefix(`/auth/sso/`) && !PathPrefix(`/volttron`)
+      - traefik.http.routers.client.middlewares=client-security
+      - traefik.http.routers.client.tls=true
+      - traefik.http.routers.client.tls.certresolver=${CERT_RESOLVER}
     ports:
-      - ${APP_PORT}:3000
+      - ${CLIENT_TEST_PORT}:3000
     restart: unless-stopped
     volumes:
-      - app-data:/app/data
-      - app-cache:/app/.next/cache
-      - app-upload:/app/upload/
+      - client-cache:/app/.next/cache
+
+  # Runs application backend server
+  server:
+    build:
+      context: ../server
+      dockerfile: ./Dockerfile
+      args:
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - TAG=${TAG}
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+    # container_name: ${COMPOSE_PROJECT_NAME}-server
+    depends_on:
+      common:
+        condition: service_completed_successfully
+      init:
+        condition: service_completed_successfully
+      database:
+        condition: service_started
+    # deploy:
+    #   mode: replicated
+    #   endpoint_mode: vip
+    #   replicas: 2
+    env_file:
+      - .env.server
+    healthcheck:
+      test: "curl http://localhost:3000/graphql"
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    hostname: server
+    image: ${COMPOSE_PROJECT_NAME}/server:${TAG}
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.server.loadbalancer.server.port=3000
+      - traefik.http.middlewares.server-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.server-security.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.server-security.headers.forceSTSHeader=true
+      - traefik.http.middlewares.server-security.headers.frameDeny=true
+      - traefik.http.middlewares.server-security.headers.referrerPolicy=same-origin
+      - traefik.http.middlewares.server-security.headers.sslRedirect=true
+      - traefik.http.middlewares.server-security.headers.stsSeconds=31536000
+      - traefik.http.routers.server-http.entrypoints=web
+      - traefik.http.routers.server-http.rule=Host(`${HOSTNAME}`)
+      - traefik.http.routers.server-http.middlewares=server-https
+      - traefik.http.middlewares.server-https.redirectscheme.scheme=https
+      - traefik.http.routers.server.entrypoints=websecure
+      - traefik.http.routers.server.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/authjs`) || PathPrefix(`/graphql`) || PathPrefix(`/api`) || PathPrefix(`/ext`))
+      - traefik.http.routers.server.middlewares=server-security
+      - traefik.http.routers.server.tls=true
+      - traefik.http.routers.server.tls.certresolver=${CERT_RESOLVER}
+    ports:
+      - ${SERVER_TEST_PORT}:3000
+    restart: unless-stopped
+    volumes:
+      - file-upload:/app/upload/
 
   # Runs application services
   services:
     build:
-      context: ../app
+      context: ../server
       dockerfile: ./Dockerfile
       args:
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
         - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
     container_name: ${COMPOSE_PROJECT_NAME}-services
     depends_on:
+      common:
+        condition: service_completed_successfully
       init:
         condition: service_completed_successfully
       database:
@@ -109,51 +193,60 @@ services:
     env_file:
       - .env.services
     healthcheck:
-      test: "curl http://localhost:3000/api/graphql"
+      test: "curl http://localhost:3000/graphql"
       interval: 10s
       timeout: 10s
       retries: 120
     hostname: services
-    image: nextapp:${TAG}
+    image: ${COMPOSE_PROJECT_NAME}/server:${TAG}
     restart: unless-stopped
     volumes:
-      - app-data:/app/data
-      - app-upload:/app/upload/
-      - ./certs/:/etc/certs/:ro
-      - ./init/:/app/seed/:ro
-      - ../../aems-edge/:/app/aems-edge/:ro
+      - file-upload:/app/upload/
+      - certs-data:/certs/:ro
+      - ./volttron/:/app/configurations/
+    # Runs application seeders
+  seeders:
+    build:
+      context: ../server
+      dockerfile: ./Dockerfile
+      args:
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - TAG=${TAG}
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+    container_name: ${COMPOSE_PROJECT_NAME}-seeders
+    depends_on:
+      common:
+        condition: service_completed_successfully
+      init:
+        condition: service_completed_successfully
+      database:
+        condition: service_started
+    env_file:
+      - .env.seeders
+    healthcheck:
+      test: "curl http://localhost:3000/graphql"
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    hostname: seeders
+    image: ${COMPOSE_PROJECT_NAME}/server:${TAG}
+    restart: on-failure:3
+    volumes:
+      - ./seed/:/app/seed/:ro
 
-  # Creates self-signed TLS certs for localhost and domain and runs relational database migrations on startup
+  # Runs relational database migrations on startup
   init:
     build:
-      context: ../app
-      dockerfile: ./Dockerfile.init
+      context: ../prisma
+      dockerfile: ./Dockerfile
       args:
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
         - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
-    command: >
-      bash -c '
-        if [ ! -f /etc/certs/mkcert-ca.crt ]; then
-          mkcert create-ca \
-            --key "/etc/certs/mkcert-ca.key" \
-            --cert "/etc/certs/mkcert-ca.crt"
-        fi;
-        if [ ! -f /etc/certs/mkcert-hostname.crt ]; then
-          mkcert create-cert \
-            --ca-key "/etc/certs/mkcert-ca.key" \
-            --ca-cert "/etc/certs/mkcert-ca.crt" \
-            --key "/etc/certs/mkcert-hostname.key" \
-            --cert "/etc/certs/mkcert-hostname.crt" \
-            --domain "${HOSTNAME}"
-        fi;
-        cd /app/;
-        chmod 775 data upload;
-        chmod 664 /etc/certs/mkcert-ca.crt;
-        chmod -R 775 ./lib;
-        yarn migrate:deploy;
-      '
     container_name: ${COMPOSE_PROJECT_NAME}-init
     depends_on:
       database:
@@ -161,13 +254,25 @@ services:
     env_file:
       - .env.init
     hostname: init
-    image: init:${TAG}
-    user: root:root
+    image: ${COMPOSE_PROJECT_NAME}/init:${TAG}
+
+  # Creates self-signed TLS certs for localhost and domain
+  certs:
+    build:
+      context: ./certs
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+    container_name: ${COMPOSE_PROJECT_NAME}-certs
+    env_file:
+      - .env.certs
+    hostname: certs
+    image: ${COMPOSE_PROJECT_NAME}/certs:${TAG}
     volumes:
-      - app-data:/app/data/
-      - app-upload:/app/upload
-      - ./certs/:/etc/certs/
-      - ./init/:/app/seed/:ro
+      - certs-data:/etc/certs/
 
   # Application relational database
   database:
@@ -177,14 +282,14 @@ services:
     env_file:
       - .env.database
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready" ]
+      test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
       timeout: 10s
       retries: 10
     hostname: database
     image: postgis/postgis:16-3.4
     ports:
-      - ${DATABASE_PORT}:5432
+      - ${DATABASE_TEST_PORT}:5432
     restart: unless-stopped
     volumes:
       - database-data:/var/lib/postgresql/data
@@ -192,16 +297,24 @@ services:
   # Redis
   redis:
     container_name: ${COMPOSE_PROJECT_NAME}-redis
+    env_file:
+      - .env.redis
     hostname: redis
     image: redis:6.2
+    ports:
+      - ${REDIS_TEST_PORT}:6379
+    profiles:
+      - redis
     restart: unless-stopped
 
   # Open Street Map Tiles
   maptiles:
-    command: [ "--port", "80", "--public_url", "/ext/map", "--verbose" ]
+    command: ["--port", "80", "--public_url", "/ext/map", "--verbose"]
     container_name: ${COMPOSE_PROJECT_NAME}-maptiles
     hostname: map
     image: maptiler/tileserver-gl:latest
+    ports:
+      - ${MAPTILES_TEST_PORT}:80
     profiles:
       - map
     restart: unless-stopped
@@ -215,6 +328,8 @@ services:
       - .env.nominatim
     hostname: nominatim
     image: mediagis/nominatim:4.4
+    ports:
+      - ${NOMINATIM_TEST_PORT}:80
     profiles:
       - nom
     restart: unless-stopped
@@ -236,6 +351,8 @@ services:
       - .env.wiki
     hostname: wiki
     image: lscr.io/linuxserver/bookstack
+    ports:
+      - ${BOOKSTACK_TEST_PORT}:80
     profiles:
       - wiki
     restart: unless-stopped
@@ -252,6 +369,8 @@ services:
       - .env.wiki
     hostname: wiki-db
     image: lscr.io/linuxserver/mariadb
+    ports:
+      - ${BOOKSTACK_DATABASE_TEST_PORT}:3306
     profiles:
       - wiki
     restart: unless-stopped
@@ -260,7 +379,7 @@ services:
 
   # Keycloak for single sign-on
   keycloak:
-    command: start
+    command: ["start", "--import-realm"]
     container_name: ${COMPOSE_PROJECT_NAME}-keycloak
     depends_on:
       keycloak-db:
@@ -280,11 +399,11 @@ services:
       - traefik.http.middlewares.keycloak-security.headers.sslRedirect=true
       - traefik.http.middlewares.keycloak-security.headers.stsSeconds=31536000
       - traefik.http.routers.keycloak-http.entrypoints=web
-      - traefik.http.routers.keycloak-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/auth/sso/js/`, `/auth/sso/realms/`, `/auth/sso/resources/`, `/auth/sso/robots.txt`)
+      - traefik.http.routers.keycloak-http.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/auth/sso/js/`) || PathPrefix(`/auth/sso/realms/`) || PathPrefix(`/auth/sso/resources/`) || PathPrefix(`/auth/sso/robots.txt`))
       - traefik.http.routers.keycloak-http.middlewares=keycloak-https
       - traefik.http.middlewares.keycloak-https.redirectscheme.scheme=https
       - traefik.http.routers.keycloak.entrypoints=websecure
-      - traefik.http.routers.keycloak.rule=Host(`${HOSTNAME}`) && PathPrefix(`/auth/sso/js/`, `/auth/sso/realms/`, `/auth/sso/resources/`, `/auth/sso/robots.txt`)
+      - traefik.http.routers.keycloak.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/auth/sso/js/`) || PathPrefix(`/auth/sso/realms/`) || PathPrefix(`/auth/sso/resources/`) || PathPrefix(`/auth/sso/robots.txt`))
       - traefik.http.routers.keycloak.middlewares=keycloak-security
       - traefik.http.routers.keycloak.tls=true
       - traefik.http.routers.keycloak.tls.certresolver=${CERT_RESOLVER}
@@ -294,12 +413,13 @@ services:
       - traefik.http.routers.keycloak-admin.tls=true
       - traefik.http.routers.keycloak-admin.tls.certresolver=${CERT_RESOLVER}
     ports:
-      - ${KEYCLOAK_PORT}:8080
+      - ${KEYCLOAK_TEST_PORT}:8080
     profiles:
       - sso
     restart: unless-stopped
     volumes:
       - keycloak-cache:/opt/jboss/keycloak/standalone/data
+      - ./keycloak/default-realm.json:/opt/keycloak/data/import/default-realm.json
 
   # Keycloak database
   keycloak-db:
@@ -309,7 +429,7 @@ services:
     env_file:
       - .env.keycloak
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready" ]
+      test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -321,12 +441,109 @@ services:
     volumes:
       - keycloak-data:/var/lib/postgresql/data
 
+  # Creates Volttron configurations on startup
+  setup:
+    build:
+      context: ../../aems-edge
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+    container_name: ${COMPOSE_PROJECT_NAME}-setup
+    environment:
+      - VOLTTRON_CAMPUS=${VOLTTRON_CAMPUS}
+      - VOLTTRON_BUILDING=${VOLTTRON_BUILDING}
+      - VOLTTRON_PREFIX=${VOLTTRON_PREFIX}
+      - VOLTTRON_GATEWAY_ADDRESS=${VOLTTRON_GATEWAY_ADDRESS}
+      - VOLTTRON_TIMEZONE=${VOLTTRON_TIMEZONE}
+      - VOLTTRON_NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS}
+      - VOLTTRON_WEATHER_STATION=${VOLTTRON_WEATHER_STATION}
+      - VOLTTRON_REGISTRY_FILE_PATH=${VOLTTRON_REGISTRY_FILE_PATH}
+      - VOLTTRON_BACNET_ADDRESS=${VOLTTRON_BACNET_ADDRESS}
+      - VOLTTRON_ILC=${VOLTTRON_ILC}
+    hostname: setup
+    image: ${COMPOSE_PROJECT_NAME}/setup:${TAG}
+    restart: no
+    volumes:
+      - ./volttron/:/home/user/configs/
+
+  # Volttron - runs on host network for direct access
+  volttron:
+    container_name: ${COMPOSE_PROJECT_NAME}-volttron
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+      certs:
+        condition: service_completed_successfully
+    environment:
+      - CONFIG=/home/volttron/configurations/configs
+      - AEMS=/code/aems
+      - ILC=/code/ilc
+      - LOCAL_USER_ID=1000
+    hostname: volttron
+    image: eclipsevolttron/volttron-aems-ilc
+    network_mode: host
+    profiles:
+      - volttron
+    restart: unless-stopped
+    volumes:
+      - volttron-data:/home/volttron/db
+      - ./volttron/platform_config.yml:/platform_config.yml
+      - ./volttron/configs/:/home/volttron/configurations/
+
+  # Volttron proxy bridge - connects Docker network to host-networked VOLTTRON
+  volttron-bridge:
+    container_name: ${COMPOSE_PROJECT_NAME}-volttron-bridge
+    depends_on:
+      volttron:
+        condition: service_started
+    image: alpine:latest
+    hostname: volttron-bridge
+    command: ["/proxy/volttron-socat.sh"]
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.volttron.loadbalancer.server.port=8443
+      - traefik.http.services.volttron.loadbalancer.server.scheme=http
+      - traefik.http.services.volttron.loadbalancer.serversTransport=volttron-transport@file
+      - traefik.http.middlewares.volttron-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.volttron-security.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.volttron-security.headers.forceSTSHeader=true
+      - traefik.http.middlewares.volttron-security.headers.frameDeny=false
+      - traefik.http.middlewares.volttron-security.headers.referrerPolicy=same-origin
+      - traefik.http.middlewares.volttron-security.headers.sslRedirect=true
+      - traefik.http.middlewares.volttron-security.headers.stsSeconds=31536000
+      - traefik.http.middlewares.volttron-stripprefix.stripprefix.prefixes=/volttron
+      - traefik.http.middlewares.volttron-redirect.redirectregex.regex=^(.*)volttron$$
+      - traefik.http.middlewares.volttron-redirect.redirectregex.replacement=$${1}volttron/index.html
+      - traefik.http.routers.volttron-http.entrypoints=web
+      - traefik.http.routers.volttron-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/volttron`)
+      - traefik.http.routers.volttron-http.middlewares=volttron-https
+      - traefik.http.middlewares.volttron-https.redirectscheme.scheme=https
+      - traefik.http.routers.volttron-root.entrypoints=websecure
+      - traefik.http.routers.volttron-root.rule=Host(`${HOSTNAME}`) && Path(`/volttron`)
+      - traefik.http.routers.volttron-root.middlewares=volttron-redirect
+      - traefik.http.routers.volttron-root.priority=100
+      - traefik.http.routers.volttron-root.tls=true
+      - traefik.http.routers.volttron-root.tls.certresolver=${CERT_RESOLVER}
+      - traefik.http.routers.volttron.entrypoints=websecure
+      - traefik.http.routers.volttron.rule=Host(`${HOSTNAME}`) && PathPrefix(`/volttron`) && !Path(`/volttron`)
+      - traefik.http.routers.volttron.middlewares=volttron-stripprefix,volttron-security
+      - traefik.http.routers.volttron.priority=100
+      - traefik.http.routers.volttron.tls=true
+      - traefik.http.routers.volttron.tls.certresolver=${CERT_RESOLVER}
+    profiles:
+      - volttron
+    restart: unless-stopped
+    volumes:
+      - ./proxy/volttron-socat.sh:/proxy/volttron-socat.sh:ro
+
 volumes:
-  app-data:
+  certs-data:
     driver: local
-  app-cache:
+  client-cache:
     driver: local
-  app-upload:
+  file-upload:
     driver: local
   database-data:
     driver: local
@@ -341,4 +558,6 @@ volumes:
   keycloak-data:
     driver: local
   keycloak-cache:
+    driver: local
+  volttron-data:
     driver: local

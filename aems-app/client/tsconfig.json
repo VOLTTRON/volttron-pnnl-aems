@@ -1,32 +1,33 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
     "allowJs": true,
-    "skipLibCheck": true,
+    "baseUrl": "./",
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": true,
-    "module": "es2020",
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
+    "incremental": true,
     "isolatedModules": true,
+    "jsx": "preserve",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noImplicitAny": true,
     "noEmit": true,
-    "jsx": "react-jsx",
-    "baseUrl": "src",
     "paths": {
-      "*": ["./*"],
-      "components/*": ["./components/*"],
-      "controllers/*": ["./controllers/*"],
-      "routes/*": ["./routes/*"],
-      "utils/*": ["./utils/*"]
-  }
+      "@/*": ["src/*"]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      },
+      {
+        "name": "@0no-co/graphqlsp",
+        "schema": "../schema.graphql"
+      }
+    ],
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ESNext"
   },
-  "include": ["src/**/*"]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.json", ".next/types/**/*.ts", "modules/server/server.ts"],
+  "exclude": ["typings/browser.d.ts", "typings/browser", "node_modules", "modules"]
 }

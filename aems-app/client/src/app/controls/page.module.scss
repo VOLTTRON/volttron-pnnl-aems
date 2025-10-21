@@ -1,0 +1,88 @@
+@import "@/app/global.module.scss";
+
+.table {
+    width: 100%;
+
+    >table {
+        width: 100%;
+        margin-bottom: 1em;
+    }
+}
+
+.container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.title {
+  margin: 0;
+  color: var(--bp5-text-color);
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.searchInput {
+  min-width: 300px;
+}
+
+.tableContainer {
+  background: var(--bp5-card-background-color);
+  border-radius: 6px;
+  border: 1px solid var(--bp5-border-color);
+  overflow: hidden;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 5px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--bp5-text-color-muted);
+}
+
+.loadingState {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.errorState {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--bp5-intent-danger);
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-top: 1px solid var(--bp5-border-color);
+  background: var(--bp5-background-color);
+}
+
+.paginationInfo {
+  color: var(--bp5-text-color-muted);
+  font-size: 14px;
+}
+
+.paginationControls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}

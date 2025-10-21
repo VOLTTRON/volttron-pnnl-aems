@@ -1,0 +1,50 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Client:setup",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["install"],
+      "cwd": "${workspaceRoot}",
+      "timeout": 10000
+    },
+    {
+      "name": "Client:build",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["build"],
+      "cwd": "${workspaceRoot}",
+      "timeout": 10000
+    },
+    {
+      "name": "Client:start",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["start"],
+      "cwd": "${workspaceRoot}",
+      "timeout": 10000
+    },
+    {
+      "name": "Chrome:web",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "Chrome:graphql",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000/graphql"
+    },
+    {
+      "name": "Chrome:api",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000/swagger"
+    }
+  ]
+}

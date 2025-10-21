@@ -1,7 +1,7 @@
 import { isNumber, isString } from "lodash";
 
 /**
- * Create an RGBA color with the specified opactity.
+ * Create an RGBA color with the specified opacity.
  *
  * @param {String} color hex rgb or argb
  * @param {Number} alpha 0.0 to 1.0
@@ -10,7 +10,7 @@ export const opacity = (color: string, alpha: number) => {
   const a = Math.floor(alpha * 255.0).toString(16);
   const [, m] = color.match(/^(?:#|0x)(?:[a-f0-9]{2})?([a-f0-9]{6})$/i) || [];
   if (!m) {
-    throw new Error(`Color is not a vaid hex rgb or argb value: ${color}`);
+    throw new Error(`Color is not a valid hex rgb or argb value: ${color}`);
   }
   const rgb = m.toLocaleLowerCase();
   return `#${a}${rgb}`;
@@ -39,7 +39,7 @@ export const black = "#000000";
 // colors
 export const background = "#EFEFEF";
 export const backgroundShade = "#EFEFEF";
-export const primary = "#1C4DAE"; // primay color
+export const primary = "#1C4DAE"; // primary color
 export const primaryTint = "#1D4EB0"; // light primary
 export const primaryShade = "#0B2B69"; // dark primary
 export const secondary = "#5786CD"; // bright primary
@@ -70,7 +70,7 @@ export const selectedDisabled = "#e8edf7"; // disabled blue
  * This method is to convert values like percentage, error names, etc to a color.
  * Numbers should be on a scale of 0 to 100. Strings should be a text representation.
  *
- * @param {Number:String} value
+ * @param {Number|String} value
  */
 export const deriveColor = (value: string | number) => {
   if (isNumber(value)) {

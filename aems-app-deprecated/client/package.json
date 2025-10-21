@@ -1,0 +1,139 @@
+{
+  "name": "aems-client",
+  "version": "1.1.1",
+  "main": "index.js",
+  "homepage": "/",
+  "proxy": "http://localhost:3000",
+  "private": true,
+  "license": "SEE LICENSE IN ../LICENSE",
+  "dependencies": {
+    "@blueprintjs/core": "^3.53.0",
+    "@blueprintjs/datetime": "^3.24.1",
+    "@blueprintjs/icons": "^3.32.0",
+    "@blueprintjs/popover2": "^0.13.0",
+    "@blueprintjs/select": "^3.18.12",
+    "@blueprintjs/table": "^3.9.14",
+    "@emotion/css": "^11.10.0",
+    "@mavrin/remark-typograf": "^2.2.0",
+    "@testing-library/jest-dom": "^5.16.2",
+    "@testing-library/react": "^12.1.3",
+    "@testing-library/user-event": "^13.5.0",
+    "@zxcvbn-ts/core": "^3.0.4",
+    "@zxcvbn-ts/language-common": "^3.0.4",
+    "@zxcvbn-ts/language-en": "^3.0.2",
+    "ajv": "^8.11.0",
+    "babel-jest": "^27.5.1",
+    "clsx": "^1.1.1",
+    "csv-writer-browser": "^1.0.0",
+    "emotion": "^11.0.0",
+    "enzyme": "^3.11.0",
+    "enzyme-adapter-react-16": "^1.15.6",
+    "enzyme-to-json": "^3.6.2",
+    "fetch-mock": "^9.11.0",
+    "file-saver": "^2.0.5",
+    "immutable": "^4.0.0",
+    "jsoneditor": "^9.9.0",
+    "jsoneditor-react": "^3.1.2",
+    "jsonpath": "^1.1.1",
+    "moment": "^2.29.1",
+    "node-fetch": "^3.2.0",
+    "plotly.js": "^2.11.1",
+    "prettier": "^2.5.1",
+    "promise-worker": "^2.0.1",
+    "query-string": "^7.1.1",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-ga": "^3.3.1",
+    "react-markdown": "^8.0.2",
+    "react-plotly.js": "^2.5.1",
+    "react-redux": "^7.2.6",
+    "react-router": "^6.14.1",
+    "react-router-dom": "^6.14.1",
+    "react-scripts": "^5.0.0",
+    "react-syntax-highlighter": "^15.5.0",
+    "react-to-print": "^2.14.7",
+    "react-virtualized": "^9.22.3",
+    "redux-devtools-extension": "^2.13.9",
+    "redux-immutable": "^4.0.0",
+    "redux-saga": "^1.1.3",
+    "redux-saga-test-plan": "^4.0.4",
+    "remark-gfm": "^3.0.1",
+    "remark-hint": "^1.0.10",
+    "reselect": "^4.1.5",
+    "sass": "^1.49.9",
+    "shx": "^0.3.4",
+    "strip-json-comments": "^4.0.0",
+    "ts-jest": "^27.1.3",
+    "unist-util-visit": "^4.1.0",
+    "validator": "^13.7.0",
+    "web-vitals": "^2.1.4",
+    "xregexp": "^5.1.1"
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.(ts|tsx)$": "ts-jest",
+      "^.+\\.(js)$": "babel-jest"
+    },
+    "transformIgnorePatterns": [
+      "^async\\.js$"
+    ],
+    "moduleNameMapper": {
+      "^utils/async$": "utils/async-jest.js"
+    },
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx,ts,tsx}"
+    ],
+    "coverageReporters": [
+      "text",
+      "cobertura"
+    ]
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts --max-old-space-size=4096 build",
+    "analyze": "source-map-explorer 'build/static/js/*.js'",
+    "test": "react-scripts test --detectOpenHandles",
+    "coverage": "react-scripts --max-old-space-size=4096 test --detectOpenHandles --coverage --reporters=default --watchAll=false --logHeapUsage",
+    "eject": "react-scripts eject",
+    "prettier": "prettier --loglevel=debug --write \"src/**/*.{js,jsx,json,css,md,ts,tsx,html}\"",
+    "deploy": "shx rm -rf ../app/public/css && shx rm -rf ../app/public/js && shx cp -r build/* ../app/public",
+    "package": "yarn build && yarn deploy"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@types/file-saver": "^2.0.5",
+    "@types/jest": "^27.4.1",
+    "@types/jsonpath": "^0.2.0",
+    "@types/lodash": "^4.14.179",
+    "@types/plotly.js": "^1.54.20",
+    "@types/react": "^17.0.39",
+    "@types/react-dom": "^17.0.11",
+    "@types/react-plotly.js": "^2.5.0",
+    "@types/react-redux": "^7.1.22",
+    "@types/react-syntax-highlighter": "^13.5.2",
+    "@types/react-virtualized": "^9.21.20",
+    "@types/redux-immutable": "^4.0.2",
+    "@types/validator": "^13.7.1",
+    "serve": "^13.0.2",
+    "source-map-explorer": "^2.5.2",
+    "typescript": "^4.5.5"
+  },
+  "packageManager": "yarn@3.2.3"
+}

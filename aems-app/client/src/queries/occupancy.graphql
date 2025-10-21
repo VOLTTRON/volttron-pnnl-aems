@@ -1,0 +1,99 @@
+query ReadOccupancies(
+  $distinct: [OccupancyFields!]
+  $orderBy: [OccupancyOrderBy!]
+  $paging: PagingInput
+  $where: OccupancyFilter
+) {
+  readOccupancies(distinct: $distinct, orderBy: $orderBy, paging: $paging, where: $where) {
+    id
+    label
+    message
+    correlation
+    date
+    stage
+    configurationId
+    scheduleId
+    createdAt
+    updatedAt
+    configuration {
+      id
+      label
+    }
+    schedule {
+      id
+      label
+    }
+  }
+}
+
+query ReadOccupancy($where: OccupancyUniqueFilter!) {
+  readOccupancy(where: $where) {
+    id
+    label
+    message
+    correlation
+    date
+    stage
+    createdAt
+    updatedAt
+    configurationId
+    scheduleId
+    configuration {
+      id
+      label
+    }
+    schedule {
+      id
+      label
+    }
+  }
+}
+
+mutation CreateOccupancy($create: OccupancyCreateInput!) {
+  createOccupancy(create: $create) {
+    id
+    label
+    message
+    correlation
+    date
+    stage
+    createdAt
+    updatedAt
+    configuration {
+      id
+      label
+    }
+    schedule {
+      id
+      label
+    }
+  }
+}
+
+mutation UpdateOccupancy($where: OccupancyUniqueFilter!, $update: OccupancyUpdateInput!) {
+  updateOccupancy(where: $where, update: $update) {
+    id
+    label
+    message
+    correlation
+    date
+    stage
+    createdAt
+    updatedAt
+    configuration {
+      id
+      label
+    }
+    schedule {
+      id
+      label
+    }
+  }
+}
+
+mutation DeleteOccupancy($where: OccupancyUniqueFilter!) {
+  deleteOccupancy(where: $where) {
+    id
+    label
+  }
+}

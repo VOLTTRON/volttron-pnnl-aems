@@ -1,0 +1,18 @@
+enum FeedbackStatus {
+    Todo
+    InProgress
+    Done
+}
+
+model Feedback {
+    id         String         @id() @default(cuid())
+    message    String
+    status     FeedbackStatus @default(Todo)
+    createdAt  DateTime       @default(now()) @db.Timestamptz(6)
+    updatedAt  DateTime       @updatedAt() @db.Timestamptz(6)
+    userId     String
+    assigneeId String?
+    user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+    assignee   User?          @relation("assignee", fields: [assigneeId], references: [id], onDelete: Cascade)
+    files      File[]
+}

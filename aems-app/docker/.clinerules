@@ -1,0 +1,31 @@
+# Docker Deployment - Container Orchestration
+
+## Technology Stack
+- **Orchestration**: Docker Compose 2.x with service profiles
+- **Proxy**: Traefik reverse proxy with TLS/SSL support
+- **Database**: PostgreSQL 16 with PostGIS extensions
+- **Cache**: Redis for sessions and subscriptions
+- **Auth**: Optional Keycloak SSO integration
+- **Maps**: OpenStreetMap tiles and Nominatim geocoding
+
+## Development Workflow
+- **Deploy**: `docker compose up -d` (core services)
+- **Profiles**: `docker compose --profile proxy --profile redis up -d`
+- **Logs**: `docker compose logs -f [service]`
+- **Cleanup**: `docker compose down -v` (removes volumes)
+
+## File Conventions
+- **Environment**: Service-specific `.env.*` files for configuration
+- **Certificates**: Auto-generated TLS certificates in `certs/`
+- **Data**: Persistent volumes for database, uploads, and cache
+- **Profiles**: Optional services enabled via `COMPOSE_PROFILES`
+
+## Integration Dependencies
+- **Application**: Requires built client, server, and common modules
+- **Database**: PostgreSQL with PostGIS extension for geospatial features
+- **Secrets**: Environment variables from root `.env.secrets`
+
+## Important Notes
+- Use service profiles to enable optional components (proxy, redis, sso, map, nom, wiki)
+- Environment files override defaults for each service
+- README files should contain documentation only - no code examples belong in README files

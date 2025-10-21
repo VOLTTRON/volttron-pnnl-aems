@@ -1,0 +1,2718 @@
+type Account {
+  access_token: String
+  createdAt: DateTime
+  expires_at: Int
+  id: String
+  id_token: String
+  provider: String
+  providerAccountId: String
+  refresh_token: String
+  scope: String
+  session_state: String
+  token_type: String
+  type: String
+  updatedAt: DateTime
+  user: User
+  userId: String
+}
+
+input AccountAggregate {
+  average: [AccountFields!]
+  count: [AccountFields!]
+  maximum: [AccountFields!]
+  minimum: [AccountFields!]
+  sum: [AccountFields!]
+}
+
+input AccountCreateInput {
+  access_token: String
+  expires_at: Int
+  id_token: String
+  provider: String!
+  providerAccountId: String!
+  refresh_token: String
+  scope: String
+  session_state: String
+  token_type: String
+  type: String!
+  user: AccountCreateUserRelationInput!
+}
+
+input AccountCreateUserRelationInput {
+  connect: UserUniqueFilter
+}
+
+enum AccountFields {
+  access_token
+  createdAt
+  expires_at
+  id
+  id_token
+  provider
+  providerAccountId
+  refresh_token
+  scope
+  session_state
+  token_type
+  type
+  updatedAt
+  userId
+}
+
+input AccountFilter {
+  AND: [AccountFilter!]
+  NOT: AccountFilter
+  OR: [AccountFilter!]
+  createdAt: DateTimeFilter
+  id: StringFilter
+  provider: StringFilter
+  type: StringFilter
+  updatedAt: DateTimeFilter
+  user: UserUniqueFilter
+  userId: StringFilter
+}
+
+scalar AccountGroupBy
+
+input AccountOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  provider: OrderBy
+  type: OrderBy
+  updatedAt: OrderBy
+  user: UserOrderBy
+  userId: OrderBy
+}
+
+input AccountUniqueFilter {
+  id: String
+}
+
+input AccountUpdateInput {
+  access_token: String
+  expires_at: Int
+  id_token: String
+  provider: String
+  providerAccountId: String
+  refresh_token: String
+  scope: String
+  session_state: String
+  token_type: String
+  type: String
+  user: AccountUpdateUserRelationInput
+}
+
+input AccountUpdateUserRelationInput {
+  connect: UserUniqueFilter
+  disconnect: Boolean
+}
+
+type Banner {
+  createdAt: DateTime
+  expiration: DateTime
+  id: String
+  message: String
+  updatedAt: DateTime
+  users: [User!]
+}
+
+input BannerAggregate {
+  average: [BannerFields!]
+  count: [BannerFields!]
+  maximum: [BannerFields!]
+  minimum: [BannerFields!]
+  sum: [BannerFields!]
+}
+
+input BannerCreateInput {
+  expiration: DateTime
+  message: String
+}
+
+enum BannerFields {
+  createdAt
+  expiration
+  id
+  message
+  updatedAt
+}
+
+input BannerFilter {
+  AND: [BannerFilter!]
+  NOT: BannerFilter
+  OR: [BannerFilter!]
+  createdAt: DateTimeFilter
+  expiration: DateTimeFilter
+  id: StringFilter
+  message: StringFilter
+  updatedAt: DateTimeFilter
+}
+
+scalar BannerGroupBy
+
+input BannerOrderBy {
+  createdAt: OrderBy
+  expiration: OrderBy
+  id: OrderBy
+  message: OrderBy
+  updatedAt: OrderBy
+}
+
+input BannerUniqueFilter {
+  id: String
+}
+
+input BannerUpdateInput {
+  expiration: DateTime
+  message: String
+  users: BannerUpdateUsersRelationInput
+}
+
+input BannerUpdateUsersRelationInput {
+  connect: [UserUniqueFilter!]
+  disconnect: [UserUniqueFilter!]
+}
+
+input BooleanFilter {
+  equals: Boolean
+  not: BooleanFilter
+}
+
+type Change {
+  createdAt: DateTime
+
+  """[ChangeData]"""
+  data: ChangeData
+  id: String
+  key: String
+  mutation: ChangeMutation
+  table: String
+  updatedAt: DateTime
+  user: User
+  userId: String
+}
+
+input ChangeAggregate {
+  average: [ChangeFields!]
+  count: [ChangeFields!]
+  maximum: [ChangeFields!]
+  minimum: [ChangeFields!]
+  sum: [ChangeFields!]
+}
+
+input ChangeCreateInput {
+  data: ChangeData
+  key: String!
+  mutation: ChangeMutation!
+  table: String!
+  userId: String
+}
+
+scalar ChangeData
+
+enum ChangeFields {
+  createdAt
+  data
+  id
+  key
+  mutation
+  table
+  updatedAt
+  userId
+}
+
+input ChangeFilter {
+  AND: [ChangeFilter!]
+  NOT: ChangeFilter
+  OR: [ChangeFilter!]
+  createdAt: DateTimeFilter
+  id: StringFilter
+  key: StringFilter
+  mutation: ChangeMutation
+  table: StringFilter
+  updatedAt: DateTimeFilter
+  user: UserFilter
+  userId: StringFilter
+}
+
+scalar ChangeGroupBy
+
+enum ChangeMutation {
+  Create
+  Delete
+  Update
+  Upsert
+}
+
+input ChangeOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  key: OrderBy
+  mutation: OrderBy
+  table: OrderBy
+  updatedAt: OrderBy
+  userId: OrderBy
+}
+
+input ChangeUniqueFilter {
+  id: String
+}
+
+input ChangeUpdateInput {
+  data: ChangeData
+  key: String
+  mutation: ChangeMutation
+  table: String
+  userId: String
+}
+
+type Comment {
+  createdAt: DateTime
+  id: String
+  message: String
+  updatedAt: DateTime
+  user: User
+  userId: String
+}
+
+input CommentAggregate {
+  average: [CommentFields!]
+  count: [CommentFields!]
+  maximum: [CommentFields!]
+  minimum: [CommentFields!]
+  sum: [CommentFields!]
+}
+
+input CommentCreateInput {
+  message: String!
+  user: CommentCreateUserRelationInput
+}
+
+input CommentCreateUserRelationInput {
+  connect: UserUniqueFilter
+}
+
+enum CommentFields {
+  createdAt
+  id
+  message
+  updatedAt
+  userId
+}
+
+input CommentFilter {
+  AND: [CommentFilter!]
+  NOT: CommentFilter
+  OR: [CommentFilter!]
+  createdAt: DateTimeFilter
+  id: StringFilter
+  message: StringFilter
+  updatedAt: DateTimeFilter
+  user: UserUniqueFilter
+  userId: StringFilter
+}
+
+scalar CommentGroupBy
+
+input CommentOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  message: OrderBy
+  updatedAt: OrderBy
+  user: UserOrderBy
+  userId: OrderBy
+}
+
+input CommentUniqueFilter {
+  id: String
+}
+
+input CommentUpdateInput {
+  message: String
+  user: CommentUpdateUserRelationInput
+}
+
+input CommentUpdateUserRelationInput {
+  connect: UserUniqueFilter
+  disconnect: Boolean
+}
+
+type Configuration {
+  correlation: String
+  createdAt: DateTime
+  fridaySchedule: Schedule
+  fridayScheduleId: String
+  holidaySchedule: Schedule
+  holidayScheduleId: String
+  holidays: [Holiday!]
+  id: String
+  label: String
+  message: String
+  mondaySchedule: Schedule
+  mondayScheduleId: String
+  occupancies: [Occupancy!]
+  saturdaySchedule: Schedule
+  saturdayScheduleId: String
+  setpoint: Setpoint
+  setpointId: String
+  stage: ModelStage
+  sundaySchedule: Schedule
+  sundayScheduleId: String
+  thursdaySchedule: Schedule
+  thursdayScheduleId: String
+  tuesdaySchedule: Schedule
+  tuesdayScheduleId: String
+  units: [Unit!]
+  updatedAt: DateTime
+  wednesdaySchedule: Schedule
+  wednesdayScheduleId: String
+}
+
+input ConfigurationAggregate {
+  average: [ConfigurationFields!]
+  count: [ConfigurationFields!]
+  maximum: [ConfigurationFields!]
+  minimum: [ConfigurationFields!]
+  sum: [ConfigurationFields!]
+}
+
+input ConfigurationCreateHolidaysRelationInput {
+  create: [HolidayCreateInput!]
+}
+
+input ConfigurationCreateInput {
+  correlation: String
+  fridayScheduleId: String
+  holidayScheduleId: String
+  holidays: ConfigurationCreateHolidaysRelationInput
+  label: String!
+  message: String
+  mondayScheduleId: String
+  occupancies: ConfigurationCreateOccupanciesRelationInput
+  saturdayScheduleId: String
+  setpointId: String
+  stage: ModelStage
+  sundayScheduleId: String
+  thursdayScheduleId: String
+  tuesdayScheduleId: String
+  wednesdayScheduleId: String
+}
+
+input ConfigurationCreateOccupanciesRelationInput {
+  create: [OccupancyCreateInput!]
+}
+
+enum ConfigurationFields {
+  correlation
+  createdAt
+  fridayScheduleId
+  holidayScheduleId
+  id
+  label
+  message
+  mondayScheduleId
+  saturdayScheduleId
+  setpointId
+  stage
+  sundayScheduleId
+  thursdayScheduleId
+  tuesdayScheduleId
+  updatedAt
+  wednesdayScheduleId
+}
+
+input ConfigurationFilter {
+  AND: [ConfigurationFilter!]
+  NOT: ConfigurationFilter
+  OR: [ConfigurationFilter!]
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  fridayScheduleId: StringFilter
+  holidayScheduleId: StringFilter
+  id: StringFilter
+  label: StringFilter
+  message: StringFilter
+  mondayScheduleId: StringFilter
+  saturdayScheduleId: StringFilter
+  setpointId: StringFilter
+  stage: ModelStage
+  sundayScheduleId: StringFilter
+  thursdayScheduleId: StringFilter
+  tuesdayScheduleId: StringFilter
+  updatedAt: DateTimeFilter
+  wednesdayScheduleId: StringFilter
+}
+
+scalar ConfigurationGroupBy
+
+input ConfigurationOrderBy {
+  correlation: OrderBy
+  createdAt: OrderBy
+  fridayScheduleId: OrderBy
+  holidayScheduleId: OrderBy
+  id: OrderBy
+  label: OrderBy
+  message: OrderBy
+  mondayScheduleId: OrderBy
+  saturdayScheduleId: OrderBy
+  setpointId: OrderBy
+  stage: OrderBy
+  sundayScheduleId: OrderBy
+  thursdayScheduleId: OrderBy
+  tuesdayScheduleId: OrderBy
+  updatedAt: OrderBy
+  wednesdayScheduleId: OrderBy
+}
+
+input ConfigurationUniqueFilter {
+  id: String
+}
+
+input ConfigurationUpdateFridayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateHolidayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateHolidaysRelationInput {
+  connect: [HolidayUniqueFilter!]
+  delete: [HolidayUniqueFilter!]
+}
+
+input ConfigurationUpdateInput {
+  correlation: String
+  fridaySchedule: ConfigurationUpdateFridayScheduleRelationInput
+  fridayScheduleId: String
+  holidaySchedule: ConfigurationUpdateHolidayScheduleRelationInput
+  holidayScheduleId: String
+  holidays: ConfigurationUpdateHolidaysRelationInput
+  label: String
+  message: String
+  mondaySchedule: ConfigurationUpdateMondayScheduleRelationInput
+  mondayScheduleId: String
+  occupancies: ConfigurationUpdateOccupanciesRelationInput
+  saturdaySchedule: ConfigurationUpdateSaturdayScheduleRelationInput
+  saturdayScheduleId: String
+  setpoint: ConfigurationUpdateSetpointRelationInput
+  setpointId: String
+  stage: ModelStage
+  sundaySchedule: ConfigurationUpdateSundayScheduleRelationInput
+  sundayScheduleId: String
+  thursdaySchedule: ConfigurationUpdateThursdayScheduleRelationInput
+  thursdayScheduleId: String
+  tuesdaySchedule: ConfigurationUpdateTuesdayScheduleRelationInput
+  tuesdayScheduleId: String
+  wednesdaySchedule: ConfigurationUpdateWednesdayScheduleRelationInput
+  wednesdayScheduleId: String
+}
+
+input ConfigurationUpdateMondayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateOccupanciesRelationInput {
+  connect: [OccupancyUniqueFilter!]
+  delete: [OccupancyUniqueFilter!]
+}
+
+input ConfigurationUpdateSaturdayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateSetpointRelationInput {
+  update: SetpointUpdateInput
+}
+
+input ConfigurationUpdateSundayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateThursdayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateTuesdayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+input ConfigurationUpdateWednesdayScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+type Control {
+  building: String
+  campus: String
+  correlation: String
+  createdAt: DateTime
+  id: String
+  label: String
+  message: String
+  name: String
+  peakLoadExclude: Boolean
+  stage: ModelStage
+  units: [Unit!]
+  updatedAt: DateTime
+}
+
+input ControlAggregate {
+  average: [ControlFields!]
+  count: [ControlFields!]
+  maximum: [ControlFields!]
+  minimum: [ControlFields!]
+  sum: [ControlFields!]
+}
+
+input ControlCreateInput {
+  building: String
+  campus: String
+  correlation: String
+  label: String!
+  message: String
+  name: String!
+  peakLoadExclude: Boolean
+  stage: ModelStage
+  units: UnitUniqueFilter
+}
+
+enum ControlFields {
+  building
+  campus
+  correlation
+  createdAt
+  id
+  label
+  message
+  name
+  peakLoadExclude
+  stage
+  updatedAt
+}
+
+input ControlFilter {
+  AND: [ControlFilter!]
+  NOT: ControlFilter
+  OR: [ControlFilter!]
+  building: StringFilter
+  campus: StringFilter
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  id: StringFilter
+  label: StringFilter
+  message: StringFilter
+  name: StringFilter
+  peakLoadExclude: BooleanFilter
+  stage: ModelStage
+  updatedAt: DateTimeFilter
+}
+
+scalar ControlGroupBy
+
+input ControlOrderBy {
+  building: OrderBy
+  campus: OrderBy
+  correlation: OrderBy
+  createdAt: OrderBy
+  id: OrderBy
+  label: OrderBy
+  message: OrderBy
+  name: OrderBy
+  peakLoadExclude: OrderBy
+  stage: OrderBy
+  updatedAt: OrderBy
+}
+
+input ControlUniqueFilter {
+  id: String
+}
+
+input ControlUpdateInput {
+  building: String
+  campus: String
+  correlation: String
+  label: String
+  message: String
+  name: String
+  peakLoadExclude: Boolean
+  stage: ModelStage
+  units: UnitUniqueFilter
+}
+
+input CurrentCreateInput {
+  email: String!
+  image: String
+  name: String
+  password: String
+  preferences: UserPreferences
+}
+
+input CurrentUpdateInput {
+  email: String
+  image: String
+  name: String
+  password: String
+  preferences: UserPreferences
+}
+
+scalar DateTime
+
+input DateTimeFilter {
+  contains: DateTime
+  equals: DateTime
+  gt: DateTime
+  gte: DateTime
+  in: [DateTime!]
+  lt: DateTime
+  lte: DateTime
+  mode: StringFilterMode
+  not: DateTimeFilter
+}
+
+type Feedback {
+  assignee: User
+  assigneeId: String
+  createdAt: DateTime
+  files: [File!]
+  id: String
+  message: String
+  status: FeedbackStatus
+  updatedAt: DateTime
+  user: User
+  userId: String
+}
+
+input FeedbackAggregate {
+  average: [FeedbackFields!]
+  count: [FeedbackFields!]
+  maximum: [FeedbackFields!]
+  minimum: [FeedbackFields!]
+  sum: [FeedbackFields!]
+}
+
+input FeedbackCreateInput {
+  files: FeedbackUpdateFilesRelationInput
+  message: String!
+}
+
+enum FeedbackFields {
+  assigneeId
+  createdAt
+  id
+  message
+  status
+  updatedAt
+  userId
+}
+
+input FeedbackFilter {
+  AND: [FeedbackFilter!]
+  NOT: FeedbackFilter
+  OR: [FeedbackFilter!]
+  createdAt: DateTimeFilter
+  id: StringFilter
+  message: StringFilter
+  status: FeedbackStatusFilter
+  updatedAt: DateTimeFilter
+  user: UserUniqueFilter
+  userId: StringFilter
+}
+
+scalar FeedbackGroupBy
+
+input FeedbackOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  message: OrderBy
+  status: OrderBy
+  updatedAt: OrderBy
+}
+
+enum FeedbackStatus {
+  Done
+  InProgress
+  Todo
+}
+
+input FeedbackStatusFilter {
+  equals: FeedbackStatus
+  in: [FeedbackStatus!]
+  mode: StringFilterMode
+  not: FeedbackStatusFilter
+}
+
+input FeedbackUniqueFilter {
+  id: String
+}
+
+input FeedbackUpdateFilesRelationInput {
+  connect: [FileUniqueFilter!]
+}
+
+input FeedbackUpdateInput {
+  assigneeId: String
+  status: FeedbackStatus
+}
+
+type File {
+  contentLength: Int
+  createdAt: DateTime
+  feedback: Feedback
+  feedbackId: String
+  id: String
+  mimeType: String
+  objectKey: String
+  updatedAt: DateTime
+  user: User
+  userId: String
+}
+
+input FileAggregate {
+  average: [FileFields!]
+  count: [FileFields!]
+  maximum: [FileFields!]
+  minimum: [FileFields!]
+  sum: [FileFields!]
+}
+
+input FileCreateInput {
+  contentLength: Int!
+  mimeType: String!
+  objectKey: String!
+  user: FileCreateUserRelationInput
+}
+
+input FileCreateUserRelationInput {
+  connect: UserUniqueFilter
+}
+
+enum FileFields {
+  contentLength
+  createdAt
+  feedbackId
+  id
+  mimeType
+  objectKey
+  updatedAt
+  userId
+}
+
+input FileFilter {
+  AND: [FileFilter!]
+  NOT: FileFilter
+  OR: [FileFilter!]
+  feedbackId: StringFilter
+  id: StringFilter
+  user: UserUniqueFilter
+  userId: StringFilter
+}
+
+scalar FileGroupBy
+
+input FileOrderBy {
+  feedbackId: OrderBy
+  id: OrderBy
+  userId: OrderBy
+}
+
+input FileUniqueFilter {
+  id: String
+}
+
+input FileUpdateInput {
+  contentLength: Int
+  mimeType: String
+  objectKey: String
+  user: FileCreateUserRelationInput
+}
+
+input FloatFilter {
+  equals: Float
+  gt: Float
+  gte: Float
+  in: [Float!]
+  lt: Float
+  lte: Float
+  not: FloatFilter
+}
+
+type Geography {
+  createdAt: DateTime
+
+  """[GeographyGeoJson]"""
+  geojson: GeographyGeoJson
+  group: String
+  id: String
+  name: String
+  type: String
+  updatedAt: DateTime
+}
+
+input GeographyAggregate {
+  average: [GeographyFields!]
+  count: [GeographyFields!]
+  maximum: [GeographyFields!]
+  minimum: [GeographyFields!]
+  sum: [GeographyFields!]
+}
+
+enum GeographyFields {
+  createdAt
+  geojson
+  group
+  id
+  name
+  type
+  updatedAt
+}
+
+input GeographyFilter {
+  AND: [GeographyFilter!]
+  NOT: GeographyFilter
+  OR: [GeographyFilter!]
+  createdAt: DateTimeFilter
+  group: StringFilter
+  id: StringFilter
+  name: StringFilter
+  type: StringFilter
+  updatedAt: DateTimeFilter
+}
+
+scalar GeographyGeoJson
+
+scalar GeographyGroupBy
+
+input GeographyOrderBy {
+  createdAt: OrderBy
+  group: OrderBy
+  id: OrderBy
+  name: OrderBy
+  type: OrderBy
+  updatedAt: OrderBy
+}
+
+input GeographyUniqueFilter {
+  id: String
+}
+
+type Holiday {
+  configurations: [Configuration!]
+  correlation: String
+  createdAt: DateTime
+  day: Int
+  id: String
+  label: String
+  message: String
+  month: Int
+  observance: String
+  stage: ModelStage
+  type: HolidayType
+  updatedAt: DateTime
+}
+
+input HolidayAggregate {
+  average: [HolidayFields!]
+  count: [HolidayFields!]
+  maximum: [HolidayFields!]
+  minimum: [HolidayFields!]
+  sum: [HolidayFields!]
+}
+
+input HolidayCreateConfigurationsRelationInput {
+  connect: [ConfigurationUniqueFilter!]
+}
+
+input HolidayCreateInput {
+  configurations: HolidayCreateConfigurationsRelationInput
+  correlation: String
+  day: Int
+  label: String!
+  message: String
+  month: Int
+  observance: String
+  stage: ModelStage
+  type: HolidayType!
+}
+
+enum HolidayFields {
+  correlation
+  createdAt
+  day
+  id
+  label
+  message
+  month
+  observance
+  stage
+  type
+  updatedAt
+}
+
+input HolidayFilter {
+  AND: [HolidayFilter!]
+  NOT: HolidayFilter
+  OR: [HolidayFilter!]
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  day: IntFilter
+  id: StringFilter
+  label: StringFilter
+  message: StringFilter
+  month: IntFilter
+  observance: StringFilter
+  stage: ModelStage
+  type: HolidayType
+  updatedAt: DateTimeFilter
+}
+
+scalar HolidayGroupBy
+
+input HolidayOrderBy {
+  correlation: OrderBy
+  createdAt: OrderBy
+  day: OrderBy
+  id: OrderBy
+  label: OrderBy
+  message: OrderBy
+  month: OrderBy
+  observance: OrderBy
+  stage: OrderBy
+  type: OrderBy
+  updatedAt: OrderBy
+}
+
+enum HolidayType {
+  Custom
+  Disabled
+  Enabled
+}
+
+input HolidayUniqueFilter {
+  id: String
+}
+
+input HolidayUpdateConfigurationsRelationInput {
+  connect: [ConfigurationUniqueFilter!]
+}
+
+input HolidayUpdateInput {
+  configurations: HolidayUpdateConfigurationsRelationInput
+  correlation: String
+  day: Int
+  label: String
+  message: String
+  month: Int
+  observance: String
+  stage: ModelStage
+  type: HolidayType
+}
+
+input IntFilter {
+  equals: Int
+  gt: Int
+  gte: Int
+  in: [Int!]
+  lt: Int
+  lte: Int
+  not: IntFilter
+}
+
+scalar Json
+
+type Location {
+  createdAt: DateTime
+  id: ID
+  latitude: Float
+  longitude: Float
+  name: String
+  units: [Unit!]
+  updatedAt: DateTime
+}
+
+input LocationAggregate {
+  average: [LocationFields!]
+  count: [LocationFields!]
+  maximum: [LocationFields!]
+  minimum: [LocationFields!]
+  sum: [LocationFields!]
+}
+
+input LocationCreateInput {
+  latitude: Float!
+  longitude: Float!
+  name: String!
+  units: LocationCreateUnitsRelationInput
+}
+
+input LocationCreateUnitsRelationInput {
+  connect: [UnitUniqueFilter!]
+}
+
+enum LocationFields {
+  createdAt
+  id
+  latitude
+  longitude
+  name
+  updatedAt
+}
+
+input LocationFilter {
+  AND: [LocationFilter!]
+  NOT: LocationFilter
+  OR: [LocationFilter!]
+  createdAt: DateTimeFilter
+  id: StringFilter
+  latitude: FloatFilter
+  longitude: FloatFilter
+  name: StringFilter
+  updatedAt: DateTimeFilter
+}
+
+scalar LocationGroupBy
+
+input LocationOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  latitude: OrderBy
+  longitude: OrderBy
+  name: OrderBy
+  updatedAt: OrderBy
+}
+
+input LocationUniqueFilter {
+  id: String
+}
+
+input LocationUpdateInput {
+  latitude: Float
+  longitude: Float
+  name: String
+  units: LocationUpdateUnitsRelationInput
+}
+
+input LocationUpdateUnitsRelationInput {
+  connect: [UnitUniqueFilter!]
+}
+
+type Log {
+  createdAt: DateTime
+  id: String
+  message: String
+  type: LogType
+  updatedAt: DateTime
+}
+
+input LogAggregate {
+  average: [LogFields!]
+  count: [LogFields!]
+  maximum: [LogFields!]
+  minimum: [LogFields!]
+  sum: [LogFields!]
+}
+
+input LogCreateInput {
+  message: String
+  type: LogType
+}
+
+enum LogFields {
+  createdAt
+  id
+  message
+  type
+  updatedAt
+}
+
+input LogFilter {
+  AND: [LogFilter!]
+  NOT: LogFilter
+  OR: [LogFilter!]
+  createdAt: DateTimeFilter
+  id: StringFilter
+  message: StringFilter
+  type: LogTypeFilter
+  updatedAt: DateTimeFilter
+}
+
+scalar LogGroupBy
+
+input LogOrderBy {
+  createdAt: OrderBy
+  id: OrderBy
+  message: OrderBy
+  type: OrderBy
+  updatedAt: OrderBy
+}
+
+enum LogType {
+  Debug
+  Error
+  Fatal
+  Info
+  Trace
+  Warn
+}
+
+input LogTypeFilter {
+  equals: LogType
+  in: [LogType!]
+  mode: StringFilterMode
+  not: LogTypeFilter
+}
+
+input LogUniqueFilter {
+  id: String
+}
+
+input LogUpdateInput {
+  message: String
+  type: LogType
+}
+
+enum ModeType {
+  dark
+  light
+}
+
+enum ModelStage {
+  Complete
+  Create
+  Delete
+  Fail
+  Process
+  Read
+  Update
+}
+
+type Mutation {
+  """Create a new account."""
+  createAccount(create: AccountCreateInput!): Account
+
+  """Create a new banner."""
+  createBanner(create: BannerCreateInput!): Banner
+
+  """Create a new change."""
+  createChange(create: ChangeCreateInput!): Change
+
+  """Create a new comment."""
+  createComment(create: CommentCreateInput!): Comment
+
+  """Create a new configuration."""
+  createConfiguration(create: ConfigurationCreateInput!): Configuration
+
+  """Create a new control."""
+  createControl(create: ControlCreateInput!): Control
+
+  """Create a new user."""
+  createCurrent(create: CurrentCreateInput!): User
+
+  """Create new feedback."""
+  createFeedback(create: FeedbackCreateInput): Feedback
+
+  """Create a local file record."""
+  createFile(create: FileCreateInput!): File
+
+  """Create a new holiday."""
+  createHoliday(create: HolidayCreateInput!): Holiday
+
+  """Create a new location."""
+  createLocation(create: LocationCreateInput!): Location
+
+  """Create a new log."""
+  createLog(create: LogCreateInput!): Log
+
+  """Create a new occupancy."""
+  createOccupancy(create: OccupancyCreateInput!): Occupancy
+
+  """Create a new schedule."""
+  createSchedule(create: ScheduleCreateInput!): Schedule
+
+  """Create a new setpoint."""
+  createSetpoint(create: SetpointCreateInput!): Setpoint
+
+  """Create a new unit."""
+  createUnit(create: UnitCreateInput!): Unit
+
+  """Create a new user."""
+  createUser(create: UserCreateInput!): User
+
+  """Delete the specified account."""
+  deleteAccount(where: AccountUniqueFilter!): Account
+
+  """Delete the specified banner."""
+  deleteBanner(where: BannerUniqueFilter!): Banner
+
+  """Delete the specified change."""
+  deleteChange(where: ChangeUniqueFilter!): Change
+
+  """Delete the specified comment."""
+  deleteComment(where: CommentUniqueFilter!): Comment
+
+  """Delete the specified configuration."""
+  deleteConfiguration(where: ConfigurationUniqueFilter!): Configuration
+
+  """Delete the specified control."""
+  deleteControl(where: ControlUniqueFilter!): Control
+
+  """Delete the currently logged in user."""
+  deleteCurrent: User
+
+  """Delete the specified feedback."""
+  deleteFeedback(where: FeedbackUniqueFilter!): Feedback
+
+  """Delete a local file record."""
+  deleteFile(where: FileUniqueFilter!): File
+
+  """Delete the specified holiday."""
+  deleteHoliday(where: HolidayUniqueFilter!): Holiday
+
+  """Delete the specified location."""
+  deleteLocation(where: LocationUniqueFilter!): Location
+
+  """Delete the specified log."""
+  deleteLog(where: LogUniqueFilter!): Log
+
+  """Delete the specified occupancy."""
+  deleteOccupancy(where: OccupancyUniqueFilter!): Occupancy
+
+  """Delete the specified schedule."""
+  deleteSchedule(where: ScheduleUniqueFilter!): Schedule
+
+  """Delete the specified setpoint."""
+  deleteSetpoint(where: SetpointUniqueFilter!): Setpoint
+
+  """Delete the specified unit."""
+  deleteUnit(where: UnitUniqueFilter!): Unit
+
+  """Delete the specified user."""
+  deleteUser(where: UserUniqueFilter!): User
+
+  """Update the specified account."""
+  updateAccount(update: AccountUpdateInput!, where: AccountUniqueFilter!): Account
+
+  """Update the specified banner."""
+  updateBanner(update: BannerUpdateInput!, where: BannerUniqueFilter!): Banner
+
+  """Update the specified change."""
+  updateChange(update: ChangeUpdateInput!, where: ChangeUniqueFilter!): Change
+
+  """Update the specified comment."""
+  updateComment(update: CommentUpdateInput!, where: CommentUniqueFilter!): Comment
+
+  """Update the specified configuration."""
+  updateConfiguration(update: ConfigurationUpdateInput!, where: ConfigurationUniqueFilter!): Configuration
+
+  """Update the specified control."""
+  updateControl(update: ControlUpdateInput!, where: ControlUniqueFilter!): Control
+
+  """Update the currently logged in user."""
+  updateCurrent(update: CurrentUpdateInput!): User
+
+  """Update the specified feedback status."""
+  updateFeedback(update: FeedbackUpdateInput!, where: FeedbackUniqueFilter!): Feedback
+
+  """Update a local file record."""
+  updateFile(update: FileUpdateInput!, where: FileUniqueFilter!): File
+
+  """Update the specified holiday."""
+  updateHoliday(update: HolidayUpdateInput!, where: HolidayUniqueFilter!): Holiday
+
+  """Update the specified location."""
+  updateLocation(update: LocationUpdateInput!, where: LocationUniqueFilter!): Location
+
+  """Update the specified log."""
+  updateLog(update: LogUpdateInput!, where: LogUniqueFilter!): Log
+
+  """Update the specified occupancy."""
+  updateOccupancy(update: OccupancyUpdateInput!, where: OccupancyUniqueFilter!): Occupancy
+
+  """Update the specified schedule."""
+  updateSchedule(update: ScheduleUpdateInput!, where: ScheduleUniqueFilter!): Schedule
+
+  """Update the specified setpoint."""
+  updateSetpoint(update: SetpointUpdateInput!, where: SetpointUniqueFilter!): Setpoint
+
+  """Update the specified unit."""
+  updateUnit(update: UnitUpdateInput!, where: UnitUniqueFilter!): Unit
+
+  """Update the specified user."""
+  updateUser(update: UserUpdateInput!, where: UserUniqueFilter!): User
+}
+
+enum MutationType {
+  create
+  delete
+  update
+}
+
+type Occupancy {
+  configuration: Configuration
+  configurationId: String
+  correlation: String
+  createdAt: DateTime
+  date: DateTime
+  id: String
+  label: String
+  message: String
+  schedule: Schedule
+  scheduleId: String
+  stage: ModelStage
+  updatedAt: DateTime
+}
+
+input OccupancyAggregate {
+  average: [OccupancyFields!]
+  count: [OccupancyFields!]
+  maximum: [OccupancyFields!]
+  minimum: [OccupancyFields!]
+  sum: [OccupancyFields!]
+}
+
+input OccupancyCreateConfigurationRelationInput {
+  connect: ConfigurationUniqueFilter
+}
+
+input OccupancyCreateInput {
+  configuration: OccupancyCreateConfigurationRelationInput
+  configurationId: String
+  correlation: String
+  date: DateTime!
+  label: String!
+  message: String
+  schedule: OccupancyCreateScheduleRelationInput
+  scheduleId: String
+  stage: ModelStage
+}
+
+input OccupancyCreateScheduleRelationInput {
+  create: ScheduleCreateInput
+}
+
+enum OccupancyFields {
+  configurationId
+  correlation
+  createdAt
+  date
+  id
+  label
+  message
+  scheduleId
+  stage
+  updatedAt
+}
+
+input OccupancyFilter {
+  AND: [OccupancyFilter!]
+  NOT: OccupancyFilter
+  OR: [OccupancyFilter!]
+  configurationId: StringFilter
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  date: DateTimeFilter
+  id: StringFilter
+  label: StringFilter
+  message: StringFilter
+  scheduleId: StringFilter
+  stage: ModelStage
+  updatedAt: DateTimeFilter
+}
+
+scalar OccupancyGroupBy
+
+input OccupancyOrderBy {
+  configurationId: OrderBy
+  correlation: OrderBy
+  createdAt: OrderBy
+  date: OrderBy
+  id: OrderBy
+  label: OrderBy
+  message: OrderBy
+  scheduleId: OrderBy
+  stage: OrderBy
+  updatedAt: OrderBy
+}
+
+input OccupancyUniqueFilter {
+  id: String
+}
+
+input OccupancyUpdateConfigurationRelationInput {
+  connect: ConfigurationUniqueFilter
+}
+
+input OccupancyUpdateInput {
+  configuration: OccupancyUpdateConfigurationRelationInput
+  configurationId: String
+  correlation: String
+  date: DateTime
+  label: String
+  message: String
+  schedule: OccupancyUpdateScheduleRelationInput
+  scheduleId: String
+  stage: ModelStage
+}
+
+input OccupancyUpdateScheduleRelationInput {
+  update: ScheduleUpdateInput
+}
+
+enum OrderBy {
+  Asc
+  Desc
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+}
+
+input PagingInput {
+  skip: Int!
+  take: Int!
+}
+
+type Query {
+  """Read a list of geographies at a specific location."""
+  areaGeographies(area: GeographyGeoJson!): [Geography!]
+
+  """Count the number of accounts."""
+  countAccounts(where: AccountFilter): Int
+
+  """Count the number of banners."""
+  countBanners(where: BannerFilter): Int
+
+  """Count the number of changes."""
+  countChanges(where: ChangeFilter): Int
+
+  """Count the number of comments."""
+  countComments(where: CommentFilter): Int
+
+  """Count the number of configurations."""
+  countConfigurations(where: ConfigurationFilter): Int
+
+  """Count the number of controls."""
+  countControls(where: ControlFilter): Int
+
+  """Count the number of feedbacks."""
+  countFeedbacks(where: FeedbackFilter): Int
+
+  """Count the number of files."""
+  countFiles(where: FileFilter): Int
+
+  """Count the number of geographies."""
+  countGeographies(where: GeographyFilter): Int
+
+  """Count the number of holidays."""
+  countHolidays(where: HolidayFilter): Int
+
+  """Count the number of locations."""
+  countLocations(where: LocationFilter): Int
+
+  """Count the number of logs."""
+  countLogs(where: LogFilter): Int
+
+  """Count the number of occupancies."""
+  countOccupancies(where: OccupancyFilter): Int
+
+  """Count the number of schedules."""
+  countSchedules(where: ScheduleFilter): Int
+
+  """Count the number of setpoints."""
+  countSetpoints(where: SetpointFilter): Int
+
+  """Count the number of units."""
+  countUnits(where: UnitFilter): Int
+
+  """Count the number of user."""
+  countUsers(where: UserFilter): Int
+
+  """Group a list of accounts."""
+  groupAccounts(aggregate: AccountAggregate, by: [AccountFields!]!, where: AccountFilter): [AccountGroupBy!]
+
+  """Group a list of banners."""
+  groupBanners(aggregate: BannerAggregate, by: [BannerFields!]!, where: BannerFilter): [BannerGroupBy!]
+
+  """Group a list of changes."""
+  groupChanges(aggregate: ChangeAggregate, by: [ChangeFields!]!, where: ChangeFilter): [ChangeGroupBy!]
+
+  """Group a list of comments."""
+  groupComments(aggregate: CommentAggregate, by: [CommentFields!]!, where: CommentFilter): [CommentGroupBy!]
+
+  """Group a list of configurations."""
+  groupConfigurations(aggregate: ConfigurationAggregate, by: [ConfigurationFields!]!, where: ConfigurationFilter): [ConfigurationGroupBy!]
+
+  """Group a list of controls."""
+  groupControls(aggregate: ControlAggregate, by: [ControlFields!]!, where: ControlFilter): [ControlGroupBy!]
+
+  """Group a list of feedbacks."""
+  groupFeedbacks(aggregate: FeedbackAggregate, by: [FeedbackFields!]!, where: FeedbackFilter): [FeedbackGroupBy!]
+
+  """Group a list of files."""
+  groupFiles(aggregate: FileAggregate, by: [FileFields!]!, where: FileFilter): [FileGroupBy!]
+
+  """Group a list of geographies."""
+  groupGeographies(aggregate: GeographyAggregate, by: [GeographyFields!]!, where: GeographyFilter): [GeographyGroupBy!]
+
+  """Group a list of holidays."""
+  groupHolidays(aggregate: HolidayAggregate, by: [HolidayFields!]!, where: HolidayFilter): [HolidayGroupBy!]
+
+  """Group a list of locations."""
+  groupLocations(aggregate: LocationAggregate, by: [LocationFields!]!, where: LocationFilter): [LocationGroupBy!]
+
+  """Group a list of logs."""
+  groupLogs(aggregate: LogAggregate, by: [LogFields!]!, where: LogFilter): [LogGroupBy!]
+
+  """Group a list of occupancies."""
+  groupOccupancies(aggregate: OccupancyAggregate, by: [OccupancyFields!]!, where: OccupancyFilter): [OccupancyGroupBy!]
+
+  """Group a list of schedules."""
+  groupSchedules(aggregate: ScheduleAggregate, by: [ScheduleFields!]!, where: ScheduleFilter): [ScheduleGroupBy!]
+
+  """Group a list of setpoints."""
+  groupSetpoints(aggregate: SetpointAggregate, by: [SetpointFields!]!, where: SetpointFilter): [SetpointGroupBy!]
+
+  """Group a list of units."""
+  groupUnits(aggregate: UnitAggregate, by: [UnitFields!]!, where: UnitFilter): [UnitGroupBy!]
+
+  """Group a list of user."""
+  groupUsers(aggregate: UserAggregate, by: [UserFields!]!, where: UserFilter): [UserGroupBy!]
+
+  """Paginate through multiple accounts."""
+  pageAccount(after: String, before: String, first: Int, last: Int, where: AccountFilter): QueryPageAccountConnection
+
+  """Paginate through multiple banners."""
+  pageBanner(after: String, before: String, first: Int, last: Int, where: BannerFilter): QueryPageBannerConnection
+
+  """Paginate through multiple changes."""
+  pageChange(after: String, before: String, first: Int, last: Int, where: ChangeFilter): QueryPageChangeConnection
+
+  """Paginate through multiple comments."""
+  pageComment(after: String, before: String, first: Int, last: Int, where: CommentFilter): QueryPageCommentConnection
+
+  """Paginate through multiple configurations."""
+  pageConfiguration(after: String, before: String, first: Int, last: Int, where: ConfigurationFilter): QueryPageConfigurationConnection
+
+  """Paginate through multiple controls."""
+  pageControl(after: String, before: String, first: Int, last: Int, where: ControlFilter): QueryPageControlConnection
+
+  """Paginate through multiple feedback."""
+  pageFeedback(after: String, before: String, first: Int, last: Int, where: FeedbackFilter): QueryPageFeedbackConnection
+
+  """Paginate through multiple files."""
+  pageFile(after: String, before: String, first: Int, last: Int, where: FileFilter): QueryPageFileConnection
+
+  """Paginate through multiple geographies."""
+  pageGeography(after: String, before: String, first: Int, last: Int, where: GeographyFilter): QueryPageGeographyConnection
+
+  """Paginate through multiple holidays."""
+  pageHoliday(after: String, before: String, first: Int, last: Int, where: HolidayFilter): QueryPageHolidayConnection
+
+  """Paginate through multiple locations."""
+  pageLocation(after: String, before: String, first: Int, last: Int, where: LocationFilter): QueryPageLocationConnection
+
+  """Paginate through multiple logs."""
+  pageLog(after: String, before: String, first: Int, last: Int, where: LogFilter): QueryPageLogConnection
+
+  """Paginate through multiple occupancies."""
+  pageOccupancy(after: String, before: String, first: Int, last: Int, where: OccupancyFilter): QueryPageOccupancyConnection
+
+  """Paginate through multiple schedules."""
+  pageSchedule(after: String, before: String, first: Int, last: Int, where: ScheduleFilter): QueryPageScheduleConnection
+
+  """Paginate through multiple setpoints."""
+  pageSetpoint(after: String, before: String, first: Int, last: Int, where: SetpointFilter): QueryPageSetpointConnection
+
+  """Paginate through multiple units."""
+  pageUnit(after: String, before: String, first: Int, last: Int, where: UnitFilter): QueryPageUnitConnection
+
+  """Paginate through multiple users."""
+  pageUser(after: String, before: String, first: Int, last: Int, where: UserFilter): QueryPageUserConnection
+
+  """Read a unique account."""
+  readAccount(where: AccountUniqueFilter!): Account
+
+  """Read a list of accounts."""
+  readAccounts(distinct: [AccountFields!], orderBy: [AccountOrderBy!], paging: PagingInput, where: AccountFilter): [Account!]
+
+  """Read a unique banner."""
+  readBanner(where: BannerUniqueFilter!): Banner
+
+  """Read a list of banners."""
+  readBanners(distinct: [BannerFields!], orderBy: [BannerOrderBy!], paging: PagingInput, where: BannerFilter): [Banner!]
+
+  """Read a unique change."""
+  readChange(where: ChangeUniqueFilter!): Change
+
+  """Read a list of changes."""
+  readChanges(distinct: [ChangeFields!], orderBy: [ChangeOrderBy!], paging: PagingInput, where: ChangeFilter): [Change!]
+
+  """Read a unique comment."""
+  readComment(where: CommentUniqueFilter!): Comment
+
+  """Read a list of comments."""
+  readComments(distinct: [CommentFields!], orderBy: [CommentOrderBy!], paging: PagingInput, where: CommentFilter): [Comment!]
+
+  """Read a unique configuration."""
+  readConfiguration(where: ConfigurationUniqueFilter!): Configuration
+
+  """Read a list of configurations."""
+  readConfigurations(distinct: [ConfigurationFields!], orderBy: [ConfigurationOrderBy!], paging: PagingInput, where: ConfigurationFilter): [Configuration!]
+
+  """Read a unique control."""
+  readControl(where: ControlUniqueFilter!): Control
+
+  """Read a list of controls."""
+  readControls(distinct: [ControlFields!], orderBy: [ControlOrderBy!], paging: PagingInput, where: ControlFilter): [Control!]
+
+  """Read the currently logged in user."""
+  readCurrent: User
+
+  """read a unique feedback"""
+  readFeedback(where: FeedbackUniqueFilter!): Feedback
+
+  """Read a list of feedback."""
+  readFeedbacks(distinct: [FeedbackFields!], orderBy: [FeedbackOrderBy!], paging: PagingInput, where: FeedbackFilter): [Feedback!]
+
+  """Read a specific file by its ID"""
+  readFile(where: FileUniqueFilter!): File
+
+  """Read a list of files."""
+  readFiles(distinct: [FileFields!], orderBy: [FileOrderBy!], paging: PagingInput, where: FileFilter): [File!]
+
+  """Read a list of geographies."""
+  readGeographies(distinct: [GeographyFields!], orderBy: [GeographyOrderBy!], paging: PagingInput, where: GeographyFilter): [Geography!]
+
+  """Read a unique geography."""
+  readGeography(where: GeographyUniqueFilter!): Geography
+
+  """Read a unique holiday."""
+  readHoliday(where: HolidayUniqueFilter!): Holiday
+
+  """Read a list of holidays."""
+  readHolidays(distinct: [HolidayFields!], orderBy: [HolidayOrderBy!], paging: PagingInput, where: HolidayFilter): [Holiday!]
+
+  """Read a unique location."""
+  readLocation(where: LocationUniqueFilter!): Location
+
+  """Read a list of locations."""
+  readLocations(distinct: [LocationFields!], orderBy: [LocationOrderBy!], paging: PagingInput, where: LocationFilter): [Location!]
+
+  """Read a unique log."""
+  readLog(where: LogUniqueFilter!): Log
+
+  """Read a list of logs."""
+  readLogs(distinct: [LogFields!], orderBy: [LogOrderBy!], paging: PagingInput, where: LogFilter): [Log!]
+
+  """Read a list of occupancies."""
+  readOccupancies(distinct: [OccupancyFields!], orderBy: [OccupancyOrderBy!], paging: PagingInput, where: OccupancyFilter): [Occupancy!]
+
+  """Read a unique occupancy."""
+  readOccupancy(where: OccupancyUniqueFilter!): Occupancy
+
+  """Read a unique schedule."""
+  readSchedule(where: ScheduleUniqueFilter!): Schedule
+
+  """Read a list of schedules."""
+  readSchedules(distinct: [ScheduleFields!], orderBy: [ScheduleOrderBy!], paging: PagingInput, where: ScheduleFilter): [Schedule!]
+
+  """Read a unique setpoint."""
+  readSetpoint(where: SetpointUniqueFilter!): Setpoint
+
+  """Read a list of setpoints."""
+  readSetpoints(distinct: [SetpointFields!], orderBy: [SetpointOrderBy!], paging: PagingInput, where: SetpointFilter): [Setpoint!]
+
+  """Read a unique unit."""
+  readUnit(where: UnitUniqueFilter!): Unit
+
+  """Read a list of units."""
+  readUnits(distinct: [UnitFields!], orderBy: [UnitOrderBy!], paging: PagingInput, where: UnitFilter): [Unit!]
+
+  """Read a unique user."""
+  readUser(where: UserUniqueFilter!): User
+
+  """Read a list of user."""
+  readUsers(distinct: [UserFields!], orderBy: [UserOrderBy!], paging: PagingInput, where: UserFilter): [User!]
+}
+
+type QueryPageAccountConnection {
+  edges: [QueryPageAccountConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageAccountConnectionEdge {
+  cursor: String!
+  node: Account
+}
+
+type QueryPageBannerConnection {
+  edges: [QueryPageBannerConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageBannerConnectionEdge {
+  cursor: String!
+  node: Banner
+}
+
+type QueryPageChangeConnection {
+  edges: [QueryPageChangeConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageChangeConnectionEdge {
+  cursor: String!
+  node: Change
+}
+
+type QueryPageCommentConnection {
+  edges: [QueryPageCommentConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageCommentConnectionEdge {
+  cursor: String!
+  node: Comment
+}
+
+type QueryPageConfigurationConnection {
+  edges: [QueryPageConfigurationConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageConfigurationConnectionEdge {
+  cursor: String!
+  node: Configuration
+}
+
+type QueryPageControlConnection {
+  edges: [QueryPageControlConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageControlConnectionEdge {
+  cursor: String!
+  node: Control
+}
+
+type QueryPageFeedbackConnection {
+  edges: [QueryPageFeedbackConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageFeedbackConnectionEdge {
+  cursor: String!
+  node: Feedback
+}
+
+type QueryPageFileConnection {
+  edges: [QueryPageFileConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageFileConnectionEdge {
+  cursor: String!
+  node: File
+}
+
+type QueryPageGeographyConnection {
+  edges: [QueryPageGeographyConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageGeographyConnectionEdge {
+  cursor: String!
+  node: Geography
+}
+
+type QueryPageHolidayConnection {
+  edges: [QueryPageHolidayConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageHolidayConnectionEdge {
+  cursor: String!
+  node: Holiday
+}
+
+type QueryPageLocationConnection {
+  edges: [QueryPageLocationConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageLocationConnectionEdge {
+  cursor: String!
+  node: Location
+}
+
+type QueryPageLogConnection {
+  edges: [QueryPageLogConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageLogConnectionEdge {
+  cursor: String!
+  node: Log
+}
+
+type QueryPageOccupancyConnection {
+  edges: [QueryPageOccupancyConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageOccupancyConnectionEdge {
+  cursor: String!
+  node: Occupancy
+}
+
+type QueryPageScheduleConnection {
+  edges: [QueryPageScheduleConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageScheduleConnectionEdge {
+  cursor: String!
+  node: Schedule
+}
+
+type QueryPageSetpointConnection {
+  edges: [QueryPageSetpointConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageSetpointConnectionEdge {
+  cursor: String!
+  node: Setpoint
+}
+
+type QueryPageUnitConnection {
+  edges: [QueryPageUnitConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageUnitConnectionEdge {
+  cursor: String!
+  node: Unit
+}
+
+type QueryPageUserConnection {
+  edges: [QueryPageUserConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageUserConnectionEdge {
+  cursor: String!
+  node: User
+}
+
+type Schedule {
+  correlation: String
+  createdAt: DateTime
+  endTime: String
+  fridayConfigurations: [Configuration!]
+  holidayConfigurations: [Configuration!]
+  id: String
+  label: String
+  message: String
+  mondayConfigurations: [Configuration!]
+  occupancies: [Occupancy!]
+  occupied: Boolean
+  saturdayConfigurations: [Configuration!]
+  setpoint: Setpoint
+  setpointId: String
+  stage: ModelStage
+  startTime: String
+  sundayConfigurations: [Configuration!]
+  thursdayConfigurations: [Configuration!]
+  tuesdayConfigurations: [Configuration!]
+  updatedAt: DateTime
+  wednesdayConfigurations: [Configuration!]
+}
+
+input ScheduleAggregate {
+  average: [ScheduleFields!]
+  count: [ScheduleFields!]
+  maximum: [ScheduleFields!]
+  minimum: [ScheduleFields!]
+  sum: [ScheduleFields!]
+}
+
+input ScheduleCreateInput {
+  correlation: String
+  endTime: String
+  label: String!
+  message: String
+  occupied: Boolean
+  setpoint: ScheduleCreateSetpointRelationInput
+  setpointId: String
+  stage: ModelStage
+  startTime: String
+}
+
+input ScheduleCreateSetpointRelationInput {
+  create: SetpointCreateInput
+}
+
+enum ScheduleFields {
+  correlation
+  createdAt
+  endTime
+  id
+  label
+  message
+  occupied
+  setpointId
+  stage
+  startTime
+  updatedAt
+}
+
+input ScheduleFilter {
+  AND: [ScheduleFilter!]
+  NOT: ScheduleFilter
+  OR: [ScheduleFilter!]
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  endTime: StringFilter
+  id: StringFilter
+  label: StringFilter
+  message: StringFilter
+  occupied: BooleanFilter
+  setpointId: StringFilter
+  stage: ModelStage
+  startTime: StringFilter
+  updatedAt: DateTimeFilter
+}
+
+scalar ScheduleGroupBy
+
+input ScheduleOrderBy {
+  correlation: OrderBy
+  createdAt: OrderBy
+  endTime: OrderBy
+  id: OrderBy
+  label: OrderBy
+  message: OrderBy
+  occupied: OrderBy
+  setpointId: OrderBy
+  stage: OrderBy
+  startTime: OrderBy
+  updatedAt: OrderBy
+}
+
+input ScheduleUniqueFilter {
+  id: String
+}
+
+input ScheduleUpdateInput {
+  correlation: String
+  endTime: String
+  label: String
+  message: String
+  occupied: Boolean
+  setpoint: ScheduleUpdateSetpointRelationInput
+  setpointId: String
+  stage: ModelStage
+  startTime: String
+}
+
+input ScheduleUpdateSetpointRelationInput {
+  update: SetpointUpdateInput
+}
+
+type Setpoint {
+  configurations: [Configuration!]
+  cooling: Float
+  correlation: String
+  createdAt: DateTime
+  deadband: Float
+  heating: Float
+  id: String
+  label: String
+  message: String
+  schedules: [Schedule!]
+  setpoint: Float
+  stage: ModelStage
+  updatedAt: DateTime
+}
+
+input SetpointAggregate {
+  average: [SetpointFields!]
+  count: [SetpointFields!]
+  maximum: [SetpointFields!]
+  minimum: [SetpointFields!]
+  sum: [SetpointFields!]
+}
+
+input SetpointCreateInput {
+  cooling: Float
+  correlation: String
+  deadband: Float
+  heating: Float
+  label: String!
+  message: String
+  setpoint: Float
+  stage: ModelStage
+}
+
+enum SetpointFields {
+  cooling
+  correlation
+  createdAt
+  deadband
+  heating
+  id
+  label
+  message
+  setpoint
+  stage
+  updatedAt
+}
+
+input SetpointFilter {
+  AND: [SetpointFilter!]
+  NOT: SetpointFilter
+  OR: [SetpointFilter!]
+  cooling: FloatFilter
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  deadband: FloatFilter
+  heating: FloatFilter
+  id: StringFilter
+  label: StringFilter
+  message: StringFilter
+  setpoint: FloatFilter
+  stage: ModelStage
+  updatedAt: DateTimeFilter
+}
+
+scalar SetpointGroupBy
+
+input SetpointOrderBy {
+  cooling: OrderBy
+  correlation: OrderBy
+  createdAt: OrderBy
+  deadband: OrderBy
+  heating: OrderBy
+  id: OrderBy
+  label: OrderBy
+  message: OrderBy
+  setpoint: OrderBy
+  stage: OrderBy
+  updatedAt: OrderBy
+}
+
+input SetpointUniqueFilter {
+  id: String
+}
+
+input SetpointUpdateInput {
+  cooling: Float
+  correlation: String
+  deadband: Float
+  heating: Float
+  label: String
+  message: String
+  setpoint: Float
+  stage: ModelStage
+}
+
+input StringFilter {
+  contains: String
+  endsWith: String
+  equals: String
+  in: [String!]
+  mode: StringFilterMode
+  not: StringFilter
+  startsWith: String
+}
+
+enum StringFilterMode {
+  Default
+  Insensitive
+}
+
+type Subscription {
+  """Read a list of geographies at a specific location."""
+  areaGeographies(area: GeographyGeoJson!): [Geography!]
+
+  """Count the number of accounts."""
+  countAccounts(where: AccountFilter): Int
+
+  """Count the number of banners."""
+  countBanners(where: BannerFilter): Int
+
+  """Count the number of changes."""
+  countChanges(where: ChangeFilter): Int
+
+  """Count the number of comments."""
+  countComments(where: CommentFilter): Int
+
+  """Count the number of configurations."""
+  countConfigurations(where: ConfigurationFilter): Int
+
+  """Count the number of controls."""
+  countControls(where: ControlFilter): Int
+
+  """Count the number of feedbacks."""
+  countFeedbacks(where: FeedbackFilter): Int
+
+  """Count the number of files."""
+  countFiles(where: FileFilter): Int
+
+  """Count the number of geographies."""
+  countGeographies(where: GeographyFilter): Int
+
+  """Count the number of holidays."""
+  countHolidays(where: HolidayFilter): Int
+
+  """Count the number of locations."""
+  countLocations(where: LocationFilter): Int
+
+  """Count the number of logs."""
+  countLogs(where: LogFilter): Int
+
+  """Count the number of occupancies."""
+  countOccupancies(where: OccupancyFilter): Int
+
+  """Count the number of schedules."""
+  countSchedules(where: ScheduleFilter): Int
+
+  """Count the number of setpoints."""
+  countSetpoints(where: SetpointFilter): Int
+
+  """Count the number of units."""
+  countUnits(where: UnitFilter): Int
+
+  """Count the number of user."""
+  countUsers(where: UserFilter): Int
+
+  """Group a list of accounts."""
+  groupAccounts(aggregate: AccountAggregate, by: [AccountFields!]!, where: AccountFilter): [AccountGroupBy!]
+
+  """Group a list of banners."""
+  groupBanners(aggregate: BannerAggregate, by: [BannerFields!]!, where: BannerFilter): [BannerGroupBy!]
+
+  """Group a list of changes."""
+  groupChanges(aggregate: ChangeAggregate, by: [ChangeFields!]!, where: ChangeFilter): [ChangeGroupBy!]
+
+  """Group a list of comments."""
+  groupComments(aggregate: CommentAggregate, by: [CommentFields!]!, where: CommentFilter): [CommentGroupBy!]
+
+  """Group a list of configurations."""
+  groupConfigurations(aggregate: ConfigurationAggregate, by: [ConfigurationFields!]!, where: ConfigurationFilter): [ConfigurationGroupBy!]
+
+  """Group a list of controls."""
+  groupControls(aggregate: ControlAggregate, by: [ControlFields!]!, where: ControlFilter): [ControlGroupBy!]
+
+  """Group a list of feedbacks."""
+  groupFeedbacks(aggregate: FeedbackAggregate, by: [FeedbackFields!]!, where: FeedbackFilter): [FeedbackGroupBy!]
+
+  """Group a list of files."""
+  groupFiles(aggregate: FileAggregate, by: [FileFields!]!, where: FileFilter): [FileGroupBy!]
+
+  """Group a list of geographies."""
+  groupGeographies(aggregate: GeographyAggregate, by: [GeographyFields!]!, where: GeographyFilter): [GeographyGroupBy!]
+
+  """Group a list of holidays."""
+  groupHolidays(aggregate: HolidayAggregate, by: [HolidayFields!]!, where: HolidayFilter): [HolidayGroupBy!]
+
+  """Group a list of locations."""
+  groupLocations(aggregate: LocationAggregate, by: [LocationFields!]!, where: LocationFilter): [LocationGroupBy!]
+
+  """Group a list of logs."""
+  groupLogs(aggregate: LogAggregate, by: [LogFields!]!, where: LogFilter): [LogGroupBy!]
+
+  """Group a list of occupancies."""
+  groupOccupancies(aggregate: OccupancyAggregate, by: [OccupancyFields!]!, where: OccupancyFilter): [OccupancyGroupBy!]
+
+  """Group a list of schedules."""
+  groupSchedules(aggregate: ScheduleAggregate, by: [ScheduleFields!]!, where: ScheduleFilter): [ScheduleGroupBy!]
+
+  """Group a list of setpoints."""
+  groupSetpoints(aggregate: SetpointAggregate, by: [SetpointFields!]!, where: SetpointFilter): [SetpointGroupBy!]
+
+  """Group a list of units."""
+  groupUnits(aggregate: UnitAggregate, by: [UnitFields!]!, where: UnitFilter): [UnitGroupBy!]
+
+  """Group a list of user."""
+  groupUsers(aggregate: UserAggregate, by: [UserFields!]!, where: UserFilter): [UserGroupBy!]
+
+  """Read a unique account."""
+  readAccount(where: AccountUniqueFilter!): Account
+
+  """Read a list of accounts."""
+  readAccounts(distinct: [AccountFields!], orderBy: [AccountOrderBy!], paging: PagingInput, where: AccountFilter): [Account!]
+
+  """Read a unique banner."""
+  readBanner(where: BannerUniqueFilter!): Banner
+
+  """Read a list of banners."""
+  readBanners(distinct: [BannerFields!], orderBy: [BannerOrderBy!], paging: PagingInput, where: BannerFilter): [Banner!]
+
+  """Read a unique change."""
+  readChange(where: ChangeUniqueFilter!): Change
+
+  """Read a list of changes."""
+  readChanges(distinct: [ChangeFields!], orderBy: [ChangeOrderBy!], paging: PagingInput, where: ChangeFilter): [Change!]
+
+  """Read a unique comment."""
+  readComment(where: CommentUniqueFilter!): Comment
+
+  """Read a list of comments."""
+  readComments(distinct: [CommentFields!], orderBy: [CommentOrderBy!], paging: PagingInput, where: CommentFilter): [Comment!]
+
+  """Read a unique configuration."""
+  readConfiguration(where: ConfigurationUniqueFilter!): Configuration
+
+  """Read a list of configurations."""
+  readConfigurations(distinct: [ConfigurationFields!], orderBy: [ConfigurationOrderBy!], paging: PagingInput, where: ConfigurationFilter): [Configuration!]
+
+  """Read a unique control."""
+  readControl(where: ControlUniqueFilter!): Control
+
+  """Read a list of controls."""
+  readControls(distinct: [ControlFields!], orderBy: [ControlOrderBy!], paging: PagingInput, where: ControlFilter): [Control!]
+
+  """Read the currently logged in user."""
+  readCurrent: User
+
+  """read a unique feedback"""
+  readFeedback(where: FeedbackUniqueFilter!): Feedback
+
+  """Read a list of feedback."""
+  readFeedbacks(distinct: [FeedbackFields!], orderBy: [FeedbackOrderBy!], paging: PagingInput, where: FeedbackFilter): [Feedback!]
+
+  """Read a specific file by its ID"""
+  readFile(where: FileUniqueFilter!): File
+
+  """Read a list of files."""
+  readFiles(distinct: [FileFields!], orderBy: [FileOrderBy!], paging: PagingInput, where: FileFilter): [File!]
+
+  """Read a list of geographies."""
+  readGeographies(distinct: [GeographyFields!], orderBy: [GeographyOrderBy!], paging: PagingInput, where: GeographyFilter): [Geography!]
+
+  """Read a unique geography."""
+  readGeography(where: GeographyUniqueFilter!): Geography
+
+  """Read a unique holiday."""
+  readHoliday(where: HolidayUniqueFilter!): Holiday
+
+  """Read a list of holidays."""
+  readHolidays(distinct: [HolidayFields!], orderBy: [HolidayOrderBy!], paging: PagingInput, where: HolidayFilter): [Holiday!]
+
+  """Read a unique location."""
+  readLocation(where: LocationUniqueFilter!): Location
+
+  """Read a list of locations."""
+  readLocations(distinct: [LocationFields!], orderBy: [LocationOrderBy!], paging: PagingInput, where: LocationFilter): [Location!]
+
+  """Read a unique log."""
+  readLog(where: LogUniqueFilter!): Log
+
+  """Read a list of logs."""
+  readLogs(distinct: [LogFields!], orderBy: [LogOrderBy!], paging: PagingInput, where: LogFilter): [Log!]
+
+  """Read a list of occupancies."""
+  readOccupancies(distinct: [OccupancyFields!], orderBy: [OccupancyOrderBy!], paging: PagingInput, where: OccupancyFilter): [Occupancy!]
+
+  """Read a unique occupancy."""
+  readOccupancy(where: OccupancyUniqueFilter!): Occupancy
+
+  """Read a unique schedule."""
+  readSchedule(where: ScheduleUniqueFilter!): Schedule
+
+  """Read a list of schedules."""
+  readSchedules(distinct: [ScheduleFields!], orderBy: [ScheduleOrderBy!], paging: PagingInput, where: ScheduleFilter): [Schedule!]
+
+  """Read a unique setpoint."""
+  readSetpoint(where: SetpointUniqueFilter!): Setpoint
+
+  """Read a list of setpoints."""
+  readSetpoints(distinct: [SetpointFields!], orderBy: [SetpointOrderBy!], paging: PagingInput, where: SetpointFilter): [Setpoint!]
+
+  """Read a unique unit."""
+  readUnit(where: UnitUniqueFilter!): Unit
+
+  """Read a list of units."""
+  readUnits(distinct: [UnitFields!], orderBy: [UnitOrderBy!], paging: PagingInput, where: UnitFilter): [Unit!]
+
+  """Read a unique user."""
+  readUser(where: UserUniqueFilter!): User
+
+  """Read a list of user."""
+  readUsers(distinct: [UserFields!], orderBy: [UserOrderBy!], paging: PagingInput, where: UserFilter): [User!]
+}
+
+type Unit {
+  building: String
+  campus: String
+  compressors: Int
+  configuration: Configuration
+  configurationId: String
+  control: Control
+  controlId: String
+  coolingCapacity: Float
+  coolingLockout: Float
+  coolingPeakOffset: Float
+  correlation: String
+  createdAt: DateTime
+  earliestStart: Int
+  economizer: Boolean
+  economizerSetpoint: Float
+  heatPump: Boolean
+  heatPumpBackup: Float
+  heatPumpLockout: Float
+  heatingPeakOffset: Float
+  id: String
+  label: String
+  latestStart: Int
+  location: Location
+  locationId: String
+  message: String
+  name: String
+  optimalStartDeviation: Float
+  optimalStartLockout: Float
+  peakLoadExclude: Boolean
+  stage: ModelStage
+  system: String
+  timezone: String
+  updatedAt: DateTime
+  users: [User!]
+  zoneBuilding: String
+  zoneLocation: String
+  zoneMass: String
+  zoneOrientation: String
+}
+
+input UnitAggregate {
+  average: [UnitFields!]
+  count: [UnitFields!]
+  maximum: [UnitFields!]
+  minimum: [UnitFields!]
+  sum: [UnitFields!]
+}
+
+input UnitCreateInput {
+  building: String
+  campus: String
+  compressors: Int
+  configurationId: String
+  controlId: String
+  coolingCapacity: Float
+  coolingLockout: Float
+  coolingPeakOffset: Float
+  correlation: String
+  earliestStart: Int
+  economizer: Boolean
+  economizerSetpoint: Float
+  heatPump: Boolean
+  heatPumpBackup: Float
+  heatPumpLockout: Float
+  heatingPeakOffset: Float
+  label: String!
+  latestStart: Int
+  locationId: String
+  message: String
+  name: String!
+  optimalStartDeviation: Float
+  optimalStartLockout: Float
+  peakLoadExclude: Boolean
+  stage: ModelStage
+  system: String
+  timezone: String
+  zoneBuilding: String
+  zoneLocation: String
+  zoneMass: String
+  zoneOrientation: String
+}
+
+enum UnitFields {
+  building
+  campus
+  compressors
+  configurationId
+  controlId
+  coolingCapacity
+  coolingLockout
+  coolingPeakOffset
+  correlation
+  createdAt
+  earliestStart
+  economizer
+  economizerSetpoint
+  heatPump
+  heatPumpBackup
+  heatPumpLockout
+  heatingPeakOffset
+  id
+  label
+  latestStart
+  locationId
+  message
+  name
+  optimalStartDeviation
+  optimalStartLockout
+  peakLoadExclude
+  stage
+  system
+  timezone
+  updatedAt
+  zoneBuilding
+  zoneLocation
+  zoneMass
+  zoneOrientation
+}
+
+input UnitFilter {
+  AND: [UnitFilter!]
+  NOT: UnitFilter
+  OR: [UnitFilter!]
+  building: StringFilter
+  campus: StringFilter
+  compressors: IntFilter
+  configurationId: StringFilter
+  controlId: StringFilter
+  coolingCapacity: FloatFilter
+  coolingLockout: FloatFilter
+  coolingPeakOffset: FloatFilter
+  correlation: StringFilter
+  createdAt: DateTimeFilter
+  earliestStart: IntFilter
+  economizer: BooleanFilter
+  economizerSetpoint: FloatFilter
+  heatPump: BooleanFilter
+  heatPumpBackup: FloatFilter
+  heatPumpLockout: FloatFilter
+  heatingPeakOffset: FloatFilter
+  id: StringFilter
+  label: StringFilter
+  latestStart: IntFilter
+  locationId: StringFilter
+  message: StringFilter
+  name: StringFilter
+  optimalStartDeviation: FloatFilter
+  optimalStartLockout: FloatFilter
+  peakLoadExclude: BooleanFilter
+  stage: ModelStage
+  system: StringFilter
+  timezone: StringFilter
+  updatedAt: DateTimeFilter
+  zoneBuilding: StringFilter
+  zoneLocation: StringFilter
+  zoneMass: StringFilter
+  zoneOrientation: StringFilter
+}
+
+scalar UnitGroupBy
+
+input UnitOrderBy {
+  building: OrderBy
+  campus: OrderBy
+  compressors: OrderBy
+  configurationId: OrderBy
+  controlId: OrderBy
+  coolingCapacity: OrderBy
+  coolingLockout: OrderBy
+  coolingPeakOffset: OrderBy
+  correlation: OrderBy
+  createdAt: OrderBy
+  earliestStart: OrderBy
+  economizer: OrderBy
+  economizerSetpoint: OrderBy
+  heatPump: OrderBy
+  heatPumpBackup: OrderBy
+  heatPumpLockout: OrderBy
+  heatingPeakOffset: OrderBy
+  id: OrderBy
+  label: OrderBy
+  latestStart: OrderBy
+  locationId: OrderBy
+  message: OrderBy
+  name: OrderBy
+  optimalStartDeviation: OrderBy
+  optimalStartLockout: OrderBy
+  peakLoadExclude: OrderBy
+  stage: OrderBy
+  system: OrderBy
+  timezone: OrderBy
+  updatedAt: OrderBy
+  zoneBuilding: OrderBy
+  zoneLocation: OrderBy
+  zoneMass: OrderBy
+  zoneOrientation: OrderBy
+}
+
+input UnitUniqueFilter {
+  id: String
+}
+
+input UnitUpdateConfigurationRelationInput {
+  update: ConfigurationUpdateInput
+}
+
+input UnitUpdateControlRelationInput {
+  update: ControlUpdateInput
+}
+
+input UnitUpdateInput {
+  building: String
+  campus: String
+  compressors: Int
+  configuration: UnitUpdateConfigurationRelationInput
+  configurationId: String
+  control: UnitUpdateControlRelationInput
+  controlId: String
+  coolingCapacity: Float
+  coolingLockout: Float
+  coolingPeakOffset: Float
+  correlation: String
+  earliestStart: Int
+  economizer: Boolean
+  economizerSetpoint: Float
+  heatPump: Boolean
+  heatPumpBackup: Float
+  heatPumpLockout: Float
+  heatingPeakOffset: Float
+  label: String
+  latestStart: Int
+  location: UnitUpdateLocationRelationInput
+  locationId: String
+  message: String
+  name: String
+  optimalStartDeviation: Float
+  optimalStartLockout: Float
+  peakLoadExclude: Boolean
+  stage: ModelStage
+  system: String
+  timezone: String
+  zoneBuilding: String
+  zoneLocation: String
+  zoneMass: String
+  zoneOrientation: String
+}
+
+input UnitUpdateLocationRelationInput {
+  update: LocationUpdateInput
+}
+
+type User {
+  accounts: [Account!]
+  banners: [Banner!]
+  comments: [Comment!]
+  createdAt: DateTime
+  email: String
+  emailVerified: DateTime
+  id: String
+  image: String
+  name: String
+
+  """[UserPreferences]"""
+  preferences: UserPreferences
+  role: String
+  units: [Unit!]
+  updatedAt: DateTime
+}
+
+input UserAggregate {
+  average: [UserFields!]
+  count: [UserFields!]
+  maximum: [UserFields!]
+  minimum: [UserFields!]
+  sum: [UserFields!]
+}
+
+input UserCreateInput {
+  email: String!
+  emailVerified: DateTime
+  image: String
+  name: String
+  password: String
+  preferences: UserPreferences
+  role: String
+  units: UserUpdateUnitsRelationInput
+}
+
+enum UserFields {
+  createdAt
+  email
+  emailVerified
+  id
+  image
+  name
+  preferences
+  role
+  updatedAt
+}
+
+input UserFilter {
+  AND: [UserFilter!]
+  NOT: UserFilter
+  OR: [UserFilter!]
+  createdAt: DateTimeFilter
+  email: StringFilter
+  emailVerified: DateTimeFilter
+  id: StringFilter
+  image: StringFilter
+  name: StringFilter
+  role: StringFilter
+  updatedAt: DateTimeFilter
+}
+
+scalar UserGroupBy
+
+input UserOrderBy {
+  createdAt: OrderBy
+  email: OrderBy
+  emailVerified: OrderBy
+  id: OrderBy
+  image: OrderBy
+  name: OrderBy
+  role: OrderBy
+  updatedAt: OrderBy
+}
+
+scalar UserPreferences
+
+input UserUniqueFilter {
+  id: String
+}
+
+input UserUpdateAccountsRelationInput {
+  connect: [AccountUniqueFilter!]
+  create: [AccountCreateInput!]
+  delete: [AccountUniqueFilter!]
+  disconnect: [AccountUniqueFilter!]
+}
+
+input UserUpdateBannersRelationInput {
+  connect: [BannerUniqueFilter!]
+  create: [BannerCreateInput!]
+  delete: [BannerUniqueFilter!]
+  disconnect: [BannerUniqueFilter!]
+}
+
+input UserUpdateCommentsRelationInput {
+  connect: [CommentUniqueFilter!]
+  create: [CommentCreateInput!]
+  delete: [CommentUniqueFilter!]
+  disconnect: [CommentUniqueFilter!]
+}
+
+input UserUpdateInput {
+  email: String
+  emailVerified: DateTime
+  image: String
+  name: String
+  password: String
+  preferences: UserPreferences
+  role: String
+  units: UserUpdateUnitsRelationInput
+}
+
+input UserUpdateUnitsRelationInput {
+  connect: [UnitUniqueFilter!]
+  disconnect: [UnitUniqueFilter!]
+}

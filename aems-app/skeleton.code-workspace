@@ -1,0 +1,131 @@
+{
+  "folders": [
+    {
+      "name": "Root",
+      "path": "."
+    },
+    {
+      "name": "Prisma",
+      "path": "prisma"
+    },
+    {
+      "name": "Common",
+      "path": "common"
+    },
+    {
+      "name": "Server",
+      "path": "server"
+    },
+    {
+      "name": "Client",
+      "path": "client"
+    },
+    {
+      "name": "Docker",
+      "path": "docker"
+    }
+  ],
+  "settings": {
+    "[typescript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[dockercompose]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescriptreact]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascriptreact]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[json]": {
+      "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "[jsonc]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[scss]": {
+      "editor.defaultFormatter": "vscode.css-language-features"
+    },
+    "[css]": {
+      "editor.defaultFormatter": "vscode.css-language-features"
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/bower_components": true,
+      "**/*.code-search": true,
+      "**/dist": true,
+      "**/build": true,
+      "**/coverage": true,
+      "**/.next": true,
+      "**/.swc": true,
+      "**/.yarn": true,
+      "**/yarn.lock": true
+    },
+    "prettier.tabWidth": 2,
+    "prettier.printWidth": 120,
+    "prettier.singleQuote": false,
+    "prettier.trailingComma": "all",
+    "cSpell.words": [
+      "blueprintjs",
+      "clsx",
+      "codegen",
+      "corepack",
+      "datetime",
+      "Geolocate",
+      "keycloak",
+      "maplibre",
+      "mbtiles",
+      "nominatim",
+      "pgoutput",
+      "pino",
+      "pothos",
+      "upsert"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "presentation": {
+      "panel": "new"
+    },
+    "tasks": [
+      {
+        "group": "build",
+        "label": "Build All",
+        "presentation": {
+          "reveal": "always"
+        },
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "type": "shell",
+        "windows": {
+          "command": "./build.ps1"
+        },
+        "linux": {
+          "command": "./build.sh"
+        }
+      },
+      {
+        "group": "build",
+        "label": "Test All",
+        "presentation": {
+          "reveal": "always"
+        },
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "type": "shell",
+        "windows": {
+          "command": "./test.ps1"
+        },
+        "linux": {
+          "command": "./test.sh"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+model Unit {
+    // key
+    id                    String         @id() @default(cuid())
+    // metadata
+    stage                 ModelStage     @default(Create)
+    message               String?        @db.VarChar(1024)
+    correlation           String?        @db.VarChar(1024)
+    createdAt             DateTime       @default(now()) @db.Timestamptz(6)
+    updatedAt             DateTime       @updatedAt @db.Timestamptz(6)
+    // fields
+    name                  String         @db.VarChar(1024)
+    campus                String         @default("") @db.VarChar(1024)
+    building              String         @default("") @db.VarChar(1024)
+    system                String         @default("") @db.VarChar(1024)
+    timezone              String         @default("local") @db.VarChar(1024)
+    label                 String         @db.VarChar(1024)
+    coolingCapacity       Float          @default(3)
+    compressors           Int            @default(1)
+    coolingLockout        Float          @default(45)
+    optimalStartLockout   Float          @default(20)
+    optimalStartDeviation Float          @default(0.5)
+    earliestStart         Int            @default(60)
+    latestStart           Int            @default(0)
+    zoneLocation          String         @default("exterior")
+    zoneMass              String         @default("medium")
+    zoneOrientation       String         @default("north")
+    zoneBuilding          String         @default("office")
+    heatPump              Boolean        @default(true)
+    heatPumpBackup        Float          @default(0)
+    economizer            Boolean        @default(true)
+    heatPumpLockout       Float          @default(30)
+    coolingPeakOffset     Float          @default(0.5)
+    heatingPeakOffset     Float          @default(-0.5)
+    peakLoadExclude       Boolean        @default(false)
+    economizerSetpoint    Float          @default(45)
+    // foreign keys
+    configurationId       String?
+    controlId             String?
+    locationId            String?
+    // direct relations
+    configuration         Configuration? @relation("Units_configurations", fields: [configurationId], references: [id], onDelete: SetNull)
+    control               Control?       @relation("Units_controls", fields: [controlId], references: [id], onDelete: SetNull)
+    location              Location?      @relation("Units_locations", fields: [locationId], references: [id], onDelete: SetNull)
+    // indirect relations
+    users                 User[]         @relation("Units_users")
+
+    // indices
+    @@index([label])
+    @@index([stage])
+}

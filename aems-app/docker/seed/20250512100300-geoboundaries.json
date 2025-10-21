@@ -1,0 +1,28 @@
+{
+  "table": "geography",
+  "type": "create",
+  "id": "id",
+  "geography": {
+    "mapping": {
+      "id": "shapeID",
+      "name": "shapeName",
+      "group": "shapeGroup",
+      "type": "shapeType"
+    }
+  },
+  "jsonpath": "$.features[]",
+  "data": [
+    {
+      "filename": "geoBoundariesCGAZ_ADM0.geojson"
+    },
+    {
+      "filename": "geoBoundariesCGAZ_ADM1.geojson"
+    },
+    {
+      "filename": "geoBoundariesCGAZ_ADM2_a.geojson"
+    },
+    {
+      "filename": "geoBoundariesCGAZ_ADM2_b.geojson"
+    }
+  ]
+}

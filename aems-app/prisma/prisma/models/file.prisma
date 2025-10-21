@@ -1,0 +1,12 @@
+model File {
+    id            String    @id() @default(cuid())
+    mimeType      String
+    contentLength Int
+    objectKey     String
+    createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+    updatedAt     DateTime  @updatedAt() @db.Timestamptz(6)
+    userId        String?
+    feedbackId    String?
+    user          User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    feedback      Feedback? @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+}

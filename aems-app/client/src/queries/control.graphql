@@ -1,0 +1,261 @@
+query ReadControl($where: ControlUniqueFilter!) {
+  readControl(where: $where) {
+    id
+    label
+    stage
+    message
+    correlation
+    createdAt
+    updatedAt
+    units {
+      id
+      name
+      campus
+      building
+      system
+      timezone
+      label
+      stage
+      message
+      correlation
+      coolingCapacity
+      compressors
+      coolingLockout
+      optimalStartLockout
+      optimalStartDeviation
+      earliestStart
+      latestStart
+      zoneLocation
+      zoneMass
+      zoneOrientation
+      zoneBuilding
+      heatPump
+      heatPumpBackup
+      economizer
+      heatPumpLockout
+      coolingPeakOffset
+      heatingPeakOffset
+      peakLoadExclude
+      economizerSetpoint
+      configurationId
+      controlId
+      locationId
+      createdAt
+      updatedAt
+      location {
+        id
+        name
+        latitude
+        longitude
+      }
+    }
+  }
+}
+
+query ReadControls(
+  $where: ControlFilter
+  $paging: PagingInput
+  $orderBy: [ControlOrderBy!]
+  $distinct: [ControlFields!]
+) {
+  readControls(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    label
+    stage
+    message
+    correlation
+    createdAt
+    updatedAt
+    units {
+      id
+      name
+      campus
+      building
+      system
+      timezone
+      label
+      stage
+      message
+      correlation
+      coolingCapacity
+      compressors
+      coolingLockout
+      optimalStartLockout
+      optimalStartDeviation
+      earliestStart
+      latestStart
+      zoneLocation
+      zoneMass
+      zoneOrientation
+      zoneBuilding
+      heatPump
+      heatPumpBackup
+      economizer
+      heatPumpLockout
+      coolingPeakOffset
+      heatingPeakOffset
+      peakLoadExclude
+      economizerSetpoint
+      configurationId
+      controlId
+      locationId
+      createdAt
+      updatedAt
+      location {
+        id
+        name
+        latitude
+        longitude
+      }
+    }
+  }
+}
+
+mutation CreateControl($create: ControlCreateInput!) {
+  createControl(create: $create) {
+    id
+    label
+    stage
+    message
+    correlation
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateControl($where: ControlUniqueFilter!, $update: ControlUpdateInput!) {
+  updateControl(where: $where, update: $update) {
+    id
+    label
+    stage
+    message
+    correlation
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteControl($where: ControlUniqueFilter!) {
+  deleteControl(where: $where) {
+    id
+    label
+    stage
+    message
+    correlation
+    createdAt
+    updatedAt
+  }
+}
+
+subscription SubscribeControl($where: ControlUniqueFilter!) {
+  readControl(where: $where) {
+    id
+    label
+    stage
+    message
+    correlation
+    createdAt
+    updatedAt
+    units {
+      id
+      name
+      campus
+      building
+      system
+      timezone
+      label
+      stage
+      message
+      correlation
+      coolingCapacity
+      compressors
+      coolingLockout
+      optimalStartLockout
+      optimalStartDeviation
+      earliestStart
+      latestStart
+      zoneLocation
+      zoneMass
+      zoneOrientation
+      zoneBuilding
+      heatPump
+      heatPumpBackup
+      economizer
+      heatPumpLockout
+      coolingPeakOffset
+      heatingPeakOffset
+      peakLoadExclude
+      economizerSetpoint
+      configurationId
+      controlId
+      locationId
+      createdAt
+      updatedAt
+      location {
+        id
+        name
+        latitude
+        longitude
+      }
+    }
+  }
+}
+
+subscription SubscribeControls(
+  $where: ControlFilter
+  $paging: PagingInput
+  $orderBy: [ControlOrderBy!]
+  $distinct: [ControlFields!]
+) {
+  readControls(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    label
+    stage
+    message
+    correlation
+    createdAt
+    updatedAt
+    units {
+      id
+      name
+      campus
+      building
+      system
+      timezone
+      label
+      stage
+      message
+      correlation
+      coolingCapacity
+      compressors
+      coolingLockout
+      optimalStartLockout
+      optimalStartDeviation
+      earliestStart
+      latestStart
+      zoneLocation
+      zoneMass
+      zoneOrientation
+      zoneBuilding
+      heatPump
+      heatPumpBackup
+      economizer
+      heatPumpLockout
+      coolingPeakOffset
+      heatingPeakOffset
+      peakLoadExclude
+      economizerSetpoint
+      configurationId
+      controlId
+      locationId
+      createdAt
+      updatedAt
+      location {
+        id
+        name
+        latitude
+        longitude
+      }
+    }
+  }
+}

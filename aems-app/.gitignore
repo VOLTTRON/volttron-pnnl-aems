@@ -12,10 +12,6 @@ docker-images.**
 # .vscode
 .DS_Store
 
-# certs
-docker/certs/*
-!docker/certs/README.md
-
 # secrets
 .env.secrets
 

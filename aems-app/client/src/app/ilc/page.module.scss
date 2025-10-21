@@ -1,0 +1,384 @@
+.controls {
+  padding: 1rem;
+  width: 100%;
+
+  h1 {
+    margin: 1rem 0;
+    color: var(--bp5-text-color);
+  }
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1rem;
+  color: var(--bp5-text-color-muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card {
+  padding: 1rem;
+  border: 1px solid var(--bp5-border-color);
+  border-radius: 6px;
+  background: var(--bp5-background-color);
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--bp5-intent-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.editingCard {
+  @extend .card;
+  border-color: var(--bp5-intent-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--bp5-background-color-secondary);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  >div {
+    flex: 1;
+    min-width: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+
+    &:last-child {
+      flex: 0 0 auto;
+    }
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex: 0 0 auto !important;
+}
+
+.label {
+  flex: 2 !important;
+}
+
+.select {
+  flex: 1.5 !important;
+}
+
+.configSection {
+  padding: 1rem;
+  border-left: 3px solid var(--bp5-intent-primary);
+  margin-left: 1rem;
+  background-color: var(--bp5-background-color-secondary);
+
+  .bp5-label {
+    margin-bottom: 0.5rem;
+
+    b {
+      display: block;
+      margin-bottom: 0.25rem;
+      color: var(--bp5-text-color);
+    }
+  }
+}
+
+// Blueprint.js overrides for better spacing
+.controls {
+  .bp5-label {
+    margin-bottom: 0.75rem;
+
+    >b {
+      display: block;
+      margin-bottom: 0.25rem;
+      font-weight: 500;
+      color: var(--bp5-text-color-muted);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    h3 {
+      margin: 0;
+      color: var(--bp5-heading-color);
+    }
+  }
+
+  .bp5-input-group {
+    margin-top: 0.25rem;
+
+    .bp5-input {
+      border-radius: 4px;
+      border: 1px solid var(--bp5-border-color);
+
+      &:focus {
+        border-color: var(--bp5-intent-primary);
+        box-shadow: 0 0 0 1px var(--bp5-intent-primary);
+      }
+
+      &[readonly] {
+        background-color: var(--bp5-background-color-secondary);
+        color: var(--bp5-text-color-muted);
+      }
+    }
+  }
+
+  .bp5-html-select {
+    select {
+      border-radius: 4px;
+      border: 1px solid var(--bp5-border-color);
+
+      &:focus {
+        border-color: var(--bp5-intent-primary);
+        box-shadow: 0 0 0 1px var(--bp5-intent-primary);
+      }
+    }
+  }
+
+  .bp5-numeric-input {
+    .bp5-input-group .bp5-input {
+      border-radius: 4px;
+    }
+  }
+
+  .bp5-card {
+    border-radius: 6px;
+  }
+
+  .bp5-tree {
+    margin: 0.5rem 0;
+
+    .bp5-tree-node {
+      padding: 0.5rem;
+      border-radius: 4px;
+
+      &:hover {
+        background-color: var(--bp5-background-color-secondary);
+      }
+
+      &.bp5-tree-node-expanded {
+        background-color: var(--bp5-background-color-secondary);
+      }
+    }
+
+    .bp5-tree-node-label {
+      font-weight: 500;
+    }
+  }
+
+  .bp5-collapse {
+    .bp5-collapse-body {
+      padding-top: 0.5rem;
+    }
+  }
+
+  .bp5-button {
+    &.bp5-minimal {
+      border-radius: 4px;
+
+      &:hover {
+        background-color: var(--bp5-background-color-secondary);
+      }
+    }
+  }
+
+  .bp5-alert {
+    max-width: 500px;
+    margin: 0 auto;
+
+    .bp5-alert-body {
+      padding: 1rem;
+    }
+
+    .bp5-alert-footer {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--bp5-border-color);
+    }
+  }
+}
+
+// Unit Editor Styling
+.controls .unit-editor {
+  padding: 1rem;
+  border-left: 3px solid var(--bp5-intent-primary);
+  margin-left: 1rem;
+  background-color: var(--bp5-background-color-secondary);
+  border-radius: 4px;
+
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    >div {
+      flex: 1;
+      min-width: 0;
+
+      &:last-child {
+        flex: 0 0 auto;
+      }
+
+      &.unit {
+        flex: 1.5;
+      }
+
+      &.select {
+        flex: 1.2;
+      }
+    }
+
+    h3 {
+      margin: 0;
+      color: var(--bp5-heading-color);
+      flex: 0 0 auto;
+      width: 2rem;
+    }
+  }
+
+  .bp5-label {
+    margin-bottom: 0.5rem;
+
+    >b {
+      display: block;
+      margin-bottom: 0.25rem;
+      color: var(--bp5-text-color);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 500;
+    }
+  }
+
+  .bp5-input-group {
+    margin-top: 0.25rem;
+  }
+
+  .bp5-html-select {
+    margin-top: 0.25rem;
+  }
+
+  .bp5-numeric-input {
+    margin-top: 0.25rem;
+  }
+
+  .bp5-slider {
+    margin: 0.5rem 0;
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .controls {
+    padding: 1rem;
+  }
+
+  .row {
+    flex-direction: column;
+    gap: 0.75rem;
+
+    >div {
+      flex: 1 1 auto;
+      max-width: 100%;
+
+      &:last-child {
+        align-self: flex-end;
+      }
+    }
+  }
+
+  .actions {
+    flex-direction: row;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .label,
+  .select {
+    flex: 1 1 auto !important;
+  }
+
+  .controls .unit-editor {
+    margin-left: 0.5rem;
+    padding: 0.75rem;
+
+    .row {
+      flex-direction: column;
+      
+      >div {
+        flex: 1 1 auto;
+        max-width: 100%;
+
+        &.unit,
+        &.select {
+          flex: 1 1 auto;
+        }
+      }
+    }
+  }
+
+  .controls .bp5-input-group {
+    width: 100%;
+    
+    .bp5-input {
+      width: 100%;
+    }
+  }
+
+  .controls .bp5-html-select {
+    width: 100%;
+    
+    select {
+      width: 100%;
+    }
+  }
+
+  .configSection {
+    margin-left: 0.5rem;
+    padding: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .controls {
+    padding: 0.75rem;
+  }
+
+  .card,
+  .editingCard {
+    padding: 0.75rem;
+  }
+
+  .row {
+    gap: 0.5rem;
+  }
+
+  .actions {
+    gap: 0.25rem;
+  }
+
+  .controls .unit-editor {
+    margin-left: 0.25rem;
+    padding: 0.5rem;
+  }
+}

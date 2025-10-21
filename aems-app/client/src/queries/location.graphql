@@ -1,0 +1,51 @@
+query ReadLocation($where: LocationUniqueFilter!) {
+  readLocation(where: $where) {
+    id
+    name
+    latitude
+    longitude
+    createdAt
+    updatedAt
+  }
+}
+
+query ReadLocations($where: LocationFilter, $paging: PagingInput, $orderBy: [LocationOrderBy!], $distinct: [LocationFields!]) {
+  readLocations(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    name
+    latitude
+    longitude
+    createdAt
+    updatedAt
+  }
+
+  countLocations(where: $where)
+}
+
+mutation CreateLocation($create: LocationCreateInput!) {
+  createLocation(create: $create) {
+    id
+    name
+    latitude
+    longitude
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateLocation($where: LocationUniqueFilter!, $update: LocationUpdateInput!) {
+  updateLocation(where: $where, update: $update) {
+    id
+    name
+    latitude
+    longitude
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteLocation($where: LocationUniqueFilter!) {
+  deleteLocation(where: $where) {
+    id
+  }
+}

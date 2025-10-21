@@ -1,0 +1,29 @@
+# Prisma Database Module - ORM and Schema Management
+
+## Technology Stack
+- **Database**: PostgreSQL + PostGIS extension for geospatial features
+- **ORM**: Prisma with TypeScript client generation
+- **GraphQL Integration**: Pothos schema builders with Prisma plugin
+- **Package Manager**: Yarn 4.x (use `yarn` not `npm`)
+
+## Development Workflow
+- **Schema Changes**: Edit `prisma/schema.prisma`, then run `yarn migrate:create`
+- **Deploy Migrations**: `yarn migrate:deploy` for production deployments
+- **Generate Client**: `yarn build` or `npx prisma generate`
+- **Testing**: `yarn test` with Jest
+
+## File Conventions
+- **Schema**: Database schema in `prisma/schema.prisma`
+- **Migrations**: Auto-generated in `prisma/migrations/`
+- **Generated Types**: Prisma client types exported from `dist/index.js`
+- **Pothos Integration**: Schema builders in `src/pothos.ts`
+
+## Integration Dependencies
+- **Foundation Module**: Other modules depend on this for database types
+- **Build Order**: Must be built before common, server, and client modules
+- **PostGIS**: Database requires PostGIS extension for geospatial operations
+
+## Important Notes
+- Always run migrations in development before committing schema changes
+- Generated Prisma client is consumed by server and common modules
+- README files should contain documentation only - no code examples belong in README files

@@ -1,0 +1,384 @@
+.units {
+  padding: 1rem;
+  width: 100%;
+
+  h1 {
+    margin: 1rem 0;
+    color: var(--bp5-text-color);
+  }
+}
+
+.spacer {
+  flex: 1;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.unitCard {
+  padding: 1rem;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  >div {
+    flex: 1;
+    min-width: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+
+    &:last-child {
+      flex: 0 0 auto;
+    }
+  }
+}
+
+.unit {
+  flex: 1;
+  min-width: 0;
+}
+
+.select {
+  flex: 1;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.configSection {
+  padding: 1rem;
+  border-left: 3px solid var(--bp5-intent-primary);
+  margin-left: 1rem;
+  background-color: var(--bp5-background-color-secondary);
+
+  .bp5-label {
+    margin-bottom: 0.5rem;
+
+    b {
+      display: block;
+      margin-bottom: 0.25rem;
+      color: var(--bp5-text-color);
+    }
+  }
+}
+
+.date-picker-hide-year {
+    display: none !important;
+}
+
+// Create Holiday Form styling
+.createHolidayForm {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1rem;
+
+  .formField {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .createButton {
+    align-self: end;
+  }
+}
+
+// Responsive design
+@media (max-width: 1024px) {
+  .createHolidayForm {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+
+    .formField:nth-child(1) {
+      grid-column: 1 / -1;
+    }
+
+    .createButton {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .createHolidayForm {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+
+    .formField,
+    .createButton {
+      grid-column: 1;
+    }
+
+    .createButton {
+      justify-self: stretch;
+    }
+  }
+
+  .units {
+    padding: 0.75rem;
+  }
+
+  .row {
+    flex-direction: column;
+    gap: 0.75rem;
+
+    >div {
+      flex: 1 1 auto;
+      max-width: 100%;
+
+      &:last-child {
+        align-self: flex-end;
+      }
+    }
+  }
+
+  .actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .unit,
+  .select {
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+
+  .unitCard {
+    padding: 0.75rem;
+  }
+
+  .configSection {
+    margin-left: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .units .bp5-input-group {
+    width: 100%;
+
+    .bp5-input {
+      width: 100%;
+    }
+  }
+
+  .units .bp5-html-select {
+    width: 100%;
+
+    select {
+      width: 100%;
+    }
+  }
+
+  .units .bp5-control-group {
+    flex-direction: column;
+
+    .bp5-input-group,
+    .bp5-button {
+      width: 100%;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .units {
+    padding: 0.5rem;
+  }
+
+  .unitCard {
+    padding: 0.5rem;
+  }
+
+  .row {
+    gap: 0.5rem;
+  }
+
+  .actions {
+    gap: 0.25rem;
+  }
+
+  .configSection {
+    margin-left: 0.25rem;
+    padding: 0.5rem;
+  }
+
+  .units .bp5-slider {
+    margin: 0.25rem 0;
+  }
+}
+
+// Tree styling
+.units .bp5-tree-node-content {
+  padding: 0.5rem;
+
+  &:hover {
+    background-color: var(--bp5-background-color-secondary);
+  }
+}
+
+.units .bp5-tree-node-label {
+  font-weight: 500;
+}
+
+// Card styling improvements
+.unitCard {
+  transition: all 0.2s ease;
+  border: 1px solid var(--bp5-border-color);
+
+  &:hover {
+    border-color: var(--bp5-intent-primary);
+  }
+}
+
+// Input styling within cards
+.unitCard .bp5-input-group {
+  margin-top: 0.25rem;
+}
+
+.unitCard .bp5-label {
+  margin-bottom: 0.75rem;
+
+  h3 {
+    margin: 0;
+    color: var(--bp5-heading-color);
+  }
+
+  b {
+    color: var(--bp5-text-color-muted);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+}
+
+// Collapse styling
+.units .bp5-collapse-body {
+  padding-top: 0.5rem;
+}
+
+// Alert styling
+.units .bp5-alert {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+// MultiSlider styling (matching deprecated version)
+.units .bp5-slider {
+  // padding-left: 2em;
+  // padding-right: 2em;
+}
+
+.units .bp5-slider.bp5-disabled {
+  >.bp5-slider-handle {
+    visibility: hidden;
+  }
+}
+
+// Unit and select field styling
+.unit {
+  .bp5-label {
+    margin-bottom: 0.75rem;
+
+    b {
+      color: var(--bp5-text-color-muted);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+  }
+}
+
+.select {
+  .bp5-label {
+    margin-bottom: 0.75rem;
+
+    b {
+      color: var(--bp5-text-color-muted);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+  }
+}
+
+// Tooltip icon styling (from deprecated version)
+.tooltip-icon .bp5-popover2-target {
+  margin-top: 0px !important;
+}
+
+// Schedule component styling
+.schedule-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 120px;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+
+  .schedule-label {
+    min-width: 0;
+  }
+
+  .schedule-slider {
+    padding: 0 1rem;
+    min-width: 0;
+  }
+
+  .schedule-switch {
+    display: flex;
+    justify-content: center;
+  }
+}
+
+// Responsive schedule styling
+@media (max-width: 768px) {
+  .schedule-row {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+
+    .schedule-label {
+      order: 1;
+    }
+
+    .schedule-slider {
+      order: 2;
+      padding: 0;
+    }
+
+    .schedule-switch {
+      order: 3;
+      justify-content: flex-start;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .schedule-row {
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+}
