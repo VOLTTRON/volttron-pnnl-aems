@@ -60,8 +60,6 @@ services:
     build:
       context: ../client
       dockerfile: ./Dockerfile
-      additional_contexts:
-        common: service:common
       args:
         - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
         - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
@@ -121,8 +119,6 @@ services:
     build:
       context: ../server
       dockerfile: ./Dockerfile
-      additional_contexts:
-        common: service:common
       args:
         - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
         - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
