@@ -486,6 +486,9 @@ services:
     depends_on:
       volttron:
         condition: service_started
+    environment:
+      - VOLTTRON_HOST=${VOLTTRON_HOST:-host.docker.internal}
+      - VOLTTRON_PORT=${VOLTTRON_PORT:-8443}
     hostname: volttron-bridge
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/volttron-bridge:${TAG}
     labels:
