@@ -479,13 +479,15 @@ services:
 
   # Volttron proxy bridge - connects Docker network to host-networked VOLTTRON
   volttron-bridge:
+    build:
+      context: ./bridge
+      dockerfile: ./Dockerfile
     container_name: ${COMPOSE_PROJECT_NAME}-volttron-bridge
     depends_on:
       volttron:
         condition: service_started
-    image: alpine:latest
     hostname: volttron-bridge
-    command: ["/proxy/volttron-socat.sh"]
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/volttron-bridge:${TAG}
     labels:
       - traefik.enable=true
       - traefik.http.services.volttron.loadbalancer.server.port=8443
@@ -520,8 +522,6 @@ services:
     profiles:
       - volttron
     restart: unless-stopped
-    volumes:
-      - ./proxy/volttron-socat.sh:/proxy/volttron-socat.sh:ro
 
 volumes:
   certs-data:
