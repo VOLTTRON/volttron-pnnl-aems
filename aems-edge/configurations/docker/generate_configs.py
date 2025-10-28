@@ -13,8 +13,6 @@ DEVICE_BLOCK_TEMPLATE = '''      devices/{campus}/{building}/{device_name}:
         file: $CONFIG/configuration_store/platform.driver/devices/{campus}/{building}/{device_name}
 '''
 
-
-
 schneider_registry = \
 """Reference Point Name,Volttron Point Name,Units,Unit Details,BACnet Object Type,Property,Writable,Index,Write Priority,Notes
 Effective Setpoint,EffectiveZoneTemperatureSetPoint,degreesFahrenheit,,analogInput,presentValue,TRUE,329,16,
@@ -178,7 +176,7 @@ manager_config_store_template = """{{
 }} """
 
 bacnet_proxy_config_template = """{{
-    device_address: "{gateway_prefix}.4/24",
+    device_address: "{interface_ip_address}/24",
     object_id: 648
 }}"""
 
@@ -542,10 +540,25 @@ def generate_bacnet_proxy_config(output_dir: str, building: str, gateway_address
         building: The name of the building for which the configuration is being generated.
         gateway_address: The network address of the gateway used to derive the prefix.
     """
+    interface_ip_address = None
     gateway_prefix = get_gateway_prefix(gateway_address)
-    bacnet_proxy_config = bacnet_proxy_config_template.format(building=building, gateway_prefix=gateway_prefix)
+    if not gateway_prefix:
+        raise ValueError('gateway-address is not set!')
+    interfaces = ni.interfaces()
+    for interface in interfaces:
+        try:
+            ip_address = ni.ifaddresses(interface)[ni.AF_INET][0]['addr']
+        except KeyError:
+            continue
+        if gateway_prefix in ip_address:
+            interface_ip_address = ip_address
+            break
+    if interface_ip_address is None:
+        raise ValueError('IP address is not found!  Verify gateway address')
+    bacnet_proxy_config = bacnet_proxy_config_template.format(building=building, interface_ip_address=interface_ip_address)
     with open(os.path.join(output_dir, 'bacnet.proxy.config'), 'w') as f:
         f.write(bacnet_proxy_config)
+
 
 
 def generate_historian_config(output_dir: str, config_content: str=historian_config_template):
@@ -582,7 +595,7 @@ def main():
                                       description='Generate config files for the simulation')
     parser.add('-n', '--num-configs', type=int, help='Number of config files to generate', required=True)
     parser.add('--output-dir', help='Output directory for config files', required=True)
-    parser.add('--config-subdir', help='Subdirectory for config files', default='configs')
+    parser.add('--config-subdir', help='Subdirectory for config files', default='')
     parser.add('--campus', help='Campus name', required=True)
     parser.add('--building', help='Building name', required=True)
     parser.add('--prefix', help='Device prefix', default='rtu')
@@ -622,4 +635,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
