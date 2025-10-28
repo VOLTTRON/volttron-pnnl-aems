@@ -1,6 +1,6 @@
 ARG image_user=amd64
-ARG image_repo=natet/volttron
-ARG image_tag=v-docker-main
+ARG image_repo=eclipsevolttron/volttron
+ARG image_tag=develop
 
 FROM ${image_repo}:${image_tag} AS volttron_aems
 
