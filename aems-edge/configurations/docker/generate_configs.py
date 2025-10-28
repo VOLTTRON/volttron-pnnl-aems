@@ -26,12 +26,17 @@ UO11 Analog Output,UO11 Analog Output,volts,(default 0.0),analogOutput,presentVa
 UO12 Analog Output,UO12 Analog Output,volts,(default 0.0),analogOutput,presentValue,TRUE,124,16,
 UO9 Analog Output,UO9 Analog Output,volts,(default 0.0),analogOutput,presentValue,TRUE,125,16,
 UO10 Analog Output,EconomizerVoltageOutput,volts,(default 0.0),analogOutput,presentValue,TRUE,126,16,
+StandbyTime,StandbyTime,noUnits,(default 0.0),analogValue,presentValue,TRUE,25,16,Param. A (AV25)
+ActOcc,EffectiveOccupancy,noUnits,(default 0.0),analogValue,presentValue,FALSE,26,,Only Used on PIR
+SptPriorValue,SptPriorValue,noUnits,(default 0.0),analogValue,presentValue,TRUE,27,16,Param. C (AV27)
+CommFailTmr,CommunicationFailureTimer,noUnits,(default 0.0),analogValue,presentValue,TRUE,28,16,Param. D (AV28)
 DR Flag,DemandResponseFlag,enum,,analogValue,presentValue,TRUE,29,8,
 HeartBeat,HeartBeat,enum,,analogValue,presentValue,TRUE,30,8,
 Occupied Heat Setpoint,OccupiedHeatingSetPoint,degreesFahrenheit,(default 72.0),analogValue,presentValue,TRUE,39,16,
 Occupied Cool Setpoint,OccupiedCoolingSetPoint,degreesFahrenheit,(default 75.0),analogValue,presentValue,TRUE,40,16,
 Unoccupied Heat Setpoint,UnoccupiedHeatingSetPoint,degreesFahrenheit,(default 62.0),analogValue,presentValue,TRUE,43,16,
 Unoccupied Cool Setpoint,UnoccupiedCoolingSetPoint,degreesFahrenheit,(default 80.0),analogValue,presentValue,TRUE,44,16,
+Standby Temperature Differential,StandbyTemperatureOffset,deltaDegreesFahrenheit,(default 4.0),analogValue,presentValue,TRUE,46,16,
 Heating Setpoint Limit,HeatingSetpointLimit,degreesFahrenheit,(default 90.0),analogValue,presentValue,TRUE,58,16,
 Cooling Setpoint Limit,CoolingSetpointLimit,degreesFahrenheit,(default 54.0),analogValue,presentValue,TRUE,59,16,
 Minimum Deadband,DeadBand,deltaDegreesFahrenheit,(default 3.0),analogValue,presentValue,TRUE,63,16,
