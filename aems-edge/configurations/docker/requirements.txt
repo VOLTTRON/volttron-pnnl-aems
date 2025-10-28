@@ -1,1 +1,2 @@
 configargparse
+netifaces2
