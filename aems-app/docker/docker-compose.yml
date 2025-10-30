@@ -448,6 +448,7 @@ services:
       - VOLTTRON_BACNET_ADDRESS=${VOLTTRON_BACNET_ADDRESS}
       - VOLTTRON_ILC=${VOLTTRON_ILC}
     hostname: setup
+    network_mode: host
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
     restart: no
     volumes:
@@ -462,7 +463,7 @@ services:
       certs:
         condition: service_completed_successfully
     environment:
-      - CONFIG=/home/volttron/configurations/configs
+      - CONFIG=/home/volttron/configurations
       - AEMS=/code/aems
       - ILC=/code/ilc
       - LOCAL_USER_ID=1000
@@ -471,6 +472,7 @@ services:
     network_mode: host
     profiles:
       - volttron
+    pull_policy: always
     restart: unless-stopped
     volumes:
       - volttron-data:/home/volttron/db
