@@ -19,8 +19,11 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
 const mutate_service_1 = require("../schedule/mutate.service");
 const query_service_2 = require("../configuration/query.service");
+const change_service_1 = require("../../change/change.service");
+const lodash_1 = require("lodash");
+const client_1 = require("@prisma/client");
 let OccupancyMutation = class OccupancyMutation {
-    constructor(builder, prismaService, subscriptionService, occupancyQuery, scheduleMutation, configurationQuery) {
+    constructor(builder, prismaService, subscriptionService, occupancyQuery, scheduleMutation, configurationQuery, changeService) {
         const { OccupancyWhereUnique } = occupancyQuery;
         const { ScheduleCreate, ScheduleUpdate } = scheduleMutation;
         const { ConfigurationWhereUnique } = configurationQuery;
@@ -78,11 +81,12 @@ let OccupancyMutation = class OccupancyMutation {
             args: {
                 create: t.arg({ type: OccupancyCreate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.occupancy
                     .create({
                     ...query,
                     data: { ...args.create },
+                    include: { schedule: true },
                 })
                     .then(async (occupancy) => {
                     await subscriptionService.publish("Occupancy", {
@@ -90,6 +94,10 @@ let OccupancyMutation = class OccupancyMutation {
                         id: occupancy.id,
                         mutation: common_2.Mutation.Created,
                     });
+                    await changeService.handleChange((0, lodash_1.omit)(occupancy, ["schedule"]), "Occupancy", client_1.ChangeMutation.Create, ctx.user);
+                    if (occupancy.schedule) {
+                        await changeService.handleChange(occupancy.schedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                    }
                     return occupancy;
                 });
             },
@@ -102,12 +110,13 @@ let OccupancyMutation = class OccupancyMutation {
                 where: t.arg({ type: OccupancyWhereUnique, required: true }),
                 update: t.arg({ type: OccupancyUpdate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.occupancy
                     .update({
                     ...query,
                     where: args.where,
                     data: args.update,
+                    include: { schedule: true },
                 })
                     .then(async (occupancy) => {
                     await subscriptionService.publish("Occupancy", {
@@ -120,6 +129,10 @@ let OccupancyMutation = class OccupancyMutation {
                         id: occupancy.id,
                         mutation: common_2.Mutation.Updated,
                     });
+                    await changeService.handleChange((0, lodash_1.omit)(occupancy, ["schedule"]), "Occupancy", client_1.ChangeMutation.Update, ctx.user);
+                    if (occupancy.schedule) {
+                        await changeService.handleChange(occupancy.schedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                    }
                     return occupancy;
                 });
             },
@@ -131,11 +144,12 @@ let OccupancyMutation = class OccupancyMutation {
             args: {
                 where: t.arg({ type: OccupancyWhereUnique, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.occupancy
                     .delete({
                     ...query,
                     where: args.where,
+                    include: { schedule: true },
                 })
                     .then(async (occupancy) => {
                     await subscriptionService.publish("Occupancy", {
@@ -148,6 +162,10 @@ let OccupancyMutation = class OccupancyMutation {
                         id: occupancy.id,
                         mutation: common_2.Mutation.Deleted,
                     });
+                    await changeService.handleChange((0, lodash_1.omit)(occupancy, ["schedule"]), "Occupancy", client_1.ChangeMutation.Delete, ctx.user);
+                    if (occupancy.schedule) {
+                        await changeService.handleChange(occupancy.schedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                    }
                     return occupancy;
                 });
             },
@@ -163,6 +181,7 @@ exports.OccupancyMutation = OccupancyMutation = __decorate([
         subscription_service_1.SubscriptionService,
         query_service_1.OccupancyQuery,
         mutate_service_1.ScheduleMutation,
-        query_service_2.ConfigurationQuery])
+        query_service_2.ConfigurationQuery,
+        change_service_1.ChangeService])
 ], OccupancyMutation);
 //# sourceMappingURL=mutate.service.js.map

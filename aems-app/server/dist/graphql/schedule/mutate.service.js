@@ -18,8 +18,11 @@ const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
 const mutate_service_1 = require("../setpoint/mutate.service");
+const change_service_1 = require("../../change/change.service");
+const client_1 = require("@prisma/client");
+const lodash_1 = require("lodash");
 let ScheduleMutation = class ScheduleMutation {
-    constructor(builder, prismaService, subscriptionService, scheduleQuery, setpointMutation) {
+    constructor(builder, prismaService, subscriptionService, scheduleQuery, setpointMutation, changeService) {
         const { ScheduleWhereUnique } = scheduleQuery;
         const { SetpointCreate, SetpointUpdate } = setpointMutation;
         const ScheduleSetpointCreate = builder.prismaCreateRelation("Schedule", "setpoint", {
@@ -66,11 +69,12 @@ let ScheduleMutation = class ScheduleMutation {
             args: {
                 create: t.arg({ type: ScheduleCreate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.schedule
                     .create({
                     ...query,
                     data: { ...args.create },
+                    include: { setpoint: true },
                 })
                     .then(async (schedule) => {
                     await subscriptionService.publish("Schedule", {
@@ -78,6 +82,10 @@ let ScheduleMutation = class ScheduleMutation {
                         id: schedule.id,
                         mutation: common_2.Mutation.Created,
                     });
+                    await changeService.handleChange((0, lodash_1.omit)(schedule, ["setpoint"]), "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                    if (schedule.setpoint) {
+                        await changeService.handleChange(schedule.setpoint, "Setpoint", client_1.ChangeMutation.Create, ctx.user);
+                    }
                     return schedule;
                 });
             },
@@ -90,12 +98,13 @@ let ScheduleMutation = class ScheduleMutation {
                 where: t.arg({ type: ScheduleWhereUnique, required: true }),
                 update: t.arg({ type: ScheduleUpdate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.schedule
                     .update({
                     ...query,
                     where: args.where,
                     data: args.update,
+                    include: { setpoint: true },
                 })
                     .then(async (schedule) => {
                     await subscriptionService.publish("Schedule", {
@@ -108,6 +117,10 @@ let ScheduleMutation = class ScheduleMutation {
                         id: schedule.id,
                         mutation: common_2.Mutation.Updated,
                     });
+                    await changeService.handleChange((0, lodash_1.omit)(schedule, ["setpoint"]), "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                    if (schedule.setpoint) {
+                        await changeService.handleChange(schedule.setpoint, "Setpoint", client_1.ChangeMutation.Update, ctx.user);
+                    }
                     return schedule;
                 });
             },
@@ -119,11 +132,12 @@ let ScheduleMutation = class ScheduleMutation {
             args: {
                 where: t.arg({ type: ScheduleWhereUnique, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.schedule
                     .delete({
                     ...query,
                     where: args.where,
+                    include: { setpoint: true },
                 })
                     .then(async (schedule) => {
                     await subscriptionService.publish("Schedule", {
@@ -136,6 +150,10 @@ let ScheduleMutation = class ScheduleMutation {
                         id: schedule.id,
                         mutation: common_2.Mutation.Deleted,
                     });
+                    await changeService.handleChange((0, lodash_1.omit)(schedule, ["setpoint"]), "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                    if (schedule.setpoint) {
+                        await changeService.handleChange(schedule.setpoint, "Setpoint", client_1.ChangeMutation.Delete, ctx.user);
+                    }
                     return schedule;
                 });
             },
@@ -150,6 +168,7 @@ exports.ScheduleMutation = ScheduleMutation = __decorate([
         prisma_service_1.PrismaService,
         subscription_service_1.SubscriptionService,
         query_service_1.ScheduleQuery,
-        mutate_service_1.SetpointMutation])
+        mutate_service_1.SetpointMutation,
+        change_service_1.ChangeService])
 ], ScheduleMutation);
 //# sourceMappingURL=mutate.service.js.map

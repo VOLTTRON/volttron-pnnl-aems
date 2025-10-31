@@ -3,6 +3,7 @@ import { ScheduleQuery } from "./query.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { SetpointMutation } from "../setpoint/mutate.service";
+import { ChangeService } from "@/change/change.service";
 export declare class ScheduleMutation {
     readonly ScheduleCreate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -56,5 +57,5 @@ export declare class ScheduleMutation {
             Scalars: import("..").Scalars;
         }>, import(".prisma/client").Prisma.SetpointUpdateOneWithoutSchedulesNestedInput>;
     }>>;
-    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, scheduleQuery: ScheduleQuery, setpointMutation: SetpointMutation);
+    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, scheduleQuery: ScheduleQuery, setpointMutation: SetpointMutation, changeService: ChangeService);
 }

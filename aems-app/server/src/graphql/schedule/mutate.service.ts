@@ -6,6 +6,9 @@ import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { SetpointMutation } from "../setpoint/mutate.service";
+import { ChangeService } from "@/change/change.service";
+import { ChangeMutation } from "@prisma/client";
+import { omit } from "lodash";
 
 @Injectable()
 @PothosMutation()
@@ -19,6 +22,7 @@ export class ScheduleMutation {
     subscriptionService: SubscriptionService,
     scheduleQuery: ScheduleQuery,
     setpointMutation: SetpointMutation,
+    changeService: ChangeService,
   ) {
     const { ScheduleWhereUnique } = scheduleQuery;
     const { SetpointCreate, SetpointUpdate } = setpointMutation;
@@ -73,11 +77,12 @@ export class ScheduleMutation {
         args: {
           create: t.arg({ type: ScheduleCreate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.schedule
             .create({
               ...query,
               data: { ...args.create },
+              include: { setpoint: true },
             })
             .then(async (schedule) => {
               await subscriptionService.publish("Schedule", {
@@ -85,6 +90,15 @@ export class ScheduleMutation {
                 id: schedule.id,
                 mutation: Mutation.Created,
               });
+              await changeService.handleChange(
+                omit(schedule, ["setpoint"]),
+                "Schedule",
+                ChangeMutation.Create,
+                ctx.user!,
+              );
+              if (schedule.setpoint) {
+                await changeService.handleChange(schedule.setpoint, "Setpoint", ChangeMutation.Create, ctx.user!);
+              }
               return schedule;
             });
         },
@@ -100,12 +114,13 @@ export class ScheduleMutation {
           where: t.arg({ type: ScheduleWhereUnique, required: true }),
           update: t.arg({ type: ScheduleUpdate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.schedule
             .update({
               ...query,
               where: args.where,
               data: args.update,
+              include: { setpoint: true },
             })
             .then(async (schedule) => {
               await subscriptionService.publish("Schedule", {
@@ -118,6 +133,15 @@ export class ScheduleMutation {
                 id: schedule.id,
                 mutation: Mutation.Updated,
               });
+              await changeService.handleChange(
+                omit(schedule, ["setpoint"]),
+                "Schedule",
+                ChangeMutation.Update,
+                ctx.user!,
+              );
+              if (schedule.setpoint) {
+                await changeService.handleChange(schedule.setpoint, "Setpoint", ChangeMutation.Update, ctx.user!);
+              }
               return schedule;
             });
         },
@@ -132,11 +156,12 @@ export class ScheduleMutation {
         args: {
           where: t.arg({ type: ScheduleWhereUnique, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.schedule
             .delete({
               ...query,
               where: args.where,
+              include: { setpoint: true },
             })
             .then(async (schedule) => {
               await subscriptionService.publish("Schedule", {
@@ -149,6 +174,15 @@ export class ScheduleMutation {
                 id: schedule.id,
                 mutation: Mutation.Deleted,
               });
+              await changeService.handleChange(
+                omit(schedule, ["setpoint"]),
+                "Schedule",
+                ChangeMutation.Delete,
+                ctx.user!,
+              );
+              if (schedule.setpoint) {
+                await changeService.handleChange(schedule.setpoint, "Setpoint", ChangeMutation.Delete, ctx.user!);
+              }
               return schedule;
             });
         },

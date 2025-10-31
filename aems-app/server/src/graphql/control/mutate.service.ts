@@ -6,6 +6,8 @@ import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { UnitQuery } from "../unit/query.service";
+import { ChangeService } from "@/change/change.service";
+import { ChangeMutation } from "@prisma/client";
 
 @Injectable()
 @PothosMutation()
@@ -19,6 +21,7 @@ export class ControlMutation {
     subscriptionService: SubscriptionService,
     controlQuery: ControlQuery,
     unitQuery: UnitQuery,
+    changeService: ChangeService,
   ) {
     const { ControlWhereUnique } = controlQuery;
     const { UnitWhereUnique } = unitQuery;
@@ -61,7 +64,7 @@ export class ControlMutation {
         args: {
           create: t.arg({ type: ControlCreate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.control
             .create({
               ...query,
@@ -73,6 +76,7 @@ export class ControlMutation {
                 id: control.id,
                 mutation: Mutation.Created,
               });
+              await changeService.handleChange(control, "Control", ChangeMutation.Create, ctx.user!);
               return control;
             });
         },
@@ -88,7 +92,7 @@ export class ControlMutation {
           where: t.arg({ type: ControlWhereUnique, required: true }),
           update: t.arg({ type: ControlUpdate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.control
             .update({
               ...query,
@@ -106,6 +110,7 @@ export class ControlMutation {
                 id: control.id,
                 mutation: Mutation.Updated,
               });
+              await changeService.handleChange(control, "Control", ChangeMutation.Update, ctx.user!);
               return control;
             });
         },
@@ -120,7 +125,7 @@ export class ControlMutation {
         args: {
           where: t.arg({ type: ControlWhereUnique, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.control
             .delete({
               ...query,
@@ -137,6 +142,7 @@ export class ControlMutation {
                 id: control.id,
                 mutation: Mutation.Deleted,
               });
+              await changeService.handleChange(control, "Control", ChangeMutation.Delete, ctx.user!);
               return control;
             });
         },

@@ -23,8 +23,11 @@ const mutate_service_3 = require("../occupancy/mutate.service");
 const query_service_2 = require("../occupancy/query.service");
 const mutate_service_4 = require("../holiday/mutate.service");
 const query_service_3 = require("../holiday/query.service");
+const change_service_1 = require("../../change/change.service");
+const client_1 = require("@prisma/client");
+const lodash_1 = require("lodash");
 let ConfigurationMutation = class ConfigurationMutation {
-    constructor(builder, prismaService, subscriptionService, configurationQuery, setpointMutation, scheduleMutation, occupancyQuery, occupancyMutation, holidayQuery, holidayMutation) {
+    constructor(builder, prismaService, subscriptionService, configurationQuery, setpointMutation, scheduleMutation, occupancyQuery, occupancyMutation, holidayQuery, holidayMutation, changeService) {
         const { ConfigurationWhereUnique } = configurationQuery;
         const { SetpointUpdate } = setpointMutation;
         const { ScheduleUpdate } = scheduleMutation;
@@ -154,11 +157,22 @@ let ConfigurationMutation = class ConfigurationMutation {
             args: {
                 create: t.arg({ type: ConfigurationCreate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.configuration
                     .create({
                     ...query,
                     data: { ...args.create },
+                    include: {
+                        setpoint: true,
+                        mondaySchedule: true,
+                        tuesdaySchedule: true,
+                        wednesdaySchedule: true,
+                        thursdaySchedule: true,
+                        fridaySchedule: true,
+                        saturdaySchedule: true,
+                        sundaySchedule: true,
+                        holidaySchedule: true,
+                    },
                 })
                     .then(async (configuration) => {
                     await subscriptionService.publish("Configuration", {
@@ -166,6 +180,44 @@ let ConfigurationMutation = class ConfigurationMutation {
                         id: configuration.id,
                         mutation: common_2.Mutation.Created,
                     });
+                    await changeService.handleChange((0, lodash_1.omit)(configuration, [
+                        "setpoint",
+                        "mondaySchedule",
+                        "tuesdaySchedule",
+                        "wednesdaySchedule",
+                        "thursdaySchedule",
+                        "fridaySchedule",
+                        "saturdaySchedule",
+                        "sundaySchedule",
+                        "holidaySchedule",
+                    ]), "Configuration", client_1.ChangeMutation.Create, ctx.user);
+                    if (configuration.setpoint) {
+                        await changeService.handleChange(configuration.setpoint, "Setpoint", client_1.ChangeMutation.Create, ctx.user);
+                    }
+                    if (configuration.mondaySchedule) {
+                        await changeService.handleChange(configuration.mondaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                    }
+                    if (configuration.tuesdaySchedule) {
+                        await changeService.handleChange(configuration.tuesdaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                    }
+                    if (configuration.wednesdaySchedule) {
+                        await changeService.handleChange(configuration.wednesdaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                    }
+                    if (configuration.thursdaySchedule) {
+                        await changeService.handleChange(configuration.thursdaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                    }
+                    if (configuration.fridaySchedule) {
+                        await changeService.handleChange(configuration.fridaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                    }
+                    if (configuration.saturdaySchedule) {
+                        await changeService.handleChange(configuration.saturdaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                    }
+                    if (configuration.sundaySchedule) {
+                        await changeService.handleChange(configuration.sundaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                    }
+                    if (configuration.holidaySchedule) {
+                        await changeService.handleChange(configuration.holidaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                    }
                     return configuration;
                 });
             },
@@ -178,12 +230,23 @@ let ConfigurationMutation = class ConfigurationMutation {
                 where: t.arg({ type: ConfigurationWhereUnique, required: true }),
                 update: t.arg({ type: ConfigurationUpdate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.configuration
                     .update({
                     ...query,
                     where: args.where,
                     data: args.update,
+                    include: {
+                        setpoint: true,
+                        mondaySchedule: true,
+                        tuesdaySchedule: true,
+                        wednesdaySchedule: true,
+                        thursdaySchedule: true,
+                        fridaySchedule: true,
+                        saturdaySchedule: true,
+                        sundaySchedule: true,
+                        holidaySchedule: true,
+                    },
                 })
                     .then(async (configuration) => {
                     await subscriptionService.publish("Configuration", {
@@ -196,6 +259,44 @@ let ConfigurationMutation = class ConfigurationMutation {
                         id: configuration.id,
                         mutation: common_2.Mutation.Updated,
                     });
+                    await changeService.handleChange((0, lodash_1.omit)(configuration, [
+                        "setpoint",
+                        "mondaySchedule",
+                        "tuesdaySchedule",
+                        "wednesdaySchedule",
+                        "thursdaySchedule",
+                        "fridaySchedule",
+                        "saturdaySchedule",
+                        "sundaySchedule",
+                        "holidaySchedule",
+                    ]), "Configuration", client_1.ChangeMutation.Update, ctx.user);
+                    if (configuration.setpoint) {
+                        await changeService.handleChange(configuration.setpoint, "Setpoint", client_1.ChangeMutation.Update, ctx.user);
+                    }
+                    if (configuration.mondaySchedule) {
+                        await changeService.handleChange(configuration.mondaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                    }
+                    if (configuration.tuesdaySchedule) {
+                        await changeService.handleChange(configuration.tuesdaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                    }
+                    if (configuration.wednesdaySchedule) {
+                        await changeService.handleChange(configuration.wednesdaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                    }
+                    if (configuration.thursdaySchedule) {
+                        await changeService.handleChange(configuration.thursdaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                    }
+                    if (configuration.fridaySchedule) {
+                        await changeService.handleChange(configuration.fridaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                    }
+                    if (configuration.saturdaySchedule) {
+                        await changeService.handleChange(configuration.saturdaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                    }
+                    if (configuration.sundaySchedule) {
+                        await changeService.handleChange(configuration.sundaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                    }
+                    if (configuration.holidaySchedule) {
+                        await changeService.handleChange(configuration.holidaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                    }
                     return configuration;
                 });
             },
@@ -207,11 +308,22 @@ let ConfigurationMutation = class ConfigurationMutation {
             args: {
                 where: t.arg({ type: ConfigurationWhereUnique, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.configuration
                     .delete({
                     ...query,
                     where: args.where,
+                    include: {
+                        setpoint: true,
+                        mondaySchedule: true,
+                        tuesdaySchedule: true,
+                        wednesdaySchedule: true,
+                        thursdaySchedule: true,
+                        fridaySchedule: true,
+                        saturdaySchedule: true,
+                        sundaySchedule: true,
+                        holidaySchedule: true,
+                    },
                 })
                     .then(async (configuration) => {
                     await subscriptionService.publish("Configuration", {
@@ -224,6 +336,44 @@ let ConfigurationMutation = class ConfigurationMutation {
                         id: configuration.id,
                         mutation: common_2.Mutation.Deleted,
                     });
+                    await changeService.handleChange((0, lodash_1.omit)(configuration, [
+                        "setpoint",
+                        "mondaySchedule",
+                        "tuesdaySchedule",
+                        "wednesdaySchedule",
+                        "thursdaySchedule",
+                        "fridaySchedule",
+                        "saturdaySchedule",
+                        "sundaySchedule",
+                        "holidaySchedule",
+                    ]), "Configuration", client_1.ChangeMutation.Delete, ctx.user);
+                    if (configuration.setpoint) {
+                        await changeService.handleChange(configuration.setpoint, "Setpoint", client_1.ChangeMutation.Delete, ctx.user);
+                    }
+                    if (configuration.mondaySchedule) {
+                        await changeService.handleChange(configuration.mondaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                    }
+                    if (configuration.tuesdaySchedule) {
+                        await changeService.handleChange(configuration.tuesdaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                    }
+                    if (configuration.wednesdaySchedule) {
+                        await changeService.handleChange(configuration.wednesdaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                    }
+                    if (configuration.thursdaySchedule) {
+                        await changeService.handleChange(configuration.thursdaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                    }
+                    if (configuration.fridaySchedule) {
+                        await changeService.handleChange(configuration.fridaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                    }
+                    if (configuration.saturdaySchedule) {
+                        await changeService.handleChange(configuration.saturdaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                    }
+                    if (configuration.sundaySchedule) {
+                        await changeService.handleChange(configuration.sundaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                    }
+                    if (configuration.holidaySchedule) {
+                        await changeService.handleChange(configuration.holidaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                    }
                     return configuration;
                 });
             },
@@ -243,6 +393,7 @@ exports.ConfigurationMutation = ConfigurationMutation = __decorate([
         query_service_2.OccupancyQuery,
         mutate_service_3.OccupancyMutation,
         query_service_3.HolidayQuery,
-        mutate_service_4.HolidayMutation])
+        mutate_service_4.HolidayMutation,
+        change_service_1.ChangeService])
 ], ConfigurationMutation);
 //# sourceMappingURL=mutate.service.js.map

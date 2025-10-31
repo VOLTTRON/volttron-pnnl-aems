@@ -4,6 +4,7 @@ import { HolidayObject } from "./object.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { ConfigurationQuery } from "../configuration/query.service";
+import { ChangeService } from "@/change/change.service";
 export declare class HolidayMutation {
     readonly HolidayCreate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -67,5 +68,5 @@ export declare class HolidayMutation {
             Scalars: import("..").Scalars;
         }>, import(".prisma/client").Prisma.ConfigurationUpdateManyWithoutHolidaysNestedInput>;
     }>>;
-    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, holidayQuery: HolidayQuery, holidayObject: HolidayObject, configurationQuery: ConfigurationQuery);
+    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, holidayQuery: HolidayQuery, holidayObject: HolidayObject, configurationQuery: ConfigurationQuery, changeService: ChangeService);
 }

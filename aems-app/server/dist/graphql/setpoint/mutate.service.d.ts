@@ -2,6 +2,7 @@ import { SchemaBuilderService } from "../builder.service";
 import { SetpointQuery } from "./query.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { ChangeService } from "@/change/change.service";
 export declare class SetpointMutation {
     readonly SetpointCreate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -47,5 +48,5 @@ export declare class SetpointMutation {
         standbyTime: "Int";
         standbyOffset: "Float";
     }>>;
-    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, setpointQuery: SetpointQuery);
+    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, setpointQuery: SetpointQuery, changeService: ChangeService);
 }
