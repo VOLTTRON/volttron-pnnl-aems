@@ -31,7 +31,7 @@ export class ChangeService {
       } else if (value instanceof Date) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         (entity as any)[key] = value.toISOString();
-      } else if (typeofObject<JsonObject>(value, (v) => typeof v === "object")) {
+      } else if (typeofObject<JsonObject>(value, (v) => typeof v === "object" && v !== null)) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         (entity as any)[key] = this.transform(value);
       }
@@ -93,7 +93,13 @@ export class ChangeService {
     mutation: ChangeMutation,
     user: Express.User | string,
   ): Promise<void> {
-    const userId = typeof user === "string" ? user : user.id;
+    const userId = typeof user === "string" ? user : typeof user === "object" && user !== null ? user.id : null;
+    if (!userId) {
+      throw new Error(`User ID not found for change tracking for ${mutation} ${type} entity.`);
+    }
+    if (typeof entity !== "object" || entity === null || !("id" in entity)) {
+      throw new Error(`Invalid entity provided for change tracking for ${mutation} ${type} entity.`);
+    }
     if (type === "Schedule" && typeofObject<Schedule>(entity)) {
       await this.prismaService.prisma.change
         .create({

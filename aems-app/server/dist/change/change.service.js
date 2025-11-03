@@ -27,14 +27,20 @@ let ChangeService = class ChangeService {
             else if (value instanceof Date) {
                 entity[key] = value.toISOString();
             }
-            else if ((0, common_1.typeofObject)(value, (v) => typeof v === "object")) {
+            else if ((0, common_1.typeofObject)(value, (v) => typeof v === "object" && v !== null)) {
                 entity[key] = this.transform(value);
             }
         });
         return entity;
     }
     async handleChange(entity, type, mutation, user) {
-        const userId = typeof user === "string" ? user : user.id;
+        const userId = typeof user === "string" ? user : typeof user === "object" && user !== null ? user.id : null;
+        if (!userId) {
+            throw new Error(`User ID not found for change tracking for ${mutation} ${type} entity.`);
+        }
+        if (typeof entity !== "object" || entity === null || !("id" in entity)) {
+            throw new Error(`Invalid entity provided for change tracking for ${mutation} ${type} entity.`);
+        }
         if (type === "Schedule" && (0, common_1.typeofObject)(entity)) {
             await this.prismaService.prisma.change
                 .create({
