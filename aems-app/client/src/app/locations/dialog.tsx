@@ -11,7 +11,6 @@ import {
   UpdateLocationDocument,
 } from "@/graphql-codegen/graphql";
 import { useMutation } from "@apollo/client";
-import { Term } from "@/utils/client";
 import { CreateDialog, DeleteDialog, UpdateDialog } from "../dialog";
 
 export function CreateLocation({
@@ -35,7 +34,7 @@ export function CreateLocation({
     if (!name || latitude === undefined || longitude === undefined) {
       return;
     }
-    
+
     await createLocation({
       variables: {
         create: {
@@ -111,7 +110,7 @@ export function UpdateLocation({
     }
 
     const updateData: any = {};
-    
+
     if (name !== locationData?.name) updateData.name = name;
     if (latitude !== locationData?.latitude) updateData.latitude = latitude;
     if (longitude !== locationData?.longitude) updateData.longitude = longitude;
@@ -183,7 +182,7 @@ export function DeleteLocation({
     if (!location?.id) {
       return;
     }
-    
+
     await deleteLocation({
       variables: {
         where: { id: location.id },

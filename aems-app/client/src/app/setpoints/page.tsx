@@ -34,11 +34,7 @@ export default function Page() {
     variables: {
       orderBy: { [sort.field]: sort.direction },
       where: {
-        OR: [
-          { label: { contains: search, mode: StringFilterMode.Insensitive } },
-          { correlation: { contains: search, mode: StringFilterMode.Insensitive } },
-          { message: { contains: search, mode: StringFilterMode.Insensitive } },
-        ],
+        OR: [{ label: { contains: search, mode: StringFilterMode.Insensitive } }],
       },
       paging: paging,
     },
@@ -47,10 +43,7 @@ export default function Page() {
     },
   });
 
-  const setpoints = useMemo(
-    () => filter(data?.readSetpoints ?? [], search, ["label", "correlation", "message"]),
-    [data?.readSetpoints, search],
-  );
+  const setpoints = useMemo(() => filter(data?.readSetpoints ?? [], search, ["label"]), [data?.readSetpoints, search]);
 
   return (
     <div className={styles.table}>
@@ -75,9 +68,9 @@ export default function Page() {
         <div className={styles.spacer} />
         <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
         <Search value={search} onValueChange={setSearch} />
-        <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
+        {/* <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
           Create Setpoint
-        </Button>
+        </Button> */}
       </ControlGroup>
       <Table
         rowKey="id"
@@ -88,8 +81,6 @@ export default function Page() {
           { field: "deadband", label: "Deadband", type: "term" },
           { field: "heating", label: "Heating", type: "term" },
           { field: "cooling", label: "Cooling", type: "term" },
-          { field: "stage", label: "Stage", type: "term" },
-          { field: "correlation", label: "Correlation", type: "term" },
           { field: "createdAt", label: "Created", type: "date" },
           { field: "updatedAt", label: "Updated", type: "date" },
         ]}

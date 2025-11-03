@@ -11,7 +11,6 @@ import {
   UpdateUnitDocument,
 } from "@/graphql-codegen/graphql";
 import { useMutation } from "@apollo/client";
-import { Term } from "@/utils/client";
 import { CreateDialog, DeleteDialog, UpdateDialog } from "../dialog";
 
 export function CreateUnit({
@@ -29,9 +28,7 @@ export function CreateUnit({
   const [building, setBuilding] = useState("");
   const [system, setSystem] = useState("");
   const [timezone, setTimezone] = useState("");
-  const [correlation, setCorrelation] = useState("");
-  const [message, setMessage] = useState("");
-  
+
   // RTU Configuration fields
   const [coolingCapacity, setCoolingCapacity] = useState<number | undefined>();
   const [compressors, setCompressors] = useState<number | undefined>();
@@ -48,7 +45,7 @@ export function CreateUnit({
   const [coolingPeakOffset, setCoolingPeakOffset] = useState<number | undefined>();
   const [heatingPeakOffset, setHeatingPeakOffset] = useState<number | undefined>();
   const [peakLoadExclude, setPeakLoadExclude] = useState(false);
-  
+
   // Zone configuration
   const [zoneLocation, setZoneLocation] = useState("");
   const [zoneMass, setZoneMass] = useState("");
@@ -69,8 +66,6 @@ export function CreateUnit({
           building,
           system,
           timezone,
-          ...(correlation && { correlation }),
-          ...(message && { message }),
           ...(coolingCapacity !== undefined && { coolingCapacity }),
           ...(compressors !== undefined && { compressors }),
           ...(coolingLockout !== undefined && { coolingLockout }),
@@ -94,11 +89,32 @@ export function CreateUnit({
       },
     });
   }, [
-    createUnit, name, label, campus, building, system, timezone, correlation, message,
-    coolingCapacity, compressors, coolingLockout, optimalStartLockout, optimalStartDeviation,
-    earliestStart, latestStart, heatPump, heatPumpBackup, heatPumpLockout, economizer,
-    economizerSetpoint, coolingPeakOffset, heatingPeakOffset, peakLoadExclude,
-    zoneLocation, zoneMass, zoneOrientation, zoneBuilding
+    createUnit,
+    name,
+    label,
+    campus,
+    building,
+    system,
+    timezone,
+    coolingCapacity,
+    compressors,
+    coolingLockout,
+    optimalStartLockout,
+    optimalStartDeviation,
+    earliestStart,
+    latestStart,
+    heatPump,
+    heatPumpBackup,
+    heatPumpLockout,
+    economizer,
+    economizerSetpoint,
+    coolingPeakOffset,
+    heatingPeakOffset,
+    peakLoadExclude,
+    zoneLocation,
+    zoneMass,
+    zoneOrientation,
+    zoneBuilding,
   ]);
 
   useEffect(() => {
@@ -109,8 +125,6 @@ export function CreateUnit({
       setBuilding("");
       setSystem("");
       setTimezone("");
-      setCorrelation("");
-      setMessage("");
       setCoolingCapacity(undefined);
       setCompressors(undefined);
       setCoolingLockout(undefined);
@@ -145,33 +159,26 @@ export function CreateUnit({
         <InputGroup id="campus" name="campus" value={campus} onChange={(event) => setCampus(event.target.value)} fill />
       </FormGroup>
       <FormGroup label="Building">
-        <InputGroup id="building" name="building" value={building} onChange={(event) => setBuilding(event.target.value)} fill />
+        <InputGroup
+          id="building"
+          name="building"
+          value={building}
+          onChange={(event) => setBuilding(event.target.value)}
+          fill
+        />
       </FormGroup>
       <FormGroup label="System">
         <InputGroup id="system" name="system" value={system} onChange={(event) => setSystem(event.target.value)} fill />
       </FormGroup>
       <FormGroup label="Timezone">
-        <InputGroup id="timezone" name="timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} fill />
-      </FormGroup>
-      <FormGroup label="Correlation">
         <InputGroup
-          id="correlation"
-          name="correlation"
-          value={correlation}
-          onChange={(event) => setCorrelation(event.target.value)}
+          id="timezone"
+          name="timezone"
+          value={timezone}
+          onChange={(event) => setTimezone(event.target.value)}
           fill
         />
       </FormGroup>
-      <FormGroup label="Message">
-        <InputGroup
-          id="message"
-          name="message"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          fill
-        />
-      </FormGroup>
-      
       <h4>RTU Configuration</h4>
       <FormGroup label="Cooling Capacity (tons)">
         <NumericInput
@@ -184,13 +191,7 @@ export function CreateUnit({
         />
       </FormGroup>
       <FormGroup label="Number of Compressors">
-        <NumericInput
-          value={compressors}
-          onValueChange={setCompressors}
-          min={1}
-          stepSize={1}
-          fill
-        />
+        <NumericInput value={compressors} onValueChange={setCompressors} min={1} stepSize={1} fill />
       </FormGroup>
       <FormGroup label="Heat Pump">
         <Switch checked={heatPump} onChange={(e) => setHeatPump(e.currentTarget.checked)} />
@@ -198,21 +199,10 @@ export function CreateUnit({
       {heatPump && (
         <>
           <FormGroup label="Heat Pump Backup (kW)">
-            <NumericInput
-              value={heatPumpBackup}
-              onValueChange={setHeatPumpBackup}
-              min={0}
-              stepSize={0.5}
-              fill
-            />
+            <NumericInput value={heatPumpBackup} onValueChange={setHeatPumpBackup} min={0} stepSize={0.5} fill />
           </FormGroup>
           <FormGroup label="Heat Pump Lockout Temperature (°F)">
-            <NumericInput
-              value={heatPumpLockout}
-              onValueChange={setHeatPumpLockout}
-              stepSize={1}
-              fill
-            />
+            <NumericInput value={heatPumpLockout} onValueChange={setHeatPumpLockout} stepSize={1} fill />
           </FormGroup>
         </>
       )}
@@ -222,24 +212,14 @@ export function CreateUnit({
       {economizer && (
         <>
           <FormGroup label="Economizer Setpoint (°F)">
-            <NumericInput
-              value={economizerSetpoint}
-              onValueChange={setEconomizerSetpoint}
-              stepSize={1}
-              fill
-            />
+            <NumericInput value={economizerSetpoint} onValueChange={setEconomizerSetpoint} stepSize={1} fill />
           </FormGroup>
           <FormGroup label="Cooling Lockout Temperature (°F)">
-            <NumericInput
-              value={coolingLockout}
-              onValueChange={setCoolingLockout}
-              stepSize={1}
-              fill
-            />
+            <NumericInput value={coolingLockout} onValueChange={setCoolingLockout} stepSize={1} fill />
           </FormGroup>
         </>
       )}
-      
+
       <h4>Grid Services</h4>
       <FormGroup label="Exclude from Peak Load">
         <Switch checked={peakLoadExclude} onChange={(e) => setPeakLoadExclude(e.currentTarget.checked)} />
@@ -247,24 +227,14 @@ export function CreateUnit({
       {!peakLoadExclude && (
         <>
           <FormGroup label="Cooling Peak Offset (°F)">
-            <NumericInput
-              value={coolingPeakOffset}
-              onValueChange={setCoolingPeakOffset}
-              stepSize={0.5}
-              fill
-            />
+            <NumericInput value={coolingPeakOffset} onValueChange={setCoolingPeakOffset} stepSize={0.5} fill />
           </FormGroup>
           <FormGroup label="Heating Peak Offset (°F)">
-            <NumericInput
-              value={heatingPeakOffset}
-              onValueChange={setHeatingPeakOffset}
-              stepSize={0.5}
-              fill
-            />
+            <NumericInput value={heatingPeakOffset} onValueChange={setHeatingPeakOffset} stepSize={0.5} fill />
           </FormGroup>
         </>
       )}
-      
+
       <h4>Zone Configuration</h4>
       <FormGroup label="Zone Location">
         <HTMLSelect value={zoneLocation} onChange={(e) => setZoneLocation(e.target.value)} fill>
@@ -313,7 +283,7 @@ export function UpdateUnit({
   open: boolean;
   setOpen: (open: boolean) => void;
   icon?: IconName;
-  unit?: Term<NonNullable<ReadUnitsQuery["readUnits"]>[0]>;
+  unit?: NonNullable<ReadUnitsQuery["readUnits"]>[0];
 }) {
   const [name, setName] = useState("");
   const [label, setLabel] = useState("");
@@ -321,9 +291,7 @@ export function UpdateUnit({
   const [building, setBuilding] = useState("");
   const [system, setSystem] = useState("");
   const [timezone, setTimezone] = useState("");
-  const [correlation, setCorrelation] = useState("");
-  const [message, setMessage] = useState("");
-  
+
   // RTU Configuration fields
   const [coolingCapacity, setCoolingCapacity] = useState<number | undefined>();
   const [compressors, setCompressors] = useState<number | undefined>();
@@ -340,7 +308,7 @@ export function UpdateUnit({
   const [coolingPeakOffset, setCoolingPeakOffset] = useState<number | undefined>();
   const [heatingPeakOffset, setHeatingPeakOffset] = useState<number | undefined>();
   const [peakLoadExclude, setPeakLoadExclude] = useState(false);
-  
+
   // Zone configuration
   const [zoneLocation, setZoneLocation] = useState("");
   const [zoneMass, setZoneMass] = useState("");
@@ -353,20 +321,19 @@ export function UpdateUnit({
 
   const onUpdate = useCallback(async () => {
     const updateData: any = {};
-    
+
     if (name !== unitData?.name) updateData.name = name;
     if (label !== unitData?.label) updateData.label = label;
     if (campus !== unitData?.campus) updateData.campus = campus;
     if (building !== unitData?.building) updateData.building = building;
     if (system !== unitData?.system) updateData.system = system;
     if (timezone !== unitData?.timezone) updateData.timezone = timezone;
-    if (correlation !== unitData?.correlation) updateData.correlation = correlation;
-    if (message !== unitData?.message) updateData.message = message;
     if (coolingCapacity !== unitData?.coolingCapacity) updateData.coolingCapacity = coolingCapacity;
     if (compressors !== unitData?.compressors) updateData.compressors = compressors;
     if (coolingLockout !== unitData?.coolingLockout) updateData.coolingLockout = coolingLockout;
     if (optimalStartLockout !== unitData?.optimalStartLockout) updateData.optimalStartLockout = optimalStartLockout;
-    if (optimalStartDeviation !== unitData?.optimalStartDeviation) updateData.optimalStartDeviation = optimalStartDeviation;
+    if (optimalStartDeviation !== unitData?.optimalStartDeviation)
+      updateData.optimalStartDeviation = optimalStartDeviation;
     if (earliestStart !== unitData?.earliestStart) updateData.earliestStart = earliestStart;
     if (latestStart !== unitData?.latestStart) updateData.latestStart = latestStart;
     if (heatPump !== unitData?.heatPump) updateData.heatPump = heatPump;
@@ -389,11 +356,33 @@ export function UpdateUnit({
       },
     });
   }, [
-    updateUnit, unitData, name, label, campus, building, system, timezone, correlation, message,
-    coolingCapacity, compressors, coolingLockout, optimalStartLockout, optimalStartDeviation,
-    earliestStart, latestStart, heatPump, heatPumpBackup, heatPumpLockout, economizer,
-    economizerSetpoint, coolingPeakOffset, heatingPeakOffset, peakLoadExclude,
-    zoneLocation, zoneMass, zoneOrientation, zoneBuilding
+    updateUnit,
+    unitData,
+    name,
+    label,
+    campus,
+    building,
+    system,
+    timezone,
+    coolingCapacity,
+    compressors,
+    coolingLockout,
+    optimalStartLockout,
+    optimalStartDeviation,
+    earliestStart,
+    latestStart,
+    heatPump,
+    heatPumpBackup,
+    heatPumpLockout,
+    economizer,
+    economizerSetpoint,
+    coolingPeakOffset,
+    heatingPeakOffset,
+    peakLoadExclude,
+    zoneLocation,
+    zoneMass,
+    zoneOrientation,
+    zoneBuilding,
   ]);
 
   useEffect(() => {
@@ -404,8 +393,6 @@ export function UpdateUnit({
       setBuilding(unitData.building ?? "");
       setSystem(unitData.system ?? "");
       setTimezone(unitData.timezone ?? "");
-      setCorrelation(unitData.correlation ?? "");
-      setMessage(unitData.message ?? "");
       setCoolingCapacity(unitData.coolingCapacity ?? undefined);
       setCompressors(unitData.compressors ?? undefined);
       setCoolingLockout(unitData.coolingLockout ?? undefined);
@@ -441,33 +428,26 @@ export function UpdateUnit({
         <InputGroup id="campus" name="campus" value={campus} onChange={(event) => setCampus(event.target.value)} fill />
       </FormGroup>
       <FormGroup label="Building">
-        <InputGroup id="building" name="building" value={building} onChange={(event) => setBuilding(event.target.value)} fill />
+        <InputGroup
+          id="building"
+          name="building"
+          value={building}
+          onChange={(event) => setBuilding(event.target.value)}
+          fill
+        />
       </FormGroup>
       <FormGroup label="System">
         <InputGroup id="system" name="system" value={system} onChange={(event) => setSystem(event.target.value)} fill />
       </FormGroup>
       <FormGroup label="Timezone">
-        <InputGroup id="timezone" name="timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} fill />
-      </FormGroup>
-      <FormGroup label="Correlation">
         <InputGroup
-          id="correlation"
-          name="correlation"
-          value={correlation}
-          onChange={(event) => setCorrelation(event.target.value)}
+          id="timezone"
+          name="timezone"
+          value={timezone}
+          onChange={(event) => setTimezone(event.target.value)}
           fill
         />
       </FormGroup>
-      <FormGroup label="Message">
-        <InputGroup
-          id="message"
-          name="message"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          fill
-        />
-      </FormGroup>
-      
       <h4>RTU Configuration</h4>
       <FormGroup label="Cooling Capacity (tons)">
         <NumericInput
@@ -480,13 +460,7 @@ export function UpdateUnit({
         />
       </FormGroup>
       <FormGroup label="Number of Compressors">
-        <NumericInput
-          value={compressors}
-          onValueChange={setCompressors}
-          min={1}
-          stepSize={1}
-          fill
-        />
+        <NumericInput value={compressors} onValueChange={setCompressors} min={1} stepSize={1} fill />
       </FormGroup>
       <FormGroup label="Heat Pump">
         <Switch checked={heatPump} onChange={(e) => setHeatPump(e.currentTarget.checked)} />
@@ -494,21 +468,10 @@ export function UpdateUnit({
       {heatPump && (
         <>
           <FormGroup label="Heat Pump Backup (kW)">
-            <NumericInput
-              value={heatPumpBackup}
-              onValueChange={setHeatPumpBackup}
-              min={0}
-              stepSize={0.5}
-              fill
-            />
+            <NumericInput value={heatPumpBackup} onValueChange={setHeatPumpBackup} min={0} stepSize={0.5} fill />
           </FormGroup>
           <FormGroup label="Heat Pump Lockout Temperature (°F)">
-            <NumericInput
-              value={heatPumpLockout}
-              onValueChange={setHeatPumpLockout}
-              stepSize={1}
-              fill
-            />
+            <NumericInput value={heatPumpLockout} onValueChange={setHeatPumpLockout} stepSize={1} fill />
           </FormGroup>
         </>
       )}
@@ -518,24 +481,14 @@ export function UpdateUnit({
       {economizer && (
         <>
           <FormGroup label="Economizer Setpoint (°F)">
-            <NumericInput
-              value={economizerSetpoint}
-              onValueChange={setEconomizerSetpoint}
-              stepSize={1}
-              fill
-            />
+            <NumericInput value={economizerSetpoint} onValueChange={setEconomizerSetpoint} stepSize={1} fill />
           </FormGroup>
           <FormGroup label="Cooling Lockout Temperature (°F)">
-            <NumericInput
-              value={coolingLockout}
-              onValueChange={setCoolingLockout}
-              stepSize={1}
-              fill
-            />
+            <NumericInput value={coolingLockout} onValueChange={setCoolingLockout} stepSize={1} fill />
           </FormGroup>
         </>
       )}
-      
+
       <h4>Grid Services</h4>
       <FormGroup label="Exclude from Peak Load">
         <Switch checked={peakLoadExclude} onChange={(e) => setPeakLoadExclude(e.currentTarget.checked)} />
@@ -543,24 +496,14 @@ export function UpdateUnit({
       {!peakLoadExclude && (
         <>
           <FormGroup label="Cooling Peak Offset (°F)">
-            <NumericInput
-              value={coolingPeakOffset}
-              onValueChange={setCoolingPeakOffset}
-              stepSize={0.5}
-              fill
-            />
+            <NumericInput value={coolingPeakOffset} onValueChange={setCoolingPeakOffset} stepSize={0.5} fill />
           </FormGroup>
           <FormGroup label="Heating Peak Offset (°F)">
-            <NumericInput
-              value={heatingPeakOffset}
-              onValueChange={setHeatingPeakOffset}
-              stepSize={0.5}
-              fill
-            />
+            <NumericInput value={heatingPeakOffset} onValueChange={setHeatingPeakOffset} stepSize={0.5} fill />
           </FormGroup>
         </>
       )}
-      
+
       <h4>Zone Configuration</h4>
       <FormGroup label="Zone Location">
         <HTMLSelect value={zoneLocation} onChange={(e) => setZoneLocation(e.target.value)} fill>
@@ -609,7 +552,7 @@ export function DeleteUnit({
   open: boolean;
   setOpen: (open: boolean) => void;
   icon?: IconName;
-  unit?: Term<NonNullable<ReadUnitsQuery["readUnits"]>[0]>;
+  unit?: NonNullable<ReadUnitsQuery["readUnits"]>[0];
 }) {
   const [deleteUnit] = useMutation(DeleteUnitDocument, {
     refetchQueries: [ReadUnitsDocument],

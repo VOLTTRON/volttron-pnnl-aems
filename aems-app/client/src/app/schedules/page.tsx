@@ -34,11 +34,7 @@ export default function Page() {
     variables: {
       orderBy: { [sort.field]: sort.direction },
       where: {
-        OR: [
-          { label: { contains: search, mode: StringFilterMode.Insensitive } },
-          { correlation: { contains: search, mode: StringFilterMode.Insensitive } },
-          { message: { contains: search, mode: StringFilterMode.Insensitive } },
-        ],
+        OR: [{ label: { contains: search, mode: StringFilterMode.Insensitive } }],
       },
       paging: paging,
     },
@@ -47,10 +43,7 @@ export default function Page() {
     },
   });
 
-  const schedules = useMemo(
-    () => filter(data?.readSchedules ?? [], search, ["label", "correlation", "message"]),
-    [data?.readSchedules, search],
-  );
+  const schedules = useMemo(() => filter(data?.readSchedules ?? [], search, ["label"]), [data?.readSchedules, search]);
 
   return (
     <div className={styles.table}>
@@ -75,9 +68,9 @@ export default function Page() {
         <div className={styles.spacer} />
         <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
         <Search value={search} onValueChange={setSearch} />
-        <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
+        {/* <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
           Create Schedule
-        </Button>
+        </Button> */}
       </ControlGroup>
       <Table
         rowKey="id"
@@ -86,16 +79,15 @@ export default function Page() {
           { field: "label", label: "Label", type: "term" },
           { field: "startTime", label: "Start Time", type: "term" },
           { field: "endTime", label: "End Time", type: "term" },
-          { field: "occupied", label: "Occupied", type: "term", renderer: (col, row, value) => value ? "Yes" : "No" },
+          { field: "occupied", label: "Occupied", type: "term", renderer: (col, row, value) => (value ? "Yes" : "No") },
           { field: "setpoint", label: "Setpoint", type: "term", renderer: (col, row, value) => value?.label || "—" },
-          { field: "correlation", label: "Correlation", type: "term" },
           { field: "createdAt", label: "Created", type: "date" },
           { field: "updatedAt", label: "Updated", type: "date" },
         ]}
         actions={{
           values: [
             { id: "update", icon: IconNames.EDIT, intent: Intent.PRIMARY },
-            { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
+            // { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
           ],
           onClick: (id, row) => {
             switch (id) {

@@ -73,9 +73,9 @@ export default function Page() {
         <div className={styles.spacer} />
         <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
         <Search value={search} onValueChange={setSearch} />
-        <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
+        {/* <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
           Create Occupancy
-        </Button>
+        </Button> */}
       </ControlGroup>
       <Table
         rowKey="id"
@@ -91,7 +91,7 @@ export default function Page() {
         actions={{
           values: [
             { id: "update", icon: IconNames.EDIT, intent: Intent.PRIMARY },
-            { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
+            // { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
           ],
           onClick: (id, row) => {
             switch (id) {
