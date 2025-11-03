@@ -4942,6 +4942,7 @@ __metadata:
     prisma-json-types-generator: "npm:^3.2.3"
     react: "npm:^18"
     react-dom: "npm:^18"
+    react-json-view-lite: "npm:^2.5.0"
     react-map-gl: "npm:^7.1.7"
     sass: "npm:^1.77.6"
     ts-node: "npm:^10.9.2"
@@ -10477,6 +10478,15 @@ __metadata:
   version: 18.3.1
   resolution: "react-is@npm:18.3.1"
   checksum: 10/d5f60c87d285af24b1e1e7eaeb123ec256c3c8bdea7061ab3932e3e14685708221bf234ec50b21e10dd07f008f1b966a2730a0ce4ff67905b3872ff2042aec22
+  languageName: node
+  linkType: hard
+
+"react-json-view-lite@npm:^2.5.0":
+  version: 2.5.0
+  resolution: "react-json-view-lite@npm:2.5.0"
+  peerDependencies:
+    react: ^18.0.0 || ^19.0.0
+  checksum: 10/196a989d3ecb6d662baeb51260f2cf1e1391e109db405343019c4fa30da1c1e6fc9c0b9aa464444b16cb5ef6867b49db547073aa73abb36b2d7d976e4dcc0dc4
   languageName: node
   linkType: hard
 

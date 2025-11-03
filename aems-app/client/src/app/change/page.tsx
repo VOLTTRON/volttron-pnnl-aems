@@ -35,7 +35,6 @@ export default function Page() {
       where: {
         OR: [
           { table: { contains: search, mode: StringFilterMode.Insensitive } },
-          { key: { contains: search, mode: StringFilterMode.Insensitive } },
           { user: { name: { contains: search, mode: StringFilterMode.Insensitive } } },
           { user: { email: { contains: search, mode: StringFilterMode.Insensitive } } },
         ],
@@ -56,10 +55,10 @@ export default function Page() {
           ["user.email"]: v.user?.email ?? "",
         })) ?? [],
         search,
-        ["table", "key", "user.name", "user.email"]
+        ["table", "user.name", "user.email"],
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data?.readChanges]
+    [data?.readChanges],
   );
 
   return (
@@ -68,6 +67,7 @@ export default function Page() {
         open={dialog?.type === DialogType.View}
         setOpen={(v: boolean) => (v ? setDialog({ type: DialogType.View }) : setDialog(undefined))}
         icon={route?.data?.icon}
+        change={dialog?.change}
       />
       <ControlGroup>
         <div className={styles.spacer} />
@@ -79,7 +79,11 @@ export default function Page() {
         rows={changes}
         columns={[
           { field: "table", label: "Table", type: "term" },
-          { field: "key", label: "ID", type: "term" },
+          {
+            field: "data",
+            label: "Label",
+            renderer: (_r, _c, data) => (data && typeof data === "object" && "label" in data ? String(data.label) : ""),
+          },
           { field: "mutation", label: "Type", type: "term" },
           { field: "user.name", label: "Name", type: "term" },
           { field: "user.email", label: "Email", type: "term" },
