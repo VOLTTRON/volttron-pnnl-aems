@@ -1,8 +1,4 @@
-ARG COMPOSE_PROJECT_NAME=skeleton
-ARG COMPOSE_CONTAINER_REGISTRY=localhost
-ARG IMAGE=common
-ARG TAG=latest
-FROM ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/${IMAGE}:${TAG} AS base
+FROM node:22.14.0-alpine AS base
 # arguments
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
@@ -32,12 +28,17 @@ FROM base AS builder
 # Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 RUN apk add --no-cache libc6-compat
 
+# Copy common libraries from the common context
+COPY --from=common /app/prisma /app/prisma
+COPY --from=common /app/common /app/common
+
 # Install dependencies
 WORKDIR /app/server
 COPY package.json yarn.lock .yarnrc.yml ./
 RUN yarn install
 
 FROM base AS runner
+
 WORKDIR /app/server
 COPY ./.env ./
 COPY --chmod=755 ./dist ./dist

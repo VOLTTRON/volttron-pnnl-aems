@@ -2,7 +2,7 @@
 
 import styles from "./page.module.scss";
 
-import { redirect, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useContext } from "react";
 import { Alignment, Navbar, NavbarGroup } from "@blueprintjs/core";
 import { CurrentContext, findPath, isGranted, RouteContext } from "./components/providers";
@@ -33,19 +33,21 @@ function getComponent(component: RouteComponent) {
 }
 
 export default function Template({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+
   const { route } = useContext(RouteContext);
   const { current, loading } = useContext(CurrentContext);
 
   const searchParams = useSearchParams();
-  
+
   if (loading) {
     return <GlobalLoading />;
   } else if (!route) {
     return <NotFound />;
   } else if (current && !isGranted(route, current)) {
-    return redirect("/auth/denied");
+    return router.push("/auth/denied");
   } else if (!current && !isGranted(route, {})) {
-    return redirect(`/auth/login?redirect=${findPath(route)}${searchParams ? `?${searchParams}` : ""}`);
+    return router.push(`/auth/login?redirect=${findPath(route)}${searchParams ? `?${searchParams}` : ""}`);
   }
 
   const { NavbarLeft, NavbarRight, Navigation } = Object.entries(route.data?.components ?? {}).reduce((p, [k, v]) => {

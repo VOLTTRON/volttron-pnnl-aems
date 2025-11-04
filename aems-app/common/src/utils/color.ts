@@ -275,30 +275,51 @@ export class Color {
     }
   }
 
+  /**
+   * Red component (0-255)
+   */
   get red(): number {
     return parseInt(this.hex.slice(1, 3), 16);
   }
 
+  /**
+   * Green component (0-255)
+   */
   get green(): number {
     return parseInt(this.hex.slice(3, 5), 16);
   }
 
+  /**
+   * Blue component (0-255)
+   */
   get blue(): number {
     return parseInt(this.hex.slice(5, 7), 16);
   }
 
+  /**
+   * Alpha component (0-1)
+   */
   get alpha(): number {
     return this.hex.length === 9 ? Math.round((parseInt(this.hex.slice(7, 9), 16) / 255) * 100) / 100 : 1;
   }
 
+  /**
+   * CSS RGB string representation
+   */
   get rgb(): string {
     return `rgb(${this.red}, ${this.green}, ${this.blue})`;
   }
 
+  /**
+   * CSS RGBA string representation
+   */
   get rgba(): string {
     return `rgba(${this.red}, ${this.green}, ${this.blue}, ${this.alpha})`;
   }
 
+  /**
+   * CSS HSL string representation
+   */
   get hsl(): string {
     const r = this.red / 255;
     const g = this.green / 255;
@@ -326,6 +347,9 @@ export class Color {
     return `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
   }
 
+  /**
+   * CSS HSLA string representation
+   */
   get hsla(): string {
     return this.hsl.replace("hsl", "hsla").replace(")", `, ${this.alpha})`);
   }
