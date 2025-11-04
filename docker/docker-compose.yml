@@ -62,9 +62,6 @@ services:
       additional_contexts:
         common: service:common
       args:
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
-        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -121,9 +118,6 @@ services:
       additional_contexts:
         common: service:common
       args:
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
-        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -174,19 +168,6 @@ services:
 
   # Runs application services
   services:
-    build:
-      context: ../server
-      dockerfile: ./Dockerfile
-      additional_contexts:
-        common: service:common
-      args:
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
-        - TAG=${TAG}
-        - HTTP_PROXY=${HTTP_PROXY}
-        - HTTPS_PROXY=${HTTPS_PROXY}
-        - NO_PROXY=${NO_PROXY}
-        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
     container_name: ${COMPOSE_PROJECT_NAME}-services
     depends_on:
       init:
@@ -208,19 +189,6 @@ services:
 
     # Runs application seeders
   seeders:
-    build:
-      context: ../server
-      dockerfile: ./Dockerfile
-      additional_contexts:
-        common: service:common
-      args:
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
-        - TAG=${TAG}
-        - HTTP_PROXY=${HTTP_PROXY}
-        - HTTPS_PROXY=${HTTPS_PROXY}
-        - NO_PROXY=${NO_PROXY}
-        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
     container_name: ${COMPOSE_PROJECT_NAME}-seeders
     depends_on:
       init:
@@ -403,11 +371,11 @@ services:
       - traefik.http.middlewares.keycloak-security.headers.sslRedirect=true
       - traefik.http.middlewares.keycloak-security.headers.stsSeconds=31536000
       - traefik.http.routers.keycloak-http.entrypoints=web
-      - traefik.http.routers.keycloak-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/auth/sso/js/`, `/auth/sso/realms/`, `/auth/sso/resources/`, `/auth/sso/robots.txt`)
+      - traefik.http.routers.keycloak-http.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/auth/sso/js/`) || PathPrefix(`/auth/sso/realms/`) || PathPrefix(`/auth/sso/resources/`) || PathPrefix(`/auth/sso/robots.txt`))
       - traefik.http.routers.keycloak-http.middlewares=keycloak-https
       - traefik.http.middlewares.keycloak-https.redirectscheme.scheme=https
       - traefik.http.routers.keycloak.entrypoints=websecure
-      - traefik.http.routers.keycloak.rule=Host(`${HOSTNAME}`) && PathPrefix(`/auth/sso/js/`, `/auth/sso/realms/`, `/auth/sso/resources/`, `/auth/sso/robots.txt`)
+      - traefik.http.routers.keycloak.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/auth/sso/js/`) || PathPrefix(`/auth/sso/realms/`) || PathPrefix(`/auth/sso/resources/`) || PathPrefix(`/auth/sso/robots.txt`))
       - traefik.http.routers.keycloak.middlewares=keycloak-security
       - traefik.http.routers.keycloak.tls=true
       - traefik.http.routers.keycloak.tls.certresolver=${CERT_RESOLVER}

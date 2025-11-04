@@ -3,8 +3,13 @@
 import styles from "./page.module.scss";
 import { Button, ControlGroup, Intent } from "@blueprintjs/core";
 import { useContext, useMemo, useState } from "react";
-import { useSubscription } from "@apollo/client";
-import { ReadBannersQuery, StringFilterMode, SubscribeBannersDocument } from "@/graphql-codegen/graphql";
+import { useQuery, useSubscription } from "@apollo/client";
+import {
+  ReadBannersDocument,
+  ReadBannersQuery,
+  StringFilterMode,
+  SubscribeBannersDocument,
+} from "@/graphql-codegen/graphql";
 import { NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { Term, filter } from "@/utils/client";
 import { CreateBanner, DeleteBanner, UpdateBanner } from "./dialog";
@@ -29,15 +34,31 @@ export default function Page() {
   const { route } = useContext(RouteContext);
   const { createNotification } = useContext(NotificationContext);
 
-  const { data } = useSubscription(SubscribeBannersDocument, {
+  const {
+    data: queryData,
+    startPolling,
+    stopPolling,
+  } = useQuery(ReadBannersDocument, {
     variables: {
       where: { message: { contains: search, mode: StringFilterMode.Insensitive } },
       orderBy: { [sort.field]: sort.direction },
     },
+  });
+
+  const { data: subscribeData } = useSubscription(SubscribeBannersDocument, {
+    variables: {
+      where: { message: { contains: search, mode: StringFilterMode.Insensitive } },
+      orderBy: { [sort.field]: sort.direction },
+    },
+    onComplete() {
+      stopPolling();
+    },
     onError(error) {
-      createNotification?.(error.message, NotificationType.Error);
+      startPolling(5000);
     },
   });
+
+  const data = subscribeData ?? queryData;
 
   const banners = useMemo(() => filter(data?.readBanners ?? [], search, ["message"]), [data?.readBanners, search]);
 

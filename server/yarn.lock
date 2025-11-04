@@ -325,9 +325,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@auth/core@npm:0.40.0":
-  version: 0.40.0
-  resolution: "@auth/core@npm:0.40.0"
+"@auth/core@npm:0.41.1":
+  version: 0.41.1
+  resolution: "@auth/core@npm:0.41.1"
   dependencies:
     "@panva/hkdf": "npm:^1.2.1"
     jose: "npm:^6.0.6"
@@ -337,7 +337,7 @@ __metadata:
   peerDependencies:
     "@simplewebauthn/browser": ^9.0.1
     "@simplewebauthn/server": ^9.0.2
-    nodemailer: ^6.8.0
+    nodemailer: ^7.0.7
   peerDependenciesMeta:
     "@simplewebauthn/browser":
       optional: true
@@ -345,29 +345,29 @@ __metadata:
       optional: true
     nodemailer:
       optional: true
-  checksum: 10/cde8467d24a2069220954b541f2fb9aaadf2fb82719ab19fa59cf42e77b9de8688cbb48faca5a576ad7f59b19f1739b23f60dc28b5949e2e64bfc85736610f9c
+  checksum: 10/ff8c976817fd6b50eb73d86f6a65555e002e03ff811b7c4ea817d2c5473851a3f20d1da2cba1b5751626c67addb7fa5b37da28cce97ea176e762149833ad21c3
   languageName: node
   linkType: hard
 
-"@auth/express@npm:^0.11.0":
-  version: 0.11.0
-  resolution: "@auth/express@npm:0.11.0"
+"@auth/express@npm:^0.12.1":
+  version: 0.12.1
+  resolution: "@auth/express@npm:0.12.1"
   dependencies:
-    "@auth/core": "npm:0.40.0"
+    "@auth/core": "npm:0.41.1"
   peerDependencies:
     express: ^4.18.2 || ^5.0.0
-  checksum: 10/f39d53267753077fb4daa85ac705171bf15632dcafc394a0bce4dd21778f7a343ff315d97553605b05f1d89fce46952134d8791a0cb210f55ce59b15bf42819f
+  checksum: 10/e84245ca5ecac3c67368d93d0ddf638598ee9acffc129d0fbea4b1bcfe66b280488eb9da3a4c2e2d85128858ece8a1b2480d1029696883b394936fdab287603d
   languageName: node
   linkType: hard
 
-"@auth/prisma-adapter@npm:^2.10.0":
-  version: 2.10.0
-  resolution: "@auth/prisma-adapter@npm:2.10.0"
+"@auth/prisma-adapter@npm:^2.11.1":
+  version: 2.11.1
+  resolution: "@auth/prisma-adapter@npm:2.11.1"
   dependencies:
-    "@auth/core": "npm:0.40.0"
+    "@auth/core": "npm:0.41.1"
   peerDependencies:
     "@prisma/client": ">=2.26.0 || >=3 || >=4 || >=5 || >=6"
-  checksum: 10/7e0ec14cec8f9ac14ae6be14048e827a7a61bb8d3c5d9805c4ba196b79e0453167bad2b66ec9f6c1e5b7077fbb23d490fdd3b8fb07c146ab025c60947895c213
+  checksum: 10/fce090b25baabf31b4b9e33e5f529ac3ecce7427f54291ee8bb3625e1bf735f98f6ee97056707424787f4d88f84668cf0f9fc8046ab4eefaaf5fcdf0157a4e3a
   languageName: node
   linkType: hard
 
@@ -1555,7 +1555,7 @@ __metadata:
 
 "@local/common@file:../common::locator=server%40workspace%3A.":
   version: 2.0.4
-  resolution: "@local/common@file:../common#../common::hash=a3569d&locator=server%40workspace%3A."
+  resolution: "@local/common@file:../common#../common::hash=9223e9&locator=server%40workspace%3A."
   dependencies:
     "@local/prisma": "file:../prisma"
     "@prisma/client": "npm:^6.9.0"
@@ -1564,25 +1564,25 @@ __metadata:
   peerDependencies:
     "@local/prisma": "*"
     "@prisma/client": ^6.6.0
-  checksum: 10/d2c3487ed2d926c45568850e51d1764b549b01d5a17bbe450fa3c1768f19e59959ee65fa3994d4ac0fcc71237cab045ff943a63f6270b34839682ba2bf5f9801
+  checksum: 10/72698ed11613a4227e0d879ecb1fcee7dbf84f670162dce39ccf66a7dc0ae064c73c05e410b66503a42c785f035d83bafa7f2d11fd495f50fbe3ad88434015a1
   languageName: node
   linkType: hard
 
-"@local/prisma@file:../prisma::locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3Da3569d%26locator%3Dserver%2540workspace%253A.":
+"@local/prisma@file:../prisma::locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3D9223e9%26locator%3Dserver%2540workspace%253A.":
   version: 2.0.4
-  resolution: "@local/prisma@file:../prisma#../prisma::hash=5865d3&locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3Da3569d%26locator%3Dserver%2540workspace%253A."
+  resolution: "@local/prisma@file:../prisma#../prisma::hash=ede881&locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3D9223e9%26locator%3Dserver%2540workspace%253A."
   peerDependencies:
     "@prisma/client": ^6.6.0
-  checksum: 10/28fb1210063ad41172b72b83db05346927db2a411114c97043e37daf41ee80b909136351f60e11af86048241a3e8778cab5ea92730a4aca104f7dd33096a043b
+  checksum: 10/52f4424ed50163cb9b82ca4a17dae1ce92dee78bdb03a9e57d3562ab7b39bbfbaf4efead639cb09164e642a3bac26b8b609e6801d50ffbcb94e7e8d9e8ef3255
   languageName: node
   linkType: hard
 
 "@local/prisma@file:../prisma::locator=server%40workspace%3A.":
   version: 2.0.4
-  resolution: "@local/prisma@file:../prisma#../prisma::hash=5865d3&locator=server%40workspace%3A."
+  resolution: "@local/prisma@file:../prisma#../prisma::hash=ede881&locator=server%40workspace%3A."
   peerDependencies:
     "@prisma/client": ^6.6.0
-  checksum: 10/28fb1210063ad41172b72b83db05346927db2a411114c97043e37daf41ee80b909136351f60e11af86048241a3e8778cab5ea92730a4aca104f7dd33096a043b
+  checksum: 10/52f4424ed50163cb9b82ca4a17dae1ce92dee78bdb03a9e57d3562ab7b39bbfbaf4efead639cb09164e642a3bac26b8b609e6801d50ffbcb94e7e8d9e8ef3255
   languageName: node
   linkType: hard
 
@@ -9592,8 +9592,8 @@ __metadata:
   resolution: "server@workspace:."
   dependencies:
     "@apollo/server": "npm:^4.11.3"
-    "@auth/express": "npm:^0.11.0"
-    "@auth/prisma-adapter": "npm:^2.10.0"
+    "@auth/express": "npm:^0.12.1"
+    "@auth/prisma-adapter": "npm:^2.11.1"
     "@envelop/core": "npm:^5.0.3"
     "@eslint/eslintrc": "npm:^3.2.0"
     "@eslint/js": "npm:^9.18.0"
