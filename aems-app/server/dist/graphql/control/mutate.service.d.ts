@@ -3,6 +3,7 @@ import { ControlQuery } from "./query.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { UnitQuery } from "../unit/query.service";
+import { ChangeService } from "@/change/change.service";
 export declare class ControlMutation {
     readonly ControlCreate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -56,5 +57,5 @@ export declare class ControlMutation {
             Scalars: import("..").Scalars;
         }>, import(".prisma/client").Prisma.UnitWhereUniqueInput>;
     }>>;
-    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, controlQuery: ControlQuery, unitQuery: UnitQuery);
+    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, controlQuery: ControlQuery, unitQuery: UnitQuery, changeService: ChangeService);
 }

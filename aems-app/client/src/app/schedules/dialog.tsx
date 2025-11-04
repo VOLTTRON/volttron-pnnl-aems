@@ -11,7 +11,6 @@ import {
   UpdateScheduleDocument,
 } from "@/graphql-codegen/graphql";
 import { useMutation } from "@apollo/client";
-import { Term } from "@/utils/client";
 import { CreateDialog, DeleteDialog, UpdateDialog } from "../dialog";
 
 export function CreateSchedule({
@@ -27,9 +26,6 @@ export function CreateSchedule({
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [occupied, setOccupied] = useState(false);
-  const [message, setMessage] = useState("");
-  const [correlation, setCorrelation] = useState("");
-  const [setpointId, setSetpointId] = useState("");
 
   const [createSchedule] = useMutation(CreateScheduleDocument, {
     refetchQueries: [ReadSchedulesDocument],
@@ -39,7 +35,7 @@ export function CreateSchedule({
     if (!label) {
       return;
     }
-    
+
     await createSchedule({
       variables: {
         create: {
@@ -47,13 +43,10 @@ export function CreateSchedule({
           startTime: startTime || undefined,
           endTime: endTime || undefined,
           occupied,
-          message: message || undefined,
-          correlation: correlation || undefined,
-          setpointId: setpointId || undefined,
         },
       },
     });
-  }, [createSchedule, label, startTime, endTime, occupied, message, correlation, setpointId]);
+  }, [createSchedule, label, startTime, endTime, occupied]);
 
   useEffect(() => {
     if (open) {
@@ -61,9 +54,6 @@ export function CreateSchedule({
       setStartTime("");
       setEndTime("");
       setOccupied(false);
-      setMessage("");
-      setCorrelation("");
-      setSetpointId("");
     }
   }, [open]);
 
@@ -91,36 +81,7 @@ export function CreateSchedule({
         />
       </FormGroup>
       <FormGroup label="Occupied">
-        <Switch
-          id="occupied"
-          checked={occupied}
-          onChange={(event) => setOccupied(event.currentTarget.checked)}
-        />
-      </FormGroup>
-      <FormGroup label="Message">
-        <TextArea
-          id="message"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          fill
-          rows={3}
-        />
-      </FormGroup>
-      <FormGroup label="Correlation">
-        <InputGroup
-          id="correlation"
-          value={correlation}
-          onChange={(event) => setCorrelation(event.target.value)}
-          fill
-        />
-      </FormGroup>
-      <FormGroup label="Setpoint ID">
-        <InputGroup
-          id="setpointId"
-          value={setpointId}
-          onChange={(event) => setSetpointId(event.target.value)}
-          fill
-        />
+        <Switch id="occupied" checked={occupied} onChange={(event) => setOccupied(event.currentTarget.checked)} />
       </FormGroup>
     </CreateDialog>
   );
@@ -141,9 +102,6 @@ export function UpdateSchedule({
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [occupied, setOccupied] = useState(false);
-  const [message, setMessage] = useState("");
-  const [correlation, setCorrelation] = useState("");
-  const [setpointId, setSetpointId] = useState("");
 
   const [updateSchedule] = useMutation(UpdateScheduleDocument, {
     refetchQueries: [ReadSchedulesDocument],
@@ -155,14 +113,11 @@ export function UpdateSchedule({
     }
 
     const updateData: any = {};
-    
+
     if (label !== scheduleData?.label) updateData.label = label;
     if (startTime !== scheduleData?.startTime) updateData.startTime = startTime;
     if (endTime !== scheduleData?.endTime) updateData.endTime = endTime;
     if (occupied !== scheduleData?.occupied) updateData.occupied = occupied;
-    if (message !== scheduleData?.message) updateData.message = message;
-    if (correlation !== scheduleData?.correlation) updateData.correlation = correlation;
-    if (setpointId !== scheduleData?.setpointId) updateData.setpointId = setpointId;
 
     await updateSchedule({
       variables: {
@@ -170,7 +125,7 @@ export function UpdateSchedule({
         update: updateData,
       },
     });
-  }, [updateSchedule, scheduleData, label, startTime, endTime, occupied, message, correlation, setpointId]);
+  }, [updateSchedule, scheduleData, label, startTime, endTime, occupied]);
 
   useEffect(() => {
     if (open && scheduleData) {
@@ -178,9 +133,6 @@ export function UpdateSchedule({
       setStartTime(scheduleData.startTime ?? "");
       setEndTime(scheduleData.endTime ?? "");
       setOccupied(scheduleData.occupied ?? false);
-      setMessage(scheduleData.message ?? "");
-      setCorrelation(scheduleData.correlation ?? "");
-      setSetpointId(scheduleData.setpointId ?? "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -209,36 +161,7 @@ export function UpdateSchedule({
         />
       </FormGroup>
       <FormGroup label="Occupied">
-        <Switch
-          id="occupied"
-          checked={occupied}
-          onChange={(event) => setOccupied(event.currentTarget.checked)}
-        />
-      </FormGroup>
-      <FormGroup label="Message">
-        <TextArea
-          id="message"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          fill
-          rows={3}
-        />
-      </FormGroup>
-      <FormGroup label="Correlation">
-        <InputGroup
-          id="correlation"
-          value={correlation}
-          onChange={(event) => setCorrelation(event.target.value)}
-          fill
-        />
-      </FormGroup>
-      <FormGroup label="Setpoint ID">
-        <InputGroup
-          id="setpointId"
-          value={setpointId}
-          onChange={(event) => setSetpointId(event.target.value)}
-          fill
-        />
+        <Switch id="occupied" checked={occupied} onChange={(event) => setOccupied(event.currentTarget.checked)} />
       </FormGroup>
     </UpdateDialog>
   );
@@ -263,7 +186,7 @@ export function DeleteSchedule({
     if (!schedule?.id) {
       return;
     }
-    
+
     await deleteSchedule({
       variables: {
         where: { id: schedule.id },

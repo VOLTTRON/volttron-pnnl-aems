@@ -12,24 +12,6 @@ import { IconNames } from "@blueprintjs/icons";
 import { CreateUnit, DeleteUnit, UpdateUnit } from "./dialog";
 import { DialogType } from "../types";
 
-// Status color mapping for unit stages
-const getStatusIntent = (stage?: string | null) => {
-  switch (stage?.toLowerCase()) {
-    case "complete":
-      return Intent.SUCCESS;
-    case "update":
-    case "process":
-      return Intent.PRIMARY;
-    case "create":
-      return Intent.WARNING;
-    case "delete":
-    case "fail":
-      return Intent.DANGER;
-    default:
-      return Intent.NONE;
-  }
-};
-
 export default function Page() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{
@@ -58,8 +40,6 @@ export default function Page() {
           { campus: { contains: search, mode: StringFilterMode.Insensitive } },
           { building: { contains: search, mode: StringFilterMode.Insensitive } },
           { system: { contains: search, mode: StringFilterMode.Insensitive } },
-          { correlation: { contains: search, mode: StringFilterMode.Insensitive } },
-          { message: { contains: search, mode: StringFilterMode.Insensitive } },
         ],
       },
       paging: paging,
@@ -70,7 +50,7 @@ export default function Page() {
   });
 
   const units = useMemo(
-    () => filter(data?.readUnits ?? [], search, ["label", "name", "campus", "building", "system", "correlation", "message"]),
+    () => filter(data?.readUnits ?? [], search, ["label", "name", "campus", "building", "system"]),
     [data?.readUnits, search],
   );
 
@@ -97,9 +77,9 @@ export default function Page() {
         <div className={styles.spacer} />
         <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
         <Search value={search} onValueChange={setSearch} />
-        <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
+        {/* <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
           Create Unit
-        </Button>
+        </Button> */}
       </ControlGroup>
       <Table
         rowKey="id"
@@ -110,7 +90,6 @@ export default function Page() {
           { field: "campus", label: "Campus", type: "term" },
           { field: "building", label: "Building", type: "term" },
           { field: "system", label: "System", type: "term" },
-          { field: "stage", label: "Stage", type: "term" },
           { field: "timezone", label: "Timezone", type: "term" },
           { field: "createdAt", label: "Created", type: "date" },
           { field: "updatedAt", label: "Updated", type: "date" },
@@ -118,7 +97,7 @@ export default function Page() {
         actions={{
           values: [
             { id: "update", icon: IconNames.EDIT, intent: Intent.PRIMARY },
-            { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
+            // { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
           ],
           onClick: (id, row) => {
             switch (id) {

@@ -52,6 +52,7 @@
     "pino-pretty": "^11.0.0",
     "react": "^18",
     "react-dom": "^18",
+    "react-json-view-lite": "^2.5.0",
     "react-map-gl": "^7.1.7",
     "sass": "^1.77.6",
     "xregexp": "^5.1.1"

@@ -18,8 +18,11 @@ const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
 const query_service_2 = require("../unit/query.service");
+const change_service_1 = require("../../change/change.service");
+const client_1 = require("@prisma/client");
+const lodash_1 = require("lodash");
 let ControlMutation = class ControlMutation {
-    constructor(builder, prismaService, subscriptionService, controlQuery, unitQuery) {
+    constructor(builder, prismaService, subscriptionService, controlQuery, unitQuery, changeService) {
         const { ControlWhereUnique } = controlQuery;
         const { UnitWhereUnique } = unitQuery;
         this.ControlCreate = builder.prismaCreate("Control", {
@@ -56,7 +59,7 @@ let ControlMutation = class ControlMutation {
             args: {
                 create: t.arg({ type: ControlCreate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.control
                     .create({
                     ...query,
@@ -68,6 +71,7 @@ let ControlMutation = class ControlMutation {
                         id: control.id,
                         mutation: common_2.Mutation.Created,
                     });
+                    await changeService.handleChange("Unknown", (0, lodash_1.omit)(control, ["stage", "message"]), "Control", client_1.ChangeMutation.Create, ctx.user);
                     return control;
                 });
             },
@@ -80,7 +84,7 @@ let ControlMutation = class ControlMutation {
                 where: t.arg({ type: ControlWhereUnique, required: true }),
                 update: t.arg({ type: ControlUpdate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.control
                     .update({
                     ...query,
@@ -98,6 +102,7 @@ let ControlMutation = class ControlMutation {
                         id: control.id,
                         mutation: common_2.Mutation.Updated,
                     });
+                    await changeService.handleChange("Unknown", (0, lodash_1.omit)(control, ["stage", "message"]), "Control", client_1.ChangeMutation.Update, ctx.user);
                     return control;
                 });
             },
@@ -109,7 +114,7 @@ let ControlMutation = class ControlMutation {
             args: {
                 where: t.arg({ type: ControlWhereUnique, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.control
                     .delete({
                     ...query,
@@ -126,6 +131,7 @@ let ControlMutation = class ControlMutation {
                         id: control.id,
                         mutation: common_2.Mutation.Deleted,
                     });
+                    await changeService.handleChange("Unknown", (0, lodash_1.omit)(control, ["stage", "message"]), "Control", client_1.ChangeMutation.Delete, ctx.user);
                     return control;
                 });
             },
@@ -140,6 +146,7 @@ exports.ControlMutation = ControlMutation = __decorate([
         prisma_service_1.PrismaService,
         subscription_service_1.SubscriptionService,
         query_service_1.ControlQuery,
-        query_service_2.UnitQuery])
+        query_service_2.UnitQuery,
+        change_service_1.ChangeService])
 ], ControlMutation);
 //# sourceMappingURL=mutate.service.js.map

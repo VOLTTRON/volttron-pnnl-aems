@@ -34,9 +34,7 @@ export default function Page() {
     variables: {
       orderBy: { [sort.field]: sort.direction },
       where: {
-        OR: [
-          { name: { contains: search, mode: StringFilterMode.Insensitive } },
-        ],
+        OR: [{ name: { contains: search, mode: StringFilterMode.Insensitive } }],
       },
       paging: paging,
     },
@@ -45,10 +43,7 @@ export default function Page() {
     },
   });
 
-  const locations = useMemo(
-    () => filter(data?.readLocations ?? [], search, ["name"]),
-    [data?.readLocations, search],
-  );
+  const locations = useMemo(() => filter(data?.readLocations ?? [], search, ["name"]), [data?.readLocations, search]);
 
   return (
     <div className={styles.table}>
@@ -73,9 +68,9 @@ export default function Page() {
         <div className={styles.spacer} />
         <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
         <Search value={search} onValueChange={setSearch} />
-        <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
+        {/* <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
           Create Location
-        </Button>
+        </Button> */}
       </ControlGroup>
       <Table
         rowKey="id"
@@ -90,7 +85,7 @@ export default function Page() {
         actions={{
           values: [
             { id: "update", icon: IconNames.EDIT, intent: Intent.PRIMARY },
-            { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
+            // { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
           ],
           onClick: (id, row) => {
             switch (id) {

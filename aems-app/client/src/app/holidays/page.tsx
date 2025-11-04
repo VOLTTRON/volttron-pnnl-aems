@@ -12,24 +12,6 @@ import { IconNames } from "@blueprintjs/icons";
 import { CreateHoliday, DeleteHoliday, UpdateHoliday } from "./dialog";
 import { DialogType } from "../types";
 
-// Status color mapping for holiday stages
-const getStatusIntent = (stage?: string | null) => {
-  switch (stage?.toLowerCase()) {
-    case "complete":
-      return Intent.SUCCESS;
-    case "update":
-    case "process":
-      return Intent.PRIMARY;
-    case "create":
-      return Intent.WARNING;
-    case "delete":
-    case "fail":
-      return Intent.DANGER;
-    default:
-      return Intent.NONE;
-  }
-};
-
 export default function Page() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{
@@ -52,12 +34,7 @@ export default function Page() {
     variables: {
       orderBy: { [sort.field]: sort.direction },
       where: {
-        OR: [
-          { label: { contains: search, mode: StringFilterMode.Insensitive } },
-          { observance: { contains: search, mode: StringFilterMode.Insensitive } },
-          { correlation: { contains: search, mode: StringFilterMode.Insensitive } },
-          { message: { contains: search, mode: StringFilterMode.Insensitive } },
-        ],
+        OR: [{ label: { contains: search, mode: StringFilterMode.Insensitive } }],
       },
       paging: paging,
     },
@@ -66,10 +43,7 @@ export default function Page() {
     },
   });
 
-  const holidays = useMemo(
-    () => filter(data?.readHolidays ?? [], search, ["label", "observance", "correlation", "message"]),
-    [data?.readHolidays, search],
-  );
+  const holidays = useMemo(() => filter(data?.readHolidays ?? [], search, ["label"]), [data?.readHolidays, search]);
 
   return (
     <div className={styles.table}>
@@ -94,27 +68,26 @@ export default function Page() {
         <div className={styles.spacer} />
         <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
         <Search value={search} onValueChange={setSearch} />
-        <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
+        {/* <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
           Create Holiday
-        </Button>
+        </Button> */}
       </ControlGroup>
       <Table
         rowKey="id"
         rows={holidays}
         columns={[
           { field: "label", label: "Label", type: "term" },
-          { field: "month", label: "Month", type: "term" },
-          { field: "day", label: "Day", type: "term" },
-          { field: "observance", label: "Observance", type: "term" },
-          { field: "type", label: "Type", type: "term" },
-          { field: "stage", label: "Stage", type: "term" },
+          { field: "month", label: "Month", type: "string" },
+          { field: "day", label: "Day", type: "string" },
+          { field: "observance", label: "Observance", type: "string" },
+          { field: "type", label: "Type", type: "string" },
           { field: "createdAt", label: "Created", type: "date" },
           { field: "updatedAt", label: "Updated", type: "date" },
         ]}
         actions={{
           values: [
             { id: "update", icon: IconNames.EDIT, intent: Intent.PRIMARY },
-            { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
+            // { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
           ],
           onClick: (id, row) => {
             switch (id) {

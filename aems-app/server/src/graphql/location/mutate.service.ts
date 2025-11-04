@@ -7,6 +7,8 @@ import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { UnitQuery } from "../unit/query.service";
+import { ChangeService } from "@/change/change.service";
+import { ChangeMutation } from "@prisma/client";
 
 @Injectable()
 @PothosMutation()
@@ -21,6 +23,7 @@ export class LocationMutation {
     locationQuery: LocationQuery,
     _locationObject: LocationObject,
     unitQuery: UnitQuery,
+    changeService: ChangeService,
   ) {
     const { LocationWhereUnique } = locationQuery;
     const { UnitWhereUnique } = unitQuery;
@@ -65,7 +68,7 @@ export class LocationMutation {
         args: {
           create: t.arg({ type: LocationCreate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.location
             .create({
               ...query,
@@ -77,6 +80,7 @@ export class LocationMutation {
                 id: location.id.toString(),
                 mutation: Mutation.Created,
               });
+              await changeService.handleChange("Unknown", location, "Location", ChangeMutation.Create, ctx.user!);
               return location;
             });
         },
@@ -92,7 +96,7 @@ export class LocationMutation {
           where: t.arg({ type: LocationWhereUnique, required: true }),
           update: t.arg({ type: LocationUpdate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.location
             .update({
               ...query,
@@ -110,6 +114,7 @@ export class LocationMutation {
                 id: location.id.toString(),
                 mutation: Mutation.Updated,
               });
+              await changeService.handleChange("Unknown", location, "Location", ChangeMutation.Update, ctx.user!);
               return location;
             });
         },
@@ -124,7 +129,7 @@ export class LocationMutation {
         args: {
           where: t.arg({ type: LocationWhereUnique, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.location
             .delete({
               ...query,
@@ -141,6 +146,7 @@ export class LocationMutation {
                 id: location.id.toString(),
                 mutation: Mutation.Deleted,
               });
+              await changeService.handleChange("Unknown", location, "Location", ChangeMutation.Delete, ctx.user!);
               return location;
             });
         },

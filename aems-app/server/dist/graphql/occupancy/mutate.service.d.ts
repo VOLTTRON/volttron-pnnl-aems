@@ -4,6 +4,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { ScheduleMutation } from "../schedule/mutate.service";
 import { ConfigurationQuery } from "../configuration/query.service";
+import { ChangeService } from "@/change/change.service";
 export declare class OccupancyMutation {
     readonly OccupancyCreate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -67,5 +68,5 @@ export declare class OccupancyMutation {
             Scalars: import("..").Scalars;
         }>, import(".prisma/client").Prisma.ConfigurationUpdateOneWithoutOccupanciesNestedInput>;
     }>>;
-    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, occupancyQuery: OccupancyQuery, scheduleMutation: ScheduleMutation, configurationQuery: ConfigurationQuery);
+    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, occupancyQuery: OccupancyQuery, scheduleMutation: ScheduleMutation, configurationQuery: ConfigurationQuery, changeService: ChangeService);
 }

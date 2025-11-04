@@ -66,11 +66,12 @@ const mutate_service_14 = require("./schedule/mutate.service");
 const mutate_service_15 = require("./setpoint/mutate.service");
 const mutate_service_16 = require("./unit/mutate.service");
 const mutate_service_17 = require("./user/mutate.service");
+const change_module_1 = require("../change/change.module");
 let SchemaModule = SchemaModule_1 = class SchemaModule {
     static register() {
         return {
             module: SchemaModule_1,
-            imports: [core_1.DiscoveryModule, prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule],
+            imports: [core_1.DiscoveryModule, prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule, change_module_1.ChangeModule],
             providers: [
                 builder_service_1.SchemaBuilderService,
                 {
@@ -102,7 +103,7 @@ let SchemaModule = SchemaModule_1 = class SchemaModule {
 exports.SchemaModule = SchemaModule;
 exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule],
+        imports: [prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule, change_module_1.ChangeModule],
         exports: [builder_service_1.SchemaBuilderService],
         providers: [
             builder_service_1.SchemaBuilderService,

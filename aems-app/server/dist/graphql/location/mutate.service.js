@@ -19,8 +19,10 @@ const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
 const query_service_2 = require("../unit/query.service");
+const change_service_1 = require("../../change/change.service");
+const client_1 = require("@prisma/client");
 let LocationMutation = class LocationMutation {
-    constructor(builder, prismaService, subscriptionService, locationQuery, _locationObject, unitQuery) {
+    constructor(builder, prismaService, subscriptionService, locationQuery, _locationObject, unitQuery, changeService) {
         const { LocationWhereUnique } = locationQuery;
         const { UnitWhereUnique } = unitQuery;
         const LocationCreateUnits = builder.prismaCreateRelation("Location", "units", {
@@ -57,7 +59,7 @@ let LocationMutation = class LocationMutation {
             args: {
                 create: t.arg({ type: LocationCreate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.location
                     .create({
                     ...query,
@@ -69,6 +71,7 @@ let LocationMutation = class LocationMutation {
                         id: location.id.toString(),
                         mutation: common_2.Mutation.Created,
                     });
+                    await changeService.handleChange("Unknown", location, "Location", client_1.ChangeMutation.Create, ctx.user);
                     return location;
                 });
             },
@@ -81,7 +84,7 @@ let LocationMutation = class LocationMutation {
                 where: t.arg({ type: LocationWhereUnique, required: true }),
                 update: t.arg({ type: LocationUpdate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.location
                     .update({
                     ...query,
@@ -99,6 +102,7 @@ let LocationMutation = class LocationMutation {
                         id: location.id.toString(),
                         mutation: common_2.Mutation.Updated,
                     });
+                    await changeService.handleChange("Unknown", location, "Location", client_1.ChangeMutation.Update, ctx.user);
                     return location;
                 });
             },
@@ -110,7 +114,7 @@ let LocationMutation = class LocationMutation {
             args: {
                 where: t.arg({ type: LocationWhereUnique, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.location
                     .delete({
                     ...query,
@@ -127,6 +131,7 @@ let LocationMutation = class LocationMutation {
                         id: location.id.toString(),
                         mutation: common_2.Mutation.Deleted,
                     });
+                    await changeService.handleChange("Unknown", location, "Location", client_1.ChangeMutation.Delete, ctx.user);
                     return location;
                 });
             },
@@ -142,6 +147,7 @@ exports.LocationMutation = LocationMutation = __decorate([
         subscription_service_1.SubscriptionService,
         query_service_1.LocationQuery,
         object_service_1.LocationObject,
-        query_service_2.UnitQuery])
+        query_service_2.UnitQuery,
+        change_service_1.ChangeService])
 ], LocationMutation);
 //# sourceMappingURL=mutate.service.js.map

@@ -11,6 +11,9 @@ import { OccupancyMutation } from "../occupancy/mutate.service";
 import { OccupancyQuery } from "../occupancy/query.service";
 import { HolidayMutation } from "../holiday/mutate.service";
 import { HolidayQuery } from "../holiday/query.service";
+import { ChangeService } from "@/change/change.service";
+import { ChangeMutation } from "@prisma/client";
+import { isEqual, omit } from "lodash";
 
 @Injectable()
 @PothosMutation()
@@ -29,6 +32,7 @@ export class ConfigurationMutation {
     occupancyMutation: OccupancyMutation,
     holidayQuery: HolidayQuery,
     holidayMutation: HolidayMutation,
+    changeService: ChangeService,
   ) {
     const { ConfigurationWhereUnique } = configurationQuery;
     const { SetpointUpdate } = setpointMutation;
@@ -177,11 +181,22 @@ export class ConfigurationMutation {
         args: {
           create: t.arg({ type: ConfigurationCreate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.configuration
             .create({
               ...query,
               data: { ...args.create },
+              include: {
+                setpoint: true,
+                mondaySchedule: true,
+                tuesdaySchedule: true,
+                wednesdaySchedule: true,
+                thursdaySchedule: true,
+                fridaySchedule: true,
+                saturdaySchedule: true,
+                sundaySchedule: true,
+                holidaySchedule: true,
+              },
             })
             .then(async (configuration) => {
               await subscriptionService.publish("Configuration", {
@@ -189,6 +204,57 @@ export class ConfigurationMutation {
                 id: configuration.id,
                 mutation: Mutation.Created,
               });
+              if (configuration) {
+                await changeService.handleChange(
+                  configuration.label || `Configuration ${configuration.id}`,
+                  omit(configuration, [
+                    "stage",
+                    "message",
+                    "setpoint",
+                    "mondaySchedule",
+                    "tuesdaySchedule",
+                    "wednesdaySchedule",
+                    "thursdaySchedule",
+                    "fridaySchedule",
+                    "saturdaySchedule",
+                    "sundaySchedule",
+                    "holidaySchedule",
+                  ]),
+                  "Configuration",
+                  ChangeMutation.Create,
+                  ctx.user!,
+                );
+              }
+              if (configuration.setpoint) {
+                await changeService.handleChange(
+                  configuration.label || `Configuration ${configuration.id}`,
+                  omit(configuration.setpoint, ["stage", "message"]),
+                  "Setpoint",
+                  ChangeMutation.Create,
+                  ctx.user!,
+                );
+              }
+              const schedules = [
+                configuration.mondaySchedule,
+                configuration.tuesdaySchedule,
+                configuration.wednesdaySchedule,
+                configuration.thursdaySchedule,
+                configuration.fridaySchedule,
+                configuration.saturdaySchedule,
+                configuration.sundaySchedule,
+                configuration.holidaySchedule,
+              ];
+              for (const schedule of schedules) {
+                if (schedule) {
+                  await changeService.handleChange(
+                    configuration.label || `Configuration ${configuration.id}`,
+                    omit(schedule, ["stage", "message"]),
+                    "Schedule",
+                    ChangeMutation.Create,
+                    ctx.user!,
+                  );
+                }
+              }
               return configuration;
             });
         },
@@ -204,12 +270,37 @@ export class ConfigurationMutation {
           where: t.arg({ type: ConfigurationWhereUnique, required: true }),
           update: t.arg({ type: ConfigurationUpdate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
+          const before = await prismaService.prisma.configuration.findUnique({
+            where: args.where,
+            include: {
+              setpoint: true,
+              mondaySchedule: true,
+              tuesdaySchedule: true,
+              wednesdaySchedule: true,
+              thursdaySchedule: true,
+              fridaySchedule: true,
+              saturdaySchedule: true,
+              sundaySchedule: true,
+              holidaySchedule: true,
+            },
+          });
           return prismaService.prisma.configuration
             .update({
               ...query,
               where: args.where,
               data: args.update,
+              include: {
+                setpoint: true,
+                mondaySchedule: true,
+                tuesdaySchedule: true,
+                wednesdaySchedule: true,
+                thursdaySchedule: true,
+                fridaySchedule: true,
+                saturdaySchedule: true,
+                sundaySchedule: true,
+                holidaySchedule: true,
+              },
             })
             .then(async (configuration) => {
               await subscriptionService.publish("Configuration", {
@@ -222,6 +313,103 @@ export class ConfigurationMutation {
                 id: configuration.id,
                 mutation: Mutation.Updated,
               });
+              if (
+                configuration &&
+                !isEqual(
+                  omit(before, [
+                    "stage",
+                    "message",
+                    "corelation",
+                    "updatedAt",
+                    "setpoint",
+                    "mondaySchedule",
+                    "tuesdaySchedule",
+                    "wednesdaySchedule",
+                    "thursdaySchedule",
+                    "fridaySchedule",
+                    "saturdaySchedule",
+                    "sundaySchedule",
+                    "holidaySchedule",
+                  ]),
+                  omit(configuration, [
+                    "stage",
+                    "message",
+                    "corelation",
+                    "updatedAt",
+                    "setpoint",
+                    "mondaySchedule",
+                    "tuesdaySchedule",
+                    "wednesdaySchedule",
+                    "thursdaySchedule",
+                    "fridaySchedule",
+                    "saturdaySchedule",
+                    "sundaySchedule",
+                    "holidaySchedule",
+                  ]),
+                )
+              ) {
+                await changeService.handleChange(
+                  configuration.label || `Configuration ${configuration.id}`,
+                  omit(configuration, [
+                    "stage",
+                    "message",
+                    "setpoint",
+                    "mondaySchedule",
+                    "tuesdaySchedule",
+                    "wednesdaySchedule",
+                    "thursdaySchedule",
+                    "fridaySchedule",
+                    "saturdaySchedule",
+                    "sundaySchedule",
+                    "holidaySchedule",
+                  ]),
+                  "Configuration",
+                  ChangeMutation.Update,
+                  ctx.user!,
+                );
+              }
+              if (
+                configuration.setpoint &&
+                !isEqual(
+                  omit(before?.setpoint, ["stage", "message", "corelation", "updatedAt"]),
+                  omit(configuration.setpoint, ["stage", "message", "corelation", "updatedAt"]),
+                )
+              ) {
+                await changeService.handleChange(
+                  configuration.label || `Configuration ${configuration.id}`,
+                  omit(configuration.setpoint, ["stage", "message"]),
+                  "Setpoint",
+                  ChangeMutation.Update,
+                  ctx.user!,
+                );
+              }
+              const schedules = [
+                { before: before?.mondaySchedule, after: configuration.mondaySchedule },
+                { before: before?.tuesdaySchedule, after: configuration.tuesdaySchedule },
+                { before: before?.wednesdaySchedule, after: configuration.wednesdaySchedule },
+                { before: before?.thursdaySchedule, after: configuration.thursdaySchedule },
+                { before: before?.fridaySchedule, after: configuration.fridaySchedule },
+                { before: before?.saturdaySchedule, after: configuration.saturdaySchedule },
+                { before: before?.sundaySchedule, after: configuration.sundaySchedule },
+                { before: before?.holidaySchedule, after: configuration.holidaySchedule },
+              ];
+              for (const schedule of schedules) {
+                if (
+                  schedule.after &&
+                  !isEqual(
+                    omit(schedule.before, ["stage", "message", "corelation", "updatedAt"]),
+                    omit(schedule.after, ["stage", "message", "corelation", "updatedAt"]),
+                  )
+                ) {
+                  await changeService.handleChange(
+                    configuration.label || `Configuration ${configuration.id}`,
+                    omit(schedule.after, ["stage", "message"]),
+                    "Schedule",
+                    ChangeMutation.Update,
+                    ctx.user!,
+                  );
+                }
+              }
               return configuration;
             });
         },
@@ -236,11 +424,22 @@ export class ConfigurationMutation {
         args: {
           where: t.arg({ type: ConfigurationWhereUnique, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.configuration
             .delete({
               ...query,
               where: args.where,
+              include: {
+                setpoint: true,
+                mondaySchedule: true,
+                tuesdaySchedule: true,
+                wednesdaySchedule: true,
+                thursdaySchedule: true,
+                fridaySchedule: true,
+                saturdaySchedule: true,
+                sundaySchedule: true,
+                holidaySchedule: true,
+              },
             })
             .then(async (configuration) => {
               await subscriptionService.publish("Configuration", {
@@ -253,6 +452,57 @@ export class ConfigurationMutation {
                 id: configuration.id,
                 mutation: Mutation.Deleted,
               });
+              if (configuration) {
+                await changeService.handleChange(
+                  configuration.label || `Configuration ${configuration.id}`,
+                  omit(configuration, [
+                    "stage",
+                    "message",
+                    "setpoint",
+                    "mondaySchedule",
+                    "tuesdaySchedule",
+                    "wednesdaySchedule",
+                    "thursdaySchedule",
+                    "fridaySchedule",
+                    "saturdaySchedule",
+                    "sundaySchedule",
+                    "holidaySchedule",
+                  ]),
+                  "Configuration",
+                  ChangeMutation.Delete,
+                  ctx.user!,
+                );
+              }
+              if (configuration.setpoint) {
+                await changeService.handleChange(
+                  configuration.label || `Configuration ${configuration.id}`,
+                  omit(configuration.setpoint, ["stage", "message"]),
+                  "Setpoint",
+                  ChangeMutation.Delete,
+                  ctx.user!,
+                );
+              }
+              const schedules = [
+                configuration.mondaySchedule,
+                configuration.tuesdaySchedule,
+                configuration.wednesdaySchedule,
+                configuration.thursdaySchedule,
+                configuration.fridaySchedule,
+                configuration.saturdaySchedule,
+                configuration.sundaySchedule,
+                configuration.holidaySchedule,
+              ];
+              for (const schedule of schedules) {
+                if (schedule) {
+                  await changeService.handleChange(
+                    configuration.label || `Configuration ${configuration.id}`,
+                    omit(schedule, ["stage", "message"]),
+                    "Schedule",
+                    ChangeMutation.Delete,
+                    ctx.user!,
+                  );
+                }
+              }
               return configuration;
             });
         },

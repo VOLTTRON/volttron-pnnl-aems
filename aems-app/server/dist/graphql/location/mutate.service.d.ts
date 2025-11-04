@@ -4,6 +4,7 @@ import { LocationObject } from "./object.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { UnitQuery } from "../unit/query.service";
+import { ChangeService } from "@/change/change.service";
 export declare class LocationMutation {
     readonly LocationCreate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -37,5 +38,5 @@ export declare class LocationMutation {
             Scalars: import("..").Scalars;
         }>, import(".prisma/client").Prisma.UnitUpdateManyWithoutLocationNestedInput>;
     }>>;
-    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, locationQuery: LocationQuery, _locationObject: LocationObject, unitQuery: UnitQuery);
+    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, locationQuery: LocationQuery, _locationObject: LocationObject, unitQuery: UnitQuery, changeService: ChangeService);
 }

@@ -24,8 +24,6 @@ export function CreateConfiguration({
   icon?: IconName;
 }) {
   const [label, setLabel] = useState("");
-  const [correlation, setCorrelation] = useState("");
-  const [message, setMessage] = useState("");
 
   const [createConfiguration] = useMutation(CreateConfigurationDocument, {
     refetchQueries: [ReadConfigurationsDocument],
@@ -36,41 +34,19 @@ export function CreateConfiguration({
       variables: {
         create: {
           label,
-          ...(correlation && { correlation }),
-          ...(message && { message }),
         },
       },
     });
-  }, [createConfiguration, label, correlation, message]);
+  }, [createConfiguration, label]);
 
   useEffect(() => {
     setLabel("");
-    setCorrelation("");
-    setMessage("");
   }, [open]);
 
   return (
     <CreateDialog title="Create Configuration" icon={icon} open={open} setOpen={setOpen} onCreate={onCreate}>
       <FormGroup label="Label">
         <InputGroup id="label" name="label" value={label} onChange={(event) => setLabel(event.target.value)} fill />
-      </FormGroup>
-      <FormGroup label="Correlation">
-        <InputGroup
-          id="correlation"
-          name="correlation"
-          value={correlation}
-          onChange={(event) => setCorrelation(event.target.value)}
-          fill
-        />
-      </FormGroup>
-      <FormGroup label="Message">
-        <InputGroup
-          id="message"
-          name="message"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          fill
-        />
       </FormGroup>
     </CreateDialog>
   );
@@ -88,8 +64,6 @@ export function UpdateConfiguration({
   configuration?: Term<NonNullable<ReadConfigurationsQuery["readConfigurations"]>[0]>;
 }) {
   const [label, setLabel] = useState("");
-  const [correlation, setCorrelation] = useState("");
-  const [message, setMessage] = useState("");
 
   const [updateConfiguration] = useMutation(UpdateConfigurationDocument, {
     refetchQueries: [ReadConfigurationsDocument],
@@ -101,17 +75,13 @@ export function UpdateConfiguration({
         where: { id: configurationData?.id },
         update: {
           ...(label !== configurationData?.label && { label }),
-          ...(correlation !== configurationData?.correlation && { correlation }),
-          ...(message !== configurationData?.message && { message }),
         },
       },
     });
-  }, [updateConfiguration, configurationData, label, correlation, message]);
+  }, [updateConfiguration, configurationData, label]);
 
   useEffect(() => {
     setLabel(configurationData?.label ?? "");
-    setCorrelation(configurationData?.correlation ?? "");
-    setMessage(configurationData?.message ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -119,24 +89,6 @@ export function UpdateConfiguration({
     <UpdateDialog title="Update Configuration" icon={icon} open={open} setOpen={setOpen} onUpdate={onUpdate}>
       <FormGroup label="Label">
         <InputGroup id="label" name="label" value={label} onChange={(event) => setLabel(event.target.value)} fill />
-      </FormGroup>
-      <FormGroup label="Correlation">
-        <InputGroup
-          id="correlation"
-          name="correlation"
-          value={correlation}
-          onChange={(event) => setCorrelation(event.target.value)}
-          fill
-        />
-      </FormGroup>
-      <FormGroup label="Message">
-        <InputGroup
-          id="message"
-          name="message"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          fill
-        />
       </FormGroup>
     </UpdateDialog>
   );
