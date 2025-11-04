@@ -19,6 +19,7 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
 const change_service_1 = require("../../change/change.service");
 const client_1 = require("@prisma/client");
+const lodash_1 = require("lodash");
 let SetpointMutation = class SetpointMutation {
     constructor(builder, prismaService, subscriptionService, setpointQuery, changeService) {
         const { SetpointWhereUnique } = setpointQuery;
@@ -70,7 +71,7 @@ let SetpointMutation = class SetpointMutation {
                         id: setpoint.id,
                         mutation: common_2.Mutation.Created,
                     });
-                    await changeService.handleChange(setpoint, "Setpoint", client_1.ChangeMutation.Create, ctx.user);
+                    await changeService.handleChange("Unknown", (0, lodash_1.omit)(setpoint, ["stage", "message"]), "Setpoint", client_1.ChangeMutation.Create, ctx.user);
                     return setpoint;
                 });
             },
@@ -101,7 +102,7 @@ let SetpointMutation = class SetpointMutation {
                         id: setpoint.id,
                         mutation: common_2.Mutation.Updated,
                     });
-                    await changeService.handleChange(setpoint, "Setpoint", client_1.ChangeMutation.Update, ctx.user);
+                    await changeService.handleChange("Unknown", (0, lodash_1.omit)(setpoint, ["stage", "message"]), "Setpoint", client_1.ChangeMutation.Update, ctx.user);
                     return setpoint;
                 });
             },
@@ -130,7 +131,7 @@ let SetpointMutation = class SetpointMutation {
                         id: setpoint.id,
                         mutation: common_2.Mutation.Deleted,
                     });
-                    await changeService.handleChange(setpoint, "Setpoint", client_1.ChangeMutation.Delete, ctx.user);
+                    await changeService.handleChange("Unknown", (0, lodash_1.omit)(setpoint, ["stage", "message"]), "Setpoint", client_1.ChangeMutation.Delete, ctx.user);
                     return setpoint;
                 });
             },

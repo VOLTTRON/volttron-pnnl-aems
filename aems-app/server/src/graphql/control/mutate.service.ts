@@ -8,6 +8,7 @@ import { SubscriptionService } from "@/subscription/subscription.service";
 import { UnitQuery } from "../unit/query.service";
 import { ChangeService } from "@/change/change.service";
 import { ChangeMutation } from "@prisma/client";
+import { omit } from "lodash";
 
 @Injectable()
 @PothosMutation()
@@ -76,7 +77,13 @@ export class ControlMutation {
                 id: control.id,
                 mutation: Mutation.Created,
               });
-              await changeService.handleChange(control, "Control", ChangeMutation.Create, ctx.user!);
+              await changeService.handleChange(
+                "Unknown",
+                omit(control, ["stage", "message"]),
+                "Control",
+                ChangeMutation.Create,
+                ctx.user!,
+              );
               return control;
             });
         },
@@ -110,7 +117,13 @@ export class ControlMutation {
                 id: control.id,
                 mutation: Mutation.Updated,
               });
-              await changeService.handleChange(control, "Control", ChangeMutation.Update, ctx.user!);
+              await changeService.handleChange(
+                "Unknown",
+                omit(control, ["stage", "message"]),
+                "Control",
+                ChangeMutation.Update,
+                ctx.user!,
+              );
               return control;
             });
         },
@@ -142,7 +155,13 @@ export class ControlMutation {
                 id: control.id,
                 mutation: Mutation.Deleted,
               });
-              await changeService.handleChange(control, "Control", ChangeMutation.Delete, ctx.user!);
+              await changeService.handleChange(
+                "Unknown",
+                omit(control, ["stage", "message"]),
+                "Control",
+                ChangeMutation.Delete,
+                ctx.user!,
+              );
               return control;
             });
         },

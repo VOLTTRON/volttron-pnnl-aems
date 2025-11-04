@@ -9,6 +9,7 @@ import { SubscriptionService } from "@/subscription/subscription.service";
 import { ConfigurationQuery } from "../configuration/query.service";
 import { ChangeService } from "@/change/change.service";
 import { ChangeMutation } from "@prisma/client";
+import { omit } from "lodash";
 
 @Injectable()
 @PothosMutation()
@@ -91,7 +92,13 @@ export class HolidayMutation {
                 id: holiday.id,
                 mutation: Mutation.Created,
               });
-              await changeService.handleChange(holiday, "Holiday", ChangeMutation.Create, ctx.user!);
+              await changeService.handleChange(
+                "Unknown",
+                omit(holiday, ["stage", "message"]),
+                "Holiday",
+                ChangeMutation.Create,
+                ctx.user!,
+              );
               return holiday;
             });
         },
@@ -125,7 +132,13 @@ export class HolidayMutation {
                 id: holiday.id,
                 mutation: Mutation.Updated,
               });
-              await changeService.handleChange(holiday, "Holiday", ChangeMutation.Update, ctx.user!);
+              await changeService.handleChange(
+                "Unknown",
+                omit(holiday, ["stage", "message"]),
+                "Holiday",
+                ChangeMutation.Update,
+                ctx.user!,
+              );
               return holiday;
             });
         },
@@ -157,7 +170,13 @@ export class HolidayMutation {
                 id: holiday.id,
                 mutation: Mutation.Deleted,
               });
-              await changeService.handleChange(holiday, "Holiday", ChangeMutation.Delete, ctx.user!);
+              await changeService.handleChange(
+                "Unknown",
+                omit(holiday, ["stage", "message"]),
+                "Holiday",
+                ChangeMutation.Delete,
+                ctx.user!,
+              );
               return holiday;
             });
         },

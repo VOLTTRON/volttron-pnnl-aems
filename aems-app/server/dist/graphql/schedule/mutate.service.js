@@ -82,9 +82,9 @@ let ScheduleMutation = class ScheduleMutation {
                         id: schedule.id,
                         mutation: common_2.Mutation.Created,
                     });
-                    await changeService.handleChange((0, lodash_1.omit)(schedule, ["setpoint"]), "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                    await changeService.handleChange("Unknown", (0, lodash_1.omit)(schedule, ["stage", "message", "setpoint"]), "Schedule", client_1.ChangeMutation.Create, ctx.user);
                     if (schedule.setpoint) {
-                        await changeService.handleChange(schedule.setpoint, "Setpoint", client_1.ChangeMutation.Create, ctx.user);
+                        await changeService.handleChange("Unknown", (0, lodash_1.omit)(schedule.setpoint, ["stage", "message"]), "Setpoint", client_1.ChangeMutation.Create, ctx.user);
                     }
                     return schedule;
                 });
@@ -117,9 +117,9 @@ let ScheduleMutation = class ScheduleMutation {
                         id: schedule.id,
                         mutation: common_2.Mutation.Updated,
                     });
-                    await changeService.handleChange((0, lodash_1.omit)(schedule, ["setpoint"]), "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                    await changeService.handleChange("Unknown", (0, lodash_1.omit)(schedule, ["stage", "message", "setpoint"]), "Schedule", client_1.ChangeMutation.Update, ctx.user);
                     if (schedule.setpoint) {
-                        await changeService.handleChange(schedule.setpoint, "Setpoint", client_1.ChangeMutation.Update, ctx.user);
+                        await changeService.handleChange("Unknown", (0, lodash_1.omit)(schedule.setpoint, ["stage", "message"]), "Setpoint", client_1.ChangeMutation.Update, ctx.user);
                     }
                     return schedule;
                 });
@@ -150,9 +150,9 @@ let ScheduleMutation = class ScheduleMutation {
                         id: schedule.id,
                         mutation: common_2.Mutation.Deleted,
                     });
-                    await changeService.handleChange((0, lodash_1.omit)(schedule, ["setpoint"]), "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                    await changeService.handleChange("Unknown", (0, lodash_1.omit)(schedule, ["stage", "message", "setpoint"]), "Schedule", client_1.ChangeMutation.Delete, ctx.user);
                     if (schedule.setpoint) {
-                        await changeService.handleChange(schedule.setpoint, "Setpoint", client_1.ChangeMutation.Delete, ctx.user);
+                        await changeService.handleChange("Unknown", (0, lodash_1.omit)(schedule.setpoint, ["stage", "message"]), "Setpoint", client_1.ChangeMutation.Delete, ctx.user);
                     }
                     return schedule;
                 });

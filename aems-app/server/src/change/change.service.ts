@@ -40,54 +40,63 @@ export class ChangeService {
   }
 
   async handleChange(
+    key: string,
     entity: Partial<Schedule> & Required<Pick<Schedule, "id">>,
     type: "Schedule",
     mutation: ChangeMutation,
     user: Express.User | string,
   ): Promise<void>;
   async handleChange(
+    key: string,
     entity: Partial<Configuration> & Required<Pick<Configuration, "id">>,
     type: "Configuration",
     mutation: ChangeMutation,
     user: Express.User | string,
   ): Promise<void>;
   async handleChange(
+    key: string,
     entity: Partial<Control> & Required<Pick<Control, "id">>,
     type: "Control",
     mutation: ChangeMutation,
     user: Express.User | string,
   ): Promise<void>;
   async handleChange(
+    key: string,
     entity: Partial<Location> & Required<Pick<Location, "id">>,
     type: "Location",
     mutation: ChangeMutation,
     user: Express.User | string,
   ): Promise<void>;
   async handleChange(
+    key: string,
     entity: Partial<Unit> & Required<Pick<Unit, "id">>,
     type: "Unit",
     mutation: ChangeMutation,
     user: Express.User | string,
   ): Promise<void>;
   async handleChange(
+    key: string,
     entity: Partial<Occupancy> & Required<Pick<Occupancy, "id">>,
     type: "Occupancy",
     mutation: ChangeMutation,
     user: Express.User | string,
   ): Promise<void>;
   async handleChange(
+    key: string,
     entity: Partial<Holiday> & Required<Pick<Holiday, "id">>,
     type: "Holiday",
     mutation: ChangeMutation,
     user: Express.User | string,
   ): Promise<void>;
   async handleChange(
+    key: string,
     entity: Partial<Setpoint> & Required<Pick<Setpoint, "id">>,
     type: "Setpoint",
     mutation: ChangeMutation,
     user: Express.User | string,
   ): Promise<void>;
   async handleChange(
+    key: string,
     entity: object,
     type: Prisma.ModelName,
     mutation: ChangeMutation,
@@ -104,7 +113,7 @@ export class ChangeService {
       await this.prismaService.prisma.change
         .create({
           data: {
-            key: entity.id,
+            key: key,
             data: this.transform(entity),
             mutation: mutation,
             table: "schedule",
@@ -122,7 +131,7 @@ export class ChangeService {
       await this.prismaService.prisma.change
         .create({
           data: {
-            key: entity.id,
+            key: key,
             data: this.transform(entity),
             mutation: mutation,
             table: "configuration",
@@ -140,7 +149,7 @@ export class ChangeService {
       await this.prismaService.prisma.change
         .create({
           data: {
-            key: entity.id,
+            key: key,
             data: this.transform(entity),
             mutation: mutation,
             table: "control",
@@ -158,7 +167,7 @@ export class ChangeService {
       await this.prismaService.prisma.change
         .create({
           data: {
-            key: entity.id,
+            key: key,
             data: this.transform(entity),
             mutation: mutation,
             table: "location",
@@ -176,7 +185,7 @@ export class ChangeService {
       await this.prismaService.prisma.change
         .create({
           data: {
-            key: entity.id,
+            key: key,
             data: this.transform(entity),
             mutation: mutation,
             table: "unit",
@@ -194,7 +203,7 @@ export class ChangeService {
       await this.prismaService.prisma.change
         .create({
           data: {
-            key: entity.id,
+            key: key,
             data: this.transform(entity),
             mutation: mutation,
             table: "occupancy",
@@ -212,7 +221,7 @@ export class ChangeService {
       await this.prismaService.prisma.change
         .create({
           data: {
-            key: entity.id,
+            key: key,
             data: this.transform(entity),
             mutation: mutation,
             table: "holiday",
@@ -230,7 +239,7 @@ export class ChangeService {
       await this.prismaService.prisma.change
         .create({
           data: {
-            key: entity.id,
+            key: key,
             data: this.transform(entity),
             mutation: mutation,
             table: "setpoint",

@@ -181,7 +181,9 @@ let ConfigurationMutation = class ConfigurationMutation {
                         mutation: common_2.Mutation.Created,
                     });
                     if (configuration) {
-                        await changeService.handleChange((0, lodash_1.omit)(configuration, [
+                        await changeService.handleChange(configuration.label || `Configuration ${configuration.id}`, (0, lodash_1.omit)(configuration, [
+                            "stage",
+                            "message",
                             "setpoint",
                             "mondaySchedule",
                             "tuesdaySchedule",
@@ -194,7 +196,7 @@ let ConfigurationMutation = class ConfigurationMutation {
                         ]), "Configuration", client_1.ChangeMutation.Create, ctx.user);
                     }
                     if (configuration.setpoint) {
-                        await changeService.handleChange(configuration.setpoint, "Setpoint", client_1.ChangeMutation.Create, ctx.user);
+                        await changeService.handleChange(configuration.label || `Configuration ${configuration.id}`, (0, lodash_1.omit)(configuration.setpoint, ["stage", "message"]), "Setpoint", client_1.ChangeMutation.Create, ctx.user);
                     }
                     const schedules = [
                         configuration.mondaySchedule,
@@ -208,7 +210,7 @@ let ConfigurationMutation = class ConfigurationMutation {
                     ];
                     for (const schedule of schedules) {
                         if (schedule) {
-                            await changeService.handleChange(schedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                            await changeService.handleChange(configuration.label || `Configuration ${configuration.id}`, (0, lodash_1.omit)(schedule, ["stage", "message"]), "Schedule", client_1.ChangeMutation.Create, ctx.user);
                         }
                     }
                     return configuration;
@@ -296,7 +298,9 @@ let ConfigurationMutation = class ConfigurationMutation {
                             "sundaySchedule",
                             "holidaySchedule",
                         ]))) {
-                        await changeService.handleChange((0, lodash_1.omit)(configuration, [
+                        await changeService.handleChange(configuration.label || `Configuration ${configuration.id}`, (0, lodash_1.omit)(configuration, [
+                            "stage",
+                            "message",
                             "setpoint",
                             "mondaySchedule",
                             "tuesdaySchedule",
@@ -310,7 +314,7 @@ let ConfigurationMutation = class ConfigurationMutation {
                     }
                     if (configuration.setpoint &&
                         !(0, lodash_1.isEqual)((0, lodash_1.omit)(before?.setpoint, ["stage", "message", "corelation", "updatedAt"]), (0, lodash_1.omit)(configuration.setpoint, ["stage", "message", "corelation", "updatedAt"]))) {
-                        await changeService.handleChange(configuration.setpoint, "Setpoint", client_1.ChangeMutation.Update, ctx.user);
+                        await changeService.handleChange(configuration.label || `Configuration ${configuration.id}`, (0, lodash_1.omit)(configuration.setpoint, ["stage", "message"]), "Setpoint", client_1.ChangeMutation.Update, ctx.user);
                     }
                     const schedules = [
                         { before: before?.mondaySchedule, after: configuration.mondaySchedule },
@@ -325,7 +329,7 @@ let ConfigurationMutation = class ConfigurationMutation {
                     for (const schedule of schedules) {
                         if (schedule.after &&
                             !(0, lodash_1.isEqual)((0, lodash_1.omit)(schedule.before, ["stage", "message", "corelation", "updatedAt"]), (0, lodash_1.omit)(schedule.after, ["stage", "message", "corelation", "updatedAt"]))) {
-                            await changeService.handleChange(schedule.after, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                            await changeService.handleChange(configuration.label || `Configuration ${configuration.id}`, (0, lodash_1.omit)(schedule.after, ["stage", "message"]), "Schedule", client_1.ChangeMutation.Update, ctx.user);
                         }
                     }
                     return configuration;
@@ -368,7 +372,9 @@ let ConfigurationMutation = class ConfigurationMutation {
                         mutation: common_2.Mutation.Deleted,
                     });
                     if (configuration) {
-                        await changeService.handleChange((0, lodash_1.omit)(configuration, [
+                        await changeService.handleChange(configuration.label || `Configuration ${configuration.id}`, (0, lodash_1.omit)(configuration, [
+                            "stage",
+                            "message",
                             "setpoint",
                             "mondaySchedule",
                             "tuesdaySchedule",
@@ -381,7 +387,7 @@ let ConfigurationMutation = class ConfigurationMutation {
                         ]), "Configuration", client_1.ChangeMutation.Delete, ctx.user);
                     }
                     if (configuration.setpoint) {
-                        await changeService.handleChange(configuration.setpoint, "Setpoint", client_1.ChangeMutation.Delete, ctx.user);
+                        await changeService.handleChange(configuration.label || `Configuration ${configuration.id}`, (0, lodash_1.omit)(configuration.setpoint, ["stage", "message"]), "Setpoint", client_1.ChangeMutation.Delete, ctx.user);
                     }
                     const schedules = [
                         configuration.mondaySchedule,
@@ -395,7 +401,7 @@ let ConfigurationMutation = class ConfigurationMutation {
                     ];
                     for (const schedule of schedules) {
                         if (schedule) {
-                            await changeService.handleChange(schedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                            await changeService.handleChange(configuration.label || `Configuration ${configuration.id}`, (0, lodash_1.omit)(schedule, ["stage", "message"]), "Schedule", client_1.ChangeMutation.Delete, ctx.user);
                         }
                     }
                     return configuration;

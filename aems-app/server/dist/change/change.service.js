@@ -33,7 +33,7 @@ let ChangeService = class ChangeService {
         });
         return entity;
     }
-    async handleChange(entity, type, mutation, user) {
+    async handleChange(key, entity, type, mutation, user) {
         const userId = typeof user === "string" ? user : typeof user === "object" && user !== null ? user.id : null;
         if (!userId) {
             throw new Error(`User ID not found for change tracking for ${mutation} ${type} entity.`);
@@ -45,7 +45,7 @@ let ChangeService = class ChangeService {
             await this.prismaService.prisma.change
                 .create({
                 data: {
-                    key: entity.id,
+                    key: key,
                     data: this.transform(entity),
                     mutation: mutation,
                     table: "schedule",
@@ -64,7 +64,7 @@ let ChangeService = class ChangeService {
             await this.prismaService.prisma.change
                 .create({
                 data: {
-                    key: entity.id,
+                    key: key,
                     data: this.transform(entity),
                     mutation: mutation,
                     table: "configuration",
@@ -83,7 +83,7 @@ let ChangeService = class ChangeService {
             await this.prismaService.prisma.change
                 .create({
                 data: {
-                    key: entity.id,
+                    key: key,
                     data: this.transform(entity),
                     mutation: mutation,
                     table: "control",
@@ -102,7 +102,7 @@ let ChangeService = class ChangeService {
             await this.prismaService.prisma.change
                 .create({
                 data: {
-                    key: entity.id,
+                    key: key,
                     data: this.transform(entity),
                     mutation: mutation,
                     table: "location",
@@ -121,7 +121,7 @@ let ChangeService = class ChangeService {
             await this.prismaService.prisma.change
                 .create({
                 data: {
-                    key: entity.id,
+                    key: key,
                     data: this.transform(entity),
                     mutation: mutation,
                     table: "unit",
@@ -140,7 +140,7 @@ let ChangeService = class ChangeService {
             await this.prismaService.prisma.change
                 .create({
                 data: {
-                    key: entity.id,
+                    key: key,
                     data: this.transform(entity),
                     mutation: mutation,
                     table: "occupancy",
@@ -159,7 +159,7 @@ let ChangeService = class ChangeService {
             await this.prismaService.prisma.change
                 .create({
                 data: {
-                    key: entity.id,
+                    key: key,
                     data: this.transform(entity),
                     mutation: mutation,
                     table: "holiday",
@@ -178,7 +178,7 @@ let ChangeService = class ChangeService {
             await this.prismaService.prisma.change
                 .create({
                 data: {
-                    key: entity.id,
+                    key: key,
                     data: this.transform(entity),
                     mutation: mutation,
                     table: "setpoint",

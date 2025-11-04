@@ -163,7 +163,8 @@ export class UnitMutation {
               await subscriptionService.publish("Unit", { topic: "Unit", id: unit.id, mutation: Mutation.Created });
               if (unit) {
                 await changeService.handleChange(
-                  omit(unit, ["configuration", "control", "location"]),
+                  unit.label || unit.name || `Unit ${unit.id}`,
+                  omit(unit, ["stage", "message", "configuration", "control", "location"]),
                   "Unit",
                   ChangeMutation.Create,
                   ctx.user!,
@@ -171,7 +172,10 @@ export class UnitMutation {
               }
               if (unit.configuration) {
                 await changeService.handleChange(
+                  unit.label || unit.name || `Unit ${unit.id}`,
                   omit(unit.configuration, [
+                    "stage",
+                    "message",
                     "setpoint",
                     "mondaySchedule",
                     "tuesdaySchedule",
@@ -188,7 +192,8 @@ export class UnitMutation {
                 );
                 if (unit.configuration.setpoint) {
                   await changeService.handleChange(
-                    unit.configuration.setpoint,
+                    unit.label || unit.name || `Unit ${unit.id}`,
+                    omit(unit.configuration.setpoint, ["stage", "message"]),
                     "Setpoint",
                     ChangeMutation.Create,
                     ctx.user!,
@@ -206,15 +211,33 @@ export class UnitMutation {
                 ];
                 for (const schedule of schedules) {
                   if (schedule) {
-                    await changeService.handleChange(schedule, "Schedule", ChangeMutation.Create, ctx.user!);
+                    await changeService.handleChange(
+                      unit.label || unit.name || `Unit ${unit.id}`,
+                      omit(schedule, ["stage", "message"]),
+                      "Schedule",
+                      ChangeMutation.Create,
+                      ctx.user!,
+                    );
                   }
                 }
               }
               if (unit.control) {
-                await changeService.handleChange(unit.control, "Control", ChangeMutation.Create, ctx.user!);
+                await changeService.handleChange(
+                  unit.label || unit.name || `Unit ${unit.id}`,
+                  omit(unit.control, ["stage", "message"]),
+                  "Control",
+                  ChangeMutation.Create,
+                  ctx.user!,
+                );
               }
               if (unit.location) {
-                await changeService.handleChange(unit.location, "Location", ChangeMutation.Create, ctx.user!);
+                await changeService.handleChange(
+                  unit.label || unit.name || `Unit ${unit.id}`,
+                  unit.location,
+                  "Location",
+                  ChangeMutation.Create,
+                  ctx.user!,
+                );
               }
               return unit;
             });
@@ -292,6 +315,7 @@ export class UnitMutation {
                 )
               ) {
                 await changeService.handleChange(
+                  unit.label || unit.name || `Unit ${unit.id}`,
                   omit(unit, ["configuration", "control", "location"]),
                   "Unit",
                   ChangeMutation.Update,
@@ -334,7 +358,10 @@ export class UnitMutation {
                 )
               ) {
                 await changeService.handleChange(
+                  unit.label || unit.name || `Unit ${unit.id}`,
                   omit(unit.configuration, [
+                    "stage",
+                    "message",
                     "setpoint",
                     "mondaySchedule",
                     "tuesdaySchedule",
@@ -358,7 +385,8 @@ export class UnitMutation {
                 )
               ) {
                 await changeService.handleChange(
-                  unit.configuration.setpoint,
+                  unit.label || unit.name || `Unit ${unit.id}`,
+                  omit(unit.configuration.setpoint, ["stage", "message"]),
                   "Setpoint",
                   ChangeMutation.Update,
                   ctx.user!,
@@ -382,7 +410,13 @@ export class UnitMutation {
                     omit(schedule.after, ["stage", "message", "corelation", "updatedAt"]),
                   )
                 ) {
-                  await changeService.handleChange(schedule.after, "Schedule", ChangeMutation.Update, ctx.user!);
+                  await changeService.handleChange(
+                    unit.label || unit.name || `Unit ${unit.id}`,
+                    omit(schedule.after, ["stage", "message"]),
+                    "Schedule",
+                    ChangeMutation.Update,
+                    ctx.user!,
+                  );
                 }
               }
               if (
@@ -392,16 +426,25 @@ export class UnitMutation {
                   omit(unit.control, ["stage", "message", "corelation", "updatedAt"]),
                 )
               ) {
-                await changeService.handleChange(unit.control, "Control", ChangeMutation.Update, ctx.user!);
+                await changeService.handleChange(
+                  unit.label || unit.name || `Unit ${unit.id}`,
+                  omit(unit.control, ["stage", "message"]),
+                  "Control",
+                  ChangeMutation.Update,
+                  ctx.user!,
+                );
               }
               if (
                 unit.location &&
-                !isEqual(
-                  omit(before?.location, ["stage", "message", "corelation", "updatedAt"]),
-                  omit(unit.location, ["stage", "message", "corelation", "updatedAt"]),
-                )
+                !isEqual(omit(before?.location, ["updatedAt"]), omit(unit.location, ["updatedAt"]))
               ) {
-                await changeService.handleChange(unit.location, "Location", ChangeMutation.Update, ctx.user!);
+                await changeService.handleChange(
+                  unit.label || unit.name || `Unit ${unit.id}`,
+                  unit.location,
+                  "Location",
+                  ChangeMutation.Update,
+                  ctx.user!,
+                );
               }
               return unit;
             });
@@ -449,7 +492,8 @@ export class UnitMutation {
               });
               if (unit) {
                 await changeService.handleChange(
-                  omit(unit, ["configuration", "control", "location"]),
+                  unit.label || unit.name || `Unit ${unit.id}`,
+                  omit(unit, ["stage", "message", "configuration", "control", "location"]),
                   "Unit",
                   ChangeMutation.Delete,
                   ctx.user!,
@@ -457,7 +501,10 @@ export class UnitMutation {
               }
               if (unit.configuration) {
                 await changeService.handleChange(
+                  unit.label || unit.name || `Unit ${unit.id}`,
                   omit(unit.configuration, [
+                    "stage",
+                    "message",
                     "setpoint",
                     "mondaySchedule",
                     "tuesdaySchedule",
@@ -474,7 +521,8 @@ export class UnitMutation {
                 );
                 if (unit.configuration.setpoint) {
                   await changeService.handleChange(
-                    unit.configuration.setpoint,
+                    unit.label || unit.name || `Unit ${unit.id}`,
+                    omit(unit.configuration.setpoint, ["stage", "message"]),
                     "Setpoint",
                     ChangeMutation.Delete,
                     ctx.user!,
@@ -492,15 +540,33 @@ export class UnitMutation {
                 ];
                 for (const schedule of schedules) {
                   if (schedule) {
-                    await changeService.handleChange(schedule, "Schedule", ChangeMutation.Delete, ctx.user!);
+                    await changeService.handleChange(
+                      unit.label || unit.name || `Unit ${unit.id}`,
+                      omit(schedule, ["stage", "message"]),
+                      "Schedule",
+                      ChangeMutation.Delete,
+                      ctx.user!,
+                    );
                   }
                 }
               }
               if (unit.control) {
-                await changeService.handleChange(unit.control, "Control", ChangeMutation.Delete, ctx.user!);
+                await changeService.handleChange(
+                  unit.label || unit.name || `Unit ${unit.id}`,
+                  omit(unit.control, ["stage", "message"]),
+                  "Control",
+                  ChangeMutation.Delete,
+                  ctx.user!,
+                );
               }
               if (unit.location) {
-                await changeService.handleChange(unit.location, "Location", ChangeMutation.Delete, ctx.user!);
+                await changeService.handleChange(
+                  unit.label || unit.name || `Unit ${unit.id}`,
+                  unit.location,
+                  "Location",
+                  ChangeMutation.Delete,
+                  ctx.user!,
+                );
               }
               return unit;
             });

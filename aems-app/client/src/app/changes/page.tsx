@@ -34,6 +34,7 @@ export default function Page() {
       orderBy: { [sort.field]: sort.direction },
       where: {
         OR: [
+          { key: { contains: search, mode: StringFilterMode.Insensitive } },
           { table: { contains: search, mode: StringFilterMode.Insensitive } },
           { user: { name: { contains: search, mode: StringFilterMode.Insensitive } } },
           { user: { email: { contains: search, mode: StringFilterMode.Insensitive } } },
@@ -55,7 +56,7 @@ export default function Page() {
           ["user.email"]: v.user?.email ?? "",
         })) ?? [],
         search,
-        ["table", "user.name", "user.email"],
+        ["key", "table", "user.name", "user.email"],
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [data?.readChanges],
@@ -84,6 +85,7 @@ export default function Page() {
         rowKey="id"
         rows={changes}
         columns={[
+          { field: "key", label: "Key", type: "term" },
           { field: "table", label: "Table", type: "term" },
           {
             field: "data",

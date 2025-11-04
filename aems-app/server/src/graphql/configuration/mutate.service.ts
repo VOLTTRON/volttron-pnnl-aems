@@ -206,7 +206,10 @@ export class ConfigurationMutation {
               });
               if (configuration) {
                 await changeService.handleChange(
+                  configuration.label || `Configuration ${configuration.id}`,
                   omit(configuration, [
+                    "stage",
+                    "message",
                     "setpoint",
                     "mondaySchedule",
                     "tuesdaySchedule",
@@ -223,7 +226,13 @@ export class ConfigurationMutation {
                 );
               }
               if (configuration.setpoint) {
-                await changeService.handleChange(configuration.setpoint, "Setpoint", ChangeMutation.Create, ctx.user!);
+                await changeService.handleChange(
+                  configuration.label || `Configuration ${configuration.id}`,
+                  omit(configuration.setpoint, ["stage", "message"]),
+                  "Setpoint",
+                  ChangeMutation.Create,
+                  ctx.user!,
+                );
               }
               const schedules = [
                 configuration.mondaySchedule,
@@ -237,7 +246,13 @@ export class ConfigurationMutation {
               ];
               for (const schedule of schedules) {
                 if (schedule) {
-                  await changeService.handleChange(schedule, "Schedule", ChangeMutation.Create, ctx.user!);
+                  await changeService.handleChange(
+                    configuration.label || `Configuration ${configuration.id}`,
+                    omit(schedule, ["stage", "message"]),
+                    "Schedule",
+                    ChangeMutation.Create,
+                    ctx.user!,
+                  );
                 }
               }
               return configuration;
@@ -334,7 +349,10 @@ export class ConfigurationMutation {
                 )
               ) {
                 await changeService.handleChange(
+                  configuration.label || `Configuration ${configuration.id}`,
                   omit(configuration, [
+                    "stage",
+                    "message",
                     "setpoint",
                     "mondaySchedule",
                     "tuesdaySchedule",
@@ -357,7 +375,13 @@ export class ConfigurationMutation {
                   omit(configuration.setpoint, ["stage", "message", "corelation", "updatedAt"]),
                 )
               ) {
-                await changeService.handleChange(configuration.setpoint, "Setpoint", ChangeMutation.Update, ctx.user!);
+                await changeService.handleChange(
+                  configuration.label || `Configuration ${configuration.id}`,
+                  omit(configuration.setpoint, ["stage", "message"]),
+                  "Setpoint",
+                  ChangeMutation.Update,
+                  ctx.user!,
+                );
               }
               const schedules = [
                 { before: before?.mondaySchedule, after: configuration.mondaySchedule },
@@ -377,7 +401,13 @@ export class ConfigurationMutation {
                     omit(schedule.after, ["stage", "message", "corelation", "updatedAt"]),
                   )
                 ) {
-                  await changeService.handleChange(schedule.after, "Schedule", ChangeMutation.Update, ctx.user!);
+                  await changeService.handleChange(
+                    configuration.label || `Configuration ${configuration.id}`,
+                    omit(schedule.after, ["stage", "message"]),
+                    "Schedule",
+                    ChangeMutation.Update,
+                    ctx.user!,
+                  );
                 }
               }
               return configuration;
@@ -424,7 +454,10 @@ export class ConfigurationMutation {
               });
               if (configuration) {
                 await changeService.handleChange(
+                  configuration.label || `Configuration ${configuration.id}`,
                   omit(configuration, [
+                    "stage",
+                    "message",
                     "setpoint",
                     "mondaySchedule",
                     "tuesdaySchedule",
@@ -441,7 +474,13 @@ export class ConfigurationMutation {
                 );
               }
               if (configuration.setpoint) {
-                await changeService.handleChange(configuration.setpoint, "Setpoint", ChangeMutation.Delete, ctx.user!);
+                await changeService.handleChange(
+                  configuration.label || `Configuration ${configuration.id}`,
+                  omit(configuration.setpoint, ["stage", "message"]),
+                  "Setpoint",
+                  ChangeMutation.Delete,
+                  ctx.user!,
+                );
               }
               const schedules = [
                 configuration.mondaySchedule,
@@ -455,7 +494,13 @@ export class ConfigurationMutation {
               ];
               for (const schedule of schedules) {
                 if (schedule) {
-                  await changeService.handleChange(schedule, "Schedule", ChangeMutation.Delete, ctx.user!);
+                  await changeService.handleChange(
+                    configuration.label || `Configuration ${configuration.id}`,
+                    omit(schedule, ["stage", "message"]),
+                    "Schedule",
+                    ChangeMutation.Delete,
+                    ctx.user!,
+                  );
                 }
               }
               return configuration;

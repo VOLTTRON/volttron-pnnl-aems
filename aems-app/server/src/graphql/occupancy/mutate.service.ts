@@ -106,13 +106,20 @@ export class OccupancyMutation {
                 mutation: Mutation.Created,
               });
               await changeService.handleChange(
-                omit(occupancy, ["schedule"]),
+                "Unknown",
+                omit(occupancy, ["stage", "message", "schedule"]),
                 "Occupancy",
                 ChangeMutation.Create,
                 ctx.user!,
               );
               if (occupancy.schedule) {
-                await changeService.handleChange(occupancy.schedule, "Schedule", ChangeMutation.Create, ctx.user!);
+                await changeService.handleChange(
+                  "Unknown",
+                  omit(occupancy.schedule, ["stage", "message"]),
+                  "Schedule",
+                  ChangeMutation.Create,
+                  ctx.user!,
+                );
               }
               return occupancy;
             });
@@ -149,13 +156,20 @@ export class OccupancyMutation {
                 mutation: Mutation.Updated,
               });
               await changeService.handleChange(
-                omit(occupancy, ["schedule"]),
+                "Unknown",
+                omit(occupancy, ["stage", "message", "schedule"]),
                 "Occupancy",
                 ChangeMutation.Update,
                 ctx.user!,
               );
               if (occupancy.schedule) {
-                await changeService.handleChange(occupancy.schedule, "Schedule", ChangeMutation.Update, ctx.user!);
+                await changeService.handleChange(
+                  "Unknown",
+                  omit(occupancy.schedule, ["stage", "message"]),
+                  "Schedule",
+                  ChangeMutation.Update,
+                  ctx.user!,
+                );
               }
               return occupancy;
             });
@@ -190,13 +204,20 @@ export class OccupancyMutation {
                 mutation: Mutation.Deleted,
               });
               await changeService.handleChange(
-                omit(occupancy, ["schedule"]),
+                "Unknown",
+                omit(occupancy, ["stage", "message", "schedule"]),
                 "Occupancy",
                 ChangeMutation.Delete,
                 ctx.user!,
               );
               if (occupancy.schedule) {
-                await changeService.handleChange(occupancy.schedule, "Schedule", ChangeMutation.Delete, ctx.user!);
+                await changeService.handleChange(
+                  "Unknown",
+                  omit(occupancy.schedule, ["stage", "message"]),
+                  "Schedule",
+                  ChangeMutation.Delete,
+                  ctx.user!,
+                );
               }
               return occupancy;
             });

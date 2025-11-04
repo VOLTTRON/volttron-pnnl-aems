@@ -151,10 +151,12 @@ let UnitMutation = class UnitMutation {
                     .then(async (unit) => {
                     await subscriptionService.publish("Unit", { topic: "Unit", id: unit.id, mutation: common_2.Mutation.Created });
                     if (unit) {
-                        await changeService.handleChange((0, lodash_1.omit)(unit, ["configuration", "control", "location"]), "Unit", client_1.ChangeMutation.Create, ctx.user);
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(unit, ["stage", "message", "configuration", "control", "location"]), "Unit", client_1.ChangeMutation.Create, ctx.user);
                     }
                     if (unit.configuration) {
-                        await changeService.handleChange((0, lodash_1.omit)(unit.configuration, [
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(unit.configuration, [
+                            "stage",
+                            "message",
                             "setpoint",
                             "mondaySchedule",
                             "tuesdaySchedule",
@@ -166,7 +168,7 @@ let UnitMutation = class UnitMutation {
                             "holidaySchedule",
                         ]), "Configuration", client_1.ChangeMutation.Create, ctx.user);
                         if (unit.configuration.setpoint) {
-                            await changeService.handleChange(unit.configuration.setpoint, "Setpoint", client_1.ChangeMutation.Create, ctx.user);
+                            await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(unit.configuration.setpoint, ["stage", "message"]), "Setpoint", client_1.ChangeMutation.Create, ctx.user);
                         }
                         const schedules = [
                             unit.configuration.mondaySchedule,
@@ -180,15 +182,15 @@ let UnitMutation = class UnitMutation {
                         ];
                         for (const schedule of schedules) {
                             if (schedule) {
-                                await changeService.handleChange(schedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                                await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(schedule, ["stage", "message"]), "Schedule", client_1.ChangeMutation.Create, ctx.user);
                             }
                         }
                     }
                     if (unit.control) {
-                        await changeService.handleChange(unit.control, "Control", client_1.ChangeMutation.Create, ctx.user);
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(unit.control, ["stage", "message"]), "Control", client_1.ChangeMutation.Create, ctx.user);
                     }
                     if (unit.location) {
-                        await changeService.handleChange(unit.location, "Location", client_1.ChangeMutation.Create, ctx.user);
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, unit.location, "Location", client_1.ChangeMutation.Create, ctx.user);
                     }
                     return unit;
                 });
@@ -257,7 +259,7 @@ let UnitMutation = class UnitMutation {
                     });
                     if (unit &&
                         !(0, lodash_1.isEqual)((0, lodash_1.omit)(before, ["stage", "message", "corelation", "updatedAt", "configuration", "control", "location"]), (0, lodash_1.omit)(unit, ["stage", "message", "corelation", "updatedAt", "configuration", "control", "location"]))) {
-                        await changeService.handleChange((0, lodash_1.omit)(unit, ["configuration", "control", "location"]), "Unit", client_1.ChangeMutation.Update, ctx.user);
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(unit, ["configuration", "control", "location"]), "Unit", client_1.ChangeMutation.Update, ctx.user);
                     }
                     if (unit.configuration &&
                         !(0, lodash_1.isEqual)((0, lodash_1.omit)(before?.configuration, [
@@ -289,7 +291,9 @@ let UnitMutation = class UnitMutation {
                             "sundaySchedule",
                             "holidaySchedule",
                         ]))) {
-                        await changeService.handleChange((0, lodash_1.omit)(unit.configuration, [
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(unit.configuration, [
+                            "stage",
+                            "message",
                             "setpoint",
                             "mondaySchedule",
                             "tuesdaySchedule",
@@ -303,7 +307,7 @@ let UnitMutation = class UnitMutation {
                     }
                     if (unit.configuration?.setpoint &&
                         !(0, lodash_1.isEqual)((0, lodash_1.omit)(before?.configuration?.setpoint, ["stage", "message", "corelation", "updatedAt"]), (0, lodash_1.omit)(unit.configuration.setpoint, ["stage", "message", "corelation", "updatedAt"]))) {
-                        await changeService.handleChange(unit.configuration.setpoint, "Setpoint", client_1.ChangeMutation.Update, ctx.user);
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(unit.configuration.setpoint, ["stage", "message"]), "Setpoint", client_1.ChangeMutation.Update, ctx.user);
                     }
                     const schedules = [
                         { before: before?.configuration?.mondaySchedule, after: unit.configuration?.mondaySchedule },
@@ -318,16 +322,16 @@ let UnitMutation = class UnitMutation {
                     for (const schedule of schedules) {
                         if (schedule.after &&
                             !(0, lodash_1.isEqual)((0, lodash_1.omit)(schedule.before, ["stage", "message", "corelation", "updatedAt"]), (0, lodash_1.omit)(schedule.after, ["stage", "message", "corelation", "updatedAt"]))) {
-                            await changeService.handleChange(schedule.after, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                            await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(schedule.after, ["stage", "message"]), "Schedule", client_1.ChangeMutation.Update, ctx.user);
                         }
                     }
                     if (unit.control &&
                         !(0, lodash_1.isEqual)((0, lodash_1.omit)(before?.control, ["stage", "message", "corelation", "updatedAt"]), (0, lodash_1.omit)(unit.control, ["stage", "message", "corelation", "updatedAt"]))) {
-                        await changeService.handleChange(unit.control, "Control", client_1.ChangeMutation.Update, ctx.user);
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(unit.control, ["stage", "message"]), "Control", client_1.ChangeMutation.Update, ctx.user);
                     }
                     if (unit.location &&
-                        !(0, lodash_1.isEqual)((0, lodash_1.omit)(before?.location, ["stage", "message", "corelation", "updatedAt"]), (0, lodash_1.omit)(unit.location, ["stage", "message", "corelation", "updatedAt"]))) {
-                        await changeService.handleChange(unit.location, "Location", client_1.ChangeMutation.Update, ctx.user);
+                        !(0, lodash_1.isEqual)((0, lodash_1.omit)(before?.location, ["updatedAt"]), (0, lodash_1.omit)(unit.location, ["updatedAt"]))) {
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, unit.location, "Location", client_1.ChangeMutation.Update, ctx.user);
                     }
                     return unit;
                 });
@@ -371,10 +375,12 @@ let UnitMutation = class UnitMutation {
                         mutation: common_2.Mutation.Deleted,
                     });
                     if (unit) {
-                        await changeService.handleChange((0, lodash_1.omit)(unit, ["configuration", "control", "location"]), "Unit", client_1.ChangeMutation.Delete, ctx.user);
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(unit, ["stage", "message", "configuration", "control", "location"]), "Unit", client_1.ChangeMutation.Delete, ctx.user);
                     }
                     if (unit.configuration) {
-                        await changeService.handleChange((0, lodash_1.omit)(unit.configuration, [
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(unit.configuration, [
+                            "stage",
+                            "message",
                             "setpoint",
                             "mondaySchedule",
                             "tuesdaySchedule",
@@ -386,7 +392,7 @@ let UnitMutation = class UnitMutation {
                             "holidaySchedule",
                         ]), "Configuration", client_1.ChangeMutation.Delete, ctx.user);
                         if (unit.configuration.setpoint) {
-                            await changeService.handleChange(unit.configuration.setpoint, "Setpoint", client_1.ChangeMutation.Delete, ctx.user);
+                            await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(unit.configuration.setpoint, ["stage", "message"]), "Setpoint", client_1.ChangeMutation.Delete, ctx.user);
                         }
                         const schedules = [
                             unit.configuration.mondaySchedule,
@@ -400,15 +406,15 @@ let UnitMutation = class UnitMutation {
                         ];
                         for (const schedule of schedules) {
                             if (schedule) {
-                                await changeService.handleChange(schedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                                await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(schedule, ["stage", "message"]), "Schedule", client_1.ChangeMutation.Delete, ctx.user);
                             }
                         }
                     }
                     if (unit.control) {
-                        await changeService.handleChange(unit.control, "Control", client_1.ChangeMutation.Delete, ctx.user);
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, (0, lodash_1.omit)(unit.control, ["stage", "message"]), "Control", client_1.ChangeMutation.Delete, ctx.user);
                     }
                     if (unit.location) {
-                        await changeService.handleChange(unit.location, "Location", client_1.ChangeMutation.Delete, ctx.user);
+                        await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, unit.location, "Location", client_1.ChangeMutation.Delete, ctx.user);
                     }
                     return unit;
                 });

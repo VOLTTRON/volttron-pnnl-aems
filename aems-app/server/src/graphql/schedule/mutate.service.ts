@@ -91,13 +91,20 @@ export class ScheduleMutation {
                 mutation: Mutation.Created,
               });
               await changeService.handleChange(
-                omit(schedule, ["setpoint"]),
+                "Unknown",
+                omit(schedule, ["stage", "message", "setpoint"]),
                 "Schedule",
                 ChangeMutation.Create,
                 ctx.user!,
               );
               if (schedule.setpoint) {
-                await changeService.handleChange(schedule.setpoint, "Setpoint", ChangeMutation.Create, ctx.user!);
+                await changeService.handleChange(
+                  "Unknown",
+                  omit(schedule.setpoint, ["stage", "message"]),
+                  "Setpoint",
+                  ChangeMutation.Create,
+                  ctx.user!,
+                );
               }
               return schedule;
             });
@@ -134,13 +141,20 @@ export class ScheduleMutation {
                 mutation: Mutation.Updated,
               });
               await changeService.handleChange(
-                omit(schedule, ["setpoint"]),
+                "Unknown",
+                omit(schedule, ["stage", "message", "setpoint"]),
                 "Schedule",
                 ChangeMutation.Update,
                 ctx.user!,
               );
               if (schedule.setpoint) {
-                await changeService.handleChange(schedule.setpoint, "Setpoint", ChangeMutation.Update, ctx.user!);
+                await changeService.handleChange(
+                  "Unknown",
+                  omit(schedule.setpoint, ["stage", "message"]),
+                  "Setpoint",
+                  ChangeMutation.Update,
+                  ctx.user!,
+                );
               }
               return schedule;
             });
@@ -175,13 +189,20 @@ export class ScheduleMutation {
                 mutation: Mutation.Deleted,
               });
               await changeService.handleChange(
-                omit(schedule, ["setpoint"]),
+                "Unknown",
+                omit(schedule, ["stage", "message", "setpoint"]),
                 "Schedule",
                 ChangeMutation.Delete,
                 ctx.user!,
               );
               if (schedule.setpoint) {
-                await changeService.handleChange(schedule.setpoint, "Setpoint", ChangeMutation.Delete, ctx.user!);
+                await changeService.handleChange(
+                  "Unknown",
+                  omit(schedule.setpoint, ["stage", "message"]),
+                  "Setpoint",
+                  ChangeMutation.Delete,
+                  ctx.user!,
+                );
               }
               return schedule;
             });

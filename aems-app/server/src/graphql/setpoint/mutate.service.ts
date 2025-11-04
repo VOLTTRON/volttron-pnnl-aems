@@ -7,6 +7,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { ChangeService } from "@/change/change.service";
 import { ChangeMutation } from "@prisma/client";
+import { omit } from "lodash";
 
 @Injectable()
 @PothosMutation()
@@ -75,7 +76,13 @@ export class SetpointMutation {
                 id: setpoint.id,
                 mutation: Mutation.Created,
               });
-              await changeService.handleChange(setpoint, "Setpoint", ChangeMutation.Create, ctx.user!);
+              await changeService.handleChange(
+                "Unknown",
+                omit(setpoint, ["stage", "message"]),
+                "Setpoint",
+                ChangeMutation.Create,
+                ctx.user!,
+              );
               return setpoint;
             });
         },
@@ -109,7 +116,13 @@ export class SetpointMutation {
                 id: setpoint.id,
                 mutation: Mutation.Updated,
               });
-              await changeService.handleChange(setpoint, "Setpoint", ChangeMutation.Update, ctx.user!);
+              await changeService.handleChange(
+                "Unknown",
+                omit(setpoint, ["stage", "message"]),
+                "Setpoint",
+                ChangeMutation.Update,
+                ctx.user!,
+              );
               return setpoint;
             });
         },
@@ -141,7 +154,13 @@ export class SetpointMutation {
                 id: setpoint.id,
                 mutation: Mutation.Deleted,
               });
-              await changeService.handleChange(setpoint, "Setpoint", ChangeMutation.Delete, ctx.user!);
+              await changeService.handleChange(
+                "Unknown",
+                omit(setpoint, ["stage", "message"]),
+                "Setpoint",
+                ChangeMutation.Delete,
+                ctx.user!,
+              );
               return setpoint;
             });
         },
