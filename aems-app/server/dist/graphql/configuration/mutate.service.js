@@ -180,43 +180,36 @@ let ConfigurationMutation = class ConfigurationMutation {
                         id: configuration.id,
                         mutation: common_2.Mutation.Created,
                     });
-                    await changeService.handleChange((0, lodash_1.omit)(configuration, [
-                        "setpoint",
-                        "mondaySchedule",
-                        "tuesdaySchedule",
-                        "wednesdaySchedule",
-                        "thursdaySchedule",
-                        "fridaySchedule",
-                        "saturdaySchedule",
-                        "sundaySchedule",
-                        "holidaySchedule",
-                    ]), "Configuration", client_1.ChangeMutation.Create, ctx.user);
+                    if (configuration) {
+                        await changeService.handleChange((0, lodash_1.omit)(configuration, [
+                            "setpoint",
+                            "mondaySchedule",
+                            "tuesdaySchedule",
+                            "wednesdaySchedule",
+                            "thursdaySchedule",
+                            "fridaySchedule",
+                            "saturdaySchedule",
+                            "sundaySchedule",
+                            "holidaySchedule",
+                        ]), "Configuration", client_1.ChangeMutation.Create, ctx.user);
+                    }
                     if (configuration.setpoint) {
                         await changeService.handleChange(configuration.setpoint, "Setpoint", client_1.ChangeMutation.Create, ctx.user);
                     }
-                    if (configuration.mondaySchedule) {
-                        await changeService.handleChange(configuration.mondaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
-                    }
-                    if (configuration.tuesdaySchedule) {
-                        await changeService.handleChange(configuration.tuesdaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
-                    }
-                    if (configuration.wednesdaySchedule) {
-                        await changeService.handleChange(configuration.wednesdaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
-                    }
-                    if (configuration.thursdaySchedule) {
-                        await changeService.handleChange(configuration.thursdaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
-                    }
-                    if (configuration.fridaySchedule) {
-                        await changeService.handleChange(configuration.fridaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
-                    }
-                    if (configuration.saturdaySchedule) {
-                        await changeService.handleChange(configuration.saturdaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
-                    }
-                    if (configuration.sundaySchedule) {
-                        await changeService.handleChange(configuration.sundaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
-                    }
-                    if (configuration.holidaySchedule) {
-                        await changeService.handleChange(configuration.holidaySchedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                    const schedules = [
+                        configuration.mondaySchedule,
+                        configuration.tuesdaySchedule,
+                        configuration.wednesdaySchedule,
+                        configuration.thursdaySchedule,
+                        configuration.fridaySchedule,
+                        configuration.saturdaySchedule,
+                        configuration.sundaySchedule,
+                        configuration.holidaySchedule,
+                    ];
+                    for (const schedule of schedules) {
+                        if (schedule) {
+                            await changeService.handleChange(schedule, "Schedule", client_1.ChangeMutation.Create, ctx.user);
+                        }
                     }
                     return configuration;
                 });
@@ -231,6 +224,20 @@ let ConfigurationMutation = class ConfigurationMutation {
                 update: t.arg({ type: ConfigurationUpdate, required: true }),
             },
             resolve: async (query, _root, args, ctx, _info) => {
+                const before = await prismaService.prisma.configuration.findUnique({
+                    where: args.where,
+                    include: {
+                        setpoint: true,
+                        mondaySchedule: true,
+                        tuesdaySchedule: true,
+                        wednesdaySchedule: true,
+                        thursdaySchedule: true,
+                        fridaySchedule: true,
+                        saturdaySchedule: true,
+                        sundaySchedule: true,
+                        holidaySchedule: true,
+                    },
+                });
                 return prismaService.prisma.configuration
                     .update({
                     ...query,
@@ -259,43 +266,67 @@ let ConfigurationMutation = class ConfigurationMutation {
                         id: configuration.id,
                         mutation: common_2.Mutation.Updated,
                     });
-                    await changeService.handleChange((0, lodash_1.omit)(configuration, [
-                        "setpoint",
-                        "mondaySchedule",
-                        "tuesdaySchedule",
-                        "wednesdaySchedule",
-                        "thursdaySchedule",
-                        "fridaySchedule",
-                        "saturdaySchedule",
-                        "sundaySchedule",
-                        "holidaySchedule",
-                    ]), "Configuration", client_1.ChangeMutation.Update, ctx.user);
-                    if (configuration.setpoint) {
+                    if (configuration &&
+                        !(0, lodash_1.isEqual)((0, lodash_1.omit)(before, [
+                            "stage",
+                            "message",
+                            "corelation",
+                            "updatedAt",
+                            "setpoint",
+                            "mondaySchedule",
+                            "tuesdaySchedule",
+                            "wednesdaySchedule",
+                            "thursdaySchedule",
+                            "fridaySchedule",
+                            "saturdaySchedule",
+                            "sundaySchedule",
+                            "holidaySchedule",
+                        ]), (0, lodash_1.omit)(configuration, [
+                            "stage",
+                            "message",
+                            "corelation",
+                            "updatedAt",
+                            "setpoint",
+                            "mondaySchedule",
+                            "tuesdaySchedule",
+                            "wednesdaySchedule",
+                            "thursdaySchedule",
+                            "fridaySchedule",
+                            "saturdaySchedule",
+                            "sundaySchedule",
+                            "holidaySchedule",
+                        ]))) {
+                        await changeService.handleChange((0, lodash_1.omit)(configuration, [
+                            "setpoint",
+                            "mondaySchedule",
+                            "tuesdaySchedule",
+                            "wednesdaySchedule",
+                            "thursdaySchedule",
+                            "fridaySchedule",
+                            "saturdaySchedule",
+                            "sundaySchedule",
+                            "holidaySchedule",
+                        ]), "Configuration", client_1.ChangeMutation.Update, ctx.user);
+                    }
+                    if (configuration.setpoint &&
+                        !(0, lodash_1.isEqual)((0, lodash_1.omit)(before?.setpoint, ["stage", "message", "corelation", "updatedAt"]), (0, lodash_1.omit)(configuration.setpoint, ["stage", "message", "corelation", "updatedAt"]))) {
                         await changeService.handleChange(configuration.setpoint, "Setpoint", client_1.ChangeMutation.Update, ctx.user);
                     }
-                    if (configuration.mondaySchedule) {
-                        await changeService.handleChange(configuration.mondaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
-                    }
-                    if (configuration.tuesdaySchedule) {
-                        await changeService.handleChange(configuration.tuesdaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
-                    }
-                    if (configuration.wednesdaySchedule) {
-                        await changeService.handleChange(configuration.wednesdaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
-                    }
-                    if (configuration.thursdaySchedule) {
-                        await changeService.handleChange(configuration.thursdaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
-                    }
-                    if (configuration.fridaySchedule) {
-                        await changeService.handleChange(configuration.fridaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
-                    }
-                    if (configuration.saturdaySchedule) {
-                        await changeService.handleChange(configuration.saturdaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
-                    }
-                    if (configuration.sundaySchedule) {
-                        await changeService.handleChange(configuration.sundaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
-                    }
-                    if (configuration.holidaySchedule) {
-                        await changeService.handleChange(configuration.holidaySchedule, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                    const schedules = [
+                        { before: before?.mondaySchedule, after: configuration.mondaySchedule },
+                        { before: before?.tuesdaySchedule, after: configuration.tuesdaySchedule },
+                        { before: before?.wednesdaySchedule, after: configuration.wednesdaySchedule },
+                        { before: before?.thursdaySchedule, after: configuration.thursdaySchedule },
+                        { before: before?.fridaySchedule, after: configuration.fridaySchedule },
+                        { before: before?.saturdaySchedule, after: configuration.saturdaySchedule },
+                        { before: before?.sundaySchedule, after: configuration.sundaySchedule },
+                        { before: before?.holidaySchedule, after: configuration.holidaySchedule },
+                    ];
+                    for (const schedule of schedules) {
+                        if (schedule.after &&
+                            !(0, lodash_1.isEqual)((0, lodash_1.omit)(schedule.before, ["stage", "message", "corelation", "updatedAt"]), (0, lodash_1.omit)(schedule.after, ["stage", "message", "corelation", "updatedAt"]))) {
+                            await changeService.handleChange(schedule.after, "Schedule", client_1.ChangeMutation.Update, ctx.user);
+                        }
                     }
                     return configuration;
                 });
@@ -336,43 +367,36 @@ let ConfigurationMutation = class ConfigurationMutation {
                         id: configuration.id,
                         mutation: common_2.Mutation.Deleted,
                     });
-                    await changeService.handleChange((0, lodash_1.omit)(configuration, [
-                        "setpoint",
-                        "mondaySchedule",
-                        "tuesdaySchedule",
-                        "wednesdaySchedule",
-                        "thursdaySchedule",
-                        "fridaySchedule",
-                        "saturdaySchedule",
-                        "sundaySchedule",
-                        "holidaySchedule",
-                    ]), "Configuration", client_1.ChangeMutation.Delete, ctx.user);
+                    if (configuration) {
+                        await changeService.handleChange((0, lodash_1.omit)(configuration, [
+                            "setpoint",
+                            "mondaySchedule",
+                            "tuesdaySchedule",
+                            "wednesdaySchedule",
+                            "thursdaySchedule",
+                            "fridaySchedule",
+                            "saturdaySchedule",
+                            "sundaySchedule",
+                            "holidaySchedule",
+                        ]), "Configuration", client_1.ChangeMutation.Delete, ctx.user);
+                    }
                     if (configuration.setpoint) {
                         await changeService.handleChange(configuration.setpoint, "Setpoint", client_1.ChangeMutation.Delete, ctx.user);
                     }
-                    if (configuration.mondaySchedule) {
-                        await changeService.handleChange(configuration.mondaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
-                    }
-                    if (configuration.tuesdaySchedule) {
-                        await changeService.handleChange(configuration.tuesdaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
-                    }
-                    if (configuration.wednesdaySchedule) {
-                        await changeService.handleChange(configuration.wednesdaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
-                    }
-                    if (configuration.thursdaySchedule) {
-                        await changeService.handleChange(configuration.thursdaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
-                    }
-                    if (configuration.fridaySchedule) {
-                        await changeService.handleChange(configuration.fridaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
-                    }
-                    if (configuration.saturdaySchedule) {
-                        await changeService.handleChange(configuration.saturdaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
-                    }
-                    if (configuration.sundaySchedule) {
-                        await changeService.handleChange(configuration.sundaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
-                    }
-                    if (configuration.holidaySchedule) {
-                        await changeService.handleChange(configuration.holidaySchedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                    const schedules = [
+                        configuration.mondaySchedule,
+                        configuration.tuesdaySchedule,
+                        configuration.wednesdaySchedule,
+                        configuration.thursdaySchedule,
+                        configuration.fridaySchedule,
+                        configuration.saturdaySchedule,
+                        configuration.sundaySchedule,
+                        configuration.holidaySchedule,
+                    ];
+                    for (const schedule of schedules) {
+                        if (schedule) {
+                            await changeService.handleChange(schedule, "Schedule", client_1.ChangeMutation.Delete, ctx.user);
+                        }
                     }
                     return configuration;
                 });

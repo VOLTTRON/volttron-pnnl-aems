@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { Mutation } from "@local/common";
 import { SchemaBuilderService } from "../builder.service";
 import { UnitQuery } from "./query.service";
@@ -10,7 +10,7 @@ import { ControlMutation } from "../control/mutate.service";
 import { LocationMutation } from "../location/mutate.service";
 import { ChangeService } from "@/change/change.service";
 import { ChangeMutation } from "@prisma/client";
-import { omit } from "lodash";
+import { isEqual, omit } from "lodash";
 
 @Injectable()
 @PothosMutation()
@@ -161,12 +161,14 @@ export class UnitMutation {
             })
             .then(async (unit) => {
               await subscriptionService.publish("Unit", { topic: "Unit", id: unit.id, mutation: Mutation.Created });
-              await changeService.handleChange(
-                omit(unit, ["configuration", "control", "location"]),
-                "Unit",
-                ChangeMutation.Create,
-                ctx.user!,
-              );
+              if (unit) {
+                await changeService.handleChange(
+                  omit(unit, ["configuration", "control", "location"]),
+                  "Unit",
+                  ChangeMutation.Create,
+                  ctx.user!,
+                );
+              }
               if (unit.configuration) {
                 await changeService.handleChange(
                   omit(unit.configuration, [
@@ -230,6 +232,26 @@ export class UnitMutation {
           update: t.arg({ type: UnitUpdate, required: true }),
         },
         resolve: async (query, _root, args, ctx, _info) => {
+          const before = await prismaService.prisma.unit.findUnique({
+            where: args.where,
+            include: {
+              configuration: {
+                include: {
+                  setpoint: true,
+                  mondaySchedule: true,
+                  tuesdaySchedule: true,
+                  wednesdaySchedule: true,
+                  thursdaySchedule: true,
+                  fridaySchedule: true,
+                  saturdaySchedule: true,
+                  sundaySchedule: true,
+                  holidaySchedule: true,
+                },
+              },
+              control: true,
+              location: true,
+            },
+          });
           return prismaService.prisma.unit
             .update({
               ...query,
@@ -254,19 +276,63 @@ export class UnitMutation {
               },
             })
             .then(async (unit) => {
+              new Logger("UnitMutation").log(`Before Update:`, before);
+              new Logger("UnitMutation").log(`After Update:`, unit);
               await subscriptionService.publish("Unit", { topic: "Unit", id: unit.id, mutation: Mutation.Updated });
               await subscriptionService.publish(`Unit/${unit.id}`, {
                 topic: "Unit",
                 id: unit.id,
                 mutation: Mutation.Updated,
               });
-              await changeService.handleChange(
-                omit(unit, ["configuration", "control", "location"]),
-                "Unit",
-                ChangeMutation.Update,
-                ctx.user!,
-              );
-              if (unit.configuration) {
+              if (
+                unit &&
+                !isEqual(
+                  omit(before, ["stage", "message", "corelation", "updatedAt", "configuration", "control", "location"]),
+                  omit(unit, ["stage", "message", "corelation", "updatedAt", "configuration", "control", "location"]),
+                )
+              ) {
+                await changeService.handleChange(
+                  omit(unit, ["configuration", "control", "location"]),
+                  "Unit",
+                  ChangeMutation.Update,
+                  ctx.user!,
+                );
+              }
+              if (
+                unit.configuration &&
+                !isEqual(
+                  omit(before?.configuration, [
+                    "stage",
+                    "message",
+                    "corelation",
+                    "updatedAt",
+                    "setpoint",
+                    "mondaySchedule",
+                    "tuesdaySchedule",
+                    "wednesdaySchedule",
+                    "thursdaySchedule",
+                    "fridaySchedule",
+                    "saturdaySchedule",
+                    "sundaySchedule",
+                    "holidaySchedule",
+                  ]),
+                  omit(unit.configuration, [
+                    "stage",
+                    "message",
+                    "corelation",
+                    "updatedAt",
+                    "setpoint",
+                    "mondaySchedule",
+                    "tuesdaySchedule",
+                    "wednesdaySchedule",
+                    "thursdaySchedule",
+                    "fridaySchedule",
+                    "saturdaySchedule",
+                    "sundaySchedule",
+                    "holidaySchedule",
+                  ]),
+                )
+              ) {
                 await changeService.handleChange(
                   omit(unit.configuration, [
                     "setpoint",
@@ -283,34 +349,58 @@ export class UnitMutation {
                   ChangeMutation.Update,
                   ctx.user!,
                 );
-                if (unit.configuration.setpoint) {
-                  await changeService.handleChange(
-                    unit.configuration.setpoint,
-                    "Setpoint",
-                    ChangeMutation.Update,
-                    ctx.user!,
-                  );
-                }
-                const schedules = [
-                  unit.configuration.mondaySchedule,
-                  unit.configuration.tuesdaySchedule,
-                  unit.configuration.wednesdaySchedule,
-                  unit.configuration.thursdaySchedule,
-                  unit.configuration.fridaySchedule,
-                  unit.configuration.saturdaySchedule,
-                  unit.configuration.sundaySchedule,
-                  unit.configuration.holidaySchedule,
-                ];
-                for (const schedule of schedules) {
-                  if (schedule) {
-                    await changeService.handleChange(schedule, "Schedule", ChangeMutation.Update, ctx.user!);
-                  }
+              }
+              if (
+                unit.configuration?.setpoint &&
+                !isEqual(
+                  omit(before?.configuration?.setpoint, ["stage", "message", "corelation", "updatedAt"]),
+                  omit(unit.configuration.setpoint, ["stage", "message", "corelation", "updatedAt"]),
+                )
+              ) {
+                await changeService.handleChange(
+                  unit.configuration.setpoint,
+                  "Setpoint",
+                  ChangeMutation.Update,
+                  ctx.user!,
+                );
+              }
+              const schedules = [
+                { before: before?.configuration?.mondaySchedule, after: unit.configuration?.mondaySchedule },
+                { before: before?.configuration?.tuesdaySchedule, after: unit.configuration?.tuesdaySchedule },
+                { before: before?.configuration?.wednesdaySchedule, after: unit.configuration?.wednesdaySchedule },
+                { before: before?.configuration?.thursdaySchedule, after: unit.configuration?.thursdaySchedule },
+                { before: before?.configuration?.fridaySchedule, after: unit.configuration?.fridaySchedule },
+                { before: before?.configuration?.saturdaySchedule, after: unit.configuration?.saturdaySchedule },
+                { before: before?.configuration?.sundaySchedule, after: unit.configuration?.sundaySchedule },
+                { before: before?.configuration?.holidaySchedule, after: unit.configuration?.holidaySchedule },
+              ];
+              for (const schedule of schedules) {
+                if (
+                  schedule.after &&
+                  !isEqual(
+                    omit(schedule.before, ["stage", "message", "corelation", "updatedAt"]),
+                    omit(schedule.after, ["stage", "message", "corelation", "updatedAt"]),
+                  )
+                ) {
+                  await changeService.handleChange(schedule.after, "Schedule", ChangeMutation.Update, ctx.user!);
                 }
               }
-              if (unit.control) {
+              if (
+                unit.control &&
+                !isEqual(
+                  omit(before?.control, ["stage", "message", "corelation", "updatedAt"]),
+                  omit(unit.control, ["stage", "message", "corelation", "updatedAt"]),
+                )
+              ) {
                 await changeService.handleChange(unit.control, "Control", ChangeMutation.Update, ctx.user!);
               }
-              if (unit.location) {
+              if (
+                unit.location &&
+                !isEqual(
+                  omit(before?.location, ["stage", "message", "corelation", "updatedAt"]),
+                  omit(unit.location, ["stage", "message", "corelation", "updatedAt"]),
+                )
+              ) {
                 await changeService.handleChange(unit.location, "Location", ChangeMutation.Update, ctx.user!);
               }
               return unit;
@@ -357,12 +447,14 @@ export class UnitMutation {
                 id: unit.id,
                 mutation: Mutation.Deleted,
               });
-              await changeService.handleChange(
-                omit(unit, ["configuration", "control", "location"]),
-                "Unit",
-                ChangeMutation.Delete,
-                ctx.user!,
-              );
+              if (unit) {
+                await changeService.handleChange(
+                  omit(unit, ["configuration", "control", "location"]),
+                  "Unit",
+                  ChangeMutation.Delete,
+                  ctx.user!,
+                );
+              }
               if (unit.configuration) {
                 await changeService.handleChange(
                   omit(unit.configuration, [

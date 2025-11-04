@@ -1,14 +1,14 @@
 "use client";
 
 import { Card, FormGroup, InputGroup } from "@blueprintjs/core";
-import React, { useContext } from "react";
+import React, { useCallback, useContext } from "react";
 import { IconName } from "@blueprintjs/icons";
-import { ReadChangesQuery } from "@/graphql-codegen/graphql";
-import { Term } from "@/utils/client";
-import { ViewDialog } from "../dialog";
+import { DeleteChangeDocument, ReadChangesDocument, ReadChangesQuery } from "@/graphql-codegen/graphql";
+import { DeleteDialog, ViewDialog } from "../dialog";
 import { JsonView, allExpanded, darkStyles, defaultStyles } from "react-json-view-lite";
 import { compilePreferences, CurrentContext, PreferencesContext } from "../components/providers";
 import "react-json-view-lite/dist/index.css";
+import { useMutation } from "@apollo/client";
 
 const darkStyle = { ...darkStyles, container: "_GzYRV" };
 const lightStyle = { ...defaultStyles, container: "_GzYRV" };
@@ -22,7 +22,7 @@ export function ViewChange({
   open: boolean;
   setOpen: (open: boolean) => void;
   icon?: IconName;
-  change?: Term<NonNullable<ReadChangesQuery["readChanges"]>[0]>;
+  change?: NonNullable<ReadChangesQuery["readChanges"]>[0];
 }) {
   const { preferences } = useContext(PreferencesContext);
   const { current } = useContext(CurrentContext);
@@ -53,5 +53,35 @@ export function ViewChange({
         </Card>
       </FormGroup>
     </ViewDialog>
+  );
+}
+
+export function DeleteChange({
+  open,
+  setOpen,
+  icon,
+  change,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  icon?: IconName;
+  change?: NonNullable<ReadChangesQuery["readChanges"]>[0];
+}) {
+  const [deleteChange] = useMutation(DeleteChangeDocument, {
+    refetchQueries: [ReadChangesDocument],
+  });
+
+  const onDelete = useCallback(async () => {
+    await deleteChange({
+      variables: {
+        where: { id: change?.id },
+      },
+    });
+  }, [deleteChange, change]);
+
+  return (
+    <DeleteDialog title="Delete Change" icon={icon} open={open} setOpen={setOpen} onDelete={onDelete}>
+      <p>{`Are you sure you want to delete the change for ${change?.mutation} ${change?.table}?`}</p>
+    </DeleteDialog>
   );
 }

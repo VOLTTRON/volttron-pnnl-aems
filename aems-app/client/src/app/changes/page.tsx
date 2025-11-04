@@ -9,7 +9,7 @@ import { NotificationContext, NotificationType, RouteContext } from "../componen
 import { Term, filter } from "@/utils/client";
 import { Paging, Search, Table } from "../components/common";
 import { IconNames } from "@blueprintjs/icons";
-import { ViewChange } from "./dialog";
+import { DeleteChange, ViewChange } from "./dialog";
 import { DialogType } from "../types";
 
 export default function Page() {
@@ -69,6 +69,12 @@ export default function Page() {
         icon={route?.data?.icon}
         change={dialog?.change}
       />
+      <DeleteChange
+        open={dialog?.type === DialogType.Delete}
+        setOpen={(v: boolean) => (v ? setDialog({ type: DialogType.Delete }) : setDialog(undefined))}
+        icon={route?.data?.icon}
+        change={dialog?.change}
+      />
       <ControlGroup>
         <div className={styles.spacer} />
         <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
@@ -90,11 +96,17 @@ export default function Page() {
           { field: "createdAt", label: "Changed", type: "date" },
         ]}
         actions={{
-          values: [{ id: "view", icon: IconNames.OPEN_APPLICATION, intent: Intent.PRIMARY }],
+          values: [
+            { id: "view", icon: IconNames.OPEN_APPLICATION, intent: Intent.PRIMARY },
+            { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
+          ],
           onClick: (id, row) => {
             switch (id) {
               case "view":
                 setDialog({ type: DialogType.View, change: row });
+                return;
+              case "delete":
+                setDialog({ type: DialogType.Delete, change: row });
                 return;
               default:
                 return;
