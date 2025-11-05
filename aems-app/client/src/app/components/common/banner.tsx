@@ -1,7 +1,7 @@
 "use client";
 
-import { useSubscription } from "@apollo/client";
-import { OrderBy, ReadBannersQuery, SubscribeBannersDocument } from "@/graphql-codegen/graphql";
+import { useQuery, useSubscription } from "@apollo/client";
+import { OrderBy, ReadBannersDocument, ReadBannersQuery, SubscribeBannersDocument } from "@/graphql-codegen/graphql";
 import { Intent, OverlayToaster, Position, Toast2 } from "@blueprintjs/core";
 import { useEffect, useState } from "react";
 
@@ -9,15 +9,31 @@ export function Banner() {
   const [banner, setBanner] = useState<NonNullable<ReadBannersQuery["readBanners"]>[0] | undefined>(undefined);
   const [shown, setShown] = useState([] as string[]);
 
-  const { data } = useSubscription(SubscribeBannersDocument, {
+  const {
+    data: queryData,
+    startPolling,
+    stopPolling,
+  } = useQuery(ReadBannersDocument, {
     variables: {
       where: {},
       orderBy: { createdAt: OrderBy.Desc },
     },
+  });
+
+  const { data: subscribeData } = useSubscription(SubscribeBannersDocument, {
+    variables: {
+      where: {},
+      orderBy: { createdAt: OrderBy.Desc },
+    },
+    onComplete() {
+      stopPolling();
+    },
     onError(error) {
-      console.error(error);
+      startPolling(5000);
     },
   });
+
+  const data = subscribeData ?? queryData;
 
   useEffect(() => {
     const now = new Date().getTime();

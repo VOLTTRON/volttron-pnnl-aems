@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  Button,
-  Classes,
-  Dialog,
-  DialogBody,
-  DialogFooter,
-  FormGroup,
-  InputGroup,
-  Intent,
-} from "@blueprintjs/core";
+import { Button, Classes, Dialog, DialogBody, DialogFooter, FormGroup, InputGroup, Intent } from "@blueprintjs/core";
 import { IconName } from "@blueprintjs/icons";
 import { useMutation } from "@apollo/client";
 import { useContext, useEffect, useState } from "react";
@@ -41,8 +32,6 @@ interface DeleteControlProps extends BaseDialogProps {
 
 export function CreateControl({ open, setOpen, icon }: CreateControlProps) {
   const [label, setLabel] = useState("");
-  const [building, setBuilding] = useState("");
-  const [correlation, setCorrelation] = useState("");
 
   const { createNotification } = useContext(NotificationContext);
 
@@ -52,8 +41,6 @@ export function CreateControl({ open, setOpen, icon }: CreateControlProps) {
       createNotification?.("Control created successfully", NotificationType.Notification);
       setOpen(false);
       setLabel("");
-      setBuilding("");
-      setCorrelation("");
     },
     onError(error) {
       createNotification?.(error.message, NotificationType.Error);
@@ -70,9 +57,7 @@ export function CreateControl({ open, setOpen, icon }: CreateControlProps) {
       variables: {
         create: {
           label: label.trim(),
-          name: label.trim(), // Required field - using label as name
-          building: building.trim() || undefined,
-          correlation: correlation.trim() || undefined,
+          name: label.trim(),
         },
       },
     });
@@ -81,8 +66,6 @@ export function CreateControl({ open, setOpen, icon }: CreateControlProps) {
   useEffect(() => {
     if (!open) {
       setLabel("");
-      setBuilding("");
-      setCorrelation("");
     }
   }, [open]);
 
@@ -95,22 +78,6 @@ export function CreateControl({ open, setOpen, icon }: CreateControlProps) {
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Enter control label"
-          />
-        </FormGroup>
-        <FormGroup label="Building" labelFor="building">
-          <InputGroup
-            id="building"
-            value={building}
-            onChange={(e) => setBuilding(e.target.value)}
-            placeholder="Enter building name"
-          />
-        </FormGroup>
-        <FormGroup label="Correlation" labelFor="correlation">
-          <InputGroup
-            id="correlation"
-            value={correlation}
-            onChange={(e) => setCorrelation(e.target.value)}
-            placeholder="Enter correlation ID"
           />
         </FormGroup>
       </DialogBody>
@@ -130,8 +97,6 @@ export function CreateControl({ open, setOpen, icon }: CreateControlProps) {
 
 export function UpdateControl({ open, setOpen, icon, control }: UpdateControlProps) {
   const [label, setLabel] = useState("");
-  const [building, setBuilding] = useState("");
-  const [correlation, setCorrelation] = useState("");
 
   const { createNotification } = useContext(NotificationContext);
 
@@ -158,8 +123,6 @@ export function UpdateControl({ open, setOpen, icon, control }: UpdateControlPro
         where: { id: control.id },
         update: {
           label: label.trim(),
-          building: building.trim() || undefined,
-          correlation: correlation.trim() || undefined,
         },
       },
     });
@@ -168,8 +131,6 @@ export function UpdateControl({ open, setOpen, icon, control }: UpdateControlPro
   useEffect(() => {
     if (open && control) {
       setLabel(control.label || "");
-      setBuilding(""); // Building property not available in GraphQL type
-      setCorrelation(control.correlation || "");
     }
   }, [open, control]);
 
@@ -182,22 +143,6 @@ export function UpdateControl({ open, setOpen, icon, control }: UpdateControlPro
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Enter control label"
-          />
-        </FormGroup>
-        <FormGroup label="Building" labelFor="building">
-          <InputGroup
-            id="building"
-            value={building}
-            onChange={(e) => setBuilding(e.target.value)}
-            placeholder="Enter building name"
-          />
-        </FormGroup>
-        <FormGroup label="Correlation" labelFor="correlation">
-          <InputGroup
-            id="correlation"
-            value={correlation}
-            onChange={(e) => setCorrelation(e.target.value)}
-            placeholder="Enter correlation ID"
           />
         </FormGroup>
       </DialogBody>

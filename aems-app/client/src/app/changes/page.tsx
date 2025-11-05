@@ -9,7 +9,7 @@ import { NotificationContext, NotificationType, RouteContext } from "../componen
 import { Term, filter } from "@/utils/client";
 import { Paging, Search, Table } from "../components/common";
 import { IconNames } from "@blueprintjs/icons";
-import { ViewChange } from "./dialog";
+import { DeleteChange, ViewChange } from "./dialog";
 import { DialogType } from "../types";
 
 export default function Page() {
@@ -34,8 +34,8 @@ export default function Page() {
       orderBy: { [sort.field]: sort.direction },
       where: {
         OR: [
-          { table: { contains: search, mode: StringFilterMode.Insensitive } },
           { key: { contains: search, mode: StringFilterMode.Insensitive } },
+          { table: { contains: search, mode: StringFilterMode.Insensitive } },
           { user: { name: { contains: search, mode: StringFilterMode.Insensitive } } },
           { user: { email: { contains: search, mode: StringFilterMode.Insensitive } } },
         ],
@@ -56,10 +56,10 @@ export default function Page() {
           ["user.email"]: v.user?.email ?? "",
         })) ?? [],
         search,
-        ["table", "key", "user.name", "user.email"]
+        ["key", "table", "user.name", "user.email"],
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data?.readChanges]
+    [data?.readChanges],
   );
 
   return (
@@ -68,6 +68,13 @@ export default function Page() {
         open={dialog?.type === DialogType.View}
         setOpen={(v: boolean) => (v ? setDialog({ type: DialogType.View }) : setDialog(undefined))}
         icon={route?.data?.icon}
+        change={dialog?.change}
+      />
+      <DeleteChange
+        open={dialog?.type === DialogType.Delete}
+        setOpen={(v: boolean) => (v ? setDialog({ type: DialogType.Delete }) : setDialog(undefined))}
+        icon={route?.data?.icon}
+        change={dialog?.change}
       />
       <ControlGroup>
         <div className={styles.spacer} />
@@ -78,19 +85,30 @@ export default function Page() {
         rowKey="id"
         rows={changes}
         columns={[
+          { field: "key", label: "Key", type: "term" },
           { field: "table", label: "Table", type: "term" },
-          { field: "key", label: "ID", type: "term" },
+          {
+            field: "data",
+            label: "Label",
+            renderer: (_r, _c, data) => (data && typeof data === "object" && "label" in data ? String(data.label) : ""),
+          },
           { field: "mutation", label: "Type", type: "term" },
           { field: "user.name", label: "Name", type: "term" },
           { field: "user.email", label: "Email", type: "term" },
           { field: "createdAt", label: "Changed", type: "date" },
         ]}
         actions={{
-          values: [{ id: "view", icon: IconNames.OPEN_APPLICATION, intent: Intent.PRIMARY }],
+          values: [
+            { id: "view", icon: IconNames.OPEN_APPLICATION, intent: Intent.PRIMARY },
+            { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
+          ],
           onClick: (id, row) => {
             switch (id) {
               case "view":
                 setDialog({ type: DialogType.View, change: row });
+                return;
+              case "delete":
+                setDialog({ type: DialogType.Delete, change: row });
                 return;
               default:
                 return;

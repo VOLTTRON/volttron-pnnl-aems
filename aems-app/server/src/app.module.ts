@@ -12,6 +12,7 @@ import { LoggingModule } from "@/logging/logging.module";
 import { AuthModule } from "./auth/auth.module";
 import { FrameworkModule } from "./auth/framework.module";
 import { MiddlewareModule } from "@/middleware/middleware.module";
+import { ChangeModule } from "./change/change.module";
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { MiddlewareModule } from "@/middleware/middleware.module";
     FrameworkModule.register(),
     LoggingModule,
     PrismaModule,
+    ChangeModule,
     ProviderModule.register({ path: "api" }),
     PothosGraphQLModule.forRoot(),
     RouterModule.register([{ path: "api", module: ApiModule }]),

@@ -61,9 +61,6 @@ services:
       context: ../client
       dockerfile: ./Dockerfile
       args:
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
-        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
@@ -120,9 +117,6 @@ services:
       context: ../server
       dockerfile: ./Dockerfile
       args:
-        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-        - COMPOSE_CONTAINER_REGISTRY=${COMPOSE_CONTAINER_REGISTRY}
-        - TAG=${TAG}
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}

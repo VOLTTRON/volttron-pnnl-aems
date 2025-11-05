@@ -8,6 +8,7 @@ import { OccupancyMutation } from "../occupancy/mutate.service";
 import { OccupancyQuery } from "../occupancy/query.service";
 import { HolidayMutation } from "../holiday/mutate.service";
 import { HolidayQuery } from "../holiday/query.service";
+import { ChangeService } from "@/change/change.service";
 export declare class ConfigurationMutation {
     readonly ConfigurationCreate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -137,5 +138,5 @@ export declare class ConfigurationMutation {
             Scalars: import("..").Scalars;
         }>, import(".prisma/client").Prisma.HolidayUpdateManyWithoutConfigurationsNestedInput>;
     }>>;
-    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, configurationQuery: ConfigurationQuery, setpointMutation: SetpointMutation, scheduleMutation: ScheduleMutation, occupancyQuery: OccupancyQuery, occupancyMutation: OccupancyMutation, holidayQuery: HolidayQuery, holidayMutation: HolidayMutation);
+    constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, configurationQuery: ConfigurationQuery, setpointMutation: SetpointMutation, scheduleMutation: ScheduleMutation, occupancyQuery: OccupancyQuery, occupancyMutation: OccupancyMutation, holidayQuery: HolidayQuery, holidayMutation: HolidayMutation, changeService: ChangeService);
 }

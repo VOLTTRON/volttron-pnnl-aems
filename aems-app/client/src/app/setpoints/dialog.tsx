@@ -28,9 +28,6 @@ export function CreateSetpoint({
   const [deadband, setDeadband] = useState("");
   const [heating, setHeating] = useState("");
   const [cooling, setCooling] = useState("");
-  const [stage, setStage] = useState("");
-  const [correlation, setCorrelation] = useState("");
-  const [message, setMessage] = useState("");
 
   const [createSetpoint] = useMutation(CreateSetpointDocument, {
     refetchQueries: [ReadSetpointsDocument],
@@ -45,12 +42,10 @@ export function CreateSetpoint({
           ...(deadband && { deadband: parseFloat(deadband) }),
           ...(heating && { heating: parseFloat(heating) }),
           ...(cooling && { cooling: parseFloat(cooling) }),
-          ...(correlation && { correlation }),
-          ...(message && { message }),
         },
       },
     });
-  }, [createSetpoint, label, setpoint, deadband, heating, cooling, correlation, message]);
+  }, [createSetpoint, label, setpoint, deadband, heating, cooling]);
 
   useEffect(() => {
     setLabel("");
@@ -58,9 +53,6 @@ export function CreateSetpoint({
     setDeadband("");
     setHeating("");
     setCooling("");
-    setStage("");
-    setCorrelation("");
-    setMessage("");
   }, [open]);
 
   return (
@@ -112,33 +104,6 @@ export function CreateSetpoint({
           fill
         />
       </FormGroup>
-      <FormGroup label="Stage">
-        <InputGroup
-          id="stage"
-          name="stage"
-          value={stage}
-          onChange={(event) => setStage(event.target.value)}
-          fill
-        />
-      </FormGroup>
-      <FormGroup label="Correlation">
-        <InputGroup
-          id="correlation"
-          name="correlation"
-          value={correlation}
-          onChange={(event) => setCorrelation(event.target.value)}
-          fill
-        />
-      </FormGroup>
-      <FormGroup label="Message">
-        <InputGroup
-          id="message"
-          name="message"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          fill
-        />
-      </FormGroup>
     </CreateDialog>
   );
 }
@@ -159,9 +124,6 @@ export function UpdateSetpoint({
   const [deadband, setDeadband] = useState("");
   const [heating, setHeating] = useState("");
   const [cooling, setCooling] = useState("");
-  const [stage, setStage] = useState("");
-  const [correlation, setCorrelation] = useState("");
-  const [message, setMessage] = useState("");
 
   const [updateSetpoint] = useMutation(UpdateSetpointDocument, {
     refetchQueries: [ReadSetpointsDocument],
@@ -173,16 +135,16 @@ export function UpdateSetpoint({
         where: { id: setpointData?.id },
         update: {
           ...(label !== setpointData?.label && { label }),
-          ...(setpoint !== (setpointData?.setpoint?.toString() ?? "") && setpoint && { setpoint: parseFloat(setpoint) }),
-          ...(deadband !== (setpointData?.deadband?.toString() ?? "") && deadband && { deadband: parseFloat(deadband) }),
+          ...(setpoint !== (setpointData?.setpoint?.toString() ?? "") &&
+            setpoint && { setpoint: parseFloat(setpoint) }),
+          ...(deadband !== (setpointData?.deadband?.toString() ?? "") &&
+            deadband && { deadband: parseFloat(deadband) }),
           ...(heating !== (setpointData?.heating?.toString() ?? "") && heating && { heating: parseFloat(heating) }),
           ...(cooling !== (setpointData?.cooling?.toString() ?? "") && cooling && { cooling: parseFloat(cooling) }),
-          ...(correlation !== setpointData?.correlation && { correlation }),
-          ...(message !== setpointData?.message && { message }),
         },
       },
     });
-  }, [updateSetpoint, setpointData, label, setpoint, deadband, heating, cooling, correlation, message]);
+  }, [updateSetpoint, setpointData, label, setpoint, deadband, heating, cooling]);
 
   useEffect(() => {
     setLabel(setpointData?.label ?? "");
@@ -190,9 +152,6 @@ export function UpdateSetpoint({
     setDeadband(setpointData?.deadband?.toString() ?? "");
     setHeating(setpointData?.heating?.toString() ?? "");
     setCooling(setpointData?.cooling?.toString() ?? "");
-    setStage(setpointData?.stage ?? "");
-    setCorrelation(setpointData?.correlation ?? "");
-    setMessage(setpointData?.message ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -242,33 +201,6 @@ export function UpdateSetpoint({
           step="0.1"
           value={cooling}
           onChange={(event) => setCooling(event.target.value)}
-          fill
-        />
-      </FormGroup>
-      <FormGroup label="Stage">
-        <InputGroup
-          id="stage"
-          name="stage"
-          value={stage}
-          onChange={(event) => setStage(event.target.value)}
-          fill
-        />
-      </FormGroup>
-      <FormGroup label="Correlation">
-        <InputGroup
-          id="correlation"
-          name="correlation"
-          value={correlation}
-          onChange={(event) => setCorrelation(event.target.value)}
-          fill
-        />
-      </FormGroup>
-      <FormGroup label="Message">
-        <InputGroup
-          id="message"
-          name="message"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
           fill
         />
       </FormGroup>

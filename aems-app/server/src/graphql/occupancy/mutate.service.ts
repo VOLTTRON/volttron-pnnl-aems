@@ -7,6 +7,9 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { ScheduleMutation } from "../schedule/mutate.service";
 import { ConfigurationQuery } from "../configuration/query.service";
+import { ChangeService } from "@/change/change.service";
+import { omit } from "lodash";
+import { ChangeMutation } from "@prisma/client";
 
 @Injectable()
 @PothosMutation()
@@ -21,6 +24,7 @@ export class OccupancyMutation {
     occupancyQuery: OccupancyQuery,
     scheduleMutation: ScheduleMutation,
     configurationQuery: ConfigurationQuery,
+    changeService: ChangeService,
   ) {
     const { OccupancyWhereUnique } = occupancyQuery;
     const { ScheduleCreate, ScheduleUpdate } = scheduleMutation;
@@ -88,11 +92,12 @@ export class OccupancyMutation {
         args: {
           create: t.arg({ type: OccupancyCreate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.occupancy
             .create({
               ...query,
               data: { ...args.create },
+              include: { schedule: true },
             })
             .then(async (occupancy) => {
               await subscriptionService.publish("Occupancy", {
@@ -100,6 +105,22 @@ export class OccupancyMutation {
                 id: occupancy.id,
                 mutation: Mutation.Created,
               });
+              await changeService.handleChange(
+                "Unknown",
+                omit(occupancy, ["stage", "message", "schedule"]),
+                "Occupancy",
+                ChangeMutation.Create,
+                ctx.user!,
+              );
+              if (occupancy.schedule) {
+                await changeService.handleChange(
+                  "Unknown",
+                  omit(occupancy.schedule, ["stage", "message"]),
+                  "Schedule",
+                  ChangeMutation.Create,
+                  ctx.user!,
+                );
+              }
               return occupancy;
             });
         },
@@ -115,12 +136,13 @@ export class OccupancyMutation {
           where: t.arg({ type: OccupancyWhereUnique, required: true }),
           update: t.arg({ type: OccupancyUpdate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.occupancy
             .update({
               ...query,
               where: args.where,
               data: args.update,
+              include: { schedule: true },
             })
             .then(async (occupancy) => {
               await subscriptionService.publish("Occupancy", {
@@ -133,6 +155,22 @@ export class OccupancyMutation {
                 id: occupancy.id,
                 mutation: Mutation.Updated,
               });
+              await changeService.handleChange(
+                "Unknown",
+                omit(occupancy, ["stage", "message", "schedule"]),
+                "Occupancy",
+                ChangeMutation.Update,
+                ctx.user!,
+              );
+              if (occupancy.schedule) {
+                await changeService.handleChange(
+                  "Unknown",
+                  omit(occupancy.schedule, ["stage", "message"]),
+                  "Schedule",
+                  ChangeMutation.Update,
+                  ctx.user!,
+                );
+              }
               return occupancy;
             });
         },
@@ -147,11 +185,12 @@ export class OccupancyMutation {
         args: {
           where: t.arg({ type: OccupancyWhereUnique, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.occupancy
             .delete({
               ...query,
               where: args.where,
+              include: { schedule: true },
             })
             .then(async (occupancy) => {
               await subscriptionService.publish("Occupancy", {
@@ -164,6 +203,22 @@ export class OccupancyMutation {
                 id: occupancy.id,
                 mutation: Mutation.Deleted,
               });
+              await changeService.handleChange(
+                "Unknown",
+                omit(occupancy, ["stage", "message", "schedule"]),
+                "Occupancy",
+                ChangeMutation.Delete,
+                ctx.user!,
+              );
+              if (occupancy.schedule) {
+                await changeService.handleChange(
+                  "Unknown",
+                  omit(occupancy.schedule, ["stage", "message"]),
+                  "Schedule",
+                  ChangeMutation.Delete,
+                  ctx.user!,
+                );
+              }
               return occupancy;
             });
         },

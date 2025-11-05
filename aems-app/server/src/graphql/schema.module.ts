@@ -59,9 +59,10 @@ import { ScheduleMutation } from "./schedule/mutate.service";
 import { SetpointMutation } from "./setpoint/mutate.service";
 import { UnitMutation } from "./unit/mutate.service";
 import { UserMutation } from "./user/mutate.service";
+import { ChangeModule } from "@/change/change.module";
 
 @Module({
-  imports: [PrismaModule, SubscriptionModule],
+  imports: [PrismaModule, SubscriptionModule, ChangeModule],
   exports: [SchemaBuilderService],
   providers: [
     SchemaBuilderService,
@@ -126,7 +127,7 @@ export class SchemaModule implements ModuleMetadata {
   static register(): DynamicModule {
     return {
       module: SchemaModule,
-      imports: [DiscoveryModule, PrismaModule, SubscriptionModule],
+      imports: [DiscoveryModule, PrismaModule, SubscriptionModule, ChangeModule],
       providers: [
         SchemaBuilderService,
         {

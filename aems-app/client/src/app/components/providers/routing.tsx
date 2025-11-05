@@ -72,9 +72,15 @@ export function findRoute(
 export function findRoute(routes: DefaultTree<Route>, path: string, items?: boolean) {
   let route = routes.root;
   const parts = path.split("/");
-  for (const p of parts) {
-    if (p) {
+  if (parts.join("") !== "") {
+    for (const p of parts) {
       route = Object.values(route?.children ?? {}).find((v) => matchPath(v, p)) ?? route;
+    }
+    if (route.data?.index) {
+      route = routes.root;
+      for (const p of parts.slice(1)) {
+        route = Object.values(route?.children ?? {}).find((v) => matchPath(v, p)) ?? route;
+      }
     }
   }
   if (items) {

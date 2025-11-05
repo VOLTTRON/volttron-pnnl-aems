@@ -5,11 +5,12 @@ import styles from "./page.module.scss";
 import { Button, Callout, Classes, Intent } from "@blueprintjs/core";
 import { useContext } from "react";
 import { CurrentContext, findPath, findRedirect, findRoute, isGranted, RouteContext } from "./components/providers";
-import { redirect, RedirectType, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { staticRoutes } from "./routes";
 
 export default function NotFound() {
   const pathname = usePathname();
+  const router = useRouter();
 
   let { routes, route } = useContext(RouteContext);
   const { current } = useContext(CurrentContext);
@@ -27,12 +28,12 @@ export default function NotFound() {
       title = "Access Denied";
       message = "You do not have permission to access this resource";
       if (login !== undefined) {
-        action = <Button onClick={() => redirect(findPath(login))}>Login</Button>;
+        action = <Button onClick={() => router.push(findPath(login))}>Login</Button>;
       }
     } else if (!route.data.display && goto !== undefined) {
       title = "Redirecting";
       message = "Redirecting to a suitable page";
-      action = <Button onClick={() => redirect(findPath(goto), RedirectType.push)}>Continue</Button>;
+      action = <Button onClick={() => router.push(findPath(goto))}>Continue</Button>;
     }
   }
   return (

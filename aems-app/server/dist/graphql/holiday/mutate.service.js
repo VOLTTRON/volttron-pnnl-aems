@@ -19,8 +19,11 @@ const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
 const query_service_2 = require("../configuration/query.service");
+const change_service_1 = require("../../change/change.service");
+const client_1 = require("@prisma/client");
+const lodash_1 = require("lodash");
 let HolidayMutation = class HolidayMutation {
-    constructor(builder, prismaService, subscriptionService, holidayQuery, holidayObject, configurationQuery) {
+    constructor(builder, prismaService, subscriptionService, holidayQuery, holidayObject, configurationQuery, changeService) {
         const { HolidayWhereUnique } = holidayQuery;
         const { HolidayType } = holidayObject;
         const { ConfigurationWhereUnique } = configurationQuery;
@@ -68,7 +71,7 @@ let HolidayMutation = class HolidayMutation {
             args: {
                 create: t.arg({ type: HolidayCreate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.holiday
                     .create({
                     ...query,
@@ -80,6 +83,7 @@ let HolidayMutation = class HolidayMutation {
                         id: holiday.id,
                         mutation: common_2.Mutation.Created,
                     });
+                    await changeService.handleChange("Unknown", (0, lodash_1.omit)(holiday, ["stage", "message"]), "Holiday", client_1.ChangeMutation.Create, ctx.user);
                     return holiday;
                 });
             },
@@ -92,7 +96,7 @@ let HolidayMutation = class HolidayMutation {
                 where: t.arg({ type: HolidayWhereUnique, required: true }),
                 update: t.arg({ type: HolidayUpdate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.holiday
                     .update({
                     ...query,
@@ -110,6 +114,7 @@ let HolidayMutation = class HolidayMutation {
                         id: holiday.id,
                         mutation: common_2.Mutation.Updated,
                     });
+                    await changeService.handleChange("Unknown", (0, lodash_1.omit)(holiday, ["stage", "message"]), "Holiday", client_1.ChangeMutation.Update, ctx.user);
                     return holiday;
                 });
             },
@@ -121,7 +126,7 @@ let HolidayMutation = class HolidayMutation {
             args: {
                 where: t.arg({ type: HolidayWhereUnique, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
                 return prismaService.prisma.holiday
                     .delete({
                     ...query,
@@ -138,6 +143,7 @@ let HolidayMutation = class HolidayMutation {
                         id: holiday.id,
                         mutation: common_2.Mutation.Deleted,
                     });
+                    await changeService.handleChange("Unknown", (0, lodash_1.omit)(holiday, ["stage", "message"]), "Holiday", client_1.ChangeMutation.Delete, ctx.user);
                     return holiday;
                 });
             },
@@ -153,6 +159,7 @@ exports.HolidayMutation = HolidayMutation = __decorate([
         subscription_service_1.SubscriptionService,
         query_service_1.HolidayQuery,
         object_service_1.HolidayObject,
-        query_service_2.ConfigurationQuery])
+        query_service_2.ConfigurationQuery,
+        change_service_1.ChangeService])
 ], HolidayMutation);
 //# sourceMappingURL=mutate.service.js.map

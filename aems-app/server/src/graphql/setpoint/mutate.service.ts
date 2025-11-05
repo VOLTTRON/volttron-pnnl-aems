@@ -5,6 +5,9 @@ import { SetpointQuery } from "./query.service";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { ChangeService } from "@/change/change.service";
+import { ChangeMutation } from "@prisma/client";
+import { omit } from "lodash";
 
 @Injectable()
 @PothosMutation()
@@ -17,6 +20,7 @@ export class SetpointMutation {
     prismaService: PrismaService,
     subscriptionService: SubscriptionService,
     setpointQuery: SetpointQuery,
+    changeService: ChangeService,
   ) {
     const { SetpointWhereUnique } = setpointQuery;
 
@@ -60,7 +64,7 @@ export class SetpointMutation {
         args: {
           create: t.arg({ type: SetpointCreate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.setpoint
             .create({
               ...query,
@@ -72,6 +76,13 @@ export class SetpointMutation {
                 id: setpoint.id,
                 mutation: Mutation.Created,
               });
+              await changeService.handleChange(
+                "Unknown",
+                omit(setpoint, ["stage", "message"]),
+                "Setpoint",
+                ChangeMutation.Create,
+                ctx.user!,
+              );
               return setpoint;
             });
         },
@@ -87,7 +98,7 @@ export class SetpointMutation {
           where: t.arg({ type: SetpointWhereUnique, required: true }),
           update: t.arg({ type: SetpointUpdate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.setpoint
             .update({
               ...query,
@@ -105,6 +116,13 @@ export class SetpointMutation {
                 id: setpoint.id,
                 mutation: Mutation.Updated,
               });
+              await changeService.handleChange(
+                "Unknown",
+                omit(setpoint, ["stage", "message"]),
+                "Setpoint",
+                ChangeMutation.Update,
+                ctx.user!,
+              );
               return setpoint;
             });
         },
@@ -119,7 +137,7 @@ export class SetpointMutation {
         args: {
           where: t.arg({ type: SetpointWhereUnique, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.setpoint
             .delete({
               ...query,
@@ -136,6 +154,13 @@ export class SetpointMutation {
                 id: setpoint.id,
                 mutation: Mutation.Deleted,
               });
+              await changeService.handleChange(
+                "Unknown",
+                omit(setpoint, ["stage", "message"]),
+                "Setpoint",
+                ChangeMutation.Delete,
+                ctx.user!,
+              );
               return setpoint;
             });
         },

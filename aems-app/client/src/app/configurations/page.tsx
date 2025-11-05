@@ -34,11 +34,7 @@ export default function Page() {
     variables: {
       orderBy: { [sort.field]: sort.direction },
       where: {
-        OR: [
-          { label: { contains: search, mode: StringFilterMode.Insensitive } },
-          { correlation: { contains: search, mode: StringFilterMode.Insensitive } },
-          { message: { contains: search, mode: StringFilterMode.Insensitive } },
-        ],
+        OR: [{ label: { contains: search, mode: StringFilterMode.Insensitive } }],
       },
       paging: paging,
     },
@@ -48,7 +44,7 @@ export default function Page() {
   });
 
   const configurations = useMemo(
-    () => filter(data?.readConfigurations ?? [], search, ["label", "correlation", "message"]),
+    () => filter(data?.readConfigurations ?? [], search, ["label"]),
     [data?.readConfigurations, search],
   );
 
@@ -75,25 +71,22 @@ export default function Page() {
         <div className={styles.spacer} />
         <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
         <Search value={search} onValueChange={setSearch} />
-        <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
+        {/* <Button icon={route?.data?.icon} intent={Intent.PRIMARY} onClick={() => setDialog({ type: DialogType.Create })}>
           Create Configuration
-        </Button>
+        </Button> */}
       </ControlGroup>
       <Table
         rowKey="id"
         rows={configurations}
         columns={[
           { field: "label", label: "Label", type: "term" },
-          { field: "stage", label: "Stage", type: "term" },
-          { field: "correlation", label: "Correlation", type: "term" },
-          { field: "message", label: "Message", type: "term" },
           { field: "createdAt", label: "Created", type: "date" },
           { field: "updatedAt", label: "Updated", type: "date" },
         ]}
         actions={{
           values: [
             { id: "update", icon: IconNames.EDIT, intent: Intent.PRIMARY },
-            { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
+            // { id: "delete", icon: IconNames.TRASH, intent: Intent.DANGER },
           ],
           onClick: (id, row) => {
             switch (id) {
