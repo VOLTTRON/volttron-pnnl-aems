@@ -138,6 +138,7 @@ class DFPoints(Enum):
     compressorcommand = 'compressorcommand'
     warmcooladjust = 'warmcooladjust'
     standbytemperatureoffset = 'standbytemperatureoffset'
+    standbytime = 'standbytime'
 
 
 @dataclass
@@ -191,6 +192,7 @@ Points.add_item(DFPoints.unoccupiedheatingsetpoint.name, 'UnoccupiedHeatingSetPo
 Points.add_item(DFPoints.unoccupiedcoolingsetpoint.name, 'UnoccupiedCoolingSetPoint')
 Points.add_item(DFPoints.occupiedsetpoint.name, 'OccupiedSetPoint')
 Points.add_item(DFPoints.standbytemperatureoffset.name, 'StandbyTemperatureOffset')
+Points.add_item(DFPoints.standbytime.name, 'StandbyTime')
 
 
 class DaysOfWeek(IntEnum):

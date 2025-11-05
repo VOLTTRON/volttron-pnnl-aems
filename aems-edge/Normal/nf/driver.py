@@ -25,7 +25,8 @@ except ImportError:
 __version__ = "0.1"
 #setup_logging()
 _log = logging.getLogger(__name__)
-
+PROPERTY_IDENTIFIER_PRESENT_VALUE = "PROPERTY_IDENTIFIER_PRESENT_VALUE"
+PROPERTY_IDENTIFIER_RELINQUISH_DEFAULT = "PROPERTY_IDENTIFIER_RELINQUISH_DEFAULT"
 POINTS_PER_REQUEST = 25
 DATA_PREFIX = "devices"
 WRITE_TYPE_MAP = {
@@ -81,7 +82,7 @@ write_property_template = """
                 "object_type": "{data_type_value}",
                 "instance": {index_value}
             }},
-            "property_identifier": "PROPERTY_IDENTIFIER_PRESENT_VALUE",
+            "property_identifier": "{property_identifier}",
             "property_array_index": 4294967295,
             "property_value": {{
                 "@type": "type.googleapis.com/normalgw.bacnet.v2.ApplicationDataValue",
@@ -91,6 +92,28 @@ write_property_template = """
         }}
     }}
 }}"""
+
+# write_property_template = """
+# {{
+#     "device_address": {{
+#         "deviceId": {device_id}
+#     }},
+#     "request": {{
+#         "write_property": {{
+#             "object_identifier": {{
+#                 "object_type": "{data_type_value}",
+#                 "instance": {index_value}
+#             }},
+#             "property_identifier": "PROPERTY_IDENTIFIER_RELINQUISH_DEFAULT",
+#             "property_array_index": 4294967295,
+#             "property_value": {{
+#                 "@type": "type.googleapis.com/normalgw.bacnet.v2.ApplicationDataValue",
+#                 "{bacnet_data_type}": {value}
+#             }},
+#             "priority": {write_priority}
+#         }}
+#     }}
+# }}"""
 
 
 @dataclass
@@ -568,7 +591,7 @@ class Device:
             **request_data
         )
 
-    def set_point_value(self, point_name: str, value: float) -> None:
+    def set_point_value(self, point_name: str, value: float, on_property=None) -> None:
         """
         Sets the value of a specific point in the system. The point is identified by
         its name, and the function determines its properties, builds the appropriate
@@ -587,11 +610,13 @@ class Device:
         :return: None
         :rtype: None
         """
-
         # Map point name to identifier and retrieve the point
         point_identifier = self.point_map[point_name]
         point = self.get_point_obj(point_identifier)
-
+        if on_property is not None and on_property == 'relinquishDefault':
+            point.write_request_dict['property_identifier'] = PROPERTY_IDENTIFIER_RELINQUISH_DEFAULT
+        else:
+            point.write_request_dict['property_identifier'] = PROPERTY_IDENTIFIER_PRESENT_VALUE
         # Determine the BACnet data type and final value
         bacnet_data_type = point.write_type if value is not None else point.null_type
         final_value = value if value is not None else point.null_value
@@ -624,7 +649,7 @@ class Device:
         :return: None
         :rtype: None
         """
-        self.set_point_value(point_name, value)
+        self.set_point_value(point_name, value, **kwargs)
 
     def get_point(self, point_name: str, **kwargs):
         """

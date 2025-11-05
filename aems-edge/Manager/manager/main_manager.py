@@ -541,23 +541,16 @@ class ManagerProxy:
         :type point: str
         :param value: The value to set the point to.
         :type value: Any
-        :param _property: The property of the point to set.
-        :type _property: str|None
+        :param on_property: The property of the point to set.
+        :type on_property: str|None
         :return: The result of the RPC call.
         :rtype: Any
         """
         _log.debug(f"The type is a {type(point)}")
         debug_ref = f'{inspect.stack()[0][3]}()->{inspect.stack()[1][3]}()'
         _log.debug(f'Calling: {self.cfg.actuator_identity} set_point -- {self.cfg.system_rpc_path}, {str(point)}, {value}')
-        # TODO This need to be fixed by ROBERT on_property thingy
-        # result = self._p.vip.rpc.call(self.cfg.actuator_identity, 'set_point', self.cfg.system_rpc_path, point,
-        #                               value, on_property=on_property).get(timeout=10.0)
-        result = self._p.vip.rpc.call(
-            self.cfg.actuator_identity,
-            'set_point',
-            str(self.cfg.system_rpc_path),
-            str(point),
-            value).get(timeout=TIMEOUT_FROM_SERVER)  # Increased timeout from 10s to 20s
+        result = self._p.vip.rpc.call(self.cfg.actuator_identity, 'set_point', self.cfg.system_rpc_path, point,
+                                      value, on_property=on_property).get(timeout=TIMEOUT_FROM_SERVER)
         _log.debug(f'{debug_ref}: -> {result}')
         return result
 
