@@ -35,14 +35,14 @@ COPY --from=common /app/common /app/common
 
 # Install dependencies
 WORKDIR /app/client
-COPY package.json yarn.lock .yarnrc.yml ./
+COPY client/package.json client/yarn.lock client/.yarnrc.yml ./
 RUN yarn install
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app/client
 COPY --from=deps /app/client/node_modules/ ./node_modules/
-COPY . .
+COPY client/ .
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry

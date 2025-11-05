@@ -34,14 +34,14 @@ COPY --from=common /app/common /app/common
 
 # Install dependencies
 WORKDIR /app/server
-COPY package.json yarn.lock .yarnrc.yml ./
+COPY server/package.json server/yarn.lock server/.yarnrc.yml ./
 RUN yarn install
 
 FROM base AS runner
 
 WORKDIR /app/server
-COPY ./.env ./
-COPY --chmod=755 ./dist ./dist
+COPY server/.env ./
+COPY --chmod=755 server/dist ./dist
 COPY --from=builder /app/server/node_modules ./node_modules
 
 EXPOSE 3000
