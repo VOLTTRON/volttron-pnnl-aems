@@ -5,6 +5,7 @@ from pathlib import Path
 import io
 import csv
 import configargparse
+import netifaces as ni
 
 ADDRESS_OFFSET_DEFAULT = 0
 SCHNEIDER_CSV_NAME = 'schneider.csv'
@@ -12,8 +13,6 @@ MANAGER_CONFIG_FILENAME_TEMPLATE = "manager.{device_name}.config"
 DEVICE_BLOCK_TEMPLATE = '''      devices/{campus}/{building}/{device_name}:
         file: $CONFIG/configuration_store/platform.driver/devices/{campus}/{building}/{device_name}
 '''
-
-
 
 schneider_registry = \
 """Reference Point Name,Volttron Point Name,Units,Unit Details,BACnet Object Type,Property,Writable,Index,Write Priority,Notes
@@ -26,12 +25,17 @@ UO11 Analog Output,UO11 Analog Output,volts,(default 0.0),analogOutput,presentVa
 UO12 Analog Output,UO12 Analog Output,volts,(default 0.0),analogOutput,presentValue,TRUE,124,16,
 UO9 Analog Output,UO9 Analog Output,volts,(default 0.0),analogOutput,presentValue,TRUE,125,16,
 UO10 Analog Output,EconomizerVoltageOutput,volts,(default 0.0),analogOutput,presentValue,TRUE,126,16,
+StandbyTime,StandbyTime,noUnits,(default 0.0),analogValue,presentValue,TRUE,25,16,Param. A (AV25)
+ActOcc,EffectiveOccupancy,noUnits,(default 0.0),analogValue,presentValue,FALSE,26,,Only Used on PIR
+SptPriorValue,SptPriorValue,noUnits,(default 0.0),analogValue,presentValue,TRUE,27,16,Param. C (AV27)
+CommFailTmr,CommunicationFailureTimer,noUnits,(default 0.0),analogValue,presentValue,TRUE,28,16,Param. D (AV28)
 DR Flag,DemandResponseFlag,enum,,analogValue,presentValue,TRUE,29,8,
 HeartBeat,HeartBeat,enum,,analogValue,presentValue,TRUE,30,8,
 Occupied Heat Setpoint,OccupiedHeatingSetPoint,degreesFahrenheit,(default 72.0),analogValue,presentValue,TRUE,39,16,
 Occupied Cool Setpoint,OccupiedCoolingSetPoint,degreesFahrenheit,(default 75.0),analogValue,presentValue,TRUE,40,16,
 Unoccupied Heat Setpoint,UnoccupiedHeatingSetPoint,degreesFahrenheit,(default 62.0),analogValue,presentValue,TRUE,43,16,
 Unoccupied Cool Setpoint,UnoccupiedCoolingSetPoint,degreesFahrenheit,(default 80.0),analogValue,presentValue,TRUE,44,16,
+Standby Temperature Differential,StandbyTemperatureOffset,deltaDegreesFahrenheit,(default 4.0),analogValue,presentValue,TRUE,46,16,
 Heating Setpoint Limit,HeatingSetpointLimit,degreesFahrenheit,(default 90.0),analogValue,presentValue,TRUE,58,16,
 Cooling Setpoint Limit,CoolingSetpointLimit,degreesFahrenheit,(default 54.0),analogValue,presentValue,TRUE,59,16,
 Minimum Deadband,DeadBand,deltaDegreesFahrenheit,(default 3.0),analogValue,presentValue,TRUE,63,16,
@@ -173,7 +177,7 @@ manager_config_store_template = """{{
 }} """
 
 bacnet_proxy_config_template = """{{
-    device_address: "{gateway_prefix}.4/24",
+    device_address: "{interface_ip_address}/24",
     object_id: 648
 }}"""
 
@@ -199,7 +203,7 @@ weather_config_template = """{{
 
 platform_config_template = """ # Properties to be added to the root config file
 # the properties should be ingestible for volttron
-# the values will be presented in the config file
+# the values will be presented in the config files
 # as key=value
 config:
   vip-address: tcp://0.0.0.0:22916
@@ -210,7 +214,10 @@ config:
   instance-name: volttron1
   message-bus: zmq # allowed values: zmq, rmq
   # volttron-central-serverkey: a different key
-
+web_users:
+  username: "admin"
+  password: "admin"
+  groups: ["admin", "vui"]
 # Agents dictionary to install. The key must be a valid
 # identity for the agent to be installed correctly.
 agents:
@@ -534,10 +541,25 @@ def generate_bacnet_proxy_config(output_dir: str, building: str, gateway_address
         building: The name of the building for which the configuration is being generated.
         gateway_address: The network address of the gateway used to derive the prefix.
     """
+    interface_ip_address = None
     gateway_prefix = get_gateway_prefix(gateway_address)
-    bacnet_proxy_config = bacnet_proxy_config_template.format(building=building, gateway_prefix=gateway_prefix)
+    if not gateway_prefix:
+        raise ValueError('gateway-address is not set!')
+    interfaces = ni.interfaces()
+    for interface in interfaces:
+        try:
+            ip_address = ni.ifaddresses(interface)[ni.AF_INET][0]['addr']
+        except KeyError:
+            continue
+        if gateway_prefix in ip_address:
+            interface_ip_address = ip_address
+            break
+    if interface_ip_address is None:
+        raise ValueError('IP address is not found!  Verify gateway address')
+    bacnet_proxy_config = bacnet_proxy_config_template.format(building=building, interface_ip_address=interface_ip_address)
     with open(os.path.join(output_dir, 'bacnet.proxy.config'), 'w') as f:
         f.write(bacnet_proxy_config)
+
 
 
 def generate_historian_config(output_dir: str, config_content: str=historian_config_template):
@@ -574,7 +596,7 @@ def main():
                                       description='Generate config files for the simulation')
     parser.add('-n', '--num-configs', type=int, help='Number of config files to generate', required=True)
     parser.add('--output-dir', help='Output directory for config files', required=True)
-    parser.add('--config-subdir', help='Subdirectory for config files', default='configs')
+    parser.add('--config-subdir', help='Subdirectory for config files', default='')
     parser.add('--campus', help='Campus name', required=True)
     parser.add('--building', help='Building name', required=True)
     parser.add('--prefix', help='Device prefix', default='rtu')
@@ -614,4 +636,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

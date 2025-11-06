@@ -1,0 +1,21 @@
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+generator prisma {
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins", "postgresqlExtensions", "views"]
+}
+
+generator json {
+  provider = "prisma-json-types-generator"
+}
+
+generator pothos {
+  provider     = "prisma-pothos-types"
+  prismaUtils  = true
+  clientOutput = "@prisma/client"
+  output       = "../src/pothos.ts"
+}

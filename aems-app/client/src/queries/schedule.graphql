@@ -1,0 +1,89 @@
+query ReadSchedules(
+  $distinct: [ScheduleFields!]
+  $orderBy: [ScheduleOrderBy!]
+  $paging: PagingInput
+  $where: ScheduleFilter
+) {
+  readSchedules(distinct: $distinct, orderBy: $orderBy, paging: $paging, where: $where) {
+    id
+    label
+    message
+    correlation
+    startTime
+    endTime
+    occupied
+    stage
+    setpointId
+    createdAt
+    updatedAt
+    setpoint {
+      id
+      label
+    }
+  }
+}
+
+query ReadSchedule($where: ScheduleUniqueFilter!) {
+  readSchedule(where: $where) {
+    id
+    label
+    message
+    correlation
+    startTime
+    endTime
+    occupied
+    stage
+    setpointId
+    createdAt
+    updatedAt
+    setpoint {
+      id
+      label
+    }
+  }
+}
+
+mutation CreateSchedule($create: ScheduleCreateInput!) {
+  createSchedule(create: $create) {
+    id
+    label
+    message
+    correlation
+    startTime
+    endTime
+    occupied
+    stage
+    createdAt
+    updatedAt
+    setpoint {
+      id
+      label
+    }
+  }
+}
+
+mutation UpdateSchedule($where: ScheduleUniqueFilter!, $update: ScheduleUpdateInput!) {
+  updateSchedule(where: $where, update: $update) {
+    id
+    label
+    message
+    correlation
+    startTime
+    endTime
+    occupied
+    stage
+    createdAt
+    updatedAt
+    setpoint {
+      id
+      label
+    }
+  }
+}
+
+mutation DeleteSchedule($where: ScheduleUniqueFilter!) {
+  deleteSchedule(where: $where) {
+    id
+    label
+  }
+}

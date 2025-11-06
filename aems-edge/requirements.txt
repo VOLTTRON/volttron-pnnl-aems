@@ -1,1 +1,4 @@
 pandas
+sympy
+transitions
+netifaces2

@@ -1,0 +1,83 @@
+query ReadSetpoint($where: SetpointUniqueFilter!) {
+  readSetpoint(where: $where) {
+    id
+    label
+    setpoint
+    deadband
+    heating
+    cooling
+    standbyTime
+    standbyOffset
+    correlation
+    message
+    stage
+    createdAt
+    updatedAt
+  }
+}
+
+query ReadSetpoints(
+  $where: SetpointFilter
+  $paging: PagingInput
+  $orderBy: [SetpointOrderBy!]
+  $distinct: [SetpointFields!]
+) {
+  readSetpoints(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    label
+    setpoint
+    deadband
+    heating
+    cooling
+    standbyTime
+    standbyOffset
+    correlation
+    message
+    stage
+    createdAt
+    updatedAt
+  }
+  countSetpoints(where: $where)
+}
+
+mutation CreateSetpoint($create: SetpointCreateInput!) {
+  createSetpoint(create: $create) {
+    id
+    label
+    setpoint
+    deadband
+    heating
+    cooling
+    standbyTime
+    standbyOffset
+    correlation
+    message
+    stage
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateSetpoint($where: SetpointUniqueFilter!, $update: SetpointUpdateInput!) {
+  updateSetpoint(where: $where, update: $update) {
+    id
+    label
+    setpoint
+    deadband
+    heating
+    cooling
+    standbyTime
+    standbyOffset
+    correlation
+    message
+    stage
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteSetpoint($where: SetpointUniqueFilter!) {
+  deleteSetpoint(where: $where) {
+    id
+  }
+}

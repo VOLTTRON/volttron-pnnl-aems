@@ -1,0 +1,70 @@
+query ReadHoliday($where: HolidayUniqueFilter!) {
+  readHoliday(where: $where) {
+    id
+    label
+    day
+    month
+    observance
+    type
+    correlation
+    message
+    stage
+    createdAt
+    updatedAt
+  }
+}
+
+query ReadHolidays($where: HolidayFilter, $paging: PagingInput, $orderBy: [HolidayOrderBy!], $distinct: [HolidayFields!]) {
+  readHolidays(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    label
+    day
+    month
+    observance
+    type
+    correlation
+    message
+    stage
+    createdAt
+    updatedAt
+  }
+  countHolidays(where: $where)
+}
+
+mutation CreateHoliday($create: HolidayCreateInput!) {
+  createHoliday(create: $create) {
+    id
+    label
+    day
+    month
+    observance
+    type
+    correlation
+    message
+    stage
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateHoliday($where: HolidayUniqueFilter!, $update: HolidayUpdateInput!) {
+  updateHoliday(where: $where, update: $update) {
+    id
+    label
+    day
+    month
+    observance
+    type
+    correlation
+    message
+    stage
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteHoliday($where: HolidayUniqueFilter!) {
+  deleteHoliday(where: $where) {
+    id
+  }
+}

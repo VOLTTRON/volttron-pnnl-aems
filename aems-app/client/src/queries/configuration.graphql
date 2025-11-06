@@ -1,0 +1,213 @@
+query ReadConfiguration($where: ConfigurationUniqueFilter!) {
+  readConfiguration(where: $where) {
+    id
+    label
+    stage
+    message
+    correlation
+    createdAt
+    updatedAt
+    units {
+      id
+    }
+    setpoint {
+      id
+      label
+      setpoint
+      deadband
+      heating
+      cooling
+      standbyTime
+      standbyOffset
+    }
+    holidays {
+      id
+      type
+      label
+      month
+      day
+      observance
+    }
+    occupancies {
+      id
+      label
+      date
+      schedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+    }
+  }
+}
+
+query ReadConfigurations(
+  $where: ConfigurationFilter
+  $paging: PagingInput
+  $orderBy: [ConfigurationOrderBy!]
+  $distinct: [ConfigurationFields!]
+) {
+  readConfigurations(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    label
+    stage
+    message
+    correlation
+    createdAt
+    updatedAt
+    units {
+      id
+    }
+    setpoint {
+      id
+      label
+      setpoint
+      deadband
+      heating
+      cooling
+      standbyTime
+      standbyOffset
+    }
+    holidays {
+      id
+      type
+      label
+      month
+      day
+      observance
+    }
+    occupancies {
+      id
+      label
+      date
+      schedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+    }
+  }
+}
+
+mutation CreateConfiguration($create: ConfigurationCreateInput!) {
+  createConfiguration(create: $create) {
+    id
+    label
+    stage
+    message
+  }
+}
+
+mutation UpdateConfiguration($where: ConfigurationUniqueFilter!, $update: ConfigurationUpdateInput!) {
+  updateConfiguration(where: $where, update: $update) {
+    id
+    label
+    stage
+    message
+  }
+}
+
+mutation DeleteConfiguration($where: ConfigurationUniqueFilter!) {
+  deleteConfiguration(where: $where) {
+    id
+  }
+}
+
+subscription SubscribeConfiguration($where: ConfigurationUniqueFilter!) {
+  readConfiguration(where: $where) {
+    id
+    label
+    stage
+    message
+    correlation
+    createdAt
+    updatedAt
+    units {
+      id
+    }
+    setpoint {
+      id
+      label
+      setpoint
+      deadband
+      heating
+      cooling
+      standbyTime
+      standbyOffset
+    }
+    holidays {
+      id
+      type
+      label
+      month
+      day
+      observance
+    }
+    occupancies {
+      id
+      label
+      date
+      schedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+    }
+  }
+}
+
+subscription SubscribeConfigurations(
+  $where: ConfigurationFilter
+  $paging: PagingInput
+  $orderBy: [ConfigurationOrderBy!]
+  $distinct: [ConfigurationFields!]
+) {
+  readConfigurations(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    label
+    stage
+    message
+    correlation
+    createdAt
+    updatedAt
+    units {
+      id
+    }
+    setpoint {
+      id
+      label
+      setpoint
+      deadband
+      heating
+      cooling
+      standbyTime
+      standbyOffset
+    }
+    holidays {
+      id
+      type
+      label
+      month
+      day
+      observance
+    }
+    occupancies {
+      id
+      label
+      date
+      schedule {
+        id
+        label
+        startTime
+        endTime
+        occupied
+      }
+    }
+  }
+}

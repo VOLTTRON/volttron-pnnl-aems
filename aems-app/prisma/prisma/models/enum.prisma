@@ -1,0 +1,9 @@
+enum ModelStage {
+    Create
+    Read
+    Update
+    Delete
+    Process
+    Complete
+    Fail
+}

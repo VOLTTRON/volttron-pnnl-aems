@@ -1,0 +1,33 @@
+import { IBase, IConstant } from ".";
+import Base from "./base";
+declare class Holiday extends Base<IConstant> implements IBase<IConstant> {
+    constructor();
+    NewYearsDay: IConstant;
+    NewYearsDayType: IConstant;
+    MartinLutherKingJr: IConstant;
+    MartinLutherKingJrType: IConstant;
+    PresidentsDay: IConstant;
+    PresidentsDayType: IConstant;
+    MemorialDay: IConstant;
+    MemorialDayType: IConstant;
+    Juneteenth: IConstant;
+    JuneteenthType: IConstant;
+    IndependenceDay: IConstant;
+    IndependenceDayType: IConstant;
+    LaborDay: IConstant;
+    LaborDayType: IConstant;
+    ColumbusDay: IConstant;
+    ColumbusDayType: IConstant;
+    VeteransDay: IConstant;
+    VeteransDayType: IConstant;
+    Thanksgiving: IConstant;
+    ThanksgivingType: IConstant;
+    BlackFriday: IConstant;
+    BlackFridayType: IConstant;
+    ChristmasEve: IConstant;
+    ChristmasEveType: IConstant;
+    Christmas: IConstant;
+    ChristmasType: IConstant;
+}
+declare const holiday: Holiday;
+export default holiday;

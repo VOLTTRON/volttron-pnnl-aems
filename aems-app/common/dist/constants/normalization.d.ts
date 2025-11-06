@@ -1,0 +1,31 @@
+import { IBase, INormalization, IProcess } from ".";
+import Base from "./base";
+declare class Normalization extends Base<INormalization> implements IBase<INormalization> {
+    constructor();
+    NFD: INormalization;
+    NFDType: INormalization;
+    NFC: INormalization;
+    NFCType: INormalization;
+    NFKD: INormalization;
+    NFKDType: INormalization;
+    NFKC: INormalization;
+    NFKCType: INormalization;
+    Lowercase: INormalization;
+    LowercaseType: INormalization;
+    Uppercase: INormalization;
+    UppercaseType: INormalization;
+    Letters: INormalization;
+    LettersType: INormalization;
+    Numbers: INormalization;
+    NumbersType: INormalization;
+    Trim: INormalization;
+    TrimType: INormalization;
+    Compact: INormalization;
+    CompactType: INormalization;
+    Concatenate: INormalization;
+    ConcatenateType: INormalization;
+    allowed: (a: INormalization | number | string, ...b: (INormalization | number | string)[]) => boolean;
+    process: (...types: (INormalization | number | string)[]) => IProcess;
+}
+declare const normalization: Normalization;
+export default normalization;

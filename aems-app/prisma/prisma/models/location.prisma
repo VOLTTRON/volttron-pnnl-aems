@@ -1,0 +1,13 @@
+model Location {
+    // key
+    id        String   @id() @default(cuid())
+    // metadata
+    createdAt DateTime @default(now()) @db.Timestamptz(6)
+    updatedAt DateTime @updatedAt @db.Timestamptz(6)
+    // fields
+    name      String   @db.VarChar(1024)
+    latitude  Float
+    longitude Float
+    // indirect relations
+    units     Unit[]   @relation("Units_locations")
+}

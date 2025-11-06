@@ -1,0 +1,33 @@
+# Server Backend - NestJS Application
+
+## Technology Stack
+- **Backend**: NestJS with GraphQL (Apollo Server), TypeScript
+- **GraphQL**: Pothos schema builders (not SDL files)
+- **Database**: PostgreSQL + PostGIS via Prisma ORM
+- **Auth**: Auth.js, Passport, optional Keycloak SSO
+- **Cache**: Redis for sessions and GraphQL subscriptions
+- **Package Manager**: Yarn 4.x (use `yarn` not `npm`)
+
+## Development Workflow
+- **Compile**: `yarn check` to check for compile issues
+- **Dev Server**: `yarn start` or `yarn start:dev`
+- **Build**: `yarn build` (includes schema compilation) do not run automatically
+- **Schema Compilation**: `yarn compile:schema` (run after schema changes)
+- **Testing**: `yarn test` with Jest
+
+## File Conventions
+- **GraphQL**: Schema builders in `src/graphql/`, not SDL files
+- **Auth**: Authentication modules in `src/auth/`
+- **Services**: Business logic in `src/services/`
+- **API**: REST endpoints in `src/api/`
+
+## Integration Dependencies
+- **Database**: Requires PostgreSQL with PostGIS extension
+- **Redis**: Required for sessions and subscriptions
+- **Common Module**: Shared utilities from `@local/common`
+- **Prisma Module**: Database client from `@local/prisma`
+
+## Important Notes
+- Always run `yarn compile:schema` after GraphQL schema changes
+- Use Pothos builders for GraphQL schema, not SDL files
+- README files should contain documentation only - no code examples belong in README files

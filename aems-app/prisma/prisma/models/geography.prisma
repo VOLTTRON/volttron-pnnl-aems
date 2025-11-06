@@ -1,0 +1,16 @@
+model Geography {
+    id        String                                   @id() @default(cuid())
+    name      String                                   @db.Text()
+    group     String                                   @db.Text()
+    type      String                                   @db.Text()
+    /// [GeographyGeoJson]
+    geojson   Json                                     @db.Json()
+    geometry  Unsupported("geography(GEOMETRY,4326)")?
+    createdAt DateTime                                 @default(now()) @db.Timestamptz(6)
+    updatedAt DateTime                                 @updatedAt() @db.Timestamptz(6)
+
+    @@index([name], map: "geography_name")
+    @@index([group], map: "geography_group")
+    @@index([type], map: "geography_type")
+    @@index([geometry], map: "geography_geometry")
+}

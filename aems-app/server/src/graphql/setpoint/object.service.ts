@@ -1,0 +1,45 @@
+import { Prisma } from "@prisma/client";
+import { Injectable } from "@nestjs/common";
+import { SchemaBuilderService } from "../builder.service";
+import { PothosObject } from "../pothos.decorator";
+
+@Injectable()
+@PothosObject()
+export class SetpointObject {
+  readonly SetpointObject;
+  readonly SetpointFields;
+
+  constructor(builder: SchemaBuilderService) {
+    this.SetpointObject = builder.prismaObject("Setpoint", {
+      authScopes: { user: true },
+      subscribe(subscriptions, parent, _context, _info) {
+        subscriptions.register(`Setpoint/${parent.id}`);
+      },
+      fields: (t) => ({
+        // key
+        id: t.exposeString("id"),
+        // metadata
+        stage: t.expose("stage", { type: builder.ModelStage }),
+        message: t.exposeString("message", { nullable: true }),
+        correlation: t.exposeString("correlation", { nullable: true }),
+        createdAt: t.expose("createdAt", { type: builder.DateTime }),
+        updatedAt: t.expose("updatedAt", { type: builder.DateTime }),
+        // fields
+        label: t.exposeString("label"),
+        setpoint: t.exposeFloat("setpoint"),
+        deadband: t.exposeFloat("deadband"),
+        heating: t.exposeFloat("heating"),
+        cooling: t.exposeFloat("cooling"),
+        standbyTime: t.exposeInt("standbyTime"),
+        standbyOffset: t.exposeFloat("standbyOffset"),
+        // indirect relations
+        configurations: t.relation("configurations"),
+        schedules: t.relation("schedules"),
+      }),
+    });
+
+    this.SetpointFields = builder.enumType("SetpointFields", {
+      values: Object.values(Prisma.SetpointScalarFieldEnum),
+    });
+  }
+}

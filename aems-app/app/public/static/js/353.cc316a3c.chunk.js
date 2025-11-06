@@ -1,2 +1,0 @@
-"use strict";(self.webpackChunkaems_client=self.webpackChunkaems_client||[]).push([[353],{41353:function(e,l,a){a.r(l);var s=a(4942),t=a(72378),u=(0,s.Z)({},t.WJ,{payload:{label:"foo"},result:{id:1,label:"foo"}});l.default=u}}]);
-//# sourceMappingURL=353.cc316a3c.chunk.js.map
