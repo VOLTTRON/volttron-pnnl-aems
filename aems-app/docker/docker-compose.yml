@@ -39,22 +39,6 @@ services:
       - ./proxy/certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
       - ./proxy/volttron-transport.yml:/etc/traefik/dynamic/volttron-transport.yml
 
-  # Common libraries
-  common:
-    build:
-      context: ../
-      dockerfile: ./common/Dockerfile
-      args:
-        - TAG=${TAG}
-        - HTTP_PROXY=${HTTP_PROXY}
-        - HTTPS_PROXY=${HTTPS_PROXY}
-        - NO_PROXY=${NO_PROXY}
-        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
-    container_name: ${COMPOSE_PROJECT_NAME}-common
-    env_file:
-      - .env.init
-    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/common:${TAG}
-
   # Application that hosts static files and API
   client:
     build:

@@ -777,6 +777,18 @@ TLS is provided by mkcert certificates and Let's Encrypt. The init container wil
 
 A Docker compose file is included to manage the docker instances. The docker compose file will work in Windows, Mac, and Linux. By default the web application will be available at [https://localhost](https://localhost). The following commands can be used to manage all of the docker containers.
 
+#### Multi-Stage Build Architecture
+
+The Docker setup uses a **multi-stage build approach** that eliminates the need for shared service dependencies. Each service (client and server) builds its own copy of the prisma and common libraries, ensuring:
+
+- ✅ **Cross-platform compatibility** across Windows, Mac, and Linux
+- ✅ **Reliable builds** without complex service dependencies
+- ✅ **Proper dependency order** (prisma → common → server/client)
+- ✅ **Better caching** and faster rebuilds
+- ✅ **Simplified deployment** without additional contexts
+
+#### Build Commands
+
 Build the docker instances:
 
 ```bash
@@ -808,6 +820,18 @@ Destroy the docker instances along with associated volumes:
 ```bash
 docker compose down -v
 ```
+
+#### Build Process
+
+Each service follows this multi-stage build pattern:
+
+1. **Base Stage**: Sets up Node.js environment and proxy configuration
+2. **Prisma Builder**: Builds the Prisma library with database client generation
+3. **Common Builder**: Builds the common library using the Prisma output
+4. **Application Builder**: Builds the main application (client/server) with all dependencies
+5. **Runner Stage**: Creates the final production image with only necessary artifacts
+
+This approach ensures consistent builds across all platforms while maintaining the proper dependency hierarchy required by the monorepo structure.
 
 ### Setup Keycloak
 

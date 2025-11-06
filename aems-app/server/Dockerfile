@@ -23,26 +23,43 @@ RUN yarn config set https-proxy $HTTPS_PROXY
 RUN yarn config set no-proxy $NO_PROXY
 RUN yarn config set "strict-ssl" false
 
-# Install dependencies only when needed
+# Install dependencies and build server application
 FROM base AS builder
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 RUN apk add --no-cache libc6-compat
 
-# Copy common libraries from the common context
-COPY --from=common /app/prisma /app/prisma
-COPY --from=common /app/common /app/common
+WORKDIR /app
 
-# Install dependencies
+# Copy pre-built prisma library (dist + prisma directory + package files)
+COPY prisma/package.json prisma/yarn.lock prisma/.yarnrc.yml ./prisma/
+COPY prisma/dist/ ./prisma/dist/
+COPY prisma/prisma/ ./prisma/prisma/
+
+# Copy pre-built common library (dist + package files)
+COPY common/package.json common/yarn.lock common/.yarnrc.yml ./common/
+COPY common/dist/ ./common/dist/
+
+# Install server dependencies
 WORKDIR /app/server
 COPY server/package.json server/yarn.lock server/.yarnrc.yml ./
 RUN yarn install
 
+# Copy server source and build
+COPY server/ ./
+RUN yarn nest build
+
+# Production image
 FROM base AS runner
 
 WORKDIR /app/server
-COPY server/.env ./
-COPY --chmod=755 server/dist ./dist
+
+# Copy pre-built libraries
+COPY --from=builder /app/prisma/ /app/prisma/
+COPY --from=builder /app/common/ /app/common/
+
+# Copy server build artifacts and dependencies
+COPY --from=builder /app/server/dist ./dist
 COPY --from=builder /app/server/node_modules ./node_modules
+COPY server/.env ./
 
 EXPOSE 3000
 ENV PORT=3000

@@ -24,25 +24,33 @@ RUN yarn config set https-proxy $HTTPS_PROXY
 RUN yarn config set no-proxy $NO_PROXY
 RUN yarn config set "strict-ssl" false
 
-# Install dependencies only when needed
+# Install client dependencies
 FROM base AS deps
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 RUN apk add --no-cache libc6-compat
 
-# Copy common libraries from the common context
-COPY --from=common /app/prisma /app/prisma
-COPY --from=common /app/common /app/common
+WORKDIR /app
 
-# Install dependencies
+# Copy pre-built prisma library (dist + prisma directory + package files)
+COPY prisma/package.json prisma/yarn.lock prisma/.yarnrc.yml ./prisma/
+COPY prisma/dist/ ./prisma/dist/
+COPY prisma/prisma/ ./prisma/prisma/
+
+# Copy pre-built common library (dist + package files)
+COPY common/package.json common/yarn.lock common/.yarnrc.yml ./common/
+COPY common/dist/ ./common/dist/
+
+# Install client dependencies
 WORKDIR /app/client
 COPY client/package.json client/yarn.lock client/.yarnrc.yml ./
 RUN yarn install
 
-# Rebuild the source code only when needed
+# Build the client application
 FROM base AS builder
 WORKDIR /app/client
 COPY --from=deps /app/client/node_modules/ ./node_modules/
-COPY client/ .
+COPY --from=deps /app/prisma/ /app/prisma/
+COPY --from=deps /app/common/ /app/common/
+COPY client/ ./
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -51,9 +59,6 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build the application
 RUN yarn build
-
-# If using npm comment out above and use below instead
-# RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
