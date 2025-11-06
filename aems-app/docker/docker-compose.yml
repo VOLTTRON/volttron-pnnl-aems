@@ -83,8 +83,9 @@ services:
       - traefik.http.routers.client-http.middlewares=client-https
       - traefik.http.middlewares.client-https.redirectscheme.scheme=https
       - traefik.http.routers.client.entrypoints=websecure
-      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`) && !PathPrefix(`/authjs`) && !PathPrefix(`/graphql`) && !PathPrefix(`/api`) && !PathPrefix(`/ext`) && !PathPrefix(`/auth/sso/`) && !PathPrefix(`/volttron`)
+      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`)
       - traefik.http.routers.client.middlewares=client-security
+      - traefik.http.routers.client.priority=1
       - traefik.http.routers.client.tls=true
       - traefik.http.routers.client.tls.certresolver=${CERT_RESOLVER}
     ports:
@@ -417,12 +418,72 @@ services:
       - VOLTTRON_REGISTRY_FILE_PATH=${VOLTTRON_REGISTRY_FILE_PATH}
       - VOLTTRON_BACNET_ADDRESS=${VOLTTRON_BACNET_ADDRESS}
       - VOLTTRON_ILC=${VOLTTRON_ILC}
+      - GRAFANA_DB_HOST=localhost:${GRAFANA_DATABASE_TEST_PORT}
+      - GRAFANA_DB_NAME=grafana
+      - GRAFANA_DB_USER=admin
+      - GRAFANA_DB_PASSWORD=${GRAFANA_DATABASE_PASSWORD}
     hostname: setup
     network_mode: host
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
     restart: no
     volumes:
       - ./volttron/:/home/user/configs/
+
+  # Grafana
+  grafana:
+    container_name: ${COMPOSE_PROJECT_NAME}-grafana
+    depends_on:
+      - grafana-db
+    env_file:
+      - .env.grafana
+    environment:
+      - GF_SERVER_ROOT_URL=https://${HOSTNAME}/grafana
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    hostname: grafana
+    image: grafana/grafana-oss:10.2.2
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+      - traefik.http.middlewares.grafana-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.grafana-security.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.grafana-security.headers.forceSTSHeader=true
+      - traefik.http.middlewares.grafana-security.headers.frameDeny=true
+      - traefik.http.middlewares.grafana-security.headers.referrerPolicy=same-origin
+      - traefik.http.middlewares.grafana-security.headers.sslRedirect=true
+      - traefik.http.middlewares.grafana-security.headers.stsSeconds=31536000
+      - traefik.http.middlewares.grafana-stripprefix.stripprefix.prefixes=/grafana
+      - traefik.http.routers.grafana-http.entrypoints=web
+      - traefik.http.routers.grafana-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana-http.middlewares=grafana-https
+      - traefik.http.middlewares.grafana-https.redirectscheme.scheme=https
+      - traefik.http.routers.grafana.entrypoints=websecure
+      - traefik.http.routers.grafana.rule=Host(`${HOSTNAME}`) && PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana.middlewares=grafana-security
+      - traefik.http.routers.grafana.priority=100
+      - traefik.http.routers.grafana.tls=true
+      - traefik.http.routers.grafana.tls.certresolver=${CERT_RESOLVER}
+    ports:
+      - ${GRAFANA_TEST_PORT}:3000
+    profiles:
+      - grafana
+    restart: unless-stopped
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+  # Grafana database
+  grafana-db:
+    container_name: ${COMPOSE_PROJECT_NAME}-grafana-db
+    env_file:
+      - .env.grafana
+    hostname: grafana-db
+    image: postgres:16-alpine
+    ports:
+      - ${GRAFANA_DATABASE_TEST_PORT}:5432
+    profiles:
+      - grafana
+    restart: unless-stopped
+    volumes:
+      - grafana-db-data:/var/lib/postgresql/data
 
   # Volttron - runs on host network for direct access
   volttron:
@@ -520,4 +581,8 @@ volumes:
   keycloak-cache:
     driver: local
   volttron-data:
+    driver: local
+  grafana-data:
+    driver: local
+  grafana-db-data:
     driver: local
