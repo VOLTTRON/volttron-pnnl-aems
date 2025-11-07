@@ -181,18 +181,18 @@ bacnet_proxy_config_template = """{{
     object_id: 648
 }}"""
 
-historian_config_template = """{
-    "connection": {
+historian_config_template = """{{
+    "connection": {{
         "type": "postgresql",
-        "params": {
-            "dbname": "volttron",
-            "host": "127.0.0.1",
-            "port": 5432,
-            "user": "volttron",
-            "password": "volttron"
-        }
-    }
-}"""
+        "params": {{
+            "dbname": "{db_name}",
+            "host": "{db_address}",
+            "port": {db_port},
+            "user": "{db_user}",
+            "password": "{db_password}"
+        }}
+    }}
+}}"""
 
 weather_config_template = """{{
      "database_file": "weather.sqlite",
@@ -562,13 +562,30 @@ def generate_bacnet_proxy_config(output_dir: str, building: str, gateway_address
 
 
 
-def generate_historian_config(output_dir: str, config_content: str=historian_config_template):
-    """Writes the historian configuration to a file.
+def generate_historian_config(output_dir: str, db_name, db_user, db_password, db_address, db_port):
+    """
+    Generate and save a configuration file for a historian service.
+
+    This function creates a configuration file for a historian service based on
+    the provided details and writes it to a specified output directory. The
+    configuration file content can either use a default template or a custom
+    template provided by the user.
 
     Args:
-        output_dir: The directory where the file should be written.
-        config_content: The content to write to the historian config file.
+        output_dir (str): The directory where the configuration file should
+                          be saved.
+        db_name: The name of the database associated with the historian
+                 service.
+        db_user: The username to authenticate with the database.
+        db_password: The password to authenticate with the database.
+        db_address: The address of the database host.
+        db_port: The port number on which the database host is accessible.
+    Returns:
+        None
     """
+    config_content = historian_config_template.format(
+        db_name=db_name, db_user=db_user, db_password=db_password, db_address=db_address, db_port=db_port
+    )
     historian_config_path = os.path.join(output_dir, 'historian.config')
     with open(historian_config_path, 'w') as f:
         f.write(config_content)
@@ -606,6 +623,11 @@ def main():
     parser.add('--ilc', help='Generate ILC section in platform.cfg', action='store_true')
     parser.add('-g', '--gateway-address', help='Gateway address', default='192.168.0.1')
     parser.add('-t', '--timezone', help='Timezone', default='America/Los_Angeles')
+    parser.add('--db-name', help='Historian database name', default='volttron')
+    parser.add('--db-user', help='Historian database user', default='volttron')
+    parser.add('--db-password', help='Historian database password', default='volttron')
+    parser.add('--db-address', help='Historian database IP address', default='127.0.0.1')
+    parser.add('--db-port', help='Historian database port', default='5432')
     args = parser.parse_args()
 
     output_path = os.path.join(args.output_dir, args.config_subdir)
@@ -625,7 +647,7 @@ def main():
     generate_manager_configs(args.num_configs, config_store_path, args.prefix,
                              args.campus, args.building, args.timezone)
     generate_bacnet_proxy_config(output_path, args.building, args.gateway_address)
-    generate_historian_config(output_path)
+    generate_historian_config(output_path, args.db_name, args.db_user, args.db_password, args.db_address, args.db_port)
     generate_weather_config(output_path, args.weather_station)
     generate_platform_config(args.num_configs, args.output_dir, args.prefix,
                              args.campus, args.building, args.gateway_address, args.ilc)
