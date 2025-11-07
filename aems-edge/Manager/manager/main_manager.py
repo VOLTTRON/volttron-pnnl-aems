@@ -27,6 +27,7 @@ import inspect
 import logging
 import os
 import sys
+import re
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime as dt
 from pathlib import Path
@@ -657,6 +658,7 @@ class ManagerProxy:
         :rtype: dict
         """
         control = {}
+        regex_pattern = r"Standby"
         try:
             unocc_clg_sp = float(setpoints[Points.unoccupiedcoolingsetpoint.value])
             unocc_htg_sp = float(setpoints[Points.unoccupiedheatingsetpoint.value])
@@ -669,9 +671,11 @@ class ManagerProxy:
             _log.error(f'{result}', exc_info=True)
             return result
 
+        standby_settings = [key for key in setpoints if re.search(regex_pattern, key)]
+
         control[Points.unoccupiedcoolingsetpoint.value] = unocc_clg_sp
         control[Points.unoccupiedheatingsetpoint.value] = unocc_htg_sp
-        _log.debug(f'Configure setpoints: {self.cfg.setpoint_control}')
+        _log.debug(f'Configure @Setpoints: {self.cfg.setpoint_control}')
 
         if self.cfg.setpoint_control == SetpointControlType.AttachedSetpoint:
             control[Points.deadband.value] = deadband + deadband
@@ -682,7 +686,9 @@ class ManagerProxy:
         if self.cfg.setpoint_control == SetpointControlType.CommonSetpoint:
             control[Points.occupiedsetpoint.value] = occ_sp
             control[Points.deadband.value] = deadband
-
+        for point in standby_settings:
+            control[point] = setpoints[point]
+        _log.debug(f'Control -- @Setpoints: {control}')
         return control
 
     def sync_occupancy_state(self):
