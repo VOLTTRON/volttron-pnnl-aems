@@ -6,6 +6,7 @@ import io
 import csv
 import configargparse
 import netifaces as ni
+import ipaddress
 
 ADDRESS_OFFSET_DEFAULT = 0
 SCHNEIDER_CSV_NAME = 'schneider.csv'
@@ -542,20 +543,30 @@ def generate_bacnet_proxy_config(output_dir: str, building: str, gateway_address
         gateway_address: The network address of the gateway used to derive the prefix.
     """
     interface_ip_address = None
-    gateway_prefix = get_gateway_prefix(gateway_address)
-    if not gateway_prefix:
-        raise ValueError('gateway-address is not set!')
+    try:
+        gateway_network = ipaddress.ip_network(gateway_address + '/24', strict=False)
+    except ValueError:
+        raise ValueError('Invalid gateway-address format!')
+
     interfaces = ni.interfaces()
     for interface in interfaces:
         try:
-            ip_address = ni.ifaddresses(interface)[ni.AF_INET][0]['addr']
-        except KeyError:
+            addr_info = ni.ifaddresses(interface).get(ni.AF_INET)
+            if addr_info:
+                ip_address_str = addr_info[0]['addr']
+                ip_address_obj = ipaddress.ip_address(ip_address_str)
+                if ip_address_obj in gateway_network:
+                    interface_ip_address = ip_address_str
+                    break
+        except (KeyError, IndexError):
             continue
-        if gateway_prefix in ip_address:
-            interface_ip_address = ip_address
-            break
+
     if interface_ip_address is None:
-        raise ValueError('IP address is not found!  Verify gateway address')
+        sys.stderr.write("WARNING: Could not find a matching IP address for the gateway. "
+                         "Falling back to using the gateway address directly. "
+                         "This may not work in all environments.\n")
+        interface_ip_address = gateway_address
+
     bacnet_proxy_config = bacnet_proxy_config_template.format(building=building, interface_ip_address=interface_ip_address)
     with open(os.path.join(output_dir, 'bacnet.proxy.config'), 'w') as f:
         f.write(bacnet_proxy_config)

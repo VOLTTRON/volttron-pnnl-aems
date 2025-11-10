@@ -111,6 +111,12 @@ VOLTTRON_REGISTRY_FILE_PATH=${VOLTTRON_REGISTRY_FILE_PATH:-""}
 VOLTTRON_BACNET_ADDRESS=${VOLTTRON_BACNET_ADDRESS:-""}
 VOLTTRON_ILC=${VOLTTRON_ILC:-"false"}
 OUTPUT_DIR=${OUTPUT_DIR:-"/home/user/configs/"}
+# Grafana DB settings
+GRAFANA_DB_NAME=${GRAFANA_DB_NAME:-""}
+GRAFANA_DB_USER=${GRAFANA_DB_USER:-""}
+GRAFANA_DB_PASSWORD=${GRAFANA_DB_PASSWORD:-""}
+GRAFANA_DB_HOST=${GRAFANA_DB_HOST:-""}
+GRAFANA_DB_PORT=${GRAFANA_DB_PORT:-""}
 # Legacy support for NUM_CONFIGS (use VOLTTRON_NUM_CONFIGS if available)
 NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS:-${NUM_CONFIGS:-"1"}}
 
@@ -140,6 +146,10 @@ log_info "  Gateway Address: ${VOLTTRON_GATEWAY_ADDRESS}"
 log_info "  Timezone: ${VOLTTRON_TIMEZONE}"
 log_info "  Output Directory: ${OUTPUT_DIR}"
 log_info "  Number of Configs: ${NUM_CONFIGS}"
+log_info "  Grafana DB Name: ${GRAFANA_DB_NAME}"
+log_info "  Grafana DB User: ${GRAFANA_DB_USER}"
+log_info "  Grafana DB Host: ${GRAFANA_DB_HOST}"
+log_info "  Grafana DB Port: ${GRAFANA_DB_PORT}"
 
 # Verify required directories exist
 if [[ ! -d "${DOCKER_DIR}" ]]; then
@@ -167,14 +177,33 @@ fi
 # Verify requirements.txt exists and install dependencies
 if [[ -f "requirements.txt" ]]; then
     log_info "Installing Python dependencies from requirements.txt"
-    pip install -r requirements.txt
+    STDERR_FILE=$(mktemp)
+    pip install -r requirements.txt 2> "${STDERR_FILE}"
+    EXIT_CODE=$?
+
+    STDERR_OUTPUT=$(<"${STDERR_FILE}")
+    rm -f "${STDERR_FILE}"
+
+    if [[ -n "${STDERR_OUTPUT}" ]]; then
+        log_warning "${STDERR_OUTPUT}"
+    fi
+
+    if [[ ${EXIT_CODE} -ne 0 ]]; then
+        log_error "pip install failed with exit code ${EXIT_CODE}"
+        exit 1
+    fi
 else
     log_warning "requirements.txt not found, skipping dependency installation"
 fi
 
-# Create output directory if it doesn't exist
-log_info "Creating output directory: ${OUTPUT_DIR}"
-mkdir -p "${OUTPUT_DIR}"
+# Clean and create output directory
+if [ -d "${OUTPUT_DIR}" ]; then
+    log_info "Cleaning output directory: ${OUTPUT_DIR}"
+    rm -rf "${OUTPUT_DIR:?}"/*
+else
+    log_info "Creating output directory: ${OUTPUT_DIR}"
+    mkdir -p "${OUTPUT_DIR}"
+fi
 
 # Execute the Volttron configuration generation
 log_info "Executing Volttron configuration generation"
@@ -206,13 +235,47 @@ if [[ "${VOLTTRON_ILC}" == "true" ]]; then
     GENERATE_CMD="${GENERATE_CMD} --ilc"
 fi
 
-log_info "Command: ${GENERATE_CMD}"
-eval "${GENERATE_CMD}"
+# Add Grafana DB arguments if they are provided
+if [[ -n "${GRAFANA_DB_NAME}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --db-name \"${GRAFANA_DB_NAME}\""
+fi
+if [[ -n "${GRAFANA_DB_USER}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --db-user \"${GRAFANA_DB_USER}\""
+fi
+if [[ -n "${GRAFANA_DB_PASSWORD}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --db-password \"${GRAFANA_DB_PASSWORD}\""
+fi
+if [[ -n "${GRAFANA_DB_HOST}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --db-address \"${GRAFANA_DB_HOST}\""
+fi
+if [[ -n "${GRAFANA_DB_PORT}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --db-port \"${GRAFANA_DB_PORT}\""
+fi
 
-if [[ $? -eq 0 ]]; then
+# Log the command, obfuscating the password
+LOG_CMD=${GENERATE_CMD}
+if [[ -n "${GRAFANA_DB_PASSWORD}" ]]; then
+    LOG_CMD=$(echo "${GENERATE_CMD}" | sed -e "s/--db-password \"[^\"]*\"/--db-password \"\*\*\*\"/")
+fi
+log_info "Command: ${LOG_CMD}"
+
+# Create a temporary file to capture stderr
+STDERR_FILE=$(mktemp)
+eval "${GENERATE_CMD}" 2> "${STDERR_FILE}"
+EXIT_CODE=$?
+
+# Read stderr content
+STDERR_OUTPUT=$(<"${STDERR_FILE}")
+rm -f "${STDERR_FILE}"
+
+if [[ -n "${STDERR_OUTPUT}" ]]; then
+    log_warning "${STDERR_OUTPUT}"
+fi
+
+if [[ ${EXIT_CODE} -eq 0 ]]; then
     log_success "Configuration generation completed successfully"
 else
-    log_error "Configuration generation failed"
+    log_error "Configuration generation failed with exit code ${EXIT_CODE}"
     exit 1
 fi
 
@@ -228,6 +291,10 @@ fi
 
 # Copy templates directory to the output directory
 log_info "Copying templates directory to output directory"
+if [ -d "${OUTPUT_DIR}/templates" ]; then
+    log_info "Cleaning existing templates directory"
+    rm -rf "${OUTPUT_DIR:?}/templates"
+fi
 cp -r "${TEMPLATES_DIR}" "${OUTPUT_DIR}/"
 if [[ $? -eq 0 ]]; then
     log_success "Templates directory copied successfully"
@@ -245,6 +312,10 @@ echo "Prefix: ${VOLTTRON_PREFIX}" >> "${LOCK_FILE}"
 echo "Gateway Address: ${VOLTTRON_GATEWAY_ADDRESS}" >> "${LOCK_FILE}"
 echo "Timezone: ${VOLTTRON_TIMEZONE}" >> "${LOCK_FILE}"
 echo "Number of Configs: ${NUM_CONFIGS}" >> "${LOCK_FILE}"
+echo "Grafana DB Name: ${GRAFANA_DB_NAME}" >> "${LOCK_FILE}"
+echo "Grafana DB User: ${GRAFANA_DB_USER}" >> "${LOCK_FILE}"
+echo "Grafana DB Host: ${GRAFANA_DB_HOST}" >> "${LOCK_FILE}"
+echo "Grafana DB Port: ${GRAFANA_DB_PORT}" >> "${LOCK_FILE}"
 
 if [[ $? -eq 0 ]]; then
     log_success "Lock file created successfully"
