@@ -243,7 +243,7 @@ services:
       timeout: 10s
       retries: 10
     hostname: database
-    image: postgis/postgis:16-3.4
+    image: postgis/postgis:16-3.5-alpine
     ports:
       - ${DATABASE_TEST_PORT}:5432
     restart: unless-stopped
@@ -390,7 +390,7 @@ services:
       timeout: 10s
       retries: 10
     hostname: keycloak-db
-    image: postgis/postgis:16-3.4
+    image: postgres:16-alpine
     profiles:
       - sso
     restart: unless-stopped
@@ -421,7 +421,7 @@ services:
       - GRAFANA_DB_HOST=localhost
       - GRAFANA_DB_PORT=${GRAFANA_DATABASE_TEST_PORT}
       - GRAFANA_DB_NAME=grafana
-      - GRAFANA_DB_USER=admin
+      - GRAFANA_DB_USER=grafana
       - GRAFANA_DB_PASSWORD=${GRAFANA_DATABASE_PASSWORD}
     hostname: setup
     network_mode: host
