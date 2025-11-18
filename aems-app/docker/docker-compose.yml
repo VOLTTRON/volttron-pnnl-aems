@@ -232,6 +232,13 @@ services:
 
   # Application relational database
   database:
+    build:
+      context: ./database
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
     cap_add:
       - SYS_NICE
     container_name: ${COMPOSE_PROJECT_NAME}-database
@@ -243,7 +250,7 @@ services:
       timeout: 10s
       retries: 10
     hostname: database
-    image: postgis/postgis:16-3.5-alpine
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/database:${TAG}
     ports:
       - ${DATABASE_TEST_PORT}:5432
     restart: unless-stopped
@@ -335,7 +342,13 @@ services:
 
   # Keycloak for single sign-on
   keycloak:
-    command: ["start", "--import-realm"]
+    build:
+      context: ./keycloak
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
     container_name: ${COMPOSE_PROJECT_NAME}-keycloak
     depends_on:
       keycloak-db:
@@ -343,7 +356,7 @@ services:
     env_file:
       - .env.keycloak
     hostname: keycloak
-    image: quay.io/keycloak/keycloak
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/keycloak:${TAG}
     labels:
       - traefik.enable=true
       - traefik.http.services.keycloak.loadbalancer.server.port=8080
@@ -375,7 +388,6 @@ services:
     restart: unless-stopped
     volumes:
       - keycloak-cache:/opt/jboss/keycloak/standalone/data
-      - ./keycloak/default-realm.json:/opt/keycloak/data/import/default-realm.json
 
   # Keycloak database
   keycloak-db:
