@@ -3593,6 +3593,7 @@ export enum UnitFields {
   LocationId = 'locationId',
   Message = 'message',
   Name = 'name',
+  OccupancyDetection = 'occupancyDetection',
   OptimalStartDeviation = 'optimalStartDeviation',
   OptimalStartLockout = 'optimalStartLockout',
   PeakLoadExclude = 'peakLoadExclude',

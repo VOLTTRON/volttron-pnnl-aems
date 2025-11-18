@@ -132,6 +132,12 @@ class Validate extends base_1.default {
                 type: "unit",
                 options: { default: 45, min: 45, max: 70 },
             },
+            {
+                name: "occupancyDetection",
+                label: "Occupancy Detection",
+                type: "unit",
+                options: { default: false },
+            }
         ]);
         this.Setpoint = this.parseStrict("setpoint");
         this.SetpointType = this.parseStrict("setpoint");
@@ -189,6 +195,8 @@ class Validate extends base_1.default {
         this.PeakLoadExcludeType = this.parseStrict("peakLoadExclude");
         this.EconomizerSetpoint = this.parseStrict("economizerSetpoint");
         this.EconomizerSetpointType = this.parseStrict("economizerSetpoint");
+        this.OccupancyDetection = this.parseStrict("occupancyDetection");
+        this.OccupancyDetectionType = this.parseStrict("occupancyDetection");
     }
 }
 const validate = new Validate();
