@@ -19,7 +19,7 @@ services:
       certs:
         condition: service_completed_successfully
     hostname: proxy
-    image: traefik:v3.5.3
+    image: traefik:v3.6.2
     labels:
       - traefik.tls.stores.default.defaultgeneratedcert.resolver=${CERT_RESOLVER}
       - traefik.tls.stores.default.defaultgeneratedcert.domain.main=${HOSTNAME}
