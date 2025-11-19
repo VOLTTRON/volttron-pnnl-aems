@@ -33,6 +33,7 @@ model Unit {
     heatingPeakOffset     Float          @default(-0.5)
     peakLoadExclude       Boolean        @default(false)
     economizerSetpoint    Float          @default(45)
+    occupancyDetection    Boolean        @default(false)
     // foreign keys
     configurationId       String?
     controlId             String?

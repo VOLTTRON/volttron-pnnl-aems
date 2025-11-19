@@ -59,6 +59,7 @@ let UnitMutation = class UnitMutation {
                 heatingPeakOffset: "Float",
                 peakLoadExclude: "Boolean",
                 economizerSetpoint: "Float",
+                occupancyDetection: "Boolean",
                 configurationId: "String",
                 controlId: "String",
                 locationId: "String",
@@ -109,6 +110,7 @@ let UnitMutation = class UnitMutation {
                 heatingPeakOffset: "Float",
                 peakLoadExclude: "Boolean",
                 economizerSetpoint: "Float",
+                occupancyDetection: "Boolean",
                 configurationId: "String",
                 configuration: UnitUpdateConfiguration,
                 controlId: "String",
@@ -249,8 +251,6 @@ let UnitMutation = class UnitMutation {
                     },
                 })
                     .then(async (unit) => {
-                    new common_1.Logger("UnitMutation").log(`Before Update:`, before);
-                    new common_1.Logger("UnitMutation").log(`After Update:`, unit);
                     await subscriptionService.publish("Unit", { topic: "Unit", id: unit.id, mutation: common_2.Mutation.Updated });
                     await subscriptionService.publish(`Unit/${unit.id}`, {
                         topic: "Unit",

@@ -54,6 +54,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
     earliestStart,
     latestStart,
     heatPump,
+    occupancyDetection,
   } = value;
 
   return (
@@ -363,6 +364,42 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
           </div>
         </>
       )}
+
+      <div className="row">
+        <div className="select">
+          <Label>
+            <b>Occupancy Detection</b>
+            <Popover
+              content={
+                <Menu>
+                  <MenuItem
+                    text="Yes"
+                    onClick={() => {
+                      const clone = cloneDeep(editing ?? {});
+                      clone.occupancyDetection = true;
+                      setEditing?.(clone);
+                    }}
+                  />
+                  <MenuItem
+                    text="No"
+                    onClick={() => {
+                      const clone = cloneDeep(editing ?? {});
+                      clone.occupancyDetection = false;
+                      setEditing?.(clone);
+                    }}
+                  />
+                </Menu>
+              }
+              placement="bottom-start"
+              disabled={readOnly}
+            >
+              <Button rightIcon={IconNames.CARET_DOWN} minimal disabled={readOnly}>
+                {occupancyDetection ? "Yes" : "No"}
+              </Button>
+            </Popover>
+          </Label>
+        </div>
+      </div>
 
       <div
         style={{
