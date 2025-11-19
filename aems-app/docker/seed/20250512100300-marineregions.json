@@ -7,7 +7,7 @@
       "id": "MRGID",
       "name": "GEONAME",
       "group": "ISO_TER1",
-      "type": "ISO_SOV1"
+      "type": "POL_TYPE"
     }
   },
   "jsonpath": "$.features[]",
