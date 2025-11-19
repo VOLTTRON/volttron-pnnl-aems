@@ -53,6 +53,7 @@ let UnitObject = class UnitObject {
                 heatingPeakOffset: t.exposeFloat("heatingPeakOffset"),
                 peakLoadExclude: t.exposeBoolean("peakLoadExclude"),
                 economizerSetpoint: t.exposeFloat("economizerSetpoint"),
+                occupancyDetection: t.exposeBoolean("occupancyDetection"),
                 configurationId: t.exposeString("configurationId", { nullable: true }),
                 controlId: t.exposeString("controlId", { nullable: true }),
                 locationId: t.exposeString("locationId", { nullable: true }),

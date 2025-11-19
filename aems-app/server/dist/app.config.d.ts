@@ -134,6 +134,7 @@ export declare class AppConfigService {
         origin?: string;
     };
     normalize: import("@local/common/dist/constants").IProcess;
+    readFile(file: string): string;
     constructor();
 }
 declare const AppConfigToken: (() => AppConfigService) & import("@nestjs/config").ConfigFactoryKeyHost<AppConfigService>;

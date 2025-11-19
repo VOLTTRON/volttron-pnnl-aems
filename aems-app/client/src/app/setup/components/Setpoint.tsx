@@ -65,6 +65,7 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
     editing?.configuration?.setpoint,
   );
   const { label, setpoint, deadband, heating, cooling, standbyTime, standbyOffset } = merged;
+  const occupancyDetection = editing?.occupancyDetection ?? unit?.occupancyDetection ?? false;
   const padding = SETPOINT_PADDING + deadband / 2;
 
   const [standby, setStandby] = useState(standbyOffset.toString());
@@ -310,80 +311,82 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
 
       {renderSeparateSliders()}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "1rem",
-          alignItems: "end",
-          marginBottom: "1rem",
-        }}
-      >
-        <FormGroup label="Standby Time (minutes)">
-          <NumericInput
-            step={1}
-            min={STANDBY_TIME_MIN}
-            max={STANDBY_TIME_MAX}
-            value={standbyTime}
-            onValueChange={(v) => {
-              const label = createSetpointLabel("all", {
-                setpoint,
-                deadband,
-                heating,
-                cooling,
-                standbyTime: v,
-                standbyOffset,
-              });
-              const clone = cloneDeep(editing ?? {});
-              clone.configuration = clone.configuration ?? {};
-              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
-              clone.configuration.setpoint.standbyTime = v;
-              clone.configuration.setpoint.label = label;
-              setEditing?.(clone);
-            }}
-            disabled={readOnly}
-            fill
-          />
-        </FormGroup>
+      {occupancyDetection && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "1rem",
+            alignItems: "end",
+            marginBottom: "1rem",
+          }}
+        >
+          <FormGroup label="Standby Time (minutes)">
+            <NumericInput
+              step={1}
+              min={STANDBY_TIME_MIN}
+              max={STANDBY_TIME_MAX}
+              value={standbyTime}
+              onValueChange={(v) => {
+                const label = createSetpointLabel("all", {
+                  setpoint,
+                  deadband,
+                  heating,
+                  cooling,
+                  standbyTime: v,
+                  standbyOffset,
+                });
+                const clone = cloneDeep(editing ?? {});
+                clone.configuration = clone.configuration ?? {};
+                clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+                clone.configuration.setpoint.standbyTime = v;
+                clone.configuration.setpoint.label = label;
+                setEditing?.(clone);
+              }}
+              disabled={readOnly}
+              fill
+            />
+          </FormGroup>
 
-        <FormGroup label="Standby Temperature Offset (°F)">
-          <NumericInput
-            allowNumericCharactersOnly
-            step={1}
-            min={STANDBY_OFFSET_MIN}
-            max={STANDBY_OFFSET_MAX}
-            value={standby}
-            onValueChange={(v, s) => {
-              if (v.toString() !== s) {
-                setStandby(s);
-                return;
-              }
-              const standbyOffset = clamp(
-                v,
-                STANDBY_OFFSET_MIN,
-                Math.min(STANDBY_OFFSET_MAX, setpoint - deadband / 2 - heating, cooling - (setpoint + deadband / 2)),
-              );
-              setStandby(standbyOffset.toString());
-              const label = createSetpointLabel("all", {
-                setpoint,
-                deadband,
-                heating,
-                cooling,
-                standbyTime,
-                standbyOffset,
-              });
-              const clone = cloneDeep(editing ?? {});
-              clone.configuration = clone.configuration ?? {};
-              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
-              clone.configuration.setpoint.standbyOffset = standbyOffset;
-              clone.configuration.setpoint.label = label;
-              setEditing?.(clone);
-            }}
-            disabled={readOnly}
-            fill
-          />
-        </FormGroup>
-      </div>
+          <FormGroup label="Standby Temperature Offset (°F)">
+            <NumericInput
+              allowNumericCharactersOnly
+              step={1}
+              min={STANDBY_OFFSET_MIN}
+              max={STANDBY_OFFSET_MAX}
+              value={standby}
+              onValueChange={(v, s) => {
+                if (v.toString() !== s) {
+                  setStandby(s);
+                  return;
+                }
+                const standbyOffset = clamp(
+                  v,
+                  STANDBY_OFFSET_MIN,
+                  Math.min(STANDBY_OFFSET_MAX, setpoint - deadband / 2 - heating, cooling - (setpoint + deadband / 2)),
+                );
+                setStandby(standbyOffset.toString());
+                const label = createSetpointLabel("all", {
+                  setpoint,
+                  deadband,
+                  heating,
+                  cooling,
+                  standbyTime,
+                  standbyOffset,
+                });
+                const clone = cloneDeep(editing ?? {});
+                clone.configuration = clone.configuration ?? {};
+                clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+                clone.configuration.setpoint.standbyOffset = standbyOffset;
+                clone.configuration.setpoint.label = label;
+                setEditing?.(clone);
+              }}
+              disabled={readOnly}
+              fill
+            />
+          </FormGroup>
+        </div>
+      )}
 
       <div
         style={{
@@ -396,7 +399,8 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
         <small style={{ color: "var(--bp5-text-color-muted)" }}>
           <strong>Note:</strong> The occupied setpoint range (green) shows the comfort zone during occupied hours.
           Unoccupied limits (orange/blue) define energy-saving temperatures when the space is empty. The deadband
-          prevents frequent switching between heating and cooling.
+          prevents frequent switching between heating and cooling. Standby settings are only active if occupancy
+          detection is enabled in the unit configuration and the capability is supported by the control system.
         </small>
       </div>
     </div>

@@ -142,6 +142,12 @@ class Validate extends Base<IValidate> implements IBase<IValidate> {
         type: "unit" as ValidateType,
         options: { default: 45, min: 45, max: 70 },
       },
+      {
+        name: "occupancyDetection",
+        label: "Occupancy Detection",
+        type: "unit" as ValidateType,
+        options: { default: false },
+      },
     ]);
   }
 
@@ -204,6 +210,8 @@ class Validate extends Base<IValidate> implements IBase<IValidate> {
   PeakLoadExcludeType = this.parseStrict("peakLoadExclude");
   EconomizerSetpoint = this.parseStrict("economizerSetpoint");
   EconomizerSetpointType = this.parseStrict("economizerSetpoint");
+  OccupancyDetection = this.parseStrict("occupancyDetection");
+  OccupancyDetectionType = this.parseStrict("occupancyDetection");
 }
 
 const validate = new Validate();
