@@ -7,6 +7,7 @@ import { Mutation, StageType, typeofObject } from "@local/common";
 import { merge } from "lodash";
 import { VolttronService } from "../volttron.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { Schedule } from "@prisma/client";
 
 @Injectable()
 export class ConfigService extends BaseService {
@@ -24,6 +25,17 @@ export class ConfigService extends BaseService {
   @Cron(`*/10 * * * * *`)
   execute(): Promise<void> {
     return super.execute();
+  }
+
+  private buildOccupancyPayload(schedule?: Schedule | null) {
+    return schedule?.occupied
+      ? /(00:00)|(24:00)/.test(schedule?.startTime ?? "00:00") && /(00:00)|(24:00)/.test(schedule?.endTime ?? "24:00")
+        ? "always_on"
+        : {
+            start: schedule?.startTime,
+            end: /(00:00)|(24:00)/.test(schedule?.endTime ?? "00:00") ? "23:59" : schedule?.endTime,
+          }
+      : "always_off";
   }
 
   async task() {
@@ -98,12 +110,7 @@ export class ConfigService extends BaseService {
                 .reduce(
                   (p, c) => {
                     const k = `${c.date.getFullYear().toString()}-${(c.date.getMonth() + 1).toString().padStart(2, "0")}-${c.date.getDate().toString().padStart(2, "0")}`;
-                    const v = c.schedule?.occupied
-                      ? {
-                          start: c.schedule?.startTime,
-                          end: c.schedule?.endTime,
-                        }
-                      : "always_off";
+                    const v = this.buildOccupancyPayload(c.schedule);
                     if (k in p) {
                       p[k].push(v);
                     } else {
@@ -137,55 +144,15 @@ export class ConfigService extends BaseService {
               );
 
               const set_schedule = {
-                Monday: unit.configuration?.mondaySchedule?.occupied
-                  ? {
-                      start: unit.configuration?.mondaySchedule?.startTime,
-                      end: unit.configuration?.mondaySchedule?.endTime,
-                    }
-                  : "always_off",
-                Tuesday: unit.configuration?.tuesdaySchedule?.occupied
-                  ? {
-                      start: unit.configuration?.tuesdaySchedule?.startTime,
-                      end: unit.configuration?.tuesdaySchedule?.endTime,
-                    }
-                  : "always_off",
-                Wednesday: unit.configuration?.wednesdaySchedule?.occupied
-                  ? {
-                      start: unit.configuration?.wednesdaySchedule?.startTime,
-                      end: unit.configuration?.wednesdaySchedule?.endTime,
-                    }
-                  : "always_off",
-                Thursday: unit.configuration?.thursdaySchedule?.occupied
-                  ? {
-                      start: unit.configuration?.thursdaySchedule?.startTime,
-                      end: unit.configuration?.thursdaySchedule?.endTime,
-                    }
-                  : "always_off",
-                Friday: unit.configuration?.fridaySchedule?.occupied
-                  ? {
-                      start: unit.configuration?.fridaySchedule?.startTime,
-                      end: unit.configuration?.fridaySchedule?.endTime,
-                    }
-                  : "always_off",
-                Saturday: unit.configuration?.saturdaySchedule?.occupied
-                  ? {
-                      start: unit.configuration?.saturdaySchedule?.startTime,
-                      end: unit.configuration?.saturdaySchedule?.endTime,
-                    }
-                  : "always_off",
-                Sunday: unit.configuration?.sundaySchedule?.occupied
-                  ? {
-                      start: unit.configuration?.sundaySchedule?.startTime,
-                      end: unit.configuration?.sundaySchedule?.endTime,
-                    }
-                  : "always_off",
+                Monday: this.buildOccupancyPayload(unit.configuration?.mondaySchedule),
+                Tuesday: this.buildOccupancyPayload(unit.configuration?.tuesdaySchedule),
+                Wednesday: this.buildOccupancyPayload(unit.configuration?.wednesdaySchedule),
+                Thursday: this.buildOccupancyPayload(unit.configuration?.thursdaySchedule),
+                Friday: this.buildOccupancyPayload(unit.configuration?.fridaySchedule),
+                Saturday: this.buildOccupancyPayload(unit.configuration?.saturdaySchedule),
+                Sunday: this.buildOccupancyPayload(unit.configuration?.sundaySchedule),
                 ...(this.configService.service.config.holidaySchedule && {
-                  Holiday: unit.configuration?.holidaySchedule?.occupied
-                    ? {
-                        start: unit.configuration?.holidaySchedule?.startTime,
-                        end: unit.configuration?.holidaySchedule?.endTime,
-                      }
-                    : "always_off",
+                  Holiday: this.buildOccupancyPayload(unit.configuration?.holidaySchedule),
                 }),
               };
               await this.volttronService.makeApiCall(
