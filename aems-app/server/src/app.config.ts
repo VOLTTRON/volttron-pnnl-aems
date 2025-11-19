@@ -197,6 +197,15 @@ export class AppConfigService {
 
   normalize = Normalization.process(Normalization.Trim, Normalization.Compact, Normalization.Lowercase);
 
+  readFile(file: string): string {
+    try {
+      return readFileSync(file).toString("utf-8");
+    } catch (error) {
+      this.logger.error(`Failed to read file: ${file}`, error);
+      return "";
+    }
+  }
+
   constructor() {
     this.nodeEnv = process.env.NODE_ENV ?? "development";
     this.printEnv = parseBoolean(process.env.PRINT_ENV);
@@ -367,9 +376,7 @@ export class AppConfigService {
       },
     };
     this.volttron = {
-      ca: process.env.VOLTTRON_CA
-        ? readFileSync(resolve(__dirname, process.env.VOLTTRON_CA ?? "")).toString("utf-8")
-        : "",
+      ca: process.env.VOLTTRON_CA ? this.readFile(resolve(__dirname, process.env.VOLTTRON_CA ?? "")) : "",
       mocked: parseBoolean(process.env.VOLTTRON_MOCKED),
     };
     this.cors = {

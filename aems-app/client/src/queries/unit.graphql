@@ -29,6 +29,7 @@ query ReadUnit($where: UnitUniqueFilter!) {
     heatingPeakOffset
     peakLoadExclude
     economizerSetpoint
+    occupancyDetection
     configurationId
     controlId
     locationId
@@ -167,6 +168,7 @@ query ReadUnits($where: UnitFilter, $paging: PagingInput, $orderBy: [UnitOrderBy
     heatingPeakOffset
     peakLoadExclude
     economizerSetpoint
+    occupancyDetection
     configurationId
     controlId
     locationId
@@ -305,6 +307,7 @@ mutation CreateUnit($create: UnitCreateInput!) {
     heatingPeakOffset
     peakLoadExclude
     economizerSetpoint
+    occupancyDetection
     configurationId
     controlId
     locationId
@@ -344,6 +347,7 @@ mutation UpdateUnit($where: UnitUniqueFilter!, $update: UnitUpdateInput!) {
     heatingPeakOffset
     peakLoadExclude
     economizerSetpoint
+    occupancyDetection
     configurationId
     controlId
     locationId
@@ -389,6 +393,7 @@ subscription SubscribeUnit($where: UnitUniqueFilter!) {
     heatingPeakOffset
     peakLoadExclude
     economizerSetpoint
+    occupancyDetection
     configurationId
     controlId
     locationId
@@ -532,6 +537,7 @@ subscription SubscribeUnits(
     heatingPeakOffset
     peakLoadExclude
     economizerSetpoint
+    occupancyDetection
     configurationId
     controlId
     locationId

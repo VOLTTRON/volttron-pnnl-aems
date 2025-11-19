@@ -204,6 +204,12 @@ export declare class UnitQuery {
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
         }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<number>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt">>;
+        occupancyDetection: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
+            Context: import("..").Context;
+            AuthScopes: import("../../auth").AuthRoles;
+            PrismaTypes: import("@local/prisma/dist/pothos").default;
+            Scalars: Scalars;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<boolean>, "not" | "equals">>;
         configurationId: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;

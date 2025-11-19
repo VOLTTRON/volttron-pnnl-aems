@@ -50,6 +50,7 @@ export class UnitObject {
         heatingPeakOffset: t.exposeFloat("heatingPeakOffset"),
         peakLoadExclude: t.exposeBoolean("peakLoadExclude"),
         economizerSetpoint: t.exposeFloat("economizerSetpoint"),
+        occupancyDetection: t.exposeBoolean("occupancyDetection"),
         // foreign keys
         configurationId: t.exposeString("configurationId", { nullable: true }),
         controlId: t.exposeString("controlId", { nullable: true }),

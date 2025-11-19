@@ -137,7 +137,7 @@ class Validate extends base_1.default {
                 label: "Occupancy Detection",
                 type: "unit",
                 options: { default: false },
-            }
+            },
         ]);
         this.Setpoint = this.parseStrict("setpoint");
         this.SetpointType = this.parseStrict("setpoint");
