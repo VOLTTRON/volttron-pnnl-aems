@@ -1,0 +1,33 @@
+# Sensitive configuration files
+#config.ini
+
+# Generated dashboard files and output folder
+output/
+*_RTU_Overview.json
+*_Site_Overview.json
+*_import.json
+*_upload_response_*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
