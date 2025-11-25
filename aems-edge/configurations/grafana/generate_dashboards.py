@@ -202,10 +202,9 @@ def create_dashboard_for_device(template, config, datasource_uid, device):
     # Remove templating variables since we're using fixed device name
     if 'templating' in dashboard:
         dashboard['templating']['list'] = []
-    #TODO: In final version remove timestamp
+    
     # Update dashboard metadata
-    timestamp = datetime.now().strftime('%Y-%m-%d %H%M%S')
-    dashboard['title'] = f"{campus} {building} - {device} Overview {timestamp}"
+    dashboard['title'] = f"{campus} {building} - {device} Overview"
     dashboard['id'] = None
     dashboard['uid'] = None
     dashboard['version'] = 0
@@ -271,8 +270,7 @@ def generate_rtu_overview(template, config, datasource_uid, grafana_api=None, de
         dashboard = apply_device_mapping(dashboard, config.get('device_mapping', {}))
         
         # Update dashboard metadata
-        timestamp = datetime.now().strftime('%Y-%m-%d %H%M%S')
-        dashboard['title'] = f"{campus} {building} - RTU Overview {timestamp}"
+        dashboard['title'] = f"{campus} {building} - RTU Overview"
         dashboard['id'] = None
         dashboard['uid'] = None
         dashboard['version'] = 0
@@ -336,8 +334,7 @@ def generate_site_overview(template, config, datasource_uid, grafana_api=None, d
     dashboard = apply_device_mapping(dashboard, config.get('device_mapping', {}))
     
     # Update dashboard metadata
-    timestamp = datetime.now().strftime('%Y-%m-%d %H%M%S')
-    dashboard['title'] = f"{campus} {building} - Site Overview {timestamp}"
+    dashboard['title'] = f"{campus} {building} - Site Overview"
     dashboard['id'] = None
     dashboard['uid'] = None
     dashboard['version'] = 0
@@ -621,6 +618,26 @@ class GrafanaAPI:
             tuple: (success, message, response_data)
         """
         try:
+            # Search for existing dashboard with the same title
+            dashboard_title = dashboard.get('title', '')
+            if dashboard_title:
+                existing = self.search_dashboards(query=dashboard_title, folder_ids=[folder_id])
+                
+                # Filter to exact title match (search can return partial matches)
+                exact_matches = [d for d in existing if d.get('title') == dashboard_title]
+                
+                if exact_matches:
+                    # Delete existing dashboard(s) with the same title
+                    for existing_dashboard in exact_matches:
+                        existing_uid = existing_dashboard.get('uid')
+                        if existing_uid:
+                            logging.info(f"Deleting existing dashboard: {dashboard_title} (UID: {existing_uid})")
+                            delete_success, delete_msg = self.delete_dashboard_by_uid(existing_uid)
+                            if delete_success:
+                                logging.info(f"Successfully deleted existing dashboard")
+                            else:
+                                logging.warning(f"Failed to delete existing dashboard: {delete_msg}")
+            
             payload = {
                 "dashboard": dashboard,
                 "folderId": folder_id,
@@ -651,6 +668,72 @@ class GrafanaAPI:
                 
         except Exception as e:
             return False, f"Exception: {str(e)}", None
+    
+    def search_dashboards(self, query=None, folder_ids=None):
+        """
+        Search for dashboards by title
+        
+        Args:
+            query: Search query (dashboard title)
+            folder_ids: List of folder IDs to search in
+        
+        Returns:
+            list: List of matching dashboards
+        """
+        try:
+            params = {'type': 'dash-db'}
+            if query:
+                params['query'] = query
+            if folder_ids:
+                params['folderIds'] = folder_ids
+            
+            response = requests.get(
+                f'{self.url}/api/search',
+                auth=self.auth,
+                headers=self.headers,
+                params=params,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            if response.status_code == 200:
+                return response.json()
+            return []
+        except Exception as e:
+            logging.error(f"Failed to search dashboards: {e}")
+            return []
+    
+    def delete_dashboard_by_uid(self, dashboard_uid):
+        """
+        Delete a dashboard by UID
+        
+        Args:
+            dashboard_uid: Dashboard UID to delete
+        
+        Returns:
+            tuple: (success, message)
+        """
+        try:
+            response = requests.delete(
+                f'{self.url}/api/dashboards/uid/{dashboard_uid}',
+                auth=self.auth,
+                headers=self.headers,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                return True, "Dashboard deleted successfully"
+            else:
+                error_msg = response.text
+                try:
+                    error_json = response.json()
+                    error_msg = error_json.get('message', error_msg)
+                except:
+                    pass
+                return False, f"Failed to delete: {error_msg}"
+                
+        except Exception as e:
+            return False, f"Exception: {str(e)}"
     
     def get_folders(self):
         """Get list of folders"""
@@ -730,6 +813,89 @@ class GrafanaAPI:
                     pass
                 return False, f"Failed to set permissions: {error_msg}"
                 
+        except Exception as e:
+            return False, f"Exception: {str(e)}"
+    
+    def enable_anonymous_access(self):
+        """
+        Enable anonymous viewer access to Grafana dashboards
+        
+        This method will:
+        1. Update the .env.grafana file with anonymous auth settings
+        2. Restart the Grafana container to apply changes
+        
+        Returns:
+            tuple: (success, message)
+        """
+        try:
+            import subprocess
+            
+            # Path to .env.grafana file (relative to script or absolute)
+            env_file_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))),
+                'aems-app', 'docker', '.env.grafana'
+            )
+            
+            # Check if file exists
+            if not os.path.exists(env_file_path):
+                return False, f".env.grafana file not found at {env_file_path}"
+            
+            # Read current content
+            with open(env_file_path, 'r') as f:
+                content = f.read()
+            
+            # Check if anonymous settings already exist
+            if 'GF_AUTH_ANONYMOUS_ENABLED' in content:
+                logging.info("Anonymous access settings already present in .env.grafana")
+            else:
+                # Add anonymous access settings after database config
+                lines = content.split('\n')
+                insert_index = -1
+                
+                # Find where to insert (after GF_DATABASE_PASSWORD)
+                for i, line in enumerate(lines):
+                    if 'GF_DATABASE_PASSWORD' in line and not line.startswith('#'):
+                        insert_index = i + 1
+                        break
+                
+                if insert_index > 0:
+                    # Insert anonymous access settings
+                    lines.insert(insert_index, '')
+                    lines.insert(insert_index + 1, '# Enable anonymous access for public viewing')
+                    lines.insert(insert_index + 2, 'GF_AUTH_ANONYMOUS_ENABLED=true')
+                    lines.insert(insert_index + 3, 'GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer')
+                    
+                    # Write back to file
+                    with open(env_file_path, 'w') as f:
+                        f.write('\n'.join(lines))
+                    
+                    logging.info(f"Updated {env_file_path} with anonymous access settings")
+                else:
+                    return False, "Could not find insertion point in .env.grafana"
+            
+            # Restart Grafana container
+            docker_compose_dir = os.path.dirname(env_file_path)
+            logging.info(f"Restarting Grafana container from {docker_compose_dir}...")
+            
+            # Try to restart using docker-compose
+            result = subprocess.run(
+                ['docker-compose', 'restart', 'grafana'],
+                cwd=docker_compose_dir,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if result.returncode == 0:
+                logging.info("Grafana container restarted successfully")
+                return True, "Anonymous access enabled and Grafana restarted. Public viewing is now active!"
+            else:
+                error_msg = result.stderr or result.stdout
+                logging.warning(f"Failed to restart Grafana: {error_msg}")
+                return True, f"Settings updated but restart failed: {error_msg}. Please run 'docker-compose restart grafana' manually."
+                
+        except subprocess.TimeoutExpired:
+            return True, "Settings updated but restart timed out. Please run 'docker-compose restart grafana' manually."
         except Exception as e:
             return False, f"Exception: {str(e)}"
     
@@ -919,6 +1085,18 @@ def main():
             # Auto-select General folder (ID: 0)
             folders = grafana_api.get_folders()
             logging.info("Using folder: General (ID: 0)")
+            
+            # Enable anonymous access for public viewing
+            logging.info("Configuring anonymous access...")
+            anon_success, anon_message = grafana_api.enable_anonymous_access()
+            if anon_success:
+                print(f"\n✓ Anonymous Access Enabled:")
+                print(f"  {anon_message}")
+                print(f"  Dashboards are now publicly viewable without login!")
+            else:
+                logging.warning(f"Could not enable anonymous access: {anon_message}")
+                print(f"\n⚠ Anonymous access setup incomplete:")
+                print(f"  {anon_message}")
             
             # Create viewer user if configured
             if 'viewer-user' in config:

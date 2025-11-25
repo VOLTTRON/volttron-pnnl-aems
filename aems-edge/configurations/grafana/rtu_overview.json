@@ -33,8 +33,8 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "max": 100,
-          "min": 0,
+          "max": 90,
+          "min": 50,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -79,7 +79,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"ZoneTemperature\" from data natural join topics where topic_name like 'PNNL/ROB/%' and topic_name like '%/$RTU_ROB/ZoneTemperature' AND $__timeFilter(ts) ORDER BY 1;\r\n",
+          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"Zone Temperature\" from data natural join topics where topic_name like 'PNNL/ROB/%' and topic_name like '%/$RTU_ROB/ZoneTemperature' AND $__timeFilter(ts) ORDER BY 1;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -100,7 +100,7 @@
           }
         }
       ],
-      "title": "ZoneTemperature",
+      "title": "Zone Temperature",
       "type": "gauge"
     },
     {
@@ -500,7 +500,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"1st Stage Heating\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/FirstStageHeating' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"Heating Command\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/FirstStageHeating' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -521,7 +521,7 @@
           }
         }
       ],
-      "title": "Equipment Stage",
+      "title": "Heating Command",
       "type": "stat"
     },
     {
@@ -716,7 +716,7 @@
           }
         }
       ],
-      "title": "Occupancy Status",
+      "title": "Occupancy Command",
       "type": "stat"
     },
     {
@@ -740,7 +740,12 @@
                 "1": {
                   "color": "dark-blue",
                   "index": 1,
-                  "text": "ON"
+                  "text": "1 Stage Cooling"
+                },
+                "2": {
+                  "color": "super-light-blue",
+                  "index": 2,
+                  "text": "2 Stage Cooling"
                 }
               },
               "type": "value"
@@ -898,7 +903,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "ZoneTemperature"
+              "options": "Zone Temperature"
             },
             "properties": [
               {
@@ -1082,7 +1087,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "purple",
+                  "fixedColor": "dark-purple",
                   "mode": "fixed"
                 }
               },
@@ -1101,6 +1106,77 @@
               {
                 "id": "custom.axisPlacement",
                 "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "UnoccupiedCoolingSetPoint"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "light-blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [10, 10],
+                  "fill": "dash"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "UnoccupiedHeatingSetPoint"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "light-purple",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [10, 10],
+                  "fill": "dash"
+                }
               }
             ]
           },
@@ -1116,6 +1192,10 @@
                   "fixedColor": "yellow",
                   "mode": "fixed"
                 }
+              },
+              {
+                "id": "custom.lineInterpolation",
+                "value": "stepBefore"
               },
               {
                 "id": "custom.axisPlacement",
@@ -1262,6 +1342,29 @@
                   "fixedColor": "dark-blue",
                   "mode": "fixed"
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ZoneTemperature"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
               }
             ]
           }
@@ -1529,6 +1632,64 @@
           "rawQuery": true,
           "rawSql": "SELECT\r\n  $__timeGroup(ts, '1m') AS \"time\",\r\n  SUM(CAST(value_string AS DOUBLE PRECISION)) AS \"CoolingStage\"\r\nFROM data\r\nNATURAL JOIN topics\r\nWHERE topic_name LIKE 'PNNL/ROB/$RTU_ROB/%StageCooling'\r\n  AND $__timeFilter(ts)\r\nGROUP BY 1\r\nORDER BY 1;\r\n",
           "refId": "F",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "e780c8f9-c832-4530-bf11-322577349bff"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"UnoccupiedCoolingSetPoint\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/UnoccupiedCoolingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
+          "refId": "K",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "e780c8f9-c832-4530-bf11-322577349bff"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"UnoccupiedHeatingSetPoint\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/UnoccupiedHeatingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
+          "refId": "L",
           "sql": {
             "columns": [
               {
