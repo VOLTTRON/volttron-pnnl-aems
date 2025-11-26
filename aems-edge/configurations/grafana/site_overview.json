@@ -41,7 +41,7 @@
             },
             "insertNulls": false,
             "lineWidth": 0,
-            "spanNulls": false
+            "spanNulls": 300000
           },
           "mappings": [
             {
@@ -155,7 +155,7 @@
             },
             "insertNulls": false,
             "lineWidth": 0,
-            "spanNulls": false
+            "spanNulls": 300000
           },
           "mappings": [],
           "max": 5,
