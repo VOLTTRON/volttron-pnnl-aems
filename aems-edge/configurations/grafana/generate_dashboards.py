@@ -1090,13 +1090,13 @@ def main():
             logging.info("Configuring anonymous access...")
             anon_success, anon_message = grafana_api.enable_anonymous_access()
             if anon_success:
-                print(f"\n✓ Anonymous Access Enabled:")
-                print(f"  {anon_message}")
-                print(f"  Dashboards are now publicly viewable without login!")
+                logging.info("Anonymous Access Enabled")
+                logging.info(anon_message)
+                logging.info("Dashboards are now publicly viewable without login")
             else:
                 logging.warning(f"Could not enable anonymous access: {anon_message}")
-                print(f"\n⚠ Anonymous access setup incomplete:")
-                print(f"  {anon_message}")
+                logging.warning("Anonymous access setup incomplete")
+                logging.warning(anon_message)
             
             # Create viewer user if configured
             if 'viewer-user' in config:
@@ -1116,11 +1116,11 @@ def main():
                 
                 if success:
                     logging.info(message)
-                    print(f"\n✓ Viewer user created:")
-                    print(f"  Username: {viewer_username}")
-                    print(f"  Password: {viewer_password}")
-                    print(f"  Role: {viewer_role}")
-                    print(f"  Email: {viewer_email}")
+                    logging.info(f"Viewer user created: {viewer_username}")
+                    logging.info(f"  Username: {viewer_username}")
+                    logging.info(f"  Password: {viewer_password}")
+                    logging.info(f"  Role: {viewer_role}")
+                    logging.info(f"  Email: {viewer_email}")
                 else:
                     if "already exists" in message:
                         logging.info(f"Viewer user '{viewer_username}' already exists")
@@ -1301,10 +1301,10 @@ def main():
         device = rtu_info['device']
         filename = rtu_info['filename']
         if device:
-            print(f"    • {filename} ({device})")
+            print(f"    - {filename} ({device})")
         else:
-            print(f"    • {filename}")
-    print(f"    • {site_filename} (Site Overview)")
+            print(f"    - {filename}")
+    print(f"    - {site_filename} (Site Overview)")
     print("  " + "=" * 56)
     print("\nDashboard generation complete!")
     
