@@ -5,11 +5,10 @@ Automated tool for generating and uploading Grafana dashboards for building auto
 ## Features
 
 - **Auto-Device Discovery**: Automatically detects all RTU devices from Grafana PostgreSQL datasource
-- **Separate Dashboards Per Device**: Creates individual dashboard for each RTU device (no dropdown selectors)
-- **Device Point Mapping**: Validates and maps device points from configuration including occupied and unoccupied setpoints
+- **Device Point Mapping**: Validates and maps device points from configuration
 - **Direct API Upload**: Automatically uploads dashboards to Grafana using basic authentication
 - **Auto-Replace Dashboards**: Automatically deletes existing dashboards with the same name before uploading new versions
-- **Anonymous Access Configuration**: Automatically configures Grafana for anonymous viewer access by updating environment files and restarting containers
+- **Anonymous Access Configuration**: Automatically configures Grafana for anonymous viewer access by updating environment files and restarting containers (Note tested)
 - **Viewer User Management**: Creates and manages viewer user accounts for read-only dashboard access
 - **Organized Output**: All generated files saved to `output/` folder (auto-created)
 - **Response Logging**: Saves API upload responses to timestamped JSON files for audit trails
