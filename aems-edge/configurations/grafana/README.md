@@ -1,29 +1,25 @@
 # Grafana Dashboard Generator
 
-Automated tool for generating and uploading Grafana dashboards for building automation systems. This tool automatically discovers RTU devices from your Grafana datasource and creates separate, customized dashboards for each device with device point mapping and automatic API deployment.
+Automated tool for generating and uploading Grafana dashboards for building automation systems. This tool generates customized dashboards for each device using templates, integrates PostgreSQL database as a datasource, validates device point mappings, and deploys them to Grafana via API. For viewer-only visualization, it automatically configures anonymous access and viewer user management, so users can view in read-only mode.
 
 ## Features
 
 - **Auto-Device Discovery**: Automatically detects all RTU devices from Grafana PostgreSQL datasource
 - **Separate Dashboards Per Device**: Creates individual dashboard for each RTU device (no dropdown selectors)
-- **Device Point Mapping**: Validates and maps device points from configuration
+- **Device Point Mapping**: Validates and maps device points from configuration including occupied and unoccupied setpoints
 - **Direct API Upload**: Automatically uploads dashboards to Grafana using basic authentication
+- **Auto-Replace Dashboards**: Automatically deletes existing dashboards with the same name before uploading new versions
+- **Anonymous Access Configuration**: Automatically configures Grafana for anonymous viewer access by updating environment files and restarting containers
+- **Viewer User Management**: Creates and manages viewer user accounts for read-only dashboard access
 - **Organized Output**: All generated files saved to `output/` folder (auto-created)
-- **Updated Occupancy Status**: Proper 3-state occupancy mapping (Local Control/Occupied/Unoccupied)
-- **Multiple Visualizations**: Gauges, stats, time series with color-coded thresholds
-- **Response Logging**: Saves API upload responses to JSON files for audit trails
-- **Creative Dashboard Design**: Temperature gauges, equipment status indicators, setpoint displays
+- **Response Logging**: Saves API upload responses to timestamped JSON files for audit trails
+- **Dashboard URL Tracking**: Generates JSON file with all dashboard URLs for easy access
 
 ## Prerequisites
 
 - Python 3.7+
-- Access to a Grafana instance with PostgreSQL datasource configured
-- PostgreSQL must have topics for all the devices
-- The script expects PostgreSQL topics in the format:
-```
-{campus}/{building}/{device}/{metric}
-```
-- Grafana admin credentials
+- Access to a Grafana instance and its admin credentials
+- Postgres database and its credentials
 
 ## Installation
 
@@ -47,7 +43,13 @@ Create or edit `config.ini` with the following sections:
 [dashboard]
 campus = PNNL
 building = ROB
-output-dir = output
+gateway-address = <replace with gateway ip address>
+prefix = rtu
+config-subdir = configs
+num-configs = 4
+weather-station = 
+registry-file-path = 
+bacnet-address = 
 timezone = America/Los_Angeles
 
 [device_mapping]
@@ -56,6 +58,8 @@ first_stage_heating = FirstStageHeating
 occupancy_command = OccupancyCommand
 occupied_cooling_setpoint = OccupiedCoolingSetPoint
 occupied_heating_setpoint = OccupiedHeatingSetPoint
+unoccupied_cooling_setpoint = UnoccupiedCoolingSetPoint
+unoccupied_heating_setpoint = UnoccupiedHeatingSetPoint
 outdoor_air_temperature = OutdoorAirTemperature
 supply_fan_status = SupplyFanStatus
 building_power = Watts
@@ -68,6 +72,19 @@ url = https://your-grafana-server.com/grafana
 username = admin
 password = your_password
 verify_ssl = false
+
+[viewer-user]
+username = dashboard_viewer
+email = viewer@aems.local
+password = ViewerPass123!
+role = Viewer
+
+[PostgreSQL-DB]
+host = grafana-db
+port = 5432
+dbname = grafana
+user = grafana
+password = your_db_password
 ```
 
 #### Configuration Parameters
@@ -75,18 +92,38 @@ verify_ssl = false
 **[dashboard] Section:**
 - `campus`: Campus identifier (e.g., PNNL)
 - `building`: Building identifier (e.g., ROB)
-- `output-dir`: Directory for generated JSON files (default: output)
+- `gateway-address`: IP address of the gateway device
+- `prefix`: Prefix for RTU device names (e.g., rtu)
+- `config-subdir`: Subdirectory for configuration files (e.g., configs)
+- `num-configs`: Number of RTU configurations to generate
+- `weather-station`: Weather station identifier (optional)
+- `registry-file-path`: Path to BACnet registry file (optional)
+- `bacnet-address`: BACnet device address (optional)
 - `timezone`: Timezone for dashboards (default: America/Los_Angeles)
 
 **[device_mapping] Section:**
 - Maps internal point names (left) to actual device point names (right)
 - Used for validation and ensuring consistency across dashboards
+- Includes both occupied and unoccupied setpoints for complete HVAC control visibility
 
 **[grafana] Section:**
 - `url`: Full URL to your Grafana instance
 - `username`: Grafana username (requires admin or editor role)
 - `password`: Grafana password
 - `verify_ssl`: Set to `false` for self-signed certificates (default: false)
+
+**[viewer-user] Section:**
+- `username`: Username for the viewer account (read-only access)
+- `email`: Email address for the viewer account
+- `password`: Password for the viewer account
+- `role`: User role (typically "Viewer" for read-only access)
+
+**[PostgreSQL-DB] Section:**
+- `host`: PostgreSQL database host
+- `port`: PostgreSQL port (default: 5432)
+- `dbname`: Database name
+- `user`: Database username
+- `password`: Database password
 
 ## Usage
 
@@ -147,10 +184,15 @@ python generate_dashboards.py > dashboard_generation.log 2>&1
 
 The script performs validation and will exit with an error if:
 
-- Grafana configuration is missing from config.ini
-- Cannot connect to Grafana API
+- Required configuration sections are missing from config.ini (dashboard, device_mapping, grafana, PostgreSQL-DB)
+- Cannot connect to Grafana API (invalid URL, credentials, or network issues)
 - No PostgreSQL datasource found in Grafana
-- Dashboard template files are missing
+- Dashboard template files are missing (rtu_overview.json, site_overview.json)
+- PostgreSQL database connection fails
+- Device discovery returns no RTU devices
+- Anonymous access configuration fails
+- Dashboard upload fails (permissions, invalid JSON, etc.)
+- Viewer user creation or update fails
 
 ## Topic Structure
 
