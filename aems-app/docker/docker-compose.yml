@@ -410,7 +410,7 @@ services:
       - keycloak-data:/var/lib/postgresql/data
 
   # Creates Volttron configurations on startup
-  setup:
+  volttron-setup:
     build:
       context: ../../aems-edge
       dockerfile: ./Dockerfile
@@ -418,29 +418,31 @@ services:
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
-    container_name: ${COMPOSE_PROJECT_NAME}-setup
-    environment:
-      - VOLTTRON_CAMPUS=${VOLTTRON_CAMPUS}
-      - VOLTTRON_BUILDING=${VOLTTRON_BUILDING}
-      - VOLTTRON_PREFIX=${VOLTTRON_PREFIX}
-      - VOLTTRON_GATEWAY_ADDRESS=${VOLTTRON_GATEWAY_ADDRESS}
-      - VOLTTRON_TIMEZONE=${VOLTTRON_TIMEZONE}
-      - VOLTTRON_NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS}
-      - VOLTTRON_WEATHER_STATION=${VOLTTRON_WEATHER_STATION}
-      - VOLTTRON_REGISTRY_FILE_PATH=${VOLTTRON_REGISTRY_FILE_PATH}
-      - VOLTTRON_BACNET_ADDRESS=${VOLTTRON_BACNET_ADDRESS}
-      - VOLTTRON_ILC=${VOLTTRON_ILC}
-      - GRAFANA_DB_HOST=localhost
-      - GRAFANA_DB_PORT=${GRAFANA_DATABASE_TEST_PORT}
-      - GRAFANA_DB_NAME=grafana
-      - GRAFANA_DB_USER=grafana
-      - GRAFANA_DB_PASSWORD=${GRAFANA_DATABASE_PASSWORD}
-    hostname: setup
+    container_name: ${COMPOSE_PROJECT_NAME}-volttron-setup
+    env_file:
+      - .env.volttron
+    hostname: volttron-setup
     network_mode: host
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
     restart: no
     volumes:
       - ./volttron/:/home/user/configs/
+
+  # Creates Grafana dashboard configurations
+  grafana-setup:
+    container_name: ${COMPOSE_PROJECT_NAME}-grafana-setup
+    depends_on:
+      grafana:
+        condition: service_started
+    env_file:
+      - .env.grafana
+    hostname: grafana-setup
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
+    profiles:
+      - grafana
+    restart: no
+    volumes:
+      - ./grafana/:/home/user/configs/
 
   # Grafana
   grafana:
@@ -449,9 +451,6 @@ services:
       - grafana-db
     env_file:
       - .env.grafana
-    environment:
-      - GF_SERVER_ROOT_URL=https://${HOSTNAME}/grafana
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true
     hostname: grafana
     image: grafana/grafana-oss:10.2.2
     labels:
@@ -502,15 +501,12 @@ services:
   volttron:
     container_name: ${COMPOSE_PROJECT_NAME}-volttron
     depends_on:
-      setup:
-        condition: service_completed_successfully
       certs:
         condition: service_completed_successfully
-    environment:
-      - CONFIG=/home/volttron/configurations
-      - AEMS=/code/aems
-      - ILC=/code/ilc
-      - LOCAL_USER_ID=1000
+      volttron-setup:
+        condition: service_completed_successfully
+    env_file:
+      - .env.volttron
     hostname: volttron
     image: eclipsevolttron/volttron-aems-ilc
     network_mode: host
