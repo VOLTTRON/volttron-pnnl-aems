@@ -419,6 +419,8 @@ services:
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
     container_name: ${COMPOSE_PROJECT_NAME}-volttron-setup
+    environment:
+      - SETUP_MODE=volttron
     env_file:
       - .env.volttron
     hostname: volttron-setup
@@ -434,6 +436,8 @@ services:
     depends_on:
       grafana:
         condition: service_started
+    environment:
+      - SETUP_MODE=grafana
     env_file:
       - .env.grafana
     hostname: grafana-setup

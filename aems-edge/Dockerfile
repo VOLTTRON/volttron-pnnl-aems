@@ -42,8 +42,8 @@ ENV GRAFANA_VERIFY_SSL=${GRAFANA_VERIFY_SSL}
 WORKDIR /home/user/
 COPY . .
 
-# Make setup script executable and run it
+# Make setup scripts executable and run main setup script
 WORKDIR /home/user/
-RUN chmod +x setup.sh
+RUN chmod +x setup.sh setup-volttron.sh setup-grafana.sh
 
 CMD ["./setup.sh"]
