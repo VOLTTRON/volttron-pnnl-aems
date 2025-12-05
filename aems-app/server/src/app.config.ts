@@ -191,6 +191,11 @@ export class AppConfigService {
     ca: string;
     mocked: boolean;
   };
+  grafana: {
+    path: string;
+    url: string;
+    configPath: string;
+  };
   cors: {
     origin?: string;
   };
@@ -378,6 +383,11 @@ export class AppConfigService {
     this.volttron = {
       ca: process.env.VOLTTRON_CA ? this.readFile(resolve(__dirname, process.env.VOLTTRON_CA ?? "")) : "",
       mocked: parseBoolean(process.env.VOLTTRON_MOCKED),
+    };
+    this.grafana = {
+      path: process.env.GRAFANA_PATH ?? "/gdb",
+      url: process.env.GRAFANA_URL ?? "",
+      configPath: process.env.GRAFANA_CONFIG_PATH ?? "",
     };
     this.cors = {
       origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,

@@ -228,6 +228,11 @@ class AppConfigService {
             ca: process.env.VOLTTRON_CA ? this.readFile((0, node_path_1.resolve)(__dirname, process.env.VOLTTRON_CA ?? "")) : "",
             mocked: (0, common_1.parseBoolean)(process.env.VOLTTRON_MOCKED),
         };
+        this.grafana = {
+            path: process.env.GRAFANA_PATH ?? "/gdb",
+            url: process.env.GRAFANA_URL ?? "",
+            configPath: process.env.GRAFANA_CONFIG_PATH ?? "",
+        };
         this.cors = {
             origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,
         };

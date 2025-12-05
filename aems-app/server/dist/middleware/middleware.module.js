@@ -14,19 +14,22 @@ const ext_middleware_1 = require("../ext/ext.middleware");
 const auth_module_1 = require("../auth/auth.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const subscription_module_1 = require("../subscription/subscription.module");
+const grafana_module_1 = require("../grafana/grafana.module");
+const grafana_middleware_1 = require("../grafana/grafana.middleware");
 let MiddlewareModule = class MiddlewareModule {
     configure(consumer) {
         consumer.apply(authjs_middleware_1.AuthjsMiddleware).forRoutes("*");
         consumer.apply(authjs_controller_1.AuthjsController).forRoutes("authjs");
         consumer.apply(ext_middleware_1.ExtRewriteMiddleware).forRoutes({ path: "ext/*path", method: common_1.RequestMethod.ALL });
+        consumer.apply(grafana_middleware_1.GrafanaRewriteMiddleware).forRoutes({ path: "gdb/*path", method: common_1.RequestMethod.ALL });
     }
 };
 exports.MiddlewareModule = MiddlewareModule;
 exports.MiddlewareModule = MiddlewareModule = __decorate([
     (0, common_1.Module)({
-        imports: [auth_module_1.AuthModule, prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule],
-        providers: [authjs_middleware_1.AuthjsMiddleware, authjs_controller_1.AuthjsController, ext_middleware_1.ExtRewriteMiddleware],
-        exports: [authjs_middleware_1.AuthjsMiddleware, authjs_controller_1.AuthjsController, ext_middleware_1.ExtRewriteMiddleware],
+        imports: [auth_module_1.AuthModule, prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule, grafana_module_1.GrafanaModule],
+        providers: [authjs_middleware_1.AuthjsMiddleware, authjs_controller_1.AuthjsController, ext_middleware_1.ExtRewriteMiddleware, grafana_middleware_1.GrafanaRewriteMiddleware],
+        exports: [authjs_middleware_1.AuthjsMiddleware, authjs_controller_1.AuthjsController, ext_middleware_1.ExtRewriteMiddleware, grafana_middleware_1.GrafanaRewriteMiddleware],
     })
 ], MiddlewareModule);
 //# sourceMappingURL=middleware.module.js.map

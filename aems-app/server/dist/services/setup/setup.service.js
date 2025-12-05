@@ -245,25 +245,6 @@ let SetupService = SetupService_1 = class SetupService extends __1.BaseService {
         this.configService = configService;
         this.logger = new common_2.Logger(SetupService_1.name);
     }
-    async getIlcFiles(paths) {
-        const files = [];
-        for (const path of paths) {
-            const file = (0, node_path_1.resolve)(process.cwd(), path);
-            const dirent = await (0, promises_1.stat)(file);
-            if (dirent.isFile()) {
-                if ((0, node_path_1.extname)(file) === ".json") {
-                    files.push(file);
-                }
-            }
-            else if (dirent.isDirectory()) {
-                files.push(...(await this.getIlcFiles(await (0, promises_1.readdir)(file))));
-            }
-            else {
-                this.logger.warn(`Skipping non-file and non-directory: ${file}`);
-            }
-        }
-        return files;
-    }
     execute() {
         return super.execute();
     }

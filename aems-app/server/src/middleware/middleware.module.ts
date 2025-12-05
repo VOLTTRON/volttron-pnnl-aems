@@ -5,11 +5,13 @@ import { ExtRewriteMiddleware } from "@/ext/ext.middleware";
 import { AuthModule } from "@/auth/auth.module";
 import { PrismaModule } from "@/prisma/prisma.module";
 import { SubscriptionModule } from "@/subscription/subscription.module";
+import { GrafanaModule } from "@/grafana/grafana.module";
+import { GrafanaRewriteMiddleware } from "@/grafana/grafana.middleware";
 
 @Module({
-  imports: [AuthModule, PrismaModule, SubscriptionModule],
-  providers: [AuthjsMiddleware, AuthjsController, ExtRewriteMiddleware],
-  exports: [AuthjsMiddleware, AuthjsController, ExtRewriteMiddleware],
+  imports: [AuthModule, PrismaModule, SubscriptionModule, GrafanaModule],
+  providers: [AuthjsMiddleware, AuthjsController, ExtRewriteMiddleware, GrafanaRewriteMiddleware],
+  exports: [AuthjsMiddleware, AuthjsController, ExtRewriteMiddleware, GrafanaRewriteMiddleware],
 })
 export class MiddlewareModule {
   configure(consumer: MiddlewareConsumer) {
@@ -22,5 +24,8 @@ export class MiddlewareModule {
 
     // 3. Ext middleware runs last, can access req.user for role checking
     consumer.apply(ExtRewriteMiddleware).forRoutes({ path: "ext/*path", method: RequestMethod.ALL });
+
+    // 4. Grafana middleware runs last, can access req.user for role checking
+    consumer.apply(GrafanaRewriteMiddleware).forRoutes({ path: "gdb/*path", method: RequestMethod.ALL });
   }
 }
