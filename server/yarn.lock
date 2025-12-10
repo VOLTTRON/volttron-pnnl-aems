@@ -1555,7 +1555,7 @@ __metadata:
 
 "@local/common@file:../common::locator=server%40workspace%3A.":
   version: 2.0.4
-  resolution: "@local/common@file:../common#../common::hash=e69814&locator=server%40workspace%3A."
+  resolution: "@local/common@file:../common#../common::hash=d9e8a2&locator=server%40workspace%3A."
   dependencies:
     "@local/prisma": "file:../prisma"
     "@prisma/client": "npm:^6.9.0"
@@ -1564,25 +1564,25 @@ __metadata:
   peerDependencies:
     "@local/prisma": "*"
     "@prisma/client": ^6.6.0
-  checksum: 10/522c55f65ea17c8f95dceabb77eff6b903654b6ae6930fb9f34963f2cbb8884573b8b1657ab7222a81f54418da805e11b3c7fc5c25f616f7b72cfd36df50fb5c
+  checksum: 10/315c2ec768171962a2eca55d21441666d5330fbd3e74f81959d7b62bcf60aecd8490c20fa3003b5ff760abb49a48107f8ec0b5713e3fc01c29a13135fb19d76c
   languageName: node
   linkType: hard
 
-"@local/prisma@file:../prisma::locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3De69814%26locator%3Dserver%2540workspace%253A.":
+"@local/prisma@file:../prisma::locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3Dd9e8a2%26locator%3Dserver%2540workspace%253A.":
   version: 2.0.4
-  resolution: "@local/prisma@file:../prisma#../prisma::hash=422aba&locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3De69814%26locator%3Dserver%2540workspace%253A."
+  resolution: "@local/prisma@file:../prisma#../prisma::hash=21f5f4&locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3Dd9e8a2%26locator%3Dserver%2540workspace%253A."
   peerDependencies:
     "@prisma/client": ^6.6.0
-  checksum: 10/e1b7c860c804bcddf950179f414acaf12bba8da0ac01bc784b1e24a0308e0a60fcf86096c7c6f5b6c0992b9ecc0b6ce29c01d1d2997730971f9f333f5aaa3a3b
+  checksum: 10/f1c8674f7c3ae9bab5363e1c93e4de787f1b896b945fa7c7c52b74e2c2471edb261f0b38c7bab84d446e22ee71e282002dab3213115017437f53d1081ada079b
   languageName: node
   linkType: hard
 
 "@local/prisma@file:../prisma::locator=server%40workspace%3A.":
   version: 2.0.4
-  resolution: "@local/prisma@file:../prisma#../prisma::hash=422aba&locator=server%40workspace%3A."
+  resolution: "@local/prisma@file:../prisma#../prisma::hash=21f5f4&locator=server%40workspace%3A."
   peerDependencies:
     "@prisma/client": ^6.6.0
-  checksum: 10/e1b7c860c804bcddf950179f414acaf12bba8da0ac01bc784b1e24a0308e0a60fcf86096c7c6f5b6c0992b9ecc0b6ce29c01d1d2997730971f9f333f5aaa3a3b
+  checksum: 10/f1c8674f7c3ae9bab5363e1c93e4de787f1b896b945fa7c7c52b74e2c2471edb261f0b38c7bab84d446e22ee71e282002dab3213115017437f53d1081ada079b
   languageName: node
   linkType: hard
 
@@ -3080,15 +3080,6 @@ __metadata:
   version: 1.0.6
   resolution: "@types/estree@npm:1.0.6"
   checksum: 10/9d35d475095199c23e05b431bcdd1f6fec7380612aed068b14b2a08aa70494de8a9026765a5a91b1073f636fb0368f6d8973f518a31391d519e20c59388ed88d
-  languageName: node
-  linkType: hard
-
-"@types/express-http-proxy@npm:^1.6.6":
-  version: 1.6.6
-  resolution: "@types/express-http-proxy@npm:1.6.6"
-  dependencies:
-    "@types/express": "npm:*"
-  checksum: 10/bf8d642e2d00c6d5dc5a3bc6617a4f249d00646b1469a1c523836753c12c6574d97a44d4b1b299798ee6fb93bf0dda969a7d3cd763c5ad0dd92b4f3c6e828982
   languageName: node
   linkType: hard
 
@@ -5105,15 +5096,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"debug@npm:^3.0.1":
-  version: 3.2.7
-  resolution: "debug@npm:3.2.7"
-  dependencies:
-    ms: "npm:^2.1.1"
-  checksum: 10/d86fd7be2b85462297ea16f1934dc219335e802f629ca9a69b63ed8ed041dda492389bb2ee039217c02e5b54792b1c51aa96ae954cf28634d363a2360c7a1639
-  languageName: node
-  linkType: hard
-
 "debug@npm:~4.3.1, debug@npm:~4.3.2, debug@npm:~4.3.4":
   version: 4.3.7
   resolution: "debug@npm:4.3.7"
@@ -5449,13 +5431,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"es6-promise@npm:^4.1.1":
-  version: 4.2.8
-  resolution: "es6-promise@npm:4.2.8"
-  checksum: 10/b250c55523c496c43c9216c2646e58ec182b819e036fe5eb8d83fa16f044ecc6b8dcefc88ace2097be3d3c4d02b6aa8eeae1a66deeaf13e7bee905ebabb350a3
-  languageName: node
-  linkType: hard
-
 "escalade@npm:^3.1.1, escalade@npm:^3.2.0":
   version: 3.2.0
   resolution: "escalade@npm:3.2.0"
@@ -5720,17 +5695,6 @@ __metadata:
   version: 3.1.1
   resolution: "exponential-backoff@npm:3.1.1"
   checksum: 10/2d9bbb6473de7051f96790d5f9a678f32e60ed0aa70741dc7fdc96fec8d631124ec3374ac144387604f05afff9500f31a1d45bd9eee4cdc2e4f9ad2d9b9d5dbd
-  languageName: node
-  linkType: hard
-
-"express-http-proxy@npm:^2.1.1":
-  version: 2.1.1
-  resolution: "express-http-proxy@npm:2.1.1"
-  dependencies:
-    debug: "npm:^3.0.1"
-    es6-promise: "npm:^4.1.1"
-    raw-body: "npm:^2.3.0"
-  checksum: 10/d0670a06109f6d3bd56be81c0c35e7a5c221eb70a4624ff746481ac402cad9dca836cf544d9c9a1294bf30209f83d76988d9c80a463cdeda2737e8bb4cfdc0aa
   languageName: node
   linkType: hard
 
@@ -9143,7 +9107,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"raw-body@npm:2.5.2, raw-body@npm:^2.3.0":
+"raw-body@npm:2.5.2":
   version: 2.5.2
   resolution: "raw-body@npm:2.5.2"
   dependencies:
@@ -9631,7 +9595,6 @@ __metadata:
     "@swc/core": "npm:^1.10.7"
     "@types/dotenv-flow": "npm:^3.3.3"
     "@types/express": "npm:^5.0.0"
-    "@types/express-http-proxy": "npm:^1.6.6"
     "@types/express-session": "npm:^1.18.1"
     "@types/geojson": "npm:^7946.0.16"
     "@types/jest": "npm:^29.5.14"
@@ -9652,7 +9615,6 @@ __metadata:
     eslint: "npm:^9.18.0"
     eslint-config-prettier: "npm:^10.0.1"
     eslint-plugin-prettier: "npm:^5.2.2"
-    express-http-proxy: "npm:^2.1.1"
     express-session: "npm:^1.18.1"
     globals: "npm:^15.14.0"
     graphql: "npm:^16.10.0"

@@ -15,7 +15,6 @@ import { MapLayerMouseEvent, RequestTransformFunction } from "maplibre-gl";
 import { useLazyQuery } from "@apollo/client";
 import { AreaGeographiesDocument } from "@/graphql-codegen/graphql";
 import { typeofObject } from "@local/common";
-import { Colors } from "@blueprintjs/core";
 import { MapboxOverlay, MapboxOverlayProps } from "@deck.gl/mapbox";
 import { LayersList } from "@deck.gl/core";
 import { GeoJsonLayer } from "@deck.gl/layers";
@@ -88,9 +87,10 @@ export function Map() {
   return (
     <MapGL
       initialViewState={{
-        longitude: -119.281389,
-        latitude: 46.279722,
-        zoom: 7,
+        longitude: 0,
+        latitude: 0,
+        zoom: 1,
+        padding: { left: 20, right: 20, top: 20, bottom: 20 },
       }}
       style={{ width: "100%", height: "100%" }}
       mapStyle={mode === "dark" ? process.env.NEXT_PUBLIC_MAP_DARK_STYLE : process.env.NEXT_PUBLIC_MAP_LIGHT_STYLE}

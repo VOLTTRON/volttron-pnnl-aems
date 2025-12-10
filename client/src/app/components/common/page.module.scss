@@ -18,6 +18,40 @@
     width: auto;
 }
 
+.table {
+    td {
+        word-break: break-word;
+    }
+}
+
+.mapSpinner {
+    height: 100%;
+
+    >div {
+        position: absolute;
+        right: 8px;
+        top: 0;
+        bottom: 0;
+        margin: auto 0;
+    }
+
+    >div[hidden] {
+        display: none !important;
+    }
+}
+
+.maptype-container {
+    display: none;
+}
+
+.maptype {
+    margin: 10px 0 0 10px;
+
+    button {
+        display: inherit !important;
+    }
+}
+
 .notice {
     text-align: center;
     min-width: 400px;

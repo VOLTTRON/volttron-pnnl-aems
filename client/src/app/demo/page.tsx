@@ -2,7 +2,7 @@
 
 import styles from "./page.module.scss";
 import { useContext, useEffect, useState } from "react";
-import { Alignment, Button, Card, CardList, Collapse, Intent } from "@blueprintjs/core";
+import { Alignment, Button, Card, CardList, Collapse, InputGroup, Intent } from "@blueprintjs/core";
 import { PaletteDemo } from "./palette";
 import { IconNames } from "@blueprintjs/icons";
 import { LoadingContext, LoadingType, NotificationContext, NotificationType } from "@/app/components/providers";
@@ -12,6 +12,8 @@ import { Map } from "./map";
 import { Table } from "@/app/components/common";
 import { useRouter } from "next/navigation";
 import { findBook, findBooks } from "./books";
+import { GeographyPicker } from "../components/common/map";
+import { Geography } from "@/graphql-codegen/graphql";
 
 type Book = typeof findBook extends (isbn: string) => Promise<infer T> ? T & {} : never;
 
@@ -48,6 +50,8 @@ export default function Page() {
   const [open, setOpen] = useState("");
   const [error, setError] = useState(false);
   const [books, setBooks] = useState<Book[]>([]);
+  const [geography, setGeography] = useState<Geography | null>(null);
+  const [dialog, setDialog] = useState("");
 
   const router = useRouter();
 
@@ -145,6 +149,29 @@ export default function Page() {
           <div className={styles.map}>
             <Map />
           </div>
+        </Section>
+        <Section title="Geography Picker" open={open} setOpen={setOpen}>
+          <div>
+            <InputGroup
+              value={geography ? (typeof geography === "boolean" ? "" : geography.name ?? "Unnamed") : ""}
+              rightElement={
+                <Button icon={IconNames.GLOBE} intent={Intent.PRIMARY} onClick={() => setDialog("geography")} />
+              }
+              readOnly
+            />
+          </div>
+          {dialog === "geography" && (
+            <GeographyPicker
+              open={true}
+              setOpen={(open) => setDialog(open ? "geography" : "")}
+              title="Select Geography"
+              onConfirm={(selected) => {
+                setGeography(selected);
+                return Promise.resolve();
+              }}
+              initialGeography={geography}
+            />
+          )}
         </Section>
       </CardList>
     </div>

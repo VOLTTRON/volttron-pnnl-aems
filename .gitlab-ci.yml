@@ -83,10 +83,9 @@ publish_server:
   stage: publish
   script:
     - env
-    - docker build --file common/Dockerfile --tag common:latest .
-    - cd ${BASE_DIR}/server
+    - cd ${BASE_DIR}
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker build --tag=$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/server:$TAG_VERSION .
+    - docker build --file=server/Dockerfile --tag=$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/server:$TAG_VERSION .
     - docker push $CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/server:$TAG_VERSION
 
 publish_client:
@@ -98,8 +97,7 @@ publish_client:
   stage: publish
   script:
     - env
-    - docker build --file common/Dockerfile --tag common:latest .
-    - cd ${BASE_DIR}/client
+    - cd ${BASE_DIR}
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker build --tag=$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/client:$TAG_VERSION .
+    - docker build --file=client/Dockerfile --tag=$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/client:$TAG_VERSION .
     - docker push $CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/client:$TAG_VERSION
