@@ -316,7 +316,7 @@ services:
     env_file:
       - .env.wiki
     hostname: wiki
-    image: lscr.io/linuxserver/bookstack
+    image: lscr.io/linuxserver/bookstack:25.11.5
     ports:
       - ${BOOKSTACK_TEST_PORT}:80
     profiles:
@@ -334,7 +334,7 @@ services:
     env_file:
       - .env.wiki
     hostname: wiki-db
-    image: lscr.io/linuxserver/mariadb
+    image: lscr.io/linuxserver/mariadb:11.4.8
     ports:
       - ${BOOKSTACK_DATABASE_TEST_PORT}:3306
     profiles:

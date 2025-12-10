@@ -11,6 +11,7 @@ export function CreateDialog({
   setOpen,
   title,
   icon,
+  accept,
   onCreate,
   disabled,
   children,
@@ -19,6 +20,11 @@ export function CreateDialog({
   setOpen: (open: boolean) => void;
   title: string;
   icon?: IconName;
+  accept?: {
+    text?: string;
+    icon?: IconName;
+    intent?: Intent;
+  };
   onCreate: () => Promise<void>;
   disabled?: boolean;
   children?: React.ReactNode;
@@ -39,8 +45,8 @@ export function CreateDialog({
       </DialogBody>
       <DialogFooter>
         <Button
-          icon={IconNames.NOTIFICATIONS}
-          intent={Intent.PRIMARY}
+          icon={accept?.icon ?? IconNames.CONFIRM}
+          intent={accept?.intent ?? Intent.PRIMARY}
           onClick={async () => {
             const token = createLoading?.(LoadingType.GLOBAL);
             try {
@@ -62,7 +68,7 @@ export function CreateDialog({
           }}
           disabled={disabled}
         >
-          Create
+          {accept?.text ?? "Create"}
         </Button>
         <Button icon={IconNames.CROSS} intent={Intent.NONE} onClick={() => setOpen(false)}>
           Cancel
@@ -102,6 +108,7 @@ export function UpdateDialog({
   setOpen,
   title,
   icon,
+  accept,
   onUpdate,
   disabled,
   children,
@@ -110,6 +117,11 @@ export function UpdateDialog({
   setOpen: (open: boolean) => void;
   title: string;
   icon?: IconName;
+  accept?: {
+    text?: string;
+    icon?: IconName;
+    intent?: Intent;
+  };
   onUpdate: () => Promise<void>;
   disabled?: boolean;
   children?: React.ReactNode;
@@ -130,8 +142,8 @@ export function UpdateDialog({
       </DialogBody>
       <DialogFooter>
         <Button
-          icon={IconNames.NOTIFICATIONS}
-          intent={Intent.PRIMARY}
+          icon={accept?.icon ?? IconNames.CONFIRM}
+          intent={accept?.intent ?? Intent.PRIMARY}
           onClick={async () => {
             const token = createLoading?.(LoadingType.GLOBAL);
             try {
@@ -153,7 +165,7 @@ export function UpdateDialog({
           }}
           disabled={disabled}
         >
-          Update
+          {accept?.text ?? "Update"}
         </Button>
         <Button icon={IconNames.CROSS} intent={Intent.NONE} onClick={() => setOpen(false)}>
           Cancel
@@ -168,6 +180,7 @@ export function DeleteDialog({
   setOpen,
   title,
   icon,
+  accept,
   onDelete,
   disabled,
   children,
@@ -176,6 +189,11 @@ export function DeleteDialog({
   setOpen: (open: boolean) => void;
   title: string;
   icon?: IconName;
+  accept?: {
+    text?: string;
+    icon?: IconName;
+    intent?: Intent;
+  };
   onDelete: () => Promise<void>;
   disabled?: boolean;
   children?: React.ReactNode;
@@ -196,8 +214,8 @@ export function DeleteDialog({
       </DialogBody>
       <DialogFooter>
         <Button
-          icon={IconNames.TRASH}
-          intent={Intent.DANGER}
+          icon={accept?.icon ?? IconNames.TRASH}
+          intent={accept?.intent ?? Intent.DANGER}
           onClick={async () => {
             const token = createLoading?.(LoadingType.GLOBAL);
             try {
@@ -219,7 +237,7 @@ export function DeleteDialog({
           }}
           disabled={disabled}
         >
-          Delete
+          {accept?.text ?? "Delete"}
         </Button>
         <Button icon={IconNames.CROSS} intent={Intent.NONE} onClick={() => setOpen(false)}>
           Cancel
@@ -233,8 +251,8 @@ export function ConfirmDialog({
   open,
   setOpen,
   title,
-  text,
   icon,
+  accept,
   onConfirm,
   disabled,
   children,
@@ -242,8 +260,12 @@ export function ConfirmDialog({
   open: boolean;
   setOpen: (open: boolean) => void;
   title: string;
-  text?: string;
   icon?: IconName;
+  accept?: {
+    text?: string;
+    icon?: IconName;
+    intent?: Intent;
+  };
   onConfirm: () => Promise<void>;
   disabled?: boolean;
   children?: React.ReactNode;
@@ -264,8 +286,8 @@ export function ConfirmDialog({
       </DialogBody>
       <DialogFooter>
         <Button
-          icon={IconNames.TRASH}
-          intent={Intent.DANGER}
+          icon={accept?.icon ?? IconNames.CONFIRM}
+          intent={accept?.intent ?? Intent.PRIMARY}
           onClick={async () => {
             const token = createLoading?.(LoadingType.GLOBAL);
             try {
@@ -287,7 +309,7 @@ export function ConfirmDialog({
           }}
           disabled={disabled}
         >
-          {text ?? "Confirm"}
+          {accept?.text ?? "Confirm"}
         </Button>
         <Button icon={IconNames.CROSS} intent={Intent.NONE} onClick={() => setOpen(false)}>
           Cancel
@@ -328,6 +350,11 @@ export function DialogFactory({}: {
   setOpen: (open: boolean) => void;
   title: string;
   icon?: IconName;
+  accept?: {
+    text?: string;
+    icon?: IconName;
+    intent?: Intent;
+  };
   onAccept: () => Promise<void>;
   disabled?: boolean;
   children?: React.ReactNode;
@@ -348,6 +375,11 @@ export function DialogFactory({}: {
   setOpen: (open: boolean) => void;
   title: string;
   icon?: IconName;
+  accept?: {
+    text?: string;
+    icon?: IconName;
+    intent?: Intent;
+  };
   onAccept: () => Promise<void>;
   disabled?: boolean;
   children?: React.ReactNode;
@@ -358,6 +390,11 @@ export function DialogFactory({}: {
   setOpen: (open: boolean) => void;
   title: string;
   icon?: IconName;
+  accept?: {
+    text?: string;
+    icon?: IconName;
+    intent?: Intent;
+  };
   onAccept: () => Promise<void>;
   disabled?: boolean;
   children?: React.ReactNode;
@@ -367,8 +404,12 @@ export function DialogFactory({}: {
   open: boolean;
   setOpen: (open: boolean) => void;
   title: string;
-  text?: string;
   icon?: IconName;
+  accept?: {
+    text?: string;
+    icon?: IconName;
+    intent?: Intent;
+  };
   onAccept: () => Promise<void>;
   disabled?: boolean;
   children?: React.ReactNode;
@@ -386,8 +427,8 @@ export function DialogFactory({
   open,
   setOpen,
   title,
-  text,
   icon,
+  accept,
   onAccept,
   disabled,
   children,
@@ -396,8 +437,12 @@ export function DialogFactory({
   open: boolean;
   setOpen: (open: boolean) => void;
   title: string;
-  text?: string;
   icon?: IconName;
+  accept?: {
+    text?: string;
+    icon?: IconName;
+    intent?: Intent;
+  };
   onAccept?: () => Promise<void>;
   disabled?: boolean;
   children?: React.ReactNode;
@@ -405,7 +450,15 @@ export function DialogFactory({
   switch (type) {
     case DialogType.Create:
       return (
-        <CreateDialog open={open} setOpen={setOpen} title={title} icon={icon} onCreate={onAccept!} disabled={disabled}>
+        <CreateDialog
+          open={open}
+          setOpen={setOpen}
+          title={title}
+          icon={icon}
+          accept={accept}
+          onCreate={onAccept!}
+          disabled={disabled}
+        >
           {children}
         </CreateDialog>
       );
@@ -417,13 +470,29 @@ export function DialogFactory({
       );
     case DialogType.Update:
       return (
-        <UpdateDialog open={open} setOpen={setOpen} title={title} icon={icon} onUpdate={onAccept!} disabled={disabled}>
+        <UpdateDialog
+          open={open}
+          setOpen={setOpen}
+          title={title}
+          icon={icon}
+          accept={accept}
+          onUpdate={onAccept!}
+          disabled={disabled}
+        >
           {children}
         </UpdateDialog>
       );
     case DialogType.Delete:
       return (
-        <DeleteDialog open={open} setOpen={setOpen} title={title} icon={icon} onDelete={onAccept!} disabled={disabled}>
+        <DeleteDialog
+          open={open}
+          setOpen={setOpen}
+          title={title}
+          icon={icon}
+          accept={accept}
+          onDelete={onAccept!}
+          disabled={disabled}
+        >
           {children}
         </DeleteDialog>
       );
@@ -433,8 +502,8 @@ export function DialogFactory({
           open={open}
           setOpen={setOpen}
           title={title}
-          text={text}
           icon={icon}
+          accept={accept}
           onConfirm={onAccept!}
           disabled={disabled}
         >
