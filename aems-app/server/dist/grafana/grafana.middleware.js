@@ -91,27 +91,23 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
                         proxy: proxy(this.configService.grafana.url, {
                             proxyReqPathResolver: (req) => {
                                 try {
-                                    const searchParams = new URLSearchParams(req.query);
-                                    const query = new URLSearchParams(req.query).toString();
-                                    const pathWithoutPrefix = req.url?.replace(new RegExp(`^${path}`, "i"), "") ?? "";
-                                    const rewriteUrl = `${this.configService.grafana.url}${pathWithoutPrefix}${query ? `?${query}` : ""}`;
-                                    const resolvedUrl = new URL(rewriteUrl);
-                                    resolvedUrl.searchParams.forEach((value, key) => {
-                                        if (!searchParams.has(key)) {
-                                            searchParams.append(key, value);
+                                    const requestQuery = new URLSearchParams(req.query);
+                                    const configuredUrl = new URL(url.href);
+                                    const mergedQuery = new URLSearchParams(configuredUrl.search);
+                                    requestQuery.forEach((value, key) => {
+                                        if (!mergedQuery.has(key)) {
+                                            mergedQuery.set(key, value);
                                         }
                                     });
-                                    const resolvedPath = resolvedUrl.pathname + resolvedUrl.search;
+                                    const pathWithoutPrefix = req.url?.replace(new RegExp(`^${path}`, "i"), "") ?? "";
+                                    const finalQuery = mergedQuery.toString();
+                                    const resolvedPath = configuredUrl.pathname + pathWithoutPrefix + (finalQuery ? `?${finalQuery}` : "");
                                     return resolvedPath;
                                 }
                                 catch (error) {
                                     this.logger.error(`Error in proxyReqPathResolver for ${url.toString()}:`, error);
                                     throw error;
                                 }
-                            },
-                            proxyErrorHandler: (err, res, next) => {
-                                this.logger.error(`Proxy error for ${url.toString()}:`, err);
-                                next(err);
                             },
                         }),
                     });

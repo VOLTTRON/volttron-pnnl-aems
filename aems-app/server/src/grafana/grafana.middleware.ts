@@ -95,26 +95,27 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
             proxy: proxy(this.configService.grafana.url, {
               proxyReqPathResolver: (req) => {
                 try {
-                  const searchParams = new URLSearchParams(req.query as Record<string, string>);
-                  const query = new URLSearchParams(req.query as Record<string, string>).toString();
-                  const pathWithoutPrefix = req.url?.replace(new RegExp(`^${path}`, "i"), "") ?? "";
-                  const rewriteUrl = `${this.configService.grafana.url}${pathWithoutPrefix}${query ? `?${query}` : ""}`;
-                  const resolvedUrl = new URL(rewriteUrl);
-                  resolvedUrl.searchParams.forEach((value, key) => {
-                    if (!searchParams.has(key)) {
-                      searchParams.append(key, value);
+                  const requestQuery = new URLSearchParams(req.query as Record<string, string>);
+                  const configuredUrl = new URL(url.href); // Use the pre-configured dashboard URL
+                  // Start with configured URL's query parameters
+                  const mergedQuery = new URLSearchParams(configuredUrl.search);
+                  // Add request query parameters, overriding configured ones
+                  requestQuery.forEach((value, key) => {
+                    if (!mergedQuery.has(key)) {
+                      mergedQuery.set(key, value);
                     }
                   });
-                  const resolvedPath = resolvedUrl.pathname + resolvedUrl.search;
+                  // Handle any additional path beyond the base proxy path
+                  const pathWithoutPrefix = req.url?.replace(new RegExp(`^${path}`, "i"), "") ?? "";
+                  // Construct the final path: configured pathname + additional path + merged query
+                  const finalQuery = mergedQuery.toString();
+                  const resolvedPath =
+                    configuredUrl.pathname + pathWithoutPrefix + (finalQuery ? `?${finalQuery}` : "");
                   return resolvedPath;
                 } catch (error) {
                   this.logger.error(`Error in proxyReqPathResolver for ${url.toString()}:`, error);
                   throw error;
                 }
-              },
-              proxyErrorHandler: (err, res, next) => {
-                this.logger.error(`Proxy error for ${url.toString()}:`, err);
-                next(err);
               },
             }),
           });
