@@ -21,7 +21,7 @@ let MiddlewareModule = class MiddlewareModule {
         consumer.apply(authjs_middleware_1.AuthjsMiddleware).forRoutes("*");
         consumer.apply(authjs_controller_1.AuthjsController).forRoutes("authjs");
         consumer.apply(ext_middleware_1.ExtRewriteMiddleware).forRoutes({ path: "ext/*path", method: common_1.RequestMethod.ALL });
-        consumer.apply(grafana_middleware_1.GrafanaRewriteMiddleware).forRoutes({ path: "gdb/*path", method: common_1.RequestMethod.ALL });
+        consumer.apply(grafana_middleware_1.GrafanaRewriteMiddleware).forRoutes({ path: "grafana/*path", method: common_1.RequestMethod.ALL });
     }
 };
 exports.MiddlewareModule = MiddlewareModule;

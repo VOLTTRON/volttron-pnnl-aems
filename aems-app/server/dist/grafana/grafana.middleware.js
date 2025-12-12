@@ -20,19 +20,20 @@ const file_1 = require("../utils/file");
 const common_1 = require("@local/common");
 const common_2 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
-const proxy = require("express-http-proxy");
+const http = require("node:http");
+const https = require("node:https");
 const promises_1 = require("node:fs/promises");
 const node_path_1 = require("node:path");
-const node_util_1 = require("node:util");
 const ConfigFilenameRegex = /(?<campus>.+)_(?<building>.+)_dashboard_urls\.json/i;
 const ConfigUnitRegex = /RTU Overview - (?<unit>.+)|Site Overview/i;
 const SiteOverviewKey = "site";
+const SitePublicKey = "public";
 let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewriteMiddleware {
     constructor(configService, prismaService) {
         this.configService = configService;
         this.prismaService = prismaService;
         this.logger = new common_2.Logger(GrafanaRewriteMiddleware_1.name);
-        this.proxies = [];
+        this.configs = [];
         this.execute().catch((error) => {
             this.logger.error(`Failed to initialize GrafanaRewriteMiddleware:`, error);
         });
@@ -76,40 +77,32 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
                 continue;
             }
         }
+        this.configs.push({
+            path: `${this.configService.grafana.path}/public`,
+            url: new URL(`${this.configService.grafana.url}/public`),
+            campus: "",
+            building: "",
+            unit: SitePublicKey,
+        });
+        this.configs.push({
+            path: `${this.configService.grafana.path}/api`,
+            url: new URL(`${this.configService.grafana.url}/api`),
+            campus: "",
+            building: "",
+            unit: SitePublicKey,
+        });
         for (const campus of Object.keys(urls)) {
             for (const building of Object.keys(urls[campus])) {
                 for (const unit of Object.keys(urls[campus][building])) {
                     const url = urls[campus][building][unit];
                     const path = `${this.configService.grafana.path}/${campus}/${building}/${unit}`;
                     this.logger.log(`Configuring Grafana proxy for ${path}: ${url.pathname}${url.search}`);
-                    this.proxies.push({
+                    this.configs.push({
                         path: path,
                         url: url,
                         campus: campus,
                         building: building,
                         unit: unit,
-                        proxy: proxy(this.configService.grafana.url, {
-                            proxyReqPathResolver: (req) => {
-                                try {
-                                    const requestQuery = new URLSearchParams(req.query);
-                                    const configuredUrl = new URL(url.href);
-                                    const mergedQuery = new URLSearchParams(configuredUrl.search);
-                                    requestQuery.forEach((value, key) => {
-                                        if (!mergedQuery.has(key)) {
-                                            mergedQuery.set(key, value);
-                                        }
-                                    });
-                                    const pathWithoutPrefix = req.url?.replace(new RegExp(`^${path}`, "i"), "") ?? "";
-                                    const finalQuery = mergedQuery.toString();
-                                    const resolvedPath = configuredUrl.pathname + pathWithoutPrefix + (finalQuery ? `?${finalQuery}` : "");
-                                    return resolvedPath;
-                                }
-                                catch (error) {
-                                    this.logger.error(`Error in proxyReqPathResolver for ${url.toString()}:`, error);
-                                    throw error;
-                                }
-                            },
-                        }),
                     });
                     this.logger.log(`Successfully configured proxy for external service: ${url.toString()}`);
                 }
@@ -118,39 +111,63 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
     }
     async use(req, res, next) {
         try {
-            this.logger.log("Proxies: ", (0, node_util_1.inspect)(this.proxies, { depth: null, colors: true }));
-            this.logger.log(`Incoming request URL: ${req.url}`);
-            const option = this.proxies.find((v) => req.url?.startsWith(v.path ?? ""));
-            if (!option) {
+            const config = this.configs.find((v) => req.url?.startsWith(v.path) || req.url?.startsWith(v.url.pathname));
+            if (!config) {
                 return next();
             }
-            this.logger.log(`Matched proxy option: ${(0, node_util_1.inspect)(option, { depth: null, colors: true })}`);
             const userRoles = req.user?.roles ?? [];
             if (!common_1.Role.User.granted(...userRoles)) {
                 return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
             }
-            if (common_1.Role.Admin.granted(...userRoles)) {
-                await option.proxy(req, res, next);
-                return;
+            if (config.unit !== SitePublicKey && !common_1.Role.Admin.granted(...userRoles)) {
+                if (config.unit === SiteOverviewKey) {
+                    return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
+                }
+                const units = await this.prismaService.prisma.unit.findMany({
+                    where: {
+                        campus: { equals: config.campus, mode: client_1.Prisma.QueryMode.insensitive },
+                        building: { equals: config.building, mode: client_1.Prisma.QueryMode.insensitive },
+                        name: { equals: config.unit, mode: client_1.Prisma.QueryMode.insensitive },
+                        users: { some: { id: req.user?.id } },
+                    },
+                });
+                if (units.length === 0) {
+                    return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
+                }
             }
-            if (option.unit === SiteOverviewKey) {
-                return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
+            if (req.path === config.path) {
+                const redirectUrl = new URL(`${config.url.pathname}${config.url.search}`, `${req.protocol}://${req.host}`);
+                this.logger.log(`Redirecting request: ${req.url.toString()} -> ${redirectUrl.toString()}`);
+                return res.redirect(301, redirectUrl.toString());
             }
-            const units = await this.prismaService.prisma.unit.findMany({
-                where: {
-                    campus: { equals: option.campus, mode: client_1.Prisma.QueryMode.insensitive },
-                    building: { equals: option.building, mode: client_1.Prisma.QueryMode.insensitive },
-                    name: { equals: option.unit, mode: client_1.Prisma.QueryMode.insensitive },
-                    users: { some: { id: req.user?.id } },
-                },
+            const targetUrl = new URL(req.originalUrl.replace(new RegExp(`^${config.path}`, "i"), config.url.pathname), config.url.origin);
+            config.url.searchParams.forEach((value, key) => {
+                if (!targetUrl.searchParams.has(key)) {
+                    targetUrl.searchParams.append(key, value);
+                }
             });
-            if (units.length === 0) {
-                return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
-            }
-            await option.proxy(req, res, next);
+            this.logger.log(`Proxying request: ${req.url.toString()} -> ${targetUrl.toString()}`);
+            const client = targetUrl.protocol === "https:" ? https : http;
+            const options = {
+                method: req.method,
+                headers: {
+                    ...req.headers,
+                    host: targetUrl.host,
+                },
+                auth: `${this.configService.grafana.username}:${this.configService.grafana.password}`,
+            };
+            const proxyReq = client.request(targetUrl, options, (proxyRes) => {
+                res.writeHead(proxyRes.statusCode ?? 500, proxyRes.headers);
+                proxyRes.pipe(res);
+            });
+            proxyReq.on("error", (err) => {
+                this.logger.warn("Proxy request error:", err.message);
+                res.status(502).send("Bad Gateway");
+            });
+            return req.pipe(proxyReq);
         }
         catch (error) {
-            this.logger.error(`Error in ExtRewriteMiddleware:`, error);
+            this.logger.error(`Error in GrafanaRewriteMiddleware:`, error);
             next(error);
         }
     }

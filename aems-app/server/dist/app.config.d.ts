@@ -134,6 +134,8 @@ export declare class AppConfigService {
         path: string;
         url: string;
         configPath: string;
+        username: string;
+        password: string;
     };
     cors: {
         origin?: string;

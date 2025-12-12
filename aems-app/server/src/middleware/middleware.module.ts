@@ -26,6 +26,6 @@ export class MiddlewareModule {
     consumer.apply(ExtRewriteMiddleware).forRoutes({ path: "ext/*path", method: RequestMethod.ALL });
 
     // 4. Grafana middleware runs last, can access req.user for role checking
-    consumer.apply(GrafanaRewriteMiddleware).forRoutes({ path: "gdb/*path", method: RequestMethod.ALL });
+    consumer.apply(GrafanaRewriteMiddleware).forRoutes({ path: "grafana/*path", method: RequestMethod.ALL });
   }
 }

@@ -195,6 +195,8 @@ export class AppConfigService {
     path: string;
     url: string;
     configPath: string;
+    username: string;
+    password: string;
   };
   cors: {
     origin?: string;
@@ -388,6 +390,8 @@ export class AppConfigService {
       path: process.env.GRAFANA_PATH ?? "/gdb",
       url: process.env.GRAFANA_URL ?? "",
       configPath: process.env.GRAFANA_CONFIG_PATH ?? "",
+      username: process.env.GRAFANA_USERNAME ?? "",
+      password: process.env.GRAFANA_PASSWORD ?? "",
     };
     this.cors = {
       origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,
