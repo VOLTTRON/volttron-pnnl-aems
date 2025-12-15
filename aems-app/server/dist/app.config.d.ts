@@ -130,6 +130,13 @@ export declare class AppConfigService {
         ca: string;
         mocked: boolean;
     };
+    grafana: {
+        path: string;
+        url: string;
+        configPath: string;
+        username: string;
+        password: string;
+    };
     cors: {
         origin?: string;
     };

@@ -5,6 +5,7 @@ import { Alignment, Button, ButtonGroup, HTMLTable, HTMLTableProps, Intent } fro
 import { IconName, IconNames } from "@blueprintjs/icons";
 import { xor } from "lodash";
 import { MouseEvent } from "react";
+import styles from "./page.module.scss";
 
 export type ColumnType = "string" | "date" | "term" | "element";
 
@@ -48,7 +49,7 @@ export function Table<T extends {}>({
       id: string,
       row: T,
       event: MouseEvent<HTMLButtonElement, globalThis.MouseEvent> | MouseEvent<HTMLElement, globalThis.MouseEvent>,
-      index: number
+      index: number,
     ) => void;
     isDisabled?: (id: string, row: T) => boolean;
   };
@@ -133,7 +134,7 @@ export function Table<T extends {}>({
   }
 
   return (
-    <HTMLTable interactive striped {...tableProps}>
+    <HTMLTable className={styles.table} interactive striped {...tableProps}>
       <thead>
         <tr>
           {columns.map(({ field, label }, c) => (

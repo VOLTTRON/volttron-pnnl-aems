@@ -22,3 +22,14 @@ code {
   white-space: pre-wrap;
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
+
+.bp5-dark {
+  scrollbar-color: #8f99a8 #2f343c;
+
+  .maplibregl-ctrl,
+  .maplibregl-ctrl-attrib.maplibregl-compact-show,
+  .maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-button,
+  .maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-inner {
+    background-color: #c5cbd3;
+  }
+}
