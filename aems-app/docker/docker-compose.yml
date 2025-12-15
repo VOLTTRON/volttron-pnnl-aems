@@ -432,6 +432,7 @@ services:
     restart: no
     volumes:
       - ./volttron/:/home/user/configs/
+      - ./.env.volttron:/home/aems-app/docker/.env.volttron:ro
 
   # Creates Grafana dashboard configurations
   grafana-setup:
@@ -450,6 +451,7 @@ services:
     restart: no
     volumes:
       - ./grafana/:/home/user/configs/
+      - ./.env.grafana:/home/aems-app/docker/.env.grafana:ro
 
   # Grafana
   grafana:
@@ -460,6 +462,28 @@ services:
       - .env.grafana
     hostname: grafana
     image: grafana/grafana-oss:10.2.2
+    # Traefik labels for Grafana reverse proxying that can be uncommented for testing
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.services.grafana.loadbalancer.server.port=3000
+    #   - traefik.http.middlewares.grafana-security.headers.browserXssFilter=true
+    #   - traefik.http.middlewares.grafana-security.headers.contentTypeNosniff=true
+    #   - traefik.http.middlewares.grafana-security.headers.forceSTSHeader=true
+    #   - traefik.http.middlewares.grafana-security.headers.frameDeny=true
+    #   - traefik.http.middlewares.grafana-security.headers.referrerPolicy=same-origin
+    #   - traefik.http.middlewares.grafana-security.headers.sslRedirect=true
+    #   - traefik.http.middlewares.grafana-security.headers.stsSeconds=31536000
+    #   - traefik.http.middlewares.grafana-stripprefix.stripprefix.prefixes=/grafana
+    #   - traefik.http.routers.grafana-http.entrypoints=web
+    #   - traefik.http.routers.grafana-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/grafana`)
+    #   - traefik.http.routers.grafana-http.middlewares=grafana-https
+    #   - traefik.http.middlewares.grafana-https.redirectscheme.scheme=https
+    #   - traefik.http.routers.grafana.entrypoints=websecure
+    #   - traefik.http.routers.grafana.rule=Host(`${HOSTNAME}`) && PathPrefix(`/grafana`)
+    #   - traefik.http.routers.grafana.middlewares=grafana-security
+    #   - traefik.http.routers.grafana.priority=100
+    #   - traefik.http.routers.grafana.tls=true
+    #   - traefik.http.routers.grafana.tls.certresolver=${CERT_RESOLVER}
     ports:
       - ${GRAFANA_TEST_PORT}:3000
     profiles:

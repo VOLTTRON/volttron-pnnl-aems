@@ -137,7 +137,7 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
             }
             if (req.path === config.path) {
                 const redirectUrl = new URL(`${config.url.pathname}${config.url.search}`, `${req.protocol}://${req.host}`);
-                this.logger.log(`Redirecting request: ${req.url.toString()} -> ${redirectUrl.toString()}`);
+                this.logger.debug(`Redirecting request: ${req.url.toString()} -> ${redirectUrl.toString()}`);
                 return res.redirect(301, redirectUrl.toString());
             }
             const targetUrl = new URL(req.originalUrl.replace(new RegExp(`^${config.path}`, "i"), config.url.pathname), config.url.origin);
@@ -146,15 +146,47 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
                     targetUrl.searchParams.append(key, value);
                 }
             });
-            this.logger.log(`Proxying request: ${req.url.toString()} -> ${targetUrl.toString()}`);
+            this.logger.debug(`Proxying request: ${req.url.toString()} -> ${targetUrl.toString()}`);
             const client = targetUrl.protocol === "https:" ? https : http;
+            let requestBody;
+            if (req.method && ["POST", "PUT", "PATCH"].includes(req.method.toUpperCase())) {
+                if (req.body) {
+                    const contentType = req.get("content-type") || "";
+                    if (contentType.includes("application/json")) {
+                        requestBody = Buffer.from(JSON.stringify(req.body), "utf8");
+                    }
+                    else if (contentType.includes("application/x-www-form-urlencoded")) {
+                        requestBody = Buffer.from(new URLSearchParams(req.body).toString(), "utf8");
+                    }
+                    else {
+                        requestBody = Buffer.from(String(req.body), "utf8");
+                    }
+                }
+            }
+            const headers = {
+                ...req.headers,
+                host: targetUrl.host,
+            };
+            delete headers.origin;
+            delete headers.referer;
+            delete headers['x-forwarded-host'];
+            delete headers['x-forwarded-proto'];
+            delete headers['x-forwarded-for'];
+            if (requestBody) {
+                headers["content-length"] = requestBody.length.toString();
+            }
+            else if (req.get("content-length")) {
+                headers["content-length"] = req.get("content-length");
+            }
+            else {
+                delete headers["content-length"];
+            }
             const options = {
                 method: req.method,
-                headers: {
-                    ...req.headers,
-                    host: targetUrl.host,
-                },
-                auth: `${this.configService.grafana.username}:${this.configService.grafana.password}`,
+                headers,
+                ...(this.configService.grafana.username && this.configService.grafana.password
+                    ? { auth: `${this.configService.grafana.username}:${this.configService.grafana.password}` }
+                    : {}),
             };
             const proxyReq = client.request(targetUrl, options, (proxyRes) => {
                 res.writeHead(proxyRes.statusCode ?? 500, proxyRes.headers);
@@ -162,9 +194,14 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
             });
             proxyReq.on("error", (err) => {
                 this.logger.warn("Proxy request error:", err.message);
-                res.status(502).send("Bad Gateway");
+                if (!res.headersSent) {
+                    res.status(502).send("Bad Gateway");
+                }
             });
-            return req.pipe(proxyReq);
+            if (requestBody) {
+                proxyReq.write(requestBody);
+            }
+            proxyReq.end();
         }
         catch (error) {
             this.logger.error(`Error in GrafanaRewriteMiddleware:`, error);

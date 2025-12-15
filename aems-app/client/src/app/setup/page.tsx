@@ -13,6 +13,8 @@ import {
   Alert,
   Position,
   Tooltip,
+  ButtonVariant,
+  AnchorButton,
 } from "@blueprintjs/core";
 import { useContext, useMemo, useState, useCallback } from "react";
 import { useSubscription, useQuery } from "@apollo/client";
@@ -724,7 +726,7 @@ export default function Page() {
                         <Button
                           icon={hasAnyOperations() ? IconNames.REFRESH : IconNames.FLOPPY_DISK}
                           intent={Intent.PRIMARY}
-                          minimal
+                          variant={ButtonVariant.MINIMAL}
                           onClick={handleSave}
                           disabled={!editing || hasAnyOperations()}
                           loading={hasAnyOperations()}
@@ -752,6 +754,15 @@ export default function Page() {
                       </Tooltip>
                     </>
                   )}
+                  <Tooltip content="View in Grafana" position={Position.TOP}>
+                    <AnchorButton
+                      icon={IconNames.DASHBOARD}
+                      intent={Intent.PRIMARY}
+                      variant={ButtonVariant.MINIMAL}
+                      target="_blank"
+                      href={`/grafana/${campus?.toLocaleLowerCase()}/${building?.toLocaleLowerCase()}/${system?.toLocaleLowerCase()}`}
+                    />
+                  </Tooltip>
                 </div>
               </div>
 
