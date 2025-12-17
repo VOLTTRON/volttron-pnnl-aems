@@ -34,6 +34,7 @@ const buildConfig = (configService, prismaService, authService, subscriptionServ
                             .map((v) => common_1.RoleType.parse(v)?.enum)
                             .filter((0, common_1.typeofEnum)(constants_1.RoleEnum));
                         token.keycloakRoles = roles;
+                        token.refreshToken = account.refresh_token;
                         logger.debug(`Extracted roles from Keycloak token: ${roles.join(", ")}`);
                     }
                     catch (error) {
@@ -121,7 +122,7 @@ const buildConfig = (configService, prismaService, authService, subscriptionServ
                                 name: user.name,
                                 email: user.email,
                                 emailVerified: user.emailVerified,
-                                ...(user.role && { role: user.role }),
+                                ...({ role: user.role ?? "" }),
                             };
                         }
                     }
@@ -132,7 +133,97 @@ const buildConfig = (configService, prismaService, authService, subscriptionServ
                 return session;
             },
         },
+        cookies: {
+            sessionToken: {
+                name: `${configService.nodeEnv === "production" ? "__Secure-" : ""}next-auth.session-token`,
+                options: {
+                    httpOnly: true,
+                    sameSite: "lax",
+                    path: "/",
+                    secure: true,
+                },
+            },
+            callbackUrl: {
+                name: `${configService.nodeEnv === "production" ? "__Secure-" : ""}next-auth.callback-url`,
+                options: {
+                    httpOnly: true,
+                    sameSite: "lax",
+                    path: "/",
+                    secure: true,
+                },
+            },
+            csrfToken: {
+                name: `${configService.nodeEnv === "production" ? "__Host-" : ""}next-auth.csrf-token`,
+                options: {
+                    httpOnly: true,
+                    sameSite: "lax",
+                    path: "/",
+                    secure: true,
+                },
+            },
+            pkceCodeVerifier: {
+                name: `${configService.nodeEnv === "production" ? "__Secure-" : ""}next-auth.pkce.code_verifier`,
+                options: {
+                    httpOnly: true,
+                    sameSite: "lax",
+                    path: "/",
+                    secure: true,
+                    maxAge: 60 * 15,
+                },
+            },
+            state: {
+                name: `${configService.nodeEnv === "production" ? "__Secure-" : ""}next-auth.state`,
+                options: {
+                    httpOnly: true,
+                    sameSite: "lax",
+                    path: "/",
+                    secure: true,
+                    maxAge: 60 * 15,
+                },
+            },
+            nonce: {
+                name: `${configService.nodeEnv === "production" ? "__Secure-" : ""}next-auth.nonce`,
+                options: {
+                    httpOnly: true,
+                    sameSite: "lax",
+                    path: "/",
+                    secure: true,
+                },
+            },
+        },
         debug: configService.auth.debug || configService.nodeEnv !== "production",
+        events: {
+            async signOut(message) {
+                const token = "token" in message ? message.token : null;
+                const refreshToken = token ? token.refreshToken : undefined;
+                if (refreshToken) {
+                    try {
+                        const endSessionURL = `${configService.keycloak.issuerUrl}/protocol/openid-connect/logout`;
+                        const body = new URLSearchParams({
+                            client_id: configService.keycloak.clientId,
+                            client_secret: configService.keycloak.clientSecret,
+                            refresh_token: refreshToken,
+                        });
+                        const response = await fetch(endSessionURL, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/x-www-form-urlencoded",
+                            },
+                            body: body.toString(),
+                        });
+                        if (!response.ok) {
+                            logger.warn(`Keycloak logout failed with status: ${response.status}`);
+                        }
+                        else {
+                            logger.debug("Successfully logged out from Keycloak");
+                        }
+                    }
+                    catch (error) {
+                        logger.error("Error during Keycloak federated logout", error);
+                    }
+                }
+            },
+        },
         providers: authService
             .getProviderNames()
             .map((name) => authService.getProvider(name))
