@@ -87,7 +87,7 @@ let PothosGraphQLModule = PothosGraphQLModule_1 = class PothosGraphQLModule {
                     driver: PothosApolloDriverWrapper,
                     imports: [auth_module_1.AuthModule, framework_module_1.FrameworkModule.register()],
                     inject: [websocket_service_1.WebSocketAuthService, app_config_1.AppConfigService.Key],
-                    useFactory: (_wsAuthService, configService) => ({
+                    useFactory: (wsAuthService, configService) => ({
                         context: ({ req, extra, }) => {
                             let user;
                             if (req?.user) {
@@ -103,7 +103,52 @@ let PothosGraphQLModule = PothosGraphQLModule_1 = class PothosGraphQLModule {
                                 user,
                             };
                         },
-                        ...(0, lodash_1.omit)(moduleOptionsFactory(configService), ["sortSchema", "autoSchemaFile"]),
+                        subscriptions: {
+                            "graphql-ws": {
+                                path: "/graphql",
+                                onConnect: async (context) => {
+                                    const { extra } = context;
+                                    const request = extra?.request;
+                                    if (request) {
+                                        try {
+                                            const user = await wsAuthService.authenticateWebSocket(request);
+                                            if (extra?.socket) {
+                                                extra.socket.user = user;
+                                            }
+                                            request.user = user;
+                                            return true;
+                                        }
+                                        catch (error) {
+                                            console.error("WebSocket authentication error in onConnect:", error);
+                                            return true;
+                                        }
+                                    }
+                                    return true;
+                                },
+                            },
+                            "subscriptions-transport-ws": {
+                                path: "/graphql",
+                                onConnect: async (_connectionParams, _websocket, context) => {
+                                    const request = context?.request;
+                                    if (request) {
+                                        try {
+                                            const user = await wsAuthService.authenticateWebSocket(request);
+                                            request.user = user;
+                                            if (context?.socket) {
+                                                context.socket.user = user;
+                                            }
+                                            return { user };
+                                        }
+                                        catch (error) {
+                                            console.error("WebSocket authentication error in onConnect (legacy):", error);
+                                            return {};
+                                        }
+                                    }
+                                    return {};
+                                },
+                            },
+                        },
+                        ...(0, lodash_1.omit)(moduleOptionsFactory(configService), ["sortSchema", "autoSchemaFile", "subscriptions"]),
                     }),
                 }),
             ],
