@@ -11,8 +11,6 @@ const express_1 = require("express");
 const util_1 = require("util");
 const logging_service_1 = require("./logging/logging.service");
 const platform_ws_1 = require("@nestjs/platform-ws");
-const websocket_service_1 = require("./auth/websocket.service");
-const lodash_1 = require("lodash");
 async function MainBootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule, {
         bufferLogs: true,
@@ -44,7 +42,6 @@ async function MainBootstrap() {
     }
     const wsAdapter = new platform_ws_1.WsAdapter(app);
     app.useWebSocketAdapter(wsAdapter);
-    const websocketAuthService = app.get(websocket_service_1.WebSocketAuthService);
     const documentBuilder = new swagger_1.DocumentBuilder().setTitle("API").setVersion("1.0").build();
     const documentFactory = () => swagger_1.SwaggerModule.createDocument(app, documentBuilder);
     swagger_1.SwaggerModule.setup("swagger", app, documentFactory);
@@ -54,22 +51,7 @@ async function MainBootstrap() {
             stringify: (v) => (0, util_1.inspect)(v, undefined, 2, true),
         });
     }
-    await app.listen(configService.port).then((server) => {
-        server.on("upgrade", (request, socket, _head) => {
-            const protocol = request.headers["x-forwarded-proto"]?.toString();
-            const copy = (0, lodash_1.merge)((0, lodash_1.cloneDeep)(request), {
-                protocol: protocol === "wss" ? "https" : "http",
-                headers: { "x-forwarded-proto": protocol === "wss" ? "https" : "http" },
-            });
-            void websocketAuthService
-                .authenticateWebSocket(copy)
-                .then((user) => {
-                request.user = user;
-                socket.user = user;
-            })
-                .catch((error) => mainLogger.error("WebSocket authentication error:", error));
-        });
-    });
+    await app.listen(configService.port);
     process.on("SIGTERM", () => {
         gracefulShutdown(app);
     });
