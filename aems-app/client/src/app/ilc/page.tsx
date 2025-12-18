@@ -13,8 +13,6 @@ import {
   Tree,
   HTMLSelect,
   Tooltip,
-  AnchorButton,
-  ButtonVariant,
 } from "@blueprintjs/core";
 import { IconName, IconNames } from "@blueprintjs/icons";
 import { useContext, useMemo, useState, useCallback } from "react";
@@ -433,15 +431,6 @@ export default function ILCPage() {
                       disabled={hasAnyOperations()}
                     />
                   </Tooltip>
-                  <Tooltip content="View in Grafana" position={Position.TOP}>
-                    <AnchorButton
-                      icon={IconNames.DASHBOARD}
-                      intent={Intent.PRIMARY}
-                      variant={ButtonVariant.MINIMAL}
-                      target="_blank"
-                      href={`/grafana/${campus?.toLocaleLowerCase()}/${building?.toLocaleLowerCase()}/site`}
-                    />
-                  </Tooltip>
                 </div>
               </div>
 
@@ -608,15 +597,6 @@ export default function ILCPage() {
                   {renderStatus(control)}
                   <Tooltip content="Edit" position={Position.TOP}>
                     <Button icon={IconNames.EDIT} intent={Intent.PRIMARY} minimal onClick={() => handleEdit(control)} />
-                  </Tooltip>
-                  <Tooltip content="View in Grafana" position={Position.TOP}>
-                    <AnchorButton
-                      icon={IconNames.DASHBOARD}
-                      intent={Intent.PRIMARY}
-                      variant={ButtonVariant.MINIMAL}
-                      target="_blank"
-                      href={`/grafana/${campus?.toLocaleLowerCase()}/${building?.toLocaleLowerCase()}/site`}
-                    />
                   </Tooltip>
                 </div>
               </div>

@@ -43,7 +43,7 @@ import { CurrentContext, NotificationContext, NotificationType, RouteContext } f
 import { filter } from "@/utils/client";
 import { Search } from "../components/common";
 import { IconNames } from "@blueprintjs/icons";
-import { cloneDeep, isEqual, merge, omit, pick } from "lodash";
+import { cloneDeep, isEqual, merge, omit, pick, uniqWith } from "lodash";
 import { Setpoint } from "./components/Setpoint";
 import { Schedules } from "./components/Schedules";
 import { Holidays } from "./components/Holidays";
@@ -207,10 +207,19 @@ export default function Page() {
     onError: (error) => createNotification?.(error.message, NotificationType.Error),
   });
 
-  const units = useMemo(
-    () => filter(data?.readUnits ?? [], search, ["label", "name", "campus", "building", "system"]),
-    [data?.readUnits, search],
-  );
+  const { units, groups } = useMemo(() => {
+    const units = filter(data?.readUnits ?? [], search, ["label", "name", "campus", "building", "system"]).sort(
+      (a, b) =>
+        (a.campus || "").localeCompare(b.campus || "") ||
+        (a.building || "").localeCompare(b.building || "") ||
+        (a.system || "").localeCompare(b.system || ""),
+    );
+    const groups = uniqWith(
+      units.map((v) => ({ campus: v.campus ?? "", building: v.building ?? "" })),
+      isEqual,
+    );
+    return { units, groups };
+  }, [data?.readUnits, search]);
 
   const all = useMemo(() => {
     const values = data?.readUnits ?? [];
@@ -697,278 +706,303 @@ export default function Page() {
       <h1>Units</h1>
 
       <div className={styles.list}>
-        {units?.map((unit, i) => {
-          const isEditing = unit.id === editing?.id;
-          const { campus, building, system, timezone } = merge(
-            {},
-            pick(unit, ["campus", "building", "system", "timezone"]),
-            pick(editing, ["campus", "building", "system", "timezone"]),
-          );
-          const label = editing?.configuration?.label ?? unit.configuration?.label ?? "";
-
-          return (
-            <Card key={unit.id ?? i} className={styles.unitCard}>
+        {groups.map((group, g) => (
+          <>
+            <Card key={`group-${group.campus || g}-${group.building || ""}`} interactive className={styles.unitCard}>
               <div className={styles.row}>
                 <div>
                   <Label>
-                    <h3>{unit.label || unit.name}</h3>
+                    <h3>Site {`${group.campus || "N/A"} ${group.building || "N/A"}`}</h3>
                   </Label>
                 </div>
                 <div className={styles.actions}>
-                  {renderStatus(unit)}
-                  {isEditing ? (
-                    <>
-                      <Tooltip
-                        content={hasAnyOperations() ? "Saving..." : "Save"}
-                        position={Position.TOP}
-                        disabled={!editing || hasAnyOperations()}
-                      >
-                        <Button
-                          icon={hasAnyOperations() ? IconNames.REFRESH : IconNames.FLOPPY_DISK}
-                          intent={Intent.PRIMARY}
-                          variant={ButtonVariant.MINIMAL}
-                          onClick={handleSave}
-                          disabled={!editing || hasAnyOperations()}
-                          loading={hasAnyOperations()}
-                        />
-                      </Tooltip>
-                      <Tooltip content="Cancel" position={Position.TOP}>
-                        <Button
-                          icon={IconNames.CROSS}
-                          intent={Intent.PRIMARY}
-                          minimal
-                          onClick={() => setEditing(null)}
-                          disabled={hasAnyOperations()}
-                        />
-                      </Tooltip>
-                    </>
-                  ) : (
-                    <>
-                      <Tooltip content="Edit" position={Position.TOP}>
-                        <Button
-                          icon={IconNames.EDIT}
-                          intent={Intent.PRIMARY}
-                          minimal
-                          onClick={() => setEditing({ id: unit.id })}
-                        />
-                      </Tooltip>
-                    </>
-                  )}
                   <Tooltip content="View in Grafana" position={Position.TOP}>
                     <AnchorButton
                       icon={IconNames.DASHBOARD}
                       intent={Intent.PRIMARY}
                       variant={ButtonVariant.MINIMAL}
                       target="_blank"
-                      href={`/grafana/${campus?.toLocaleLowerCase()}/${building?.toLocaleLowerCase()}/${system?.toLocaleLowerCase()}`}
+                      href={`/grafana/${group.campus?.toLocaleLowerCase()}/${group.building?.toLocaleLowerCase()}/site`}
                     />
                   </Tooltip>
                 </div>
               </div>
+            </Card>
+            {units
+              .filter((unit) => (unit.campus || "N/A") === group.campus && (unit.building || "N/A") === group.building)
+              .map((unit, i) => {
+                const isEditing = unit.id === editing?.id;
+                const { campus, building, system, timezone } = merge(
+                  {},
+                  pick(unit, ["campus", "building", "system", "timezone"]),
+                  pick(editing, ["campus", "building", "system", "timezone"]),
+                );
+                const label = editing?.configuration?.label ?? unit.configuration?.label ?? "";
 
-              {isEditing && (
-                <>
-                  <div className={styles.row}>
-                    <div>
-                      <Label>
-                        <b>Campus</b>
-                        <InputGroup
-                          type="text"
-                          value={campus ?? ""}
-                          onChange={(e) => {
-                            const clone = cloneDeep(editing ?? {});
-                            clone.campus = e.target.value;
-                            setEditing(clone);
-                          }}
-                          readOnly
-                        />
-                      </Label>
-                    </div>
-                    <div>
-                      <Label>
-                        <b>Building</b>
-                        <InputGroup
-                          type="text"
-                          value={building ?? ""}
-                          onChange={(e) => {
-                            const clone = cloneDeep(editing ?? {});
-                            clone.building = e.target.value;
-                            setEditing(clone);
-                          }}
-                          readOnly
-                        />
-                      </Label>
-                    </div>
-                    <div>
-                      <Label>
-                        <b>System</b>
-                        <InputGroup
-                          type="text"
-                          value={system ?? ""}
-                          onChange={(e) => {
-                            const clone = cloneDeep(editing ?? {});
-                            clone.system = e.target.value;
-                            setEditing(clone);
-                          }}
-                          readOnly
-                        />
-                      </Label>
-                    </div>
-                    <div>
-                      <Label>
-                        <b>Timezone</b>
-                        <InputGroup
-                          type="text"
-                          value={timezone ?? ""}
-                          onChange={(e) => {
-                            const clone = cloneDeep(editing ?? {});
-                            clone.timezone = e.target.value;
-                            setEditing(clone);
-                          }}
-                          readOnly
-                        />
-                      </Label>
-                    </div>
-                  </div>
-
-                  <Collapse isOpen={true}>
-                    <Tree
-                      contents={[
-                        {
-                          id: "configuration",
-                          label: "Configuration",
-                          icon: IconNames.SERIES_CONFIGURATION,
-                          hasCaret: true,
-                          isExpanded: expanded === "configuration",
-                        },
-                      ]}
-                      onNodeExpand={(e) => setExpanded(e.id as string)}
-                      onNodeCollapse={() => setExpanded(null)}
-                      onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
-                    />
-                    <Collapse isOpen={expanded === "configuration"}>
-                      <div className={styles.configSection}>
+                return (
+                  <Card key={`unit-${unit.id ?? i}`} interactive className={styles.unitCard}>
+                    <div className={styles.row}>
+                      <div>
                         <Label>
-                          <b>Configuration Label</b>
-                          <InputGroup
-                            type="text"
-                            value={label ?? ""}
-                            onChange={(e) => {
-                              const clone = cloneDeep(editing ?? {});
-                              clone.configuration = clone.configuration ?? {};
-                              clone.configuration.label = e.target.value;
-                              setEditing(clone);
-                            }}
-                          />
+                          <h3>{unit.label || unit.name}</h3>
                         </Label>
                       </div>
-                    </Collapse>
-
-                    <Tree
-                      contents={[
-                        {
-                          id: "setpoints",
-                          label: "Setpoints",
-                          icon: IconNames.TEMPERATURE,
-                          hasCaret: true,
-                          isExpanded: expanded === "setpoints",
-                        },
-                      ]}
-                      onNodeExpand={(e) => setExpanded(e.id as string)}
-                      onNodeCollapse={() => setExpanded(null)}
-                      onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
-                    />
-                    <Collapse isOpen={expanded === "setpoints"}>
-                      <div className={styles.configSection}>
-                        <Setpoint unit={unit} editing={editing} setEditing={setEditing} />
+                      <div className={styles.actions}>
+                        {renderStatus(unit)}
+                        {isEditing ? (
+                          <>
+                            <Tooltip
+                              content={hasAnyOperations() ? "Saving..." : "Save"}
+                              position={Position.TOP}
+                              disabled={!editing || hasAnyOperations()}
+                            >
+                              <Button
+                                icon={hasAnyOperations() ? IconNames.REFRESH : IconNames.FLOPPY_DISK}
+                                intent={Intent.PRIMARY}
+                                variant={ButtonVariant.MINIMAL}
+                                onClick={handleSave}
+                                disabled={!editing || hasAnyOperations()}
+                                loading={hasAnyOperations()}
+                              />
+                            </Tooltip>
+                            <Tooltip content="Cancel" position={Position.TOP}>
+                              <Button
+                                icon={IconNames.CROSS}
+                                intent={Intent.PRIMARY}
+                                minimal
+                                onClick={() => setEditing(null)}
+                                disabled={hasAnyOperations()}
+                              />
+                            </Tooltip>
+                          </>
+                        ) : (
+                          <>
+                            <Tooltip content="Edit" position={Position.TOP}>
+                              <Button
+                                icon={IconNames.EDIT}
+                                intent={Intent.PRIMARY}
+                                minimal
+                                onClick={() => setEditing({ id: unit.id })}
+                              />
+                            </Tooltip>
+                          </>
+                        )}
+                        <Tooltip content="View in Grafana" position={Position.TOP}>
+                          <AnchorButton
+                            icon={IconNames.DASHBOARD}
+                            intent={Intent.PRIMARY}
+                            variant={ButtonVariant.MINIMAL}
+                            target="_blank"
+                            href={`/grafana/${campus?.toLocaleLowerCase()}/${building?.toLocaleLowerCase()}/${system?.toLocaleLowerCase()}`}
+                          />
+                        </Tooltip>
                       </div>
-                    </Collapse>
+                    </div>
+                    {isEditing && (
+                      <>
+                        <div className={styles.row}>
+                          <div>
+                            <Label>
+                              <b>Campus</b>
+                              <InputGroup
+                                type="text"
+                                value={campus ?? ""}
+                                onChange={(e) => {
+                                  const clone = cloneDeep(editing ?? {});
+                                  clone.campus = e.target.value;
+                                  setEditing(clone);
+                                }}
+                                readOnly
+                              />
+                            </Label>
+                          </div>
+                          <div>
+                            <Label>
+                              <b>Building</b>
+                              <InputGroup
+                                type="text"
+                                value={building ?? ""}
+                                onChange={(e) => {
+                                  const clone = cloneDeep(editing ?? {});
+                                  clone.building = e.target.value;
+                                  setEditing(clone);
+                                }}
+                                readOnly
+                              />
+                            </Label>
+                          </div>
+                          <div>
+                            <Label>
+                              <b>System</b>
+                              <InputGroup
+                                type="text"
+                                value={system ?? ""}
+                                onChange={(e) => {
+                                  const clone = cloneDeep(editing ?? {});
+                                  clone.system = e.target.value;
+                                  setEditing(clone);
+                                }}
+                                readOnly
+                              />
+                            </Label>
+                          </div>
+                          <div>
+                            <Label>
+                              <b>Timezone</b>
+                              <InputGroup
+                                type="text"
+                                value={timezone ?? ""}
+                                onChange={(e) => {
+                                  const clone = cloneDeep(editing ?? {});
+                                  clone.timezone = e.target.value;
+                                  setEditing(clone);
+                                }}
+                                readOnly
+                              />
+                            </Label>
+                          </div>
+                        </div>
 
-                    <Tree
-                      contents={[
-                        {
-                          id: "schedules",
-                          label: "Occupancy Schedules",
-                          icon: IconNames.TIME,
-                          hasCaret: true,
-                          isExpanded: expanded === "schedules",
-                        },
-                      ]}
-                      onNodeExpand={(e) => setExpanded(e.id as string)}
-                      onNodeCollapse={() => setExpanded(null)}
-                      onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
-                    />
-                    <Collapse isOpen={expanded === "schedules"}>
-                      <div className={styles.configSection}>
-                        <Schedules unit={unit} editing={editing} setEditing={setEditing} />
-                      </div>
-                    </Collapse>
+                        <Collapse isOpen={true}>
+                          <Tree
+                            contents={[
+                              {
+                                id: "configuration",
+                                label: "Configuration",
+                                icon: IconNames.SERIES_CONFIGURATION,
+                                hasCaret: true,
+                                isExpanded: expanded === "configuration",
+                              },
+                            ]}
+                            onNodeExpand={(e) => setExpanded(e.id as string)}
+                            onNodeCollapse={() => setExpanded(null)}
+                            onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
+                          />
+                          <Collapse isOpen={expanded === "configuration"}>
+                            <div className={styles.configSection}>
+                              <Label>
+                                <b>Configuration Label</b>
+                                <InputGroup
+                                  type="text"
+                                  value={label ?? ""}
+                                  onChange={(e) => {
+                                    const clone = cloneDeep(editing ?? {});
+                                    clone.configuration = clone.configuration ?? {};
+                                    clone.configuration.label = e.target.value;
+                                    setEditing(clone);
+                                  }}
+                                />
+                              </Label>
+                            </div>
+                          </Collapse>
 
-                    <Tree
-                      contents={[
-                        {
-                          id: "holidays",
-                          label: "Holidays",
-                          icon: IconNames.TIMELINE_EVENTS,
-                          hasCaret: true,
-                          isExpanded: expanded === "holidays",
-                        },
-                      ]}
-                      onNodeExpand={(e) => setExpanded(e.id as string)}
-                      onNodeCollapse={() => setExpanded(null)}
-                      onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
-                    />
-                    <Collapse isOpen={expanded === "holidays"}>
-                      <div className={styles.configSection}>
-                        <Holidays unit={unit} editing={editing} setEditing={setEditing} />
-                      </div>
-                    </Collapse>
+                          <Tree
+                            contents={[
+                              {
+                                id: "setpoints",
+                                label: "Setpoints",
+                                icon: IconNames.TEMPERATURE,
+                                hasCaret: true,
+                                isExpanded: expanded === "setpoints",
+                              },
+                            ]}
+                            onNodeExpand={(e) => setExpanded(e.id as string)}
+                            onNodeCollapse={() => setExpanded(null)}
+                            onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
+                          />
+                          <Collapse isOpen={expanded === "setpoints"}>
+                            <div className={styles.configSection}>
+                              <Setpoint unit={unit} editing={editing} setEditing={setEditing} />
+                            </div>
+                          </Collapse>
 
-                    <Tree
-                      contents={[
-                        {
-                          id: "occupancies",
-                          label: "Temporary Occupancy",
-                          icon: IconNames.HOME,
-                          hasCaret: true,
-                          isExpanded: expanded === "occupancies",
-                        },
-                      ]}
-                      onNodeExpand={(e) => setExpanded(e.id as string)}
-                      onNodeCollapse={() => setExpanded(null)}
-                      onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
-                    />
-                    <Collapse isOpen={expanded === "occupancies"}>
-                      <div className={styles.configSection}>
-                        <Occupancies unit={unit} editing={editing} setEditing={setEditing} />
-                      </div>
-                    </Collapse>
+                          <Tree
+                            contents={[
+                              {
+                                id: "schedules",
+                                label: "Occupancy Schedules",
+                                icon: IconNames.TIME,
+                                hasCaret: true,
+                                isExpanded: expanded === "schedules",
+                              },
+                            ]}
+                            onNodeExpand={(e) => setExpanded(e.id as string)}
+                            onNodeCollapse={() => setExpanded(null)}
+                            onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
+                          />
+                          <Collapse isOpen={expanded === "schedules"}>
+                            <div className={styles.configSection}>
+                              <Schedules unit={unit} editing={editing} setEditing={setEditing} />
+                            </div>
+                          </Collapse>
 
-                    <Tree
-                      contents={[
-                        {
-                          id: "rtu",
-                          label: "RTU Configuration",
-                          icon: IconNames.COG,
-                          hasCaret: true,
-                          isExpanded: expanded === "rtu",
-                        },
-                      ]}
-                      onNodeExpand={(e) => setExpanded(e.id as string)}
-                      onNodeCollapse={() => setExpanded(null)}
-                      onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
-                    />
-                    <Collapse isOpen={expanded === "rtu"}>
-                      <div className={styles.configSection}>
-                        <Unit unit={unit} editing={editing} setEditing={setEditing} />
-                      </div>
-                    </Collapse>
-                  </Collapse>
-                </>
-              )}
-            </Card>
-          );
-        })}
+                          <Tree
+                            contents={[
+                              {
+                                id: "holidays",
+                                label: "Holidays",
+                                icon: IconNames.TIMELINE_EVENTS,
+                                hasCaret: true,
+                                isExpanded: expanded === "holidays",
+                              },
+                            ]}
+                            onNodeExpand={(e) => setExpanded(e.id as string)}
+                            onNodeCollapse={() => setExpanded(null)}
+                            onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
+                          />
+                          <Collapse isOpen={expanded === "holidays"}>
+                            <div className={styles.configSection}>
+                              <Holidays unit={unit} editing={editing} setEditing={setEditing} />
+                            </div>
+                          </Collapse>
+
+                          <Tree
+                            contents={[
+                              {
+                                id: "occupancies",
+                                label: "Temporary Occupancy",
+                                icon: IconNames.HOME,
+                                hasCaret: true,
+                                isExpanded: expanded === "occupancies",
+                              },
+                            ]}
+                            onNodeExpand={(e) => setExpanded(e.id as string)}
+                            onNodeCollapse={() => setExpanded(null)}
+                            onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
+                          />
+                          <Collapse isOpen={expanded === "occupancies"}>
+                            <div className={styles.configSection}>
+                              <Occupancies unit={unit} editing={editing} setEditing={setEditing} />
+                            </div>
+                          </Collapse>
+
+                          <Tree
+                            contents={[
+                              {
+                                id: "rtu",
+                                label: "RTU Configuration",
+                                icon: IconNames.COG,
+                                hasCaret: true,
+                                isExpanded: expanded === "rtu",
+                              },
+                            ]}
+                            onNodeExpand={(e) => setExpanded(e.id as string)}
+                            onNodeCollapse={() => setExpanded(null)}
+                            onNodeClick={(e) => setExpanded(e.id === expanded ? null : (e.id as string))}
+                          />
+                          <Collapse isOpen={expanded === "rtu"}>
+                            <div className={styles.configSection}>
+                              <Unit unit={unit} editing={editing} setEditing={setEditing} />
+                            </div>
+                          </Collapse>
+                        </Collapse>
+                      </>
+                    )}
+                  </Card>
+                );
+              })}
+          </>
+        ))}
       </div>
 
       {renderConfirm()}

@@ -121,21 +121,28 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
       }
       const userRoles = req.user?.roles ?? [];
       if (!Role.User.granted(...userRoles)) {
+        this.logger.warn(
+          `No user role for attempt to access unauthorized Grafana dashboard: campus=${config.campus}, building=${config.building}, unit=${config.unit}`,
+          req.user ?? "no user info",
+        );
         return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
       }
       if (config.unit !== SitePublicKey && !Role.Admin.granted(...userRoles)) {
-        if (config.unit === SiteOverviewKey) {
-          return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
-        }
         const units = await this.prismaService.prisma.unit.findMany({
           where: {
             campus: { equals: config.campus, mode: Prisma.QueryMode.insensitive },
             building: { equals: config.building, mode: Prisma.QueryMode.insensitive },
-            name: { equals: config.unit, mode: Prisma.QueryMode.insensitive },
+            ...(config.unit !== SiteOverviewKey
+              ? { name: { equals: config.unit, mode: Prisma.QueryMode.insensitive } }
+              : {}),
             users: { some: { id: req.user?.id } },
           },
         });
         if (units.length === 0) {
+          this.logger.warn(
+            `No units assigned for attempt to access unauthorized Grafana dashboard: campus=${config.campus}, building=${config.building}, unit=${config.unit}`,
+            req.user ?? "no user info",
+          );
           return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
         }
       }
@@ -174,17 +181,17 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
         ...req.headers,
         host: targetUrl.host,
       };
-      
+
       // Remove headers that can cause "origin not allowed" errors
       delete headers.origin;
       delete headers.referer;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      delete (headers as any)['x-forwarded-host'];
+      delete (headers as any)["x-forwarded-host"];
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      delete (headers as any)['x-forwarded-proto'];
+      delete (headers as any)["x-forwarded-proto"];
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      delete (headers as any)['x-forwarded-for'];
-      
+      delete (headers as any)["x-forwarded-for"];
+
       if (requestBody) {
         headers["content-length"] = requestBody.length.toString();
       } else if (req.get("content-length")) {
