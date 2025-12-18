@@ -208,7 +208,7 @@ export default function Page() {
   });
 
   const { units, groups } = useMemo(() => {
-    const units = filter(data?.readUnits ?? [], search, ["label", "name", "campus", "building", "system"]).sort(
+    const units = filter([...(data?.readUnits ?? [])], search, ["label", "name", "campus", "building", "system"]).sort(
       (a, b) =>
         (a.campus || "").localeCompare(b.campus || "") ||
         (a.building || "").localeCompare(b.building || "") ||
