@@ -121,21 +121,28 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
       }
       const userRoles = req.user?.roles ?? [];
       if (!Role.User.granted(...userRoles)) {
+        this.logger.warn(
+          `No user role for attempt to access unauthorized Grafana dashboard: campus=${config.campus}, building=${config.building}, unit=${config.unit}`,
+          req.user ?? "no user info",
+        );
         return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
       }
       if (config.unit !== SitePublicKey && !Role.Admin.granted(...userRoles)) {
-        if (config.unit === SiteOverviewKey) {
-          return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
-        }
         const units = await this.prismaService.prisma.unit.findMany({
           where: {
             campus: { equals: config.campus, mode: Prisma.QueryMode.insensitive },
             building: { equals: config.building, mode: Prisma.QueryMode.insensitive },
-            name: { equals: config.unit, mode: Prisma.QueryMode.insensitive },
+            ...(config.unit !== SiteOverviewKey
+              ? { name: { equals: config.unit, mode: Prisma.QueryMode.insensitive } }
+              : {}),
             users: { some: { id: req.user?.id } },
           },
         });
         if (units.length === 0) {
+          this.logger.warn(
+            `No units assigned for attempt to access unauthorized Grafana dashboard: campus=${config.campus}, building=${config.building}, unit=${config.unit}`,
+            req.user ?? "no user info",
+          );
           return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
         }
       }
@@ -169,22 +176,28 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
           }
         }
       }
-      // Prepare headers, removing problematic ones that can cause CORS issues
+      // Prepare headers, removing only CORS-problematic ones
+      // Keep X-Forwarded headers as they're needed for proper proxy chain handling
       const headers = {
         ...req.headers,
         host: targetUrl.host,
       };
-      
-      // Remove headers that can cause "origin not allowed" errors
+
+      // Log headers for diagnostics (useful for troubleshooting VPN vs on-site issues)
+      this.logger.debug(`Request headers before proxying:`, {
+        origin: req.get("origin"),
+        referer: req.get("referer"),
+        host: req.get("host"),
+        xForwardedFor: req.get("x-forwarded-for"),
+        xForwardedHost: req.get("x-forwarded-host"),
+        xForwardedProto: req.get("x-forwarded-proto"),
+      });
+
+      // Remove only headers that can cause CORS "origin not allowed" errors
+      // Preserve X-Forwarded-* headers as they're required by many proxy/load balancer setups
       delete headers.origin;
       delete headers.referer;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      delete (headers as any)['x-forwarded-host'];
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      delete (headers as any)['x-forwarded-proto'];
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      delete (headers as any)['x-forwarded-for'];
-      
+
       if (requestBody) {
         headers["content-length"] = requestBody.length.toString();
       } else if (req.get("content-length")) {

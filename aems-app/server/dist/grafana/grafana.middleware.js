@@ -117,21 +117,22 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
             }
             const userRoles = req.user?.roles ?? [];
             if (!common_1.Role.User.granted(...userRoles)) {
+                this.logger.warn(`No user role for attempt to access unauthorized Grafana dashboard: campus=${config.campus}, building=${config.building}, unit=${config.unit}`, req.user ?? "no user info");
                 return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
             }
             if (config.unit !== SitePublicKey && !common_1.Role.Admin.granted(...userRoles)) {
-                if (config.unit === SiteOverviewKey) {
-                    return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
-                }
                 const units = await this.prismaService.prisma.unit.findMany({
                     where: {
                         campus: { equals: config.campus, mode: client_1.Prisma.QueryMode.insensitive },
                         building: { equals: config.building, mode: client_1.Prisma.QueryMode.insensitive },
-                        name: { equals: config.unit, mode: client_1.Prisma.QueryMode.insensitive },
+                        ...(config.unit !== SiteOverviewKey
+                            ? { name: { equals: config.unit, mode: client_1.Prisma.QueryMode.insensitive } }
+                            : {}),
                         users: { some: { id: req.user?.id } },
                     },
                 });
                 if (units.length === 0) {
+                    this.logger.warn(`No units assigned for attempt to access unauthorized Grafana dashboard: campus=${config.campus}, building=${config.building}, unit=${config.unit}`, req.user ?? "no user info");
                     return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
                 }
             }
@@ -167,11 +168,16 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
                 ...req.headers,
                 host: targetUrl.host,
             };
+            this.logger.debug(`Request headers before proxying:`, {
+                origin: req.get("origin"),
+                referer: req.get("referer"),
+                host: req.get("host"),
+                xForwardedFor: req.get("x-forwarded-for"),
+                xForwardedHost: req.get("x-forwarded-host"),
+                xForwardedProto: req.get("x-forwarded-proto"),
+            });
             delete headers.origin;
             delete headers.referer;
-            delete headers['x-forwarded-host'];
-            delete headers['x-forwarded-proto'];
-            delete headers['x-forwarded-for'];
             if (requestBody) {
                 headers["content-length"] = requestBody.length.toString();
             }
