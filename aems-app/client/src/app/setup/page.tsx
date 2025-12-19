@@ -722,7 +722,7 @@ export default function Page() {
                       intent={Intent.PRIMARY}
                       variant={ButtonVariant.MINIMAL}
                       target="_blank"
-                      href={`/grafana/${group.campus?.toLocaleLowerCase()}/${group.building?.toLocaleLowerCase()}/site`}
+                      href={`/api/grafana/dashboard/${group.campus?.toLocaleLowerCase()}/${group.building?.toLocaleLowerCase()}/site`}
                     />
                   </Tooltip>
                 </div>
@@ -793,7 +793,7 @@ export default function Page() {
                             intent={Intent.PRIMARY}
                             variant={ButtonVariant.MINIMAL}
                             target="_blank"
-                            href={`/grafana/${campus?.toLocaleLowerCase()}/${building?.toLocaleLowerCase()}/${system?.toLocaleLowerCase()}`}
+                            href={`/api/grafana/dashboard/${campus?.toLocaleLowerCase()}/${building?.toLocaleLowerCase()}/${system?.toLocaleLowerCase()}`}
                           />
                         </Tooltip>
                       </div>

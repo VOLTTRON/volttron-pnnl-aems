@@ -140,7 +140,7 @@ services:
       - traefik.http.routers.server-http.middlewares=server-https
       - traefik.http.middlewares.server-https.redirectscheme.scheme=https
       - traefik.http.routers.server.entrypoints=websecure
-      - traefik.http.routers.server.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/authjs`) || PathPrefix(`/graphql`) || PathPrefix(`/api`) || PathPrefix(`/ext`) || PathPrefix(`/grafana`))
+      - traefik.http.routers.server.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/authjs`) || PathPrefix(`/graphql`) || PathPrefix(`/api`) || PathPrefix(`/ext`))
       - traefik.http.routers.server.middlewares=server-security
       - traefik.http.routers.server.tls=true
       - traefik.http.routers.server.tls.certresolver=${CERT_RESOLVER}
@@ -462,28 +462,27 @@ services:
       - .env.grafana
     hostname: grafana
     image: grafana/grafana-oss:10.2.2
-    # Traefik labels for Grafana reverse proxying that can be uncommented for testing
-    # labels:
-    #   - traefik.enable=true
-    #   - traefik.http.services.grafana.loadbalancer.server.port=3000
-    #   - traefik.http.middlewares.grafana-security.headers.browserXssFilter=true
-    #   - traefik.http.middlewares.grafana-security.headers.contentTypeNosniff=true
-    #   - traefik.http.middlewares.grafana-security.headers.forceSTSHeader=true
-    #   - traefik.http.middlewares.grafana-security.headers.frameDeny=true
-    #   - traefik.http.middlewares.grafana-security.headers.referrerPolicy=same-origin
-    #   - traefik.http.middlewares.grafana-security.headers.sslRedirect=true
-    #   - traefik.http.middlewares.grafana-security.headers.stsSeconds=31536000
-    #   - traefik.http.middlewares.grafana-stripprefix.stripprefix.prefixes=/grafana
-    #   - traefik.http.routers.grafana-http.entrypoints=web
-    #   - traefik.http.routers.grafana-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/grafana`)
-    #   - traefik.http.routers.grafana-http.middlewares=grafana-https
-    #   - traefik.http.middlewares.grafana-https.redirectscheme.scheme=https
-    #   - traefik.http.routers.grafana.entrypoints=websecure
-    #   - traefik.http.routers.grafana.rule=Host(`${HOSTNAME}`) && PathPrefix(`/grafana`)
-    #   - traefik.http.routers.grafana.middlewares=grafana-security
-    #   - traefik.http.routers.grafana.priority=100
-    #   - traefik.http.routers.grafana.tls=true
-    #   - traefik.http.routers.grafana.tls.certresolver=${CERT_RESOLVER}
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+      - traefik.http.middlewares.grafana-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.grafana-security.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.grafana-security.headers.forceSTSHeader=true
+      - traefik.http.middlewares.grafana-security.headers.frameDeny=true
+      - traefik.http.middlewares.grafana-security.headers.referrerPolicy=same-origin
+      - traefik.http.middlewares.grafana-security.headers.sslRedirect=true
+      - traefik.http.middlewares.grafana-security.headers.stsSeconds=31536000
+      - traefik.http.middlewares.grafana-stripprefix.stripprefix.prefixes=/grafana
+      - traefik.http.routers.grafana-http.entrypoints=web
+      - traefik.http.routers.grafana-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana-http.middlewares=grafana-https
+      - traefik.http.middlewares.grafana-https.redirectscheme.scheme=https
+      - traefik.http.routers.grafana.entrypoints=websecure
+      - traefik.http.routers.grafana.rule=Host(`${HOSTNAME}`) && PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana.middlewares=grafana-security
+      - traefik.http.routers.grafana.priority=100
+      - traefik.http.routers.grafana.tls=true
+      - traefik.http.routers.grafana.tls.certresolver=${CERT_RESOLVER}
     ports:
       - ${GRAFANA_TEST_PORT}:3000
     profiles:
