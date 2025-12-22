@@ -1,6 +1,6 @@
 ARG image_user=amd64
-ARG image_repo=eclipsevolttron/volttron
-ARG image_tag=develop
+ARG image_repo=eclipsevolttron/volttron-monorail
+ARG image_tag=latest
 
 FROM ${image_repo}:${image_tag} AS volttron_aems
 
@@ -10,7 +10,7 @@ USER $VOLTTRON_USER
 
 # copy over aems repo
 # May replace this with a git clone in the future
-COPY --chown=volttron:volttron /home/volttron/volttron-pnnl-aems /code/aems
+COPY --chown=volttron:volttron volttron-pnnl-aems /code/aems
 
 # Install libraries required for manager agent
 RUN python -m pip install pandas==2.0.1
