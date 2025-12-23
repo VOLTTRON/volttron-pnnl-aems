@@ -1,2 +1,2 @@
-*
-!.gitignore
+.grafana_setup_complete
+*_dashboard_urls.json

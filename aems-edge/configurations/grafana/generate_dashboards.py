@@ -513,6 +513,189 @@ def create_import_wrapper(dashboard, folder_id=0):
     }
 
 
+class KeycloakAPI:
+    """Keycloak API client for role management"""
+    
+    def __init__(self, url, realm, admin_user, admin_password, verify_ssl=True):
+        """
+        Initialize Keycloak API client with admin authentication
+        
+        Args:
+            url: Keycloak base URL (e.g., https://hostname/auth/sso)
+            realm: Realm name (e.g., 'default')
+            admin_user: Keycloak admin username
+            admin_password: Keycloak admin password
+            verify_ssl: Whether to verify SSL certificates (default: True)
+        """
+        self.url = url.rstrip('/')
+        self.realm = realm
+        self.admin_user = admin_user
+        self.admin_password = admin_password
+        self.verify_ssl = verify_ssl
+        self.access_token = None
+        self.headers = {
+            'Content-Type': 'application/json'
+        }
+        
+        if not verify_ssl:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    
+    def authenticate(self):
+        """Authenticate with Keycloak and get access token"""
+        try:
+            token_url = f'{self.url}/realms/master/protocol/openid-connect/token'
+            data = {
+                'grant_type': 'password',
+                'client_id': 'admin-cli',
+                'username': self.admin_user,
+                'password': self.admin_password
+            }
+            
+            response = requests.post(
+                token_url,
+                data=data,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                token_data = response.json()
+                self.access_token = token_data.get('access_token')
+                self.headers['Authorization'] = f'Bearer {self.access_token}'
+                return True
+            else:
+                logging.error(f"Keycloak authentication failed: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            logging.error(f"Keycloak authentication exception: {e}")
+            return False
+    
+    def get_client_by_clientid(self, client_id):
+        """
+        Get client UUID by client ID
+        
+        Args:
+            client_id: Client ID (e.g., 'grafana-oauth')
+        
+        Returns:
+            Client UUID string or None if not found
+        """
+        try:
+            if not self.access_token:
+                if not self.authenticate():
+                    return None
+            
+            url = f'{self.url}/admin/realms/{self.realm}/clients'
+            params = {'clientId': client_id}
+            
+            response = requests.get(
+                url,
+                headers=self.headers,
+                params=params,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                clients = response.json()
+                if clients and len(clients) > 0:
+                    return clients[0].get('id')
+                else:
+                    logging.error(f"Client '{client_id}' not found in realm '{self.realm}'")
+                    return None
+            else:
+                logging.error(f"Failed to get client: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Exception getting client: {e}")
+            return None
+    
+    def role_exists(self, client_uuid, role_name):
+        """
+        Check if a client role exists
+        
+        Args:
+            client_uuid: Client UUID
+            role_name: Role name to check
+        
+        Returns:
+            True if role exists, False otherwise
+        """
+        try:
+            if not self.access_token:
+                if not self.authenticate():
+                    return False
+            
+            url = f'{self.url}/admin/realms/{self.realm}/clients/{client_uuid}/roles/{role_name}'
+            
+            response = requests.get(
+                url,
+                headers=self.headers,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            return response.status_code == 200
+                
+        except Exception as e:
+            logging.error(f"Exception checking role existence: {e}")
+            return False
+    
+    def create_client_role(self, client_uuid, role_name, description):
+        """
+        Create a client role
+        
+        Args:
+            client_uuid: Client UUID
+            role_name: Role name
+            description: Role description
+        
+        Returns:
+            tuple: (success, message)
+        """
+        try:
+            if not self.access_token:
+                if not self.authenticate():
+                    return False, "Authentication failed"
+            
+            # Check if role already exists
+            if self.role_exists(client_uuid, role_name):
+                return True, f"Role '{role_name}' already exists"
+            
+            url = f'{self.url}/admin/realms/{self.realm}/clients/{client_uuid}/roles'
+            
+            role_data = {
+                'name': role_name,
+                'description': description,
+                'composite': False,
+                'clientRole': True
+            }
+            
+            response = requests.post(
+                url,
+                headers=self.headers,
+                json=role_data,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            if response.status_code == 201:
+                return True, f"Role '{role_name}' created successfully"
+            else:
+                error_msg = response.text
+                try:
+                    error_json = response.json()
+                    error_msg = error_json.get('errorMessage', error_msg)
+                except:
+                    pass
+                return False, f"Failed to create role: {error_msg}"
+                
+        except Exception as e:
+            return False, f"Exception creating role: {str(e)}"
+
+
 class GrafanaAPI:
     """Grafana API client for dashboard management"""
     
@@ -978,6 +1161,84 @@ def load_grafana_config():
     return None
 
 
+def load_keycloak_config():
+    """Load Keycloak API configuration from config.ini"""
+    config = configparser.ConfigParser()
+    
+    try:
+        config.read(CONFIG_PATH)
+        if 'keycloak' in config:
+            url = config.get('keycloak', 'url', fallback=None)
+            realm = config.get('keycloak', 'realm', fallback='default')
+            admin_user = config.get('keycloak', 'admin_user', fallback=None)
+            admin_password = config.get('keycloak', 'admin_password', fallback=None)
+            client_id = config.get('keycloak', 'client_id', fallback='grafana-oauth')
+            verify_ssl = config.getboolean('keycloak', 'verify_ssl', fallback=False)
+            
+            if url and admin_user and admin_password:
+                return {
+                    'url': url,
+                    'realm': realm,
+                    'admin_user': admin_user,
+                    'admin_password': admin_password,
+                    'client_id': client_id,
+                    'verify_ssl': verify_ssl
+                }
+            else:
+                logging.warning("Incomplete Keycloak credentials in config.ini")
+                return None
+    except Exception as e:
+        logging.error(f"Could not read Keycloak config: {e}")
+        return None
+    
+    return None
+
+
+def create_keycloak_role_for_dashboard(keycloak_api, client_uuid, dashboard_name, campus, building, device=None):
+    """
+    Create a Keycloak client role for a dashboard
+    
+    Args:
+        keycloak_api: KeycloakAPI instance
+        client_uuid: Grafana OAuth client UUID
+        dashboard_name: Human-readable dashboard name
+        campus: Campus name
+        building: Building name
+        device: Device name (None for site dashboard)
+    
+    Returns:
+        tuple: (success, role_name, message)
+    """
+    try:
+        # Generate role name based on dashboard type
+        if device:
+            # Unit dashboard: grafana-view-unit-{CAMPUS}_{BUILDING}_{DEVICE}
+            role_name = f"grafana-view-unit-{campus}_{building}_{device}"
+            description = f"View access to {campus} {building} {device} dashboard"
+        else:
+            # Site dashboard: grafana-view-site-{CAMPUS}_{BUILDING}
+            role_name = f"grafana-view-site-{campus}_{building}"
+            description = f"View access to {campus} {building} site overview dashboard"
+        
+        # Create the role
+        success, message = keycloak_api.create_client_role(client_uuid, role_name, description)
+        
+        if success:
+            if "already exists" in message:
+                logging.info(f"Keycloak role '{role_name}' already exists")
+            else:
+                logging.info(f"Created Keycloak role: {role_name}")
+        else:
+            logging.warning(f"Failed to create Keycloak role '{role_name}': {message}")
+        
+        return success, role_name, message
+        
+    except Exception as e:
+        error_msg = f"Exception creating role: {str(e)}"
+        logging.error(error_msg)
+        return False, None, error_msg
+
+
 def main():
     """Main execution function"""
     print("=" * 60)
@@ -1198,6 +1459,40 @@ def main():
     site_filepath = save_dashboard(site_dashboard, site_filename, OUTPUT_DIR)
     logging.info(f"Generated Site Overview: {site_filepath}")
     
+    # Keycloak API configuration (for role creation)
+    keycloak_config = load_keycloak_config()
+    keycloak_api = None
+    keycloak_client_uuid = None
+    
+    if keycloak_config:
+        logging.info("Loading Keycloak configuration...")
+        logging.info(f"URL: {keycloak_config['url']}")
+        logging.info(f"Realm: {keycloak_config['realm']}")
+        logging.info(f"Client ID: {keycloak_config['client_id']}")
+        
+        keycloak_api = KeycloakAPI(
+            url=keycloak_config['url'],
+            realm=keycloak_config['realm'],
+            admin_user=keycloak_config['admin_user'],
+            admin_password=keycloak_config['admin_password'],
+            verify_ssl=keycloak_config['verify_ssl']
+        )
+        
+        # Authenticate and get client UUID
+        if keycloak_api.authenticate():
+            logging.info("Successfully authenticated with Keycloak")
+            keycloak_client_uuid = keycloak_api.get_client_by_clientid(keycloak_config['client_id'])
+            if keycloak_client_uuid:
+                logging.info(f"Found Keycloak client '{keycloak_config['client_id']}' with UUID: {keycloak_client_uuid}")
+            else:
+                logging.warning(f"Could not find Keycloak client '{keycloak_config['client_id']}'")
+                keycloak_api = None
+        else:
+            logging.warning("Failed to authenticate with Keycloak")
+            keycloak_api = None
+    else:
+        logging.info("No Keycloak configuration found - skipping role creation")
+    
     # Upload to Grafana via API
     dashboard_urls = {}  # Collect URLs for output file (dict with dashboard name as key)
     if grafana_api:
@@ -1235,8 +1530,21 @@ def main():
                 
                 dashboard_url = f"{base_url}{api_path}?orgId=1"
                 
-                # Add to URLs collection as key-value pair
-                dashboard_urls[dashboard_name] = dashboard_url
+                # Create Keycloak role for this dashboard
+                role_created = False
+                role_name = None
+                if keycloak_api and keycloak_client_uuid:
+                    role_success, role_name, role_message = create_keycloak_role_for_dashboard(
+                        keycloak_api, keycloak_client_uuid, dashboard_name, campus, building, device
+                    )
+                    role_created = role_success
+                
+                # Add to URLs collection with role information
+                dashboard_urls[dashboard_name] = {
+                    'url': dashboard_url,
+                    'keycloak_role': role_name,
+                    'role_created': role_created
+                }
                 
                 logging.info(f"{dashboard_name} uploaded")
                 logging.info(f"URL: {dashboard_url}")
@@ -1268,8 +1576,21 @@ def main():
             
             dashboard_url = f"{base_url}{api_path}?orgId=1"
             
-            # Add to URLs collection as key-value pair
-            dashboard_urls['Site Overview'] = dashboard_url
+            # Create Keycloak role for site dashboard
+            role_created = False
+            role_name = None
+            if keycloak_api and keycloak_client_uuid:
+                role_success, role_name, role_message = create_keycloak_role_for_dashboard(
+                    keycloak_api, keycloak_client_uuid, 'Site Overview', campus, building, None
+                )
+                role_created = role_success
+            
+            # Add to URLs collection with role information
+            dashboard_urls['Site Overview'] = {
+                'url': dashboard_url,
+                'keycloak_role': role_name,
+                'role_created': role_created
+            }
             
             logging.info(f"Site Overview uploaded")
             logging.info(f"URL: {dashboard_url}")

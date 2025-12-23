@@ -115,6 +115,23 @@ EOF
         log_warning "Grafana API configuration not added - missing required variables"
     fi
 
+    # Add Keycloak API section if variables are provided
+    if [[ -n "${KEYCLOAK_URL}" && -n "${KEYCLOAK_ADMIN}" ]]; then
+        cat >> "${config_file}" << EOF
+
+[keycloak]
+url = ${KEYCLOAK_URL}
+realm = ${KEYCLOAK_REALM:-default}
+admin_user = ${KEYCLOAK_ADMIN}
+admin_password = ${KEYCLOAK_ADMIN_PASSWORD}
+client_id = ${KEYCLOAK_CLIENT_ID:-grafana-oauth}
+verify_ssl = ${KEYCLOAK_VERIFY_SSL:-false}
+EOF
+        log_info "Added Keycloak API configuration"
+    else
+        log_warning "Keycloak API configuration not added - missing required variables"
+    fi
+
     # Add viewer-user section with defaults
     cat >> "${config_file}" << EOF
 
