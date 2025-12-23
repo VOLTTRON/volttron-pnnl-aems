@@ -56,56 +56,12 @@ fi
 echo "Waiting for admin interface to be ready..."
 sleep 15
 
-# Configure client secret if KEYCLOAK_CLIENT_SECRET is set
-if [ -n "$KEYCLOAK_CLIENT_SECRET" ] && [ "$KEYCLOAK_CLIENT_SECRET" != "SeT_tHiS_iN_0x3A-.env.secrets-" ]; then
-    echo "Configuring app client secret..."
-    
-    # Authenticate with admin credentials
-    echo "Authenticating with Keycloak admin..."
-    echo "Admin user: ${KEYCLOAK_ADMIN}"
-    echo "Using server: http://localhost:8080/auth/sso"
-    
-    # Try authentication with error handling  
-    if ! /opt/keycloak/bin/kcadm.sh config credentials \
-        --server http://localhost:8080/auth/sso \
-        --realm master \
-        --user "${KEYCLOAK_ADMIN}" \
-        --password "${KEYCLOAK_ADMIN_PASSWORD}"; then
-        echo "Authentication failed."
-        echo "This might be because:"
-        echo "1. Admin credentials are not set correctly"
-        echo "2. Keycloak admin API is not ready yet"
-        echo "3. The admin path has changed"
-        echo "Admin user: '${KEYCLOAK_ADMIN}'"
-        echo "Admin password length: ${#KEYCLOAK_ADMIN_PASSWORD}"
-        
-        echo "Exiting due to authentication failure"
-        exit 1
-    fi
-    
-    # Find the app client ID dynamically
-    echo "Finding app client ID..."
-    CLIENT_ID=$(/opt/keycloak/bin/kcadm.sh get clients -r default --fields id,clientId | grep -B1 '"clientId" : "app"' | grep '"id"' | sed 's/.*"id" : "\([^"]*\)".*/\1/')
-    
-    if [ -z "$CLIENT_ID" ]; then
-        echo "Could not find app client ID, trying fallback method..."
-        CLIENT_ID=$(/opt/keycloak/bin/kcadm.sh get clients -r default -q clientId=app --fields id | sed -n 's/.*"id" : "\([^"]*\)".*/\1/p' | head -1)
-    fi
-    
-    if [ -n "$CLIENT_ID" ]; then
-        echo "Found app client ID: $CLIENT_ID"
-        echo "Updating app client secret..."
-        /opt/keycloak/bin/kcadm.sh update clients/$CLIENT_ID \
-            -r default \
-            -s secret="${KEYCLOAK_CLIENT_SECRET}"
-    else
-        echo "Error: Could not find app client ID"
-        exit 1
-    fi
-    
-    echo "Client secret updated successfully!"
+# Run the init-keycloak script to configure clients
+if [ -f /docker-entrypoint-scripts.d/init-keycloak.sh ]; then
+    echo "Running Keycloak client configuration..."
+    /bin/bash /docker-entrypoint-scripts.d/init-keycloak.sh
 else
-    echo "KEYCLOAK_CLIENT_SECRET not set or is default value, skipping client secret update"
+    echo "Warning: init-keycloak.sh not found, skipping client configuration"
 fi
 
 # Wait for Keycloak process to exit and show logs

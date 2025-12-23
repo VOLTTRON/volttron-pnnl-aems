@@ -455,13 +455,23 @@ services:
 
   # Grafana
   grafana:
+    build:
+      context: ./grafana
+      dockerfile: Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
     container_name: ${COMPOSE_PROJECT_NAME}-grafana
     depends_on:
-      - grafana-db
+      certs:
+        condition: service_completed_successfully
+      grafana-db:
+        condition: service_started
     env_file:
       - .env.grafana
     hostname: grafana
-    image: grafana/grafana-oss:10.2.2
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/grafana:${TAG}
     labels:
       - traefik.enable=true
       - traefik.http.services.grafana.loadbalancer.server.port=3000
@@ -488,8 +498,10 @@ services:
     profiles:
       - grafana
     restart: unless-stopped
+    user: root
     volumes:
       - grafana-data:/var/lib/grafana
+      - certs-data:/etc/certs/:ro
 
   # Grafana database
   grafana-db:
