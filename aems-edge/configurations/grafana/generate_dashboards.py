@@ -15,13 +15,15 @@ import requests
 import urllib3
 import getpass
 import logging
+import time
 from urllib.parse import urlparse
 from requests.auth import HTTPBasicAuth
 
 # Configuration path - relative to this script's location
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(SCRIPT_DIR, 'config.ini')
-OUTPUT_DIR = os.path.join(SCRIPT_DIR, 'output')
+# Allow OUTPUT_DIR to be overridden by environment variable (for container deployment)
+OUTPUT_DIR = os.getenv('OUTPUT_DIR', os.path.join(SCRIPT_DIR, 'output'))
 
 # Configure logging
 logging.basicConfig(
@@ -540,6 +542,25 @@ class KeycloakAPI:
         if not verify_ssl:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     
+    def check_health(self):
+        """
+        Check if Keycloak is responding to health checks
+        
+        Returns:
+            True if Keycloak is healthy, False otherwise
+        """
+        try:
+            health_url = f'{self.url}/health/ready'
+            response = requests.get(
+                health_url,
+                verify=self.verify_ssl,
+                timeout=5
+            )
+            return response.status_code == 200
+        except Exception as e:
+            logging.debug(f"Keycloak health check failed: {e}")
+            return False
+    
     def authenticate(self):
         """Authenticate with Keycloak and get access token"""
         try:
@@ -564,12 +585,46 @@ class KeycloakAPI:
                 self.headers['Authorization'] = f'Bearer {self.access_token}'
                 return True
             else:
-                logging.error(f"Keycloak authentication failed: {response.status_code}")
+                logging.debug(f"Keycloak authentication failed: {response.status_code}")
                 return False
                 
         except Exception as e:
-            logging.error(f"Keycloak authentication exception: {e}")
+            logging.debug(f"Keycloak authentication exception: {e}")
             return False
+    
+    def wait_for_keycloak(self, max_retries=10, initial_delay=2, max_delay=60):
+        """
+        Wait for Keycloak to be ready with exponential backoff
+        
+        Args:
+            max_retries: Maximum number of retry attempts (default: 10)
+            initial_delay: Initial delay in seconds (default: 2)
+            max_delay: Maximum delay between retries in seconds (default: 60)
+        
+        Returns:
+            True if Keycloak becomes ready, False if all retries exhausted
+        """
+        logging.info("Waiting for Keycloak to be ready...")
+        
+        for attempt in range(max_retries):
+            # First check health endpoint
+            if self.check_health():
+                logging.info("Keycloak health check passed")
+                
+                # Then try to authenticate
+                if self.authenticate():
+                    logging.info(f"Successfully connected to Keycloak after {attempt + 1} attempt(s)")
+                    return True
+            
+            # Calculate delay with exponential backoff, capped at max_delay
+            delay = min(initial_delay * (2 ** attempt), max_delay)
+            
+            if attempt < max_retries - 1:  # Don't log on last failed attempt
+                logging.info(f"Keycloak not ready, retrying in {delay}s (attempt {attempt + 1}/{max_retries})...")
+                time.sleep(delay)
+        
+        logging.warning(f"Keycloak did not become ready after {max_retries} attempts")
+        return False
     
     def get_client_by_clientid(self, client_id):
         """
@@ -1478,9 +1533,11 @@ def main():
             verify_ssl=keycloak_config['verify_ssl']
         )
         
-        # Authenticate and get client UUID
-        if keycloak_api.authenticate():
-            logging.info("Successfully authenticated with Keycloak")
+        # Wait for Keycloak to be ready with retry logic
+        if keycloak_api.wait_for_keycloak(max_retries=10, initial_delay=2, max_delay=60):
+            logging.info("Keycloak is ready")
+            
+            # Get client UUID
             keycloak_client_uuid = keycloak_api.get_client_by_clientid(keycloak_config['client_id'])
             if keycloak_client_uuid:
                 logging.info(f"Found Keycloak client '{keycloak_config['client_id']}' with UUID: {keycloak_client_uuid}")
@@ -1488,7 +1545,7 @@ def main():
                 logging.warning(f"Could not find Keycloak client '{keycloak_config['client_id']}'")
                 keycloak_api = None
         else:
-            logging.warning("Failed to authenticate with Keycloak")
+            logging.warning("Keycloak not ready after retries - skipping role creation")
             keycloak_api = None
     else:
         logging.info("No Keycloak configuration found - skipping role creation")

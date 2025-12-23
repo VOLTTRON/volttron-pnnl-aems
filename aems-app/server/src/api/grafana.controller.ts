@@ -12,7 +12,10 @@ const ConfigFilenameRegex = /(?<campus>.+)_(?<building>.+)_dashboard_urls\.json/
 
 const ConfigUnitRegex = /RTU Overview - (?<unit>.+)|Site Overview/i;
 
-type DashboardURLs = Record<`RTU Overview - ${string}` | "Site Overview", string>;
+type DashboardURLs = Record<
+  `RTU Overview - ${string}` | "Site Overview",
+  string | { url: string; keycloak_role?: string; role_created?: boolean }
+>;
 
 type ConfigURLs = Record<string, Record<string, Record<string, URL>>>;
 
@@ -40,9 +43,23 @@ export class GrafanaController {
   }
 
   async execute(): Promise<void> {
+    // Skip if no config path set (e.g., in services/seeders containers)
+    if (!this.configService.grafana.configPath) {
+      this.logger.debug('Grafana config path not set, skipping dashboard configuration');
+      return;
+    }
+
     const urls: ConfigURLs = {};
     this.logger.log("Loading Grafana dashboard configuration files...");
-    for (const file of await getConfigFiles([this.configService.grafana.configPath], ".json", this.logger)) {
+    const files = await getConfigFiles([this.configService.grafana.configPath], ".json", this.logger);
+    
+    // If no files found, log at debug level instead of error
+    if (files.length === 0) {
+      this.logger.debug(`No Grafana dashboard configuration files found in ${this.configService.grafana.configPath}`);
+      return;
+    }
+    
+    for (const file of files) {
       try {
         this.logger.log(`Parsing Grafana config file: ${file}`);
         const filename = basename(file);
@@ -62,10 +79,14 @@ export class GrafanaController {
           Object.entries(json).forEach(([key, value]) => {
             const match = ConfigUnitRegex.exec(key);
             const { unit } = match?.groups ?? {};
+            
+            // Extract URL from either string (old format) or object (new format)
+            const urlString = typeof value === 'string' ? value : value.url;
+            
             if (key === "Site Overview") {
-              urls[campus][building][SiteOverviewKey] = new URL(value);
+              urls[campus][building][SiteOverviewKey] = new URL(urlString);
             } else if (unit) {
-              urls[campus][building][unit] = new URL(value);
+              urls[campus][building][unit] = new URL(urlString);
             } else {
               this.logger.warn(`Skipping invalid dashboard key in Grafana config file ${file}: ${key}`);
             }
