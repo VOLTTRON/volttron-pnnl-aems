@@ -75,6 +75,8 @@ declare class Validate extends Base<IValidate> implements IBase<IValidate> {
     PeakLoadExcludeType: IValidate;
     EconomizerSetpoint: IValidate;
     EconomizerSetpointType: IValidate;
+    OccupancyDetection: IValidate;
+    OccupancyDetectionType: IValidate;
 }
 declare const validate: Validate;
 export default validate;

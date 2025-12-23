@@ -46,6 +46,7 @@ export declare class UnitMutation {
         heatingPeakOffset: "Float";
         peakLoadExclude: "Boolean";
         economizerSetpoint: "Float";
+        occupancyDetection: "Boolean";
         configurationId: "String";
         controlId: "String";
         locationId: "String";
@@ -89,6 +90,7 @@ export declare class UnitMutation {
         heatingPeakOffset: "Float";
         peakLoadExclude: "Boolean";
         economizerSetpoint: "Float";
+        occupancyDetection: "Boolean";
         configurationId: "String";
         configuration: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;

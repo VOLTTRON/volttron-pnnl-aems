@@ -45,8 +45,22 @@ let AuthController = AuthController_1 = class AuthController {
             return null;
         }
     }
-    async logout(req) {
-        return new Promise((resolve, reject) => req.logout((err) => (err ? reject(err) : resolve())));
+    async logout(req, res, user) {
+        const isKeycloakUser = user
+            ? await this.prismaService.prisma.account.findFirst({
+                where: { userId: user.id, provider: "keycloak" },
+            })
+            : null;
+        await new Promise((resolve, reject) => req.logout((err) => (err ? reject(err) : resolve())));
+        if (isKeycloakUser && this.configService.auth.framework === "authjs") {
+            const keycloakLogoutUrl = `${this.configService.keycloak.issuerUrl}/protocol/openid-connect/logout`;
+            const postLogoutRedirectUri = encodeURIComponent(`${this.configService.cors.origin || req.headers.origin || ""}/auth/logout`);
+            const clientId = encodeURIComponent(this.configService.keycloak.clientId);
+            const logoutUrl = `${keycloakLogoutUrl}?post_logout_redirect_uri=${postLogoutRedirectUri}&client_id=${clientId}`;
+            this.logger.log(`Redirecting to Keycloak logout: ${logoutUrl}`);
+            return res.redirect(logoutUrl);
+        }
+        return res.status(200).send();
     }
 };
 exports.AuthController = AuthController;
@@ -83,8 +97,10 @@ __decorate([
     (0, swagger_1.ApiTags)("auth", "logout"),
     (0, common_1.Post)("logout"),
     __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __param(2, (0, user_decorator_1.User)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "logout", null);
 exports.AuthController = AuthController = AuthController_1 = __decorate([

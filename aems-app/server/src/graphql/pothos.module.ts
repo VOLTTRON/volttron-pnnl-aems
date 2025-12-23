@@ -79,7 +79,7 @@ export class PothosGraphQLModule {
           driver: PothosApolloDriverWrapper,
           imports: [AuthModule, FrameworkModule.register()],
           inject: [WebSocketAuthService, AppConfigService.Key],
-          useFactory: (_wsAuthService: WebSocketAuthService, configService: AppConfigService) => ({
+          useFactory: (wsAuthService: WebSocketAuthService, configService: AppConfigService) => ({
             context: ({
               req,
               extra,
@@ -94,12 +94,12 @@ export class PothosGraphQLModule {
                 user = req.user;
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               } else if ((extra?.socket as any)?.user) {
-                // WebSocket request - authenticate using WebSocketAuthService
+                // WebSocket request - user authenticated during connection_init
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 user = (extra?.socket as any)?.user as Express.User | undefined;
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               } else if ((extra?.request as any)?.user) {
-                // Fallback for WebSocket request without user - try to authenticate
+                // Fallback for WebSocket request - user from upgrade handler
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 user = (extra?.request as any)?.user as Express.User | undefined;
               }
@@ -108,7 +108,73 @@ export class PothosGraphQLModule {
                 user,
               };
             },
-            ...omit(moduleOptionsFactory(configService), ["sortSchema", "autoSchemaFile"]),
+            subscriptions: {
+              "graphql-ws": {
+                path: "/graphql",
+                onConnect: async (context: any) => {
+                  // CRITICAL: This is where we properly authenticate WebSocket connections
+                  // This runs during the connection_init phase, BEFORE any subscriptions are created
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                  const { extra } = context;
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  const request = extra?.request as IncomingMessage | undefined;
+
+                  if (request) {
+                    try {
+                      // Authenticate the WebSocket connection
+                      const user = await wsAuthService.authenticateWebSocket(request as Request);
+
+                      // Store user on the socket for later context access
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                      if (extra?.socket) {
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                        extra.socket.user = user;
+                      }
+
+                      // Also store on request for fallback
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                      (request as any).user = user;
+
+                      return true; // Allow connection
+                    } catch (error) {
+                      // Log error but allow connection - authorization happens at resolver level
+                      console.error("WebSocket authentication error in onConnect:", error);
+                      return true;
+                    }
+                  }
+
+                  return true; // Allow connection even without authentication
+                },
+              },
+              "subscriptions-transport-ws": {
+                path: "/graphql",
+                onConnect: async (_connectionParams: any, _websocket: any, context: any) => {
+                  // Legacy protocol support with same authentication logic
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  const request = context?.request as IncomingMessage | undefined;
+
+                  if (request) {
+                    try {
+                      const user = await wsAuthService.authenticateWebSocket(request as Request);
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                      (request as any).user = user;
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                      if (context?.socket) {
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                        context.socket.user = user;
+                      }
+                      return { user }; // Return connection context
+                    } catch (error) {
+                      console.error("WebSocket authentication error in onConnect (legacy):", error);
+                      return {}; // Allow connection without user
+                    }
+                  }
+
+                  return {}; // Allow connection
+                },
+              },
+            },
+            ...omit(moduleOptionsFactory(configService), ["sortSchema", "autoSchemaFile", "subscriptions"]),
           }),
         }),
       ],

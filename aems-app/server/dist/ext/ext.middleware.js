@@ -17,41 +17,20 @@ exports.ExtRewriteMiddleware = void 0;
 const app_config_1 = require("../app.config");
 const common_1 = require("@local/common");
 const common_2 = require("@nestjs/common");
-const proxy = require("express-http-proxy");
+const http = require("http");
+const https = require("https");
 let ExtRewriteMiddleware = ExtRewriteMiddleware_1 = class ExtRewriteMiddleware {
     constructor(configService) {
         this.logger = new common_2.Logger(ExtRewriteMiddleware_1.name);
-        this.proxies = [];
-        Object.entries(configService.ext).forEach(([key, option]) => {
+        this.configs = [];
+        Object.entries(configService.ext).forEach(([key, config]) => {
             try {
-                if (option.path && option.authorized) {
-                    this.proxies.push({
-                        ...option,
-                        proxy: proxy(option.authorized, {
-                            proxyReqPathResolver: (req) => {
-                                try {
-                                    const query = new URLSearchParams(req.query).toString();
-                                    const pathWithoutPrefix = req.url?.replace(new RegExp(`^${option.path}`, "i"), "") ?? "";
-                                    const rewriteUrl = `${option.authorized}${pathWithoutPrefix}${query ? `?${query}` : ""}`;
-                                    const url = new URL(rewriteUrl);
-                                    const resolvedPath = url.pathname + url.search;
-                                    return resolvedPath;
-                                }
-                                catch (error) {
-                                    this.logger.error(`Error in proxyReqPathResolver for ${key}:`, error);
-                                    throw error;
-                                }
-                            },
-                            proxyErrorHandler: (err, res, next) => {
-                                this.logger.error(`Proxy error for ${key}:`, err);
-                                next(err);
-                            },
-                        }),
-                    });
+                if (config.path && config.authorized) {
+                    this.configs.push(config);
                     this.logger.log(`Successfully configured proxy for external service: ${key}`);
                 }
                 else {
-                    this.logger.warn(`Ext option ${key} is missing required properties - path: ${!!option.path}, authorized: ${!!option.authorized}`);
+                    this.logger.warn(`Ext option ${key} is missing required properties - path: ${!!config.path}, authorized: ${!!config.authorized}`);
                 }
             }
             catch (error) {
@@ -59,24 +38,41 @@ let ExtRewriteMiddleware = ExtRewriteMiddleware_1 = class ExtRewriteMiddleware {
             }
         });
     }
-    async use(req, res, next) {
+    use(req, res, next) {
         try {
-            const option = this.proxies.find((v) => req.url?.startsWith(v.path ?? ""));
-            if (!option) {
+            const config = this.configs.find((v) => req.url?.startsWith(v.path ?? ""));
+            if (!config) {
                 return next();
             }
-            if (option.role) {
+            if (config.role) {
                 const userRoles = req.user?.roles ?? [];
-                if (!option.role.granted(...userRoles)) {
-                    if (option.unauthorized) {
-                        return res.redirect(common_1.HttpStatusType.Found.status, option.unauthorized);
+                if (!config.role.granted(...userRoles)) {
+                    if (config.unauthorized) {
+                        return res.redirect(common_1.HttpStatusType.Found.status, config.unauthorized);
                     }
                     else {
                         return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
                     }
                 }
             }
-            await option.proxy(req, res, next);
+            const targetUrl = new URL(req.originalUrl.replace(new RegExp(`^${config.path}`, "i"), ""), config.authorized);
+            const client = targetUrl.protocol === "https:" ? https : http;
+            const options = {
+                method: req.method,
+                headers: {
+                    ...req.headers,
+                    host: targetUrl.host,
+                },
+            };
+            const proxyReq = client.request(targetUrl, options, (proxyRes) => {
+                res.writeHead(proxyRes.statusCode ?? 500, proxyRes.headers);
+                proxyRes.pipe(res);
+            });
+            proxyReq.on("error", (err) => {
+                this.logger.warn("Proxy request error:", err.message);
+                res.status(502).send("Bad Gateway");
+            });
+            return req.pipe(proxyReq);
         }
         catch (error) {
             this.logger.error(`Error in ExtRewriteMiddleware:`, error);

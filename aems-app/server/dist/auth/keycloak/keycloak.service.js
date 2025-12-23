@@ -207,6 +207,9 @@ let KeycloakAuthjsService = KeycloakAuthjsService_1 = class KeycloakAuthjsServic
             authorization: this.configService.keycloak.authUrl || undefined,
             token: this.configService.keycloak.tokenUrl || undefined,
             userinfo: this.configService.keycloak.userinfoUrl || undefined,
+            end_session: this.configService.keycloak.issuerUrl
+                ? `${this.configService.keycloak.issuerUrl}/protocol/openid-connect/logout`
+                : undefined,
         });
     }
 };

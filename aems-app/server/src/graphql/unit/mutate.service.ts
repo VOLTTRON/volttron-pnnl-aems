@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { Mutation } from "@local/common";
 import { SchemaBuilderService } from "../builder.service";
 import { UnitQuery } from "./query.service";
@@ -63,6 +63,7 @@ export class UnitMutation {
         heatingPeakOffset: "Float",
         peakLoadExclude: "Boolean",
         economizerSetpoint: "Float",
+        occupancyDetection: "Boolean",
         configurationId: "String",
         controlId: "String",
         locationId: "String",
@@ -117,6 +118,7 @@ export class UnitMutation {
         heatingPeakOffset: "Float",
         peakLoadExclude: "Boolean",
         economizerSetpoint: "Float",
+        occupancyDetection: "Boolean",
         configurationId: "String",
         configuration: UnitUpdateConfiguration,
         controlId: "String",
@@ -299,8 +301,6 @@ export class UnitMutation {
               },
             })
             .then(async (unit) => {
-              new Logger("UnitMutation").log(`Before Update:`, before);
-              new Logger("UnitMutation").log(`After Update:`, unit);
               await subscriptionService.publish("Unit", { topic: "Unit", id: unit.id, mutation: Mutation.Updated });
               await subscriptionService.publish(`Unit/${unit.id}`, {
                 topic: "Unit",
