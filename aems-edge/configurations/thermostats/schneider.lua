@@ -2,10 +2,10 @@
 if not init then
     -- Constants
     local IMPERIAL_UNITS = 2
-    local RTU_TYPE = 1
-    local COOLING_DURING_ECON = 2
-    local HAS_ECONOMIZER = 1
-    local FAN_ON_DURING_OCCUPANCY = 3
+    local RTU_TYPE = 1 -- 1=RTU; 2=HP
+    local COOLING_DURING_ECON = 2 -- 1=No mechanical cooling when economizing; 2=Mechanical cooling allowed when economizing
+    local HAS_ECONOMIZER = 1 -- 1=OFF; 2=ON
+    local FAN_MODE = 3 -- 1=ON; 2=Load; 3=Occupancy
     local PIR_TIMER_DEFAULT = 10 -- in minutes
     local SPT_PRIORITY_DEFAULT = 16 -- Default setpoint override priority
     local DEFAULT_COMM_FAIL_TIME = 300 -- seconds
@@ -17,7 +17,7 @@ if not init then
     ME.MV72 = HAS_ECONOMIZER
     ME.MV79 = COOLING_DURING_ECON
     ME.MV119 = RTU_TYPE
-    ME.MV17 = FAN_ON_DURING_OCCUPANCY
+    ME.MV17 = FAN_MODE
 
     -- Communication fail settings
     ME.AV28_Desc = "CommFailTmr"
