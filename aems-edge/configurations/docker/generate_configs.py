@@ -6,14 +6,22 @@ import io
 import csv
 import configargparse
 import netifaces as ni
+import json
+import yaml
 
 ADDRESS_OFFSET_DEFAULT = 0
 SCHNEIDER_CSV_NAME = 'schneider.csv'
 SCHNEIDER_OAT_CSV_NAME = 'schneider_oat.csv'
+DENT_CSV_NAME = 'dent.csv'
 MANAGER_CONFIG_FILENAME_TEMPLATE = "manager.{device_name}.config"
-DEVICE_BLOCK_TEMPLATE = '''      devices/{campus}/{building}/{device_name}:
-        file: $CONFIG/configuration_store/platform.driver/devices/{campus}/{building}/{device_name}
-'''
+
+DEVICE_BLOCK_DICT = lambda campus, building, device_name: {
+    f"devices/{campus}/{building}/{device_name}": {
+        "file": f"$CONFIG/configuration_store/platform.driver/devices/{campus}/{building}/{device_name}"
+    }
+}
+
+
 
 schneider_registry = \
 """Reference Point Name,Volttron Point Name,Units,Unit Details,BACnet Object Type,Property,Writable,Index,Write Priority,Notes
@@ -199,454 +207,350 @@ Reversing valve operation,ReversingValveOperation,State,State count: 2 (default 
 Compressor - auxiliary interlock,CompressorAuxiliaryInterlock,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,118,9,1=On
 Application,Application,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,119,9,1=Heatpump"""
 
+dent_meter_registry = \
+"""Reference Point Name,Volttron Point Name,Units,Unit Details,BACnet Object Type,Property,Writable,Index,Write Priority,Notes
+Current Avg Element A,Current,amperes,,analogInput,presentValue,FALSE,1141,,
+Current CH1 A,CurrentA,amperes,,analogInput,presentValue,FALSE,1143,,
+Current CH2 A,CurrentB,amperes,,analogInput,presentValue,FALSE,1145,,
+Current CH3 A,CurrentC,amperes,,analogInput,presentValue,FALSE,1147,,
+Voltage L to N Avg element A,VoltageN,volts,,analogInput,presentValue,FALSE,1149,,
+Voltage L1 to N A,VoltageAN,volts,,analogInput,presentValue,FALSE,1151,,
+Voltage L2 to N A,VoltageBN,volts,,analogInput,presentValue,FALSE,1153,,
+Voltage L3 to N A,VoltageCN,volts,,analogInput,presentValue,FALSE,1155,,
+AC Voltage L to L Avg Element A,VoltageLL,volts,,analogInput,presentValue,FALSE,1157,,
+Voltage L1 to L2 A,VoltageAB,volts,,analogInput,presentValue,FALSE,1159,,
+Voltage L2 to L3 A,VoltageBC,volts,,analogInput,presentValue,FALSE,1161,,
+Voltage L3 to L1 A,VoltageCA,volts,,analogInput,presentValue,FALSE,1163,,
+Line Frequency,Frequency,hertz,,analogInput,presentValue,FALSE,1165,,
+Power Sum Element A,WholeBuildingPower,kilowatts,,analogInput,presentValue,FALSE,1167,,
+Power CH1 A,PowerA,kilowatts,,analogInput,presentValue,FALSE,1169,,
+Power CH2 A,PowerB,kilowatts,,analogInput,presentValue,FALSE,1171,,
+Power CH3 A,PowerC,kilowatts,,analogInput,presentValue,FALSE,1173,,
+VA Sum Element A,ApparentPower,kilovoltAmperes,,analogInput,presentValue,FALSE,1175,,
+VA CH1 A,ApparentPowerA,kilovoltAmperes,,analogInput,presentValue,FALSE,1177,,
+VA CH2 A,ApparentPowerB,kilovoltAmperes,,analogInput,presentValue,FALSE,1179,,
+VA CH3 A,ApparentPowerC,kilovoltAmperes,,analogInput,presentValue,FALSE,1181,,
+VAR Sum Element A,ReactivePower,kilovoltAmperesReactive,,analogInput,presentValue,FALSE,1183,,
+VAR CH1 A,ReactivePowerA,kilovoltAmperesReactive,,analogInput,presentValue,FALSE,1185,,
+VAR CH2 A,ReactivePowerB,kilovoltAmperesReactive,,analogInput,presentValue,FALSE,1187,,
+VAR CH3 A,ReactivePowerC,kilovoltAmperesReactive,,analogInput,presentValue,FALSE,1189,,
+Apparent PF Element A,PowerFactor,powerFactor,,analogInput,presentValue,FALSE,1191,,
+Apparent PF CH1 A,PowerFactorA,powerFactor,,analogInput,presentValue,FALSE,1193,,
+Apparent PF CH2 A,PowerFactorB,powerFactor,,analogInput,presentValue,FALSE,1195,,
+Apparent PF CH3 A,PowerFactorC,powerFactor,,analogInput,presentValue,FALSE,1197,,
+THD Element A,TotalHarmonicDistortion,percent,,analogInput,presentValue,FALSE,2324,,
+THD CH1 A,TotalHarmonicDistortionA,percent,,analogInput,presentValue,FALSE,2326,,
+THD CH2 A,TotalHarmonicDistortionB,percent,,analogInput,presentValue,FALSE,2328,,
+THD CH3 A,TotalHarmonicDistortionC,percent,,analogInput,presentValue,FALSE,2330,,
+Theta CH1 A,ThetaA,degreesAngular,,analogInput,presentValue,FALSE,2371,,
+Theta CH2 A,ThetaB,degreesAngular,,analogInput,presentValue,FALSE,2373,,
+Theta CH3 A,ThetaC,degreesAngular,,analogInput,presentValue,FALSE,2375,,
+Theta Element A,Theta,degreesAngular,,analogInput,presentValue,FALSE,2391,,
+Reset to User Defaults,Reset to User Defaults,Enum,0-1,binaryValue,presentValue,FALSE,2105,,
+Service Type A,ServiceType,State,State count: 5,multiStateValue,presentValue,FALSE,2207,,"1=3-wire, 3-Phase, 2=2-wire, 1-Phase, 3=3-wire, 1-Phase, 4=Disable Element"""""
 
-# TODO: Add a configuration file
-config_file = 'config.ini'
 
-# TODO: Device ID should be the device number without padding
-device_config_template = '''{{
-  "driver_config": {{
-    "device_address": "{device_address}",
-    "device_id": {device_id},
-    "min_priority": 2
-  }},
-  "interval": 60,
-  "driver_type": "bacnet",
-  "heart_beat_point": "HeartBeat",
-  "registry_config": "config://registry_configs/{registry_file_name}"
-}}'''
+platform_driver_config = lambda timezone: {
+    "timezone": timezone,
+    "publish_multi_depth": False,
+    "publish_all_depth": True
+}
 
-manager_config_store_template = """{{
-    "campus": "{campus}",
-    "building": "{building}",
-    "system": "{device_name}",
+device_config_dict_template = lambda device_address, device_id, registry_file_name: {
+    "driver_config": {
+        "device_address": device_address,
+        "device_id": device_id,
+        "min_priority": 2
+    },
+    "interval": 60,
+    "all_publish_interval": 60,
+    "driver_type": "bacnet",
+    "heart_beat_point": "HeartBeat",
+    "registry_config": f"config://registry_configs/{registry_file_name}"
+}
+
+
+manager_config_store_dict_template = lambda campus, building, device_name, timezone: {
+    "campus": campus,
+    "building": building,
+    "system": device_name,
     "system_status_point": "OccupancyCommand",
     "setpoint_control": 1,
-    "local_tz": "{timezone}",
-    "default_setpoints": {{"UnoccupiedHeatingSetPoint": 65, "UnoccupiedCoolingSetPoint": 78, "DeadBand": 3, "OccupiedSetPoint": 71}},
+    "local_tz": timezone,
+    "default_setpoints": {
+        "UnoccupiedHeatingSetPoint": 65,
+        "UnoccupiedCoolingSetPoint": 78,
+        "DeadBand": 3,
+        "OccupiedSetPoint": 71
+    },
     "setpoint_validate_frequency": 300,
-    "zone_point_names": {{ "zonetemperature": "ZoneTemperature",
+    "zone_point_names": {
+        "zonetemperature": "ZoneTemperature",
         "coolingsetpoint": "OccupiedCoolingSetPoint",
         "heatingsetpoint": "OccupiedHeatingSetPoint",
         "supplyfanstatus": "SupplyFanStatus",
         "outdoorairtemperature": "OutdoorAirTemperature",
         "heating": "FirstStageHeating",
         "cooling": "FirstStageCooling"
-    }},
-    "optimal_start": {{
+    },
+    "optimal_start": {
         "earliest_start_time": 120,
         "latest_start_time": 10,
         "optimal_start_lockout_temperature": 30,
         "allowable_setpoint_deviation": 1
-    }},
-    "schedule": {{
-        "Monday": {{
-            "start": "6:00",
-            "end": "18:00"
-        }},
-        "Tuesday": {{
-            "start": "6:00",
-            "end": "18:00"
-        }},
-        "Wednesday": {{
-            "start": "6:00",
-            "end": "18:00"
-        }},
-        "Thursday": {{
-            "start": "6:00",
-            "end": "18:00"
-        }},
-        "Friday": {{
-            "start": "6:00",
-            "end": "18:00"
-        }},
+    },
+    "schedule": {
+        "Monday": {"start": "6:00", "end": "18:00"},
+        "Tuesday": {"start": "6:00", "end": "18:00"},
+        "Wednesday": {"start": "6:00", "end": "18:00"},
+        "Thursday": {"start": "6:00", "end": "18:00"},
+        "Friday": {"start": "6:00", "end": "18:00"},
         "Saturday": "always_off",
         "Sunday": "always_off"
-    }},
-    "occupancy_values": {{
-        "occupied": 2,
-        "unoccupied": 3
-    }}
-}} """
+    },
+    "occupancy_values": {"occupied": 2, "unoccupied": 3}
+}
 
-bacnet_proxy_config_template = """{{
-    device_address: "{interface_ip_address}/24",
-    object_id: 648
-}}"""
+bacnet_proxy_dict_template = lambda interface_ip_address: {
+    "device_address": f"{interface_ip_address}/24",
+    "object_id": 648
+}
 
-historian_config_template = """{{
-    "connection": {{
+
+bacnet_interface_template = lambda interface_ip_address: {
+    "local_interface": f"{interface_ip_address}/24",
+    "device_id": 648,
+    "time_synchronization_interval": 1440
+}
+
+historian_dict_template = lambda db_name, db_user, db_password, db_address, db_port: {
+    "connection": {
         "type": "postgresql",
-        "params": {{
-            "dbname": "{db_name}",
-            "host": "{db_address}",
-            "port": {db_port},
-            "user": "{db_user}",
-            "password": "{db_password}"
-        }}
-    }}
-}}"""
+        "params": {
+            "dbname": db_name,
+            "host": db_address,
+            "port": db_port,
+            "user": db_user,
+            "password": db_password
+        }
+    }
+}
 
-weather_config_template = """{{
-     "database_file": "weather.sqlite",
-     "max_size_gb": 1,
-     "poll_locations": [{station}],
-     "poll_interval": 60
-}}"""
+weather_dict_template = lambda station: {
+    "database_file": "weather.sqlite",
+    "max_size_gb": 1,
+    "poll_locations": station,
+    "poll_interval": 60
+}
+emailer_dict_template = lambda smtp_address, smtp_username, smtp_password, smtp_port, smtp_tls, to_addresses, allow_frequency_minutes: {
+  "smtp-address": smtp_address,
+  "smtp-username": smtp_username,
+  "smtp-password": smtp_password,
+  "smtp-port": smtp_port,
+  "smtp-tls": True,
+  "from-address": "no-reply@aems.pnl.gov",
+  "to-addresses": to_addresses,
+  "allow-frequency-minutes": allow_frequency_minutes
+}
 
-platform_config_template = """ # Properties to be added to the root config file
-# the properties should be ingestible for volttron
-# the values will be presented in the config files
-# as key=value
-config:
-  vip-address: tcp://0.0.0.0:22916
-  # For rabbitmq this should match the hostname specified in
-  # in the docker compose file hostname field for the service.
-  bind-web-address: https://0.0.0.0:8443
-  volttron-central-address: https://0.0.0.0:8443
-  instance-name: volttron1
-  message-bus: zmq # allowed values: zmq, rmq
-  # volttron-central-serverkey: a different key
-web_users:
-  username: "admin"
-  password: "admin"
-  groups: ["admin", "vui"]
-# Agents dictionary to install. The key must be a valid
-# identity for the agent to be installed correctly.
-agents:
-  # Each agent identity.config file should be in the configs
-  # directory and will be used to install the agent.
-  listener:
-    source: $VOLTTRON_ROOT/examples/ListenerAgent
-    tag: listener
+platform_config_dict_template = lambda devices_block, manager_agents_block, ilc_block: {
+    "config": {
+        "vip-address": "tcp://0.0.0.0:22916",
+        "bind-web-address": "https://0.0.0.0:8443",
+        "volttron-central-address": "https://0.0.0.0:8443",
+        "instance-name": "volttron1",
+        "message-bus": "zmq"
+    },
+    "web_users": {
+        "username": "admin",
+        "password": "admin",
+        "groups": ["admin", "vui"]
+    },
+    "agents": {
+        "listener": {"source": "$VOLTTRON_ROOT/examples/ListenerAgent", "tag": "listener"},
 
-  platform.bacnet_proxy:
-    source: $VOLTTRON_ROOT/services/core/BACnetProxy
-    config: $CONFIG/bacnet.proxy.config
-    priority: "10"
+        "platform.driver": {
+            "source": "/code/volttron-platform-driver",
+            "tag": "driver",
+            "config_store": {
+                "registry_configs/schneider.csv": {
+                    "file": "$CONFIG/configuration_store/platform.driver/registry_configs/schneider.csv",
+                    "type": "--csv"
+                },
+                "registry_configs/schneider_oat.csv": {
+                    "file": "$CONFIG/configuration_store/platform.driver/registry_configs/schneider_oat.csv",
+                    "type": "--csv"
+                },
+                "registry_configs/dent.csv": {
+                    "file": "$CONFIG/configuration_store/platform.driver/registry_configs/dent.csv",
+                    "type": "--csv"
+                },
+                "interfaces/bacnet": {
+                    "file": "$CONFIG/bacnet.config",
+                },
+                "config": {
+                    "file": "$CONFIG/driver.config",
+                },
+                **devices_block
+            }
+        },
+        **manager_agents_block,
+        "platform.historian": {"source": "$VOLTTRON_ROOT/services/core/SQLHistorian",
+                               "config": "$CONFIG/historian.config", "tag": "historian"},
+        "platform.topic_watcher": {"source": "$VOLTTRON_ROOT/services/ops/TopicWatcher",
+                                   "config": "$CONFIG/topic_watcher.config", "tag": "watcher"},
+        "platform.weather": {"source": "$VOLTTRON_ROOT/services/core/WeatherDotGov",
+                             "config": "$CONFIG/weather.config", "tag": "weather"},
+        "platform.emailer": {"source": "$VOLTTRON_ROOT/services/core/ops/EmailerAgent",
+                             "config": "$CONFIG/emailer.config", "tag": "emailer"}
+    },
+    "ilc": ilc_block
+}
 
-  platform.driver:
-    source: $VOLTTRON_ROOT/services/core/PlatformDriverAgent
-    tag: driver
-    config_store:
-      registry_configs/schneider.csv:
-        file: $CONFIG/configuration_store/platform.driver/registry_configs/schneider.csv
-        type: --csv
-{devices_block}
-  platform.actuator:
-    source: $VOLTTRON_ROOT/services/core/ActuatorAgent
-    tag: actuator
-
-  platform.historian:
-    source: $VOLTTRON_ROOT/services/core/SQLHistorian
-    config: $CONFIG/historian.config
-    tag: historian
-
-{manager_agents_block}
-  weather:
-    source: $VOLTTRON_ROOT/services/core/WeatherDotGov
-    config: $CONFIG/weather.config
-    tag: weather
-{ilc_block}
-"""
-
+bacnet_proxy_agent_block = {
+    "platform.bacnet_proxy": {"source": "$VOLTTRON_ROOT/services/core/BACnetProxy",
+                              "config": "$CONFIG/bacnet_proxy.config", "priority": "10"},
+    "platform.actuator": {"source": "$VOLTTRON_ROOT/services/core/ActuatorAgent", "tag": "actuator"},
+}
 
 def get_gateway_prefix(address: str) -> str:
-    """Extract the prefix from an IPv4 address (everything except the last segment)."""
     return '.'.join(address.split('.')[:-1])
 
 
-def generate_device_address(gateway_address: str, device_index: int, offset: int = ADDRESS_OFFSET_DEFAULT) -> tuple[str, int]:
-    """
-    Generate a unique device address based on a gateway address and device index.
-
-    Args:
-        gateway_address (str): Base address of the gateway, in IPv4 style (e.g., '192.168.1.1') or another format.
-        device_index (int): Integer representing the device identifier.
-        offset (int): Optional offset added to the device index to generate the final address. Default is 2.
-
-    Returns:
-        Tuple[str, int]: (Full device address, formatted device number or identifier)
-    """
-    def _format_device_number(index: int, ipv4: bool = True) -> str:
-        """Format the device index for inclusion in an address."""
-        return str(index).zfill(2) if ipv4 else str(index)
-
+def generate_device_address(bacnet_network: str, device_index: int, offset: int = ADDRESS_OFFSET_DEFAULT) -> tuple[str, int]:
     formatted_device_index = device_index + offset
-    if '.' in gateway_address:  # IPv4-style address
-        gateway_prefix = get_gateway_prefix(gateway_address)
-        device_number_str = _format_device_number(device_index)
+    if '.' in bacnet_network:
+        gateway_prefix = get_gateway_prefix(bacnet_network)
+        device_number_str = str(device_index).zfill(2)
         full_device_address = f"{gateway_prefix}.1{device_number_str}"
-    else:  # Alternative address style
-        full_device_address = f"{gateway_address}:{formatted_device_index}"
-
+    else:
+        full_device_address = f"{bacnet_network}:{formatted_device_index}"
     return full_device_address, formatted_device_index
 
 
-def generate_platform_config_manager_agent_block(num_configs: int, device_prefix: str, campus: str, building: str) -> str:
-    """
-    Generates a block of configuration for manager agents.
-
-    Args:
-        num_configs: The number of configurations to generate.
-        device_prefix: The prefix for the device names.
-        campus: The campus where the devices are located.
-        building: The building where the devices are located.
-
-    Returns:
-        A string containing the configuration block for the manager agents.
-    """
-
-    manager_agent_block_template = """\
-  manager.{device_vip}:
-    source: $AEMS/aems-edge/Manager
-    config: $CONFIG/configuration_store/manager.{device_name}/devices/{campus}/{building}/manager.{device_name}.config
-    tag: {device_name}
-    """
-
-    manager_agent_section_block = ""
+def generate_platform_config_manager_agent_block(num_configs: int, device_prefix: str, campus: str, building: str):
+    manager_agents = {}
     for config_num in range(1, num_configs + 1):
         device_name = f"{device_prefix}{str(config_num).zfill(2)}"
         device_vip = f"{device_prefix.lower()}{str(config_num).zfill(2)}"
-        manager_agent_block = manager_agent_block_template.format(
-            device_vip=device_vip, device_name=device_name, campus=campus, building=building
-        )
-        manager_agent_section_block += manager_agent_block
+        manager_agents[f"manager.{device_vip}"] = {
+            "source": "$AEMS/aems-edge/Manager",
+            "config": f"$CONFIG/configuration_store/manager.{device_name}/devices/{campus}/{building}/manager.{device_name}.config",
+            "tag": device_name
+        }
+    return manager_agents
 
-    return manager_agent_section_block
+def generate_platform_config_driver_device_block(num_configs: int, prefix: str,
+                                                 campus: str, building: str, meter_prefix: str):
+    devices_block = {}
+    for i in range(1, num_configs + 1):
+        device_name = f"{prefix}{str(i).zfill(2)}"
+        devices_block.update(DEVICE_BLOCK_DICT(campus, building, device_name))
+    devices_block.update(DEVICE_BLOCK_DICT(campus, building, meter_prefix))
+    return devices_block
 
-
-def generate_platform_config_driver_device_block(num_configs: int, prefix: str, campus: str, building: str) -> str:
-    """Generate a platform driver configuration block for devices.
-
-    This function creates a configuration block for a specified number of devices.
-    Each device block is generated using a template and includes information about
-    its name, campus, and building.
-
-    Args:
-        num_configs: The number of device configurations to generate.
-        prefix: The prefix to use for naming the devices.
-        campus: The campus where the devices are located.
-        building: The building where the devices are located.
-
-    Returns:
-        A string containing the concatenated configuration blocks for all devices.
-    """
-
-    def _generate_device_block(device_name: str, campus: str, building: str) -> str:
-        """Generate a single device block for the platform driver."""
-        return DEVICE_BLOCK_TEMPLATE.format(device_name=device_name, campus=campus, building=building)
-
-    devices = [
-        _generate_device_block(f"{prefix}{str(i).zfill(2)}", campus, building)
-        for i in range(1, num_configs + 1)
-    ]
-    return ''.join(devices)
+def generate_platform_config_bacnet_proxy(platform_config):
+    platform_config['agents'].update(bacnet_proxy_agent_block)
+    platform_config['agents']['platform.driver']['source'] = "$VOLTTRON_ROOT/services/core/PlatformDriverAgent"
+    return platform_config
 
 
-def generate_platform_config(num_configs: int, output_dir:  str | bytes, prefix, campus, building, gateway_address, generate_ilc):
-    """
-    Generates a platform configuration file for a specified number of configurations, including
-    blocks for manager agents and driver devices. The generated configuration file is saved in
-    a specified output directory.
-
-    The configuration file is constructed by formatting a template with provided information
-    about the campus, building, and gateway address, under a designated prefix for naming.
-
-    Args:
-        num_configs (int): Number of configurations to generate.
-        output_dir (str): Directory path where the configuration file will be saved.
-        prefix: Prefix to use for generated configuration names.
-        campus: Name of the campus for which the configuration is generated.
-        building: Name of the building for which the configuration is generated.
-        gateway_address: Gateway address for the platform configuration.
-
-    """
-    manager_agent_block = generate_platform_config_manager_agent_block(num_configs, prefix, campus, building)
-    platform_driver_devices_block = generate_platform_config_driver_device_block(num_configs, prefix, campus, building)
-    ilc_block = f"""  agent.ilc:
-      source: $ILC
-      tag: ilc
-    """
-
-    platform_config = platform_config_template.format(devices_block=platform_driver_devices_block, manager_agents_block=manager_agent_block, ilc_block=ilc_block if generate_ilc else "")
-
+def generate_platform_config(num_configs: int, output_dir: str | bytes,
+                             prefix: str, campus: str,
+                             building, gateway_address: str,
+                             bacnet_deployment: str,  meter_prefix, generate_ilc: bool):
+    manager_agents_block = generate_platform_config_manager_agent_block(num_configs, prefix, campus, building)
+    devices_block = generate_platform_config_driver_device_block(num_configs, prefix, campus, building, meter_prefix)
+    ilc_block = {"agent.ilc": {"source": "$ILC", "tag": "ilc"}} if generate_ilc else {}
+    platform_config = platform_config_dict_template(devices_block, manager_agents_block, ilc_block)
+    if bacnet_deployment == 'proxy':
+        platform_config = generate_platform_config_bacnet_proxy(platform_config)
     with open(os.path.join(output_dir, 'platform_config.yml'), 'w') as f:
-        f.write(platform_config)
+        yaml.dump(platform_config, f, sort_keys=False)
 
 
 def generate_device_config(config_num: int, prefix: str, gateway_address: str,
-                           campus: str, building: str, output_dir: str, registry_file_name: str = 'schneider.csv'):
-    """
-    Generates device configuration file based on provided parameters and writes
-    it to the specified directory. The configuration file includes the device
-    number, device ID, and device address, derived from the given inputs, and is
-    stored in a directory structure based on campus and building names.
-
-    Args:
-        config_num (int): The configuration number for the device. Used to generate
-            the device number and ID.
-        prefix (str): The file name prefix for the configuration file.
-        gateway_address (str): The gateway IP address from which to generate the
-            device address.
-        campus (str): The campus name for the configuration file directory
-            structure.
-        building (str): The building name for the configuration file directory
-            structure.
-        output_dir (str): The base output directory where the configuration file
-            will be stored.
-
-    """
+                           campus: str, building: str, output_dir: str | bytes, registry_file_name: str = 'schneider.csv'):
     device_address, device_id = generate_device_address(gateway_address, config_num)
-    device_number = str(config_num).zfill(2)
-    device_config = device_config_template.format(device_number=device_number,
-                                                  device_id=device_id,
-                                                  device_address=device_address,
-                                                  registry_file_name=registry_file_name)
-    device_config_dir = Path(os.path.join(output_dir, 'platform.driver', 'devices', campus, building))
+    device_config = device_config_dict_template(device_address, device_id, registry_file_name)
+    device_config_dir = Path(output_dir, 'platform.driver', 'devices', campus, building)
     device_config_dir.mkdir(parents=True, exist_ok=True)
-
-    device_filename = f"{prefix}{device_number}"
-    device_file_path = device_config_dir / device_filename
-    with open(device_file_path, 'w') as config_file:
-        config_file.write(device_config)
+    device_file_path = device_config_dir / f"{prefix}{str(config_num).zfill(2)}"
+    with open(device_file_path, 'w') as f:
+        json.dump(device_config, f, indent=4)
 
 
-def handle_registry_csv(output_dir: str, registry_file_path: str, registry_content: str, file_name: str = 'schneider.csv'):
-    """
-    Handles the creation or copying of a Schneider registry CSV file into a designated
-    directory. If a path to an existing registry CSV file is provided, it is copied to
-    the target directory. Otherwise, a new registry CSV file is generated using provided
-    content. The operation is skipped if the output file already exists.
+def generate_meter_config(device_address: str, device_id: int, prefix: str,
+                        campus: str, building: str, output_dir: str | bytes,
+                        registry_file_name: str = 'dent.csv'):
+    device_config = device_config_dict_template(device_address, device_id, registry_file_name)
+    device_config.pop("heart_beat_point")
+    device_config_dir = Path(output_dir, 'platform.driver', 'devices', campus, building)
+    device_config_dir.mkdir(parents=True, exist_ok=True)
+    device_file_path = device_config_dir / prefix
+    with open(device_file_path, 'w') as f:
+        json.dump(device_config, f, indent=4)
 
-    Args:
-        output_dir (str): The base directory where the registry configuration folder
-            and CSV file will be written.
-        registry_file_path (str): The path to an existing registry CSV file to copy
-            into the target directory. If None, a new CSV file will be created using
-            the registry_content.
-        registry_content (str): The CSV-formatted string content used to generate a
-            new registry file if `registry_file_path` is not provided.
-    """
-    registry_config_dir = Path(os.path.join(output_dir, 'platform.driver', 'registry_configs'))
+
+def handle_registry_csv(output_dir: str | bytes, registry_file_path: str, registry_content: str, file_name: str):
+    registry_config_dir = Path(output_dir, 'platform.driver', 'registry_configs')
     registry_config_dir.mkdir(parents=True, exist_ok=True)
-
-    # Skip if the target registry CSV already exists
     csv_output_path = registry_config_dir / file_name
     if csv_output_path.exists():
         return
-
     if registry_file_path:
-        # Copy provided registry file to the target path
-        shutil.copy(registry_file_path, str(csv_output_path))
+        shutil.copy(registry_file_path, csv_output_path)
     else:
-        # Generate the registry CSV file from `registry_content`
-        with io.StringIO(registry_content) as csvfile:
-            csv_reader = csv.reader(csvfile)
-            with open(csv_output_path, 'w', newline='') as outfile:
-                csv_writer = csv.writer(outfile)
-                csv_writer.writerows(csv_reader)
+        with open(csv_output_path, 'w', newline='') as outfile:
+            outfile.write(registry_content)
 
 
-def generate_platform_driver_configs(num_configs: int, output_dir: str | bytes, registry_file_path: str,
-                                     prefix: str, campus: str, building: str, gateway_address: str, rtu_oat_sensor: int):
-    """
-    Generate platform driver configuration files and handle the registry CSV file.
-
-    This function creates platform driver configuration files for each device based
-    on the specified number of configurations, directory structure, and other
-    metadata. Additionally, it handles the registry CSV file operations.
-
-    Args:
-        num_configs (int): The number of platform driver configuration files to be
-            generated.
-        output_dir (LiteralString | str | bytes): The directory where the configuration files will be
-            stored.
-        registry_file_path (str): The path to the registry CSV file that contains
-            metadata for devices.
-        prefix (str): A prefix to use for configuration file-related identifiers.
-        campus (str): The campus associated with the devices for directory
-            structuring or configuration.
-        building (str): The building within the campus where the devices are
-            located.
-        gateway_address (str): The address of the gateway used for device
-            communication.
-
-    """
-    # Generate platform driver configs for each device
+def generate_platform_driver_configs(num_configs: int, output_dir: str | bytes,
+                                     registry_file_path: str, prefix: str, meter_prefix: str,
+                                     campus: str, building: str, bacnet_network: str,
+                                     gateway_address: str, rtu_oat_sensor: int, meter_ip: bool):
     for config_num in range(1, num_configs + 1):
-        registry_file_name = 'schneider_oat.csv' if config_num == rtu_oat_sensor else 'schneider.csv'
-        generate_device_config(config_num, prefix, gateway_address, campus, building, output_dir, registry_file_name)
-
-    # Handle the registry CSV file
+        registry_file_name = SCHNEIDER_OAT_CSV_NAME if config_num == rtu_oat_sensor else SCHNEIDER_CSV_NAME
+        generate_device_config(config_num, prefix, bacnet_network, campus, building, output_dir, registry_file_name)
+    device_id = 100
+    if meter_ip:
+        gateway_prefix = get_gateway_prefix(gateway_address)
+        device_address = f"{gateway_prefix}.100"
+    else:
+        device_address =  f"{bacnet_network}:100"
+    generate_meter_config(device_address, device_id, meter_prefix, campus, building, output_dir, "dent.csv")
     handle_registry_csv(output_dir, registry_file_path, schneider_registry, SCHNEIDER_CSV_NAME)
     handle_registry_csv(output_dir, registry_file_path, schneider_oat_registry, SCHNEIDER_OAT_CSV_NAME)
+    handle_registry_csv(output_dir, registry_file_path, dent_meter_registry, DENT_CSV_NAME)
 
 
-def generate_manager_configs(num_configs: int, output_dir: str, prefix: str, campus: str,
-                             building: str, timezone: str, rtu_oat_sensor: int):
-    """
-    Generates configuration files for manager devices based on the provided parameters.
+def generate_manager_config(config_num: int, prefix: str, campus: str, building: str,
+                            output_dir: str | bytes, timezone: str, rtu_oat_sensor: int = 0) -> None:
+    device_name = f"{prefix}{str(config_num).zfill(2)}"
+    manager_config = manager_config_store_dict_template(campus, building, device_name, timezone)
+    if config_num != rtu_oat_sensor:
+        manager_config['outdoor_temperature_topic'] = f"devices/{campus}/{building}/rtu{str(rtu_oat_sensor).zfill(2)}/all"
+    manager_config_dir = Path(output_dir, 'configuration_store', f'manager.{device_name}', 'devices', campus, building)
+    manager_config_dir.mkdir(parents=True, exist_ok=True)
+    manager_config_file = manager_config_dir / f"{MANAGER_CONFIG_FILENAME_TEMPLATE.format(device_name=device_name)}"
+    with open(manager_config_file, 'w') as _file:
+        json.dump(manager_config, _file, indent=4)
 
-    This function automates the creation of structured directories and configuration
-    files for a specified number of devices. Each configuration file is unique for
-    each device and incorporates the specified campus, building, timezone, and other
-    details. Optionally, an outdoor temperature topic can be included for devices that
-    do not match the outdoor air sensor device number.
 
-    Args:
-        num_configs (int): The number of configurations to generate.
-        output_dir (LiteralString | str | bytes): The base directory where the configurations will be stored.
-        prefix (str): The prefix to use for naming devices.
-        campus (str): The name of the campus for the devices.
-        building (str): The name of the building where devices are located.
-        timezone (str): The timezone setting for the devices.
-        rtu_oat_sensor (int): The device number corresponding to the RTU outdoor air
-            temperature sensor. If specified and does not match the current device
-            number, an outdoor temperature topic will be added.
-    """
-    def create_output_directory(output_dir: str, prefix: str, config_num: int, campus: str, building: str):
-        device_directory = Path(
-            os.path.join(output_dir, f"manager.{prefix}{str(config_num).zfill(2)}", "devices", campus, building)
-        )
-        device_directory.mkdir(parents=True, exist_ok=True)
-        return device_directory
-
+def generate_topic_watcher_config(num_configs: int, prefix: str, campus: str,
+                                  building: str, meter_prefix: str, output_dir: str | bytes) -> None:
+    topic_watcher_config = {}
     for config_num in range(1, num_configs + 1):
         device_name = f"{prefix}{str(config_num).zfill(2)}"
-        device_config = manager_config_store_template.format(
-            campus=campus, building=building, timezone=timezone, device_name=device_name
-        )
-        if rtu_oat_sensor and rtu_oat_sensor != config_num:
-            rtu_oat_name = f"{prefix}{str(rtu_oat_sensor).zfill(2)}"
-            insertion = f'    "outdoor_temperature_topic": "devices/{campus}/{building}/{rtu_oat_name}/all",\n'.format(campus=campus, building=building, rtu_oat_name=rtu_oat_name)
-            lines = device_config.splitlines(keepends=True)
-            new_lines = []
-
-            for line in lines:
-                new_lines.append(line)
-                if '"setpoint_validate_frequency"' in line:
-                    # insert immediately after this line (keeping indentation consistent)
-                    new_lines.append(insertion)
-            device_config = "".join(new_lines)
-        directory = create_output_directory(output_dir, prefix, config_num, campus, building)
-        filename = MANAGER_CONFIG_FILENAME_TEMPLATE.format(device_name=device_name)
-        with open(directory / filename, 'w') as f:
-            f.write(device_config)
+        topic_key = "_".join([device_name, "group"])
+        topic_watcher_config[topic_key] = {f"devices/{campus}/{building}/{device_name}": 600}
+    topic_watcher_config["meter_group"] = {f"devices/{campus}/{building}/{meter_prefix}": 600}
+    topic_watcher_output_dir = Path(output_dir)
+    with open(topic_watcher_output_dir / 'topic_watcher.config', 'w') as _file:
+        json.dump(topic_watcher_config, _file, indent=4)
 
 
-def generate_bacnet_proxy_config(output_dir: str | bytes, gateway_address: str):
-    """
-    Generates and writes a BACnet proxy configuration file for a specific building and gateway address.
-
-    This function retrieves the gateway prefix based on the provided gateway address and uses that
-    along with the building name to create a BACnet proxy configuration file. The resulting
-    configuration is saved in the specified output directory as 'bacnet.proxy.config'.
-
-    Args:
-        output_dir: The directory path where the configuration file will be written.
-        gateway_address: The network address of the gateway used to derive the prefix.
-    """
+def generate_bacnet_proxy_config(gateway_address: str, output_dir: str | bytes):
     interface_ip_address = None
     gateway_prefix = get_gateway_prefix(gateway_address)
     if not gateway_prefix:
@@ -662,79 +566,82 @@ def generate_bacnet_proxy_config(output_dir: str | bytes, gateway_address: str):
             break
     if interface_ip_address is None:
         raise ValueError('IP address is not found!  Verify gateway address')
-    bacnet_proxy_config = bacnet_proxy_config_template.format(interface_ip_address=interface_ip_address)
-    with open(os.path.join(output_dir, 'bacnet.proxy.config'), 'w') as f:
-        f.write(bacnet_proxy_config)
+    proxy_config = bacnet_proxy_dict_template(interface_ip_address)
+    interface_config = bacnet_interface_template(interface_ip_address)
+    bacnet_output_dir = Path(output_dir)
+    with open(bacnet_output_dir / 'bacnet_proxy.config', 'w') as _file:
+        json.dump(proxy_config, _file, indent=4)
+    with open(bacnet_output_dir / 'bacnet.config', 'w') as _file:
+        json.dump(interface_config, _file, indent=4)
 
 
-
-def generate_historian_config(output_dir: str, db_name, db_user, db_password, db_address, db_port):
-    """
-    Generate and save a configuration file for a historian service.
-
-    This function creates a configuration file for a historian service based on
-    the provided details and writes it to a specified output directory. The
-    configuration file content can either use a default template or a custom
-    template provided by the user.
-
-    Args:
-        output_dir (str): The directory where the configuration file should
-                          be saved.
-        db_name: The name of the database associated with the historian
-                 service.
-        db_user: The username to authenticate with the database.
-        db_password: The password to authenticate with the database.
-        db_address: The address of the database host.
-        db_port: The port number on which the database host is accessible.
-    Returns:
-        None
-    """
-    config_content = historian_config_template.format(
-        db_name=db_name, db_user=db_user, db_password=db_password, db_address=db_address, db_port=db_port
-    )
-    historian_config_path = os.path.join(output_dir, 'historian.config')
-    with open(historian_config_path, 'w') as f:
-        f.write(config_content)
+def generate_historian_config(db_name: str, db_user: str, db_password: str,
+                              db_address: str, db_port: int, output_dir: str | bytes):
+    historian_config = historian_dict_template(db_name, db_user, db_password, db_address, db_port)
+    historian_config_dir = Path(output_dir)
+    historian_config_dir.mkdir(parents=True, exist_ok=True)
+    with open(historian_config_dir / 'historian.config', 'w') as _file:
+        json.dump(historian_config, _file, indent=4)
 
 
-def generate_weather_config(output_dir: str, station: str):
-    """
-    Generates the weather station configuration file.
+def generate_driver_config(timezone: str, output_dir: str | bytes):
+    driver_config = platform_driver_config(timezone)
+    driver_config_dir = Path(output_dir)
+    driver_config_dir.mkdir(parents=True, exist_ok=True)
+    with open(driver_config_dir / 'driver.config', 'w') as _file:
+        json.dump(driver_config, _file, indent=4)
 
-    Args:
-        output_dir: The directory to save the configuration file.
-        station: The name of the weather station.  If empty, the station field will be omitted.
-    """
-    print(f'Configure weather station: {station}')
-    station_config = f'"station": "{station}"' if station else ''
-    weather_config = weather_config_template.format(station=station_config)
-    weather_config_file_path = os.path.join(output_dir, 'weather.config')
-    with open(weather_config_file_path, 'w') as f:
-        f.write(weather_config)
+
+def generate_emailer_config(smtp_address: str, smtp_username: str, smtp_password: str,
+                            smtp_port: int, smtp_tls: bool, to_addresses: str,
+                            allow_frequency_minutes: int, output_dir: str | bytes):
+    emailer_config = emailer_dict_template(smtp_address, smtp_username, smtp_password,
+                                           smtp_port, smtp_tls, to_addresses, allow_frequency_minutes)
+    emailer_config_dir = Path(output_dir)
+    with open(emailer_config_dir / 'emailer.config', 'w') as _file:
+        json.dump(emailer_config, _file, indent=4)
+
+
+def generate_weather_config(station: list, output_dir: str):
+    weather_config = weather_dict_template(station)
+    weather_config_dir = Path(output_dir)
+    weather_config_dir.mkdir(parents=True, exist_ok=True)
+    with open(weather_config_dir / 'weather.config', 'w') as _file:
+        json.dump(weather_config, _file, indent=4)
 
 
 def main():
-    # Argument parsing
-    parser = configargparse.ArgParser(default_config_files=['./config.ini'],
-                                      description='Generate config files for the simulation')
-    parser.add('-n', '--num-configs', type=int, help='Number of config files to generate', required=True)
-    parser.add('--output-dir', help='Output directory for config files', required=True)
+    parser = configargparse.ArgParser(default_config_files=['config.ini'])
+    parser.add('--num-configs', type=int, default=2, help='Number of devices')
+    parser.add('--output-dir', type=str, required=True, help='Directory to output configs')
     parser.add('--config-subdir', help='Subdirectory for config files', default='')
-    parser.add('--campus', help='Campus name', required=True)
-    parser.add('--building', help='Building name', required=True)
-    parser.add('--prefix', help='Device prefix', default='rtu')
-    parser.add('--rtu-oat-sensor', help='RTU number with OAT sensor', type=int, default=1)
+    parser.add('--prefix', type=str, default='RTU', help='Device prefix')
+    parser.add('--meter-prefix', type=str, default='METER', help='Meter prefix') ## ADD
+    parser.add('--campus', type=str, required=True)
+    parser.add('--building', type=str, required=True)
+    parser.add('--gateway-address', type=str, required=True)
     parser.add('--bacnet-address', help='bacnet address', default=None)
-    parser.add('--registry-file-path', help='registry file path', default="")
-    parser.add('--weather-station', help='weather station', default="")
-    parser.add('--ilc', help='Generate ILC section in platform.cfg', action='store_true')
-    parser.add('-g', '--gateway-address', help='Gateway address', default='192.168.0.1')
-    parser.add('-t', '--timezone', help='Timezone', default='America/Los_Angeles')
-    parser.add('--db-name', help='Historian database name', default='volttron')
-    parser.add('--db-user', help='Historian database user', default='volttron')
-    parser.add('--db-password', help='Historian database password', default='volttron')
-    parser.add('--db-address', help='Historian database IP address', default='127.0.0.1')
-    parser.add('--db-port', help='Historian database port', default='5432')
+    parser.add('--timezone', type=str, default='UTC')
+    parser.add('--registry-file-path', type=str, default=None)
+    parser.add('--rtu-oat-sensor', type=int, default=1)
+    parser.add('--generate_ilc', type=bool, default=False)
+    parser.add('--db-name', type=str, default='volttron')
+    parser.add('--db-user', type=str, default='volttron')
+    parser.add('--db-password', type=str, default='volttron')
+    parser.add('--db-address', type=str, default='localhost')
+    parser.add('--db-port', type=int, default=5432)
+    parser.add('--weather-station', type=str, default='')
+    parser.add('--smtp-address', type=str, default='') ## ADD
+    parser.add('--smtp-username', type=str, default='') ## ADD
+    parser.add('--smtp-password', type=str, default='') ## ADD
+    parser.add('--smtp-port', type=int, default=587)
+    parser.add('--smtp-tls', type=bool, default=True)
+    parser.add('--from-address', type=str, default='no-reply@aems.pnl.gov')
+    parser.add('--to-addresses', action='append', help='A list of notify email addresses.', default=[]) ## ADD
+    parser.add('--allow-frequency-minutes', type=int, default=60)
+    parser.add('--meter-ip', type=bool, default=True)
+    parser.add('--bacnet', type=str, default='driver')
+
     args = parser.parse_args()
 
     output_path = os.path.join(args.output_dir, args.config_subdir)
@@ -746,20 +653,55 @@ def main():
     os.makedirs(output_path, exist_ok=True)
     os.makedirs(config_store_path, exist_ok=True)
 
-    device_address = args.bacnet_address if args.bacnet_address is not None else args.gateway_address
 
-    # Generate configurations
-    generate_platform_driver_configs(args.num_configs, config_store_path, args.registry_file_path, args.prefix,
-                                     args.campus, args.building, device_address, args.rtu_oat_sensor)
-    generate_manager_configs(args.num_configs, config_store_path, args.prefix,
-                             args.campus, args.building, args.timezone, args.rtu_oat_sensor)
-    generate_bacnet_proxy_config(output_path, args.gateway_address)
-    generate_historian_config(output_path, args.db_name, args.db_user, args.db_password, args.db_address, args.db_port)
-    generate_weather_config(output_path, args.weather_station)
+    bacnet_network = args.bacnet_address if args.bacnet_address is not None else args.gateway_address
+    bacnet_deployment = args.bacnet if args.bacnet in ["driver", "proxy"] else "driver"
+    # Generate device configs
+    generate_platform_driver_configs(
+        num_configs=args.num_configs,
+        output_dir=config_store_path,
+        registry_file_path=args.registry_file_path,
+        prefix=args.prefix,
+        meter_prefix=args.meter_prefix,
+        campus=args.campus,
+        building=args.building,
+        bacnet_network=bacnet_network,
+        gateway_address=args.gateway_address,
+        rtu_oat_sensor=args.rtu_oat_sensor,
+        meter_ip=args.meter_ip
+    )
+
+    # Generate manager configs
+    for config_num in range(1, args.num_configs + 1):
+        generate_manager_config(config_num, args.prefix, args.campus, args.building,
+                                output_path, args.timezone, args.rtu_oat_sensor)
+
+    # Generate canonical "config" for platform.driver
+    generate_driver_config(args.timezone, output_path)
+    # Generate BACnet proxy config
+    generate_bacnet_proxy_config(args.gateway_address, output_path)
+    generate_bacnet_proxy_config(args.gateway_address, output_path)
+    # Generate historian config
+    generate_historian_config(args.db_name, args.db_user, args.db_password,
+                              args.db_address, args.db_port, output_path)
+
+    # Generate weather config
+    weather_station = [args.weather_station] if args.weather_station else []
+    generate_weather_config(weather_station, output_path)
+
+    # Generate topic watcher config
+    generate_topic_watcher_config(args.num_configs, args.prefix, args.campus, args.building, args.meter_prefix, output_path)
+
+    # Generate emailer config
+    generate_emailer_config(args.smtp_address, args.smtp_username, args.smtp_password,
+                            args.smtp_port, args.smtp_tls, args.to_addresses,
+                            args.allow_frequency_minutes, output_path)
+
+    # Generate platform config (with optional ILC agent)
     generate_platform_config(args.num_configs, output_path, args.prefix,
-                             args.campus, args.building, args.gateway_address, args.ilc)
+                             args.campus, args.building, args.gateway_address,
+                             bacnet_deployment, args.meter_prefix, generate_ilc=args.generate_ilc)
 
-    # Copy docker-compose file
     shutil.copy('docker-compose-aems.yml', os.path.join(output_path, 'docker-compose-aems.yml'))
     shutil.copy('docker-compose-ilc.yml', os.path.join(output_path, 'docker-compose-ilc.yml'))
 
