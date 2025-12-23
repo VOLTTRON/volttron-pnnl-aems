@@ -23,6 +23,7 @@
 # }}}
 import logging
 from datetime import timedelta as td
+import gevent
 
 from volttron.platform.agent.utils import get_aware_utc_now
 from volttron.platform.scheduling import cron
@@ -143,7 +144,7 @@ class LockOutManager:
         :return: None
         :rtype: None
         """
-        gevent.sleep(15)
+        gevent.sleep(30)
         forecast = self._get_forecast_fn()
         _log.debug(f'Evaluate optimal start lockout with weather: {forecast}')
         if not forecast:
