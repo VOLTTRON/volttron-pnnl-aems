@@ -8,7 +8,6 @@ export declare class SetupService extends BaseService {
     private configService;
     private logger;
     constructor(prismaService: PrismaService, subscriptionService: SubscriptionService, configService: AppConfigService);
-    getIlcFiles(paths: string[]): Promise<string[]>;
     execute(): Promise<void>;
     task(): Promise<void>;
 }

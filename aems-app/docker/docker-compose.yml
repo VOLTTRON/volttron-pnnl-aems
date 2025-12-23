@@ -19,7 +19,7 @@ services:
       certs:
         condition: service_completed_successfully
     hostname: proxy
-    image: traefik:v3.5.3
+    image: traefik:v3.6.2
     labels:
       - traefik.tls.stores.default.defaultgeneratedcert.resolver=${CERT_RESOLVER}
       - traefik.tls.stores.default.defaultgeneratedcert.domain.main=${HOSTNAME}
@@ -83,8 +83,9 @@ services:
       - traefik.http.routers.client-http.middlewares=client-https
       - traefik.http.middlewares.client-https.redirectscheme.scheme=https
       - traefik.http.routers.client.entrypoints=websecure
-      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`) && !PathPrefix(`/authjs`) && !PathPrefix(`/graphql`) && !PathPrefix(`/api`) && !PathPrefix(`/ext`) && !PathPrefix(`/auth/sso/`) && !PathPrefix(`/volttron`)
+      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`)
       - traefik.http.routers.client.middlewares=client-security
+      - traefik.http.routers.client.priority=1
       - traefik.http.routers.client.tls=true
       - traefik.http.routers.client.tls.certresolver=${CERT_RESOLVER}
     ports:
@@ -106,6 +107,8 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}-server
     depends_on:
       init:
+        condition: service_completed_successfully
+      grafana-setup:
         condition: service_completed_successfully
       database:
         condition: service_started
@@ -146,6 +149,7 @@ services:
     restart: unless-stopped
     volumes:
       - file-upload:/app/upload/
+      - ./grafana/:/app/grafana/:ro
 
   # Runs application services
   services:
@@ -231,6 +235,13 @@ services:
 
   # Application relational database
   database:
+    build:
+      context: ./database
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
     cap_add:
       - SYS_NICE
     container_name: ${COMPOSE_PROJECT_NAME}-database
@@ -242,7 +253,7 @@ services:
       timeout: 10s
       retries: 10
     hostname: database
-    image: postgis/postgis:16-3.4
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/database:${TAG}
     ports:
       - ${DATABASE_TEST_PORT}:5432
     restart: unless-stopped
@@ -305,7 +316,7 @@ services:
     env_file:
       - .env.wiki
     hostname: wiki
-    image: lscr.io/linuxserver/bookstack
+    image: lscr.io/linuxserver/bookstack:25.11.5
     ports:
       - ${BOOKSTACK_TEST_PORT}:80
     profiles:
@@ -323,7 +334,7 @@ services:
     env_file:
       - .env.wiki
     hostname: wiki-db
-    image: lscr.io/linuxserver/mariadb
+    image: lscr.io/linuxserver/mariadb:11.4.8
     ports:
       - ${BOOKSTACK_DATABASE_TEST_PORT}:3306
     profiles:
@@ -334,7 +345,13 @@ services:
 
   # Keycloak for single sign-on
   keycloak:
-    command: ["start", "--import-realm"]
+    build:
+      context: ./keycloak
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
     container_name: ${COMPOSE_PROJECT_NAME}-keycloak
     depends_on:
       keycloak-db:
@@ -342,7 +359,7 @@ services:
     env_file:
       - .env.keycloak
     hostname: keycloak
-    image: quay.io/keycloak/keycloak
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/keycloak:${TAG}
     labels:
       - traefik.enable=true
       - traefik.http.services.keycloak.loadbalancer.server.port=8080
@@ -374,7 +391,6 @@ services:
     restart: unless-stopped
     volumes:
       - keycloak-cache:/opt/jboss/keycloak/standalone/data
-      - ./keycloak/default-realm.json:/opt/keycloak/data/import/default-realm.json
 
   # Keycloak database
   keycloak-db:
@@ -389,7 +405,7 @@ services:
       timeout: 10s
       retries: 10
     hostname: keycloak-db
-    image: postgis/postgis:16-3.4
+    image: postgres:16-alpine
     profiles:
       - sso
     restart: unless-stopped
@@ -397,7 +413,7 @@ services:
       - keycloak-data:/var/lib/postgresql/data
 
   # Creates Volttron configurations on startup
-  setup:
+  volttron-setup:
     build:
       context: ../../aems-edge
       dockerfile: ./Dockerfile
@@ -405,38 +421,101 @@ services:
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
-    container_name: ${COMPOSE_PROJECT_NAME}-setup
+    container_name: ${COMPOSE_PROJECT_NAME}-volttron-setup
     environment:
-      - VOLTTRON_CAMPUS=${VOLTTRON_CAMPUS}
-      - VOLTTRON_BUILDING=${VOLTTRON_BUILDING}
-      - VOLTTRON_PREFIX=${VOLTTRON_PREFIX}
-      - VOLTTRON_GATEWAY_ADDRESS=${VOLTTRON_GATEWAY_ADDRESS}
-      - VOLTTRON_TIMEZONE=${VOLTTRON_TIMEZONE}
-      - VOLTTRON_NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS}
-      - VOLTTRON_WEATHER_STATION=${VOLTTRON_WEATHER_STATION}
-      - VOLTTRON_REGISTRY_FILE_PATH=${VOLTTRON_REGISTRY_FILE_PATH}
-      - VOLTTRON_BACNET_ADDRESS=${VOLTTRON_BACNET_ADDRESS}
-      - VOLTTRON_ILC=${VOLTTRON_ILC}
-    hostname: setup
+      - SETUP_MODE=volttron
+    env_file:
+      - .env.volttron
+    hostname: volttron-setup
     network_mode: host
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
     restart: no
     volumes:
       - ./volttron/:/home/user/configs/
+      - ./.env.volttron:/home/aems-app/docker/.env.volttron:ro
+
+  # Creates Grafana dashboard configurations
+  grafana-setup:
+    container_name: ${COMPOSE_PROJECT_NAME}-grafana-setup
+    depends_on:
+      grafana:
+        condition: service_started
+    environment:
+      - SETUP_MODE=grafana
+    env_file:
+      - .env.grafana
+    hostname: grafana-setup
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
+    profiles:
+      - grafana
+    restart: no
+    volumes:
+      - ./grafana/:/home/user/configs/
+      - ./.env.grafana:/home/aems-app/docker/.env.grafana:ro
+
+  # Grafana
+  grafana:
+    container_name: ${COMPOSE_PROJECT_NAME}-grafana
+    depends_on:
+      - grafana-db
+    env_file:
+      - .env.grafana
+    hostname: grafana
+    image: grafana/grafana-oss:10.2.2
+    labels:
+      - traefik.enable=true
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+      - traefik.http.middlewares.grafana-security.headers.browserXssFilter=true
+      - traefik.http.middlewares.grafana-security.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.grafana-security.headers.forceSTSHeader=true
+      - traefik.http.middlewares.grafana-security.headers.frameDeny=true
+      - traefik.http.middlewares.grafana-security.headers.referrerPolicy=same-origin
+      - traefik.http.middlewares.grafana-security.headers.sslRedirect=true
+      - traefik.http.middlewares.grafana-security.headers.stsSeconds=31536000
+      - traefik.http.middlewares.grafana-stripprefix.stripprefix.prefixes=/grafana
+      - traefik.http.routers.grafana-http.entrypoints=web
+      - traefik.http.routers.grafana-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana-http.middlewares=grafana-https
+      - traefik.http.middlewares.grafana-https.redirectscheme.scheme=https
+      - traefik.http.routers.grafana.entrypoints=websecure
+      - traefik.http.routers.grafana.rule=Host(`${HOSTNAME}`) && PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana.middlewares=grafana-security
+      - traefik.http.routers.grafana.priority=100
+      - traefik.http.routers.grafana.tls=true
+      - traefik.http.routers.grafana.tls.certresolver=${CERT_RESOLVER}
+    ports:
+      - ${GRAFANA_TEST_PORT}:3000
+    profiles:
+      - grafana
+    restart: unless-stopped
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+  # Grafana database
+  grafana-db:
+    container_name: ${COMPOSE_PROJECT_NAME}-grafana-db
+    env_file:
+      - .env.grafana
+    hostname: grafana-db
+    image: postgres:16-alpine
+    ports:
+      - ${GRAFANA_DATABASE_TEST_PORT}:5432
+    profiles:
+      - grafana
+    restart: unless-stopped
+    volumes:
+      - grafana-db-data:/var/lib/postgresql/data
 
   # Volttron - runs on host network for direct access
   volttron:
     container_name: ${COMPOSE_PROJECT_NAME}-volttron
     depends_on:
-      setup:
-        condition: service_completed_successfully
       certs:
         condition: service_completed_successfully
-    environment:
-      - CONFIG=/home/volttron/configurations
-      - AEMS=/code/aems
-      - ILC=/code/ilc
-      - LOCAL_USER_ID=1000
+      volttron-setup:
+        condition: service_completed_successfully
+    env_file:
+      - .env.volttron
     hostname: volttron
     image: eclipsevolttron/volttron-aems-ilc
     network_mode: host
@@ -520,4 +599,8 @@ volumes:
   keycloak-cache:
     driver: local
   volttron-data:
+    driver: local
+  grafana-data:
+    driver: local
+  grafana-db-data:
     driver: local

@@ -2385,6 +2385,7 @@ type Unit {
   locationId: String
   message: String
   name: String
+  occupancyDetection: Boolean
   optimalStartDeviation: Float
   optimalStartLockout: Float
   peakLoadExclude: Boolean
@@ -2429,6 +2430,7 @@ input UnitCreateInput {
   locationId: String
   message: String
   name: String!
+  occupancyDetection: Boolean
   optimalStartDeviation: Float
   optimalStartLockout: Float
   peakLoadExclude: Boolean
@@ -2465,6 +2467,7 @@ enum UnitFields {
   locationId
   message
   name
+  occupancyDetection
   optimalStartDeviation
   optimalStartLockout
   peakLoadExclude
@@ -2505,6 +2508,7 @@ input UnitFilter {
   locationId: StringFilter
   message: StringFilter
   name: StringFilter
+  occupancyDetection: BooleanFilter
   optimalStartDeviation: FloatFilter
   optimalStartLockout: FloatFilter
   peakLoadExclude: BooleanFilter
@@ -2544,6 +2548,7 @@ input UnitOrderBy {
   locationId: OrderBy
   message: OrderBy
   name: OrderBy
+  occupancyDetection: OrderBy
   optimalStartDeviation: OrderBy
   optimalStartLockout: OrderBy
   peakLoadExclude: OrderBy
@@ -2594,6 +2599,7 @@ input UnitUpdateInput {
   locationId: String
   message: String
   name: String
+  occupancyDetection: Boolean
   optimalStartDeviation: Float
   optimalStartLockout: Float
   peakLoadExclude: Boolean

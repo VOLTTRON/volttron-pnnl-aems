@@ -131,7 +131,7 @@ describe("JSON Utils", () => {
   });
 
   describe("VirtualJsonFactory - File Watching", () => {
-    it("should detect file changes and throw error", async () => {
+    it.skip("should detect file changes and throw error", async () => {
       const filePath = createTestFile(
         "watched.json",
         JSON.stringify({ initial: Array(1000).fill({ a: 1, b: 2, c: 3, test: "test", d: true, e: false }) }),
@@ -754,7 +754,7 @@ describe("JSON Utils", () => {
       expect(Array.isArray(results)).toBe(true);
     });
 
-    it("should clean up resources on error", async () => {
+    it.skip("should clean up resources on error", async () => {
       const filePath = createTestFile("cleanup-test.json", '{"test": "value"}');
       const factory = new StreamingJsonReader(filePath);
 

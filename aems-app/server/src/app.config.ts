@@ -191,11 +191,27 @@ export class AppConfigService {
     ca: string;
     mocked: boolean;
   };
+  grafana: {
+    path: string;
+    url: string;
+    configPath: string;
+    username: string;
+    password: string;
+  };
   cors: {
     origin?: string;
   };
 
   normalize = Normalization.process(Normalization.Trim, Normalization.Compact, Normalization.Lowercase);
+
+  readFile(file: string): string {
+    try {
+      return readFileSync(file).toString("utf-8");
+    } catch (error) {
+      this.logger.error(`Failed to read file: ${file}`, error);
+      return "";
+    }
+  }
 
   constructor() {
     this.nodeEnv = process.env.NODE_ENV ?? "development";
@@ -367,10 +383,15 @@ export class AppConfigService {
       },
     };
     this.volttron = {
-      ca: process.env.VOLTTRON_CA
-        ? readFileSync(resolve(__dirname, process.env.VOLTTRON_CA ?? "")).toString("utf-8")
-        : "",
+      ca: process.env.VOLTTRON_CA ? this.readFile(resolve(__dirname, process.env.VOLTTRON_CA ?? "")) : "",
       mocked: parseBoolean(process.env.VOLTTRON_MOCKED),
+    };
+    this.grafana = {
+      path: process.env.GRAFANA_PATH ?? "/gdb",
+      url: process.env.GRAFANA_URL ?? "",
+      configPath: process.env.GRAFANA_CONFIG_PATH ?? "",
+      username: process.env.GRAFANA_USERNAME ?? "",
+      password: process.env.GRAFANA_PASSWORD ?? "",
     };
     this.cors = {
       origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,

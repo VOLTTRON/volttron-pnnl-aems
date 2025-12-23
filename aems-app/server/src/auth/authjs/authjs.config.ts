@@ -36,7 +36,7 @@ export const buildConfig = (
         return configService.nodeEnv !== "production" ? (configService.cors.origin ?? url) : url;
       },
       jwt({ token, account, profile: _profile }) {
-        // Handle Keycloak role extraction from JWT token
+        // Handle Keycloak role extraction from JWT token and store refresh_token
         if (account?.provider === "keycloak" && account.access_token) {
           try {
             // Decode the access token to extract roles
@@ -48,9 +48,11 @@ export const buildConfig = (
               .map((v: string) => RoleType.parse(v)?.enum)
               .filter(typeofEnum(RoleEnum));
 
-            // Store roles in the token for use in signIn callback
+            // Store roles and refresh_token in the token for use in signIn callback and logout
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             (token as any).keycloakRoles = roles;
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            (token as any).refreshToken = account.refresh_token;
             logger.debug(`Extracted roles from Keycloak token: ${roles.join(", ")}`);
           } catch (error) {
             logger.warn("Failed to decode Keycloak access token for role extraction", error);
@@ -153,7 +155,7 @@ export const buildConfig = (
                 email: user.email,
                 emailVerified: user.emailVerified,
                 // Add role as a custom property
-                ...(user.role && { role: user.role }),
+                ...({ role: user.role ?? "" }),
               };
             }
           } catch (error) {
@@ -163,7 +165,100 @@ export const buildConfig = (
         return session;
       },
     },
+    cookies: {
+      sessionToken: {
+        name: `${configService.nodeEnv === "production" ? "__Secure-" : ""}next-auth.session-token`,
+        options: {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: true,
+        },
+      },
+      callbackUrl: {
+        name: `${configService.nodeEnv === "production" ? "__Secure-" : ""}next-auth.callback-url`,
+        options: {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: true,
+        },
+      },
+      csrfToken: {
+        name: `${configService.nodeEnv === "production" ? "__Host-" : ""}next-auth.csrf-token`,
+        options: {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: true,
+        },
+      },
+      pkceCodeVerifier: {
+        name: `${configService.nodeEnv === "production" ? "__Secure-" : ""}next-auth.pkce.code_verifier`,
+        options: {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: true,
+          maxAge: 60 * 15, // 15 minutes
+        },
+      },
+      state: {
+        name: `${configService.nodeEnv === "production" ? "__Secure-" : ""}next-auth.state`,
+        options: {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: true,
+          maxAge: 60 * 15, // 15 minutes
+        },
+      },
+      nonce: {
+        name: `${configService.nodeEnv === "production" ? "__Secure-" : ""}next-auth.nonce`,
+        options: {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: true,
+        },
+      },
+    },
     debug: configService.auth.debug || configService.nodeEnv !== "production",
+    events: {
+      async signOut(message) {
+        // Perform federated logout with Keycloak when user signs out
+        const token = "token" in message ? message.token : null;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        const refreshToken: string | undefined = token ? (token as any).refreshToken : undefined;
+
+        if (refreshToken) {
+          try {
+            const endSessionURL = `${configService.keycloak.issuerUrl}/protocol/openid-connect/logout`;
+            const body = new URLSearchParams({
+              client_id: configService.keycloak.clientId,
+              client_secret: configService.keycloak.clientSecret,
+              refresh_token: refreshToken,
+            });
+
+            const response = await fetch(endSessionURL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: body.toString(),
+            });
+
+            if (!response.ok) {
+              logger.warn(`Keycloak logout failed with status: ${response.status}`);
+            } else {
+              logger.debug("Successfully logged out from Keycloak");
+            }
+          } catch (error) {
+            logger.error("Error during Keycloak federated logout", error);
+          }
+        }
+      },
+    },
     providers: authService
       .getProviderNames()
       .map((name) => authService.getProvider(name))

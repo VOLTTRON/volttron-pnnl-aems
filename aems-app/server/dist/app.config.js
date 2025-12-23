@@ -49,6 +49,15 @@ const toDurationUnit = (value) => {
     }
 };
 class AppConfigService {
+    readFile(file) {
+        try {
+            return (0, node_fs_1.readFileSync)(file).toString("utf-8");
+        }
+        catch (error) {
+            this.logger.error(`Failed to read file: ${file}`, error);
+            return "";
+        }
+    }
     constructor() {
         this.logger = new common_2.Logger(AppConfigService.name);
         this.normalize = common_1.Normalization.process(common_1.Normalization.Trim, common_1.Normalization.Compact, common_1.Normalization.Lowercase);
@@ -216,10 +225,15 @@ class AppConfigService {
             },
         };
         this.volttron = {
-            ca: process.env.VOLTTRON_CA
-                ? (0, node_fs_1.readFileSync)((0, node_path_1.resolve)(__dirname, process.env.VOLTTRON_CA ?? "")).toString("utf-8")
-                : "",
+            ca: process.env.VOLTTRON_CA ? this.readFile((0, node_path_1.resolve)(__dirname, process.env.VOLTTRON_CA ?? "")) : "",
             mocked: (0, common_1.parseBoolean)(process.env.VOLTTRON_MOCKED),
+        };
+        this.grafana = {
+            path: process.env.GRAFANA_PATH ?? "/gdb",
+            url: process.env.GRAFANA_URL ?? "",
+            configPath: process.env.GRAFANA_CONFIG_PATH ?? "",
+            username: process.env.GRAFANA_USERNAME ?? "",
+            password: process.env.GRAFANA_PASSWORD ?? "",
         };
         this.cors = {
             origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,

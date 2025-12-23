@@ -47,5 +47,8 @@
     "upsert"
   ],
   "typescript.enablePromptUseWorkspaceTsdk": false,
-  "typescript.tsdk": "aems-app\\app\\node_modules\\typescript\\lib"
+  "typescript.tsdk": "aems-app\\app\\node_modules\\typescript\\lib",
+  "python-envs.defaultEnvManager": "ms-python.python:system",
+  "python-envs.defaultPackageManager": "ms-python.python:pip",
+  "python-envs.pythonProjects": []
 }
