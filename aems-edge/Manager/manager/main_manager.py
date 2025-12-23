@@ -285,7 +285,8 @@ class ManagerProxy:
                                               get_current_oat_fn=self.get_current_oat,
                                               control_fn=self.do_zone_control,
                                               scheduler_fn=self.core.schedule,
-                                              change_occupancy_fn=self.change_occupancy)
+                                              change_occupancy_fn=self.change_occupancy,
+                                              sync_occupancy_state_fn=self.sync_occupancy_state)
         # Wait to call this until the system connects.
         self.core.onstart.connect(lambda x: self.setup_optimal_start())
 
