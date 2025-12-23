@@ -8,6 +8,7 @@ import configargparse
 import netifaces as ni
 import json
 import yaml
+import ipaddress
 
 ADDRESS_OFFSET_DEFAULT = 0
 SCHNEIDER_CSV_NAME = 'schneider.csv'
@@ -414,10 +415,41 @@ bacnet_proxy_agent_block = {
 }
 
 def get_gateway_prefix(address: str) -> str:
+    """
+    Extracts the gateway prefix from the given IP address.
+
+    The gateway prefix is the portion of the IP address excluding the last
+    octet. This function splits the address by its dots and joins all but the
+    last segment to generate the prefix.
+
+    Args:
+        address (str): The input IPv4 address in string format.
+
+    Returns:
+        str: The gateway prefix of the provided IP address.
+    """
     return '.'.join(address.split('.')[:-1])
 
 
 def generate_device_address(bacnet_network: str, device_index: int, offset: int = ADDRESS_OFFSET_DEFAULT) -> tuple[str, int]:
+    """
+    Generates a BACnet device address based on the provided network identifier, device index,
+    and an optional offset value. Depending on the format of the BACnet network identifier,
+    it creates either a fully qualified gateway-prefixed address or a concatenated network
+    and formatted device index. The function is used to define the representation and
+    routing address of a BACnet device in the network.
+
+    Args:
+        bacnet_network (str): The BACnet network identifier. Can be structured with a gateway
+            component (e.g., '192.168.1.1') or a network number in a basic format.
+        device_index (int): The numeric index of the device to generate an address for.
+        offset (int, optional): The offset value added to the device index for the final
+            address calculation. Default value is ADDRESS_OFFSET_DEFAULT.
+
+    Returns:
+        tuple[str, int]: A tuple containing the generated BACnet device address as a string
+        and the formatted device index as an integer.
+    """
     formatted_device_index = device_index + offset
     if '.' in bacnet_network:
         gateway_prefix = get_gateway_prefix(bacnet_network)
@@ -429,6 +461,24 @@ def generate_device_address(bacnet_network: str, device_index: int, offset: int 
 
 
 def generate_platform_config_manager_agent_block(num_configs: int, device_prefix: str, campus: str, building: str):
+    """
+    Generates a dictionary containing configuration information for platform config
+    manager agents based on input parameters.
+
+    This function constructs a dictionary where each key is a manager agent identifier
+    and each value is a dictionary of configuration details like source, configuration
+    file path, and a tag for a specified number of devices.
+
+    Args:
+        num_configs (int): The number of platform config manager agents to generate.
+        device_prefix (str): A prefix used in the device name and VIP value.
+        campus (str): The campus in which the devices are located.
+        building (str): The building in which the devices are located.
+
+    Returns:
+        dict: A dictionary containing configuration details for platform config
+        manager agents.
+    """
     manager_agents = {}
     for config_num in range(1, num_configs + 1):
         device_name = f"{device_prefix}{str(config_num).zfill(2)}"
@@ -442,6 +492,24 @@ def generate_platform_config_manager_agent_block(num_configs: int, device_prefix
 
 def generate_platform_config_driver_device_block(num_configs: int, prefix: str,
                                                  campus: str, building: str, meter_prefix: str):
+    """
+    Generates a dictionary representing the platform configuration driver device
+    block.
+
+    This function creates a configuration dictionary for devices based on the
+    provided inputs. It iterates to produce device names with incremental
+    indexing, appending prefixes and other supplied components.
+
+    Args:
+        num_configs (int): Number of devices to configure.
+        prefix (str): Prefix for naming the devices.
+        campus (str): Name of the campus where devices belong.
+        building (str): Name of the building where devices are located.
+        meter_prefix (str): Prefix for naming meter related devices.
+
+    Returns:
+        dict: A dictionary containing the generated device blocks.
+    """
     devices_block = {}
     for i in range(1, num_configs + 1):
         device_name = f"{prefix}{str(i).zfill(2)}"
@@ -450,6 +518,23 @@ def generate_platform_config_driver_device_block(num_configs: int, prefix: str,
     return devices_block
 
 def generate_platform_config_bacnet_proxy(platform_config):
+    """
+    Updates the platform configuration dictionary to include the BACnet Proxy agent configuration
+    and sets the source for the platform driver agent.
+
+    This function modifies the given platform configuration dictionary by adding a predefined
+    BACnet Proxy agent block to the agents section. Additionally, it updates the source path
+    for the Platform Driver Agent within the dictionary.
+
+    Args:
+        platform_config (dict): A dictionary representing the platform configuration. It must
+            contain the 'agents' key, which is expected to be a dictionary that can be updated
+            with the BACnet Proxy agent configuration.
+
+    Returns:
+        dict: The updated platform configuration dictionary, including the BACnet Proxy agent
+            block and updated source for the Platform Driver Agent.
+    """
     platform_config['agents'].update(bacnet_proxy_agent_block)
     platform_config['agents']['platform.driver']['source'] = "$VOLTTRON_ROOT/services/core/PlatformDriverAgent"
     return platform_config
@@ -459,6 +544,28 @@ def generate_platform_config(num_configs: int, output_dir: str | bytes,
                              prefix: str, campus: str,
                              building, gateway_address: str,
                              bacnet_deployment: str,  meter_prefix, generate_ilc: bool):
+    """
+    Generates a platform configuration file based on the provided parameters.
+
+    This function creates a platform configuration YAML file with several blocks
+    such as manager agents, driver devices, and optionally an ILC block. Based on
+    the bacnet deployment type, adjustments to the configuration are made. The
+    final configuration is written to the specified output directory.
+
+    Args:
+        num_configs (int): Number of configurations to generate.
+        output_dir (str | bytes): Directory where the platform configuration YAML
+            file will be saved.
+        prefix (str): Prefix to be used in the generated configuration.
+        campus (str): Name of the campus in the configuration.
+        building: Name of the building in the configuration.
+        gateway_address (str): Address of the gateway to be used in the configuration.
+        bacnet_deployment (str): Type of BACnet deployment to be used
+            ('proxy' or other values).
+        meter_prefix: Prefix for the meters in the configuration.
+        generate_ilc (bool): Flag to indicate whether ILC block should be generated.
+
+    """
     manager_agents_block = generate_platform_config_manager_agent_block(num_configs, prefix, campus, building)
     devices_block = generate_platform_config_driver_device_block(num_configs, prefix, campus, building, meter_prefix)
     ilc_block = {"agent.ilc": {"source": "$ILC", "tag": "ilc"}} if generate_ilc else {}
@@ -471,6 +578,23 @@ def generate_platform_config(num_configs: int, output_dir: str | bytes,
 
 def generate_device_config(config_num: int, prefix: str, gateway_address: str,
                            campus: str, building: str, output_dir: str | bytes, registry_file_name: str = 'schneider.csv'):
+    """
+    Generates a device configuration file based on the provided parameters. The function creates
+    a configuration dictionary for a device using the specified parameters and saves it as a
+    JSON file to the appropriate directory structure under the output directory. If the directory
+    structure does not exist, it is created automatically.
+
+    Args:
+        config_num (int): Configuration number for the device.
+        prefix (str): Prefix for the device configuration file name.
+        gateway_address (str): Address of the gateway associated with the device.
+        campus (str): Campus identifier for the device.
+        building (str): Building identifier for the device.
+        output_dir (str | bytes): Base directory to store the generated configuration files.
+        registry_file_name (str): Name of the registry file to include in the device configuration.
+            Defaults to 'schneider.csv'.
+
+    """
     device_address, device_id = generate_device_address(gateway_address, config_num)
     device_config = device_config_dict_template(device_address, device_id, registry_file_name)
     device_config_dir = Path(output_dir, 'platform.driver', 'devices', campus, building)
@@ -483,6 +607,24 @@ def generate_device_config(config_num: int, prefix: str, gateway_address: str,
 def generate_meter_config(device_address: str, device_id: int, prefix: str,
                         campus: str, building: str, output_dir: str | bytes,
                         registry_file_name: str = 'dent.csv'):
+    """
+    Generates and saves the configuration for a meter device.
+
+    This function creates a device configuration file for a specified meter device
+    using provided parameters. The configuration is saved in a directory that
+    is automatically created if it does not already exist. The generated configuration
+    excludes the "heart_beat_point" field.
+
+    Args:
+        device_address: The address of the device.
+        device_id: The unique identifier for the device.
+        prefix: The name prefix for the generated configuration file.
+        campus: The name of the campus where the device is located.
+        building: The name of the building where the device is located.
+        output_dir: The root output directory where the configuration files will be saved.
+        registry_file_name: The name of the registry file to be used. Defaults to
+            'dent.csv'.
+    """
     device_config = device_config_dict_template(device_address, device_id, registry_file_name)
     device_config.pop("heart_beat_point")
     device_config_dir = Path(output_dir, 'platform.driver', 'devices', campus, building)
@@ -493,6 +635,23 @@ def generate_meter_config(device_address: str, device_id: int, prefix: str,
 
 
 def handle_registry_csv(output_dir: str | bytes, registry_file_path: str, registry_content: str, file_name: str):
+    """
+    Handles the creation and management of a registry CSV file in a specified output
+    directory. The method ensures the appropriate directories are created, checks if
+    the file already exists to avoid overwriting, and either copies an existing file
+    or writes provided content to a new file.
+
+    Args:
+        output_dir: A string or bytes object representing the base output directory
+            where the registry configurations directory will be created.
+        registry_file_path: A string representing the file path of an existing
+            registry file to copy. If None, registry_content will be written to a
+            new file instead.
+        registry_content: A string containing the registry content to write into a
+            new file if registry_file_path is None.
+        file_name: A string representing the name of the registry CSV file to be
+            created or copied.
+    """
     registry_config_dir = Path(output_dir, 'platform.driver', 'registry_configs')
     registry_config_dir.mkdir(parents=True, exist_ok=True)
     csv_output_path = registry_config_dir / file_name
@@ -509,6 +668,31 @@ def generate_platform_driver_configs(num_configs: int, output_dir: str | bytes,
                                      registry_file_path: str, prefix: str, meter_prefix: str,
                                      campus: str, building: str, bacnet_network: str,
                                      gateway_address: str, rtu_oat_sensor: int, meter_ip: bool):
+    """
+    Generates platform driver configuration files and handles registry CSV files based on the inputs provided.
+
+    This function generates configuration files for platform drivers for the specified
+    number of devices and also handles registry files to ensure the mappings for various
+    devices are updated accordingly. It creates device and meter configurations, as well
+    as registers them to the specified output directory.
+
+    Args:
+        num_configs (int): The number of device configurations to generate.
+        output_dir (str | bytes): The directory where the generated configurations
+            will be stored.
+        registry_file_path (str): The file path for the registry that needs to
+            be updated.
+        prefix (str): The prefix to be used in the configuration for devices.
+        meter_prefix (str): The prefix for meter device configurations.
+        campus (str): The campus name to associate with the devices.
+        building (str): The building name to associate with the devices.
+        bacnet_network (str): The BacNet network identifier for the devices.
+        gateway_address (str): The address of the gateway used for the BacNet
+            communication.
+        rtu_oat_sensor (int): The RTU OAT sensor's specific configuration index in
+            the range of devices.
+        meter_ip (bool): Indicates whether the meter is addressed via an IP address.
+    """
     for config_num in range(1, num_configs + 1):
         registry_file_name = SCHNEIDER_OAT_CSV_NAME if config_num == rtu_oat_sensor else SCHNEIDER_CSV_NAME
         generate_device_config(config_num, prefix, bacnet_network, campus, building, output_dir, registry_file_name)
@@ -526,6 +710,28 @@ def generate_platform_driver_configs(num_configs: int, output_dir: str | bytes,
 
 def generate_manager_config(config_num: int, prefix: str, campus: str, building: str,
                             output_dir: str | bytes, timezone: str, rtu_oat_sensor: int = 0) -> None:
+    """
+    Generates a manager configuration file for a specified device.
+
+    This function creates a manager configuration dictionary for a device using its
+    campus, building, and device name. It stores this configuration file in a
+    directory structure that mirrors the device's specification. If the configuration
+    number corresponds to an outdoor air temperature sensor, an additional topic
+    related to the outdoor temperature will be added to the configuration.
+
+    Args:
+        config_num: The unique configuration number used to generate the device name.
+        prefix: A string used as a prefix in the device name generation.
+        campus: The campus identifier where the device is located.
+        building: The building identifier where the device is located.
+        output_dir: The root directory where the manager configuration file will
+            be stored.
+        timezone: The timezone identifier to be used in the device's configuration.
+        rtu_oat_sensor: The configuration number of the outdoor air temperature
+            sensor, used to include the related topic in the configuration. Defaults
+            to 0.
+
+    """
     device_name = f"{prefix}{str(config_num).zfill(2)}"
     manager_config = manager_config_store_dict_template(campus, building, device_name, timezone)
     if config_num != rtu_oat_sensor:
@@ -539,6 +745,25 @@ def generate_manager_config(config_num: int, prefix: str, campus: str, building:
 
 def generate_topic_watcher_config(num_configs: int, prefix: str, campus: str,
                                   building: str, meter_prefix: str, output_dir: str | bytes) -> None:
+    """
+    Generates a topic watcher configuration file based on specified parameters.
+
+    This function creates a configuration dictionary for devices and a meter group
+    with corresponding MQTT topics and timeout values. It outputs the configuration
+    to a specified file in the given directory.
+
+    Args:
+        num_configs (int): The number of device configurations to generate.
+        prefix (str): The prefix for device names.
+        campus (str): The campus name included in the topic structure.
+        building (str): The building name included in the topic structure.
+        meter_prefix (str): The prefix for the meter group topic.
+        output_dir (str | bytes): The directory where the configuration file will
+            be saved.
+
+    Raises:
+        OSError: If there is an issue with file creation or writing.
+    """
     topic_watcher_config = {}
     for config_num in range(1, num_configs + 1):
         device_name = f"{prefix}{str(config_num).zfill(2)}"
@@ -551,21 +776,47 @@ def generate_topic_watcher_config(num_configs: int, prefix: str, campus: str,
 
 
 def generate_bacnet_proxy_config(gateway_address: str, output_dir: str | bytes):
+    """
+    Generates BACnet proxy configuration files based on the provided gateway address
+    and output directory. The function attempts to identify a matching network
+    interface on the system for the provided gateway address. If a matching address
+    is not found, it defaults to using the gateway address directly.
+
+    The generated configuration files are written to the specified output directory.
+
+    Args:
+        gateway_address: A string representing the gateway address in IPv4 format.
+            This is used to identify the appropriate network interface.
+        output_dir: A string or bytes type specifying the output directory path where
+            the configuration files will be created. The path must already exist.
+
+    Raises:
+        ValueError: If the provided gateway address format is invalid.
+    """
     interface_ip_address = None
-    gateway_prefix = get_gateway_prefix(gateway_address)
-    if not gateway_prefix:
-        raise ValueError('gateway-address is not set!')
+    try:
+        gateway_network = ipaddress.ip_network(gateway_address + '/24', strict=False)
+    except ValueError:
+        raise ValueError('Invalid gateway-address format!')
+
     interfaces = ni.interfaces()
     for interface in interfaces:
         try:
-            ip_address = ni.ifaddresses(interface)[ni.AF_INET][0]['addr']
-        except KeyError:
+            addr_info = ni.ifaddresses(interface).get(ni.AF_INET)
+            if addr_info:
+                ip_address_str = addr_info[0]['addr']
+                ip_address_obj = ipaddress.ip_address(ip_address_str)
+                if ip_address_obj in gateway_network:
+                    interface_ip_address = ip_address_str
+                    break
+        except (KeyError, IndexError):
             continue
-        if gateway_prefix in ip_address:
-            interface_ip_address = ip_address
-            break
+
     if interface_ip_address is None:
-        raise ValueError('IP address is not found!  Verify gateway address')
+        sys.stderr.write("WARNING: Could not find a matching IP address for the gateway. "
+                         "Falling back to using the gateway address directly. "
+                         "This may not work in all environments.\n")
+        interface_ip_address = gateway_address
     proxy_config = bacnet_proxy_dict_template(interface_ip_address)
     interface_config = bacnet_interface_template(interface_ip_address)
     bacnet_output_dir = Path(output_dir)
@@ -577,6 +828,23 @@ def generate_bacnet_proxy_config(gateway_address: str, output_dir: str | bytes):
 
 def generate_historian_config(db_name: str, db_user: str, db_password: str,
                               db_address: str, db_port: int, output_dir: str | bytes):
+    """
+    Generates a historian configuration file based on specified database connection
+    details and saves it to the provided output directory.
+
+    This function creates a configuration dictionary using the provided database
+    connection parameters, prepares the output directory, and writes the configuration
+    to a JSON file named 'historian.config' in the specified directory.
+
+    Args:
+        db_name: Name of the database to connect to.
+        db_user: Username for the database connection.
+        db_password: Password for the database connection.
+        db_address: Address of the database host.
+        db_port: Port number to connect to the database.
+        output_dir: Directory in which the 'historian.config' file is created and saved.
+
+    """
     historian_config = historian_dict_template(db_name, db_user, db_password, db_address, db_port)
     historian_config_dir = Path(output_dir)
     historian_config_dir.mkdir(parents=True, exist_ok=True)
@@ -585,6 +853,17 @@ def generate_historian_config(db_name: str, db_user: str, db_password: str,
 
 
 def generate_driver_config(timezone: str, output_dir: str | bytes):
+    """
+    Generates and saves a platform driver configuration file based on the provided
+    timezone and output directory. The configuration is written to a JSON file named
+    'driver.config' in the specified output directory. If the directory does not exist,
+    it will be created.
+
+    Args:
+        timezone: The timezone to be used for generating the driver configuration.
+        output_dir: The directory where the configuration file will be saved. It can
+            be a string or bytes representing the file path.
+    """
     driver_config = platform_driver_config(timezone)
     driver_config_dir = Path(output_dir)
     driver_config_dir.mkdir(parents=True, exist_ok=True)
@@ -595,6 +874,27 @@ def generate_driver_config(timezone: str, output_dir: str | bytes):
 def generate_emailer_config(smtp_address: str, smtp_username: str, smtp_password: str,
                             smtp_port: int, smtp_tls: bool, to_addresses: str,
                             allow_frequency_minutes: int, output_dir: str | bytes):
+    """
+    Generate an emailer configuration file based on the provided parameters.
+
+    This function generates a configuration for an emailer in the JSON format, using
+    the input parameters such as SMTP details, recipient addresses, frequency of
+    email notifications, and output directory. It writes the configuration file
+    named `emailer.config` to the specified output directory.
+
+    Args:
+        smtp_address (str): Address of the SMTP server.
+        smtp_username (str): Username for the SMTP server authentication.
+        smtp_password (str): Password for the SMTP server authentication.
+        smtp_port (int): Port of the SMTP server.
+        smtp_tls (bool): Indicates whether TLS is required for the SMTP server.
+        to_addresses (str): Comma-separated list of recipient email addresses.
+        allow_frequency_minutes (int): Minimum time interval in minutes to allow
+            between consecutive email notifications.
+        output_dir (str | bytes): Directory path where the configuration file will
+            be created.
+
+    """
     emailer_config = emailer_dict_template(smtp_address, smtp_username, smtp_password,
                                            smtp_port, smtp_tls, to_addresses, allow_frequency_minutes)
     emailer_config_dir = Path(output_dir)
@@ -603,6 +903,21 @@ def generate_emailer_config(smtp_address: str, smtp_username: str, smtp_password
 
 
 def generate_weather_config(station: list, output_dir: str):
+    """
+    Generates a weather configuration file based on the provided station list and
+    saves it to the specified output directory.
+
+    This function takes a list of weather station information, transforms it into
+    a weather configuration dictionary using a predefined template, and writes it
+    to a `weather.config` file in the given directory. The directory is created
+    if it does not exist.
+
+    Args:
+        station (list): A list of weather station data to be used for generating
+            the weather configuration.
+        output_dir (str): The directory where the weather configuration file will
+            be saved. The directory is created if it does not exist.
+    """
     weather_config = weather_dict_template(station)
     weather_config_dir = Path(output_dir)
     weather_config_dir.mkdir(parents=True, exist_ok=True)
@@ -611,6 +926,48 @@ def generate_weather_config(station: list, output_dir: str):
 
 
 def main():
+    """
+    Main function to parse command-line arguments and generate configuration files.
+
+    This function uses the `configargparse` library to parse command-line arguments and generate
+    various configurations required for platform deployment. It handles input validation, creates
+    necessary directories, and executes multiple configuration generation procedures.
+
+    Args:
+        --num-configs (int): Number of device configurations to generate (default: 2).
+        --output-dir (str): Directory where configurations will be output, required.
+        --config-subdir (str): Subdirectory for configuration files (default: '').
+        --prefix (str): Prefix for device configurations (default: 'RTU').
+        --meter-prefix (str): Prefix for meter configurations (default: 'METER').
+        --campus (str): Campus name, required.
+        --building (str): Building name, required.
+        --gateway-address (str): Gateway address, required.
+        --bacnet-address (str): BACnet address (default: None).
+        --timezone (str): Timezone configuration (default: 'UTC').
+        --registry-file-path (str): Path to the registry file (default: None).
+        --rtu-oat-sensor (int): RTU OAT sensor configuration (default: 1).
+        --generate_ilc (bool): Flag to enable generating ILC configurations (default: False).
+        --db-name (str): Database name for historian service (default: 'volttron').
+        --db-user (str): Database user for historian service (default: 'volttron').
+        --db-password (str): Database password for historian service (default: 'volttron').
+        --db-address (str): Database host address (default: 'localhost').
+        --db-port (int): Database port (default: 5432).
+        --weather-station (str): Weather station name (default: '').
+        --smtp-address (str): SMTP server address (default: '').
+        --smtp-username (str): SMTP server username (default: '').
+        --smtp-password (str): SMTP server password (default: '').
+        --smtp-port (int): SMTP server port (default: 587).
+        --smtp-tls (bool): Whether to use TLS for SMTP server (default: True).
+        --from-address (str): From address for email notifications (default: 'no-reply@aems.pnl.gov').
+        --to-addresses (list[str]): List of email addresses for notifications (default: []).
+        --allow-frequency-minutes (int): Minimum minutes interval to allow frequency alerts (default: 60).
+        --meter-ip (bool): Enable/disable configurations for meter IP (default: True).
+        --bacnet (str): Deployment type for BACnet driver ('driver' or 'proxy', default: 'driver').
+
+    Raises:
+        SystemExit: If invalid arguments are provided or required arguments are missing.
+
+    """
     parser = configargparse.ArgParser(default_config_files=['config.ini'])
     parser.add('--num-configs', type=int, default=2, help='Number of devices')
     parser.add('--output-dir', type=str, required=True, help='Directory to output configs')
