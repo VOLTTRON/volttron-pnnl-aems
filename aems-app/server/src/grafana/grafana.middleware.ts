@@ -136,19 +136,90 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
 
   async use(req: Request, res: Response, next: NextFunction) {
     try {
+      // Log incoming request details
+      const clientIp = req.get("x-forwarded-for") || req.get("x-real-ip") || req.socket.remoteAddress || "unknown";
+      this.logger.debug(`[Grafana Access] Incoming request from ${clientIp}`, {
+        method: req.method,
+        url: req.url,
+        path: req.path,
+        originalUrl: req.originalUrl,
+        userAgent: req.get("user-agent"),
+        origin: req.get("origin"),
+        referer: req.get("referer"),
+        host: req.get("host"),
+        xForwardedFor: req.get("x-forwarded-for"),
+        xForwardedHost: req.get("x-forwarded-host"),
+        xForwardedProto: req.get("x-forwarded-proto"),
+      });
+
       const config = this.configs.find((v) => req.url?.startsWith(v.path) || req.url?.startsWith(v.url.pathname));
       if (!config) {
+        this.logger.debug(`[Grafana Access] No config matched for URL: ${req.url}`);
         return next();
       }
+
+      this.logger.log(`[Grafana Access] Matched config for ${config.campus}/${config.building}/${config.unit} from ${clientIp}`);
+
+      // Log authentication state
+      if (!req.user) {
+        this.logger.warn(`[Grafana Access] No user object found in request from ${clientIp}`, {
+          url: req.url,
+          config: { campus: config.campus, building: config.building, unit: config.unit },
+          headers: {
+            authorization: req.get("authorization") ? "present" : "missing",
+            cookie: req.get("cookie") ? "present" : "missing",
+          },
+        });
+        return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
+      }
+
+      this.logger.log(`[Grafana Access] User authenticated`, {
+        userId: req.user.id,
+        email: req.user.email,
+        roleString: req.user.role,
+        rolesArray: req.user.roles?.map((r) => r.name) ?? [],
+        clientIp,
+      });
+
       const userRoles = req.user?.roles ?? [];
-      if (!Role.User.granted(...userRoles)) {
+      const hasUserRole = Role.User.granted(...userRoles);
+      
+      this.logger.debug(`[Grafana Access] Role check for User role`, {
+        userId: req.user.id,
+        email: req.user.email,
+        userRolesCount: userRoles.length,
+        userRoleNames: userRoles.map((r) => r.name),
+        hasUserRole,
+        clientIp,
+      });
+
+      if (!hasUserRole) {
         this.logger.warn(
-          `No user role for attempt to access unauthorized Grafana dashboard: campus=${config.campus}, building=${config.building}, unit=${config.unit}`,
-          req.user ?? "no user info",
+          `[Grafana Access] FORBIDDEN - No user role for ${req.user.email} from ${clientIp}`,
+          {
+            campus: config.campus,
+            building: config.building,
+            unit: config.unit,
+            userId: req.user.id,
+            email: req.user.email,
+            roleString: req.user.role,
+            rolesArray: userRoles.map((r) => r.name),
+            rolesLength: userRoles.length,
+          },
         );
         return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
       }
+
+      this.logger.log(`[Grafana Access] User role check passed for ${req.user.email}`);
       if (config.unit !== SitePublicKey && !Role.Admin.granted(...userRoles)) {
+        this.logger.debug(`[Grafana Access] Non-admin user accessing protected unit, checking assignments`, {
+          userId: req.user.id,
+          email: req.user.email,
+          campus: config.campus,
+          building: config.building,
+          unit: config.unit,
+        });
+
         const units = await this.prismaService.prisma.unit.findMany({
           where: {
             campus: { equals: config.campus, mode: Prisma.QueryMode.insensitive },
@@ -159,17 +230,35 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
             users: { some: { id: req.user?.id } },
           },
         });
+
+        this.logger.debug(`[Grafana Access] Unit assignment check result`, {
+          userId: req.user.id,
+          email: req.user.email,
+          unitsFound: units.length,
+          unitNames: units.map((u) => u.name),
+        });
+
         if (units.length === 0) {
           this.logger.warn(
-            `No units assigned for attempt to access unauthorized Grafana dashboard: campus=${config.campus}, building=${config.building}, unit=${config.unit}`,
-            req.user ?? "no user info",
+            `[Grafana Access] FORBIDDEN - No units assigned for ${req.user.email} from ${clientIp}`,
+            {
+              campus: config.campus,
+              building: config.building,
+              unit: config.unit,
+              userId: req.user.id,
+              email: req.user.email,
+            },
           );
           return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
         }
+
+        this.logger.log(`[Grafana Access] Unit assignment check passed for ${req.user.email}`);
+      } else if (config.unit !== SitePublicKey) {
+        this.logger.log(`[Grafana Access] Admin user ${req.user.email} bypassing unit check`);
       }
       if (req.path === config.path) {
         const redirectUrl = new URL(`${config.url.pathname}${config.url.search}`, `${req.protocol}://${req.host}`);
-        this.logger.debug(`Redirecting request: ${req.url.toString()} -> ${redirectUrl.toString()}`);
+        this.logger.log(`[Grafana Access] Redirecting ${req.user.email} from ${clientIp}: ${req.url} -> ${redirectUrl.toString()}`);
         return res.redirect(301, redirectUrl.toString());
       }
       const targetUrl = new URL(
@@ -181,7 +270,7 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
           targetUrl.searchParams.append(key, value);
         }
       });
-      this.logger.debug(`Proxying request: ${req.url.toString()} -> ${targetUrl.toString()}`);
+      this.logger.log(`[Grafana Access] Proxying request for ${req.user.email} from ${clientIp}: ${req.url} -> ${targetUrl.toString()}`);
       const client = targetUrl.protocol === "https:" ? https : http;
 
       let requestBody: Buffer | undefined;
@@ -235,11 +324,21 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
           : {}),
       };
       const proxyReq = client.request(targetUrl, options, (proxyRes) => {
+        this.logger.debug(`[Grafana Access] Proxy response received`, {
+          statusCode: proxyRes.statusCode,
+          userId: req.user?.id,
+          email: req.user?.email,
+          clientIp,
+        });
         res.writeHead(proxyRes.statusCode ?? 500, proxyRes.headers);
         proxyRes.pipe(res);
       });
       proxyReq.on("error", (err) => {
-        this.logger.warn("Proxy request error:", err.message);
+        this.logger.error(`[Grafana Access] Proxy request error for ${req.user?.email} from ${clientIp}`, {
+          error: err.message,
+          targetUrl: targetUrl.toString(),
+          userId: req.user?.id,
+        });
         if (!res.headersSent) {
           res.status(502).send("Bad Gateway");
         }
@@ -249,7 +348,13 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
       }
       proxyReq.end();
     } catch (error) {
-      this.logger.error(`Error in GrafanaRewriteMiddleware:`, error);
+      this.logger.error(`[Grafana Access] Error in GrafanaRewriteMiddleware`, {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        url: req.url,
+        userId: req.user?.id,
+        email: req.user?.email,
+      });
       next(error);
     }
   }
