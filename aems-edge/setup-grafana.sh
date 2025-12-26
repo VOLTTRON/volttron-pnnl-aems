@@ -167,16 +167,8 @@ install_grafana_dependencies() {
     fi
     
     log_info "Installing dependencies from: ${requirements_file}"
-    STDERR_FILE=$(mktemp)
-    pip install -r "${requirements_file}" 2> "${STDERR_FILE}"
+    pip install -r "${requirements_file}"
     EXIT_CODE=$?
-
-    STDERR_OUTPUT=$(<"${STDERR_FILE}")
-    rm -f "${STDERR_FILE}"
-
-    if [[ -n "${STDERR_OUTPUT}" ]]; then
-        log_warning "${STDERR_OUTPUT}"
-    fi
 
     if [[ ${EXIT_CODE} -eq 0 ]]; then
         log_success "Grafana dependencies installed successfully"
@@ -208,18 +200,9 @@ run_grafana_dashboard_generation() {
     log_info "Changed to Grafana directory: ${grafana_dir}"
     log_info "Executing: python generate_dashboards.py"
     
-    # Create a temporary file to capture stderr
-    STDERR_FILE=$(mktemp)
-    python generate_dashboards.py 2> "${STDERR_FILE}"
+    # Execute the Python script, allowing all output to go to stdout/stderr
+    python generate_dashboards.py
     EXIT_CODE=$?
-
-    # Read stderr content
-    STDERR_OUTPUT=$(<"${STDERR_FILE}")
-    rm -f "${STDERR_FILE}"
-
-    if [[ -n "${STDERR_OUTPUT}" ]]; then
-        log_warning "${STDERR_OUTPUT}"
-    fi
 
     # Return to original directory
     cd "${original_dir}"
@@ -341,6 +324,8 @@ if [[ -d "${GRAFANA_DIR}" ]]; then
         
         # Create Grafana completion lock file
         log_info "Creating Grafana setup completion lock file: ${GRAFANA_LOCK_FILE}"
+        # Ensure the directory exists
+        mkdir -p "$(dirname "${GRAFANA_LOCK_FILE}")"
         echo "Grafana setup completed on $(date)" > "${GRAFANA_LOCK_FILE}"
         echo "Campus: ${VOLTTRON_CAMPUS}" >> "${GRAFANA_LOCK_FILE}"
         echo "Building: ${VOLTTRON_BUILDING}" >> "${GRAFANA_LOCK_FILE}"

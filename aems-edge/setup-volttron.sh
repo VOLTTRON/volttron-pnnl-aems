@@ -248,13 +248,13 @@ log_info "Executing Volttron configuration generation"
 
 # Build the command with conditional arguments
 GENERATE_CMD="python generate_configs.py \
-    -n \"${NUM_CONFIGS}\" \
+    --num-configs \"${NUM_CONFIGS}\" \
     --output-dir \"${OUTPUT_DIR}\" \
     --campus \"${VOLTTRON_CAMPUS}\" \
     --building \"${VOLTTRON_BUILDING}\" \
     --prefix \"${VOLTTRON_PREFIX}\" \
-    -g \"${VOLTTRON_GATEWAY_ADDRESS}\" \
-    -t \"${VOLTTRON_TIMEZONE}\""
+    --gateway-address \"${VOLTTRON_GATEWAY_ADDRESS}\" \
+    --timezone \"${VOLTTRON_TIMEZONE}\""
 
 # Add optional arguments if they are provided
 if [[ -n "${VOLTTRON_WEATHER_STATION}" ]]; then
@@ -270,7 +270,7 @@ if [[ -n "${VOLTTRON_BACNET_ADDRESS}" ]]; then
 fi
 
 if [[ "${VOLTTRON_ILC}" == "true" ]]; then
-    GENERATE_CMD="${GENERATE_CMD} --ilc"
+    GENERATE_CMD="${GENERATE_CMD} --generate_ilc true"
 fi
 
 # Add Grafana DB arguments if they are provided
@@ -335,6 +335,8 @@ fi
 
 # Create Volttron completion lock file
 log_info "Creating Volttron setup completion lock file: ${VOLTTRON_LOCK_FILE}"
+# Ensure the directory exists
+mkdir -p "$(dirname "${VOLTTRON_LOCK_FILE}")"
 echo "Volttron setup completed on $(date)" > "${VOLTTRON_LOCK_FILE}"
 echo "Campus: ${VOLTTRON_CAMPUS}" >> "${VOLTTRON_LOCK_FILE}"
 echo "Building: ${VOLTTRON_BUILDING}" >> "${VOLTTRON_LOCK_FILE}"
