@@ -129,7 +129,7 @@ SITE_JSON="${CONFIGURATIONS_DIR}/site.json"
 TEMPLATES_DIR="${CONFIGURATIONS_DIR}/templates"
 
 # Lock files for tracking completion status
-VOLTTRON_LOCK_FILE="${OUTPUT_DIR}/.volttron_setup_complete"
+VOLTTRON_LOCK_FILE="/home/user/local/.setup_complete"
 # Legacy lock file for backward compatibility
 LEGACY_LOCK_FILE="${OUTPUT_DIR}/.setup_complete"
 

@@ -262,8 +262,8 @@ BASE_DIR="/home/user"
 CONFIGURATIONS_DIR="${BASE_DIR}/configurations"
 GRAFANA_DIR="${CONFIGURATIONS_DIR}/grafana"
 
-# Lock files for tracking completion status
-GRAFANA_LOCK_FILE="${OUTPUT_DIR}/.grafana_setup_complete"
+# Lock files for tracking completion status (write to docker/grafana for easy access)
+GRAFANA_LOCK_FILE="/home/user/local/.setup_complete"
 
 log_info "Starting Grafana AEMS Edge Setup (Grafana Only)"
 
@@ -321,20 +321,22 @@ if [[ -d "${GRAFANA_DIR}" ]]; then
     if [[ $? -eq 0 ]]; then
         log_success "Grafana dashboard generation completed successfully"
         
-        # Copy dashboard URLs file to configs directory for other containers to access
+        # Copy dashboard URLs metadata file to docker/grafana directory for KeycloakSyncService
         URLS_SOURCE_FILE="${GRAFANA_DIR}/output/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
-        URLS_TARGET_FILE="${OUTPUT_DIR}/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
+        URLS_LOCAL_FILE="/home/aems-app/docker/grafana/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
         
         if [[ -f "${URLS_SOURCE_FILE}" ]]; then
-            log_info "Copying dashboard URLs file to configs directory"
-            cp "${URLS_SOURCE_FILE}" "${URLS_TARGET_FILE}"
+            log_info "Copying dashboard URLs metadata file to docker/grafana directory"
+            cp "${URLS_SOURCE_FILE}" "${URLS_LOCAL_FILE}"
             if [[ $? -eq 0 ]]; then
-                log_success "Dashboard URLs file copied to: ${URLS_TARGET_FILE}"
+                log_success "Dashboard URLs metadata file copied to: ${URLS_LOCAL_FILE}"
+                log_info "File accessible at: aems-app/docker/grafana/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
+                log_info "This file is used by KeycloakSyncService to discover Grafana roles"
             else
-                log_warning "Failed to copy dashboard URLs file to configs directory"
+                log_warning "Failed to copy dashboard URLs metadata file to docker/grafana"
             fi
         else
-            log_warning "Dashboard URLs file not found at: ${URLS_SOURCE_FILE}"
+            log_warning "Dashboard URLs metadata file not found at: ${URLS_SOURCE_FILE}"
         fi
         
         # Create Grafana completion lock file
@@ -348,8 +350,8 @@ if [[ -d "${GRAFANA_DIR}" ]]; then
         echo "Grafana DB Port: ${GRAFANA_DB_PORT}" >> "${GRAFANA_LOCK_FILE}"
         
         # Add dashboard URLs file location to lock file if it exists
-        if [[ -f "${URLS_TARGET_FILE}" ]]; then
-            echo "Dashboard URLs file: ${URLS_TARGET_FILE}" >> "${GRAFANA_LOCK_FILE}"
+        if [[ -f "${URLS_LOCAL_FILE}" ]]; then
+            echo "Dashboard URLs metadata file: ${URLS_LOCAL_FILE}" >> "${GRAFANA_LOCK_FILE}"
         fi
         
         if [[ $? -eq 0 ]]; then
