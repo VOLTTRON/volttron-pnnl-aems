@@ -246,7 +246,7 @@ CONFIGURATIONS_DIR="${BASE_DIR}/configurations"
 GRAFANA_DIR="${CONFIGURATIONS_DIR}/grafana"
 
 # Lock files for tracking completion status (write to docker/grafana for easy access)
-GRAFANA_LOCK_FILE="/home/user/local/.setup_complete"
+GRAFANA_LOCK_FILE="${BASE_DIR}/.setup_complete"
 
 log_info "Starting Grafana AEMS Edge Setup (Grafana Only)"
 
