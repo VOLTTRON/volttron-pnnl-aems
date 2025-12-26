@@ -447,7 +447,10 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}-grafana-setup
     depends_on:
       grafana:
+        condition: service_healthy
+      keycloak:
         condition: service_started
+        required: false
     environment:
       - SETUP_MODE=grafana
     env_file:
@@ -481,6 +484,12 @@ services:
         condition: service_started
     env_file:
       - .env.grafana
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
     hostname: grafana
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/grafana:${TAG}
     labels:

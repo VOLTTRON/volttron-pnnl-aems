@@ -101,26 +101,38 @@ EOF
     fi
 
     # Add Grafana API section if variables are provided
-    if [[ -n "${GRAFANA_URL}" && -n "${GRAFANA_USERNAME}" ]]; then
+    # Use GRAFANA_INTERNAL_URL for API connections (container-to-container)
+    # Use GRAFANA_URL for public dashboard URLs (user-facing)
+    local grafana_api_url="${GRAFANA_INTERNAL_URL:-${GRAFANA_URL}}"
+    local grafana_public_url="${GRAFANA_URL}"
+    
+    if [[ -n "${grafana_api_url}" && -n "${GRAFANA_USERNAME}" ]]; then
         cat >> "${config_file}" << EOF
 
 [grafana]
-url = ${GRAFANA_URL}
+url = ${grafana_api_url}
+public_url = ${grafana_public_url}
 username = ${GRAFANA_USERNAME}
 password = ${GRAFANA_PASSWORD}
-verify_ssl = ${GRAFANA_VERIFY_SSL}
+verify_ssl = ${GRAFANA_VERIFY_SSL:-false}
 EOF
         log_info "Added Grafana API configuration"
+        log_info "  API URL: ${grafana_api_url}"
+        log_info "  Public URL: ${grafana_public_url}"
     else
         log_warning "Grafana API configuration not added - missing required variables"
     fi
 
     # Add Keycloak API section if variables are provided
-    if [[ -n "${KEYCLOAK_URL}" && -n "${KEYCLOAK_ADMIN}" ]]; then
+    # Use KEYCLOAK_INTERNAL_URL if available (for container-to-container communication),
+    # otherwise fall back to KEYCLOAK_URL (external URL)
+    local keycloak_url="${KEYCLOAK_INTERNAL_URL:-${KEYCLOAK_URL}}"
+    
+    if [[ -n "${keycloak_url}" && -n "${KEYCLOAK_ADMIN}" ]]; then
         cat >> "${config_file}" << EOF
 
 [keycloak]
-url = ${KEYCLOAK_URL}
+url = ${keycloak_url}
 realm = ${KEYCLOAK_REALM:-default}
 admin_user = ${KEYCLOAK_ADMIN}
 admin_password = ${KEYCLOAK_ADMIN_PASSWORD}
@@ -128,6 +140,7 @@ client_id = ${KEYCLOAK_CLIENT_ID:-grafana-oauth}
 verify_ssl = ${KEYCLOAK_VERIFY_SSL:-false}
 EOF
         log_info "Added Keycloak API configuration"
+        log_info "  Using URL: ${keycloak_url}"
     else
         log_warning "Keycloak API configuration not added - missing required variables"
     fi

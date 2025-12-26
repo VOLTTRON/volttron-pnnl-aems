@@ -550,15 +550,25 @@ class KeycloakAPI:
             True if Keycloak is healthy, False otherwise
         """
         try:
-            health_url = f'{self.url}/health/ready'
+            # Extract base URL without /auth/sso path for health endpoint
+            # Health endpoint is at root level, not under /auth/sso
+            base_url = self.url.replace('/auth/sso', '')
+            health_url = f'{base_url}/health/ready'
+            
             response = requests.get(
                 health_url,
                 verify=self.verify_ssl,
                 timeout=5
             )
-            return response.status_code == 200
+            
+            if response.status_code == 200:
+                return True
+            else:
+                logging.debug(f"Keycloak health check returned status {response.status_code}")
+                logging.debug(f"Response: {response.text[:200]}")  # Log first 200 chars
+                return False
         except Exception as e:
-            logging.debug(f"Keycloak health check failed: {e}")
+            logging.debug(f"Keycloak health check failed: {type(e).__name__}: {str(e)}")
             return False
     
     def authenticate(self):
@@ -585,11 +595,14 @@ class KeycloakAPI:
                 self.headers['Authorization'] = f'Bearer {self.access_token}'
                 return True
             else:
-                logging.debug(f"Keycloak authentication failed: {response.status_code}")
+                logging.debug(f"Keycloak authentication failed with status {response.status_code}")
+                logging.debug(f"URL attempted: {token_url}")
+                logging.debug(f"Response: {response.text[:200]}")  # Log first 200 chars
                 return False
                 
         except Exception as e:
-            logging.debug(f"Keycloak authentication exception: {e}")
+            logging.debug(f"Keycloak authentication exception: {type(e).__name__}: {str(e)}")
+            logging.debug(f"URL attempted: {token_url if 'token_url' in locals() else 'unknown'}")
             return False
     
     def wait_for_keycloak(self, max_retries=10, initial_delay=2, max_delay=60):
@@ -1195,6 +1208,7 @@ def load_grafana_config():
         config.read(CONFIG_PATH)
         if 'grafana' in config:
             url = config.get('grafana', 'url', fallback=None)
+            public_url = config.get('grafana', 'public_url', fallback=url)  # Fallback to url if public_url not set
             username = config.get('grafana', 'username', fallback=None)
             password = config.get('grafana', 'password', fallback=None)
             verify_ssl = config.getboolean('grafana', 'verify_ssl', fallback=False)
@@ -1202,6 +1216,7 @@ def load_grafana_config():
             if url and username and password:
                 return {
                     'url': url,
+                    'public_url': public_url,
                     'username': username,
                     'password': password,
                     'verify_ssl': verify_ssl
@@ -1578,11 +1593,13 @@ def main():
                         logging.warning(f"Failed to set read-only for {dashboard_name}: {perm_message}")
                 
                 # Grafana API returns full path including subpath (e.g., /grafana/d/...)
-                # Extract just the path portion and combine with base domain
+                # Extract just the path portion and combine with public URL
                 api_path = data.get('url', '')
                 
-                # Extract base domain from config URL (e.g., https://aems1.pnl.gov from https://aems1.pnl.gov/grafana)
-                parsed = urlparse(grafana_config['url'])
+                # Use public_url for user-facing dashboard links
+                # Extract base domain from public URL (e.g., https://aems1.pnl.gov from https://aems1.pnl.gov/grafana)
+                public_url = grafana_config.get('public_url', grafana_config['url'])
+                parsed = urlparse(public_url)
                 base_url = f"{parsed.scheme}://{parsed.netloc}"
                 
                 dashboard_url = f"{base_url}{api_path}?orgId=1"
@@ -1624,11 +1641,13 @@ def main():
                     logging.warning(f"Failed to set read-only for Site Overview: {perm_message}")
             
             # Grafana API returns full path including subpath (e.g., /grafana/d/...)
-            # Extract just the path portion and combine with base domain
+            # Extract just the path portion and combine with public URL
             api_path = data.get('url', '')
             
-            # Extract base domain from config URL (e.g., https://aems1.pnl.gov from https://aems1.pnl.gov/grafana)
-            parsed = urlparse(grafana_config['url'])
+            # Use public_url for user-facing dashboard links
+            # Extract base domain from public URL (e.g., https://aems1.pnl.gov from https://aems1.pnl.gov/grafana)
+            public_url = grafana_config.get('public_url', grafana_config['url'])
+            parsed = urlparse(public_url)
             base_url = f"{parsed.scheme}://{parsed.netloc}"
             
             dashboard_url = f"{base_url}{api_path}?orgId=1"
