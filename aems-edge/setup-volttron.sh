@@ -223,16 +223,8 @@ fi
 # Verify requirements.txt exists and install dependencies
 if [[ -f "requirements.txt" ]]; then
     log_info "Installing Python dependencies from requirements.txt"
-    STDERR_FILE=$(mktemp)
-    pip install -r requirements.txt 2> "${STDERR_FILE}"
+    pip install -r requirements.txt
     EXIT_CODE=$?
-
-    STDERR_OUTPUT=$(<"${STDERR_FILE}")
-    rm -f "${STDERR_FILE}"
-
-    if [[ -n "${STDERR_OUTPUT}" ]]; then
-        log_warning "${STDERR_OUTPUT}"
-    fi
 
     if [[ ${EXIT_CODE} -ne 0 ]]; then
         log_error "pip install failed with exit code ${EXIT_CODE}"
@@ -305,18 +297,10 @@ if [[ -n "${GRAFANA_DB_PASSWORD}" ]]; then
 fi
 log_info "Command: ${LOG_CMD}"
 
-# Create a temporary file to capture stderr
-STDERR_FILE=$(mktemp)
-eval "${GENERATE_CMD}" 2> "${STDERR_FILE}"
+# Execute the Python script, allowing all output to go to stdout/stderr
+log_info "Starting Python configuration generation..."
+eval "${GENERATE_CMD}"
 EXIT_CODE=$?
-
-# Read stderr content
-STDERR_OUTPUT=$(<"${STDERR_FILE}")
-rm -f "${STDERR_FILE}"
-
-if [[ -n "${STDERR_OUTPUT}" ]]; then
-    log_warning "${STDERR_OUTPUT}"
-fi
 
 if [[ ${EXIT_CODE} -eq 0 ]]; then
     log_success "Configuration generation completed successfully"
