@@ -403,9 +403,9 @@ platform_config_dict_template = lambda devices_block, manager_agents_block, ilc_
         "platform.weather": {"source": "$VOLTTRON_ROOT/services/core/WeatherDotGov",
                              "config": "$CONFIG/weather.config", "tag": "weather"},
         "platform.emailer": {"source": "$VOLTTRON_ROOT/services/ops/EmailerAgent",
-                             "config": "$CONFIG/emailer.config", "tag": "emailer"}
+                             "config": "$CONFIG/emailer.config", "tag": "emailer"},
+        **ilc_block
     },
-    "ilc": ilc_block
 }
 
 bacnet_proxy_agent_block = {
