@@ -3,7 +3,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { BaseService } from "@/services";
 import { getConfigFiles } from "@/utils/file";
-import { Mutation, SubscriptionEvent } from "@local/common";
+import { Mutation, SubscriptionEvent, Normalization } from "@local/common";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Cron, Timeout } from "@nestjs/schedule";
 import { Unit, User } from "@prisma/client";
@@ -424,6 +424,18 @@ export class KeycloakSyncService extends BaseService {
   }
 
   /**
+   * Normalize a name for use in Keycloak role names.
+   * Applies: lowercase, trim, compact spaces, letters/numbers only, replace spaces with underscores
+   */
+  private normalizeRoleName(name: string): string {
+    // Use the common library's normalization utility
+    const normalize = Normalization.process("Lowercase", "Trim", "Compact", "Letters", "Numbers");
+    const normalized = normalize(name);
+    // Replace remaining spaces with underscores
+    return normalized.replace(/\s+/g, '_');
+  }
+
+  /**
    * Determine required Keycloak roles based on user's role and unit assignments
    */
   private determineRequiredRoles(user: User & { units: Unit[] }): string[] {
@@ -447,11 +459,11 @@ export class KeycloakSyncService extends BaseService {
       return allRoles;
     }
 
-    // Regular user - get roles for assigned units
+    // Regular user - get roles for assigned units with normalized names
     for (const unit of user.units) {
-      const campus = unit.campus.toLowerCase();
-      const building = unit.building.toLowerCase();
-      const unitName = unit.name.toLowerCase();
+      const campus = this.normalizeRoleName(unit.campus);
+      const building = this.normalizeRoleName(unit.building);
+      const unitName = this.normalizeRoleName(unit.name);
 
       // Add unit-specific role
       const unitRole = `grafana-view-unit-${campus}_${building}_${unitName}`;
@@ -606,7 +618,50 @@ export class KeycloakSyncService extends BaseService {
   }
 
   /**
-   * Assign client role to user
+   * Create a missing client role in Keycloak
+   */
+  async createClientRole(
+    clientUuid: string,
+    roleName: string,
+    description: string,
+  ): Promise<boolean> {
+    try {
+      const token = await this.getAdminToken();
+      const realm = process.env.KEYCLOAK_REALM || "default";
+      const baseUrl = this.getKeycloakBaseUrl();
+      const url = `${baseUrl}/admin/realms/${realm}/clients/${clientUuid}/roles`;
+
+      const roleData = {
+        name: roleName,
+        description: description,
+        composite: false,
+        clientRole: true,
+      };
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(roleData),
+      });
+
+      if (response.status === 201 || response.status === 409) {
+        // 201 = created successfully, 409 = already exists (race condition)
+        return true;
+      }
+
+      this.logger.error(`Failed to create role '${roleName}': ${response.statusText}`);
+      return false;
+    } catch (error) {
+      this.logger.error(`Exception creating role '${roleName}':`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Assign client role to user (with auto-creation of missing roles)
    */
   private async assignClientRole(
     userId: string,
@@ -617,14 +672,33 @@ export class KeycloakSyncService extends BaseService {
     const realm = process.env.KEYCLOAK_REALM || "default";
     const baseUrl = this.getKeycloakBaseUrl();
 
-    // First, get the role definition
+    // First, try to get the role definition
     const roleUrl = `${baseUrl}/admin/realms/${realm}/clients/${clientUuid}/roles/${encodeURIComponent(roleName)}`;
-    const roleResponse = await fetch(roleUrl, {
+    let roleResponse = await fetch(roleUrl, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
+    // If role doesn't exist, create it automatically
+    if (roleResponse.status === 404) {
+      this.logger.log(`Role '${roleName}' not found in Keycloak, creating it automatically...`);
+      
+      const description = `Auto-created viewer role for ${roleName}`;
+      const created = await this.createClientRole(clientUuid, roleName, description);
+      
+      if (!created) {
+        throw new Error(`Failed to auto-create role '${roleName}' in Keycloak`);
+      }
+
+      this.logger.log(`Successfully auto-created role '${roleName}'`);
+
+      // Fetch the newly created role
+      roleResponse = await fetch(roleUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+
     if (!roleResponse.ok) {
-      throw new Error(`Role '${roleName}' not found in Keycloak`);
+      throw new Error(`Role '${roleName}' not found in Keycloak after creation attempt`);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
