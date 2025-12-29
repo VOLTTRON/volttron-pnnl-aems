@@ -402,7 +402,7 @@ platform_config_dict_template = lambda devices_block, manager_agents_block, ilc_
                                    "config": "$CONFIG/topic_watcher.config", "tag": "watcher"},
         "platform.weather": {"source": "$VOLTTRON_ROOT/services/core/WeatherDotGov",
                              "config": "$CONFIG/weather.config", "tag": "weather"},
-        "platform.emailer": {"source": "$VOLTTRON_ROOT/services/core/ops/EmailerAgent",
+        "platform.emailer": {"source": "$VOLTTRON_ROOT/services/ops/EmailerAgent",
                              "config": "$CONFIG/emailer.config", "tag": "emailer"}
     },
     "ilc": ilc_block
@@ -981,7 +981,7 @@ def main():
     parser.add('--timezone', type=str, default='UTC')
     parser.add('--registry-file-path', type=str, default=None)
     parser.add('--rtu-oat-sensor', type=int, default=1)
-    parser.add('--generate_ilc', type=bool, default=False)
+    parser.add('--generate_ilc', type=bool, default=True)
     parser.add('--db-name', type=str, default='volttron')
     parser.add('--db-user', type=str, default='volttron')
     parser.add('--db-password', type=str, default='volttron')
