@@ -129,7 +129,7 @@ SITE_JSON="${CONFIGURATIONS_DIR}/site.json"
 TEMPLATES_DIR="${CONFIGURATIONS_DIR}/templates"
 
 # Lock files for tracking completion status
-VOLTTRON_LOCK_FILE="${OUTPUT_DIR}/.volttron_setup_complete"
+VOLTTRON_LOCK_FILE="${BASE_DIR}/.setup_complete"
 # Legacy lock file for backward compatibility
 LEGACY_LOCK_FILE="${OUTPUT_DIR}/.setup_complete"
 
@@ -223,16 +223,8 @@ fi
 # Verify requirements.txt exists and install dependencies
 if [[ -f "requirements.txt" ]]; then
     log_info "Installing Python dependencies from requirements.txt"
-    STDERR_FILE=$(mktemp)
-    pip install -r requirements.txt 2> "${STDERR_FILE}"
+    pip install -r requirements.txt
     EXIT_CODE=$?
-
-    STDERR_OUTPUT=$(<"${STDERR_FILE}")
-    rm -f "${STDERR_FILE}"
-
-    if [[ -n "${STDERR_OUTPUT}" ]]; then
-        log_warning "${STDERR_OUTPUT}"
-    fi
 
     if [[ ${EXIT_CODE} -ne 0 ]]; then
         log_error "pip install failed with exit code ${EXIT_CODE}"
@@ -256,13 +248,13 @@ log_info "Executing Volttron configuration generation"
 
 # Build the command with conditional arguments
 GENERATE_CMD="python generate_configs.py \
-    -n \"${NUM_CONFIGS}\" \
+    --num-configs \"${NUM_CONFIGS}\" \
     --output-dir \"${OUTPUT_DIR}\" \
     --campus \"${VOLTTRON_CAMPUS}\" \
     --building \"${VOLTTRON_BUILDING}\" \
     --prefix \"${VOLTTRON_PREFIX}\" \
-    -g \"${VOLTTRON_GATEWAY_ADDRESS}\" \
-    -t \"${VOLTTRON_TIMEZONE}\""
+    --gateway-address \"${VOLTTRON_GATEWAY_ADDRESS}\" \
+    --timezone \"${VOLTTRON_TIMEZONE}\""
 
 # Add optional arguments if they are provided
 if [[ -n "${VOLTTRON_WEATHER_STATION}" ]]; then
@@ -278,7 +270,7 @@ if [[ -n "${VOLTTRON_BACNET_ADDRESS}" ]]; then
 fi
 
 if [[ "${VOLTTRON_ILC}" == "true" ]]; then
-    GENERATE_CMD="${GENERATE_CMD} --ilc"
+    GENERATE_CMD="${GENERATE_CMD} --generate_ilc true"
 fi
 
 # Add Grafana DB arguments if they are provided
@@ -305,18 +297,10 @@ if [[ -n "${GRAFANA_DB_PASSWORD}" ]]; then
 fi
 log_info "Command: ${LOG_CMD}"
 
-# Create a temporary file to capture stderr
-STDERR_FILE=$(mktemp)
-eval "${GENERATE_CMD}" 2> "${STDERR_FILE}"
+# Execute the Python script, allowing all output to go to stdout/stderr
+log_info "Starting Python configuration generation..."
+eval "${GENERATE_CMD}"
 EXIT_CODE=$?
-
-# Read stderr content
-STDERR_OUTPUT=$(<"${STDERR_FILE}")
-rm -f "${STDERR_FILE}"
-
-if [[ -n "${STDERR_OUTPUT}" ]]; then
-    log_warning "${STDERR_OUTPUT}"
-fi
 
 if [[ ${EXIT_CODE} -eq 0 ]]; then
     log_success "Configuration generation completed successfully"
@@ -351,6 +335,8 @@ fi
 
 # Create Volttron completion lock file
 log_info "Creating Volttron setup completion lock file: ${VOLTTRON_LOCK_FILE}"
+# Ensure the directory exists
+mkdir -p "$(dirname "${VOLTTRON_LOCK_FILE}")"
 echo "Volttron setup completed on $(date)" > "${VOLTTRON_LOCK_FILE}"
 echo "Campus: ${VOLTTRON_CAMPUS}" >> "${VOLTTRON_LOCK_FILE}"
 echo "Building: ${VOLTTRON_BUILDING}" >> "${VOLTTRON_LOCK_FILE}"

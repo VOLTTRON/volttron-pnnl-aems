@@ -101,26 +101,39 @@ EOF
     fi
 
     # Add Grafana API section if variables are provided
-    if [[ -n "${GRAFANA_URL}" && -n "${GRAFANA_USERNAME}" ]]; then
+    # Use GRAFANA_INTERNAL_URL for API connections (container-to-container)
+    # Use GRAFANA_URL for public dashboard URLs (user-facing)
+    local grafana_api_url="${GRAFANA_INTERNAL_URL:-${GRAFANA_URL}}"
+    local grafana_public_url="${GRAFANA_URL}"
+    
+    if [[ -n "${grafana_api_url}" && -n "${GRAFANA_USERNAME}" ]]; then
         cat >> "${config_file}" << EOF
 
 [grafana]
-url = ${GRAFANA_URL}
+url = ${grafana_api_url}
+public_url = ${grafana_public_url}
 username = ${GRAFANA_USERNAME}
 password = ${GRAFANA_PASSWORD}
-verify_ssl = ${GRAFANA_VERIFY_SSL}
+verify_ssl = ${GRAFANA_VERIFY_SSL:-false}
 EOF
         log_info "Added Grafana API configuration"
+        log_info "  API URL: ${grafana_api_url}"
+        log_info "  Public URL: ${grafana_public_url}"
     else
         log_warning "Grafana API configuration not added - missing required variables"
     fi
 
     # Add Keycloak API section if variables are provided
-    if [[ -n "${KEYCLOAK_URL}" && -n "${KEYCLOAK_ADMIN}" ]]; then
+    # Use KEYCLOAK_INTERNAL_URL if available (for container-to-container communication),
+    # otherwise fall back to KEYCLOAK_URL (external URL)
+    local keycloak_url="${KEYCLOAK_INTERNAL_URL:-${KEYCLOAK_URL}}"
+    
+    if [[ -n "${keycloak_url}" && -n "${KEYCLOAK_ADMIN}" ]]; then
         cat >> "${config_file}" << EOF
 
 [keycloak]
-url = ${KEYCLOAK_URL}
+url = ${keycloak_url}
+health_url = http://keycloak:9000/auth/sso/health/ready
 realm = ${KEYCLOAK_REALM:-default}
 admin_user = ${KEYCLOAK_ADMIN}
 admin_password = ${KEYCLOAK_ADMIN_PASSWORD}
@@ -128,6 +141,8 @@ client_id = ${KEYCLOAK_CLIENT_ID:-grafana-oauth}
 verify_ssl = ${KEYCLOAK_VERIFY_SSL:-false}
 EOF
         log_info "Added Keycloak API configuration"
+        log_info "  Using URL: ${keycloak_url}"
+        log_info "  Health URL: http://keycloak:9000/auth/sso/health/ready"
     else
         log_warning "Keycloak API configuration not added - missing required variables"
     fi
@@ -167,16 +182,8 @@ install_grafana_dependencies() {
     fi
     
     log_info "Installing dependencies from: ${requirements_file}"
-    STDERR_FILE=$(mktemp)
-    pip install -r "${requirements_file}" 2> "${STDERR_FILE}"
+    pip install -r "${requirements_file}"
     EXIT_CODE=$?
-
-    STDERR_OUTPUT=$(<"${STDERR_FILE}")
-    rm -f "${STDERR_FILE}"
-
-    if [[ -n "${STDERR_OUTPUT}" ]]; then
-        log_warning "${STDERR_OUTPUT}"
-    fi
 
     if [[ ${EXIT_CODE} -eq 0 ]]; then
         log_success "Grafana dependencies installed successfully"
@@ -208,18 +215,9 @@ run_grafana_dashboard_generation() {
     log_info "Changed to Grafana directory: ${grafana_dir}"
     log_info "Executing: python generate_dashboards.py"
     
-    # Create a temporary file to capture stderr
-    STDERR_FILE=$(mktemp)
-    python generate_dashboards.py 2> "${STDERR_FILE}"
+    # Execute the Python script, allowing all output to go to stdout/stderr
+    python generate_dashboards.py
     EXIT_CODE=$?
-
-    # Read stderr content
-    STDERR_OUTPUT=$(<"${STDERR_FILE}")
-    rm -f "${STDERR_FILE}"
-
-    if [[ -n "${STDERR_OUTPUT}" ]]; then
-        log_warning "${STDERR_OUTPUT}"
-    fi
 
     # Return to original directory
     cd "${original_dir}"
@@ -262,8 +260,8 @@ BASE_DIR="/home/user"
 CONFIGURATIONS_DIR="${BASE_DIR}/configurations"
 GRAFANA_DIR="${CONFIGURATIONS_DIR}/grafana"
 
-# Lock files for tracking completion status
-GRAFANA_LOCK_FILE="${OUTPUT_DIR}/.grafana_setup_complete"
+# Lock files for tracking completion status (write to docker/grafana for easy access)
+GRAFANA_LOCK_FILE="${BASE_DIR}/.setup_complete"
 
 log_info "Starting Grafana AEMS Edge Setup (Grafana Only)"
 
@@ -321,24 +319,22 @@ if [[ -d "${GRAFANA_DIR}" ]]; then
     if [[ $? -eq 0 ]]; then
         log_success "Grafana dashboard generation completed successfully"
         
-        # Copy dashboard URLs file to configs directory for other containers to access
-        URLS_SOURCE_FILE="${GRAFANA_DIR}/output/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
-        URLS_TARGET_FILE="${OUTPUT_DIR}/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
+        # Dashboard URLs metadata file is already in OUTPUT_DIR (/home/user/configs/)
+        # This is the mounted persistent volume where it needs to be
+        URLS_SOURCE_FILE="${OUTPUT_DIR}/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
         
         if [[ -f "${URLS_SOURCE_FILE}" ]]; then
-            log_info "Copying dashboard URLs file to configs directory"
-            cp "${URLS_SOURCE_FILE}" "${URLS_TARGET_FILE}"
-            if [[ $? -eq 0 ]]; then
-                log_success "Dashboard URLs file copied to: ${URLS_TARGET_FILE}"
-            else
-                log_warning "Failed to copy dashboard URLs file to configs directory"
-            fi
+            log_success "Dashboard URLs metadata file created at: ${URLS_SOURCE_FILE}"
+            log_info "This file is used by KeycloakSyncService to discover Grafana roles"
+            log_info "File location: /home/user/configs/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
         else
-            log_warning "Dashboard URLs file not found at: ${URLS_SOURCE_FILE}"
+            log_warning "Dashboard URLs metadata file not found at: ${URLS_SOURCE_FILE}"
         fi
         
         # Create Grafana completion lock file
         log_info "Creating Grafana setup completion lock file: ${GRAFANA_LOCK_FILE}"
+        # Ensure the directory exists
+        mkdir -p "$(dirname "${GRAFANA_LOCK_FILE}")"
         echo "Grafana setup completed on $(date)" > "${GRAFANA_LOCK_FILE}"
         echo "Campus: ${VOLTTRON_CAMPUS}" >> "${GRAFANA_LOCK_FILE}"
         echo "Building: ${VOLTTRON_BUILDING}" >> "${GRAFANA_LOCK_FILE}"
@@ -348,8 +344,8 @@ if [[ -d "${GRAFANA_DIR}" ]]; then
         echo "Grafana DB Port: ${GRAFANA_DB_PORT}" >> "${GRAFANA_LOCK_FILE}"
         
         # Add dashboard URLs file location to lock file if it exists
-        if [[ -f "${URLS_TARGET_FILE}" ]]; then
-            echo "Dashboard URLs file: ${URLS_TARGET_FILE}" >> "${GRAFANA_LOCK_FILE}"
+        if [[ -f "${URLS_SOURCE_FILE}" ]]; then
+            echo "Dashboard URLs metadata file: ${URLS_SOURCE_FILE}" >> "${GRAFANA_LOCK_FILE}"
         fi
         
         if [[ $? -eq 0 ]]; then

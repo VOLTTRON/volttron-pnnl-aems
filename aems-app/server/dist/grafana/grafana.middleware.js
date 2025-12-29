@@ -39,9 +39,18 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
         });
     }
     async execute() {
+        if (!this.configService.grafana.configPath) {
+            this.logger.debug('Grafana config path not set, skipping dashboard configuration');
+            return;
+        }
         const urls = {};
         this.logger.log("Loading Grafana dashboard configuration files...");
-        for (const file of await (0, file_1.getConfigFiles)([this.configService.grafana.configPath], ".json", this.logger)) {
+        const files = await (0, file_1.getConfigFiles)([this.configService.grafana.configPath], ".json", this.logger);
+        if (files.length === 0) {
+            this.logger.debug(`No Grafana dashboard configuration files found in ${this.configService.grafana.configPath}`);
+            return;
+        }
+        for (const file of files) {
             try {
                 this.logger.log(`Parsing Grafana config file: ${file}`);
                 const filename = (0, node_path_1.basename)(file);
@@ -60,11 +69,12 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
                     Object.entries(json).forEach(([key, value]) => {
                         const match = ConfigUnitRegex.exec(key);
                         const { unit } = match?.groups ?? {};
+                        const urlString = typeof value === 'string' ? value : value.url;
                         if (key === "Site Overview") {
-                            urls[campus][building][SiteOverviewKey] = new URL(value);
+                            urls[campus][building][SiteOverviewKey] = new URL(urlString);
                         }
                         else if (unit) {
-                            urls[campus][building][unit] = new URL(value);
+                            urls[campus][building][unit] = new URL(urlString);
                         }
                         else {
                             this.logger.warn(`Skipping invalid dashboard key in Grafana config file ${file}: ${key}`);
@@ -111,16 +121,76 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
     }
     async use(req, res, next) {
         try {
+            const clientIp = req.get("x-forwarded-for") || req.get("x-real-ip") || req.socket.remoteAddress || "unknown";
+            this.logger.debug(`[Grafana Access] Incoming request from ${clientIp}`, {
+                method: req.method,
+                url: req.url,
+                path: req.path,
+                originalUrl: req.originalUrl,
+                userAgent: req.get("user-agent"),
+                origin: req.get("origin"),
+                referer: req.get("referer"),
+                host: req.get("host"),
+                xForwardedFor: req.get("x-forwarded-for"),
+                xForwardedHost: req.get("x-forwarded-host"),
+                xForwardedProto: req.get("x-forwarded-proto"),
+            });
             const config = this.configs.find((v) => req.url?.startsWith(v.path) || req.url?.startsWith(v.url.pathname));
             if (!config) {
+                this.logger.debug(`[Grafana Access] No config matched for URL: ${req.url}`);
                 return next();
             }
-            const userRoles = req.user?.roles ?? [];
-            if (!common_1.Role.User.granted(...userRoles)) {
-                this.logger.warn(`No user role for attempt to access unauthorized Grafana dashboard: campus=${config.campus}, building=${config.building}, unit=${config.unit}`, req.user ?? "no user info");
+            this.logger.log(`[Grafana Access] Matched config for ${config.campus}/${config.building}/${config.unit} from ${clientIp}`);
+            if (!req.user) {
+                this.logger.warn(`[Grafana Access] No user object found in request from ${clientIp}`, {
+                    url: req.url,
+                    config: { campus: config.campus, building: config.building, unit: config.unit },
+                    headers: {
+                        authorization: req.get("authorization") ? "present" : "missing",
+                        cookie: req.get("cookie") ? "present" : "missing",
+                    },
+                });
                 return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
             }
+            this.logger.log(`[Grafana Access] User authenticated`, {
+                userId: req.user.id,
+                email: req.user.email,
+                roleString: req.user.role,
+                rolesArray: req.user.roles?.map((r) => r.name) ?? [],
+                clientIp,
+            });
+            const userRoles = req.user?.roles ?? [];
+            const hasUserRole = common_1.Role.User.granted(...userRoles);
+            this.logger.debug(`[Grafana Access] Role check for User role`, {
+                userId: req.user.id,
+                email: req.user.email,
+                userRolesCount: userRoles.length,
+                userRoleNames: userRoles.map((r) => r.name),
+                hasUserRole,
+                clientIp,
+            });
+            if (!hasUserRole) {
+                this.logger.warn(`[Grafana Access] FORBIDDEN - No user role for ${req.user.email} from ${clientIp}`, {
+                    campus: config.campus,
+                    building: config.building,
+                    unit: config.unit,
+                    userId: req.user.id,
+                    email: req.user.email,
+                    roleString: req.user.role,
+                    rolesArray: userRoles.map((r) => r.name),
+                    rolesLength: userRoles.length,
+                });
+                return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
+            }
+            this.logger.log(`[Grafana Access] User role check passed for ${req.user.email}`);
             if (config.unit !== SitePublicKey && !common_1.Role.Admin.granted(...userRoles)) {
+                this.logger.debug(`[Grafana Access] Non-admin user accessing protected unit, checking assignments`, {
+                    userId: req.user.id,
+                    email: req.user.email,
+                    campus: config.campus,
+                    building: config.building,
+                    unit: config.unit,
+                });
                 const units = await this.prismaService.prisma.unit.findMany({
                     where: {
                         campus: { equals: config.campus, mode: client_1.Prisma.QueryMode.insensitive },
@@ -131,14 +201,30 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
                         users: { some: { id: req.user?.id } },
                     },
                 });
+                this.logger.debug(`[Grafana Access] Unit assignment check result`, {
+                    userId: req.user.id,
+                    email: req.user.email,
+                    unitsFound: units.length,
+                    unitNames: units.map((u) => u.name),
+                });
                 if (units.length === 0) {
-                    this.logger.warn(`No units assigned for attempt to access unauthorized Grafana dashboard: campus=${config.campus}, building=${config.building}, unit=${config.unit}`, req.user ?? "no user info");
+                    this.logger.warn(`[Grafana Access] FORBIDDEN - No units assigned for ${req.user.email} from ${clientIp}`, {
+                        campus: config.campus,
+                        building: config.building,
+                        unit: config.unit,
+                        userId: req.user.id,
+                        email: req.user.email,
+                    });
                     return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
                 }
+                this.logger.log(`[Grafana Access] Unit assignment check passed for ${req.user.email}`);
+            }
+            else if (config.unit !== SitePublicKey) {
+                this.logger.log(`[Grafana Access] Admin user ${req.user.email} bypassing unit check`);
             }
             if (req.path === config.path) {
                 const redirectUrl = new URL(`${config.url.pathname}${config.url.search}`, `${req.protocol}://${req.host}`);
-                this.logger.debug(`Redirecting request: ${req.url.toString()} -> ${redirectUrl.toString()}`);
+                this.logger.log(`[Grafana Access] Redirecting ${req.user.email} from ${clientIp}: ${req.url} -> ${redirectUrl.toString()}`);
                 return res.redirect(301, redirectUrl.toString());
             }
             const targetUrl = new URL(req.originalUrl.replace(new RegExp(`^${config.path}`, "i"), config.url.pathname), config.url.origin);
@@ -147,7 +233,7 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
                     targetUrl.searchParams.append(key, value);
                 }
             });
-            this.logger.debug(`Proxying request: ${req.url.toString()} -> ${targetUrl.toString()}`);
+            this.logger.log(`[Grafana Access] Proxying request for ${req.user.email} from ${clientIp}: ${req.url} -> ${targetUrl.toString()}`);
             const client = targetUrl.protocol === "https:" ? https : http;
             let requestBody;
             if (req.method && ["POST", "PUT", "PATCH"].includes(req.method.toUpperCase())) {
@@ -195,11 +281,21 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
                     : {}),
             };
             const proxyReq = client.request(targetUrl, options, (proxyRes) => {
+                this.logger.debug(`[Grafana Access] Proxy response received`, {
+                    statusCode: proxyRes.statusCode,
+                    userId: req.user?.id,
+                    email: req.user?.email,
+                    clientIp,
+                });
                 res.writeHead(proxyRes.statusCode ?? 500, proxyRes.headers);
                 proxyRes.pipe(res);
             });
             proxyReq.on("error", (err) => {
-                this.logger.warn("Proxy request error:", err.message);
+                this.logger.error(`[Grafana Access] Proxy request error for ${req.user?.email} from ${clientIp}`, {
+                    error: err.message,
+                    targetUrl: targetUrl.toString(),
+                    userId: req.user?.id,
+                });
                 if (!res.headersSent) {
                     res.status(502).send("Bad Gateway");
                 }
@@ -210,7 +306,13 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
             proxyReq.end();
         }
         catch (error) {
-            this.logger.error(`Error in GrafanaRewriteMiddleware:`, error);
+            this.logger.error(`[Grafana Access] Error in GrafanaRewriteMiddleware`, {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+                url: req.url,
+                userId: req.user?.id,
+                email: req.user?.email,
+            });
             next(error);
         }
     }

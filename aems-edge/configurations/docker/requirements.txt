@@ -1,2 +1,3 @@
 configargparse
 netifaces2
+pyyaml

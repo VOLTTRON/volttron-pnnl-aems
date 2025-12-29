@@ -1,10 +1,11 @@
 import { AppConfigService } from "@/app.config";
 import { Roles } from "@/auth/roles.decorator";
+import { User } from "@/auth/user.decorator";
 import { getConfigFiles } from "@/utils/file";
 import { HttpStatus, RoleType, typeofObject } from "@local/common";
-import { Controller, Get, Inject, Logger, Param, Res } from "@nestjs/common";
+import { Controller, Get, Inject, Logger, Param, Req, Res } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 
@@ -134,20 +135,50 @@ export class GrafanaController {
   @Roles(RoleType.User)
   @Get("dashboard/:campus/:building/:unit")
   dashboard(
+    @Req() req: Request,
     @Res() res: Response,
+    @User() user: Express.User,
     @Param("campus") campus: string,
     @Param("building") building: string,
     @Param("unit") unit: string,
   ) {
+    const clientIp = req.get("x-forwarded-for") || req.get("x-real-ip") || req.socket.remoteAddress || "unknown";
+    
+    this.logger.log(`[Grafana Redirect] Dashboard request from ${user?.email || 'unknown'} (${clientIp})`, {
+      campus,
+      building,
+      unit,
+      userId: user?.id,
+      email: user?.email,
+      path: req.path,
+      userAgent: req.get("user-agent"),
+    });
+
     const config = this.configs.find(
       (config) =>
         config.campus.toLocaleLowerCase().localeCompare(campus.toLocaleLowerCase()) === 0 &&
         config.building.toLocaleLowerCase().localeCompare(building.toLocaleLowerCase()) === 0 &&
         config.unit.toLocaleLowerCase().localeCompare(unit.toLocaleLowerCase()) === 0,
     );
+    
     if (!config) {
+      this.logger.warn(`[Grafana Redirect] Dashboard not found for ${user?.email || 'unknown'} (${clientIp})`, {
+        campus,
+        building,
+        unit,
+        userId: user?.id,
+        availableConfigs: this.configs.length,
+      });
       return res.status(HttpStatus.NotFound.status).json(HttpStatus.NotFound);
     }
+
+    this.logger.log(`[Grafana Redirect] Redirecting ${user?.email || 'unknown'} (${clientIp}) to: ${config.url.toString()}`, {
+      campus: config.campus,
+      building: config.building,
+      unit: config.unit,
+      targetUrl: config.url.toString(),
+    });
+
     return res.redirect(HttpStatus.Found.status, config.url.toString());
   }
 }

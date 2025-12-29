@@ -149,7 +149,8 @@ services:
     restart: unless-stopped
     volumes:
       - file-upload:/app/upload/
-      - ./grafana/:/app/grafana/:ro
+      - grafana-config:/app/grafana/:ro
+      # - ./grafana/:/app/grafana/:ro
 
   # Runs application services
   services:
@@ -159,6 +160,8 @@ services:
         condition: service_completed_successfully
       database:
         condition: service_started
+      grafana-setup:
+        condition: service_completed_successfully
     env_file:
       - .env.services
     healthcheck:
@@ -172,7 +175,10 @@ services:
     volumes:
       - file-upload:/app/upload/
       - certs-data:/certs/:ro
-      - ./volttron/:/app/configurations/
+      - grafana-config:/app/grafana/:ro
+      - volttron-config:/app/configurations/:ro
+      # - ./volttron/:/app/configurations/
+      # - ./grafana/:/app/grafana/:ro
 
     # Runs application seeders
   seeders:
@@ -431,15 +437,20 @@ services:
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
     restart: no
     volumes:
-      - ./volttron/:/home/user/configs/
       - ./.env.volttron:/home/aems-app/docker/.env.volttron:ro
+      - volttron-config:/home/user/configs/
+      # - ./volttron/:/home/user/local/
+      # - ./volttron/:/home/user/configs/
 
   # Creates Grafana dashboard configurations
   grafana-setup:
     container_name: ${COMPOSE_PROJECT_NAME}-grafana-setup
     depends_on:
       grafana:
+        condition: service_healthy
+      keycloak:
         condition: service_started
+        required: false
     environment:
       - SETUP_MODE=grafana
     env_file:
@@ -450,8 +461,11 @@ services:
       - grafana
     restart: no
     volumes:
-      - ./grafana/:/home/user/configs/
       - ./.env.grafana:/home/aems-app/docker/.env.grafana:ro
+      - grafana-config:/home/user/configs/
+      # - ./grafana/:/home/user/local/
+      # - ./grafana/:/home/user/configs/
+      # - ./grafana/:/home/aems-app/docker/grafana/
 
   # Grafana
   grafana:
@@ -470,6 +484,12 @@ services:
         condition: service_started
     env_file:
       - .env.grafana
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
     hostname: grafana
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/grafana:${TAG}
     labels:
@@ -500,7 +520,7 @@ services:
     restart: unless-stopped
     user: root
     volumes:
-      - grafana-data:/var/lib/grafana
+      - grafana-cache:/var/lib/grafana
       - certs-data:/etc/certs/:ro
 
   # Grafana database
@@ -516,7 +536,7 @@ services:
       - grafana
     restart: unless-stopped
     volumes:
-      - grafana-db-data:/var/lib/postgresql/data
+      - grafana-data:/var/lib/postgresql/data
 
   # Volttron - runs on host network for direct access
   volttron:
@@ -537,8 +557,8 @@ services:
     restart: unless-stopped
     volumes:
       - volttron-data:/home/volttron/db
-      - ./volttron/platform_config.yml:/platform_config.yml
-      - ./volttron/configs/:/home/volttron/configurations/
+      - volttron-config:/home/volttron/configurations/
+      # - ./volttron/configs/:/home/volttron/configurations/
 
   # Volttron proxy bridge - connects Docker network to host-networked VOLTTRON
   volttron-bridge:
@@ -610,9 +630,15 @@ volumes:
     driver: local
   keycloak-cache:
     driver: local
+  volttron-cache:
+    driver: local
+  volttron-config:
+    driver: local
   volttron-data:
     driver: local
-  grafana-data:
+  grafana-cache:
     driver: local
-  grafana-db-data:
+  grafana-config:
+    driver: local
+  grafana-data:
     driver: local
