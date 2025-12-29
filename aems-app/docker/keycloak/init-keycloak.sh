@@ -22,7 +22,7 @@ fi
 
 # Keycloak should already be ready (called from entrypoint after startup)
 echo "Verifying Keycloak is accessible..."
-if ! curl -f -s http://localhost:8080/health/ready > /dev/null 2>&1; then
+if ! curl -f -s http://localhost:9000/auth/sso/health/ready > /dev/null 2>&1; then
     echo "Warning: Keycloak health check failed, but proceeding anyway..."
 fi
 

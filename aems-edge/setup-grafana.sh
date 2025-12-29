@@ -133,6 +133,7 @@ EOF
 
 [keycloak]
 url = ${keycloak_url}
+health_url = http://keycloak:9000/auth/sso/health/ready
 realm = ${KEYCLOAK_REALM:-default}
 admin_user = ${KEYCLOAK_ADMIN}
 admin_password = ${KEYCLOAK_ADMIN_PASSWORD}
@@ -141,6 +142,7 @@ verify_ssl = ${KEYCLOAK_VERIFY_SSL:-false}
 EOF
         log_info "Added Keycloak API configuration"
         log_info "  Using URL: ${keycloak_url}"
+        log_info "  Health URL: http://keycloak:9000/auth/sso/health/ready"
     else
         log_warning "Keycloak API configuration not added - missing required variables"
     fi
@@ -317,20 +319,14 @@ if [[ -d "${GRAFANA_DIR}" ]]; then
     if [[ $? -eq 0 ]]; then
         log_success "Grafana dashboard generation completed successfully"
         
-        # Copy dashboard URLs metadata file to docker/grafana directory for KeycloakSyncService
-        URLS_SOURCE_FILE="${GRAFANA_DIR}/output/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
-        URLS_LOCAL_FILE="/home/aems-app/docker/grafana/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
+        # Dashboard URLs metadata file is already in OUTPUT_DIR (/home/user/configs/)
+        # This is the mounted persistent volume where it needs to be
+        URLS_SOURCE_FILE="${OUTPUT_DIR}/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
         
         if [[ -f "${URLS_SOURCE_FILE}" ]]; then
-            log_info "Copying dashboard URLs metadata file to docker/grafana directory"
-            cp "${URLS_SOURCE_FILE}" "${URLS_LOCAL_FILE}"
-            if [[ $? -eq 0 ]]; then
-                log_success "Dashboard URLs metadata file copied to: ${URLS_LOCAL_FILE}"
-                log_info "File accessible at: aems-app/docker/grafana/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
-                log_info "This file is used by KeycloakSyncService to discover Grafana roles"
-            else
-                log_warning "Failed to copy dashboard URLs metadata file to docker/grafana"
-            fi
+            log_success "Dashboard URLs metadata file created at: ${URLS_SOURCE_FILE}"
+            log_info "This file is used by KeycloakSyncService to discover Grafana roles"
+            log_info "File location: /home/user/configs/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
         else
             log_warning "Dashboard URLs metadata file not found at: ${URLS_SOURCE_FILE}"
         fi
@@ -348,8 +344,8 @@ if [[ -d "${GRAFANA_DIR}" ]]; then
         echo "Grafana DB Port: ${GRAFANA_DB_PORT}" >> "${GRAFANA_LOCK_FILE}"
         
         # Add dashboard URLs file location to lock file if it exists
-        if [[ -f "${URLS_LOCAL_FILE}" ]]; then
-            echo "Dashboard URLs metadata file: ${URLS_LOCAL_FILE}" >> "${GRAFANA_LOCK_FILE}"
+        if [[ -f "${URLS_SOURCE_FILE}" ]]; then
+            echo "Dashboard URLs metadata file: ${URLS_SOURCE_FILE}" >> "${GRAFANA_LOCK_FILE}"
         fi
         
         if [[ $? -eq 0 ]]; then

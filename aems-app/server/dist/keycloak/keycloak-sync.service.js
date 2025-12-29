@@ -286,6 +286,10 @@ let KeycloakSyncService = KeycloakSyncService_1 = class KeycloakSyncService exte
         return Array.from(roles);
     }
     getKeycloakBaseUrl() {
+        const internalUrl = process.env.KEYCLOAK_INTERNAL_URL;
+        if (internalUrl) {
+            return internalUrl;
+        }
         const issuerUrl = this.configService.keycloak.issuerUrl;
         const match = issuerUrl.match(/^(https?:\/\/[^/]+(?:\/[^/]+)*?)\/realms\//);
         return match ? match[1] : issuerUrl.replace(/\/realms\/.*$/, "");

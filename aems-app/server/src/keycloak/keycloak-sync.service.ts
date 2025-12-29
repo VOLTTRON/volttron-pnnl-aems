@@ -469,10 +469,16 @@ export class KeycloakSyncService extends BaseService {
    * Get Keycloak base URL from issuer URL
    */
   private getKeycloakBaseUrl(): string {
+    // Use internal URL if provided (for container-to-container communication)
+    const internalUrl = process.env.KEYCLOAK_INTERNAL_URL;
+    if (internalUrl) {
+      return internalUrl;
+    }
+    
+    // Fallback to extracting from issuer URL (for external access)
     const issuerUrl = this.configService.keycloak.issuerUrl;
     // From: http://localhost:8080/auth/sso/realms/default
     // Extract: http://localhost:8080/auth/sso
-    // eslint-disable-next-line no-useless-escape
     const match = issuerUrl.match(/^(https?:\/\/[^/]+(?:\/[^/]+)*?)\/realms\//);
     return match ? match[1] : issuerUrl.replace(/\/realms\/.*$/, "");
   }
