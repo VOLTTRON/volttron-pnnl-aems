@@ -172,6 +172,9 @@ export class GrafanaController {
       return res.status(HttpStatus.NotFound.status).json(HttpStatus.NotFound);
     }
 
+    // Authorization is handled by Grafana via Keycloak roles
+    // Controller only verifies user has User/Admin role (via @Roles decorator)
+    // and redirects to Grafana which enforces dashboard permissions
     this.logger.log(`[Grafana Redirect] Redirecting ${user?.email || 'unknown'} (${clientIp}) to: ${config.url.toString()}`, {
       campus: config.campus,
       building: config.building,

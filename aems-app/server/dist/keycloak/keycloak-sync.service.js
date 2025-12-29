@@ -260,6 +260,11 @@ let KeycloakSyncService = KeycloakSyncService_1 = class KeycloakSyncService exte
             total: requiredRoles.length,
         };
     }
+    normalizeRoleName(name) {
+        const normalize = common_1.Normalization.process("Lowercase", "Trim", "Compact", "Letters", "Numbers");
+        const normalized = normalize(name);
+        return normalized.replace(/\s+/g, '_');
+    }
     determineRequiredRoles(user) {
         const roles = new Set();
         const userRoles = (user.role || "").toLowerCase().split(/\s+/).filter(Boolean);
@@ -275,9 +280,9 @@ let KeycloakSyncService = KeycloakSyncService_1 = class KeycloakSyncService exte
             return allRoles;
         }
         for (const unit of user.units) {
-            const campus = unit.campus.toLowerCase();
-            const building = unit.building.toLowerCase();
-            const unitName = unit.name.toLowerCase();
+            const campus = this.normalizeRoleName(unit.campus);
+            const building = this.normalizeRoleName(unit.building);
+            const unitName = this.normalizeRoleName(unit.name);
             const unitRole = `grafana-view-unit-${campus}_${building}_${unitName}`;
             roles.add(unitRole);
             const siteRole = `grafana-view-site-${campus}_${building}`;
@@ -374,16 +379,59 @@ let KeycloakSyncService = KeycloakSyncService_1 = class KeycloakSyncService exte
         const roles = await response.json();
         return roles.map((r) => r.name);
     }
+    async createClientRole(clientUuid, roleName, description) {
+        try {
+            const token = await this.getAdminToken();
+            const realm = process.env.KEYCLOAK_REALM || "default";
+            const baseUrl = this.getKeycloakBaseUrl();
+            const url = `${baseUrl}/admin/realms/${realm}/clients/${clientUuid}/roles`;
+            const roleData = {
+                name: roleName,
+                description: description,
+                composite: false,
+                clientRole: true,
+            };
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(roleData),
+            });
+            if (response.status === 201 || response.status === 409) {
+                return true;
+            }
+            this.logger.error(`Failed to create role '${roleName}': ${response.statusText}`);
+            return false;
+        }
+        catch (error) {
+            this.logger.error(`Exception creating role '${roleName}':`, error);
+            return false;
+        }
+    }
     async assignClientRole(userId, clientUuid, roleName) {
         const token = await this.getAdminToken();
         const realm = process.env.KEYCLOAK_REALM || "default";
         const baseUrl = this.getKeycloakBaseUrl();
         const roleUrl = `${baseUrl}/admin/realms/${realm}/clients/${clientUuid}/roles/${encodeURIComponent(roleName)}`;
-        const roleResponse = await fetch(roleUrl, {
+        let roleResponse = await fetch(roleUrl, {
             headers: { Authorization: `Bearer ${token}` },
         });
+        if (roleResponse.status === 404) {
+            this.logger.log(`Role '${roleName}' not found in Keycloak, creating it automatically...`);
+            const description = `Auto-created viewer role for ${roleName}`;
+            const created = await this.createClientRole(clientUuid, roleName, description);
+            if (!created) {
+                throw new Error(`Failed to auto-create role '${roleName}' in Keycloak`);
+            }
+            this.logger.log(`Successfully auto-created role '${roleName}'`);
+            roleResponse = await fetch(roleUrl, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+        }
         if (!roleResponse.ok) {
-            throw new Error(`Role '${roleName}' not found in Keycloak`);
+            throw new Error(`Role '${roleName}' not found in Keycloak after creation attempt`);
         }
         const role = await roleResponse.json();
         const assignUrl = `${baseUrl}/admin/realms/${realm}/users/${userId}/role-mappings/clients/${clientUuid}`;

@@ -33,12 +33,14 @@ export declare class KeycloakSyncService extends BaseService {
     private parseDashboardConfigs;
     private getAllGrafanaRoles;
     syncUserRoles(email: string): Promise<SyncResult>;
+    private normalizeRoleName;
     private determineRequiredRoles;
     private getKeycloakBaseUrl;
     private getAdminToken;
     private getKeycloakUser;
     private getGrafanaClientUuid;
     private getUserClientRoles;
+    createClientRole(clientUuid: string, roleName: string, description: string): Promise<boolean>;
     private assignClientRole;
     private removeClientRole;
 }
