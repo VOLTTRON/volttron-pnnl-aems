@@ -257,16 +257,16 @@ platform_driver_config = lambda timezone: {
     "publish_all_depth": True
 }
 
-device_config_dict_template = lambda device_address, device_id, registry_file_name: {
+device_config_dict_template = lambda device_address, device_id, registry_file_name, campus, building, device_name: {
     "driver_config": {
         "device_address": device_address,
         "device_id": device_id,
+        "heart_beat_point": f"devices/{campus}/{building}/{device_name}/HeartBeat",
         "min_priority": 2
     },
     "interval": 60,
     "all_publish_interval": 60,
     "driver_type": "bacnet",
-    "heart_beat_point": "HeartBeat",
     "registry_config": f"config://registry_configs/{registry_file_name}"
 }
 
@@ -596,7 +596,7 @@ def generate_device_config(config_num: int, prefix: str, gateway_address: str,
 
     """
     device_address, device_id = generate_device_address(gateway_address, config_num)
-    device_config = device_config_dict_template(device_address, device_id, registry_file_name)
+    device_config = device_config_dict_template(device_address, device_id, registry_file_name, campus, building, f"{prefix}{str(config_num).zfill(2)}")
     device_config_dir = Path(output_dir, 'platform.driver', 'devices', campus, building)
     device_config_dir.mkdir(parents=True, exist_ok=True)
     device_file_path = device_config_dir / f"{prefix}{str(config_num).zfill(2)}"
@@ -625,8 +625,9 @@ def generate_meter_config(device_address: str, device_id: int, prefix: str,
         registry_file_name: The name of the registry file to be used. Defaults to
             'dent.csv'.
     """
-    device_config = device_config_dict_template(device_address, device_id, registry_file_name)
-    device_config.pop("heart_beat_point")
+    device_config = device_config_dict_template(device_address, device_id, registry_file_name,
+                                                campus, building, prefix)
+    device_config['driver_config'].pop("heart_beat_point")
     device_config_dir = Path(output_dir, 'platform.driver', 'devices', campus, building)
     device_config_dir.mkdir(parents=True, exist_ok=True)
     device_file_path = device_config_dir / prefix
