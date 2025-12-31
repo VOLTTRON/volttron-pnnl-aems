@@ -442,7 +442,7 @@ export class KeycloakSyncService extends BaseService {
     const roles: Set<string> = new Set();
 
     // Parse user role string (space-separated)
-    const userRoles = (user.role || "").toLowerCase().split(/\s+/).filter(Boolean);
+    const userRoles = (user.role || "").toLowerCase().split(/\s+/).map((r) => r.trim()).filter(Boolean);
     const hasUserRole = userRoles.includes("user");
     const hasAdminRole = userRoles.includes("admin");
 

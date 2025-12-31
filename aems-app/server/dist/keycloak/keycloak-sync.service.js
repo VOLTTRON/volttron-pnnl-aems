@@ -267,7 +267,7 @@ let KeycloakSyncService = KeycloakSyncService_1 = class KeycloakSyncService exte
     }
     determineRequiredRoles(user) {
         const roles = new Set();
-        const userRoles = (user.role || "").toLowerCase().split(/\s+/).filter(Boolean);
+        const userRoles = (user.role || "").toLowerCase().split(/\s+/).map((r) => r.trim()).filter(Boolean);
         const hasUserRole = userRoles.includes("user");
         const hasAdminRole = userRoles.includes("admin");
         if (!hasUserRole && !hasAdminRole) {

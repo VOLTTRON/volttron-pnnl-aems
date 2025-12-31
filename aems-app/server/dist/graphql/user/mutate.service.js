@@ -99,10 +99,14 @@ let UserMutation = class UserMutation {
                 create: t.arg({ type: UserCreate, required: true }),
             },
             resolve: async (query, _root, args, _ctx, _info) => {
+                const createData = { ...args.create };
+                if (createData.role !== undefined && typeof createData.role === "string") {
+                    createData.role = createData.role.trim();
+                }
                 return prismaService.prisma.user
                     .create({
                     ...query,
-                    data: { ...args.create },
+                    data: createData,
                 })
                     .then(async (user) => {
                     await subscriptionService.publish("User", { topic: "User", id: user.id, mutation: common_2.Mutation.Created });
@@ -130,6 +134,11 @@ let UserMutation = class UserMutation {
                     }
                     if (args.update.preferences !== undefined) {
                         updateData.preferences = args.update.preferences;
+                    }
+                }
+                else {
+                    if (updateData.role !== undefined && typeof updateData.role === "string") {
+                        updateData = { ...updateData, role: updateData.role.trim() };
                     }
                 }
                 return prismaService.prisma.user

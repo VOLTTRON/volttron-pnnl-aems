@@ -11,6 +11,7 @@ exports.AuthModule = void 0;
 const common_1 = require("@nestjs/common");
 const auth_service_1 = require("./auth.service");
 const core_1 = require("@nestjs/core");
+const authenticated_guard_1 = require("./authenticated.guard");
 const roles_guard_1 = require("./roles.guard");
 const jwt_1 = require("@nestjs/jwt");
 const schedule_1 = require("@nestjs/schedule");
@@ -41,6 +42,10 @@ exports.AuthModule = AuthModule = AuthModule_1 = __decorate([
             }),
         ],
         providers: [
+            {
+                provide: core_1.APP_GUARD,
+                useClass: authenticated_guard_1.AuthenticatedGuard,
+            },
             {
                 provide: core_1.APP_GUARD,
                 useClass: roles_guard_1.RolesGuard,
