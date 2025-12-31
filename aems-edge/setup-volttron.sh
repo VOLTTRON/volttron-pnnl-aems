@@ -110,7 +110,11 @@ VOLTTRON_WEATHER_STATION=${VOLTTRON_WEATHER_STATION:-""}
 VOLTTRON_REGISTRY_FILE_PATH=${VOLTTRON_REGISTRY_FILE_PATH:-""}
 VOLTTRON_BACNET_ADDRESS=${VOLTTRON_BACNET_ADDRESS:-""}
 VOLTTRON_ILC=${VOLTTRON_ILC:-"false"}
-OUTPUT_DIR=${OUTPUT_DIR:-"/home/user/configs"}
+
+# Output directory for generated configurations
+OUTPUT_DIR=${OUTPUT_DIR:-"/home/user/volttron"}
+SITE_JSON="${OUTPUT_DIR}/site.json"
+
 # Legacy support for NUM_CONFIGS (use VOLTTRON_NUM_CONFIGS if available)
 NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS:-${NUM_CONFIGS:-"1"}}
 
@@ -122,54 +126,18 @@ GRAFANA_DB_HOST=${GRAFANA_DB_HOST:-""}
 GRAFANA_DB_PORT=${GRAFANA_DB_PORT:-""}
 
 # Base directories
-BASE_DIR="/home/user"
-CONFIGURATIONS_DIR="${BASE_DIR}/configurations"
-DOCKER_DIR="${CONFIGURATIONS_DIR}/docker"
-SITE_JSON="${CONFIGURATIONS_DIR}/site.json"
-TEMPLATES_DIR="${CONFIGURATIONS_DIR}/templates"
+BASE_DIR="/home/user/configurations"
+DOCKER_DIR="${BASE_DIR}/docker"
+TEMPLATES_DIR="${BASE_DIR}/templates"
 
 # Lock files for tracking completion status
-VOLTTRON_LOCK_FILE="${BASE_DIR}/.setup_complete"
-# Legacy lock file for backward compatibility
-LEGACY_LOCK_FILE="${OUTPUT_DIR}/.setup_complete"
+SETUP_DIR="/home/user/setup"
+VOLTTRON_LOCK_FILE="${SETUP_DIR}/.setup_complete"
 
 log_info "Starting Volttron AEMS Edge Setup (Volttron Only)"
 
 # Check setup completion status
 VOLTTRON_COMPLETED=false
-
-# Check for legacy lock file and migrate to new system
-if [[ -f "${LEGACY_LOCK_FILE}" ]]; then
-    log_info "Legacy setup lock file found at: ${LEGACY_LOCK_FILE}"
-    log_info "Migrating from legacy setup to new separate lock file system..."
-    
-    # Create Volttron lock file from legacy setup (assume Volttron was completed)
-    log_info "Creating Volttron setup completion lock file from legacy setup: ${VOLTTRON_LOCK_FILE}"
-    echo "Volttron setup completed (migrated from legacy) on $(date)" > "${VOLTTRON_LOCK_FILE}"
-    echo "Campus: ${VOLTTRON_CAMPUS}" >> "${VOLTTRON_LOCK_FILE}"
-    echo "Building: ${VOLTTRON_BUILDING}" >> "${VOLTTRON_LOCK_FILE}"
-    echo "Prefix: ${VOLTTRON_PREFIX}" >> "${VOLTTRON_LOCK_FILE}"
-    echo "Gateway Address: ${VOLTTRON_GATEWAY_ADDRESS}" >> "${VOLTTRON_LOCK_FILE}"
-    echo "Timezone: ${VOLTTRON_TIMEZONE}" >> "${VOLTTRON_LOCK_FILE}"
-    echo "Number of Configs: ${NUM_CONFIGS}" >> "${VOLTTRON_LOCK_FILE}"
-    echo "Migrated from: ${LEGACY_LOCK_FILE}" >> "${VOLTTRON_LOCK_FILE}"
-    
-    if [[ $? -eq 0 ]]; then
-        log_success "Volttron lock file created from legacy setup"
-        VOLTTRON_COMPLETED=true
-        
-        # Optionally remove or rename legacy lock file after successful migration
-        mv "${LEGACY_LOCK_FILE}" "${LEGACY_LOCK_FILE}.migrated"
-        log_info "Legacy lock file renamed to: ${LEGACY_LOCK_FILE}.migrated"
-    else
-        log_warning "Failed to create Volttron lock file from legacy setup"
-        log_info "Keeping legacy lock file and exiting to prevent issues"
-        log_info "To force re-run, delete the lock file: ${LEGACY_LOCK_FILE}"
-        exit 1
-    fi
-    
-    log_info "Legacy migration completed."
-fi
 
 # Check if Volttron setup is already completed
 if [[ -f "${VOLTTRON_LOCK_FILE}" ]]; then
@@ -237,7 +205,9 @@ fi
 # Clean and create output directory
 if [ -d "${OUTPUT_DIR}" ]; then
     log_info "Cleaning output directory: ${OUTPUT_DIR}"
-    rm -rf "${OUTPUT_DIR:?}"/*
+    rm -rf "${OUTPUT_DIR:?}/"*
+    # Remove all files except platform_config.yml (portable approach)
+    # find "${OUTPUT_DIR}" -mindepth 1 -maxdepth 1 ! -name 'platform_config.yml' -exec rm -rf {} +
 else
     log_info "Creating output directory: ${OUTPUT_DIR}"
     mkdir -p "${OUTPUT_DIR}"

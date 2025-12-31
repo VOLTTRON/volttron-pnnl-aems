@@ -239,7 +239,10 @@ VOLTTRON_PREFIX=${VOLTTRON_PREFIX:-"rtu"}
 VOLTTRON_GATEWAY_ADDRESS=${VOLTTRON_GATEWAY_ADDRESS:-"192.168.0.1"}
 VOLTTRON_TIMEZONE=${VOLTTRON_TIMEZONE:-"America/Los_Angeles"}
 VOLTTRON_NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS:-"1"}
-OUTPUT_DIR=${OUTPUT_DIR:-"/home/user/configs"}
+
+# Output directory for generated configurations
+export OUTPUT_DIR=${OUTPUT_DIR:-"/home/user/setup"}
+
 # Legacy support for NUM_CONFIGS (use VOLTTRON_NUM_CONFIGS if available)
 NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS:-${NUM_CONFIGS:-"1"}}
 
@@ -249,6 +252,7 @@ GRAFANA_DB_USER=${GRAFANA_DB_USER:-""}
 GRAFANA_DB_PASSWORD=${GRAFANA_DB_PASSWORD:-""}
 GRAFANA_DB_HOST=${GRAFANA_DB_HOST:-""}
 GRAFANA_DB_PORT=${GRAFANA_DB_PORT:-""}
+
 # Grafana API settings
 GRAFANA_URL=${GRAFANA_URL:-""}
 GRAFANA_USERNAME=${GRAFANA_USERNAME:-""}
@@ -256,12 +260,12 @@ GRAFANA_PASSWORD=${GRAFANA_PASSWORD:-""}
 GRAFANA_VERIFY_SSL=${GRAFANA_VERIFY_SSL:-"false"}
 
 # Base directories
-BASE_DIR="/home/user"
-CONFIGURATIONS_DIR="${BASE_DIR}/configurations"
-GRAFANA_DIR="${CONFIGURATIONS_DIR}/grafana"
+BASE_DIR="/home/user/configurations"
+GRAFANA_DIR="${BASE_DIR}/grafana"
 
 # Lock files for tracking completion status (write to docker/grafana for easy access)
-GRAFANA_LOCK_FILE="${BASE_DIR}/.setup_complete"
+SETUP_DIR="/home/user/setup"
+GRAFANA_LOCK_FILE="${SETUP_DIR}/.setup_complete"
 
 log_info "Starting Grafana AEMS Edge Setup (Grafana Only)"
 
@@ -319,14 +323,14 @@ if [[ -d "${GRAFANA_DIR}" ]]; then
     if [[ $? -eq 0 ]]; then
         log_success "Grafana dashboard generation completed successfully"
         
-        # Dashboard URLs metadata file is already in OUTPUT_DIR (/home/user/configs/)
+        # Dashboard URLs metadata file is already in OUTPUT_DIR
         # This is the mounted persistent volume where it needs to be
         URLS_SOURCE_FILE="${OUTPUT_DIR}/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
         
         if [[ -f "${URLS_SOURCE_FILE}" ]]; then
             log_success "Dashboard URLs metadata file created at: ${URLS_SOURCE_FILE}"
             log_info "This file is used by KeycloakSyncService to discover Grafana roles"
-            log_info "File location: /home/user/configs/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
+            log_info "File location: ${OUTPUT_DIR}/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"
         else
             log_warning "Dashboard URLs metadata file not found at: ${URLS_SOURCE_FILE}"
         fi

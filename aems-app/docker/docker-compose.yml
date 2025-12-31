@@ -149,8 +149,7 @@ services:
     restart: unless-stopped
     volumes:
       - file-upload:/app/upload/
-      - grafana-config:/app/grafana/:ro
-      # - ./grafana/:/app/grafana/:ro
+      - grafana-setup:/app/grafana/:ro
 
   # Runs application services
   services:
@@ -175,10 +174,8 @@ services:
     volumes:
       - file-upload:/app/upload/
       - certs-data:/certs/:ro
-      - grafana-config:/app/grafana/:ro
-      - volttron-config:/app/configurations/:ro
-      # - ./volttron/:/app/configurations/
-      # - ./grafana/:/app/grafana/:ro
+      - grafana-setup:/app/grafana/:ro
+      - ./volttron/setup/:/app/volttron/:ro
 
     # Runs application seeders
   seeders:
@@ -418,30 +415,6 @@ services:
     volumes:
       - keycloak-data:/var/lib/postgresql/data
 
-  # Creates Volttron configurations on startup
-  volttron-setup:
-    build:
-      context: ../../aems-edge
-      dockerfile: ./Dockerfile
-      args:
-        - HTTP_PROXY=${HTTP_PROXY}
-        - HTTPS_PROXY=${HTTPS_PROXY}
-        - NO_PROXY=${NO_PROXY}
-    container_name: ${COMPOSE_PROJECT_NAME}-volttron-setup
-    environment:
-      - SETUP_MODE=volttron
-    env_file:
-      - .env.volttron
-    hostname: volttron-setup
-    network_mode: host
-    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
-    restart: no
-    volumes:
-      - ./.env.volttron:/home/aems-app/docker/.env.volttron:ro
-      - volttron-config:/home/user/configs/
-      # - ./volttron/:/home/user/local/
-      # - ./volttron/:/home/user/configs/
-
   # Creates Grafana dashboard configurations
   grafana-setup:
     container_name: ${COMPOSE_PROJECT_NAME}-grafana-setup
@@ -462,10 +435,7 @@ services:
     restart: no
     volumes:
       - ./.env.grafana:/home/aems-app/docker/.env.grafana:ro
-      - grafana-config:/home/user/configs/
-      # - ./grafana/:/home/user/local/
-      # - ./grafana/:/home/user/configs/
-      # - ./grafana/:/home/aems-app/docker/grafana/
+      - grafana-setup:/home/user/setup/
 
   # Grafana
   grafana:
@@ -538,6 +508,29 @@ services:
     volumes:
       - grafana-data:/var/lib/postgresql/data
 
+  # Creates Volttron configurations on startup
+  volttron-setup:
+    build:
+      context: ../../aems-edge
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+    container_name: ${COMPOSE_PROJECT_NAME}-volttron-setup
+    environment:
+      - SETUP_MODE=volttron
+    env_file:
+      - .env.volttron
+    hostname: volttron-setup
+    network_mode: host
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
+    restart: no
+    volumes:
+      - ./.env.volttron:/home/aems-app/docker/.env.volttron:ro
+      - volttron-setup:/home/user/setup/
+      - ./volttron/setup/:/home/user/volttron/
+
   # Volttron - runs on host network for direct access
   volttron:
     container_name: ${COMPOSE_PROJECT_NAME}-volttron
@@ -557,8 +550,7 @@ services:
     restart: unless-stopped
     volumes:
       - volttron-data:/home/volttron/db
-      - volttron-config:/home/volttron/configurations/
-      # - ./volttron/configs/:/home/volttron/configurations/
+      - ./volttron/setup/:/home/volttron/configurations/
 
   # Volttron proxy bridge - connects Docker network to host-networked VOLTTRON
   volttron-bridge:
@@ -618,27 +610,25 @@ volumes:
     driver: local
   database-data:
     driver: local
-  nominatim-data:
-    driver: local
   nominatim-cache:
+    driver: local
+  nominatim-data:
     driver: local
   wiki-data:
     driver: local
   wiki-storage:
     driver: local
-  keycloak-data:
-    driver: local
   keycloak-cache:
     driver: local
-  volttron-cache:
+  keycloak-data:
     driver: local
-  volttron-config:
+  volttron-setup:
     driver: local
   volttron-data:
     driver: local
-  grafana-cache:
+  grafana-setup:
     driver: local
-  grafana-config:
+  grafana-cache:
     driver: local
   grafana-data:
     driver: local
