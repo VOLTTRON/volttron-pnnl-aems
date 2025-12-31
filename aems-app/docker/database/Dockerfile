@@ -32,6 +32,7 @@ RUN set -eux; \
 # Copy custom initialization scripts into the image so they run at first DB init
 COPY ./ /docker-entrypoint-initdb.d/
 
-# Ensure shell init scripts are executable
-RUN find /docker-entrypoint-initdb.d -type f -name '*.sh' -exec chmod +x {} + \
-    || true
+# Ensure all shell scripts are executable
+# Use explicit chmod command and verify the result
+RUN chmod +x /docker-entrypoint-initdb.d/*.sh && \
+    ls -la /docker-entrypoint-initdb.d/
