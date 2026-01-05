@@ -324,13 +324,28 @@ try {
     # Restart the service
     if ($DryRun) {
         Write-Host "[DRY RUN] Would restart service: $ServiceName" -ForegroundColor Blue
-        Write-Host "[DRY RUN] Docker Compose would automatically start dependencies" -ForegroundColor Cyan
+        foreach ($svc in $dependentServices) {
+            Write-Host "[DRY RUN] Would restart dependent service: $svc" -ForegroundColor Blue
+        }
     }
     else {
         Write-Host "Restarting service: $ServiceName" -ForegroundColor Blue
         docker compose up -d $ServiceName
         Write-Host "Service restarted successfully" -ForegroundColor Green
-        Write-Host "Docker Compose will automatically start dependencies as needed" -ForegroundColor Cyan
+        
+        # Restart dependent services that were stopped
+        if ($dependentServices.Count -gt 0) {
+            foreach ($svc in $dependentServices) {
+                Write-Host "Restarting dependent service: $svc" -ForegroundColor Blue
+                try {
+                    docker compose up -d $svc 2>$null
+                }
+                catch {
+                    Write-Host "Failed to restart $svc" -ForegroundColor Yellow
+                }
+            }
+            Write-Host "Dependent services restarted" -ForegroundColor Green
+        }
     }
 
     if ($DryRun) {

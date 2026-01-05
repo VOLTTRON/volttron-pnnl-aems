@@ -344,12 +344,28 @@ done
 # Restart the service
 if [[ "$DRY_RUN" == "true" ]]; then
     print_blue "[DRY RUN] Would restart service: $SERVICE_NAME"
-    print_cyan "[DRY RUN] Docker Compose would automatically start dependencies"
+    if [[ -n "$DEPENDENT_SERVICES" && "$DEPENDENT_SERVICES" != "" ]]; then
+        echo "$DEPENDENT_SERVICES" | while read -r svc; do
+            if [[ -n "$svc" ]]; then
+                print_blue "[DRY RUN] Would restart dependent service: $svc"
+            fi
+        done
+    fi
 else
     print_blue "Restarting service: $SERVICE_NAME"
     docker compose up -d "$SERVICE_NAME"
     print_green "Service restarted successfully"
-    print_cyan "Docker Compose will automatically start dependencies as needed"
+    
+    # Restart dependent services that were stopped
+    if [[ -n "$DEPENDENT_SERVICES" && "$DEPENDENT_SERVICES" != "" ]]; then
+        echo "$DEPENDENT_SERVICES" | while read -r svc; do
+            if [[ -n "$svc" ]]; then
+                print_blue "Restarting dependent service: $svc"
+                docker compose up -d "$svc" 2>/dev/null || print_yellow "Failed to restart $svc"
+            fi
+        done
+        print_green "Dependent services restarted"
+    fi
 fi
 
 if [[ "$DRY_RUN" == "true" ]]; then
