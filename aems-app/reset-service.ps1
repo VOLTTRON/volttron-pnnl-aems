@@ -271,9 +271,22 @@ try {
         }
     }
 
+    # Get the Docker Compose project name
+    $projectName = "docker"
+    try {
+        $projectConfig = docker compose config --format json 2>$null | ConvertFrom-Json
+        if ($projectConfig.name) {
+            $projectName = $projectConfig.name
+        }
+    }
+    catch {
+        $projectName = "docker"
+    }
+    Write-Host "Using Docker Compose project name: $projectName" -ForegroundColor Cyan
+
     # Remove the volumes
     foreach ($vol in $volumeNames) {
-        $fullVolumeName = "docker_$vol"
+        $fullVolumeName = "${projectName}_$vol"
         if ($DryRun) {
             Write-Host "[DRY RUN] Would remove volume: $fullVolumeName" -ForegroundColor Blue
         }
@@ -285,7 +298,19 @@ try {
                 Write-Host "Volume removed: $fullVolumeName" -ForegroundColor Green
             }
             else {
-                Write-Host "Volume not found (may not exist yet): $fullVolumeName" -ForegroundColor Yellow
+                Write-Host "Volume not found: $fullVolumeName" -ForegroundColor Yellow
+                Write-Host "Attempting to find volume with different naming..." -ForegroundColor Yellow
+                # Try to find the actual volume name
+                $allVolumes = docker volume ls --format "{{.Name}}"
+                $actualVolume = $allVolumes | Where-Object { $_ -match ".*[_-]$vol`$" } | Select-Object -First 1
+                if ($actualVolume) {
+                    Write-Host "Found volume: $actualVolume" -ForegroundColor Cyan
+                    docker volume rm $actualVolume
+                    Write-Host "Volume removed: $actualVolume" -ForegroundColor Green
+                }
+                else {
+                    Write-Host "Could not find volume matching: $vol" -ForegroundColor Yellow
+                }
             }
         }
     }

@@ -303,10 +303,14 @@ else
     fi
 fi
 
+# Get the Docker Compose project name
+PROJECT_NAME=$(docker compose config --format json 2>/dev/null | python3 -c "import sys, json; print(json.load(sys.stdin).get('name', 'docker'))" 2>/dev/null || echo "docker")
+print_cyan "Using Docker Compose project name: $PROJECT_NAME"
+
 # Remove the volumes
 echo "$VOLUMES" | while read -r vol; do
     if [[ -n "$vol" ]]; then
-        FULL_VOLUME_NAME="docker_${vol}"
+        FULL_VOLUME_NAME="${PROJECT_NAME}_${vol}"
         if [[ "$DRY_RUN" == "true" ]]; then
             print_blue "[DRY RUN] Would remove volume: $FULL_VOLUME_NAME"
         else
@@ -315,7 +319,17 @@ echo "$VOLUMES" | while read -r vol; do
                 docker volume rm "$FULL_VOLUME_NAME"
                 print_green "Volume removed: $FULL_VOLUME_NAME"
             else
-                print_yellow "Volume not found (may not exist yet): $FULL_VOLUME_NAME"
+                print_yellow "Volume not found: $FULL_VOLUME_NAME"
+                print_yellow "Attempting to find volume with different naming..."
+                # Try to find the actual volume name
+                ACTUAL_VOLUME=$(docker volume ls --format "{{.Name}}" | grep -E ".*[_-]${vol}$" | head -n 1)
+                if [[ -n "$ACTUAL_VOLUME" ]]; then
+                    print_cyan "Found volume: $ACTUAL_VOLUME"
+                    docker volume rm "$ACTUAL_VOLUME"
+                    print_green "Volume removed: $ACTUAL_VOLUME"
+                else
+                    print_yellow "Could not find volume matching: $vol"
+                fi
             fi
         fi
     fi
