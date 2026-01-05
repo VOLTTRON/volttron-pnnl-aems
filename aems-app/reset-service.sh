@@ -282,22 +282,28 @@ fi
 # Stop the service and its dependents
 if [[ "$DRY_RUN" == "true" ]]; then
     print_blue "[DRY RUN] Would stop service: $SERVICE_NAME"
+    print_blue "[DRY RUN] Would remove container: $SERVICE_NAME"
     if [[ -n "$DEPENDENT_SERVICES" && "$DEPENDENT_SERVICES" != "" ]]; then
         echo "$DEPENDENT_SERVICES" | while read -r svc; do
             if [[ -n "$svc" ]]; then
                 print_blue "[DRY RUN] Would stop dependent service: $svc"
+                print_blue "[DRY RUN] Would remove container: $svc"
             fi
         done
     fi
 else
     print_blue "Stopping service: $SERVICE_NAME"
     docker compose stop "$SERVICE_NAME"
+    print_blue "Removing container: $SERVICE_NAME"
+    docker compose rm -f "$SERVICE_NAME"
     
     if [[ -n "$DEPENDENT_SERVICES" && "$DEPENDENT_SERVICES" != "" ]]; then
         echo "$DEPENDENT_SERVICES" | while read -r svc; do
             if [[ -n "$svc" ]]; then
                 print_blue "Stopping dependent service: $svc"
                 docker compose stop "$svc" 2>/dev/null || true
+                print_blue "Removing container: $svc"
+                docker compose rm -f "$svc" 2>/dev/null || true
             fi
         done
     fi

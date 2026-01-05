@@ -252,18 +252,24 @@ try {
     # Stop the service and its dependents
     if ($DryRun) {
         Write-Host "[DRY RUN] Would stop service: $ServiceName" -ForegroundColor Blue
+        Write-Host "[DRY RUN] Would remove container: $ServiceName" -ForegroundColor Blue
         foreach ($svc in $dependentServices) {
             Write-Host "[DRY RUN] Would stop dependent service: $svc" -ForegroundColor Blue
+            Write-Host "[DRY RUN] Would remove container: $svc" -ForegroundColor Blue
         }
     }
     else {
         Write-Host "Stopping service: $ServiceName" -ForegroundColor Blue
         docker compose stop $ServiceName
+        Write-Host "Removing container: $ServiceName" -ForegroundColor Blue
+        docker compose rm -f $ServiceName
 
         foreach ($svc in $dependentServices) {
             Write-Host "Stopping dependent service: $svc" -ForegroundColor Blue
             try {
                 docker compose stop $svc 2>$null
+                Write-Host "Removing container: $svc" -ForegroundColor Blue
+                docker compose rm -f $svc 2>$null
             }
             catch {
                 # Continue even if stopping a dependent service fails
