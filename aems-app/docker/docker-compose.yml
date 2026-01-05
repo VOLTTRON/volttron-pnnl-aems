@@ -550,8 +550,8 @@ services:
     restart: unless-stopped
     volumes:
       - volttron-data:/home/volttron/db
-      - ./volttron/setup/configs/:/home/user/platform/:ro
-      - ./volttron/setup/configs/platform_config.yml:/platform_config.yml:ro
+      - ./volttron/setup/configs/:/home/volttron/configurations/
+      - ./volttron/setup/configs/platform_config.yml:/platform_config.yml
 
   # Volttron proxy bridge - connects Docker network to host-networked VOLTTRON
   volttron-bridge:
