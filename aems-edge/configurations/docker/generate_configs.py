@@ -251,8 +251,9 @@ Reset to User Defaults,Reset to User Defaults,Enum,0-1,binaryValue,presentValue,
 Service Type A,ServiceType,State,State count: 5,multiStateValue,presentValue,FALSE,2207,,"1=3-wire, 3-Phase, 2=2-wire, 1-Phase, 3=3-wire, 1-Phase, 4=Disable Element"""""
 
 
-platform_driver_config = lambda timezone: {
+platform_driver_config = lambda timezone, num_configs: {
     "timezone": timezone,
+    "minimum_polling_interval": 60/(num_configs+1),
     "publish_multi_depth": False,
     "publish_all_depth": True
 }
@@ -853,7 +854,7 @@ def generate_historian_config(db_name: str, db_user: str, db_password: str,
         json.dump(historian_config, _file, indent=4)
 
 
-def generate_driver_config(timezone: str, output_dir: str | bytes):
+def generate_driver_config(timezone: str, output_dir: str | bytes, num_configs: int):
     """
     Generates and saves a platform driver configuration file based on the provided
     timezone and output directory. The configuration is written to a JSON file named
@@ -861,11 +862,12 @@ def generate_driver_config(timezone: str, output_dir: str | bytes):
     it will be created.
 
     Args:
+        num_configs: Number of devices to generate configurations for.
         timezone: The timezone to be used for generating the driver configuration.
         output_dir: The directory where the configuration file will be saved. It can
             be a string or bytes representing the file path.
     """
-    driver_config = platform_driver_config(timezone)
+    driver_config = platform_driver_config(timezone, num_configs)
     driver_config_dir = Path(output_dir)
     driver_config_dir.mkdir(parents=True, exist_ok=True)
     with open(driver_config_dir / 'driver.config', 'w') as _file:
@@ -926,34 +928,34 @@ def generate_weather_config(station: list, output_dir: str):
         json.dump(weather_config, _file, indent=4)
 
 # TODO: Commented because this has not worked yet in docker-compose, and is currently built into image.
-# def generate_logging_config(output_dir: str, backup_count: int = 10, log_directory: str = '/home/volttron/logs',
-#                             log_level: str = 'DEBUG', log_name: str = 'volttron.log'):
-#     logging_config = {
-#         'version': 1,
-#         'disable_existing_loggers': False,
-#         'formatters': {
-#             'agent': {
-#                 '()': 'volttron.platform.agent.utils.AgentFormatter',
-#             },
-#         },
-#         'handlers': {
-#             'rotating': {
-#                 'class': 'logging.handlers.TimedRotatingFileHandler',
-#                 'level': log_level,
-#                 'formatter': 'agent',
-#                 'filename': f'{log_directory}/{log_name}',
-#                 'encoding': 'utf-8',
-#                 'when': 'midnight',
-#                 'backupCount': backup_count,
-#             },
-#         },
-#         'root': {
-#             'handlers': ['rotating'],
-#             'level': log_level,
-#         },
-#     }
-#     with open(Path(output_dir) / 'setup_logging.py', 'w') as _file:
-#         json.dump(logging_config, _file, indent=4)
+def generate_logging_config(output_dir: str, backup_count: int = 10, log_directory: str = '/home/volttron/logs',
+                            log_level: str = 'DEBUG', log_name: str = 'volttron.log'):
+    logging_config = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'agent': {
+                '()': 'volttron.platform.agent.utils.AgentFormatter',
+            },
+        },
+        'handlers': {
+            'rotating': {
+                'class': 'logging.handlers.TimedRotatingFileHandler',
+                'level': log_level,
+                'formatter': 'agent',
+                'filename': f'{log_directory}/{log_name}',
+                'encoding': 'utf-8',
+                'when': 'midnight',
+                'backupCount': backup_count,
+            },
+        },
+        'root': {
+            'handlers': ['rotating'],
+            'level': log_level,
+        },
+    }
+    with open(Path(output_dir) / 'setup_logging.py', 'w') as _file:
+        json.dump(logging_config, _file, indent=4)
 
 def main():
     """
@@ -1064,7 +1066,7 @@ def main():
                                 output_path, args.timezone, args.rtu_oat_sensor)
 
     # Generate canonical "config" for platform.driver
-    generate_driver_config(args.timezone, output_path)
+    generate_driver_config(args.timezone, output_path, args.num_configs)
     # Generate BACnet proxy config
     generate_bacnet_proxy_config(args.gateway_address, output_path)
     generate_bacnet_proxy_config(args.gateway_address, output_path)
