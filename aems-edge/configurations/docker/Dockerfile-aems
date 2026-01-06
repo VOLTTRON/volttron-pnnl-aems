@@ -25,6 +25,10 @@ RUN python -m pip install numpy==1.26.4 # Force numpy to a version that doesn't 
 ########################################
 USER root
 WORKDIR ${VOLTTRON_USER_HOME}
+
+COPY --chown=volttron:volttron volttron-pnnl-aems/aems-edge/configurations/docker/bootstart.sh /startup/bootstart.sh
+COPY --chown=volttron:volttron volttron-pnnl-aems/aems-edge/configurations/docker/setup_logging.py /startup/setup_logging.py
+
 #ENTRYPOINT ["/startup/entrypoint.sh"]
 #CMD ["/startup/bootstart.sh"]
 # CMD ["/bin/bash"]

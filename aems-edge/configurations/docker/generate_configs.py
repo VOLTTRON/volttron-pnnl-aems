@@ -925,6 +925,35 @@ def generate_weather_config(station: list, output_dir: str):
     with open(weather_config_dir / 'weather.config', 'w') as _file:
         json.dump(weather_config, _file, indent=4)
 
+# TODO: Commented because this has not worked yet in docker-compose, and is currently built into image.
+# def generate_logging_config(output_dir: str, backup_count: int = 10, log_directory: str = '/home/volttron/logs',
+#                             log_level: str = 'DEBUG', log_name: str = 'volttron.log'):
+#     logging_config = {
+#         'version': 1,
+#         'disable_existing_loggers': False,
+#         'formatters': {
+#             'agent': {
+#                 '()': 'volttron.platform.agent.utils.AgentFormatter',
+#             },
+#         },
+#         'handlers': {
+#             'rotating': {
+#                 'class': 'logging.handlers.TimedRotatingFileHandler',
+#                 'level': log_level,
+#                 'formatter': 'agent',
+#                 'filename': f'{log_directory}/{log_name}',
+#                 'encoding': 'utf-8',
+#                 'when': 'midnight',
+#                 'backupCount': backup_count,
+#             },
+#         },
+#         'root': {
+#             'handlers': ['rotating'],
+#             'level': log_level,
+#         },
+#     }
+#     with open(Path(output_dir) / 'setup_logging.py', 'w') as _file:
+#         json.dump(logging_config, _file, indent=4)
 
 def main():
     """
@@ -1059,6 +1088,9 @@ def main():
     generate_platform_config(args.num_configs, output_path, args.prefix,
                              args.campus, args.building, args.gateway_address,
                              bacnet_deployment, args.meter_prefix, generate_ilc=args.generate_ilc)
+
+    # TODO: Commented because this has not worked yet in docker-compose, and is currently built into image.
+    # generate_logging_config(output_dir=output_path)  # TODO: Add parser options for logging.
 
     shutil.copy('docker-compose-aems.yml', os.path.join(output_path, 'docker-compose-aems.yml'))
     shutil.copy('docker-compose-ilc.yml', os.path.join(output_path, 'docker-compose-ilc.yml'))

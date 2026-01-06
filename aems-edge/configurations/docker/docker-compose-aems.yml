@@ -13,7 +13,7 @@ services:
     volumes:
       - ./platform_config.yml:/platform_config.yml
       - ../configs:/home/volttron/configs
-      #      - ./core:/startup
+#      - ./bootstart.sh:/startup/bootstart.sh
       - volttron1-volume:/home/volttron/db
     environment:
       - CONFIG=/home/volttron/configs
