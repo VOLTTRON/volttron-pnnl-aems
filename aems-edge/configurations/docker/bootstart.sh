@@ -35,7 +35,7 @@ fi
 echo "Starting Volttron..."
 
 # Now spin up the volttron platform
-volttron -L ${CONFIG}"/setup_logging.py"
+volttron -L /startup/setup_logging.py
 volttron_retcode=$?
 if [[ $volttron_retcode ]]; then
   echo "volttron error"
