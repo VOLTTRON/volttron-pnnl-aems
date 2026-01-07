@@ -943,6 +943,10 @@ class ManagerProxy:
             _log.debug(f'Parsed WEATHER forecast: {weather_data}')
             return weather_data
 
+        if self.cfg.location is None:
+            _log.warning('No location specified in configuration. Skipping weather forecast update.')
+            return
+
         for x in range(10):
             try:
                 result = self._p.vip.rpc.call(self.cfg.weather_identity, 'get_hourly_forecast',
