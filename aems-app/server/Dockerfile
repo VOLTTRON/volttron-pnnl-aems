@@ -18,9 +18,9 @@ RUN apk add --no-cache curl
 
 # setup yarn
 RUN corepack enable
-RUN yarn config set proxy $HTTP_PROXY
-RUN yarn config set https-proxy $HTTPS_PROXY
-RUN yarn config set no-proxy $NO_PROXY
+RUN if [ -n "$HTTP_PROXY" ]; then yarn config set proxy "$HTTP_PROXY"; fi
+RUN if [ -n "$HTTPS_PROXY" ]; then yarn config set https-proxy "$HTTPS_PROXY"; fi
+RUN if [ -n "$NO_PROXY" ]; then yarn config set no-proxy "$NO_PROXY"; fi
 RUN yarn config set "strict-ssl" false
 
 # Install dependencies and build server application
