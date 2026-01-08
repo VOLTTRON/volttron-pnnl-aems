@@ -145,7 +145,7 @@ Apparent PF Element A,PowerFactor,powerFactor,,analogInput,presentValue,FALSE,11
 Apparent PF CH1 A,PowerFactorA,powerFactor,,analogInput,presentValue,FALSE,1193,,
 Apparent PF CH2 A,PowerFactorB,powerFactor,,analogInput,presentValue,FALSE,1195,,
 Apparent PF CH3 A,PowerFactorC,powerFactor,,analogInput,presentValue,FALSE,1197,,
-THD Element A,TotalHarmonicDistortion,percent,,analogInput,presencda tValue,FALSE,2324,,
+THD Element A,TotalHarmonicDistortion,percent,,analogInput,presentValue,FALSE,2324,,
 THD CH1 A,TotalHarmonicDistortionA,percent,,analogInput,presentValue,FALSE,2326,,
 THD CH2 A,TotalHarmonicDistortionB,percent,,analogInput,presentValue,FALSE,2328,,
 THD CH3 A,TotalHarmonicDistortionC,percent,,analogInput,presentValue,FALSE,2330,,
@@ -248,7 +248,7 @@ historian_dict_template = lambda db_name, db_user, db_password, db_address, db_p
 weather_dict_template = lambda station: {
     "database_file": "weather.sqlite",
     "max_size_gb": 1,
-    "poll_locations": station,
+    "poll_locations": {"station": station},
     "poll_interval": 60
 }
 emailer_dict_template = lambda smtp_address, smtp_username, smtp_password, smtp_port, smtp_tls, to_addresses, allow_frequency_minutes: {
