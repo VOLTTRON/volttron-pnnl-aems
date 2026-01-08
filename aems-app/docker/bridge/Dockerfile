@@ -1,5 +1,10 @@
 FROM alpine:latest
 
+# Configure DNS for package installation
+RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf && \
+    echo "nameserver 8.8.4.4" >> /etc/resolv.conf && \
+    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+
 # Install socat package
 RUN apk add --no-cache socat
 
