@@ -1,12 +1,8 @@
 FROM alpine:latest
 
-# Configure DNS for package installation
-RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf && \
-    echo "nameserver 8.8.4.4" >> /etc/resolv.conf && \
-    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
-
-# Install socat package
-RUN apk add --no-cache socat
+# Update package repositories and install socat with retry logic
+RUN apk update --no-cache || apk update --no-cache && \
+    apk add --no-cache socat
 
 # Copy the script and set execute permissions
 COPY volttron-socat.sh /proxy/volttron-socat.sh
