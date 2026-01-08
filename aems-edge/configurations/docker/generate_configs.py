@@ -30,7 +30,6 @@ Effective Setpoint,EffectiveZoneTemperatureSetPoint,degreesFahrenheit,,analogInp
 PI Heating Demand,HeatingDemand,percent,(default 100.0),analogOutput,presentValue,TRUE,21,16,
 PI Cooling Demand,CoolingDemand,percent,(default 0.0),analogOutput,presentValue,TRUE,22,16,
 Economizer Demand,EconomizerDemand,percent,(default 0.0),analogOutput,presentValue,TRUE,23,16,
-UO10 Analog Output,EconomizerVoltageOutput,volts,(default 0.0),analogOutput,presentValue,TRUE,126,16,
 StandbyTime,StandbyTime,noUnits,(default 0.0),analogValue,presentValue,TRUE,25,16,Param. A (AV25)
 ActOcc,EffectiveOccupancy,noUnits,(default 0.0),analogValue,presentValue,FALSE,26,,Only Used on PIR
 SptPriorValue,SptPriorValue,noUnits,(default 0.0),analogValue,presentValue,TRUE,27,16,Param. C (AV27)
@@ -47,12 +46,8 @@ Cooling Setpoint Limit,CoolingSetpointLimit,degreesFahrenheit,(default 54.0),ana
 Minimum Deadband,DeadBand,deltaDegreesFahrenheit,(default 3.0),analogValue,presentValue,TRUE,63,16,
 Proportional Band,ProportionalBand,noUnits,(default 3.0),analogValue,presentValue,TRUE,65,16,
 Number of Cooling Stages,NumberCoolingStages,noUnits,(default 2.0),analogValue,presentValue,TRUE,75,16,
-Economizer Minimum Position,EconomizerMinimumPosition,percent,(default 0.0),analogValue,presentValue,TRUE,78,16,
-Economizer Maximum Position,EconomizerMaximumPosition,percent,(default 100.0),analogValue,presentValue,TRUE,81,16,
 Anti Short Cycle Time,AntiShortCycleTime,minutes,(default 2.0),analogValue,presentValue,TRUE,86,16,
 Number of Heating Stages,NumberHeatingStages,noUnits,(default 2.0),analogValue,presentValue,TRUE,87,16,
-Heating Lockout from Outside Air Temperature,HeatingLockoutOutdoorAirTemperature,degreesFahrenheit,(default 120.0),analogValue,presentValue,TRUE,91,16,
-Cooling Lockout,CoolingLockoutOutdoorAirTemperature,degreesFahrenheit,(default -40.0),analogValue,presentValue,TRUE,93,16,
 Changeover Setpoint,EconomizerSwitchOverSetPoint,degreesFahrenheit,(default 55.0),analogValue,presentValue,TRUE,95,16,
 Room Temperature,ZoneTemperature,degreesFahrenheit,(default 68.70000457763672),analogValue,presentValue,TRUE,100,16,
 Room Humidity,ZoneHumidity,percentRelativeHumidity,(default 14.0),analogValue,presentValue,TRUE,103,16,
@@ -70,9 +65,7 @@ System Mode,SystemMode,State,State count: 4 (default 4),multiStateValue,presentV
 Fan Mode,FanMode,State,State count: 3 (default 2),multiStateValue,presentValue,TRUE,17,16,"1=Auto, 2=Smart"
 Setpoint Function,SetpointFunction,State,State count: 2 (default 2),multiStateValue,presentValue,TRUE,58,9,1=Attach SP
 Economizer Configuration,HasEconomizer,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,72,9,1=On
-Mechanical Cooling Allowed,MechanicalCoolingDuringEconomizing,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,79,9,1=On
 Reversing valve operation,ReversingValveOperation,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,117,9,1=B
-Compressor - auxiliary interlock,CompressorAuxiliaryInterlock,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,118,9,1=On
 Application,Application,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,119,9,1=Heatpump"""
 
 schneider_oat_registry = \
@@ -81,7 +74,6 @@ Effective Setpoint,EffectiveZoneTemperatureSetPoint,degreesFahrenheit,,analogInp
 PI Heating Demand,HeatingDemand,percent,(default 100.0),analogOutput,presentValue,TRUE,21,16,
 PI Cooling Demand,CoolingDemand,percent,(default 0.0),analogOutput,presentValue,TRUE,22,16,
 Economizer Demand,EconomizerDemand,percent,(default 0.0),analogOutput,presentValue,TRUE,23,16,
-UO10 Analog Output,EconomizerVoltageOutput,volts,(default 0.0),analogOutput,presentValue,TRUE,126,16,
 StandbyTime,StandbyTime,noUnits,(default 0.0),analogValue,presentValue,TRUE,25,16,Param. A (AV25)
 ActOcc,EffectiveOccupancy,noUnits,(default 0.0),analogValue,presentValue,FALSE,26,,Only Used on PIR
 SptPriorValue,SptPriorValue,noUnits,(default 0.0),analogValue,presentValue,TRUE,27,16,Param. C (AV27)
@@ -98,12 +90,8 @@ Cooling Setpoint Limit,CoolingSetpointLimit,degreesFahrenheit,(default 54.0),ana
 Minimum Deadband,DeadBand,deltaDegreesFahrenheit,(default 3.0),analogValue,presentValue,TRUE,63,16,
 Proportional Band,ProportionalBand,noUnits,(default 3.0),analogValue,presentValue,TRUE,65,16,
 Number of Cooling Stages,NumberCoolingStages,noUnits,(default 2.0),analogValue,presentValue,TRUE,75,16,
-Economizer Minimum Position,EconomizerMinimumPosition,percent,(default 0.0),analogValue,presentValue,TRUE,78,16,
-Economizer Maximum Position,EconomizerMaximumPosition,percent,(default 100.0),analogValue,presentValue,TRUE,81,16,
 Anti Short Cycle Time,AntiShortCycleTime,minutes,(default 2.0),analogValue,presentValue,TRUE,86,16,
 Number of Heating Stages,NumberHeatingStages,noUnits,(default 2.0),analogValue,presentValue,TRUE,87,16,
-Heating Lockout from Outside Air Temperature,HeatingLockoutOutdoorAirTemperature,degreesFahrenheit,(default 120.0),analogValue,presentValue,TRUE,91,16,
-Cooling Lockout,CoolingLockoutOutdoorAirTemperature,degreesFahrenheit,(default -40.0),analogValue,presentValue,TRUE,93,16,
 Changeover Setpoint,EconomizerSwitchOverSetPoint,degreesFahrenheit,(default 55.0),analogValue,presentValue,TRUE,95,16,
 Room Temperature,ZoneTemperature,degreesFahrenheit,(default 68.70000457763672),analogValue,presentValue,TRUE,100,16,
 Outdoor Temperature,OutdoorAirTemperature,degreesFahrenheit,(default -40.0),analogValue,presentValue,TRUE,101,16,
@@ -122,9 +110,7 @@ System Mode,SystemMode,State,State count: 4 (default 4),multiStateValue,presentV
 Fan Mode,FanMode,State,State count: 3 (default 2),multiStateValue,presentValue,TRUE,17,16,"1=Auto, 2=Smart"
 Setpoint Function,SetpointFunction,State,State count: 2 (default 2),multiStateValue,presentValue,TRUE,58,9,1=Attach SP
 Economizer Configuration,HasEconomizer,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,72,9,1=On
-Mechanical Cooling Allowed,MechanicalCoolingDuringEconomizing,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,79,9,1=On
 Reversing valve operation,ReversingValveOperation,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,117,9,1=B
-Compressor - auxiliary interlock,CompressorAuxiliaryInterlock,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,118,9,1=On
 Application,Application,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,119,9,1=Heatpump"""
 
 
@@ -159,7 +145,7 @@ Apparent PF Element A,PowerFactor,powerFactor,,analogInput,presentValue,FALSE,11
 Apparent PF CH1 A,PowerFactorA,powerFactor,,analogInput,presentValue,FALSE,1193,,
 Apparent PF CH2 A,PowerFactorB,powerFactor,,analogInput,presentValue,FALSE,1195,,
 Apparent PF CH3 A,PowerFactorC,powerFactor,,analogInput,presentValue,FALSE,1197,,
-THD Element A,TotalHarmonicDistortion,percent,,analogInput,presentValue,FALSE,2324,,
+THD Element A,TotalHarmonicDistortion,percent,,analogInput,presencda tValue,FALSE,2324,,
 THD CH1 A,TotalHarmonicDistortionA,percent,,analogInput,presentValue,FALSE,2326,,
 THD CH2 A,TotalHarmonicDistortionB,percent,,analogInput,presentValue,FALSE,2328,,
 THD CH3 A,TotalHarmonicDistortionC,percent,,analogInput,presentValue,FALSE,2330,,
@@ -205,7 +191,8 @@ manager_config_store_dict_template = lambda campus, building, device_name, timez
         "DeadBand": 3,
         "OccupiedSetPoint": 71
     },
-    "setpoint_validate_frequency": 300,
+    "setpoint_validate_frequency": 900,
+    "occupancy_validate_frequency": 300,
     "zone_point_names": {
         "zonetemperature": "ZoneTemperature",
         "coolingsetpoint": "OccupiedCoolingSetPoint",
