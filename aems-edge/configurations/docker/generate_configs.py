@@ -145,7 +145,7 @@ Apparent PF Element A,PowerFactor,powerFactor,,analogInput,presentValue,FALSE,11
 Apparent PF CH1 A,PowerFactorA,powerFactor,,analogInput,presentValue,FALSE,1193,,
 Apparent PF CH2 A,PowerFactorB,powerFactor,,analogInput,presentValue,FALSE,1195,,
 Apparent PF CH3 A,PowerFactorC,powerFactor,,analogInput,presentValue,FALSE,1197,,
-THD Element A,TotalHarmonicDistortion,percent,,analogInput,presencda tValue,FALSE,2324,,
+THD Element A,TotalHarmonicDistortion,percent,,analogInput,presentValue,FALSE,2324,,
 THD CH1 A,TotalHarmonicDistortionA,percent,,analogInput,presentValue,FALSE,2326,,
 THD CH2 A,TotalHarmonicDistortionB,percent,,analogInput,presentValue,FALSE,2328,,
 THD CH3 A,TotalHarmonicDistortionC,percent,,analogInput,presentValue,FALSE,2330,,
