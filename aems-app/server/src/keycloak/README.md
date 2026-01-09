@@ -118,7 +118,9 @@ INSTANCE_TYPE=services
 ### Dashboard Configuration Files
 
 The service reads dashboard URL configuration files in the format:
-`{CAMPUS}_{BUILDING}_dashboard_urls.json`
+`{CAMPUS}--{BUILDING}_dashboard_urls.json` (new format with double-dash separator)
+
+**Note**: The service also supports the legacy format `{CAMPUS}_{BUILDING}_dashboard_urls.json` for backward compatibility.
 
 Example file structure:
 ```json

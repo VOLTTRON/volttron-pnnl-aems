@@ -9,7 +9,12 @@ import { Request, Response } from "express";
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 
-const ConfigFilenameRegex = /(?<campus>.+)_(?<building>.+)_dashboard_urls\.json/i;
+// Primary regex: Handle new format with double-dash separator (e.g., campus--building_dashboard_urls.json)
+const ConfigFilenameRegexNew = /(?<campus>[^-]+(?:_[^-]+)*)--(?<building>.+)_dashboard_urls\.json/i;
+
+// Fallback regex: Handle old format with single underscores (backward compatibility)
+// Note: This is ambiguous for complex names, but maintains compatibility with existing deployments
+const ConfigFilenameRegexOld = /(?<campus>.+?)_(?<building>.+)_dashboard_urls\.json/i;
 
 const ConfigUnitRegex = /RTU Overview - (?<unit>.+)|Site Overview/i;
 
@@ -64,7 +69,17 @@ export class GrafanaController {
       try {
         this.logger.log(`Parsing Grafana config file: ${file}`);
         const filename = basename(file);
-        let { campus, building } = ConfigFilenameRegex.exec(filename)?.groups ?? {};
+        
+        // Try new format first (with double-dash separator)
+        let match = ConfigFilenameRegexNew.exec(filename);
+        let { campus, building } = match?.groups ?? {};
+        
+        // Fall back to old format if new format doesn't match
+        if (!campus || !building) {
+          match = ConfigFilenameRegexOld.exec(filename);
+          ({ campus, building } = match?.groups ?? {});
+        }
+        
         if (!campus || !building) {
           this.logger.warn(`Skipping invalid Grafana config file name: ${file}`);
           continue;
