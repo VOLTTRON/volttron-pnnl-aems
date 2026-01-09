@@ -248,7 +248,7 @@ historian_dict_template = lambda db_name, db_user, db_password, db_address, db_p
 weather_dict_template = lambda station: {
     "database_file": "weather.sqlite",
     "max_size_gb": 1,
-    "poll_locations": {"station": station},
+    "poll_locations": station,
     "poll_interval": 60
 }
 emailer_dict_template = lambda smtp_address, smtp_username, smtp_password, smtp_port, smtp_tls, to_addresses, allow_frequency_minutes: {
@@ -982,7 +982,7 @@ def main():
                               args.db_address, args.db_port, output_path)
 
     # Generate weather config
-    weather_station = [args.weather_station] if args.weather_station else []
+    weather_station = [{"station": args.weather_station}] if args.weather_station else []
     generate_weather_config(weather_station, output_path)
 
     # Generate topic watcher config
