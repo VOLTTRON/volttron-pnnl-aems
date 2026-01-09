@@ -570,7 +570,7 @@ services:
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/volttron-bridge:${TAG}
     labels:
       - traefik.enable=true
-      - traefik.http.services.volttron.loadbalancer.server.port=8080
+      - traefik.http.services.volttron.loadbalancer.server.port=8443
       - traefik.http.services.volttron.loadbalancer.server.scheme=http
       - traefik.http.services.volttron.loadbalancer.serversTransport=volttron-transport@file
       - traefik.http.middlewares.volttron-security.headers.browserXssFilter=true
