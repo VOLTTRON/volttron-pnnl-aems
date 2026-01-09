@@ -35,7 +35,7 @@ services:
     user: root:root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - certs-data:/etc/certs/:ro
+      - certs-data:/etc/certs/
       - ./proxy/certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
       - ./proxy/volttron-transport.yml:/etc/traefik/dynamic/volttron-transport.yml
 
