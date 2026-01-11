@@ -29,13 +29,6 @@ else
     fi
 
     echo "Setup of Volttron platform is complete."
-    
-    # Remove SSL configuration lines to use plain HTTP
-    echo "Removing SSL configuration from ${VOLTTRON_CONFIG}..."
-    sed -i '/^web-ssl-cert\s*=/d' "${VOLTTRON_CONFIG}"
-    sed -i '/^web-ssl-key\s*=/d' "${VOLTTRON_CONFIG}"
-    sed -i '/^web-secret-key\s*=/d' "${VOLTTRON_CONFIG}"
-    echo "SSL configuration removed. VOLTTRON will use HTTP."
 
 fi
 

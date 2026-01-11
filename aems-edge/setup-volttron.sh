@@ -303,6 +303,20 @@ else
     exit 1
 fi
 
+# Remove SSL configuration from platform_config.yml to use plain HTTP
+log_info "Removing SSL configuration from platform_config.yml..."
+PLATFORM_CONFIG="${OUTPUT_DIR}/platform_config.yml"
+if [[ -f "${PLATFORM_CONFIG}" ]]; then
+    # Remove web-ssl-cert, web-ssl-key, and web-secret-key lines
+    sed -i '/web-ssl-cert:/d' "${PLATFORM_CONFIG}"
+    sed -i '/web-ssl-key:/d' "${PLATFORM_CONFIG}"
+    sed -i '/web-secret-key:/d' "${PLATFORM_CONFIG}"
+    log_success "SSL configuration removed from platform_config.yml"
+    log_info "VOLTTRON will use HTTP without SSL"
+else
+    log_warning "platform_config.yml not found at ${PLATFORM_CONFIG}"
+fi
+
 # Create Volttron completion lock file
 log_info "Creating Volttron setup completion lock file: ${VOLTTRON_LOCK_FILE}"
 # Ensure the directory exists
