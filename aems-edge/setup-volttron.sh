@@ -305,7 +305,7 @@ fi
 
 # Remove SSL configuration from platform_config.yml to use plain HTTP
 log_info "Removing SSL configuration from platform_config.yml..."
-PLATFORM_CONFIG="${OUTPUT_DIR}/platform_config.yml"
+PLATFORM_CONFIG="${OUTPUT_DIR}/configs/platform_config.yml"
 if [[ -f "${PLATFORM_CONFIG}" ]]; then
     # Remove web-ssl-cert, web-ssl-key, and web-secret-key lines
     sed -i '/web-ssl-cert:/d' "${PLATFORM_CONFIG}"
