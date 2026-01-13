@@ -3,12 +3,12 @@
 
 # Function to display help
 function Show-Help {
-    Write-Host "Usage: reset-service.ps1 [service-name] [-f|--force] [-n|--dry-run] [-h|--help]" -ForegroundColor Yellow
+    Write-Host "Usage: reset-service.ps1 [service-name...] [-f|--force] [-n|--dry-run] [-h|--help]" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "Reset a Docker Compose service by deleting its persistent volumes."
+    Write-Host "Reset one or more Docker Compose services by deleting their persistent volumes."
     Write-Host ""
     Write-Host "Arguments:"
-    Write-Host "  service-name           Name of the service to reset (optional - lists services if omitted)"
+    Write-Host "  service-name...        Name(s) of the service(s) to reset (optional - lists services if omitted)"
     Write-Host ""
     Write-Host "Options:"
     Write-Host "  -f, --force           Skip confirmation prompt"
@@ -18,6 +18,7 @@ function Show-Help {
     Write-Host "Examples:"
     Write-Host "  .\reset-service.ps1                       # List all services with volumes"
     Write-Host "  .\reset-service.ps1 database              # Reset the database service"
+    Write-Host "  .\reset-service.ps1 database grafana-db   # Reset multiple services"
     Write-Host "  .\reset-service.ps1 grafana -f            # Reset grafana without confirmation"
     Write-Host "  .\reset-service.ps1 keycloak-db -n        # Preview what would be reset"
     Write-Host ""
@@ -34,7 +35,7 @@ if ($args -contains "-h" -or $args -contains "--help") {
 $StartingPath = Get-Location
 
 # Parse arguments
-$ServiceName = ""
+$ServiceNames = @()
 $Force = $false
 $DryRun = $false
 
@@ -54,14 +55,7 @@ foreach ($arg in $args) {
         exit 1
     }
     else {
-        if ([string]::IsNullOrEmpty($ServiceName)) {
-            $ServiceName = $arg
-        }
-        else {
-            Write-Host "Error: Multiple service names specified" -ForegroundColor Red
-            Write-Host "Use -h or --help for usage information"
-            exit 1
-        }
+        $ServiceNames += $arg
     }
 }
 
@@ -150,57 +144,65 @@ function List-Services {
     exit 0
 }
 
-# Check if service name was provided - if not, list services
-if ([string]::IsNullOrEmpty($ServiceName)) {
+# Check if service names were provided - if not, list services
+if ($ServiceNames.Count -eq 0) {
     List-Services
 }
 
-Write-Host "Docker Compose Volume Reset for service: $ServiceName" -ForegroundColor Blue
+Write-Host "Docker Compose Volume Reset for service(s): $($ServiceNames -join ', ')" -ForegroundColor Blue
 if ($DryRun) {
     Write-Host "[DRY RUN MODE - No changes will be made]" -ForegroundColor Yellow
 }
 
 try {
-    # Verify the service exists
-    Write-Host "Verifying service exists..." -ForegroundColor Cyan
-    $services = docker compose config --services 2>$null
-    if ($services -notcontains $ServiceName) {
-        Write-Host "Error: Service '$ServiceName' not found in docker-compose.yml" -ForegroundColor Red
-        Set-Location -Path $StartingPath
-        exit 1
+    # Verify all services exist
+    Write-Host "Verifying services exist..." -ForegroundColor Cyan
+    $allServices = docker compose config --services 2>$null
+    foreach ($svcName in $ServiceNames) {
+        if ($allServices -notcontains $svcName) {
+            Write-Host "Error: Service '$svcName' not found in docker-compose.yml" -ForegroundColor Red
+            Set-Location -Path $StartingPath
+            exit 1
+        }
     }
-    Write-Host "Service '$ServiceName' found" -ForegroundColor Green
+    Write-Host "All services found" -ForegroundColor Green
 
-    # Get the list of volumes used by this service
-    Write-Host "Discovering volumes for service '$ServiceName'..." -ForegroundColor Cyan
+    # Get the list of volumes used by all specified services
+    Write-Host "Discovering volumes for specified services..." -ForegroundColor Cyan
     $configJson = docker compose config --format json 2>$null | ConvertFrom-Json
-    $service = $configJson.services.$ServiceName
-    $volumeNames = @()
+    $allVolumeNames = @()
 
-    if ($service.volumes) {
-        foreach ($vol in $service.volumes) {
-            $source = ""
-            if ($vol -is [System.Management.Automation.PSCustomObject]) {
-                $source = $vol.source
-            }
-            else {
-                # Handle short syntax: 'source:target' or 'source:target:mode'
-                $parts = $vol -split ':'
-                if ($parts.Length -gt 0) {
-                    $source = $parts[0]
+    foreach ($ServiceName in $ServiceNames) {
+        $service = $configJson.services.$ServiceName
+        
+        if ($service.volumes) {
+            foreach ($vol in $service.volumes) {
+                $source = ""
+                if ($vol -is [System.Management.Automation.PSCustomObject]) {
+                    $source = $vol.source
                 }
-            }
-            # Only include named volumes (not bind mounts with paths)
-            if ($source -and -not $source.StartsWith('.') -and -not $source.StartsWith('/') -and -not $source.Contains('\')) {
-                $volumeNames += $source
+                else {
+                    # Handle short syntax: 'source:target' or 'source:target:mode'
+                    $parts = $vol -split ':'
+                    if ($parts.Length -gt 0) {
+                        $source = $parts[0]
+                    }
+                }
+                # Only include named volumes (not bind mounts with paths)
+                if ($source -and -not $source.StartsWith('.') -and -not $source.StartsWith('/') -and -not $source.Contains('\')) {
+                    $allVolumeNames += $source
+                }
             }
         }
     }
 
+    # Remove duplicates
+    $volumeNames = $allVolumeNames | Select-Object -Unique
+
     # Check if any volumes were found
     if ($volumeNames.Count -eq 0) {
-        Write-Host "No persistent volumes found for service '$ServiceName'" -ForegroundColor Yellow
-        Write-Host "This service may only use bind mounts or no volumes at all" -ForegroundColor Yellow
+        Write-Host "No persistent volumes found for the specified service(s)" -ForegroundColor Yellow
+        Write-Host "These services may only use bind mounts or no volumes at all" -ForegroundColor Yellow
         Set-Location -Path $StartingPath
         exit 0
     }
@@ -211,7 +213,7 @@ try {
         Write-Host "  - $vol"
     }
 
-    # Get dependent services
+    # Get dependent services for all specified services
     Write-Host "Checking for dependent services..." -ForegroundColor Cyan
     $dependentServices = @()
     foreach ($svcName in $configJson.services.PSObject.Properties.Name) {
@@ -224,14 +226,17 @@ try {
             elseif ($svcConfig.depends_on -is [Array]) {
                 $dependencies = $svcConfig.depends_on
             }
-            if ($dependencies -contains $ServiceName) {
-                $dependentServices += $svcName
+            # Check if any of our services are in the dependencies
+            foreach ($targetService in $ServiceNames) {
+                if ($dependencies -contains $targetService -and $dependentServices -notcontains $svcName) {
+                    $dependentServices += $svcName
+                }
             }
         }
     }
 
     if ($dependentServices.Count -gt 0) {
-        Write-Host "Warning: The following services depend on '$ServiceName' and will be stopped:" -ForegroundColor Yellow
+        Write-Host "Warning: The following services depend on the specified service(s) and will be stopped:" -ForegroundColor Yellow
         foreach ($svc in $dependentServices) {
             Write-Host "  - $svc"
         }
@@ -249,20 +254,24 @@ try {
         }
     }
 
-    # Stop the service and its dependents
+    # Stop the services and their dependents
     if ($DryRun) {
-        Write-Host "[DRY RUN] Would stop service: $ServiceName" -ForegroundColor Blue
-        Write-Host "[DRY RUN] Would remove container: $ServiceName" -ForegroundColor Blue
+        foreach ($ServiceName in $ServiceNames) {
+            Write-Host "[DRY RUN] Would stop service: $ServiceName" -ForegroundColor Blue
+            Write-Host "[DRY RUN] Would remove container: $ServiceName" -ForegroundColor Blue
+        }
         foreach ($svc in $dependentServices) {
             Write-Host "[DRY RUN] Would stop dependent service: $svc" -ForegroundColor Blue
             Write-Host "[DRY RUN] Would remove container: $svc" -ForegroundColor Blue
         }
     }
     else {
-        Write-Host "Stopping service: $ServiceName" -ForegroundColor Blue
-        docker compose stop $ServiceName
-        Write-Host "Removing container: $ServiceName" -ForegroundColor Blue
-        docker compose rm -f $ServiceName
+        foreach ($ServiceName in $ServiceNames) {
+            Write-Host "Stopping service: $ServiceName" -ForegroundColor Blue
+            docker compose stop $ServiceName
+            Write-Host "Removing container: $ServiceName" -ForegroundColor Blue
+            docker compose rm -f $ServiceName
+        }
 
         foreach ($svc in $dependentServices) {
             Write-Host "Stopping dependent service: $svc" -ForegroundColor Blue
@@ -321,17 +330,21 @@ try {
         }
     }
 
-    # Restart the service
+    # Restart the services
     if ($DryRun) {
-        Write-Host "[DRY RUN] Would restart service: $ServiceName" -ForegroundColor Blue
+        foreach ($ServiceName in $ServiceNames) {
+            Write-Host "[DRY RUN] Would restart service: $ServiceName" -ForegroundColor Blue
+        }
         foreach ($svc in $dependentServices) {
             Write-Host "[DRY RUN] Would restart dependent service: $svc" -ForegroundColor Blue
         }
     }
     else {
-        Write-Host "Restarting service: $ServiceName" -ForegroundColor Blue
-        docker compose up -d $ServiceName
-        Write-Host "Service restarted successfully" -ForegroundColor Green
+        foreach ($ServiceName in $ServiceNames) {
+            Write-Host "Restarting service: $ServiceName" -ForegroundColor Blue
+            docker compose up -d $ServiceName
+        }
+        Write-Host "Services restarted successfully" -ForegroundColor Green
         
         # Restart dependent services that were stopped
         if ($dependentServices.Count -gt 0) {
@@ -352,7 +365,7 @@ try {
         Write-Host "Dry run completed - no changes were made" -ForegroundColor Green
     }
     else {
-        Write-Host "Volume reset completed successfully for service: $ServiceName" -ForegroundColor Green
+        Write-Host "Volume reset completed successfully for service(s): $($ServiceNames -join ', ')" -ForegroundColor Green
     }
 }
 catch {

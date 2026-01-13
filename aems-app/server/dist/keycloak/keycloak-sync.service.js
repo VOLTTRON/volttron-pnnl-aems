@@ -160,7 +160,8 @@ let KeycloakSyncService = KeycloakSyncService_1 = class KeycloakSyncService exte
     }
     async parseDashboardConfigs(configPath) {
         const roleMap = new Map();
-        const ConfigFilenameRegex = /(?<campus>.+)_(?<building>.+)_dashboard_urls\.json/i;
+        const ConfigFilenameRegexNew = /(?<campus>[^-]+(?:_[^-]+)*)--(?<building>.+)_dashboard_urls\.json/i;
+        const ConfigFilenameRegexOld = /(?<campus>.+?)_(?<building>.+)_dashboard_urls\.json/i;
         try {
             const files = await (0, file_1.getConfigFiles)([configPath], ".json", this.logger);
             if (files.length === 0) {
@@ -170,12 +171,16 @@ let KeycloakSyncService = KeycloakSyncService_1 = class KeycloakSyncService exte
             for (const file of files) {
                 try {
                     const filename = (0, node_path_1.basename)(file);
-                    const match = ConfigFilenameRegex.exec(filename);
-                    if (!match?.groups) {
+                    let match = ConfigFilenameRegexNew.exec(filename);
+                    let { campus, building } = match?.groups ?? {};
+                    if (!campus || !building) {
+                        match = ConfigFilenameRegexOld.exec(filename);
+                        ({ campus, building } = match?.groups ?? {});
+                    }
+                    if (!campus || !building) {
                         this.logger.warn(`Skipping invalid dashboard config filename: ${filename}`);
                         continue;
                     }
-                    const { campus, building } = match.groups;
                     const key = `${campus}_${building}`.toLowerCase();
                     const text = await (0, promises_1.readFile)((0, node_path_1.resolve)(file), "utf-8");
                     const config = JSON.parse(text);

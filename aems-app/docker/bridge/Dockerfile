@@ -1,7 +1,8 @@
 FROM alpine:latest
 
-# Install socat package
-RUN apk add --no-cache socat
+# Update package repositories and install socat with retry logic
+RUN apk update --no-cache || apk update --no-cache && \
+    apk add --no-cache socat
 
 # Copy the script and set execute permissions
 COPY volttron-socat.sh /proxy/volttron-socat.sh

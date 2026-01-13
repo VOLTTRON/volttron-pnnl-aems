@@ -1909,7 +1909,7 @@ def main():
         
         # Save dashboard URLs to separate file for easy access
         if dashboard_urls:
-            urls_filename = f"{campus}_{building}_dashboard_urls.json"
+            urls_filename = f"{campus}--{building}_dashboard_urls.json"
             urls_filepath = os.path.join(OUTPUT_DIR, urls_filename)
             with open(urls_filepath, 'w', encoding='utf-8') as f:
                 json.dump(dashboard_urls, f, indent=2, ensure_ascii=False)

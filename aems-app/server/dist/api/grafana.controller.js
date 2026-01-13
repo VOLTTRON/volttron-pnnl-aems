@@ -23,7 +23,8 @@ const common_2 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const promises_1 = require("node:fs/promises");
 const node_path_1 = require("node:path");
-const ConfigFilenameRegex = /(?<campus>.+)_(?<building>.+)_dashboard_urls\.json/i;
+const ConfigFilenameRegexNew = /(?<campus>[^-]+(?:_[^-]+)*)--(?<building>.+)_dashboard_urls\.json/i;
+const ConfigFilenameRegexOld = /(?<campus>.+?)_(?<building>.+)_dashboard_urls\.json/i;
 const ConfigUnitRegex = /RTU Overview - (?<unit>.+)|Site Overview/i;
 const SiteOverviewKey = "site";
 const SitePublicKey = "public";
@@ -52,7 +53,12 @@ let GrafanaController = GrafanaController_1 = class GrafanaController {
             try {
                 this.logger.log(`Parsing Grafana config file: ${file}`);
                 const filename = (0, node_path_1.basename)(file);
-                let { campus, building } = ConfigFilenameRegex.exec(filename)?.groups ?? {};
+                let match = ConfigFilenameRegexNew.exec(filename);
+                let { campus, building } = match?.groups ?? {};
+                if (!campus || !building) {
+                    match = ConfigFilenameRegexOld.exec(filename);
+                    ({ campus, building } = match?.groups ?? {});
+                }
                 if (!campus || !building) {
                     this.logger.warn(`Skipping invalid Grafana config file name: ${file}`);
                     continue;

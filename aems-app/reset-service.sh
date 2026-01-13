@@ -1,16 +1,15 @@
 #!/bin/bash
 
-# This script resets a Docker Compose service by stopping it, deleting its persistent volumes, and restarting it.
-# It dynamically discovers volumes associated with the specified service and handles dependencies automatically.
+# This script resets a Docker Compose service by stopping all containers, deleting its persistent volumes, and restarting all containers.
 
 # Display help if -h or --help is present in arguments or no service is specified
 show_help() {
-    echo -e "\033[1;33mUsage: reset-service.sh [service-name] [-f|--force] [-n|--dry-run] [-h|--help]\033[0m"
+    echo -e "\033[1;33mUsage: reset-service.sh [service-name...] [-f|--force] [-n|--dry-run] [-h|--help]\033[0m"
     echo ""
-    echo "Reset a Docker Compose service by deleting its persistent volumes."
+    echo "Reset one or more Docker Compose services by deleting their persistent volumes."
     echo ""
     echo "Arguments:"
-    echo "  service-name           Name of the service to reset (optional - lists services if omitted)"
+    echo "  service-name...        Name(s) of the service(s) to reset (optional - lists services if omitted)"
     echo ""
     echo "Options:"
     echo "  -f, --force           Skip confirmation prompt"
@@ -20,9 +19,11 @@ show_help() {
     echo "Examples:"
     echo "  ./reset-service.sh                       # List all services with volumes"
     echo "  ./reset-service.sh database              # Reset the database service"
+    echo "  ./reset-service.sh database grafana-db   # Reset multiple services"
     echo "  ./reset-service.sh grafana --force       # Reset grafana without confirmation"
     echo "  ./reset-service.sh keycloak-db --dry-run # Preview what would be reset"
     echo ""
+    echo "Note: This will bring down ALL containers, remove the specified volumes, then bring everything back up."
     echo "Warning: This will permanently delete all data in the service's volumes!"
     exit 0
 }
@@ -38,7 +39,7 @@ done
 STARTING_PATH=$(pwd)
 
 # Parse arguments
-SERVICE_NAME=""
+SERVICE_NAMES=()
 FORCE=false
 DRY_RUN=false
 
@@ -59,13 +60,7 @@ for arg in "$@"; do
             exit 1
             ;;
         *)
-            if [[ -z "$SERVICE_NAME" ]]; then
-                SERVICE_NAME="$arg"
-            else
-                echo -e "\033[1;31mError: Multiple service names specified\033[0m"
-                echo "Use -h or --help for usage information"
-                exit 1
-            fi
+            SERVICE_NAMES+=("$arg")
             ;;
     esac
 done
@@ -172,8 +167,8 @@ print('\n'.join(volume_names))
     exit 0
 }
 
-# Check if service name was provided - if not, list services
-if [[ -z "$SERVICE_NAME" ]]; then
+# Check if service names were provided - if not, list services
+if [[ ${#SERVICE_NAMES[@]} -eq 0 ]]; then
     list_services
 fi
 
@@ -189,23 +184,28 @@ on_failure() {
 set -e
 trap on_failure ERR
 
-print_blue "Docker Compose Volume Reset for service: $SERVICE_NAME"
+print_blue "Docker Compose Volume Reset for service(s): ${SERVICE_NAMES[*]}"
 if [[ "$DRY_RUN" == "true" ]]; then
     print_yellow "[DRY RUN MODE - No changes will be made]"
 fi
 
-# Verify the service exists
-print_cyan "Verifying service exists..."
-if ! docker compose config --services 2>/dev/null | grep -q "^${SERVICE_NAME}$"; then
-    print_red "Error: Service '$SERVICE_NAME' not found in docker-compose.yml"
-    exit 1
-fi
-print_green "Service '$SERVICE_NAME' found"
+# Verify all services exist
+print_cyan "Verifying services exist..."
+ALL_SERVICES=$(docker compose config --services 2>/dev/null)
+for SERVICE_NAME in "${SERVICE_NAMES[@]}"; do
+    if ! echo "$ALL_SERVICES" | grep -q "^${SERVICE_NAME}$"; then
+        print_red "Error: Service '$SERVICE_NAME' not found in docker-compose.yml"
+        exit 1
+    fi
+done
+print_green "All services found"
 
-# Get the list of volumes used by this service
-print_cyan "Discovering volumes for service '$SERVICE_NAME'..."
-VOLUMES=$(docker compose config --format json 2>/dev/null | \
-    python3 -c "
+# Get the list of volumes used by all specified services
+print_cyan "Discovering volumes for specified services..."
+ALL_VOLUMES=""
+for SERVICE_NAME in "${SERVICE_NAMES[@]}"; do
+    SERVICE_VOLUMES=$(docker compose config --format json 2>/dev/null | \
+        python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 service = data.get('services', {}).get('$SERVICE_NAME', {})
@@ -223,11 +223,23 @@ for vol in volumes:
         volume_names.append(source)
 print('\n'.join(volume_names))
 " 2>/dev/null || echo "")
+    
+    if [[ -n "$SERVICE_VOLUMES" ]]; then
+        if [[ -z "$ALL_VOLUMES" ]]; then
+            ALL_VOLUMES="$SERVICE_VOLUMES"
+        else
+            ALL_VOLUMES="$ALL_VOLUMES"$'\n'"$SERVICE_VOLUMES"
+        fi
+    fi
+done
+
+# Remove duplicate volumes
+VOLUMES=$(echo "$ALL_VOLUMES" | sort -u)
 
 # Check if any volumes were found
 if [[ -z "$VOLUMES" ]]; then
-    print_yellow "No persistent volumes found for service '$SERVICE_NAME'"
-    print_yellow "This service may only use bind mounts or no volumes at all"
+    print_yellow "No persistent volumes found for the specified service(s)"
+    print_yellow "These services may only use bind mounts or no volumes at all"
     exit 0
 fi
 
@@ -239,39 +251,11 @@ echo "$VOLUMES" | while read -r vol; do
     fi
 done
 
-# Get dependent services
-print_cyan "Checking for dependent services..."
-DEPENDENT_SERVICES=$(docker compose config --format json 2>/dev/null | \
-    python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-services = data.get('services', {})
-target = '$SERVICE_NAME'
-dependents = []
-for name, config in services.items():
-    depends_on = config.get('depends_on', {})
-    if isinstance(depends_on, dict):
-        if target in depends_on:
-            dependents.append(name)
-    elif isinstance(depends_on, list):
-        if target in depends_on:
-            dependents.append(name)
-print('\n'.join(dependents))
-" 2>/dev/null || echo "")
-
-if [[ -n "$DEPENDENT_SERVICES" && "$DEPENDENT_SERVICES" != "" ]]; then
-    print_yellow "Warning: The following services depend on '$SERVICE_NAME' and will be stopped:"
-    echo "$DEPENDENT_SERVICES" | while read -r svc; do
-        if [[ -n "$svc" ]]; then
-            echo "  - $svc"
-        fi
-    done
-fi
-
 # Confirmation prompt (unless --force or --dry-run)
 if [[ "$FORCE" != "true" && "$DRY_RUN" != "true" ]]; then
     echo ""
-    print_yellow "WARNING: This will permanently delete all data in these volumes!"
+    print_yellow "WARNING: This will bring down ALL containers, delete the volumes, then bring everything back up!"
+    print_yellow "This will permanently delete all data in these volumes!"
     read -p "Are you sure you want to continue? (yes/no): " confirmation
     if [[ "$confirmation" != "yes" ]]; then
         print_yellow "Reset cancelled by user"
@@ -279,39 +263,18 @@ if [[ "$FORCE" != "true" && "$DRY_RUN" != "true" ]]; then
     fi
 fi
 
-# Stop the service and its dependents
-if [[ "$DRY_RUN" == "true" ]]; then
-    print_blue "[DRY RUN] Would stop service: $SERVICE_NAME"
-    print_blue "[DRY RUN] Would remove container: $SERVICE_NAME"
-    if [[ -n "$DEPENDENT_SERVICES" && "$DEPENDENT_SERVICES" != "" ]]; then
-        echo "$DEPENDENT_SERVICES" | while read -r svc; do
-            if [[ -n "$svc" ]]; then
-                print_blue "[DRY RUN] Would stop dependent service: $svc"
-                print_blue "[DRY RUN] Would remove container: $svc"
-            fi
-        done
-    fi
-else
-    print_blue "Stopping service: $SERVICE_NAME"
-    docker compose stop "$SERVICE_NAME"
-    print_blue "Removing container: $SERVICE_NAME"
-    docker compose rm -f "$SERVICE_NAME"
-    
-    if [[ -n "$DEPENDENT_SERVICES" && "$DEPENDENT_SERVICES" != "" ]]; then
-        echo "$DEPENDENT_SERVICES" | while read -r svc; do
-            if [[ -n "$svc" ]]; then
-                print_blue "Stopping dependent service: $svc"
-                docker compose stop "$svc" 2>/dev/null || true
-                print_blue "Removing container: $svc"
-                docker compose rm -f "$svc" 2>/dev/null || true
-            fi
-        done
-    fi
-fi
-
 # Get the Docker Compose project name
 PROJECT_NAME=$(docker compose config --format json 2>/dev/null | python3 -c "import sys, json; print(json.load(sys.stdin).get('name', 'docker'))" 2>/dev/null || echo "docker")
 print_cyan "Using Docker Compose project name: $PROJECT_NAME"
+
+# Stop all containers
+if [[ "$DRY_RUN" == "true" ]]; then
+    print_blue "[DRY RUN] Would bring down all containers with: docker compose down"
+else
+    print_blue "Bringing down all containers..."
+    docker compose down
+    print_green "All containers stopped and removed"
+fi
 
 # Remove the volumes
 echo "$VOLUMES" | while read -r vol; do
@@ -341,37 +304,19 @@ echo "$VOLUMES" | while read -r vol; do
     fi
 done
 
-# Restart the service
+# Bring all containers back up
 if [[ "$DRY_RUN" == "true" ]]; then
-    print_blue "[DRY RUN] Would restart service: $SERVICE_NAME"
-    if [[ -n "$DEPENDENT_SERVICES" && "$DEPENDENT_SERVICES" != "" ]]; then
-        echo "$DEPENDENT_SERVICES" | while read -r svc; do
-            if [[ -n "$svc" ]]; then
-                print_blue "[DRY RUN] Would restart dependent service: $svc"
-            fi
-        done
-    fi
+    print_blue "[DRY RUN] Would bring up all containers with: docker compose up -d"
 else
-    print_blue "Restarting service: $SERVICE_NAME"
-    docker compose up -d "$SERVICE_NAME"
-    print_green "Service restarted successfully"
-    
-    # Restart dependent services that were stopped
-    if [[ -n "$DEPENDENT_SERVICES" && "$DEPENDENT_SERVICES" != "" ]]; then
-        echo "$DEPENDENT_SERVICES" | while read -r svc; do
-            if [[ -n "$svc" ]]; then
-                print_blue "Restarting dependent service: $svc"
-                docker compose up -d "$svc" 2>/dev/null || print_yellow "Failed to restart $svc"
-            fi
-        done
-        print_green "Dependent services restarted"
-    fi
+    print_blue "Bringing up all containers..."
+    docker compose up -d
+    print_green "All containers started successfully"
 fi
 
 if [[ "$DRY_RUN" == "true" ]]; then
     print_green "Dry run completed - no changes were made"
 else
-    print_green "Volume reset completed successfully for service: $SERVICE_NAME"
+    print_green "Volume reset completed successfully for service(s): ${SERVICE_NAMES[*]}"
 fi
 
 # Clear the error trap since we completed successfully

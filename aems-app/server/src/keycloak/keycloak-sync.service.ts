@@ -288,7 +288,12 @@ export class KeycloakSyncService extends BaseService {
    */
   private async parseDashboardConfigs(configPath: string): Promise<Map<string, Set<string>>> {
     const roleMap = new Map<string, Set<string>>();
-    const ConfigFilenameRegex = /(?<campus>.+)_(?<building>.+)_dashboard_urls\.json/i;
+    
+    // Primary regex: Handle new format with double-dash separator (e.g., campus--building_dashboard_urls.json)
+    const ConfigFilenameRegexNew = /(?<campus>[^-]+(?:_[^-]+)*)--(?<building>.+)_dashboard_urls\.json/i;
+    
+    // Fallback regex: Handle old format with single underscores (backward compatibility)
+    const ConfigFilenameRegexOld = /(?<campus>.+?)_(?<building>.+)_dashboard_urls\.json/i;
 
     try {
       const files = await getConfigFiles([configPath], ".json", this.logger);
@@ -301,14 +306,21 @@ export class KeycloakSyncService extends BaseService {
       for (const file of files) {
         try {
           const filename = basename(file);
-          const match = ConfigFilenameRegex.exec(filename);
+          
+          // Try new format first (with double-dash separator)
+          let match = ConfigFilenameRegexNew.exec(filename);
+          let { campus, building } = match?.groups ?? {};
+          
+          // Fall back to old format if new format doesn't match
+          if (!campus || !building) {
+            match = ConfigFilenameRegexOld.exec(filename);
+            ({ campus, building } = match?.groups ?? {});
+          }
 
-          if (!match?.groups) {
+          if (!campus || !building) {
             this.logger.warn(`Skipping invalid dashboard config filename: ${filename}`);
             continue;
           }
-
-          const { campus, building } = match.groups;
           const key = `${campus}_${building}`.toLowerCase();
 
           const text = await readFile(resolve(file), "utf-8");
