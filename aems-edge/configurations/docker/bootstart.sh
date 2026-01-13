@@ -5,7 +5,7 @@ if [[ -z /startup/setup-platform.py ]]; then
     echo "/startup/setup-platform.py does not exist.  The docker image must be corrupted"
     exit 1
 fi
-
+export PYTHONPATH=$PYTHONPATH:$VOLTTRON_ROOT
 echo "Before platform setup, print environment."
 printenv
 
