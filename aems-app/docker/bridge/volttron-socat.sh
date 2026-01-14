@@ -13,4 +13,4 @@ echo "Starting socat TCP proxy to VOLTTRON at ${VOLTTRON_HOST}:${VOLTTRON_PORT}"
 
 # Start socat TCP proxy to VOLTTRON
 # This creates a transparent TCP tunnel from port 8443 to VOLTTRON
-exec socat TCP-LISTEN:8443,fork,reuseaddr SSL:${VOLTTRON_HOST}:${VOLTTRON_PORT},verify=0
+exec socat TCP-LISTEN:8443,fork,reuseaddr TCP:${VOLTTRON_HOST}:${VOLTTRON_PORT}
