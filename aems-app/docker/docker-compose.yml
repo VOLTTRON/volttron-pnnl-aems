@@ -565,12 +565,12 @@ services:
         condition: service_started
     environment:
       - VOLTTRON_HOST=${VOLTTRON_HOST:-host.docker.internal}
-      - VOLTTRON_PORT=${VOLTTRON_PORT:-8443}
+      - VOLTTRON_PORT=${VOLTTRON_PORT:-5410}
     hostname: volttron-bridge
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/volttron-bridge:${TAG}
     labels:
       - traefik.enable=true
-      - traefik.http.services.volttron.loadbalancer.server.port=8443
+      - traefik.http.services.volttron.loadbalancer.server.port=5410
       - traefik.http.services.volttron.loadbalancer.server.scheme=http
       - traefik.http.services.volttron.loadbalancer.serversTransport=volttron-transport@file
       - traefik.http.middlewares.volttron-security.headers.browserXssFilter=true
