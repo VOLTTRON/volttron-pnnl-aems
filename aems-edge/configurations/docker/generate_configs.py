@@ -265,8 +265,8 @@ emailer_dict_template = lambda smtp_address, smtp_username, smtp_password, smtp_
 platform_config_dict_template = lambda devices_block, manager_agents_block, ilc_block: {
     "config": {
         "vip-address": "tcp://0.0.0.0:22916",
-        "bind-web-address": "http://0.0.0.0:8443",
-        "volttron-central-address": "http://0.0.0.0:8443",
+        "bind-web-address": "http://0.0.0.0:5410",
+        "volttron-central-address": "http://0.0.0.0:5410",
         "instance-name": "volttron1",
         "message-bus": "zmq"
     },
