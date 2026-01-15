@@ -556,12 +556,6 @@ services:
       - ./volttron/setup/configs/platform_config.yml:/platform_config.yml
       - ./volttron/logs/:/home/volttron/logs/
 
-
-networks:
-  default:
-    name: bridge
-    external: true
-
 volumes:
   certs-data:
     driver: local
