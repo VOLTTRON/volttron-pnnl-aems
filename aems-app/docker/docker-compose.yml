@@ -557,6 +557,11 @@ services:
       - ./volttron/logs/:/home/volttron/logs/
 
 
+networks:
+  default:
+    name: bridge
+    external: true
+
 volumes:
   certs-data:
     driver: local
