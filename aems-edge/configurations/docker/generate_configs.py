@@ -229,7 +229,7 @@ bacnet_proxy_dict_template = lambda interface_ip_address: {
 bacnet_interface_template = lambda interface_ip_address: {
     "local_interface": f"{interface_ip_address}/24",
     "device_id": 648,
-    "time_synchronization_interval": 1440
+    "time_synchronization_interval": 86400
 }
 
 historian_dict_template = lambda db_name, db_user, db_password, db_address, db_port: {
