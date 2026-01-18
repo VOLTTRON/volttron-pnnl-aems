@@ -44,14 +44,36 @@ export class AuthjsMiddleware implements NestMiddleware, OnModuleDestroy {
   }
 
   private async getAuthjsUser(req: Request): Promise<Express.User | undefined> {
-    const authjsSession = await getSession(req, this.config);
-    if (authjsSession?.user?.email) {
-      return this.prismaService.prisma.user
-        .findUniqueOrThrow({ where: { email: authjsSession.user.email }, omit: { password: true } })
-        .then((user) => buildExpressUser(user))
-        .catch(() => undefined);
+    try {
+      const authjsSession = await getSession(req, this.config);
+      if (authjsSession?.user?.email) {
+        return this.prismaService.prisma.user
+          .findUniqueOrThrow({ where: { email: authjsSession.user.email }, omit: { password: true } })
+          .then((user) => buildExpressUser(user))
+          .catch(() => undefined);
+      }
+      return undefined;
+    } catch (error) {
+      // Handle JWT decryption errors gracefully (e.g., when session cookies are encrypted with old secrets)
+      if (error instanceof Error && (
+        error.message.includes('no matching decryption secret') ||
+        error.message.includes('JWTSessionError') ||
+        error.name === 'JWTSessionError'
+      )) {
+        this.logger.debug('Invalid or expired session token detected, clearing session');
+        // Clear the invalid session cookie
+        if (req.res) {
+          const cookieName = this.configService.nodeEnv === "production" 
+            ? "__Secure-next-auth.session-token" 
+            : "next-auth.session-token";
+          req.res.clearCookie(cookieName, { path: '/' });
+        }
+        return undefined;
+      }
+      // For other errors, log and return undefined
+      this.logger.warn('Error getting Auth.js session:', error instanceof Error ? error.message : String(error));
+      return undefined;
     }
-    return undefined;
   }
 
   onModuleDestroy() {
