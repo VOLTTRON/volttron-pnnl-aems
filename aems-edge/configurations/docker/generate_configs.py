@@ -877,7 +877,7 @@ def main():
         --output-dir (str): Directory where configurations will be output, required.
         --config-subdir (str): Subdirectory for configuration files (default: '').
         --prefix (str): Prefix for device configurations (default: 'RTU').
-        --meter-prefix (str): Prefix for meter configurations (default: 'METER').
+        --meter-prefix (str): Prefix for meter configurations (default: 'meter').
         --campus (str): Campus name, required.
         --building (str): Building name, required.
         --gateway-address (str): Gateway address, required.
@@ -912,7 +912,7 @@ def main():
     parser.add('--output-dir', type=str, required=True, help='Directory to output configs')
     parser.add('--config-subdir', help='Subdirectory for config files', default='')
     parser.add('--prefix', type=str, default='RTU', help='Device prefix')
-    parser.add('--meter-prefix', type=str, default='METER', help='Meter prefix') ## ADD
+    parser.add('--meter-prefix', type=str, default='meter', help='Meter prefix') ## ADD
     parser.add('--campus', type=str, required=True)
     parser.add('--building', type=str, required=True)
     parser.add('--gateway-address', type=str, required=True)

@@ -478,7 +478,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\r\nSELECT\r\n  ts as \"time\",\r\n  cast(value_string as float)/1000 as \"Instantaneous Power\",\r\n  AVG(cast(value_string as float)/1000) OVER (\r\n    ORDER BY ts\r\n    RANGE BETWEEN INTERVAL '30 minutes' PRECEDING AND '0 minutes' FOLLOWING\r\n  ) AS \"30 Min. Avg. Power\",\r\n  AVG(cast(value_string as float)/1000) OVER (\r\n    ORDER BY ts\r\n    RANGE BETWEEN INTERVAL '15 minutes' PRECEDING AND '15 minutes' FOLLOWING\r\n  ) AS \"15 Min. Avg. Power\"\r\nFROM\r\n  data\r\nnatural join topics where\r\n  topic_name = 'PNNL/ROB/meter/Watts'\r\n  AND $__timeFilter(ts)\r\nORDER BY\r\n  ts;",
+          "rawSql": "\r\nSELECT\r\n  ts as \"time\",\r\n  cast(value_string as float) as \"Instantaneous Power\",\r\n  AVG(cast(value_string as float) OVER (\r\n    ORDER BY ts\r\n    RANGE BETWEEN INTERVAL '30 minutes' PRECEDING AND '0 minutes' FOLLOWING\r\n  ) AS \"30 Min. Avg. Power\",\r\n  AVG(cast(value_string as float)) OVER (\r\n    ORDER BY ts\r\n    RANGE BETWEEN INTERVAL '15 minutes' PRECEDING AND '15 minutes' FOLLOWING\r\n  ) AS \"15 Min. Avg. Power\"\r\nFROM\r\n  data\r\nnatural join topics where\r\n  topic_name = 'PNNL/ROB/meter/Watts'\r\n  AND $__timeFilter(ts)\r\nORDER BY\r\n  ts;",
           "refId": "A",
           "sql": {
             "columns": [
