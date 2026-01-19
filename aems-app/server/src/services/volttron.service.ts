@@ -64,6 +64,9 @@ export class VolttronService {
       }),
     });
     const json: any = await response.json();
+    if (this.configService.service.config.verbose) {
+      this.logger.log(inspect({ url: this.configService.service.config.apiUrl, response: json }, undefined, 10));
+    }
     if (typeof json?.result === "string") {
       throw new Error(`Failed Volttron API ${method} call: ${inspect(json)}`);
     } else if (!json?.result) {

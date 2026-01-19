@@ -163,6 +163,8 @@ services:
         condition: service_completed_successfully
     env_file:
       - .env.services
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: "curl http://localhost:3000/graphql"
       interval: 10s
@@ -550,58 +552,11 @@ services:
     restart: unless-stopped
     volumes:
       - volttron-data:/home/volttron/db
+      - volttron-home:/home/volttron/.volttron
+      - volttron-manager:/home/volttron/.manager
       - ./volttron/setup/configs/:/home/volttron/configurations/
       - ./volttron/setup/configs/platform_config.yml:/platform_config.yml
       - ./volttron/logs/:/home/volttron/logs/
-
-  # Volttron proxy bridge - connects Docker network to host-networked VOLTTRON
-  volttron-bridge:
-    build:
-      context: ./bridge
-      dockerfile: ./Dockerfile
-    container_name: ${COMPOSE_PROJECT_NAME}-volttron-bridge
-    depends_on:
-      volttron:
-        condition: service_started
-    environment:
-      - VOLTTRON_HOST=${VOLTTRON_HOST:-host.docker.internal}
-      - VOLTTRON_PORT=${VOLTTRON_PORT:-8443}
-    hostname: volttron-bridge
-    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/volttron-bridge:${TAG}
-    labels:
-      - traefik.enable=true
-      - traefik.http.services.volttron.loadbalancer.server.port=8443
-      - traefik.http.services.volttron.loadbalancer.server.scheme=http
-      - traefik.http.services.volttron.loadbalancer.serversTransport=volttron-transport@file
-      - traefik.http.middlewares.volttron-security.headers.browserXssFilter=true
-      - traefik.http.middlewares.volttron-security.headers.contentTypeNosniff=true
-      - traefik.http.middlewares.volttron-security.headers.forceSTSHeader=true
-      - traefik.http.middlewares.volttron-security.headers.frameDeny=false
-      - traefik.http.middlewares.volttron-security.headers.referrerPolicy=same-origin
-      - traefik.http.middlewares.volttron-security.headers.sslRedirect=true
-      - traefik.http.middlewares.volttron-security.headers.stsSeconds=31536000
-      - traefik.http.middlewares.volttron-stripprefix.stripprefix.prefixes=/volttron
-      - traefik.http.middlewares.volttron-redirect.redirectregex.regex=^(.*)volttron$$
-      - traefik.http.middlewares.volttron-redirect.redirectregex.replacement=$${1}volttron/index.html
-      - traefik.http.routers.volttron-http.entrypoints=web
-      - traefik.http.routers.volttron-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/volttron`)
-      - traefik.http.routers.volttron-http.middlewares=volttron-https
-      - traefik.http.middlewares.volttron-https.redirectscheme.scheme=https
-      - traefik.http.routers.volttron-root.entrypoints=websecure
-      - traefik.http.routers.volttron-root.rule=Host(`${HOSTNAME}`) && Path(`/volttron`)
-      - traefik.http.routers.volttron-root.middlewares=volttron-redirect
-      - traefik.http.routers.volttron-root.priority=100
-      - traefik.http.routers.volttron-root.tls=true
-      - traefik.http.routers.volttron-root.tls.certresolver=${CERT_RESOLVER}
-      - traefik.http.routers.volttron.entrypoints=websecure
-      - traefik.http.routers.volttron.rule=Host(`${HOSTNAME}`) && PathPrefix(`/volttron`) && !Path(`/volttron`)
-      - traefik.http.routers.volttron.middlewares=volttron-stripprefix,volttron-security
-      - traefik.http.routers.volttron.priority=100
-      - traefik.http.routers.volttron.tls=true
-      - traefik.http.routers.volttron.tls.certresolver=${CERT_RESOLVER}
-    profiles:
-      - volttron
-    restart: unless-stopped
 
 volumes:
   certs-data:
@@ -627,6 +582,10 @@ volumes:
   volttron-setup:
     driver: local
   volttron-data:
+    driver: local
+  volttron-home:
+    driver: local
+  volttron-manager:
     driver: local
   grafana-setup:
     driver: local
