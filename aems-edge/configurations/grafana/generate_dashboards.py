@@ -158,7 +158,7 @@ def apply_device_mapping(content, device_mapping):
     
     # Find points used in dashboard but not in mapping
     unmapped_points = used_points - mapped_points - {
-        'topics', 'data', 'meter', 'air_temperature', 'Watts'  # Known non-device points
+        'topics', 'data', 'meter', 'air_temperature', 'WholeBuildingPower'  # Known non-device points
     }
     
     if unmapped_points:
