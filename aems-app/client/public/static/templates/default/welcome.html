@@ -1,0 +1,51 @@
+<div class="welcome-container">
+    <div class="welcome-header">
+        <h1>Welcome to AEMS</h1>
+        <p class="text-muted">Advanced Energy Management System</p>
+    </div>
+    <div class="welcome-content">
+        <p>This is the default welcome page for AEMS deployments. To customize this page for your specific deployment:</p>
+        
+        <ol>
+            <li>Create a new directory under <code>/static/templates/</code> named <code>{CAMPUS}-{BUILDING}</code> using all lowercase letters</li>
+            <li>Copy this <code>welcome-content.html</code> file to your new directory</li>
+            <li>Customize the content as needed</li>
+            <li>Set the environment variables:
+                <ul>
+                    <li><code>VOLTTRON_CAMPUS</code> - Your campus identifier</li>
+                    <li><code>VOLTTRON_BUILDING</code> - Your building identifier</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3>Template System Features</h3>
+        <ul class="feature-list">
+            <li><strong>No Rebuild Required:</strong> Edit HTML files directly without rebuilding the application (the Docker image will need to be rebuilt)</li>
+            <li><strong>Environment-Driven:</strong> Automatically selects templates based on VOLTTRON_CAMPUS and VOLTTRON_BUILDING</li>
+            <li><strong>Shared Styling:</strong> Inherits CSS from the main application</li>
+            <li><strong>Easy Deployment:</strong> Simply copy template folders for new sites</li>
+        </ul>
+
+        <h3>Directory Structure</h3>
+        <pre>
+/static/templates/
+├── shared/
+│   └── styles.css               # For preview/testing only
+├── default/                     # Fallback templates
+│   ├── welcome-content.html     # Content injected in app
+│   ├── welcome-preview.html     # Standalone test page
+│   ├── info-content.html
+│   └── info-preview.html
+└── {CAMPUS}-{BUILDING}/        # Deployment-specific
+    ├── welcome-content.html
+    ├── welcome-preview.html
+    ├── info-content.html
+    └── info-preview.html
+        </pre>
+
+        <h3>Getting Started</h3>
+        <p>This template system makes it easy to customize welcome and info pages for different AEMS deployments. Each deployment can have unique content while maintaining consistent styling across all sites.</p>
+        
+        <p class="text-muted"><em>Note: This content fragment inherits styling from the main application. For standalone testing, use the corresponding <code>-preview.html</code> file.</em></p>
+    </div>
+</div>
