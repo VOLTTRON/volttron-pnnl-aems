@@ -9,6 +9,8 @@ import Custom from "@/app/components/common/custom";
 const DEPLOYMENTS = [
   { value: "default", label: "Default" },
   { value: "pnnl-rob", label: "PNNL-ROB" },
+  { value: "gmreit-2080oakley", label: "GMREIT-2080Oakley" },
+  { value: "gmreit-9964university", label: "GMREIT-9964University" },
 ];
 
 const TEMPLATES = [
@@ -67,14 +69,6 @@ export default function TemplatePreviewPage() {
           </div>
 
           <div style={{ marginLeft: "auto", display: "flex", gap: "10px" }}>
-            <Button
-              icon={IconNames.DOCUMENT_OPEN}
-              text="Open Templates Folder"
-              onClick={() => {
-                window.open(`/static/templates/${selectedDeployment}/`, "_blank");
-              }}
-              minimal
-            />
             <Button icon={IconNames.REFRESH} text="Refresh" onClick={() => window.location.reload()} minimal />
           </div>
         </div>

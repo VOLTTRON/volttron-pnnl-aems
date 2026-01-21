@@ -1,7 +1,22 @@
 "use client";
 
+import { useMemo } from "react";
 import Custom from "@/app/components/common/custom";
 
 export default function InfoPage() {
-  return <Custom url="/static/info.html" />;
+  const templateUrl = useMemo(() => {
+    // Get environment variables
+    const campus = process.env.NEXT_PUBLIC_VOLTTRON_CAMPUS?.toLowerCase();
+    const building = process.env.NEXT_PUBLIC_VOLTTRON_BUILDING?.toLowerCase();
+
+    // If both environment variables are set, use deployment-specific template
+    if (campus && building) {
+      return `/static/templates/${campus}-${building}/info.html`;
+    }
+
+    // Otherwise, use default template
+    return "/static/templates/default/info.html";
+  }, []);
+
+  return <Custom url={templateUrl} />;
 }
