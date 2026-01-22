@@ -48,8 +48,8 @@ The template selection is driven by two environment variables defined in `aems-a
 - `VOLTTRON_BUILDING` - Building identifier (e.g., "ROB")
 
 These are automatically exposed to the Next.js client via:
-- `NEXT_PUBLIC_VOLTTRON_CAMPUS`
-- `NEXT_PUBLIC_VOLTTRON_BUILDING`
+- `VOLTTRON_CAMPUS`
+- `VOLTTRON_BUILDING`
 
 ## Creating a New Deployment Template
 

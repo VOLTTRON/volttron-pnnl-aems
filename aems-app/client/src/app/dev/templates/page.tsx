@@ -28,10 +28,6 @@ export default function TemplatePreviewPage() {
     return `/static/templates/${selectedDeployment}/${templateId}.html`;
   };
 
-  // Get current environment variables
-  const envCampus = process.env.NEXT_PUBLIC_VOLTTRON_CAMPUS || "Not set";
-  const envBuilding = process.env.NEXT_PUBLIC_VOLTTRON_BUILDING || "Not set";
-
   // Force re-render when deployment changes
   useEffect(() => {
     setKey((prev) => prev + 1);
@@ -49,9 +45,9 @@ export default function TemplatePreviewPage() {
 
       {/* Environment Info */}
       <Callout intent="primary" icon={IconNames.INFO_SIGN} style={{ marginBottom: "20px" }}>
-        <strong>Current Environment:</strong> VOLTTRON_CAMPUS={envCampus}, VOLTTRON_BUILDING={envBuilding}
+        <strong>Template Preview Tool:</strong> This tool allows you to preview templates from any deployment.
         <br />
-        <small>The previewer below shows templates from different deployments regardless of these settings.</small>
+        <small>Use the dropdown below to select a deployment and preview its welcome and info pages. The production environment configuration is independent of this preview tool.</small>
       </Callout>
 
       {/* Controls */}
