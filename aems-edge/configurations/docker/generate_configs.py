@@ -919,7 +919,7 @@ def main():
     parser.add('--bacnet-address', help='bacnet address', default=None)
     parser.add('--timezone', type=str, default='UTC')
     parser.add('--registry-file-path', type=str, default=None)
-    parser.add('--rtu-oat-sensor', type=int, default=1)
+    parser.add('--rtu-oat-sensor', type=int, default=0)
     parser.add('--generate_ilc', type=bool, default=True)
     parser.add('--db-name', type=str, default='volttron')
     parser.add('--db-user', type=str, default='volttron')
