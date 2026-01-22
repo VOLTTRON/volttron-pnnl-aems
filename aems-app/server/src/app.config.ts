@@ -190,6 +190,8 @@ export class AppConfigService {
   volttron: {
     ca: string;
     mocked: boolean;
+    campus: string;
+    building: string;
   };
   grafana: {
     path: string;
@@ -385,6 +387,8 @@ export class AppConfigService {
     this.volttron = {
       ca: process.env.VOLTTRON_CA ? this.readFile(resolve(__dirname, process.env.VOLTTRON_CA ?? "")) : "",
       mocked: parseBoolean(process.env.VOLTTRON_MOCKED),
+      campus: process.env.VOLTTRON_CAMPUS ?? "",
+      building: process.env.VOLTTRON_BUILDING ?? "",
     };
     this.grafana = {
       path: process.env.GRAFANA_PATH ?? "/gdb",

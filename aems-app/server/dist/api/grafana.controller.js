@@ -15,6 +15,7 @@ var GrafanaController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GrafanaController = void 0;
 const app_config_1 = require("../app.config");
+const public_decorator_1 = require("../auth/public.decorator");
 const roles_decorator_1 = require("../auth/roles.decorator");
 const user_decorator_1 = require("../auth/user.decorator");
 const file_1 = require("../utils/file");
@@ -39,7 +40,7 @@ let GrafanaController = GrafanaController_1 = class GrafanaController {
     }
     async execute() {
         if (!this.configService.grafana.configPath) {
-            this.logger.debug('Grafana config path not set, skipping dashboard configuration');
+            this.logger.debug("Grafana config path not set, skipping dashboard configuration");
             return;
         }
         const urls = {};
@@ -73,7 +74,7 @@ let GrafanaController = GrafanaController_1 = class GrafanaController {
                     Object.entries(json).forEach(([key, value]) => {
                         const match = ConfigUnitRegex.exec(key);
                         const { unit } = match?.groups ?? {};
-                        const urlString = typeof value === 'string' ? value : value.url;
+                        const urlString = typeof value === "string" ? value : value.url;
                         if (key === "Site Overview") {
                             urls[campus][building][SiteOverviewKey] = new URL(urlString);
                         }
@@ -123,9 +124,15 @@ let GrafanaController = GrafanaController_1 = class GrafanaController {
             }
         }
     }
+    info() {
+        return {
+            building: this.configService.volttron.building,
+            campus: this.configService.volttron.campus,
+        };
+    }
     dashboard(req, res, user, campus, building, unit) {
         const clientIp = req.get("x-forwarded-for") || req.get("x-real-ip") || req.socket.remoteAddress || "unknown";
-        this.logger.log(`[Grafana Redirect] Dashboard request from ${user?.email || 'unknown'} (${clientIp})`, {
+        this.logger.log(`[Grafana Redirect] Dashboard request from ${user?.email || "unknown"} (${clientIp})`, {
             campus,
             building,
             unit,
@@ -138,7 +145,7 @@ let GrafanaController = GrafanaController_1 = class GrafanaController {
             config.building.toLocaleLowerCase().localeCompare(building.toLocaleLowerCase()) === 0 &&
             config.unit.toLocaleLowerCase().localeCompare(unit.toLocaleLowerCase()) === 0);
         if (!config) {
-            this.logger.warn(`[Grafana Redirect] Dashboard not found for ${user?.email || 'unknown'} (${clientIp})`, {
+            this.logger.warn(`[Grafana Redirect] Dashboard not found for ${user?.email || "unknown"} (${clientIp})`, {
                 campus,
                 building,
                 unit,
@@ -147,7 +154,7 @@ let GrafanaController = GrafanaController_1 = class GrafanaController {
             });
             return res.status(common_1.HttpStatus.NotFound.status).json(common_1.HttpStatus.NotFound);
         }
-        this.logger.log(`[Grafana Redirect] Redirecting ${user?.email || 'unknown'} (${clientIp}) to: ${config.url.toString()}`, {
+        this.logger.log(`[Grafana Redirect] Redirecting ${user?.email || "unknown"} (${clientIp}) to: ${config.url.toString()}`, {
             campus: config.campus,
             building: config.building,
             unit: config.unit,
@@ -157,6 +164,14 @@ let GrafanaController = GrafanaController_1 = class GrafanaController {
     }
 };
 exports.GrafanaController = GrafanaController;
+__decorate([
+    (0, swagger_1.ApiTags)("grafana", "info", "building", "campus"),
+    (0, public_decorator_1.Public)(),
+    (0, common_2.Get)("info"),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], GrafanaController.prototype, "info", null);
 __decorate([
     (0, swagger_1.ApiTags)("grafana", "dashboard"),
     (0, roles_decorator_1.Roles)(common_1.RoleType.User),
