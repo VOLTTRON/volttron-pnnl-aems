@@ -129,6 +129,8 @@ export declare class AppConfigService {
     volttron: {
         ca: string;
         mocked: boolean;
+        campus: string;
+        building: string;
     };
     grafana: {
         path: string;

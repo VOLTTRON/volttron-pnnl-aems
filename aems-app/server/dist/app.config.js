@@ -227,6 +227,8 @@ class AppConfigService {
         this.volttron = {
             ca: process.env.VOLTTRON_CA ? this.readFile((0, node_path_1.resolve)(__dirname, process.env.VOLTTRON_CA ?? "")) : "",
             mocked: (0, common_1.parseBoolean)(process.env.VOLTTRON_MOCKED),
+            campus: process.env.VOLTTRON_CAMPUS ?? "",
+            building: process.env.VOLTTRON_BUILDING ?? "",
         };
         this.grafana = {
             path: process.env.GRAFANA_PATH ?? "/gdb",

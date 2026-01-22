@@ -1,4 +1,5 @@
 import { AppConfigService } from "@/app.config";
+import { Public } from "@/auth/public.decorator";
 import { Roles } from "@/auth/roles.decorator";
 import { User } from "@/auth/user.decorator";
 import { getConfigFiles } from "@/utils/file";
@@ -6,6 +7,7 @@ import { HttpStatus, RoleType, typeofObject } from "@local/common";
 import { Controller, Get, Inject, Logger, Param, Req, Res } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Request, Response } from "express";
+import { info } from "node:console";
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 
@@ -51,35 +53,35 @@ export class GrafanaController {
   async execute(): Promise<void> {
     // Skip if no config path set (e.g., in services/seeders containers)
     if (!this.configService.grafana.configPath) {
-      this.logger.debug('Grafana config path not set, skipping dashboard configuration');
+      this.logger.debug("Grafana config path not set, skipping dashboard configuration");
       return;
     }
 
     const urls: ConfigURLs = {};
     this.logger.log("Loading Grafana dashboard configuration files...");
     const files = await getConfigFiles([this.configService.grafana.configPath], ".json", this.logger);
-    
+
     // If no files found, log at debug level instead of error
     if (files.length === 0) {
       this.logger.debug(`No Grafana dashboard configuration files found in ${this.configService.grafana.configPath}`);
       return;
     }
-    
+
     for (const file of files) {
       try {
         this.logger.log(`Parsing Grafana config file: ${file}`);
         const filename = basename(file);
-        
+
         // Try new format first (with double-dash separator)
         let match = ConfigFilenameRegexNew.exec(filename);
         let { campus, building } = match?.groups ?? {};
-        
+
         // Fall back to old format if new format doesn't match
         if (!campus || !building) {
           match = ConfigFilenameRegexOld.exec(filename);
           ({ campus, building } = match?.groups ?? {});
         }
-        
+
         if (!campus || !building) {
           this.logger.warn(`Skipping invalid Grafana config file name: ${file}`);
           continue;
@@ -95,10 +97,10 @@ export class GrafanaController {
           Object.entries(json).forEach(([key, value]) => {
             const match = ConfigUnitRegex.exec(key);
             const { unit } = match?.groups ?? {};
-            
+
             // Extract URL from either string (old format) or object (new format)
-            const urlString = typeof value === 'string' ? value : value.url;
-            
+            const urlString = typeof value === "string" ? value : value.url;
+
             if (key === "Site Overview") {
               urls[campus][building][SiteOverviewKey] = new URL(urlString);
             } else if (unit) {
@@ -146,6 +148,16 @@ export class GrafanaController {
     }
   }
 
+  @ApiTags("grafana", "info", "building", "campus")
+  @Public()
+  @Get("info")
+  info() {
+    return {
+      building: this.configService.volttron.building,
+      campus: this.configService.volttron.campus,
+    };
+  }
+
   @ApiTags("grafana", "dashboard")
   @Roles(RoleType.User)
   @Get("dashboard/:campus/:building/:unit")
@@ -158,8 +170,8 @@ export class GrafanaController {
     @Param("unit") unit: string,
   ) {
     const clientIp = req.get("x-forwarded-for") || req.get("x-real-ip") || req.socket.remoteAddress || "unknown";
-    
-    this.logger.log(`[Grafana Redirect] Dashboard request from ${user?.email || 'unknown'} (${clientIp})`, {
+
+    this.logger.log(`[Grafana Redirect] Dashboard request from ${user?.email || "unknown"} (${clientIp})`, {
       campus,
       building,
       unit,
@@ -175,9 +187,9 @@ export class GrafanaController {
         config.building.toLocaleLowerCase().localeCompare(building.toLocaleLowerCase()) === 0 &&
         config.unit.toLocaleLowerCase().localeCompare(unit.toLocaleLowerCase()) === 0,
     );
-    
+
     if (!config) {
-      this.logger.warn(`[Grafana Redirect] Dashboard not found for ${user?.email || 'unknown'} (${clientIp})`, {
+      this.logger.warn(`[Grafana Redirect] Dashboard not found for ${user?.email || "unknown"} (${clientIp})`, {
         campus,
         building,
         unit,
@@ -190,12 +202,15 @@ export class GrafanaController {
     // Authorization is handled by Grafana via Keycloak roles
     // Controller only verifies user has User/Admin role (via @Roles decorator)
     // and redirects to Grafana which enforces dashboard permissions
-    this.logger.log(`[Grafana Redirect] Redirecting ${user?.email || 'unknown'} (${clientIp}) to: ${config.url.toString()}`, {
-      campus: config.campus,
-      building: config.building,
-      unit: config.unit,
-      targetUrl: config.url.toString(),
-    });
+    this.logger.log(
+      `[Grafana Redirect] Redirecting ${user?.email || "unknown"} (${clientIp}) to: ${config.url.toString()}`,
+      {
+        campus: config.campus,
+        building: config.building,
+        unit: config.unit,
+        targetUrl: config.url.toString(),
+      },
+    );
 
     return res.redirect(HttpStatus.Found.status, config.url.toString());
   }

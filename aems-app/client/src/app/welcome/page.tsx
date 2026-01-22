@@ -1,14 +1,44 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Spinner } from "@blueprintjs/core";
 import Custom from "@/app/components/common/custom";
 
 export default function WelcomePage() {
-  // Get environment variables at runtime on the server
-  const campus = process.env.VOLTTRON_CAMPUS?.toLowerCase();
-  const building = process.env.VOLTTRON_BUILDING?.toLowerCase();
+  const [templateUrl, setTemplateUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Build template URL based on environment variables
-  let templateUrl = "/static/templates/default/welcome.html";
-  if (campus && building) {
-    templateUrl = `/static/templates/${campus}-${building}/welcome.html`;
+  useEffect(() => {
+    // Fetch deployment info from server API
+    fetch("/api/grafana/info")
+      .then((res) => res.json())
+      .then((data: { campus?: string; building?: string }) => {
+        const campus = data.campus?.toLowerCase();
+        const building = data.building?.toLowerCase();
+        
+        // Build template URL
+        if (campus && building) {
+          setTemplateUrl(`/static/templates/${campus}-${building}/welcome.html`);
+        } else {
+          setTemplateUrl("/static/templates/default/welcome.html");
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch deployment info:", error);
+        // Fallback to default template
+        setTemplateUrl("/static/templates/default/welcome.html");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading || !templateUrl) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "400px" }}>
+        <Spinner size={50} />
+      </div>
+    );
   }
 
   return <Custom url={templateUrl} />;
