@@ -610,7 +610,7 @@ def generate_platform_driver_configs(num_configs: int, output_dir: str | bytes,
         gateway_prefix = get_gateway_prefix(gateway_address)
         device_address = f"{gateway_prefix}.100"
     else:
-        device_address =  f"{bacnet_network}:100"
+        device_address =  f"{bacnet_network}:25"
     generate_meter_config(device_address, device_id, meter_prefix, campus, building, output_dir, "dent.csv")
     handle_registry_csv(output_dir, registry_file_path, schneider_registry, SCHNEIDER_CSV_NAME)
     handle_registry_csv(output_dir, registry_file_path, schneider_oat_registry, SCHNEIDER_OAT_CSV_NAME)
@@ -933,7 +933,7 @@ def main():
     parser.add('--smtp-port', type=int, default=587)
     parser.add('--smtp-tls', type=bool, default=True)
     parser.add('--from-address', type=str, default='no-reply@aems.pnl.gov')
-    parser.add('--to-addresses', action='append', help='A list of notify email addresses.', default=[]) ## ADD
+    parser.add('--to-addresses', nargs='+', help='A list of notify email addresses.', default=[]) ## ADD
     parser.add('--allow-frequency-minutes', type=int, default=60)
     parser.add('--meter-ip', type=bool, default=True)
     parser.add('--bacnet', type=str, default='driver')

@@ -37,23 +37,23 @@ generate_site_json() {
     local building="$3"
     local prefix="$4"
     local num_configs="$5"
-    
+
     log_info "Generating site.json with campus: ${campus}, building: ${building}, prefix: ${prefix}, configs: ${num_configs}"
     log_info "Output directory: ${output_dir}"
-    
+
     # Validate inputs
     if [[ -z "${output_dir}" || -z "${campus}" || -z "${building}" || -z "${prefix}" || -z "${num_configs}" ]]; then
         log_error "Missing required parameters for site.json generation"
         log_error "output_dir='${output_dir}', campus='${campus}', building='${building}', prefix='${prefix}', num_configs='${num_configs}'"
         return 1
     fi
-    
+
     # Ensure output directory exists
     if [[ ! -d "${output_dir}" ]]; then
         log_error "Output directory does not exist: ${output_dir}"
         return 1
     fi
-    
+
     # Start building the systems array
     local systems_array=""
     for ((i=1; i<=num_configs; i++)); do
@@ -64,13 +64,13 @@ generate_site_json() {
             systems_array="${systems_array}, \"${device_name}\""
         fi
     done
-    
+
     log_info "Generated systems array: [${systems_array}]"
-    
+
     # Generate the site.json content
     local site_json_path="${output_dir}/site.json"
     log_info "Writing site.json to: ${site_json_path}"
-    
+
     cat > "${site_json_path}" << EOF
 {
   "campus": "${campus}",
@@ -80,7 +80,7 @@ generate_site_json() {
   ]
 }
 EOF
-    
+
     local result=$?
     if [[ $result -eq 0 ]]; then
         log_info "site.json file created successfully"
@@ -95,7 +95,7 @@ EOF
         log_error "Failed to create site.json file, return code: ${result}"
         return $result
     fi
-    
+
     return 0
 }
 
@@ -103,6 +103,7 @@ EOF
 VOLTTRON_CAMPUS=${VOLTTRON_CAMPUS:-"PNNL"}
 VOLTTRON_BUILDING=${VOLTTRON_BUILDING:-"ROB"}
 VOLTTRON_PREFIX=${VOLTTRON_PREFIX:-"rtu"}
+VOLTTRON_RTU_OAT_SENSOR_NUMBER=${VOLTTRON_RTU_OAT_SENSOR_NUMBER:-""}
 VOLTTRON_GATEWAY_ADDRESS=${VOLTTRON_GATEWAY_ADDRESS:-"192.168.0.1"}
 VOLTTRON_TIMEZONE=${VOLTTRON_TIMEZONE:-"America/Los_Angeles"}
 VOLTTRON_NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS:-"1"}
@@ -110,6 +111,19 @@ VOLTTRON_WEATHER_STATION=${VOLTTRON_WEATHER_STATION:-""}
 VOLTTRON_REGISTRY_FILE_PATH=${VOLTTRON_REGISTRY_FILE_PATH:-""}
 VOLTTRON_BACNET_ADDRESS=${VOLTTRON_BACNET_ADDRESS:-""}
 VOLTTRON_ILC=${VOLTTRON_ILC:-"false"}
+
+VOLTTRON_SMTP_ADDRESS=${VOLTTRON_SMTP_ADDRESS:-""}
+VOLTTRON_SMTP_USERNAME=${VOLTTRON_SMTP_USERNAME:-""}
+VOLTTRON_SMTP_PASSWORD=${VOLTTRON_SMTP_PASSWORD:-""}
+VOLTTRON_SMTP_PORT=${VOLTTRON_SMTP_PORT:-""}
+VOLTTRON_SMTP_TLS=${VOLTTRON_SMTP_TLS:-""}
+VOLTTRON_EMAIL_FROM_ADDRESS=${VOLTTRON_EMAIL_FROM_ADDRESS:-""}
+VOLTTRON_EMAIL_TO_ADDRESSES=${VOLTTRON_EMAIL_TO_ADDRESSES:-""}
+VOLTTRON_EMAIL_ALLOW_FREQUENCY_MINUTES=${VOLTTRON_EMAIL_ALLOW_FREQUENCY_MINUTES:-""}
+
+VOLTTRON_METER_PREFIX=${VOLTTRON_METER_PREFIX:-""}
+VOLTTRON_METER_IP=${VOLTTRON_METER_IP:-""}
+
 
 # Output directory for generated configurations
 OUTPUT_DIR=${OUTPUT_DIR:-"/home/user/volttron"}
@@ -161,6 +175,7 @@ log_info "  Gateway Address: ${VOLTTRON_GATEWAY_ADDRESS}"
 log_info "  Timezone: ${VOLTTRON_TIMEZONE}"
 log_info "  Output Directory: ${OUTPUT_DIR}"
 log_info "  Number of Configs: ${NUM_CONFIGS}"
+
 
 # === VOLTTRON SETUP SECTION ===
 log_info "=== Starting Volttron Setup ==="
@@ -243,6 +258,50 @@ if [[ "${VOLTTRON_ILC}" == "true" ]]; then
     GENERATE_CMD="${GENERATE_CMD} --generate_ilc true"
 fi
 
+if [[ -n "${VOLTTRON_RTU_OAT_SENSOR_NUMBER}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --rtu-oat-sensor \"${VOLTTRON_RTU_OAT_SENSOR_NUMBER}\""
+fi
+
+if [[ -n "${VOLTTRON_SMTP_ADDRESS}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --smtp-address \"${VOLTTRON_SMTP_ADDRESS}\""
+fi
+
+if [[ -n "${VOLTTRON_SMTP_USERNAME}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --smtp-username \"${VOLTTRON_SMTP_USERNAME}\""
+fi
+
+if [[ -n "${VOLTTRON_SMTP_PASSWORD}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --smtp-password \"${VOLTTRON_SMTP_PASSWORD}\""
+fi
+
+if [[ -n "${VOLTTRON_SMTP_PORT}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --smtp-port \"${VOLTTRON_SMTP_PORT}\""
+fi
+
+if [[ -n "${VOLTTRON_SMTP_TLS}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --smtp-tls \"${VOLTTRON_SMTP_TLS}\""
+fi
+
+if [[ -n "${VOLTTRON_EMAIL_FROM_ADDRESS}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --from-address \"${VOLTTRON_EMAIL_FROM_ADDRESS}\""
+fi
+
+if [[ -n "${VOLTTRON_EMAIL_TO_ADDRESSES}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --to-addresses ${VOLTTRON_EMAIL_TO_ADDRESSES}"
+fi
+
+if [[ -n "${VOLTTRON_EMAIL_ALLOW_FREQUENCY_MINUTES}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --allow-frequency-minutes \"${VOLTTRON_EMAIL_ALLOW_FREQUENCY_MINUTES}\""
+fi
+
+if [[ -n "${VOLTTRON_METER_IP}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --meter-ip \"${VOLTTRON_METER_IP}\""
+fi
+
+if [[ -n "${VOLTTRON_METER_PREFIX}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --meter-prefix \"${VOLTTRON_METER_PREFIX}\""
+fi
+
 # Add Grafana DB arguments if they are provided
 if [[ -n "${GRAFANA_DB_NAME}" ]]; then
     GENERATE_CMD="${GENERATE_CMD} --db-name \"${GRAFANA_DB_NAME}\""
@@ -269,6 +328,7 @@ log_info "Command: ${LOG_CMD}"
 
 # Execute the Python script, allowing all output to go to stdout/stderr
 log_info "Starting Python configuration generation..."
+log_info "Generate command: ${GENERATE_CMD}"
 eval "${GENERATE_CMD}"
 EXIT_CODE=$?
 
