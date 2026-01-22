@@ -552,8 +552,8 @@ services:
     restart: unless-stopped
     volumes:
       - volttron-data:/home/volttron/db
-      - volttron-home:/home/volttron/.volttron
-      - volttron-manager:/home/volttron/.manager
+      - volttron-home:/home/volttron/.volttron/configuration_store/
+      - volttron-manager:/home/volttron/.manager/
       - ./volttron/setup/configs/:/home/volttron/configurations/
       - ./volttron/setup/configs/platform_config.yml:/platform_config.yml
       - ./volttron/logs/:/home/volttron/logs/
