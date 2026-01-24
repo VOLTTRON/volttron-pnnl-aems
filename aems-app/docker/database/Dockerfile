@@ -32,6 +32,7 @@ RUN set -eux; \
 # Copy custom initialization scripts into the image so they run at first DB init
 COPY ./ /docker-entrypoint-initdb.d/
 
-# Ensure shell init scripts are executable
-RUN find /docker-entrypoint-initdb.d -type f -name '*.sh' -exec chmod +x {} + \
-    || true
+# Ensure all shell scripts are readable and executable by all users
+# This is necessary because PostgreSQL runs the init scripts as the postgres user
+RUN chmod 755 /docker-entrypoint-initdb.d/*.sh && \
+    ls -la /docker-entrypoint-initdb.d/

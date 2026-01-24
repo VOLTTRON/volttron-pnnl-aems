@@ -30,8 +30,8 @@ import { BaseService } from "..";
 import { PrismaService } from "@/prisma/prisma.service";
 import { AppConfigService } from "@/app.config";
 import { Timeout } from "@nestjs/schedule";
-import { extname, resolve } from "node:path";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { resolve } from "node:path";
+import { readFile } from "node:fs/promises";
 import { getConfigFiles } from "@/utils/file";
 import { SubscriptionService } from "@/subscription/subscription.service";
 
@@ -306,24 +306,6 @@ export class SetupService extends BaseService {
     @Inject(AppConfigService.Key) private configService: AppConfigService,
   ) {
     super("setup", configService);
-  }
-
-  async getIlcFiles(paths: string[]) {
-    const files: string[] = [];
-    for (const path of paths) {
-      const file = resolve(process.cwd(), path);
-      const dirent = await stat(file);
-      if (dirent.isFile()) {
-        if (extname(file) === ".json") {
-          files.push(file);
-        }
-      } else if (dirent.isDirectory()) {
-        files.push(...(await this.getIlcFiles(await readdir(file))));
-      } else {
-        this.logger.warn(`Skipping non-file and non-directory: ${file}`);
-      }
-    }
-    return files;
   }
 
   @Timeout(1000)

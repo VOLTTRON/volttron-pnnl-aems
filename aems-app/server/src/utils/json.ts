@@ -125,10 +125,8 @@ export class StreamingJsonReader {
       this.error = new Error(`File "${colorize(this.path, { color: "cyan" })}" is empty.`);
       return;
     }
-    this.watcher = watch(
-      this.path,
-      { persistent: true },
-      (_t, _f) => (this.error = new Error(`File ${colorize(this.path, { color: "cyan" })} changed during query!`)),
+    this.watcher = watch(this.path, { persistent: true }, (_t, _f) =>
+      console.log(`File ${colorize(this.path, { color: "cyan" })} changed during query!`),
     );
   }
 

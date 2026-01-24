@@ -22,6 +22,7 @@ const auth_module_1 = require("./auth/auth.module");
 const framework_module_1 = require("./auth/framework.module");
 const middleware_module_1 = require("./middleware/middleware.module");
 const change_module_1 = require("./change/change.module");
+const keycloak_module_1 = require("./keycloak/keycloak.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -41,6 +42,7 @@ exports.AppModule = AppModule = __decorate([
             logging_module_1.LoggingModule,
             prisma_module_1.PrismaModule,
             change_module_1.ChangeModule,
+            keycloak_module_1.KeycloakSyncModule,
             provider_module_1.ProviderModule.register({ path: "api" }),
             pothos_module_1.PothosGraphQLModule.forRoot(),
             core_1.RouterModule.register([{ path: "api", module: api_module_1.ApiModule }]),

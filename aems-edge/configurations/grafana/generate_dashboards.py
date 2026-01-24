@@ -15,13 +15,15 @@ import requests
 import urllib3
 import getpass
 import logging
+import time
 from urllib.parse import urlparse
 from requests.auth import HTTPBasicAuth
 
 # Configuration path - relative to this script's location
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(SCRIPT_DIR, 'config.ini')
-OUTPUT_DIR = os.path.join(SCRIPT_DIR, 'output')
+# Allow OUTPUT_DIR to be overridden by environment variable (for container deployment)
+OUTPUT_DIR = os.getenv('OUTPUT_DIR', os.path.join(SCRIPT_DIR, 'output'))
 
 # Configure logging
 logging.basicConfig(
@@ -158,7 +160,7 @@ def apply_device_mapping(content, device_mapping):
     
     # Find points used in dashboard but not in mapping
     unmapped_points = used_points - mapped_points - {
-        'topics', 'data', 'meter', 'air_temperature', 'Watts'  # Known non-device points
+        'topics', 'data', 'meter', 'air_temperature', 'WholeBuildingPower'  # Known non-device points
     }
     
     if unmapped_points:
@@ -537,6 +539,260 @@ def create_import_wrapper(dashboard, folder_id=0):
     }
 
 
+class KeycloakAPI:
+    """Keycloak API client for role management"""
+    
+    def __init__(self, url, realm, admin_user, admin_password, verify_ssl=True, health_url=None):
+        """
+        Initialize Keycloak API client with admin authentication
+        
+        Args:
+            url: Keycloak base URL (e.g., https://hostname/auth/sso)
+            realm: Realm name (e.g., 'default')
+            admin_user: Keycloak admin username
+            admin_password: Keycloak admin password
+            verify_ssl: Whether to verify SSL certificates (default: True)
+            health_url: Optional separate health check URL (e.g., http://keycloak:9000/auth/sso/health/ready)
+        """
+        self.url = url.rstrip('/')
+        self.realm = realm
+        self.admin_user = admin_user
+        self.admin_password = admin_password
+        self.verify_ssl = verify_ssl
+        self.health_url = health_url
+        self.access_token = None
+        self.headers = {
+            'Content-Type': 'application/json'
+        }
+        
+        if not verify_ssl:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    
+    def check_health(self):
+        """
+        Check if Keycloak is responding to health checks
+        
+        Returns:
+            True if Keycloak is healthy, False otherwise
+        """
+        try:
+            # Use dedicated health URL if provided, otherwise construct from base URL
+            if self.health_url:
+                health_url = self.health_url
+            else:
+                # Fallback: Extract base URL without /auth/sso path for health endpoint
+                base_url = self.url.replace('/auth/sso', '')
+                health_url = f'{base_url}/auth/sso/health/ready'
+            
+            response = requests.get(
+                health_url,
+                verify=self.verify_ssl,
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                return True
+            else:
+                logging.info(f"Keycloak health check returned status {response.status_code}")
+                logging.info(f"Response: {response.text[:200]}")  # Log first 200 chars
+                return False
+        except Exception as e:
+            logging.info(f"Keycloak health check failed: {type(e).__name__}: {str(e)}")
+            return False
+    
+    def authenticate(self):
+        """Authenticate with Keycloak and get access token"""
+        try:
+            token_url = f'{self.url}/realms/master/protocol/openid-connect/token'
+            data = {
+                'grant_type': 'password',
+                'client_id': 'admin-cli',
+                'username': self.admin_user,
+                'password': self.admin_password
+            }
+            
+            response = requests.post(
+                token_url,
+                data=data,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                token_data = response.json()
+                self.access_token = token_data.get('access_token')
+                self.headers['Authorization'] = f'Bearer {self.access_token}'
+                return True
+            else:
+                logging.debug(f"Keycloak authentication failed with status {response.status_code}")
+                logging.debug(f"URL attempted: {token_url}")
+                logging.debug(f"Response: {response.text[:200]}")  # Log first 200 chars
+                return False
+                
+        except Exception as e:
+            logging.debug(f"Keycloak authentication exception: {type(e).__name__}: {str(e)}")
+            logging.debug(f"URL attempted: {token_url if 'token_url' in locals() else 'unknown'}")
+            return False
+    
+    def wait_for_keycloak(self, max_retries=10, initial_delay=2, max_delay=60):
+        """
+        Wait for Keycloak to be ready with exponential backoff
+        
+        Args:
+            max_retries: Maximum number of retry attempts (default: 10)
+            initial_delay: Initial delay in seconds (default: 2)
+            max_delay: Maximum delay between retries in seconds (default: 60)
+        
+        Returns:
+            True if Keycloak becomes ready, False if all retries exhausted
+        """
+        logging.info("Waiting for Keycloak to be ready...")
+        
+        for attempt in range(max_retries):
+            # First check health endpoint
+            if self.check_health():
+                logging.info("Keycloak health check passed")
+                
+                # Then try to authenticate
+                if self.authenticate():
+                    logging.info(f"Successfully connected to Keycloak after {attempt + 1} attempt(s)")
+                    return True
+            
+            # Calculate delay with exponential backoff, capped at max_delay
+            delay = min(initial_delay * (2 ** attempt), max_delay)
+            
+            if attempt < max_retries - 1:  # Don't log on last failed attempt
+                logging.info(f"Keycloak not ready, retrying in {delay}s (attempt {attempt + 1}/{max_retries})...")
+                time.sleep(delay)
+        
+        logging.warning(f"Keycloak did not become ready after {max_retries} attempts")
+        return False
+    
+    def get_client_by_clientid(self, client_id):
+        """
+        Get client UUID by client ID
+        
+        Args:
+            client_id: Client ID (e.g., 'grafana-oauth')
+        
+        Returns:
+            Client UUID string or None if not found
+        """
+        try:
+            if not self.access_token:
+                if not self.authenticate():
+                    return None
+            
+            url = f'{self.url}/admin/realms/{self.realm}/clients'
+            params = {'clientId': client_id}
+            
+            response = requests.get(
+                url,
+                headers=self.headers,
+                params=params,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                clients = response.json()
+                if clients and len(clients) > 0:
+                    return clients[0].get('id')
+                else:
+                    logging.error(f"Client '{client_id}' not found in realm '{self.realm}'")
+                    return None
+            else:
+                logging.error(f"Failed to get client: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Exception getting client: {e}")
+            return None
+    
+    def role_exists(self, client_uuid, role_name):
+        """
+        Check if a client role exists
+        
+        Args:
+            client_uuid: Client UUID
+            role_name: Role name to check
+        
+        Returns:
+            True if role exists, False otherwise
+        """
+        try:
+            if not self.access_token:
+                if not self.authenticate():
+                    return False
+            
+            url = f'{self.url}/admin/realms/{self.realm}/clients/{client_uuid}/roles/{role_name}'
+            
+            response = requests.get(
+                url,
+                headers=self.headers,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            return response.status_code == 200
+                
+        except Exception as e:
+            logging.error(f"Exception checking role existence: {e}")
+            return False
+    
+    def create_client_role(self, client_uuid, role_name, description):
+        """
+        Create a client role
+        
+        Args:
+            client_uuid: Client UUID
+            role_name: Role name
+            description: Role description
+        
+        Returns:
+            tuple: (success, message)
+        """
+        try:
+            if not self.access_token:
+                if not self.authenticate():
+                    return False, "Authentication failed"
+            
+            # Check if role already exists
+            if self.role_exists(client_uuid, role_name):
+                return True, f"Role '{role_name}' already exists"
+            
+            url = f'{self.url}/admin/realms/{self.realm}/clients/{client_uuid}/roles'
+            
+            role_data = {
+                'name': role_name,
+                'description': description,
+                'composite': False,
+                'clientRole': True
+            }
+            
+            response = requests.post(
+                url,
+                headers=self.headers,
+                json=role_data,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            if response.status_code == 201:
+                return True, f"Role '{role_name}' created successfully"
+            else:
+                error_msg = response.text
+                try:
+                    error_json = response.json()
+                    error_msg = error_json.get('errorMessage', error_msg)
+                except:
+                    pass
+                return False, f"Failed to create role: {error_msg}"
+                
+        except Exception as e:
+            return False, f"Exception creating role: {str(e)}"
+
+
 class GrafanaAPI:
     """Grafana API client for dashboard management"""
     
@@ -776,12 +1032,176 @@ class GrafanaAPI:
             logging.error(f"Failed to get folders: {e}")
             return []
     
-    def set_dashboard_permissions(self, dashboard_uid):
+    def get_team(self, team_name):
         """
-        Set dashboard permissions to read-only for viewers
+        Get team by name
+        
+        Args:
+            team_name: Team name to search for
+        
+        Returns:
+            Team object if found, None otherwise
+        """
+        try:
+            response = requests.get(
+                f'{self.url}/api/teams/search',
+                auth=self.auth,
+                headers=self.headers,
+                params={'name': team_name},
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            if response.status_code == 200:
+                teams = response.json()
+                if teams.get('teams'):
+                    # Return first team with exact name match
+                    for team in teams['teams']:
+                        if team.get('name') == team_name:
+                            return team
+            return None
+        except Exception as e:
+            logging.debug(f"Failed to get team '{team_name}': {e}")
+            return None
+    
+    def wait_for_team(self, team_name, max_retries=10, initial_delay=2, max_delay=30):
+        """
+        Wait for a team to be synced to Grafana (e.g., from Keycloak)
+        
+        Args:
+            team_name: Team name to wait for
+            max_retries: Maximum number of retry attempts (default: 10)
+            initial_delay: Initial delay in seconds (default: 2)
+            max_delay: Maximum delay between retries in seconds (default: 30)
+        
+        Returns:
+            Team object if found, None if all retries exhausted
+        """
+        logging.info(f"Waiting for team '{team_name}' to be synced to Grafana...")
+        
+        for attempt in range(max_retries):
+            team = self.get_team(team_name)
+            if team:
+                logging.info(f"Team '{team_name}' found in Grafana (ID: {team.get('id')})")
+                return team
+            
+            # Calculate delay with exponential backoff, capped at max_delay
+            delay = min(initial_delay * (2 ** attempt), max_delay)
+            
+            if attempt < max_retries - 1:  # Don't log on last failed attempt
+                logging.info(f"Team '{team_name}' not yet synced, retrying in {delay}s (attempt {attempt + 1}/{max_retries})...")
+                time.sleep(delay)
+        
+        logging.warning(f"Team '{team_name}' did not sync to Grafana after {max_retries} attempts")
+        return None
+    
+    def create_or_get_folder(self, title):
+        """
+        Create a folder or get existing folder by title
+        
+        Args:
+            title: Folder title
+        
+        Returns:
+            tuple: (success, folder_data_or_message, folder_id)
+        """
+        try:
+            # First, search for existing folder
+            folders = self.get_folders()
+            for folder in folders:
+                if folder.get('title') == title:
+                    logging.info(f"Found existing folder: {title} (ID: {folder.get('id')})")
+                    return True, folder, folder.get('id')
+            
+            # Folder doesn't exist, create it
+            folder_data = {
+                "title": title
+            }
+            
+            response = requests.post(
+                f'{self.url}/api/folders',
+                auth=self.auth,
+                headers=self.headers,
+                json=folder_data,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            if response.status_code in [200, 201]:
+                data = response.json()
+                folder_id = data.get('id')
+                logging.info(f"Created folder: {title} (ID: {folder_id})")
+                return True, data, folder_id
+            else:
+                error_msg = response.text
+                try:
+                    error_json = response.json()
+                    error_msg = error_json.get('message', error_msg)
+                except:
+                    pass
+                return False, f"Failed to create folder: {error_msg}", None
+                
+        except Exception as e:
+            return False, f"Exception: {str(e)}", None
+    
+    def set_folder_permissions(self, folder_uid, required_role):
+        """
+        Set folder permissions to require a specific Keycloak role (group)
+        
+        Args:
+            folder_uid: Folder UID
+            required_role: Keycloak role name that should have access
+        
+        Returns:
+            tuple: (success, message)
+        """
+        try:
+            # Folder permissions format:
+            # - Only users with the specific Keycloak role (as a group) can access
+            # - No organizational role checks - access is purely role-based
+            # - Read-only access for all (permission 1 = View)
+            
+            permissions = {
+                "items": [
+                    {
+                        "team": required_role,  # Keycloak client role as team/group
+                        "permission": 1  # View only
+                    }
+                ]
+            }
+            
+            response = requests.post(
+                f'{self.url}/api/folders/{folder_uid}/permissions',
+                auth=self.auth,
+                headers=self.headers,
+                json=permissions,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                logging.info(f"Set folder permissions for role: {required_role}")
+                return True, f"Folder permissions set for role: {required_role}"
+            else:
+                error_msg = response.text
+                try:
+                    error_json = response.json()
+                    error_msg = error_json.get('message', error_msg)
+                except:
+                    pass
+                return False, f"Failed to set folder permissions: {error_msg}"
+                
+        except Exception as e:
+            return False, f"Exception: {str(e)}"
+    
+    def set_dashboard_permissions(self, dashboard_uid, required_role=None):
+        """
+        Set dashboard permissions with role-based access control
         
         Args:
             dashboard_uid: Dashboard UID
+            required_role: Keycloak role name required to view dashboard.
+                          Access is controlled ONLY by Keycloak client roles (no org role checks).
+                          Users must have the required role to view, admins get all roles via KeycloakSyncService.
         
         Returns:
             tuple: (success, message)
@@ -799,20 +1219,20 @@ class GrafanaAPI:
             if response.status_code != 200:
                 return False, f"Failed to get current permissions: {response.status_code}"
             
-            # Set permissions: Admin (role:1) has Edit, Viewer (role:2) has View only
+            # Access control is based ONLY on Keycloak client roles (teams/groups)
+            # No organizational role checks - if you don't have the Keycloak role, you can't view
+            # Admin users get all roles assigned via KeycloakSyncService
+            
+            if not required_role:
+                # This shouldn't happen in the new system, but handle gracefully
+                logging.warning("No required_role provided - dashboard will have no access restrictions!")
+                return False, "Required role must be specified for access control"
+            
             permissions = {
                 "items": [
                     {
-                        "role": "Viewer",
-                        "permission": 1  # 1 = View, 2 = Edit, 4 = Admin
-                    },
-                    {
-                        "role": "Editor", 
-                        "permission": 1  # Editors also get View only
-                    },
-                    {
-                        "role": "Admin",
-                        "permission": 2  # Admins get Edit permission
+                        "team": required_role,  # Keycloak client role as team/group
+                        "permission": 1  # View only (read-only access)
                     }
                 ]
             }
@@ -827,7 +1247,7 @@ class GrafanaAPI:
             )
             
             if response.status_code == 200:
-                return True, "Permissions set successfully"
+                return True, f"Permissions set: requires role {required_role}"
             else:
                 error_msg = response.text
                 try:
@@ -981,6 +1401,7 @@ def load_grafana_config():
         config.read(CONFIG_PATH)
         if 'grafana' in config:
             url = config.get('grafana', 'url', fallback=None)
+            public_url = config.get('grafana', 'public_url', fallback=url)  # Fallback to url if public_url not set
             username = config.get('grafana', 'username', fallback=None)
             password = config.get('grafana', 'password', fallback=None)
             verify_ssl = config.getboolean('grafana', 'verify_ssl', fallback=False)
@@ -988,6 +1409,7 @@ def load_grafana_config():
             if url and username and password:
                 return {
                     'url': url,
+                    'public_url': public_url,
                     'username': username,
                     'password': password,
                     'verify_ssl': verify_ssl
@@ -1000,6 +1422,86 @@ def load_grafana_config():
         return None
     
     return None
+
+
+def load_keycloak_config():
+    """Load Keycloak API configuration from config.ini"""
+    config = configparser.ConfigParser()
+    
+    try:
+        config.read(CONFIG_PATH)
+        if 'keycloak' in config:
+            url = config.get('keycloak', 'url', fallback=None)
+            health_url = config.get('keycloak', 'health_url', fallback=None)
+            realm = config.get('keycloak', 'realm', fallback='default')
+            admin_user = config.get('keycloak', 'admin_user', fallback=None)
+            admin_password = config.get('keycloak', 'admin_password', fallback=None)
+            client_id = config.get('keycloak', 'client_id', fallback='grafana-oauth')
+            verify_ssl = config.getboolean('keycloak', 'verify_ssl', fallback=False)
+            
+            if url and admin_user and admin_password:
+                return {
+                    'url': url,
+                    'health_url': health_url,
+                    'realm': realm,
+                    'admin_user': admin_user,
+                    'admin_password': admin_password,
+                    'client_id': client_id,
+                    'verify_ssl': verify_ssl
+                }
+            else:
+                logging.warning("Incomplete Keycloak credentials in config.ini")
+                return None
+    except Exception as e:
+        logging.error(f"Could not read Keycloak config: {e}")
+        return None
+    
+    return None
+
+
+def create_keycloak_role_for_dashboard(keycloak_api, client_uuid, dashboard_name, campus, building, device=None):
+    """
+    Create a Keycloak client role for a dashboard
+    
+    Args:
+        keycloak_api: KeycloakAPI instance
+        client_uuid: Grafana OAuth client UUID
+        dashboard_name: Human-readable dashboard name
+        campus: Campus name
+        building: Building name
+        device: Device name (None for site dashboard)
+    
+    Returns:
+        tuple: (success, role_name, message)
+    """
+    try:
+        # Generate role name based on dashboard type
+        if device:
+            # Unit dashboard: grafana-view-unit-{CAMPUS}_{BUILDING}_{DEVICE}
+            role_name = f"grafana-view-unit-{campus}_{building}_{device}"
+            description = f"View access to {campus} {building} {device} dashboard"
+        else:
+            # Site dashboard: grafana-view-site-{CAMPUS}_{BUILDING}
+            role_name = f"grafana-view-site-{campus}_{building}"
+            description = f"View access to {campus} {building} site overview dashboard"
+        
+        # Create the role
+        success, message = keycloak_api.create_client_role(client_uuid, role_name, description)
+        
+        if success:
+            if "already exists" in message:
+                logging.info(f"Keycloak role '{role_name}' already exists")
+            else:
+                logging.info(f"Created Keycloak role: {role_name}")
+        else:
+            logging.warning(f"Failed to create Keycloak role '{role_name}': {message}")
+        
+        return success, role_name, message
+        
+    except Exception as e:
+        error_msg = f"Exception creating role: {str(e)}"
+        logging.error(error_msg)
+        return False, None, error_msg
 
 
 def main():
@@ -1222,11 +1724,84 @@ def main():
     site_filepath = save_dashboard(site_dashboard, site_filename, OUTPUT_DIR)
     logging.info(f"Generated Site Overview: {site_filepath}")
     
-    # Upload to Grafana via API
+    # Keycloak API configuration (for role creation)
+    keycloak_config = load_keycloak_config()
+    keycloak_api = None
+    keycloak_client_uuid = None
+    
+    if keycloak_config:
+        logging.info("Loading Keycloak configuration...")
+        logging.info(f"URL: {keycloak_config['url']}")
+        logging.info(f"Realm: {keycloak_config['realm']}")
+        logging.info(f"Client ID: {keycloak_config['client_id']}")
+        
+        keycloak_api = KeycloakAPI(
+            url=keycloak_config['url'],
+            realm=keycloak_config['realm'],
+            admin_user=keycloak_config['admin_user'],
+            admin_password=keycloak_config['admin_password'],
+            verify_ssl=keycloak_config['verify_ssl'],
+            health_url=keycloak_config.get('health_url')
+        )
+        
+        # Wait for Keycloak to be ready with retry logic
+        if keycloak_api.wait_for_keycloak(max_retries=10, initial_delay=2, max_delay=60):
+            logging.info("Keycloak is ready")
+            
+            # Get client UUID
+            keycloak_client_uuid = keycloak_api.get_client_by_clientid(keycloak_config['client_id'])
+            if keycloak_client_uuid:
+                logging.info(f"Found Keycloak client '{keycloak_config['client_id']}' with UUID: {keycloak_client_uuid}")
+            else:
+                logging.warning(f"Could not find Keycloak client '{keycloak_config['client_id']}'")
+                keycloak_api = None
+        else:
+            logging.warning("Keycloak not ready after retries - skipping role creation")
+            keycloak_api = None
+    else:
+        logging.info("No Keycloak configuration found - skipping role creation")
+    
+    # Upload to Grafana via API with folder-based permissions
     dashboard_urls = {}  # Collect URLs for output file (dict with dashboard name as key)
     if grafana_api:
         step_num += 1
         print(f"\n[{step_num}/6] Uploading dashboards to Grafana...")
+        
+        # Create/get folder for this campus/building
+        folder_title = f"{campus}/{building}"
+        folder_success, folder_data, folder_id = grafana_api.create_or_get_folder(folder_title)
+        
+        if not folder_success:
+            logging.error(f"Failed to create/get folder '{folder_title}': {folder_data}")
+            logging.warning("Falling back to General folder (ID: 0)")
+            folder_id = 0
+            folder_uid = None
+        else:
+            folder_uid = folder_data.get('uid')
+            logging.info(f"Using folder: {folder_title} (ID: {folder_id}, UID: {folder_uid})")
+            
+            # Set folder permissions to require site role
+            # This makes the entire folder visible only to users with site access
+            site_role = f"grafana-view-site-{campus}_{building}"
+            if folder_uid and keycloak_api and keycloak_client_uuid:
+                # First ensure the site role exists in Keycloak
+                role_success, site_role_name, role_message = create_keycloak_role_for_dashboard(
+                    keycloak_api, keycloak_client_uuid, 'Site Overview', campus, building, None
+                )
+                
+                if role_success:
+                    # Wait for the role to be synced to Grafana as a team
+                    team = grafana_api.wait_for_team(site_role, max_retries=10, initial_delay=2, max_delay=30)
+                    
+                    if team:
+                        # Now set folder permissions
+                        folder_perm_success, folder_perm_msg = grafana_api.set_folder_permissions(folder_uid, site_role)
+                        if folder_perm_success:
+                            logging.info(f"Folder '{folder_title}' requires role: {site_role}")
+                        else:
+                            logging.warning(f"Failed to set folder permissions: {folder_perm_msg}")
+                    else:
+                        logging.warning(f"Team '{site_role}' not synced to Grafana - skipping folder permissions")
         
         # Upload each RTU Overview dashboard
         for rtu_info in rtu_filepaths:
@@ -1241,8 +1816,30 @@ def main():
                 # Get dashboard UID for setting permissions
                 dashboard_uid = data.get('uid')
                 
-                # Set dashboard to read-only for non-admins
-                if dashboard_uid:
+                # Create Keycloak role for this dashboard
+                role_created = False
+                role_name = None
+                if keycloak_api and keycloak_client_uuid:
+                    role_success, role_name, role_message = create_keycloak_role_for_dashboard(
+                        keycloak_api, keycloak_client_uuid, dashboard_name, campus, building, device
+                    )
+                    role_created = role_success
+                
+                # Set dashboard permissions with RTU-specific role requirement
+                if dashboard_uid and role_name and role_created:
+                    # Wait for the role to be synced to Grafana as a team
+                    team = grafana_api.wait_for_team(role_name, max_retries=10, initial_delay=2, max_delay=30)
+                    
+                    if team:
+                        perm_success, perm_message = grafana_api.set_dashboard_permissions(dashboard_uid, role_name)
+                        if perm_success:
+                            logging.info(f"{dashboard_name}: {perm_message}")
+                        else:
+                            logging.warning(f"Failed to set permissions for {dashboard_name}: {perm_message}")
+                    else:
+                        logging.warning(f"Team '{role_name}' not synced to Grafana - skipping dashboard permissions for {dashboard_name}")
+                elif dashboard_uid:
+                    # Fallback: set basic read-only permissions
                     perm_success, perm_message = grafana_api.set_dashboard_permissions(dashboard_uid)
                     if perm_success:
                         logging.info(f"{dashboard_name} set to read-only")
@@ -1250,17 +1847,23 @@ def main():
                         logging.warning(f"Failed to set read-only for {dashboard_name}: {perm_message}")
                 
                 # Grafana API returns full path including subpath (e.g., /grafana/d/...)
-                # Extract just the path portion and combine with base domain
+                # Extract just the path portion and combine with public URL
                 api_path = data.get('url', '')
                 
-                # Extract base domain from config URL (e.g., https://aems1.pnl.gov from https://aems1.pnl.gov/grafana)
-                parsed = urlparse(grafana_config['url'])
+                # Use public_url for user-facing dashboard links
+                # Extract base domain from public URL (e.g., https://aems1.pnl.gov from https://aems1.pnl.gov/grafana)
+                public_url = grafana_config.get('public_url', grafana_config['url'])
+                parsed = urlparse(public_url)
                 base_url = f"{parsed.scheme}://{parsed.netloc}"
                 
                 dashboard_url = f"{base_url}{api_path}?orgId=1"
                 
-                # Add to URLs collection as key-value pair
-                dashboard_urls[dashboard_name] = dashboard_url
+                # Add to URLs collection with role information
+                dashboard_urls[dashboard_name] = {
+                    'url': dashboard_url,
+                    'keycloak_role': role_name,
+                    'role_created': role_created
+                }
                 
                 logging.info(f"{dashboard_name} uploaded")
                 logging.info(f"URL: {dashboard_url}")
@@ -1274,8 +1877,30 @@ def main():
             # Get dashboard UID for setting permissions
             dashboard_uid = data.get('uid')
             
-            # Set dashboard to read-only for non-admins
-            if dashboard_uid:
+            # Create Keycloak role for site dashboard (if not already created for folder)
+            role_created = False
+            site_role_name = None
+            if keycloak_api and keycloak_client_uuid:
+                role_success, site_role_name, role_message = create_keycloak_role_for_dashboard(
+                    keycloak_api, keycloak_client_uuid, 'Site Overview', campus, building, None
+                )
+                role_created = role_success
+            
+            # Set dashboard permissions - site inherits from folder, so all with site role can view
+            if dashboard_uid and site_role_name and role_created:
+                # Wait for the role to be synced to Grafana as a team
+                team = grafana_api.wait_for_team(site_role_name, max_retries=10, initial_delay=2, max_delay=30)
+                
+                if team:
+                    perm_success, perm_message = grafana_api.set_dashboard_permissions(dashboard_uid, site_role_name)
+                    if perm_success:
+                        logging.info(f"Site Overview: {perm_message}")
+                    else:
+                        logging.warning(f"Failed to set permissions for Site Overview: {perm_message}")
+                else:
+                    logging.warning(f"Team '{site_role_name}' not synced to Grafana - skipping dashboard permissions for Site Overview")
+            elif dashboard_uid:
+                # Fallback: set basic read-only permissions
                 perm_success, perm_message = grafana_api.set_dashboard_permissions(dashboard_uid)
                 if perm_success:
                     logging.info(f"Site Overview set to read-only")
@@ -1283,17 +1908,23 @@ def main():
                     logging.warning(f"Failed to set read-only for Site Overview: {perm_message}")
             
             # Grafana API returns full path including subpath (e.g., /grafana/d/...)
-            # Extract just the path portion and combine with base domain
+            # Extract just the path portion and combine with public URL
             api_path = data.get('url', '')
             
-            # Extract base domain from config URL (e.g., https://aems1.pnl.gov from https://aems1.pnl.gov/grafana)
-            parsed = urlparse(grafana_config['url'])
+            # Use public_url for user-facing dashboard links
+            # Extract base domain from public URL (e.g., https://aems1.pnl.gov from https://aems1.pnl.gov/grafana)
+            public_url = grafana_config.get('public_url', grafana_config['url'])
+            parsed = urlparse(public_url)
             base_url = f"{parsed.scheme}://{parsed.netloc}"
             
             dashboard_url = f"{base_url}{api_path}?orgId=1"
             
-            # Add to URLs collection as key-value pair
-            dashboard_urls['Site Overview'] = dashboard_url
+            # Add to URLs collection with role information
+            dashboard_urls['Site Overview'] = {
+                'url': dashboard_url,
+                'keycloak_role': site_role_name,
+                'role_created': role_created
+            }
             
             logging.info(f"Site Overview uploaded")
             logging.info(f"URL: {dashboard_url}")
@@ -1302,7 +1933,7 @@ def main():
         
         # Save dashboard URLs to separate file for easy access
         if dashboard_urls:
-            urls_filename = f"{campus}_{building}_dashboard_urls.json"
+            urls_filename = f"{campus}--{building}_dashboard_urls.json"
             urls_filepath = os.path.join(OUTPUT_DIR, urls_filename)
             with open(urls_filepath, 'w', encoding='utf-8') as f:
                 json.dump(dashboard_urls, f, indent=2, ensure_ascii=False)

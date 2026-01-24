@@ -22,12 +22,20 @@ export default function Page() {
     setError(undefined);
     const loading = createLoading?.(LoadingType.GLOBAL);
     try {
-      fetch(`${process.env.NEXT_PUBLIC_HTTP_API || "/api"}/auth/logout`, { method: "POST", redirect: "follow" })
+      fetch(`${process.env.NEXT_PUBLIC_HTTP_API || "/api"}/auth/logout`, { method: "POST", redirect: "manual" })
         .then(async (res) => {
           await client.clearStore();
           await refetchCurrent?.();
-          if (res.redirected) {
-            router.push(res.url);
+          if (res.type === "opaqueredirect" || res.status === 302 || res.status === 301) {
+            // Server returned a redirect (likely to Keycloak logout)
+            // For manual redirect mode, we need to get the Location header
+            const redirectUrl = res.headers.get("Location");
+            if (redirectUrl) {
+              window.location.href = redirectUrl;
+            } else {
+              // Fallback: reload the page to trigger the redirect
+              window.location.reload();
+            }
           } else if (res.ok) {
             router.push(findPath(findRedirect(routes, { role: "" }) ?? routes.root) || "/");
           } else {

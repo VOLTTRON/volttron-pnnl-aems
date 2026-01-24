@@ -13,6 +13,7 @@ import { AuthModule } from "./auth/auth.module";
 import { FrameworkModule } from "./auth/framework.module";
 import { MiddlewareModule } from "@/middleware/middleware.module";
 import { ChangeModule } from "./change/change.module";
+import { KeycloakSyncModule } from "./keycloak/keycloak.module";
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ChangeModule } from "./change/change.module";
     LoggingModule,
     PrismaModule,
     ChangeModule,
+    KeycloakSyncModule,
     ProviderModule.register({ path: "api" }),
     PothosGraphQLModule.forRoot(),
     RouterModule.register([{ path: "api", module: ApiModule }]),

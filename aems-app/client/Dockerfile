@@ -19,10 +19,7 @@ RUN apk add --no-cache curl
 
 # setup yarn
 RUN corepack enable
-RUN yarn config set proxy $HTTP_PROXY
-RUN yarn config set https-proxy $HTTPS_PROXY
-RUN yarn config set no-proxy $NO_PROXY
-RUN yarn config set "strict-ssl" false
+RUN corepack prepare yarn@4.1.0 --activate
 
 # Install client dependencies
 FROM base AS deps

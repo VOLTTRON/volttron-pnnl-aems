@@ -1,6 +1,6 @@
 import { AuthService } from "@/auth/auth.service";
 import { PrismaService } from "@/prisma/prisma.service";
-import { Request } from "express";
+import { Request, Response } from "express";
 import { AppConfigService } from "@/app.config";
 export declare class AuthController {
     private prismaService;
@@ -20,5 +20,5 @@ export declare class AuthController {
         createdAt: Date;
         updatedAt: Date;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import(".prisma/client").Prisma.PrismaClientOptions> | null;
-    logout(req: Request): Promise<void>;
+    logout(req: Request, res: Response, user: Express.User): Promise<void | Response<any, Record<string, any>>>;
 }

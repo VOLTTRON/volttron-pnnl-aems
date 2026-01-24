@@ -13,10 +13,7 @@ RUN npm config set strict-ssl false
 
 # setup yarn
 RUN corepack enable
-RUN yarn config set proxy $HTTP_PROXY
-RUN yarn config set https-proxy $HTTPS_PROXY
-RUN yarn config set no-proxy $NO_PROXY
-RUN yarn config set "strict-ssl" false
+RUN corepack prepare yarn@4.1.0 --activate
 
 # Install dependencies only when needed
 FROM base AS deps

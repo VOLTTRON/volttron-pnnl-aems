@@ -285,7 +285,8 @@ class ManagerProxy:
                                               get_current_oat_fn=self.get_current_oat,
                                               control_fn=self.do_zone_control,
                                               scheduler_fn=self.core.schedule,
-                                              change_occupancy_fn=self.change_occupancy)
+                                              change_occupancy_fn=self.change_occupancy,
+                                              sync_occupancy_state_fn=self.sync_occupancy_state)
         # Wait to call this until the system connects.
         self.core.onstart.connect(lambda x: self.setup_optimal_start())
 
@@ -697,6 +698,7 @@ class ManagerProxy:
         :return: None
         :rtype:
         """
+        current_datetime = self.cfg.get_current_datetime()
         is_occupied = self.is_system_occupied()
         if isinstance(is_occupied, str):
             _log.error(f'{self.identity} - Error getting occupancy state: {is_occupied}')
@@ -726,7 +728,7 @@ class ManagerProxy:
         current_schedule = self.cfg.get_current_day_schedule()
         _log.debug(f'{self.identity} - is_occupied : {is_occupied}')
         current_time = self.cfg.get_current_time()
-        is_holiday = self.holiday_manager.is_holiday(dt.now())
+        is_holiday = self.holiday_manager.is_holiday(current_datetime)
         _log.debug(f'{self.identity} - current day is holiday: {is_holiday}')
         _log.debug(f'{current_schedule} -- current_time: {current_time}')
         if is_holiday:
@@ -757,7 +759,7 @@ class ManagerProxy:
             self.change_occupancy(OccupancyTypes.OCCUPIED)
             e_hour = _end.hour
             e_minute = _end.minute
-            unoccupied_time = dt.now().replace(hour=e_hour, minute=e_minute)
+            unoccupied_time = current_datetime.replace(hour=e_hour, minute=e_minute)
             self.end_obj = self.core.schedule(unoccupied_time, self.change_occupancy, OccupancyTypes.UNOCCUPIED)
         if current_time >= _end and (is_occupied or is_occupied is None):
             _log.debug('Unit is in occupied mode but should be unoccupied! -- current_time >= _end')
@@ -941,6 +943,10 @@ class ManagerProxy:
                 weather_data.append((parser.parse(oat[0]).astimezone(self.cfg.timezone), oat[1]['temperature']))
             _log.debug(f'Parsed WEATHER forecast: {weather_data}')
             return weather_data
+
+        if self.cfg.location is None:
+            _log.warning('No location specified in configuration. Skipping weather forecast update.')
+            return
 
         for x in range(10):
             try:

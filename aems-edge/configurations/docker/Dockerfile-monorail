@@ -1,0 +1,48 @@
+ARG image_user=amd64
+ARG image_repo=eclipsevolttron/volttron
+ARG image_tag=develop
+
+FROM ${image_repo}:${image_tag} AS volttron
+
+USER root
+RUN apt install python3-dev python3-venv
+
+USER $VOLTTRON_USER
+
+# copy over aems repo
+# May replace this with a git clone in the future
+RUN git clone -b monorail https://github.com/davidraker/volttron-platform-driver.git /code/volttron-platform-driver
+RUN git clone -b monorail https://github.com/davidraker/volttron-lib-base-driver.git /code/volttron-lib-base-driver
+RUN git clone -b monorail https://github.com/davidraker/volttron-lib-bacnet-driver.git /code/volttron-lib-bacnet-driver
+RUN git clone -b bus_adapter_changes https://github.com/davidraker/lib-protocol-proxy.git /code/lib-protocol-proxy
+RUN git clone -b timesync https://github.com/davidraker/lib-protocol-proxy-bacnet /code/lib-protocol-proxy-bacnet
+
+RUN pip install -e /code/volttron-lib-bacnet-driver
+RUN pip install -e /code/volttron-lib-base-driver
+RUN pip install -e /code/lib-protocol-proxy-bacnet
+RUN pip install -e /code/lib-protocol-proxy
+RUN pip install -e /code/volttron
+RUN pip install wheel==0.30.0
+
+# Install libraries required for manager agent
+#RUN pip install poetry
+#WORKDIR /code/volttron-lib-bacnet-driver
+#ENV POETRY_NO_INTERACTION=1 \
+#    POETRY_VIRTUALENVS_CREATE=0 \
+#    POETRY_CACHE_DIR=/tmp/.poetry
+#ENV PATH="/home/volttron/.local/bin:$PATH"
+#RUN poetry config virtualenvs.create false
+#RUN /usr/bin/python3 -m poetry install
+
+########################################
+# The following lines should be run from any Dockerfile that
+# is inheriting from this one as this will make the volttron
+# run in the proper location.
+#
+# The user must be root at this point to allow gosu to work
+########################################
+USER root
+WORKDIR ${VOLTTRON_USER_HOME}
+#ENTRYPOINT ["/startup/entrypoint.sh"]
+#CMD ["/startup/bootstart.sh"]
+# CMD ["/bin/bash"]

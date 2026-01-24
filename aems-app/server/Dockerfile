@@ -18,10 +18,7 @@ RUN apk add --no-cache curl
 
 # setup yarn
 RUN corepack enable
-RUN yarn config set proxy $HTTP_PROXY
-RUN yarn config set https-proxy $HTTPS_PROXY
-RUN yarn config set no-proxy $NO_PROXY
-RUN yarn config set "strict-ssl" false
+RUN corepack prepare yarn@4.1.0 --activate
 
 # Install dependencies and build server application
 FROM base AS builder
@@ -61,8 +58,13 @@ COPY --from=builder /app/server/dist ./dist
 COPY --from=builder /app/server/node_modules ./node_modules
 COPY server/.env ./
 
+# Copy and setup entrypoint script for CA certificate handling
+COPY server/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "./dist/main.js"]

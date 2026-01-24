@@ -53,7 +53,7 @@ export type Authorize<T extends Credentials, V extends Values<T>> = (
   | AuthResponse;
 
 const authRoles = (role: string) => {
-  const roles = role.split(/[, |]+/);
+  const roles = role.split(/[, |]+/).map((r) => r.trim()).filter(Boolean);
   return RoleType.values.reduce((a, v) => {
     a[v.enum] = v.granted(...roles) ?? false;
     return a;
@@ -85,7 +85,7 @@ export function buildExpressUser(user: User | Omit<User, "password">): Express.U
   return omit(
     {
       ...user,
-      roles: (user.role?.split(",") ?? []).map((r) => RoleType.parse(r)).filter((r) => typeofObject(r)),
+      roles: (user.role?.split(",") ?? []).map((r) => RoleType.parse(r.trim())).filter((r) => typeofObject(r)),
       authRoles: authRoles(user.role ?? ""),
     },
     "password",

@@ -10,6 +10,7 @@ exports.ApiModule = void 0;
 const common_1 = require("@nestjs/common");
 const file_controller_1 = require("./file.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
+const grafana_controller_1 = require("./grafana.controller");
 let ApiModule = class ApiModule {
 };
 exports.ApiModule = ApiModule;
@@ -17,7 +18,7 @@ exports.ApiModule = ApiModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule],
         providers: [],
-        controllers: [file_controller_1.FileController],
+        controllers: [file_controller_1.FileController, grafana_controller_1.GrafanaController],
     })
 ], ApiModule);
 //# sourceMappingURL=api.module.js.map

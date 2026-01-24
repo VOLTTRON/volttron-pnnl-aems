@@ -129,6 +129,15 @@ export declare class AppConfigService {
     volttron: {
         ca: string;
         mocked: boolean;
+        campus: string;
+        building: string;
+    };
+    grafana: {
+        path: string;
+        url: string;
+        configPath: string;
+        username: string;
+        password: string;
     };
     cors: {
         origin?: string;

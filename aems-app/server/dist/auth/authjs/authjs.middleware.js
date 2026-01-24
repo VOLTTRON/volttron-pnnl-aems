@@ -53,14 +53,32 @@ let AuthjsMiddleware = AuthjsMiddleware_1 = class AuthjsMiddleware {
         }
     }
     async getAuthjsUser(req) {
-        const authjsSession = await (0, express_1.getSession)(req, this.config);
-        if (authjsSession?.user?.email) {
-            return this.prismaService.prisma.user
-                .findUniqueOrThrow({ where: { email: authjsSession.user.email }, omit: { password: true } })
-                .then((user) => (0, __1.buildExpressUser)(user))
-                .catch(() => undefined);
+        try {
+            const authjsSession = await (0, express_1.getSession)(req, this.config);
+            if (authjsSession?.user?.email) {
+                return this.prismaService.prisma.user
+                    .findUniqueOrThrow({ where: { email: authjsSession.user.email }, omit: { password: true } })
+                    .then((user) => (0, __1.buildExpressUser)(user))
+                    .catch(() => undefined);
+            }
+            return undefined;
         }
-        return undefined;
+        catch (error) {
+            if (error instanceof Error && (error.message.includes('no matching decryption secret') ||
+                error.message.includes('JWTSessionError') ||
+                error.name === 'JWTSessionError')) {
+                this.logger.debug('Invalid or expired session token detected, clearing session');
+                if (req.res) {
+                    const cookieName = this.configService.nodeEnv === "production"
+                        ? "__Secure-next-auth.session-token"
+                        : "next-auth.session-token";
+                    req.res.clearCookie(cookieName, { path: '/' });
+                }
+                return undefined;
+            }
+            this.logger.warn('Error getting Auth.js session:', error instanceof Error ? error.message : String(error));
+            return undefined;
+        }
     }
     onModuleDestroy() {
         this.authService.unsubscribe(this.update.bind(this));
