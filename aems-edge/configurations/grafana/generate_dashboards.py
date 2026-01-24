@@ -102,7 +102,9 @@ def load_config(config_file=CONFIG_PATH):
         'prefix': config.get(section, 'prefix', fallback='rtu'),
         'num-configs': config.get(section, 'num-configs', fallback='1'),
         'output_dir': config.get(section, 'output-dir', fallback='output'),
-        'timezone': config.get(section, 'timezone', fallback='America/Los_Angeles')
+        'timezone': config.get(section, 'timezone', fallback='America/Los_Angeles'),
+        'rtu_overview_time_from': config.get(section, 'rtu-overview-time-from', fallback='now-3h'),
+        'site_overview_time_from': config.get(section, 'site-overview-time-from', fallback='now-24h')
     }
     
     # Load device mapping if available
@@ -170,6 +172,16 @@ def apply_device_mapping(content, device_mapping):
     return content
 
 
+def update_time_range(dashboard, time_from='now-24h', time_to='now'):
+    """Update dashboard default time range"""
+    if 'time' not in dashboard:
+        dashboard['time'] = {}
+    dashboard['time']['from'] = time_from
+    dashboard['time']['to'] = time_to
+    logging.info(f"Set dashboard time range: {time_from} to {time_to}")
+    return dashboard
+
+
 def create_dashboard_for_device(template, config, datasource_uid, device):
     """
     Create a dashboard for a single device based on template
@@ -208,6 +220,10 @@ def create_dashboard_for_device(template, config, datasource_uid, device):
     dashboard['id'] = None
     dashboard['uid'] = None
     dashboard['version'] = 0
+    
+    # Update time range
+    time_from = config.get('rtu_overview_time_from', 'now-3h')
+    update_time_range(dashboard, time_from=time_from)
     
     # Update datasource UID if provided
     if datasource_uid:
@@ -275,6 +291,10 @@ def generate_rtu_overview(template, config, datasource_uid, grafana_api=None, de
         dashboard['uid'] = None
         dashboard['version'] = 0
         
+        # Update time range
+        time_from = config.get('rtu_overview_time_from', 'now-3h')
+        update_time_range(dashboard, time_from=time_from)
+        
         # Update datasource UID if provided
         if datasource_uid:
             update_datasource_uid(dashboard, datasource_uid)
@@ -338,6 +358,10 @@ def generate_site_overview(template, config, datasource_uid, grafana_api=None, d
     dashboard['id'] = None
     dashboard['uid'] = None
     dashboard['version'] = 0
+    
+    # Update time range
+    time_from = config.get('site_overview_time_from', 'now-24h')
+    update_time_range(dashboard, time_from=time_from)
     
     # Update datasource UID if provided
     if datasource_uid:
