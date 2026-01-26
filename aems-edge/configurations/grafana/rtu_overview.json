@@ -860,7 +860,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__timeGroup(ts, '1m') AS \"time\",\n  SUM(CAST(value_string AS DOUBLE PRECISION)) AS \"CoolingStage\"\nFROM data\nNATURAL JOIN topics\nWHERE topic_name LIKE 'PNNL/ROB/$RTU_ROB/%StageCooling'\n  AND $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1;",
+          "rawSql": "SELECT\r\n  $__timeGroup(ts, '1m') AS \"time\",\r\n  SUM(CAST(value_string AS DOUBLE PRECISION)) AS \"CoolingStage\"\r\nFROM data\r\nNATURAL JOIN topics\r\nWHERE topic_name LIKE 'PNNL/ROB/$RTU_ROB/%StageCooling'\r\n  AND $__timeFilter(ts)\r\nGROUP BY 1\r\nORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1711,7 +1711,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT\r\n  $__timeGroup(ts, '1m') AS \"time\",\r\n  SUM(CAST(value_string AS DOUBLE PRECISION)) AS \"CoolingStage\"\r\nFROM data\r\nNATURAL JOIN topics\r\nWHERE topic_name LIKE 'PNNL/ROB/$RTU_ROB/%StageCooling'\r\n  AND $__timeFilter(ts)\r\nGROUP BY 1\r\nORDER BY 1;\r\n",
+          "rawSql": "SELECT\r\n  $__timeGroup(ts, '1m') AS \"time\",\r\n  SUM(CAST(value_string AS DOUBLE PRECISION)) AS \"CoolingStage\"\r\nFROM data\r\nNATURAL JOIN topics\r\nWHERE topic_name LIKE 'PNNL/ROB/$RTU_ROB/%StageCooling'\r\n \r\n  AND $__timeFilter(ts)\r\nGROUP BY 1\r\nORDER BY 1;\r\n",
           "refId": "F",
           "sql": {
             "columns": [
@@ -1825,7 +1825,7 @@
     ]
   },
   "time": {
-    "from": "now-2d",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
@@ -1835,3 +1835,4 @@
   "version": 12,
   "weekStart": ""
 }
+
