@@ -182,6 +182,61 @@ def update_time_range(dashboard, time_from='now-24h', time_to='now'):
     return dashboard
 
 
+def add_null_value_transformations(dashboard):
+    """
+    Add Grafana transformations to filter out null values in all panels.
+    This uses Grafana's built-in filterByValue transformation instead of modifying SQL queries.
+    """
+    if 'panels' not in dashboard:
+        return dashboard
+    
+    panels_updated = 0
+    for panel in dashboard['panels']:
+        # Skip row panels or panels without targets
+        if panel.get('type') == 'row' or 'targets' not in panel:
+            continue
+        
+        # Get all field names from targets to create filters
+        field_names = set()
+        
+        # Extract field names from query results - they vary by panel type
+        # For time series data, we typically have 'time' plus data fields
+        # We'll create a generic filter that excludes rows where any value is null
+        
+        # Check if panel already has transformations
+        if 'transformations' not in panel:
+            panel['transformations'] = []
+        
+        # Check if filterByValue transformation already exists
+        has_filter = any(t.get('id') == 'filterByValue' for t in panel['transformations'])
+        
+        if not has_filter:
+            # Add a filterByValue transformation to exclude null values
+            # This will filter out any row where all values (except time) are null
+            panel['transformations'].insert(0, {
+                "id": "filterByValue",
+                "options": {
+                    "filters": [
+                        {
+                            "config": {
+                                "id": "isNull",
+                                "options": {}
+                            },
+                            "fieldName": ""  # Empty means apply to all fields
+                        }
+                    ],
+                    "match": "all",  # Exclude rows where all non-time fields are null
+                    "type": "exclude"
+                }
+            })
+            panels_updated += 1
+    
+    if panels_updated > 0:
+        logging.info(f"Added null value filtering transformations to {panels_updated} panels")
+    
+    return dashboard
+
+
 def create_dashboard_for_device(template, config, datasource_uid, device):
     """
     Create a dashboard for a single device based on template
@@ -224,6 +279,9 @@ def create_dashboard_for_device(template, config, datasource_uid, device):
     # Update time range
     time_from = config.get('rtu_overview_time_from', 'now-3h')
     update_time_range(dashboard, time_from=time_from)
+    
+    # Add null value filtering transformations
+    add_null_value_transformations(dashboard)
     
     # Update datasource UID if provided
     if datasource_uid:
@@ -295,6 +353,9 @@ def generate_rtu_overview(template, config, datasource_uid, grafana_api=None, de
         time_from = config.get('rtu_overview_time_from', 'now-3h')
         update_time_range(dashboard, time_from=time_from)
         
+        # Add null value filtering transformations
+        add_null_value_transformations(dashboard)
+        
         # Update datasource UID if provided
         if datasource_uid:
             update_datasource_uid(dashboard, datasource_uid)
@@ -362,6 +423,9 @@ def generate_site_overview(template, config, datasource_uid, grafana_api=None, d
     # Update time range
     time_from = config.get('site_overview_time_from', 'now-24h')
     update_time_range(dashboard, time_from=time_from)
+    
+    # Add null value filtering transformations
+    add_null_value_transformations(dashboard)
     
     # Update datasource UID if provided
     if datasource_uid:
