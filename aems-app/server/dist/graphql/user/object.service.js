@@ -22,7 +22,6 @@ let UserObject = class UserObject {
             name: "UserPreferences",
         }));
         this.UserObject = builder.prismaObject("User", {
-            authScopes: { user: true },
             subscribe(subscriptions, parent, _context, _info) {
                 subscriptions.register(`User/${parent.id}`);
             },

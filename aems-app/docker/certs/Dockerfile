@@ -13,6 +13,7 @@ RUN npm config set strict-ssl false
 
 # setup npm
 RUN corepack enable
+RUN corepack prepare yarn@4.1.0 --activate
 RUN npm config set proxy $HTTP_PROXY
 RUN npm config set https-proxy $HTTPS_PROXY
 

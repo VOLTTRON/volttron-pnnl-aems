@@ -35,7 +35,7 @@ services:
     user: root:root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - certs-data:/etc/certs/:ro
+      - certs-data:/etc/certs/
       - ./proxy/certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
       - ./proxy/volttron-transport.yml:/etc/traefik/dynamic/volttron-transport.yml
 
@@ -108,6 +108,8 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+      grafana-setup:
+        condition: service_completed_successfully
       database:
         condition: service_started
     # deploy:
@@ -147,6 +149,7 @@ services:
     restart: unless-stopped
     volumes:
       - file-upload:/app/upload/
+      - grafana-setup:/app/grafana/:ro
 
   # Runs application services
   services:
@@ -156,8 +159,12 @@ services:
         condition: service_completed_successfully
       database:
         condition: service_started
+      grafana-setup:
+        condition: service_completed_successfully
     env_file:
       - .env.services
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: "curl http://localhost:3000/graphql"
       interval: 10s
@@ -169,7 +176,8 @@ services:
     volumes:
       - file-upload:/app/upload/
       - certs-data:/certs/:ro
-      - ./volttron/:/app/configurations/
+      - grafana-setup:/app/grafana/:ro
+      - ./volttron/setup/:/app/volttron/:ro
 
     # Runs application seeders
   seeders:
@@ -313,7 +321,7 @@ services:
     env_file:
       - .env.wiki
     hostname: wiki
-    image: lscr.io/linuxserver/bookstack
+    image: lscr.io/linuxserver/bookstack:25.11.5
     ports:
       - ${BOOKSTACK_TEST_PORT}:80
     profiles:
@@ -331,7 +339,7 @@ services:
     env_file:
       - .env.wiki
     hostname: wiki-db
-    image: lscr.io/linuxserver/mariadb
+    image: lscr.io/linuxserver/mariadb:11.4.8
     ports:
       - ${BOOKSTACK_DATABASE_TEST_PORT}:3306
     profiles:
@@ -409,51 +417,53 @@ services:
     volumes:
       - keycloak-data:/var/lib/postgresql/data
 
-  # Creates Volttron configurations on startup
-  setup:
+  # Creates Grafana dashboard configurations
+  grafana-setup:
+    container_name: ${COMPOSE_PROJECT_NAME}-grafana-setup
+    depends_on:
+      grafana:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+        required: false
+    environment:
+      - SETUP_MODE=grafana
+    env_file:
+      - .env.grafana
+    hostname: grafana-setup
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
+    profiles:
+      - grafana
+    restart: no
+    volumes:
+      - ./.env.grafana:/home/aems-app/docker/.env.grafana:ro
+      - grafana-setup:/home/user/setup/
+
+  # Grafana
+  grafana:
     build:
-      context: ../../aems-edge
-      dockerfile: ./Dockerfile
+      context: ./grafana
+      dockerfile: Dockerfile
       args:
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
         - NO_PROXY=${NO_PROXY}
-    container_name: ${COMPOSE_PROJECT_NAME}-setup
-    environment:
-      - VOLTTRON_CAMPUS=${VOLTTRON_CAMPUS}
-      - VOLTTRON_BUILDING=${VOLTTRON_BUILDING}
-      - VOLTTRON_PREFIX=${VOLTTRON_PREFIX}
-      - VOLTTRON_GATEWAY_ADDRESS=${VOLTTRON_GATEWAY_ADDRESS}
-      - VOLTTRON_TIMEZONE=${VOLTTRON_TIMEZONE}
-      - VOLTTRON_NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS}
-      - VOLTTRON_WEATHER_STATION=${VOLTTRON_WEATHER_STATION}
-      - VOLTTRON_REGISTRY_FILE_PATH=${VOLTTRON_REGISTRY_FILE_PATH}
-      - VOLTTRON_BACNET_ADDRESS=${VOLTTRON_BACNET_ADDRESS}
-      - VOLTTRON_ILC=${VOLTTRON_ILC}
-      - GRAFANA_DB_HOST=localhost
-      - GRAFANA_DB_PORT=${GRAFANA_DATABASE_TEST_PORT}
-      - GRAFANA_DB_NAME=grafana
-      - GRAFANA_DB_USER=grafana
-      - GRAFANA_DB_PASSWORD=${GRAFANA_DATABASE_PASSWORD}
-    hostname: setup
-    network_mode: host
-    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
-    restart: no
-    volumes:
-      - ./volttron/:/home/user/configs/
-
-  # Grafana
-  grafana:
     container_name: ${COMPOSE_PROJECT_NAME}-grafana
     depends_on:
-      - grafana-db
+      certs:
+        condition: service_completed_successfully
+      grafana-db:
+        condition: service_started
     env_file:
       - .env.grafana
-    environment:
-      - GF_SERVER_ROOT_URL=https://${HOSTNAME}/grafana
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
     hostname: grafana
-    image: grafana/grafana-oss:10.2.2
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/grafana:${TAG}
     labels:
       - traefik.enable=true
       - traefik.http.services.grafana.loadbalancer.server.port=3000
@@ -480,8 +490,10 @@ services:
     profiles:
       - grafana
     restart: unless-stopped
+    user: root
     volumes:
-      - grafana-data:/var/lib/grafana
+      - grafana-cache:/var/lib/grafana
+      - certs-data:/etc/certs/:ro
 
   # Grafana database
   grafana-db:
@@ -496,21 +508,41 @@ services:
       - grafana
     restart: unless-stopped
     volumes:
-      - grafana-db-data:/var/lib/postgresql/data
+      - grafana-data:/var/lib/postgresql/data
+
+  # Creates Volttron configurations on startup
+  volttron-setup:
+    build:
+      context: ../../aems-edge
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+    container_name: ${COMPOSE_PROJECT_NAME}-volttron-setup
+    environment:
+      - SETUP_MODE=volttron
+    env_file:
+      - .env.volttron
+    hostname: volttron-setup
+    network_mode: host
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
+    restart: no
+    volumes:
+      - ./.env.volttron:/home/aems-app/docker/.env.volttron:ro
+      - volttron-setup:/home/user/setup/
+      - ./volttron/setup/:/home/user/volttron/
 
   # Volttron - runs on host network for direct access
   volttron:
     container_name: ${COMPOSE_PROJECT_NAME}-volttron
     depends_on:
-      setup:
-        condition: service_completed_successfully
       certs:
         condition: service_completed_successfully
-    environment:
-      - CONFIG=/home/volttron/configurations
-      - AEMS=/code/aems
-      - ILC=/code/ilc
-      - LOCAL_USER_ID=1000
+      volttron-setup:
+        condition: service_completed_successfully
+    env_file:
+      - .env.volttron
     hostname: volttron
     image: eclipsevolttron/volttron-aems-ilc
     network_mode: host
@@ -520,57 +552,11 @@ services:
     restart: unless-stopped
     volumes:
       - volttron-data:/home/volttron/db
-      - ./volttron/platform_config.yml:/platform_config.yml
-      - ./volttron/configs/:/home/volttron/configurations/
-
-  # Volttron proxy bridge - connects Docker network to host-networked VOLTTRON
-  volttron-bridge:
-    build:
-      context: ./bridge
-      dockerfile: ./Dockerfile
-    container_name: ${COMPOSE_PROJECT_NAME}-volttron-bridge
-    depends_on:
-      volttron:
-        condition: service_started
-    environment:
-      - VOLTTRON_HOST=${VOLTTRON_HOST:-host.docker.internal}
-      - VOLTTRON_PORT=${VOLTTRON_PORT:-8443}
-    hostname: volttron-bridge
-    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/volttron-bridge:${TAG}
-    labels:
-      - traefik.enable=true
-      - traefik.http.services.volttron.loadbalancer.server.port=8443
-      - traefik.http.services.volttron.loadbalancer.server.scheme=http
-      - traefik.http.services.volttron.loadbalancer.serversTransport=volttron-transport@file
-      - traefik.http.middlewares.volttron-security.headers.browserXssFilter=true
-      - traefik.http.middlewares.volttron-security.headers.contentTypeNosniff=true
-      - traefik.http.middlewares.volttron-security.headers.forceSTSHeader=true
-      - traefik.http.middlewares.volttron-security.headers.frameDeny=false
-      - traefik.http.middlewares.volttron-security.headers.referrerPolicy=same-origin
-      - traefik.http.middlewares.volttron-security.headers.sslRedirect=true
-      - traefik.http.middlewares.volttron-security.headers.stsSeconds=31536000
-      - traefik.http.middlewares.volttron-stripprefix.stripprefix.prefixes=/volttron
-      - traefik.http.middlewares.volttron-redirect.redirectregex.regex=^(.*)volttron$$
-      - traefik.http.middlewares.volttron-redirect.redirectregex.replacement=$${1}volttron/index.html
-      - traefik.http.routers.volttron-http.entrypoints=web
-      - traefik.http.routers.volttron-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/volttron`)
-      - traefik.http.routers.volttron-http.middlewares=volttron-https
-      - traefik.http.middlewares.volttron-https.redirectscheme.scheme=https
-      - traefik.http.routers.volttron-root.entrypoints=websecure
-      - traefik.http.routers.volttron-root.rule=Host(`${HOSTNAME}`) && Path(`/volttron`)
-      - traefik.http.routers.volttron-root.middlewares=volttron-redirect
-      - traefik.http.routers.volttron-root.priority=100
-      - traefik.http.routers.volttron-root.tls=true
-      - traefik.http.routers.volttron-root.tls.certresolver=${CERT_RESOLVER}
-      - traefik.http.routers.volttron.entrypoints=websecure
-      - traefik.http.routers.volttron.rule=Host(`${HOSTNAME}`) && PathPrefix(`/volttron`) && !Path(`/volttron`)
-      - traefik.http.routers.volttron.middlewares=volttron-stripprefix,volttron-security
-      - traefik.http.routers.volttron.priority=100
-      - traefik.http.routers.volttron.tls=true
-      - traefik.http.routers.volttron.tls.certresolver=${CERT_RESOLVER}
-    profiles:
-      - volttron
-    restart: unless-stopped
+      - volttron-home:/home/volttron/.volttron/configuration_store/
+      - volttron-manager:/home/volttron/.manager/
+      - ./volttron/setup/configs/:/home/volttron/configurations/
+      - ./volttron/setup/configs/platform_config.yml:/platform_config.yml
+      - ./volttron/logs/:/home/volttron/logs/
 
 volumes:
   certs-data:
@@ -581,21 +567,29 @@ volumes:
     driver: local
   database-data:
     driver: local
-  nominatim-data:
-    driver: local
   nominatim-cache:
+    driver: local
+  nominatim-data:
     driver: local
   wiki-data:
     driver: local
   wiki-storage:
     driver: local
+  keycloak-cache:
+    driver: local
   keycloak-data:
     driver: local
-  keycloak-cache:
+  volttron-setup:
     driver: local
   volttron-data:
     driver: local
-  grafana-data:
+  volttron-home:
     driver: local
-  grafana-db-data:
+  volttron-manager:
+    driver: local
+  grafana-setup:
+    driver: local
+  grafana-cache:
+    driver: local
+  grafana-data:
     driver: local

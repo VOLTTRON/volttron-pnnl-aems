@@ -3558,6 +3558,7 @@ export type UnitCreateInput = {
   locationId?: InputMaybe<Scalars['String']['input']>;
   message?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
+  occupancyDetection?: InputMaybe<Scalars['Boolean']['input']>;
   optimalStartDeviation?: InputMaybe<Scalars['Float']['input']>;
   optimalStartLockout?: InputMaybe<Scalars['Float']['input']>;
   peakLoadExclude?: InputMaybe<Scalars['Boolean']['input']>;
@@ -3635,6 +3636,7 @@ export type UnitFilter = {
   locationId?: InputMaybe<StringFilter>;
   message?: InputMaybe<StringFilter>;
   name?: InputMaybe<StringFilter>;
+  occupancyDetection?: InputMaybe<BooleanFilter>;
   optimalStartDeviation?: InputMaybe<FloatFilter>;
   optimalStartLockout?: InputMaybe<FloatFilter>;
   peakLoadExclude?: InputMaybe<BooleanFilter>;
@@ -3672,6 +3674,7 @@ export type UnitOrderBy = {
   locationId?: InputMaybe<OrderBy>;
   message?: InputMaybe<OrderBy>;
   name?: InputMaybe<OrderBy>;
+  occupancyDetection?: InputMaybe<OrderBy>;
   optimalStartDeviation?: InputMaybe<OrderBy>;
   optimalStartLockout?: InputMaybe<OrderBy>;
   peakLoadExclude?: InputMaybe<OrderBy>;
@@ -3722,6 +3725,7 @@ export type UnitUpdateInput = {
   locationId?: InputMaybe<Scalars['String']['input']>;
   message?: InputMaybe<Scalars['String']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
+  occupancyDetection?: InputMaybe<Scalars['Boolean']['input']>;
   optimalStartDeviation?: InputMaybe<Scalars['Float']['input']>;
   optimalStartLockout?: InputMaybe<Scalars['Float']['input']>;
   peakLoadExclude?: InputMaybe<Scalars['Boolean']['input']>;

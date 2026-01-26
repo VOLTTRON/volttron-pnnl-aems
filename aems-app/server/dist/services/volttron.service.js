@@ -74,6 +74,9 @@ let VolttronService = VolttronService_1 = class VolttronService {
             }),
         });
         const json = await response.json();
+        if (this.configService.service.config.verbose) {
+            this.logger.log((0, node_util_1.inspect)({ url: this.configService.service.config.apiUrl, response: json }, undefined, 10));
+        }
         if (typeof json?.result === "string") {
             throw new Error(`Failed Volttron API ${method} call: ${(0, node_util_1.inspect)(json)}`);
         }

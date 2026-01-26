@@ -97,7 +97,8 @@ export class GeographyQuery {
                 ST_SetSRID(ST_GeomFromGeoJSON(${args.area}), 4326),
                 "Geography"."geometry"
               )
-              ORDER BY "Geography"."createdAt" DESC
+              ORDER BY "Geography"."name" ASC
+              LIMIT 1000
               `.then(
             (records) => (fields ? (records?.map((record) => pick(record, fields)) as Geography[]) : records) ?? [],
           );

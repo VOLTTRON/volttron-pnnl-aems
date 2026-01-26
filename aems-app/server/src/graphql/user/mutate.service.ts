@@ -118,10 +118,16 @@ export class UserMutation {
           create: t.arg({ type: UserCreate, required: true }),
         },
         resolve: async (query, _root, args, _ctx, _info) => {
+          // Trim role field if present to prevent whitespace issues
+          const createData = { ...args.create };
+          if (createData.role !== undefined && typeof createData.role === "string") {
+            createData.role = createData.role.trim();
+          }
+          
           return prismaService.prisma.user
             .create({
               ...query,
-              data: { ...args.create },
+              data: createData,
             })
             .then(async (user) => {
               await subscriptionService.publish("User", { topic: "User", id: user.id, mutation: Mutation.Created });
@@ -155,6 +161,11 @@ export class UserMutation {
             }
             if (args.update.preferences !== undefined) {
               updateData.preferences = args.update.preferences;
+            }
+          } else {
+            // Admin can update all fields, but trim role field if present
+            if (updateData.role !== undefined && typeof updateData.role === "string") {
+              updateData = { ...updateData, role: updateData.role.trim() };
             }
           }
 

@@ -190,6 +190,15 @@ export class AppConfigService {
   volttron: {
     ca: string;
     mocked: boolean;
+    campus: string;
+    building: string;
+  };
+  grafana: {
+    path: string;
+    url: string;
+    configPath: string;
+    username: string;
+    password: string;
   };
   cors: {
     origin?: string;
@@ -378,6 +387,15 @@ export class AppConfigService {
     this.volttron = {
       ca: process.env.VOLTTRON_CA ? this.readFile(resolve(__dirname, process.env.VOLTTRON_CA ?? "")) : "",
       mocked: parseBoolean(process.env.VOLTTRON_MOCKED),
+      campus: process.env.VOLTTRON_CAMPUS ?? "",
+      building: process.env.VOLTTRON_BUILDING ?? "",
+    };
+    this.grafana = {
+      path: process.env.GRAFANA_PATH ?? "/gdb",
+      url: process.env.GRAFANA_URL ?? "",
+      configPath: process.env.GRAFANA_CONFIG_PATH ?? "",
+      username: process.env.GRAFANA_USERNAME ?? "",
+      password: process.env.GRAFANA_PASSWORD ?? "",
     };
     this.cors = {
       origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,

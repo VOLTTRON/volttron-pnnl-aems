@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime as dt
 from datetime import timedelta as td
 
 import numpy as np
@@ -150,7 +149,8 @@ class OptimalStartManager:
         :rtype:
         """
         current_schedule = self.config.get_current_day_schedule()
-        is_holiday = self.holiday_manager.is_holiday(dt.now())
+        current_datetime = self.config.get_current_datetime()
+        is_holiday = self.holiday_manager.is_holiday(current_datetime)
         try:
             if current_schedule:
                 if current_schedule == 'always_off' or is_holiday:
@@ -162,7 +162,7 @@ class OptimalStartManager:
                     if earliest:
                         e_hour = earliest.hour
                         e_minute = earliest.minute
-                        run_time = dt.now().replace(hour=e_hour, minute=e_minute)
+                        run_time = self.config.get_current_datetime().replace(hour=e_hour, minute=e_minute)
                         _log.debug('Schedule run method: %s', format_timestamp(run_time))
                         self.run_schedule = self.scheduler_fn(run_time, self.run_method)
         except Exception as ex:
@@ -193,7 +193,7 @@ class OptimalStartManager:
         :return: True if previous day was weekend or holiday False otherwise
         :rtype: bool
         """
-        yesterday = dt.now() - td(days=1)
+        yesterday = self.config.get_current_datetime() - td(days=1)
         yesterday_holiday = self.holiday_manager.is_holiday(yesterday)
         yesterday_weekend = yesterday.weekday() >= 5
         return yesterday_holiday or yesterday_weekend
@@ -208,6 +208,7 @@ class OptimalStartManager:
         """
         self.result = {}
         current_schedule = self.config.get_current_day_schedule()
+        current_datetime = self.config.get_current_datetime()
         if not current_schedule:
             _log.debug(f'{self.identity } - no schedule configured returned for current day!')
             return
@@ -217,8 +218,8 @@ class OptimalStartManager:
         s_minute = start.minute
         e_hour = end.hour
         e_minute = end.minute
-        occupancy_time = dt.now().replace(hour=s_hour, minute=s_minute, microsecond=0)
-        unoccupied_time = dt.now().replace(hour=e_hour, minute=e_minute, microsecond=0)
+        occupancy_time = current_datetime.replace(hour=s_hour, minute=s_minute, microsecond=0)
+        unoccupied_time = current_datetime.replace(hour=e_hour, minute=e_minute, microsecond=0)
 
         # If previous day was weekend or holiday and holiday models exist
         # calculate optimal start time using weekend/holiday models.
@@ -241,7 +242,7 @@ class OptimalStartManager:
         _log.debug(f'OPTIMAL START -- return value: {active_minutes}')
         self.training_time = active_minutes
         optimal_start_time = occupancy_time - td(minutes=active_minutes)
-        reschedule_time = dt.now().replace(microsecond=0) + td(minutes=15)
+        reschedule_time = current_datetime.replace(microsecond=0) + td(minutes=15)
         if self.run_schedule is not None:
             self.run_schedule.cancel()
 

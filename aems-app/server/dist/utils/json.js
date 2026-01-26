@@ -69,7 +69,7 @@ class StreamingJsonReader {
             this.error = new Error(`File "${(0, common_1.colorize)(this.path, { color: "cyan" })}" is empty.`);
             return;
         }
-        this.watcher = (0, node_fs_1.watch)(this.path, { persistent: true }, (_t, _f) => (this.error = new Error(`File ${(0, common_1.colorize)(this.path, { color: "cyan" })} changed during query!`)));
+        this.watcher = (0, node_fs_1.watch)(this.path, { persistent: true }, (_t, _f) => console.log(`File ${(0, common_1.colorize)(this.path, { color: "cyan" })} changed during query!`));
     }
     async *read(path, typer) {
         this.initialize();

@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AuthService } from "@/auth/auth.service";
 import { APP_GUARD } from "@nestjs/core";
+import { AuthenticatedGuard } from "@/auth/authenticated.guard";
 import { RolesGuard } from "@/auth/roles.guard";
 import { JwtModule } from "@nestjs/jwt";
 import { ScheduleModule } from "@nestjs/schedule";
@@ -23,6 +24,10 @@ import { AppConfigService } from "@/app.config";
     }),
   ],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: AuthenticatedGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
