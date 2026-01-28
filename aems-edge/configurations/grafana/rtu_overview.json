@@ -79,7 +79,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"Zone Temperature\" from data natural join topics where topic_name like 'PNNL/ROB/%' and topic_name like '%/$RTU_ROB/ZoneTemperature' AND $__timeFilter(ts) ORDER BY 1;\r\n",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"Zone Temperature\" from data natural join topics where topic_name like 'PNNL/ROB/%' and topic_name like '%/$RTU_ROB/ZoneTemperature' AND $__timeFilter(ts) ORDER BY 1;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -161,7 +161,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"ZoneHumidity\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/ZoneHumidity' AND $__timeFilter(ts) ORDER BY 1;\r\n",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"ZoneHumidity\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/ZoneHumidity' AND $__timeFilter(ts) ORDER BY 1;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -242,7 +242,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"OutdoorAirTemperature\" from data natural join topics where topic_name like 'PNNL/ROB/%/OutdoorAirTemperature' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"OutdoorAirTemperature\" from data natural join topics where topic_name like 'PNNL/ROB/%/OutdoorAirTemperature' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -384,7 +384,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"Heating SP\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/OccupiedHeatingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"Heating SP\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/OccupiedHeatingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -412,7 +412,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"Cooling SP\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/OccupiedCoolingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"Cooling SP\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/OccupiedCoolingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "B",
           "sql": {
             "columns": [
@@ -440,7 +440,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"Unocc Heat SP\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/UnoccupiedHeatingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"Unocc Heat SP\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/UnoccupiedHeatingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "C",
           "sql": {
             "columns": [
@@ -468,7 +468,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"Unocc Cool SP\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/UnoccupiedCoolingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"Unocc Cool SP\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/UnoccupiedCoolingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "D",
           "sql": {
             "columns": [
@@ -563,7 +563,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"Heating Command\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/FirstStageHeating' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"Heating Command\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/FirstStageHeating' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -658,7 +658,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"Supply Fan\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/SupplyFanStatus' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"Supply Fan\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/SupplyFanStatus' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -759,7 +759,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"Occupancy\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/OccupancyCommand' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"Occupancy\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/OccupancyCommand' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -860,7 +860,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__timeGroup(ts, '1m') AS \"time\",\n  SUM(CAST(value_string AS DOUBLE PRECISION)) AS \"CoolingStage\"\nFROM data\nNATURAL JOIN topics\nWHERE topic_name LIKE 'PNNL/ROB/$RTU_ROB/%StageCooling'\n  AND $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1;",
+          "rawSql": "SELECT\r\n  $__timeGroup(ts, '1m') AS \"time\",\r\n  SUM(CAST(NULLIF(value_string, 'null') AS double precision)) AS \"CoolingStage\"\r\nFROM data\r\nNATURAL JOIN topics\r\nWHERE topic_name LIKE 'PNNL/ROB/$RTU_ROB/%StageCooling'\r\n  AND $__timeFilter(ts)\r\nGROUP BY 1\r\nORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1480,7 +1480,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"OccupiedCoolingSetPoint\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/OccupiedCoolingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"OccupiedCoolingSetPoint\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/OccupiedCoolingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "C",
           "sql": {
             "columns": [
@@ -1509,7 +1509,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"OccupiedHeatingSetPoint\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/OccupiedHeatingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"OccupiedHeatingSetPoint\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/OccupiedHeatingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "G",
           "sql": {
             "columns": [
@@ -1538,7 +1538,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"FirstStageHeating\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/FirstStageHeating' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"FirstStageHeating\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/FirstStageHeating' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "D",
           "sql": {
             "columns": [
@@ -1567,7 +1567,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"SupplyFanStatus\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/SupplyFanStatus' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"SupplyFanStatus\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/SupplyFanStatus' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "H",
           "sql": {
             "columns": [
@@ -1596,7 +1596,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"ZoneHumidity\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/ZoneHumidity' AND $__timeFilter(ts) ORDER BY 1;\r\n",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"ZoneHumidity\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/ZoneHumidity' AND $__timeFilter(ts) ORDER BY 1;\r\n",
           "refId": "B",
           "sql": {
             "columns": [
@@ -1624,7 +1624,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"ZoneTemperature\" from data natural join topics where topic_name like 'PNNL/ROB/%' and topic_name like '%/$RTU_ROB/ZoneTemperature' AND $__timeFilter(ts) ORDER BY 1;\r\n",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"ZoneTemperature\" from data natural join topics where topic_name like 'PNNL/ROB/%' and topic_name like '%/$RTU_ROB/ZoneTemperature' AND $__timeFilter(ts) ORDER BY 1;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1653,7 +1653,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"OutdoorAirTemperature\" from data natural join topics where topic_name like 'PNNL/ROB/%/OutdoorAirTemperature' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"OutdoorAirTemperature\" from data natural join topics where topic_name like 'PNNL/ROB/%/OutdoorAirTemperature' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "E",
           "sql": {
             "columns": [
@@ -1682,7 +1682,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"OccupancyCommand\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/OccupancyCommand' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"OccupancyCommand\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/OccupancyCommand' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "J",
           "sql": {
             "columns": [
@@ -1711,7 +1711,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT\r\n  $__timeGroup(ts, '1m') AS \"time\",\r\n  SUM(CAST(value_string AS DOUBLE PRECISION)) AS \"CoolingStage\"\r\nFROM data\r\nNATURAL JOIN topics\r\nWHERE topic_name LIKE 'PNNL/ROB/$RTU_ROB/%StageCooling'\r\n  AND $__timeFilter(ts)\r\nGROUP BY 1\r\nORDER BY 1;\r\n",
+          "rawSql": "SELECT\r\n  $__timeGroup(ts, '1m') AS \"time\",\r\n  SUM(CAST(NULLIF(value_string, 'null') AS double precision)) AS \"CoolingStage\"\r\nFROM data\r\nNATURAL JOIN topics\r\nWHERE topic_name LIKE 'PNNL/ROB/$RTU_ROB/%StageCooling'\r\n \r\n  AND $__timeFilter(ts)\r\nGROUP BY 1\r\nORDER BY 1;\r\n",
           "refId": "F",
           "sql": {
             "columns": [
@@ -1740,7 +1740,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"UnoccupiedCoolingSetPoint\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/UnoccupiedCoolingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"UnoccupiedCoolingSetPoint\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/UnoccupiedCoolingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "K",
           "sql": {
             "columns": [
@@ -1769,7 +1769,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"UnoccupiedHeatingSetPoint\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/UnoccupiedHeatingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"UnoccupiedHeatingSetPoint\" from data natural join topics where topic_name like 'PNNL/ROB/$RTU_ROB/UnoccupiedHeatingSetPoint' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "L",
           "sql": {
             "columns": [
@@ -1825,7 +1825,7 @@
     ]
   },
   "time": {
-    "from": "now-2d",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
@@ -1835,3 +1835,4 @@
   "version": 12,
   "weekStart": ""
 }
+
