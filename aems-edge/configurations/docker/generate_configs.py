@@ -262,6 +262,12 @@ emailer_dict_template = lambda smtp_address, smtp_username, smtp_password, smtp_
   "allow-frequency-minutes": allow_frequency_minutes
 }
 
+weather_publisher_dict_template = lambda campus, building, timezone: {
+  "timezone": timezone,
+  "campus": campus,
+  "building": building
+}
+
 platform_config_dict_template = lambda devices_block, manager_agents_block, ilc_block: {
     "config": {
         "vip-address": "tcp://0.0.0.0:22916",
@@ -310,6 +316,8 @@ platform_config_dict_template = lambda devices_block, manager_agents_block, ilc_
                                    "config": "$CONFIG/topic_watcher.config", "tag": "watcher"},
         "platform.weather": {"source": "$VOLTTRON_ROOT/services/core/WeatherDotGov",
                              "config": "$CONFIG/weather.config", "tag": "weather"},
+        "platform.weather_publisher": {"source": "$AEMS/aems-edge/WeatherDataPublisher",
+                                       "config": "$CONFIG/weather_publisher.config", "tag": "weather"},
         "platform.emailer": {"source": "$VOLTTRON_ROOT/services/ops/EmailerAgent",
                              "config": "$CONFIG/emailer.config", "tag": "emailer"},
         **ilc_block
@@ -812,6 +820,31 @@ def generate_emailer_config(smtp_address: str, smtp_username: str, smtp_password
         json.dump(emailer_config, _file, indent=4)
 
 
+def generate_weather_publisher_config(campus: str, building: str, timezone: str, output_dir: str | bytes):
+    """
+    Generates a weather publisher configuration file in the specified output directory.
+    Weather publisher formats weather data for ingetsion into database and display in Grafana.
+
+    This function creates a configuration file based on the given campus, building, and timezone
+    parameters, and saves it in the provided output directory. If the output directory does
+    not exist, it will be created, including any required parent directories. The configuration
+    is stored in JSON format and formatted for readability.
+
+    Args:
+        campus: The name of the campus for which the weather publisher configuration is being generated.
+        building: The name of the building within the campus for the configuration.
+        timezone: The timezone identifier for the campus and building.
+        output_dir: The directory where the generated configuration file will be saved. If it
+            does not exist, it will be created.
+
+    """
+    weather_publisher_config = weather_publisher_dict_template(campus, building, timezone)
+    weather_publisher_config_dir = Path(output_dir)
+    weather_publisher_config_dir.mkdir(parents=True, exist_ok=True)
+    with open(weather_publisher_config_dir / 'weather_publisher.config', 'w') as _file:
+        json.dump(weather_publisher_config, _file, indent=4)
+
+
 def generate_weather_config(station: list, output_dir: str):
     """
     Generates a weather configuration file based on the provided station list and
@@ -992,6 +1025,8 @@ def main():
     generate_emailer_config(args.smtp_address, args.smtp_username, args.smtp_password,
                             args.smtp_port, args.smtp_tls, args.to_addresses,
                             args.allow_frequency_minutes, output_path)
+    # Generate weather publisher config
+    generate_weather_publisher_config(args.campus, args.building, args.timezone, output_path)
 
     # Generate platform config (with optional ILC agent)
     generate_platform_config(args.num_configs, output_path, args.prefix,
