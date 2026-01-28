@@ -112,7 +112,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\r\n  $__timeGroup(ts, $__interval) AS time,\r\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU01' THEN cast(value_string as float) END) AS RTU01,\r\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU02' THEN cast(value_string as float) END) AS RTU02,\r\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU03' THEN cast(value_string as float) END) AS RTU03,\r\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU04' THEN cast(value_string as float) END) AS RTU04\r\nFROM data\r\nNATURAL JOIN topics\r\nWHERE topic_name LIKE 'PNNL/ROB/%/OccupancyCommand'\r\n  AND $__timeFilter(ts)\r\nGROUP BY 1\r\nORDER BY 1\r\n",
+          "rawSql": "SELECT\r\n  $__timeGroup(ts, $__interval) AS time,\r\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU01' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU01,\r\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU02' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU02,\r\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU03' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU03,\r\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU04' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU04\r\nFROM data\r\nNATURAL JOIN topics\r\nWHERE topic_name LIKE 'PNNL/ROB/%/OccupancyCommand'\r\n  AND $__timeFilter(ts)\r\nGROUP BY 1\r\nORDER BY 1\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -228,7 +228,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH zone_temps AS (\r\n  SELECT\r\n    $__timeGroup(ts, $__interval) AS time,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU01' THEN cast(value_string as float) END) AS RTU01_temp,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU02' THEN cast(value_string as float) END) AS RTU02_temp,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU03' THEN cast(value_string as float) END) AS RTU03_temp,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU04' THEN cast(value_string as float) END) AS RTU04_temp\r\n  FROM data\r\n  NATURAL JOIN topics\r\n  WHERE topic_name LIKE 'PNNL/ROB/%/ZoneTemperature'\r\n    AND $__timeFilter(ts)\r\n  GROUP BY 1\r\n),\r\nzone_setpoints AS (\r\n  SELECT\r\n    $__timeGroup(ts, $__interval) AS time,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU01' THEN cast(value_string as float) END) AS RTU01_sp,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU02' THEN cast(value_string as float) END) AS RTU02_sp,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU03' THEN cast(value_string as float) END) AS RTU03_sp,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU04' THEN cast(value_string as float) END) AS RTU04_sp\r\n  FROM data\r\n  NATURAL JOIN topics\r\n  WHERE topic_name LIKE 'PNNL/ROB/%/EffectiveZoneTemperatureSetPoint'\r\n    AND $__timeFilter(ts)\r\n  GROUP BY 1\r\n)\r\nSELECT\r\n  t.time,\r\n  t.RTU01_temp - s.RTU01_sp AS RTU01,\r\n  t.RTU02_temp - s.RTU02_sp AS RTU02,\r\n  t.RTU03_temp - s.RTU03_sp AS RTU03,\r\n  t.RTU04_temp - s.RTU04_sp AS RTU04\r\nFROM zone_temps t\r\nJOIN zone_setpoints s ON t.time = s.time\r\nORDER BY t.time\r\n",
+          "rawSql": "WITH zone_temps AS (\r\n  SELECT\r\n    $__timeGroup(ts, $__interval) AS time,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU01' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU01_temp,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU02' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU02_temp,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU03' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU03_temp,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU04' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU04_temp\r\n  FROM data\r\n  NATURAL JOIN topics\r\n  WHERE topic_name LIKE 'PNNL/ROB/%/ZoneTemperature'\r\n    AND $__timeFilter(ts)\r\n  GROUP BY 1\r\n),\r\nzone_setpoints AS (\r\n  SELECT\r\n    $__timeGroup(ts, $__interval) AS time,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU01' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU01_sp,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU02' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU02_sp,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU03' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU03_sp,\r\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU04' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU04_sp\r\n  FROM data\r\n  NATURAL JOIN topics\r\n  WHERE topic_name LIKE 'PNNL/ROB/%/EffectiveZoneTemperatureSetPoint'\r\n    AND $__timeFilter(ts)\r\n  GROUP BY 1\r\n)\r\nSELECT\r\n  t.time,\r\n  t.RTU01_temp - s.RTU01_sp AS RTU01,\r\n  t.RTU02_temp - s.RTU02_sp AS RTU02,\r\n  t.RTU03_temp - s.RTU03_sp AS RTU03,\r\n  t.RTU04_temp - s.RTU04_sp AS RTU04\r\nFROM zone_temps t\r\nJOIN zone_setpoints s ON t.time = s.time\r\nORDER BY t.time\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -339,7 +339,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"Outdoor Air Temperature\" from data natural join topics where topic_name like 'PNNL/ROB/%/OutdoorAirTemperature' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"Outdoor Air Temperature\" from data natural join topics where topic_name like 'PNNL/ROB/%/OutdoorAirTemperature' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "E",
           "sql": {
             "columns": [
@@ -368,7 +368,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT ts as \"time\", cast(value_string as float) as \"Air temperature\" from data natural join topics where topic_name like '%/%/air_temperature' AND $__timeFilter(ts) ORDER BY 1;",
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"Air temperature\" from data natural join topics where topic_name like '%/%/air_temperature' AND $__timeFilter(ts) ORDER BY 1;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -478,7 +478,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\r\nSELECT\r\n  ts as \"time\",\r\n  cast(value_string as float) as \"Instantaneous Power\",\r\n  AVG(cast(value_string as float) OVER (\r\n    ORDER BY ts\r\n    RANGE BETWEEN INTERVAL '30 minutes' PRECEDING AND '0 minutes' FOLLOWING\r\n  ) AS \"30 Min. Avg. Power\",\r\n  AVG(cast(value_string as float)) OVER (\r\n    ORDER BY ts\r\n    RANGE BETWEEN INTERVAL '15 minutes' PRECEDING AND '15 minutes' FOLLOWING\r\n  ) AS \"15 Min. Avg. Power\"\r\nFROM\r\n  data\r\nnatural join topics where\r\n  topic_name = 'PNNL/ROB/meter/Watts'\r\n  AND $__timeFilter(ts)\r\nORDER BY\r\n  ts;",
+          "rawSql": "\r\nSELECT\r\n  ts as \"time\",\r\n  CAST(NULLIF(value_string, 'null') AS double precision) as \"Instantaneous Power\",\r\n  AVG(CAST(NULLIF(value_string, 'null') AS double precision)) OVER (\r\n    ORDER BY ts\r\n    RANGE BETWEEN INTERVAL '30 minutes' PRECEDING AND '0 minutes' FOLLOWING\r\n  ) AS \"30 Min. Avg. Power\",\r\n  AVG(CAST(NULLIF(value_string, 'null') AS double precision)) OVER (\r\n    ORDER BY ts\r\n    RANGE BETWEEN INTERVAL '15 minutes' PRECEDING AND '15 minutes' FOLLOWING\r\n  ) AS \"15 Min. Avg. Power\"\r\nFROM\r\n  data\r\nnatural join topics where\r\n  topic_name = 'PNNL/ROB/meter/Watts'\r\n  AND $__timeFilter(ts)\r\nORDER BY\r\n  ts;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -510,7 +510,7 @@
     "list": []
   },
   "time": {
-    "from": "now-12h",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {},

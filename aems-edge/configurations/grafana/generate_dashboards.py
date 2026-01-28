@@ -104,7 +104,9 @@ def load_config(config_file=CONFIG_PATH):
         'prefix': config.get(section, 'prefix', fallback='rtu'),
         'num-configs': config.get(section, 'num-configs', fallback='1'),
         'output_dir': config.get(section, 'output-dir', fallback='output'),
-        'timezone': config.get(section, 'timezone', fallback='America/Los_Angeles')
+        'timezone': config.get(section, 'timezone', fallback='America/Los_Angeles'),
+        'rtu_overview_time_from': config.get(section, 'rtu-overview-time-from', fallback='now-3h'),
+        'site_overview_time_from': config.get(section, 'site-overview-time-from', fallback='now-24h')
     }
     
     # Load device mapping if available
@@ -172,6 +174,19 @@ def apply_device_mapping(content, device_mapping):
     return content
 
 
+def update_time_range(dashboard, time_from='now-24h', time_to='now'):
+    """Update dashboard default time range"""
+    if 'time' not in dashboard:
+        dashboard['time'] = {}
+    dashboard['time']['from'] = time_from
+    dashboard['time']['to'] = time_to
+    logging.info(f"Set dashboard time range: {time_from} to {time_to}")
+    return dashboard
+
+
+
+
+
 def create_dashboard_for_device(template, config, datasource_uid, device):
     """
     Create a dashboard for a single device based on template
@@ -210,6 +225,10 @@ def create_dashboard_for_device(template, config, datasource_uid, device):
     dashboard['id'] = None
     dashboard['uid'] = None
     dashboard['version'] = 0
+    
+    # Update time range
+    time_from = config.get('rtu_overview_time_from', 'now-3h')
+    update_time_range(dashboard, time_from=time_from)
     
     # Update datasource UID if provided
     if datasource_uid:
@@ -277,6 +296,10 @@ def generate_rtu_overview(template, config, datasource_uid, grafana_api=None, de
         dashboard['uid'] = None
         dashboard['version'] = 0
         
+        # Update time range
+        time_from = config.get('rtu_overview_time_from', 'now-3h')
+        update_time_range(dashboard, time_from=time_from)
+        
         # Update datasource UID if provided
         if datasource_uid:
             update_datasource_uid(dashboard, datasource_uid)
@@ -341,6 +364,10 @@ def generate_site_overview(template, config, datasource_uid, grafana_api=None, d
     dashboard['uid'] = None
     dashboard['version'] = 0
     
+    # Update time range
+    time_from = config.get('site_overview_time_from', 'now-24h')
+    update_time_range(dashboard, time_from=time_from)
+    
     # Update datasource UID if provided
     if datasource_uid:
         update_datasource_uid(dashboard, datasource_uid)
@@ -383,7 +410,7 @@ def update_statetimeline_panels(dashboard, devices, campus, building):
                             # Build CASE statements for all devices
                             case_statements = []
                             for device in devices:
-                                case_stmt = f"  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = '{device.upper()}' THEN cast(value_string as float) END) AS {device}"
+                                case_stmt = f"  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = '{device.upper()}' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS {device}"
                                 case_statements.append(case_stmt)
                             
                             cases_sql = ',\n'.join(case_statements)
@@ -418,7 +445,7 @@ def update_cte_query(target, devices, campus, building):
     temp_cases = []
     for device in devices:
         device_upper = device.upper()
-        temp_case = f"    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = '{device_upper}' THEN cast(value_string as float) END) AS {device_upper}_temp"
+        temp_case = f"    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = '{device_upper}' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS {device_upper}_temp"
         temp_cases.append(temp_case)
     
     temp_cases_sql = ',\n'.join(temp_cases)
@@ -427,7 +454,7 @@ def update_cte_query(target, devices, campus, building):
     sp_cases = []
     for device in devices:
         device_upper = device.upper()
-        sp_case = f"    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = '{device_upper}' THEN cast(value_string as float) END) AS {device_upper}_sp"
+        sp_case = f"    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = '{device_upper}' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS {device_upper}_sp"
         sp_cases.append(sp_case)
     
     sp_cases_sql = ',\n'.join(sp_cases)
