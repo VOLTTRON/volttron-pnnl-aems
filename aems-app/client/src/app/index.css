@@ -33,3 +33,53 @@ code {
     background-color: #c5cbd3;
   }
 }
+
+/* Welcome page styles */
+/* Target the wrapper div created by Custom component */
+div:has(> .welcome-container) {
+  width: 100%;
+  align-self: flex-start;
+}
+
+.welcome-container {
+  padding: 20px;
+  align-self: flex-start;
+  width: 100%;
+}
+
+.welcome-content {
+  max-width: 800px;
+  width: 100%;
+}
+
+.welcome-content img {
+  width: 100%;
+  max-width: 800px;
+  height: auto;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  display: block;
+}
+
+.welcome-content h3 {
+  margin-top: 30px;
+  margin-bottom: 15px;
+}
+
+.welcome-content p {
+  line-height: 1.6;
+  margin-bottom: 15px;
+}
+
+.welcome-content a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.welcome-footer {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #ddd;
+  font-size: 0.9em;
+  color: #666;
+}
