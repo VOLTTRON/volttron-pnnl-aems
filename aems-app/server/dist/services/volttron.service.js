@@ -22,6 +22,14 @@ let VolttronService = VolttronService_1 = class VolttronService {
     constructor(configService) {
         this.configService = configService;
         this.logger = new common_1.Logger(VolttronService_1.name);
+        this.maxRetries = 3;
+        this.agent = new undici_1.Agent({
+            connect: { keepAlive: true, ca: this.configService.volttron.ca },
+            connectTimeout: this.configService.service.config.timeout,
+        });
+    }
+    onModuleDestroy() {
+        this.agent.destroy();
     }
     async makeAuthCall() {
         if (this.configService.volttron.mocked) {
@@ -36,10 +44,7 @@ let VolttronService = VolttronService_1 = class VolttronService {
             method: "POST",
             body: JSON.stringify(body),
             headers: { "Content-Type": "application/json" },
-            dispatcher: new undici_1.Agent({
-                connect: { keepAlive: false, ca: this.configService.volttron.ca },
-                connectTimeout: this.configService.service.config.timeout,
-            }),
+            dispatcher: this.agent,
         });
         const json = await response.json();
         if (typeof json?.access_token !== "string") {
@@ -52,6 +57,9 @@ let VolttronService = VolttronService_1 = class VolttronService {
             this.logger.log(`Mocked Volttron API call: ${method}`);
             return { jsonrpc: "2.0", id: id, result: {} };
         }
+        return this.makeApiCallWithRetry(id, method, token, data);
+    }
+    async makeApiCallWithRetry(id, method, token, data, attempt = 0) {
         const body = {
             jsonrpc: "2.0",
             id: id,
@@ -61,29 +69,38 @@ let VolttronService = VolttronService_1 = class VolttronService {
                 data: data,
             },
         };
-        if (this.configService.service.config.verbose) {
-            this.logger.log((0, node_util_1.inspect)({ url: this.configService.service.config.apiUrl, body: body }, undefined, 10));
+        try {
+            if (this.configService.service.config.verbose) {
+                this.logger.log((0, node_util_1.inspect)({ url: this.configService.service.config.apiUrl, body: body }, undefined, 10));
+            }
+            const response = await (0, undici_1.fetch)(`${this.configService.service.config.apiUrl}`, {
+                method: "POST",
+                body: JSON.stringify(body),
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                dispatcher: this.agent,
+            });
+            const json = await response.json();
+            if (this.configService.service.config.verbose) {
+                this.logger.log((0, node_util_1.inspect)({ url: this.configService.service.config.apiUrl, response: json }, undefined, 10));
+            }
+            if (typeof json?.result === "string") {
+                throw new Error(`Failed Volttron API ${method} call: ${(0, node_util_1.inspect)(json)}`);
+            }
+            else if (!json?.result) {
+                throw new Error(`Failed Volttron API ${method} call.`);
+            }
+            return json;
         }
-        const response = await (0, undici_1.fetch)(`${this.configService.service.config.apiUrl}`, {
-            method: "POST",
-            body: JSON.stringify(body),
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            dispatcher: new undici_1.Agent({
-                connect: { keepAlive: false, ca: this.configService.volttron.ca },
-                connectTimeout: this.configService.service.config.timeout,
-            }),
-        });
-        const json = await response.json();
-        if (this.configService.service.config.verbose) {
-            this.logger.log((0, node_util_1.inspect)({ url: this.configService.service.config.apiUrl, response: json }, undefined, 10));
+        catch (error) {
+            const isLastAttempt = attempt >= this.maxRetries - 1;
+            if (isLastAttempt || (error instanceof Error && error.message.includes("Auth"))) {
+                throw error;
+            }
+            const backoffMs = Math.pow(2, attempt) * 1000;
+            this.logger.warn(`API call ${method} failed (attempt ${attempt + 1}/${this.maxRetries}): ${error instanceof Error ? error.message : String(error)}. Retrying in ${backoffMs}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
+            return this.makeApiCallWithRetry(id, method, token, data, attempt + 1);
         }
-        if (typeof json?.result === "string") {
-            throw new Error(`Failed Volttron API ${method} call: ${(0, node_util_1.inspect)(json)}`);
-        }
-        else if (!json?.result) {
-            throw new Error(`Failed Volttron API ${method} call.`);
-        }
-        return json;
     }
 };
 exports.VolttronService = VolttronService;
