@@ -332,6 +332,15 @@ let ConfigurationMutation = class ConfigurationMutation {
                             await changeService.handleChange(configuration.label || `Configuration ${configuration.id}`, (0, lodash_1.omit)(schedule.after, ["stage", "message"]), "Schedule", client_1.ChangeMutation.Update, ctx.user);
                         }
                     }
+                    const unit = await prismaService.prisma.unit.findFirst({
+                        where: { configurationId: configuration.id },
+                    });
+                    if (unit && unit.stage !== common_2.StageType.Update.enum) {
+                        await prismaService.prisma.unit.update({
+                            where: { id: unit.id },
+                            data: { stage: common_2.StageType.Update.enum, message: null },
+                        });
+                    }
                     return configuration;
                 });
             },
