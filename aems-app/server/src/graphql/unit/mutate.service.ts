@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Mutation } from "@local/common";
+import { Mutation, StageType } from "@local/common";
 import { SchemaBuilderService } from "../builder.service";
 import { UnitQuery } from "./query.service";
 import { PothosMutation } from "../pothos.decorator";
@@ -446,6 +446,20 @@ export class UnitMutation {
                   ctx.user!,
                 );
               }
+
+              // Check if any fields were updated that should NOT trigger sync
+              // (only metadata fields that don't affect Volttron configuration)
+              const metadataOnlyFields = ["stage", "message", "correlation", "updatedAt", "createdAt"];
+              const updatedFields = Object.keys(args.update);
+              const configFieldsChanged = updatedFields.some((field) => !metadataOnlyFields.includes(field));
+
+              if (configFieldsChanged && unit.stage !== StageType.Update.enum) {
+                await prismaService.prisma.unit.update({
+                  where: { id: unit.id },
+                  data: { stage: StageType.Update.enum, message: null },
+                });
+              }
+
               return unit;
             });
         },

@@ -333,6 +333,15 @@ let UnitMutation = class UnitMutation {
                         !(0, lodash_1.isEqual)((0, lodash_1.omit)(before?.location, ["updatedAt"]), (0, lodash_1.omit)(unit.location, ["updatedAt"]))) {
                         await changeService.handleChange(unit.label || unit.name || `Unit ${unit.id}`, unit.location, "Location", client_1.ChangeMutation.Update, ctx.user);
                     }
+                    const metadataOnlyFields = ["stage", "message", "correlation", "updatedAt", "createdAt"];
+                    const updatedFields = Object.keys(args.update);
+                    const configFieldsChanged = updatedFields.some((field) => !metadataOnlyFields.includes(field));
+                    if (configFieldsChanged && unit.stage !== common_2.StageType.Update.enum) {
+                        await prismaService.prisma.unit.update({
+                            where: { id: unit.id },
+                            data: { stage: common_2.StageType.Update.enum, message: null },
+                        });
+                    }
                     return unit;
                 });
             },

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Mutation } from "@local/common";
+import { Mutation, StageType } from "@local/common";
 import { SchemaBuilderService } from "../builder.service";
 import { ConfigurationQuery } from "./query.service";
 import { PothosMutation } from "../pothos.decorator";
@@ -410,6 +410,19 @@ export class ConfigurationMutation {
                   );
                 }
               }
+
+              // Find the unit associated with this configuration and trigger sync
+              const unit = await prismaService.prisma.unit.findFirst({
+                where: { configurationId: configuration.id },
+              });
+
+              if (unit && unit.stage !== StageType.Update.enum) {
+                await prismaService.prisma.unit.update({
+                  where: { id: unit.id },
+                  data: { stage: StageType.Update.enum, message: null },
+                });
+              }
+
               return configuration;
             });
         },

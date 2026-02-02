@@ -72,11 +72,12 @@ export class ConfigService extends BaseService {
           }
           const token = await this.volttronService.makeAuthCall();
           for (const unit of units) {
-            this.logger.log(`Pushing the unit config for: ${unit.label}`);
+            this.logger.log(`Pushing the unit config for: ${unit.label} (ID: ${unit.id})`);
             try {
+              // Set stage to Processing before starting API calls
               await this.prismaService.prisma.unit.update({
                 where: { id: unit.id },
-                data: { stage: StageType.ProcessType.enum, message: null },
+                data: { stage: StageType.ProcessType.enum, message: "Synchronizing with Volttron..." },
               });
               await this.subscriptionService.publish("Unit", {
                 topic: "Unit",
@@ -88,6 +89,8 @@ export class ConfigService extends BaseService {
                 id: unit.id,
                 mutation: Mutation.Updated,
               });
+
+              this.logger.debug(`[${unit.label}] Setting temperature setpoints...`);
               const set_temperature_setpoints = {
                 OccupiedSetPoint: unit.configuration?.setpoint?.setpoint ?? 0,
                 DeadBand: (unit.configuration?.setpoint?.deadband ?? 0) / 2,
@@ -102,7 +105,9 @@ export class ConfigService extends BaseService {
                 token,
                 set_temperature_setpoints,
               );
+              this.logger.debug(`[${unit.label}] Temperature setpoints updated successfully`);
 
+              this.logger.debug(`[${unit.label}] Setting occupancy overrides...`);
               const today = new Date();
               today.setHours(0, 0, 0, 0);
               const set_occupancy_override = unit.configuration?.occupancies
@@ -126,7 +131,9 @@ export class ConfigService extends BaseService {
                 token,
                 set_occupancy_override,
               );
+              this.logger.debug(`[${unit.label}] Occupancy overrides updated successfully`);
 
+              this.logger.debug(`[${unit.label}] Setting holidays...`);
               const set_holidays = unit.configuration?.holidays
                 .filter((a) => a.type !== "Disabled")
                 .reduce(
@@ -142,7 +149,9 @@ export class ConfigService extends BaseService {
                 token,
                 set_holidays,
               );
+              this.logger.debug(`[${unit.label}] Holidays updated successfully`);
 
+              this.logger.debug(`[${unit.label}] Setting weekly schedule...`);
               const set_schedule = {
                 Monday: this.buildOccupancyPayload(unit.configuration?.mondaySchedule),
                 Tuesday: this.buildOccupancyPayload(unit.configuration?.tuesdaySchedule),
@@ -161,7 +170,9 @@ export class ConfigService extends BaseService {
                 token,
                 set_schedule,
               );
+              this.logger.debug(`[${unit.label}] Weekly schedule updated successfully`);
 
+              this.logger.debug(`[${unit.label}] Setting optimal start parameters...`);
               const set_optimal_start = {
                 latest_start_time: unit.latestStart ?? 0,
                 earliest_start_time: unit.earliestStart ?? 0,
@@ -174,7 +185,9 @@ export class ConfigService extends BaseService {
                 token,
                 set_optimal_start,
               );
+              this.logger.debug(`[${unit.label}] Optimal start parameters updated successfully`);
 
+              this.logger.debug(`[${unit.label}] Setting system configurations...`);
               const set_configurations = {
                 is_heatpump: unit.heatPump ?? false,
                 ...(unit.heatPump && {
@@ -195,7 +208,9 @@ export class ConfigService extends BaseService {
                   ...set_optimal_start,
                 },
               );
+              this.logger.debug(`[${unit.label}] System configurations updated successfully`);
 
+              this.logger.debug(`[${unit.label}] Setting location...`);
               const location = unit.location;
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
@@ -208,7 +223,9 @@ export class ConfigService extends BaseService {
                     }
                   : {},
               );
+              this.logger.debug(`[${unit.label}] Location updated successfully`);
 
+              this.logger.debug(`[${unit.label}] All API calls completed successfully, setting stage to Complete`);
               await this.prismaService.prisma.unit.update({
                 where: { id: unit.id },
                 data: { stage: StageType.CompleteType.enum },
