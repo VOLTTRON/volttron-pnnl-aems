@@ -304,7 +304,6 @@ services:
     profiles:
       - nom
     restart: unless-stopped
-    shm_size: 1gb
     volumes:
       - nominatim-data:/var/lib/postgresql/14/main
       - nominatim-cache:/nominatim/cache
