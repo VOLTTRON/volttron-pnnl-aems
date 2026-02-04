@@ -23,6 +23,7 @@ function Show-Help {
     Write-Host "  .\reset-service.ps1 keycloak-db -n        # Preview what would be reset"
     Write-Host ""
     Write-Host "Warning: This will permanently delete all data in the service's volumes!" -ForegroundColor Red
+    Write-Host "THIS CHANGE IS UNRECOVERABLE!" -ForegroundColor Red
     exit 0
 }
 
@@ -246,6 +247,7 @@ try {
     if (-not $Force -and -not $DryRun) {
         Write-Host ""
         Write-Host "WARNING: This will permanently delete all data in these volumes!" -ForegroundColor Yellow
+        Write-Host "THIS CHANGE IS UNRECOVERABLE!" -ForegroundColor Red
         $confirmation = Read-Host "Are you sure you want to continue? (yes/no)"
         if ($confirmation -ne "yes") {
             Write-Host "Reset cancelled by user" -ForegroundColor Yellow
