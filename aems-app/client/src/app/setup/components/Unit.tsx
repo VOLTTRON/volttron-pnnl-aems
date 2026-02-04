@@ -97,7 +97,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
               <MultiSlider.Handle
                 type={HandleType.FULL}
                 interactionKind={HandleInteractionKind.LOCK}
-                value={optimalStartLockout || 35}
+                value={optimalStartLockout ?? 35}
                 onChange={(v) => {
                   const clone = cloneDeep(editing ?? {});
                   clone.optimalStartLockout = v;
@@ -128,7 +128,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
               <MultiSlider.Handle
                 type={HandleType.FULL}
                 interactionKind={HandleInteractionKind.LOCK}
-                value={optimalStartDeviation || 2}
+                value={optimalStartDeviation ?? 2}
                 onChange={(v) => {
                   const clone = cloneDeep(editing ?? {});
                   clone.optimalStartDeviation = v;
@@ -157,7 +157,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
               <MultiSlider.Handle
                 type={HandleType.FULL}
                 interactionKind={HandleInteractionKind.LOCK}
-                value={earliestStart || 120}
+                value={earliestStart ?? 120}
                 onChange={(v) => {
                   const clone = cloneDeep(editing ?? {});
                   clone.earliestStart = v;
@@ -186,7 +186,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
               <MultiSlider.Handle
                 type={HandleType.FULL}
                 interactionKind={HandleInteractionKind.LOCK}
-                value={latestStart || 30}
+                value={latestStart ?? 30}
                 onChange={(v) => {
                   const clone = cloneDeep(editing ?? {});
                   clone.latestStart = v;
@@ -252,7 +252,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
                 <MultiSlider.Handle
                   type={HandleType.FULL}
                   interactionKind={HandleInteractionKind.LOCK}
-                  value={heatPumpLockout || 25}
+                  value={heatPumpLockout ?? 25}
                   onChange={(v) => {
                     const clone = cloneDeep(editing ?? {});
                     clone.heatPumpLockout = v;
@@ -322,7 +322,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
                   <MultiSlider.Handle
                     type={HandleType.FULL}
                     interactionKind={HandleInteractionKind.LOCK}
-                    value={economizerSetpoint || 65}
+                    value={economizerSetpoint ?? 65}
                     onChange={(v) => {
                       const clone = cloneDeep(editing ?? {});
                       clone.economizerSetpoint = v;
@@ -351,7 +351,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false }: UnitProps)
                   <MultiSlider.Handle
                     type={HandleType.FULL}
                     interactionKind={HandleInteractionKind.LOCK}
-                    value={coolingLockout || 55}
+                    value={coolingLockout ?? 55}
                     onChange={(v) => {
                       const clone = cloneDeep(editing ?? {});
                       clone.coolingLockout = v;

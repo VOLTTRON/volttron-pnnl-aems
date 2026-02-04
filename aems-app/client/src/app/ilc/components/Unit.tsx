@@ -169,7 +169,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 <MultiSlider.Handle
                   type={HandleType.FULL}
                   interactionKind={HandleInteractionKind.LOCK}
-                  value={coolingPeakOffset || 2}
+                  value={coolingPeakOffset ?? 2}
                   onChange={(v) => {
                     const clone = cloneDeep(editing ?? {});
                     clone.coolingPeakOffset = v;
@@ -202,7 +202,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 <MultiSlider.Handle
                   type={HandleType.FULL}
                   interactionKind={HandleInteractionKind.LOCK}
-                  value={heatingPeakOffset || 2}
+                  value={heatingPeakOffset ?? 2}
                   onChange={(v) => {
                     const clone = cloneDeep(editing ?? {});
                     clone.heatingPeakOffset = v;
@@ -390,7 +390,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
               step={0.5}
               min={COOLING_CAPACITY_MIN}
               max={COOLING_CAPACITY_MAX}
-              value={coolingCapacity || 0}
+              value={coolingCapacity ?? 0}
               onValueChange={(v) => {
                 if (typeof v === "number" && !isNaN(v)) {
                   const clone = cloneDeep(editing ?? {});
@@ -402,7 +402,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
               clampValueOnBlur
               disabled={readOnly}
               intent={
-                coolingCapacity && (coolingCapacity < COOLING_CAPACITY_MIN || coolingCapacity > COOLING_CAPACITY_MAX)
+                (coolingCapacity ?? 0) < COOLING_CAPACITY_MIN || (coolingCapacity ?? 0) > COOLING_CAPACITY_MAX
                   ? Intent.DANGER
                   : Intent.NONE
               }
@@ -421,7 +421,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
               step={1}
               min={COMPRESSORS_MIN}
               max={COMPRESSORS_MAX}
-              value={compressors || 0}
+              value={compressors ?? 0}
               onValueChange={(v) => {
                 if (typeof v === "number" && !isNaN(v)) {
                   const clone = cloneDeep(editing ?? {});
@@ -432,7 +432,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
               clampValueOnBlur
               disabled={readOnly}
               intent={
-                compressors && (compressors < COMPRESSORS_MIN || compressors > COMPRESSORS_MAX)
+                (compressors ?? 0) < COMPRESSORS_MIN || (compressors ?? 0) > COMPRESSORS_MAX
                   ? Intent.DANGER
                   : Intent.NONE
               }
@@ -463,7 +463,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 <MultiSlider.Handle
                   type={HandleType.FULL}
                   interactionKind={HandleInteractionKind.LOCK}
-                  value={optimalStartLockout || 35}
+                  value={optimalStartLockout ?? 35}
                   onChange={(v) => {
                     const clone = cloneDeep(editing ?? {});
                     clone.optimalStartLockout = v;
@@ -498,7 +498,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 <MultiSlider.Handle
                   type={HandleType.FULL}
                   interactionKind={HandleInteractionKind.LOCK}
-                  value={optimalStartDeviation || 2}
+                  value={optimalStartDeviation ?? 2}
                   onChange={(v) => {
                     const clone = cloneDeep(editing ?? {});
                     clone.optimalStartDeviation = v;
@@ -531,7 +531,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 <MultiSlider.Handle
                   type={HandleType.FULL}
                   interactionKind={HandleInteractionKind.LOCK}
-                  value={earliestStart || 120}
+                  value={earliestStart ?? 120}
                   onChange={(v) => {
                     const clone = cloneDeep(editing ?? {});
                     clone.earliestStart = v;
@@ -564,7 +564,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 <MultiSlider.Handle
                   type={HandleType.FULL}
                   interactionKind={HandleInteractionKind.LOCK}
-                  value={latestStart || 30}
+                  value={latestStart ?? 30}
                   onChange={(v) => {
                     const clone = cloneDeep(editing ?? {});
                     clone.latestStart = v;
@@ -626,7 +626,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 step={0.5}
                 min={HEAT_PUMP_BACKUP_MIN}
                 max={HEAT_PUMP_BACKUP_MAX}
-                value={heatPumpBackup || 0}
+                value={heatPumpBackup ?? 0}
                 onValueChange={(v) => {
                   if (typeof v === "number" && !isNaN(v)) {
                     const clone = cloneDeep(editing ?? {});
@@ -638,7 +638,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 clampValueOnBlur
                 disabled={readOnly}
                 intent={
-                  heatPumpBackup && (heatPumpBackup < HEAT_PUMP_BACKUP_MIN || heatPumpBackup > HEAT_PUMP_BACKUP_MAX)
+                  (heatPumpBackup ?? 0) < HEAT_PUMP_BACKUP_MIN || (heatPumpBackup ?? 0) > HEAT_PUMP_BACKUP_MAX
                     ? Intent.DANGER
                     : Intent.NONE
                 }
@@ -668,7 +668,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 <MultiSlider.Handle
                   type={HandleType.FULL}
                   interactionKind={HandleInteractionKind.LOCK}
-                  value={heatPumpLockout || 25}
+                  value={heatPumpLockout ?? 25}
                   onChange={(v) => {
                     const clone = cloneDeep(editing ?? {});
                     clone.heatPumpLockout = v;
@@ -741,7 +741,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 <MultiSlider.Handle
                   type={HandleType.FULL}
                   interactionKind={HandleInteractionKind.LOCK}
-                  value={economizerSetpoint || 65}
+                  value={economizerSetpoint ?? 65}
                   onChange={(v) => {
                     const clone = cloneDeep(editing ?? {});
                     clone.economizerSetpoint = v;
@@ -774,7 +774,7 @@ export function Unit({ unit, editing, setEditing, readOnly = false, hidden = [] 
                 <MultiSlider.Handle
                   type={HandleType.FULL}
                   interactionKind={HandleInteractionKind.LOCK}
-                  value={coolingLockout || 55}
+                  value={coolingLockout ?? 55}
                   onChange={(v) => {
                     const clone = cloneDeep(editing ?? {});
                     clone.coolingLockout = v;
