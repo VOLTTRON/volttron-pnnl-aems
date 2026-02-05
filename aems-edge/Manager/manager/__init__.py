@@ -145,6 +145,7 @@ class DefaultConfig:
     system_status_point: str = 'OccupancyCommand'
     setpoint_control: SetpointControlType = SetpointControlType(1)
     setpoint_validate_frequency: int = 300
+    has_occupancy_sensor: bool = True
     local_tz: str = 'UTC'
     location: Optional[Location] = None
     default_setpoints: dict[str, float] = field(default_factory=lambda: DEFAULT_SETPOINTS)

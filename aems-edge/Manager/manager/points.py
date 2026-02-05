@@ -104,6 +104,8 @@ class DFPoints(Enum):
     reversingvalve = 'reversingvalve'
     compressorcommand = 'compressorcommand'
     warmcooladjust = 'warmcooladjust'
+    standbytime = 'standbytime'
+    standbytemperatureoffset = 'standbytemperatureoffset'
 
 
 @dataclass
@@ -156,6 +158,8 @@ Points.add_item(DFPoints.deadband.name, 'DeadBand')
 Points.add_item(DFPoints.unoccupiedheatingsetpoint.name, 'UnoccupiedHeatingSetPoint')
 Points.add_item(DFPoints.unoccupiedcoolingsetpoint.name, 'UnoccupiedCoolingSetPoint')
 Points.add_item(DFPoints.occupiedsetpoint.name, 'OccupiedSetPoint')
+Points.add_item(DFPoints.standbytime.name, 'StandbyTime')
+Points.add_item(DFPoints.standbytemperatureoffset.name, 'StandbyTemperatureOffset')
 
 
 class DaysOfWeek(IntEnum):
