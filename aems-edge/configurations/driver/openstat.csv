@@ -1,0 +1,66 @@
+Reference Point Name,Volttron Point Name,Units,Unit Details,BACnet Object Type,Property,Writable,Index,Write Priority,Notes,active
+RoomT,ZoneTemperature,degreesFahrenheit,,analogInput,presentValue,TRUE,6,9,Room temperature,TRUE
+RoomRH,ZoneHumidity,percent,,analogInput,presentValue,TRUE,7,9,Room RH,TRUE
+AO_3,OutdoorDamperSignal,percent,(default 0.0),analogOutput,presentValue,TRUE,3,9,ECON,FALSE
+RoomTSP,OccupiedSetPoint,degreesFahrenheit,(default 73.0),analogValue,presentValue,TRUE,1,9,Room temperature setpoint,TRUE
+HTG_Dem,HeatingDemand,percent,(default 0.0),analogValue,presentValue,TRUE,6,9,Heating Demand,TRUE
+CLG_Dem,CoolingDemand,percent,(default 0.0),analogValue,presentValue,TRUE,7,9,Cooling Demand,TRUE
+Eff_T,EffectiveZoneTemperature,degreesFahrenheit,(default 0.0),analogValue,presentValue,TRUE,9,9,Effective temperature used for control,FALSE
+SATemp,SupplyAirTemperature,degreesFahrenheit,(default 55.400001525878906),analogValue,presentValue,TRUE,16,9,Supply temperature,FALSE
+SATFRSP_Set,SATFRSP_Set,degreesFahrenheit,(default 38.0),analogValue,presentValue,TRUE,19,9,Set supply freezing temperature,FALSE
+Fan_MinOn_Time,Fan_MinOn_Time,minutes,(default 1.0),analogValue,presentValue,TRUE,24,9,Fan minimum ON time,FALSE
+OvrTime_Set,OccupancyOverrideTime,minutes,(default 60.0),analogValue,presentValue,TRUE,27,9,Set occupancy override time,FALSE
+MotionOvrTime_Set,StandbyTime,noUnits,(default 10.0),analogValue,presentValue,TRUE,28,16,Occupancy standby time,FALSE
+OATemp,OutdoorAirTemperature,degreesFahrenheit,(default 60.0),analogValue,presentValue,TRUE,29,9,Outside air temperature,TRUE
+MinCLSP_Set,MinimumCoolingSetPoint,degreesFahrenheit,(default 59.0),analogValue,presentValue,TRUE,33,9,Set minimum cooling setpoint,FALSE
+MaxHTSP_Set,MaximumHeatingSetPoint,degreesFahrenheit,(default 82.4000015258789),analogValue,presentValue,TRUE,34,9,Set maximum heating setpoint,FALSE
+OccCLSP_Set,OccupiedCoolingSetPoint,degreesFahrenheit,(default 77.0),analogValue,presentValue,TRUE,35,9,Set occupied cooling setpoint,TRUE
+OccHTSP_Set,OccupiedHeatingSetPoint,degreesFahrenheit,(default 76.0),analogValue,presentValue,TRUE,36,9,Set occupied heating setpoint,TRUE
+SP_DB__Set,DeadBand,deltaDegreesFahrenheit,(default 2.0),analogValue,presentValue,TRUE,37,9,Set deadband,TRUE
+Unoc_CL_Set,UnoccupiedCoolingSetPoint,degreesFahrenheit,(default 78.80000305175781),analogValue,presentValue,TRUE,38,9,Set unoccupied cooling setpoint,TRUE
+Unoc_HT_Set,UnoccupiedHeatingSetPoint,degreesFahrenheit,(default 64.4000015258789),analogValue,presentValue,TRUE,39,9,Set unoccupied heating setpoint,TRUE
+STBCoolOffset,StandByCoolingOffset,deltaDegreesFahrenheit,(default 2.0),analogValue,presentValue,TRUE,40,9,Set standby cooling offset (+),FALSE
+STBHeatOffset,StandByHeatingOffset,deltaDegreesFahrenheit,(default -2.0),analogValue,presentValue,TRUE,41,9,Set standby heating offset (-),FALSE
+EffCLSP,EffectiveCoolingSetPoint,degreesFahrenheit,(default 76.0),analogValue,presentValue,TRUE,42,9,Effective cooling setpoint,FALSE
+EffHTSP,EffectiveHeatingSetPoint,degreesFahrenheit,(default 64.4000015258789),analogValue,presentValue,TRUE,43,9,Effective heating setpoint,FALSE
+Eff_RH,EffectiveZoneHumidity,percent,(default 95.0),analogValue,presentValue,TRUE,51,9,Effective humidity used for control,FALSE
+ComprLockout,CoolingLockoutOutdoorAirTemperature,degreesFahrenheit,(default 40.0),analogValue,presentValue,TRUE,60,9,Compressor Lockout,FALSE
+EconoMin_Pos,EconomizerMinimumPosition,percent,(default 15.0),analogValue,presentValue,TRUE,65,9,Econo min position,FALSE
+EconoMaxCO2Pos,EconomizerMaximumC02,percent,(default 100.0),analogValue,presentValue,TRUE,66,9,Econo max position (for CO2),FALSE
+OATheatOutAuth,HeatingLockoutOutdoorAirTemperature,degreesFahrenheit,(default 70.0),analogValue,presentValue,TRUE,67,9,Heating authorization (from OAT),FALSE
+OATeconOutAuth,EconomizerSwitchOverSetPoint,degreesFahrenheit,(default 65.0),analogValue,presentValue,TRUE,68,9,Econo authorization (from OAT),FALSE
+MatSP,MixedAirTempereatureSetPoint,degreesFahrenheit,(default 65.0),analogValue,presentValue,TRUE,78,9,Mix air temperature for economizer,FALSE
+MAT,MixedAirTemperature,degreesFahrenheit,(default 0.0),analogValue,presentValue,TRUE,79,9,Mix air temperature,FALSE
+Motion,Motion,Enum,0-1,binaryInput,presentValue,TRUE,1,9,Motion detection,FALSE
+BO_1,SupplyFanStatus,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,1,9,G (Preset as Custom),TRUE
+BO_2,FirstStageCooling,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,2,9,Y1,TRUE
+BO_3,SecondStageCooling,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,3,9,Y2,TRUE
+BO_4,FirstStageHeating,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,4,9,W1,TRUE
+BO_5,ReversingValve,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,5,9,O (O/B),TRUE
+Mot_Det,Mot_Det,Enum,0-1 (default 0),binaryValue,presentValue,TRUE,3,9,Motion detection,FALSE
+AutogenDesc,AutogenDesc,Enum,0-1 (default 1),binaryValue,presentValue,TRUE,4,9,Autogenerate I/O descriptions,FALSE
+Occ_Sch,Occ_Sch,Enum,0-1 (default 0),binaryValue,presentValue,TRUE,5,9,System occupancy schedule,FALSE
+Freeze_Status,Freeze_Status,Enum,0-1 (default 0),binaryValue,presentValue,TRUE,7,9,Freeze condition status,FALSE
+Free_CL_Author,Free_CL_Author,Enum,0-1 (default 0),binaryValue,presentValue,TRUE,8,9,Free cooling authorization status,FALSE
+EnthalpyAuth,EnthalpyAuth,Enum,0-1 (default 0),binaryValue,presentValue,TRUE,21,9,Enthalpy authorize,FALSE
+CFG_FAN,CFG_FAN,State,State count: 6 (default 1),multiStateValue,presentValue,TRUE,23,9,"1=BO-2, 2=AO-1, 3=AO-2, 4=BO-1 & AO-1, 5=BO-1 & AO-2",FALSE
+AI_OAT,AI_OAT,State,State count: 7 (default 1),multiStateValue,presentValue,TRUE,27,9,"1=AI-1, 2=AI-2, 3=AI-3, 4=AI-4, 5=AI-5, 6=External",FALSE
+AI_SAT,AI_SAT,State,State count: 7 (default 4),multiStateValue,presentValue,TRUE,28,9,"1=AI-1, 2=AI-2, 3=AI-3, 4=AI-4, 5=AI-5, 6=External",FALSE
+AO_ECO,AO_ECO,State,State count: 7 (default 7),multiStateValue,presentValue,TRUE,30,9,"1=BO-5, 2=BO-6, 3=BO-7, 4=AO-1, 5=AO-2, 6=AO-3",FALSE
+CFG_EXH,CFG_EXH,State,State count: 6 (default 1),multiStateValue,presentValue,TRUE,32,9,"1=BO-6, 2=BO-7, 3=AO-3, 4=BO-6 & AO-3, 5=BO-7 & AO-3",FALSE
+BI_PIR,BI_PIR,State,State count: 11 (default 1),multiStateValue,presentValue,TRUE,44,9,"1=NO, AI-1 (BI), 2=NC, AI-1 (BI), 3=NO, AI-2 (BI), 4=NC, AI-2 (BI), 5=NO, AI-3 (BI), 6=NC, AI-3 (BI), 7=NO, AI-4 (BI), 8=NC, AI-4 (BI), 9=External, 10=Intern",FALSE
+BI_SCH_Input,BI_SCH_Input,State,State count: 9 (default 2),multiStateValue,presentValue,TRUE,45,9,"1=None (On), 2=Scheduler, 3=AI-1 (BI), 4=AI-2 (BI), 5=AI-3 (BI), 6=AI-4 (BI), 7=AI-5 (BI), 8=External",FALSE
+BO_HUM,BO_HUM,State,State count: 9 (default 1),multiStateValue,presentValue,TRUE,48,9,"1=BO-2, 2=BO-3, 3=BO-4, 4=BO-5, 5=BO-6, 6=BO-7, 7=BO-5 & BO-6, 8=BO-6 & BO-7",FALSE
+AO_HUM,AO_HUM,State,State count: 4 (default 1),multiStateValue,presentValue,TRUE,49,9,"1=AO-1, 2=AO-2, 3=AO-3",FALSE
+AI_RH,AI_RH,State,State count: 8 (default 8),multiStateValue,presentValue,TRUE,52,9,"1=AI-1, 2=AI-2, 3=AI-3, 4=AI-4, 5=AI-5, 6=External, 7=Intern",FALSE
+AI_SRH,AI_SRH,State,State count: 7 (default 1),multiStateValue,presentValue,TRUE,54,9,"1=AI-1, 2=AI-2, 3=AI-3, 4=AI-4, 5=AI-5, 6=External",FALSE
+AIC_SRH,AIC_SRH,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,55,9,1=2-10V,FALSE
+OAH_Loc,OAH_Loc,State,State count: 8 (default 1),multiStateValue,presentValue,TRUE,57,9,"1=AI-1, 2=AI-2, 3=AI-3, 4=AI-4, 5=AI-5, 6=External, 7=Intern",FALSE
+MAT_Loc,MAT_Loc,State,State count: 7 (default 1),multiStateValue,presentValue,TRUE,58,9,"1=AI-1, 2=AI-2, 3=AI-3, 4=AI-4, 5=AI-5, 6=External",FALSE
+CFGSetp,CFGSetp,State,State count: 3 (default 2),multiStateValue,presentValue,TRUE,62,9,"1=Center, 2=Cool SP",FALSE
+CFGUnit,CFGUnit,State,State count: 2 (default 2),multiStateValue,presentValue,TRUE,64,9,1=Imper,FALSE
+BO_OCC,BO_OCC,State,State count: 10 (default 1),multiStateValue,presentValue,TRUE,65,9,"1=BO-2, 2=BO-3, 3=BO-4, 4=BO-5, 5=BO-6, 6=BO-7, 7=AO-1, 8=AO-2, 9=AO-3",FALSE
+BO_DEHU,BO_DEHU,State,State count: 7 (default 1),multiStateValue,presentValue,TRUE,68,9,"1=BO-2, 2=BO-3, 3=BO-4, 4=BO-5, 5=BO-6, 6=BO-7",FALSE
+PB,ProportionalBand,State,State count: 8 (default 3),multiStateValue,presentValue,TRUE,70,9,"1=4F 1_7C, 2=5F 2_2C, 3=6F 2_8C, 4=7F 3_3C, 5=8F 3_9C, 6=9F 5_0C, 7=10F 5_6C",FALSE
+Preset,Preset,State,State count: 12 (default 12),multiStateValue,presentValue,TRUE,127,9,"1=RT ECON, 2=HP 2STG, 3=RT IAQ, 4=RT MOD, 5=HP DEH, 6=HUM-DEH, 7=RT 3STG, 8=RT 4STG, 9=HP 3STG, 10=HP 4STG, 11=Custom",FALSE
+Occ_Cmd,OccupancyCommand,State,State count: 3 (default 1),multiStateValue,presentValue,TRUE,6,9,"1=Occupied, 2=Unoccup",TRUE

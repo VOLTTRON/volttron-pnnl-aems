@@ -395,7 +395,6 @@ class ManagerProxy:
         except KeyError:
             _log.info("No set_points in config store using defaults.")
             self.config_set('set_points', self.cfg.default_setpoints)
-
         self._validate_setpoints_greenlet = self.core.periodic(
             config.setpoint_validate_frequency,
             lambda: self.set_temperature_setpoints(self.config_get('set_points'), update_store=False))
@@ -553,22 +552,23 @@ class ManagerProxy:
         topic = '/'.join([self.cfg.base_record_topic, SET_POINTS])
         _log.debug(f'Update temperature_setpoints - {data} -- update_store: {update_store}')
         result = self.create_setpoints(data)
+        return_value = True
         if isinstance(result, str):
             return False
         for point, value in result.items():
             control_result = self.do_zone_control(point, value)
             if isinstance(control_result, str):
                 _log.error(f'Zone control response {self.identity} - Set {point} to {value} -- {control_result}')
-                return False
+                return_value = False
         if update_store:
             self.config_set('set_points', data)
             for point, value in result.items():
                 control_result = self.do_zone_control(point, value, on_property='relinquishDefault')
                 if isinstance(control_result, str):
                     _log.error(f'Zone control response {self.identity} - Set {point} to {value} -- {control_result}')
-                    return False
+                    return_value = False
         self.publish(topic, headers=headers, message=data)
-        return True
+        return return_value
 
     def set_holidays(self, data, update_store: bool = True) -> bool:
         """
@@ -672,8 +672,6 @@ class ManagerProxy:
             _log.error(f'{result}', exc_info=True)
             return result
 
-        standby_settings = [key for key in setpoints if re.search(regex_pattern, key)]
-
         control[Points.unoccupiedcoolingsetpoint.value] = unocc_clg_sp
         control[Points.unoccupiedheatingsetpoint.value] = unocc_htg_sp
         _log.debug(f'Configure @Setpoints: {self.cfg.setpoint_control}')
@@ -686,9 +684,11 @@ class ManagerProxy:
             control[Points.heatingsetpoint.value] = occ_htg_sp
         if self.cfg.setpoint_control == SetpointControlType.CommonSetpoint:
             control[Points.occupiedsetpoint.value] = occ_sp
-            control[Points.deadband.value] = deadband
-        for point in standby_settings:
-            control[point] = setpoints[point]
+            control[Points.deadband.value] = deadband + deadband
+        if self.cfg.has_occupancy_sensor:
+            standby_settings = [key for key in setpoints if re.search(regex_pattern, key)]
+            for point in standby_settings:
+                control[point] = setpoints[point]
         _log.debug(f'Control -- @Setpoints: {control}')
         return control
 
