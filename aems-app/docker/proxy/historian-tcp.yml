@@ -1,0 +1,22 @@
+# Traefik TCP Router Configuration for Historian PostgreSQL Replication
+# This configuration secures the PostgreSQL replication port using Traefik's TCP routing
+
+tcp:
+  routers:
+    historian-tcp:
+      # TCP entrypoint for PostgreSQL connections
+      entryPoints:
+        - historian
+      # Route to the historian PostgreSQL service
+      rule: "HostSNI(`*`)"
+      service: historian-tcp
+      # Enable TLS for encrypted connections
+      tls:
+        passthrough: false
+        certResolver: ${CERT_RESOLVER}
+
+  services:
+    historian-tcp:
+      loadBalancer:
+        servers:
+          - address: "historian:5432"

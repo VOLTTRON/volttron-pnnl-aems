@@ -10,6 +10,7 @@ services:
       - --entrypoints.websecure.address=:443
       - --entrypoints.websecure.http.tls=true
       - --entrypoints.websecure.http.tls.certresolver=${CERT_RESOLVER}
+      - --entrypoints.historian.address=:${HISTORIAN_REPLICATION_PORT}
       - --providers.file.directory=/etc/traefik/dynamic
       - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
       - --certificatesresolvers.letsencrypt.acme.email=${ADMIN_EMAIL}
@@ -28,6 +29,7 @@ services:
     ports:
       - 80:80
       - 443:443
+      - ${HISTORIAN_REPLICATION_PORT}:${HISTORIAN_REPLICATION_PORT}
       - ${TRAEFIK_TEST_PORT}:8080
     profiles:
       - proxy
@@ -37,6 +39,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - certs-data:/etc/certs/
       - ./proxy/certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
+      - ./proxy/historian-tcp.yml:/etc/traefik/dynamic/historian-tcp.yml
       - ./proxy/volttron-transport.yml:/etc/traefik/dynamic/volttron-transport.yml
 
   # Application that hosts static files and API
