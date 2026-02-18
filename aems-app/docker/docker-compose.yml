@@ -452,7 +452,7 @@ services:
     depends_on:
       certs:
         condition: service_completed_successfully
-      historian-db:
+      historian:
         condition: service_started
     env_file:
       - .env.grafana
@@ -496,11 +496,11 @@ services:
       - certs-data:/etc/certs/:ro
 
   # Historian database
-  historian-db:
-    container_name: ${COMPOSE_PROJECT_NAME}-historian-db
+  historian:
+    container_name: ${COMPOSE_PROJECT_NAME}-historian
     env_file:
       - .env.historian
-    hostname: historian-db
+    hostname: historian
     image: postgres:16-alpine
     ports:
       - ${HISTORIAN_REPLICATION_PORT}:5432
