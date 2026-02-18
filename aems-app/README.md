@@ -781,15 +781,15 @@ The AEMS historian database can be replicated to remote offsite locations for ba
 **Architecture:**
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    AEMS Primary Site                         │
-│                                                              │
+┌────────────────────────────────────────────────────────────┐
+│                    AEMS Primary Site                       │
+│                                                            │
 │  ┌──────────────┐      ┌──────────────┐      ┌──────────┐  │
-│  │  VOLTTRON    │─────▶│  Historian   │◀─────│ Grafana  │  │
+│  │  VOLTTRON    │────▶│  Historian   │◀─────│ Grafana  │  │
 │  │    Agent     │      │  Database    │      │          │  │
 │  └──────────────┘      │  (Publisher) │      └──────────┘  │
 │                        └──────┬───────┘                    │
-│                               │                             │
+│                               │                            │
 │                        ┌──────▼───────┐                    │
 │                        │   Traefik    │                    │
 │                        │  TCP Proxy   │                    │
@@ -801,15 +801,15 @@ The AEMS historian database can be replicated to remote offsite locations for ba
                        (Port 5432 by default)
                                 │
 ┌───────────────────────────────▼────────────────────────────┐
-│                    Remote Offsite Location                  │
-│                                                              │
-│                        ┌──────────────┐                     │
-│                        │  Historian   │                     │
-│                        │  Database    │                     │
-│                        │ (Subscriber) │                     │
-│                        └──────────────┘                     │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+│                    Remote Offsite Location                 │
+│                                                            │
+│                        ┌──────────────┐                    │
+│                        │  Historian   │                    │
+│                        │  Database    │                    │
+│                        │ (Subscriber) │                    │
+│                        └──────────────┘                    │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
 ```
 
 #### Prerequisites
@@ -830,76 +830,6 @@ The AEMS historian database can be replicated to remote offsite locations for ba
 #### Publisher Setup (Primary Database)
 
 The publisher configuration is **automatically handled** when you start the AEMS application.
-
-**1. Environment Configuration**
-
-Set the replication password in `.env.secrets`:
-
-```bash
-# Add to .env.secrets
-HISTORIAN_REPLICATOR_PASSWORD=your_secure_replication_password_here
-```
-
-Then reload the environment variables:
-
-```bash
-# Windows
-.\secrets.ps1
-
-# Linux/Mac
-source ./secrets.sh
-```
-
-**2. Build and Start Services**
-
-```bash
-# Build the updated historian image
-docker compose build historian
-
-# Start the services
-docker compose up -d
-```
-
-**3. Verify Publisher Configuration**
-
-```bash
-# Connect to the database container
-docker exec -it aems-historian psql -U historian -d historian
-
-# Check publication
-SELECT * FROM pg_publication WHERE pubname = 'historian_pub';
-
-# Verify replication user
-SELECT usename, usereplication FROM pg_user WHERE usename = 'replicator';
-
-# Check current WAL level
-SHOW wal_level;  -- Should be 'logical'
-
-# Exit
-\q
-```
-
-**4. Network Configuration**
-
-Ensure the Traefik proxy is exposing the historian port:
-
-```bash
-# Verify Traefik is running and exposing port 5432
-docker ps | grep proxy
-
-# Test connectivity from another machine
-telnet YOUR_HOSTNAME 5432
-```
-
-**5. Firewall Configuration**
-
-```bash
-# Linux (ufw)
-sudo ufw allow 5432/tcp
-
-# Windows Firewall (PowerShell as Administrator)
-New-NetFirewallRule -DisplayName "PostgreSQL Replication" -Direction Inbound -Protocol TCP -LocalPort 5432 -Action Allow
-```
 
 #### Subscriber Setup (Remote Replica)
 
