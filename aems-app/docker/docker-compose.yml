@@ -452,7 +452,7 @@ services:
     depends_on:
       certs:
         condition: service_completed_successfully
-      grafana-db:
+      historian-db:
         condition: service_started
     env_file:
       - .env.grafana
@@ -495,20 +495,20 @@ services:
       - grafana-cache:/var/lib/grafana
       - certs-data:/etc/certs/:ro
 
-  # Grafana database
-  grafana-db:
-    container_name: ${COMPOSE_PROJECT_NAME}-grafana-db
+  # Historian database
+  historian-db:
+    container_name: ${COMPOSE_PROJECT_NAME}-historian-db
     env_file:
-      - .env.grafana
-    hostname: grafana-db
+      - .env.historian
+    hostname: historian-db
     image: postgres:16-alpine
     ports:
-      - ${GRAFANA_DATABASE_TEST_PORT}:5432
+      - ${HISTORIAN_REPLICATION_PORT}:5432
     profiles:
-      - grafana
+      - volttron
     restart: unless-stopped
     volumes:
-      - grafana-data:/var/lib/postgresql/data
+      - historian-data:/var/lib/postgresql/data
 
   # Creates Volttron configurations on startup
   volttron-setup:
@@ -593,5 +593,5 @@ volumes:
     driver: local
   grafana-cache:
     driver: local
-  grafana-data:
+  historian-data:
     driver: local

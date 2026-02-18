@@ -85,15 +85,15 @@ weather_air_temperature = air_temperature
 EOF
 
     # Add PostgreSQL-DB section if variables are provided
-    if [[ -n "${GRAFANA_DB_HOST}" && -n "${GRAFANA_DB_NAME}" ]]; then
+    if [[ -n "${HISTORIAN_DB_HOST}" && -n "${HISTORIAN_DB_NAME}" ]]; then
         cat >> "${config_file}" << EOF
 
 [PostgreSQL-DB]
-host = ${GRAFANA_DB_HOST}
-port = ${GRAFANA_DB_PORT:-5432}
-dbname = ${GRAFANA_DB_NAME}
-user = ${GRAFANA_DB_USER}
-password = ${GRAFANA_DB_PASSWORD}
+host = ${HISTORIAN_DB_HOST}
+port = ${HISTORIAN_DB_PORT:-5432}
+dbname = ${HISTORIAN_DB_NAME}
+user = ${HISTORIAN_DB_USER}
+password = ${HISTORIAN_DB_PASSWORD}
 EOF
         log_info "Added PostgreSQL-DB configuration"
     else
@@ -246,12 +246,12 @@ export OUTPUT_DIR=${OUTPUT_DIR:-"/home/user/setup"}
 # Legacy support for NUM_CONFIGS (use VOLTTRON_NUM_CONFIGS if available)
 NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS:-${NUM_CONFIGS:-"1"}}
 
-# Grafana DB settings
-GRAFANA_DB_NAME=${GRAFANA_DB_NAME:-""}
-GRAFANA_DB_USER=${GRAFANA_DB_USER:-""}
-GRAFANA_DB_PASSWORD=${GRAFANA_DB_PASSWORD:-""}
-GRAFANA_DB_HOST=${GRAFANA_DB_HOST:-""}
-GRAFANA_DB_PORT=${GRAFANA_DB_PORT:-""}
+# Historian DB settings
+HISTORIAN_DB_NAME=${HISTORIAN_DB_NAME:-""}
+HISTORIAN_DB_USER=${HISTORIAN_DB_USER:-""}
+HISTORIAN_DB_PASSWORD=${HISTORIAN_DB_PASSWORD:-""}
+HISTORIAN_DB_HOST=${HISTORIAN_DB_HOST:-""}
+HISTORIAN_DB_PORT=${HISTORIAN_DB_PORT:-""}
 
 # Grafana API settings
 GRAFANA_URL=${GRAFANA_URL:-""}
@@ -294,10 +294,10 @@ log_info "  Gateway Address: ${VOLTTRON_GATEWAY_ADDRESS}"
 log_info "  Timezone: ${VOLTTRON_TIMEZONE}"
 log_info "  Output Directory: ${OUTPUT_DIR}"
 log_info "  Number of Configs: ${NUM_CONFIGS}"
-log_info "  Grafana DB Name: ${GRAFANA_DB_NAME}"
-log_info "  Grafana DB User: ${GRAFANA_DB_USER}"
-log_info "  Grafana DB Host: ${GRAFANA_DB_HOST}"
-log_info "  Grafana DB Port: ${GRAFANA_DB_PORT}"
+log_info "  Historian DB Name: ${HISTORIAN_DB_NAME}"
+log_info "  Historian DB User: ${HISTORIAN_DB_USER}"
+log_info "  Historian DB Host: ${HISTORIAN_DB_HOST}"
+log_info "  Historian DB Port: ${HISTORIAN_DB_PORT}"
 
 # === GRAFANA SETUP SECTION ===
 if [[ -d "${GRAFANA_DIR}" ]]; then
@@ -342,10 +342,10 @@ if [[ -d "${GRAFANA_DIR}" ]]; then
         echo "Grafana setup completed on $(date)" > "${GRAFANA_LOCK_FILE}"
         echo "Campus: ${VOLTTRON_CAMPUS}" >> "${GRAFANA_LOCK_FILE}"
         echo "Building: ${VOLTTRON_BUILDING}" >> "${GRAFANA_LOCK_FILE}"
-        echo "Grafana DB Name: ${GRAFANA_DB_NAME}" >> "${GRAFANA_LOCK_FILE}"
-        echo "Grafana DB User: ${GRAFANA_DB_USER}" >> "${GRAFANA_LOCK_FILE}"
-        echo "Grafana DB Host: ${GRAFANA_DB_HOST}" >> "${GRAFANA_LOCK_FILE}"
-        echo "Grafana DB Port: ${GRAFANA_DB_PORT}" >> "${GRAFANA_LOCK_FILE}"
+        echo "Historian DB Name: ${HISTORIAN_DB_NAME}" >> "${GRAFANA_LOCK_FILE}"
+        echo "Historian DB User: ${HISTORIAN_DB_USER}" >> "${GRAFANA_LOCK_FILE}"
+        echo "Historian DB Host: ${HISTORIAN_DB_HOST}" >> "${GRAFANA_LOCK_FILE}"
+        echo "Historian DB Port: ${HISTORIAN_DB_PORT}" >> "${GRAFANA_LOCK_FILE}"
         
         # Add dashboard URLs file location to lock file if it exists
         if [[ -f "${URLS_SOURCE_FILE}" ]]; then
