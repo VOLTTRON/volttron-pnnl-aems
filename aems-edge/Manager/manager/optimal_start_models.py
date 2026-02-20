@@ -122,7 +122,6 @@ class OptimalStartZoneModel(ABC):
             return
         data.drop(index=data.index[0], axis=0, inplace=True)
         mode = get_operating_mode(data)
-        data = parse_df(data, mode)
         if mode == 'cooling':
             data = parse_df(data, mode)
             data.to_csv('sort1.csv')
