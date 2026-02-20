@@ -874,9 +874,15 @@ CREATE SCHEMA IF NOT EXISTS public;
 
 **3. Create Subscription**
 
-**Important:** Replace placeholders with your actual values:
-- `YOUR_PUBLISHER_HOSTNAME`: Hostname or IP of AEMS primary site
-- `YOUR_REPLICATOR_PASSWORD`: Password from `HISTORIAN_REPLICATOR_PASSWORD`
+> **⚠️ Important Connection Parameters**
+> 
+> Replace the placeholders with values from your publisher's configuration:
+> - `YOUR_PUBLISHER_HOSTNAME`: The `HOSTNAME` value from the publisher's `.env` file (e.g., your server's IP or domain name)
+> - `YOUR_HISTORIAN_REPLICATION_PORT`: The `HISTORIAN_REPLICATION_PORT` value from the publisher's `.env` file (default: **6543**, not 5432)
+> - `YOUR_REPLICATOR_PASSWORD`: The `HISTORIAN_REPLICATOR_PASSWORD` value from the publisher's `.env.secrets` file
+> - `sslmode`: 
+>   - Use `require` for **production** (enforces encrypted connection, recommended)
+>   - Use `prefer` for **internal LANs with self-signed certificates** (attempts SSL, falls back if unavailable)
 
 ```bash
 # Connect to the subscriber database
@@ -886,7 +892,7 @@ psql -U postgres -d historian
 ```sql
 -- Create the subscription
 CREATE SUBSCRIPTION historian_sub
-CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=5432 dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
+CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
 PUBLICATION historian_pub
 WITH (
     copy_data = true,           -- Copy existing data
@@ -907,6 +913,8 @@ SELECT
     latest_end_time
 FROM pg_stat_subscription;
 ```
+
+**Note:** If you receive a warning `WARNING: publication "historian_pub" does not exist on the publisher`, see the [Troubleshooting](#troubleshooting) section below for the solution.
 
 **4. Verify Replication**
 
@@ -1215,7 +1223,54 @@ ALTER SUBSCRIPTION historian_sub ENABLE;
 - **Compression**: Enable on network layer (handled by Traefik TLS)
 - **Monitoring Alerts**: Set up alerts for replication lag > threshold
 
+#### SSL Mode Considerations
+
+The `sslmode` parameter controls SSL/TLS encryption for the replication connection:
+
+**Production Deployments (`sslmode=require`):**
+- ✅ **Recommended**: Enforces encrypted connections
+- ✅ Fails immediately if SSL cannot be established
+- ✅ Protects data in transit across networks
+- ⚠️ Requires valid SSL certificates on publisher
+
+**Internal LAN with Self-Signed Certificates (`sslmode=prefer`):**
+- ⚠️ **Use for**: Internal networks with self-signed certificates
+- ⚠️ Attempts SSL first, falls back to unencrypted if SSL fails
+- ⚠️ Less secure than `require` but more flexible for development/internal use
+- ✅ Useful when subscriber has certificate validation issues
+
+**Example using `prefer` for self-signed certificates:**
+```sql
+CREATE SUBSCRIPTION historian_sub
+CONNECTION 'host=172.31.32.1 port=6543 dbname=historian user=replicator password=your_password sslmode=prefer'
+PUBLICATION historian_pub
+WITH (
+    copy_data = true,
+    create_slot = true,
+    enabled = true,
+    slot_name = 'historian_sub_slot'
+);
+```
+
 #### Troubleshooting
+
+**Publication Does Not Exist:**
+
+If you receive: `WARNING: publication "historian_pub" does not exist on the publisher`
+
+**Cause:** The publication is created automatically during initial database setup. If your historian database existed before replication support was added, the initialization script was never executed.
+
+**Solution:**
+```bash
+# Verify if publication exists on publisher
+docker exec -it aems-historian psql -U historian -d historian -c "SELECT * FROM pg_publication;"
+
+# If missing, create it manually
+docker exec -it aems-historian psql -U historian -d historian -c "CREATE PUBLICATION historian_pub FOR ALL TABLES;"
+
+# Verify the subscription is now working
+psql -U postgres -d historian -c "SELECT * FROM pg_stat_subscription WHERE subname = 'historian_sub';"
+```
 
 **Connection Issues:**
 
