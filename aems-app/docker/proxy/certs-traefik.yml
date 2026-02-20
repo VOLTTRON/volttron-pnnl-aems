@@ -5,4 +5,9 @@ tls:
       stores:
         - default
   stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/certs/mkcert-local.crt
+        keyFile: /etc/certs/mkcert-local.key
+  options:
     default: {}

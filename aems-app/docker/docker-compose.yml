@@ -12,6 +12,8 @@ services:
       - --entrypoints.websecure.http.tls.certresolver=${CERT_RESOLVER}
       - --entrypoints.historian.address=:${HISTORIAN_REPLICATION_PORT}
       - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.filename=/etc/traefik/dynamic.yml
+      - --providers.file.watch=true
       - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
       - --certificatesresolvers.letsencrypt.acme.email=${ADMIN_EMAIL}
       - --certificatesresolvers.letsencrypt.acme.storage=/etc/certs/letsencrypt.json
@@ -41,6 +43,7 @@ services:
       - ./proxy/certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
       - ./proxy/historian-tcp.yml:/etc/traefik/dynamic/historian-tcp.yml
       - ./proxy/volttron-transport.yml:/etc/traefik/dynamic/volttron-transport.yml
+      - ./proxy/dynamic.yml:/etc/traefik/dynamic.yml:ro
 
   # Application that hosts static files and API
   client:
@@ -500,18 +503,30 @@ services:
 
   # Historian database
   historian:
+    build:
+      context: ./historian
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
     container_name: ${COMPOSE_PROJECT_NAME}-historian
+    depends_on:
+      certs:
+        condition: service_completed_successfully
     env_file:
       - .env.historian
     hostname: historian
-    image: postgres:16-alpine
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/historian:${TAG}
     ports:
-      - ${HISTORIAN_REPLICATION_PORT}:5432
+      - ${HISTORIAN_DB_PORT}:5432
+      - ${HISTORIAN_TEST_PORT}:5432
     profiles:
       - volttron
     restart: unless-stopped
     volumes:
       - historian-data:/var/lib/postgresql/data
+      - certs-data:/etc/certs/:ro
 
   # Creates Volttron configurations on startup
   volttron-setup:

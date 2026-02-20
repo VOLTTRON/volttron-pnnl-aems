@@ -29,19 +29,8 @@ RUN set -eux; \
     ; \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*;
 
-# Copy custom initialization scripts into the image so they run at first DB init
-COPY ./ /docker-entrypoint-initdb.d/
+# Copy PostGIS initialization script
+COPY postgis.sh /docker-entrypoint-initdb.d/postgis.sh
 
-# Copy PostgreSQL configuration files
-COPY postgresql.conf /etc/postgresql/postgresql.conf
-COPY pg_hba.conf /etc/postgresql/pg_hba.conf
-
-# Ensure all shell scripts are readable and executable by all users
-# This is necessary because PostgreSQL runs the init scripts as the postgres user
-RUN chmod 755 /docker-entrypoint-initdb.d/*.sh && \
-    chmod 644 /etc/postgresql/postgresql.conf && \
-    chmod 644 /etc/postgresql/pg_hba.conf && \
-    ls -la /docker-entrypoint-initdb.d/
-
-# Set PostgreSQL to use custom configuration
-CMD ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
+# Ensure script is executable
+RUN chmod 755 /docker-entrypoint-initdb.d/postgis.sh

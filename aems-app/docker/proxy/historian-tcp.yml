@@ -10,10 +10,10 @@ tcp:
       # Route to the historian PostgreSQL service
       rule: "HostSNI(`*`)"
       service: historian-tcp
-      # Enable TLS for encrypted connections
+      # Enable TLS passthrough - Traefik forwards encrypted traffic to PostgreSQL
+      # PostgreSQL handles its own TLS using mounted certificates
       tls:
-        passthrough: false
-        certResolver: ${CERT_RESOLVER}
+        passthrough: true
 
   services:
     historian-tcp:
