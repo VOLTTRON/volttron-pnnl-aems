@@ -38,6 +38,13 @@ Error = float
 TimeDiff = float
 TempDiff = float
 
+ZONE_TEMP = dfpts.zonetemperature.value
+COOLING_SETPOINT = dfpts.coolingsetpoint.value
+HEATING_SETPOINT = dfpts.heatingsetpoint.value
+TEMP_DIFF = dfpts.tempdiff.value
+CONDITIONING = dfpts.conditioning.value
+TIME_DIFF = 'timediff'
+
 
 def clean_array(array: list) -> list:
     """
@@ -52,45 +59,56 @@ def clean_array(array: list) -> list:
         if len(array) > 3:
             u = np.mean(array_values)
             s = np.std(array_values)
-            if np.isfinite(u) and np.isfinite(s):
-                array = [e for e in array if (u - 2.0 * s <= e[1] <= u + 2.0 * s)]
+            # if np.isfinite(u) and np.isfinite(s):
+            #     array = [e for e in array if (u - 2.0 * s <= e[1] <= u + 2.0 * s)]
     except Exception as ex:
         _log.debug(f'Array parser error: {array} -- ex: {ex}')
     return array
 
 
-def parse_df(df: pd.DataFrame, condition: str) -> pd.DataFrame:
+def parse_df(df: pd.DataFrame, condition: Literal["heating", "cooling"]) -> pd.DataFrame:
     """
-    Based on the mode (heating, cooling) this function determines the deviation
-    of the zone temperature from the setpoint during the pre-conditioning period and
-    eliminates data where the RTU has acheived the desired setpoint.
-
-    :param df: The input data dataframe
-    :type df: pd.DataFrame
-    :param condition: heating or cooling
-    :type condition: str
-    :return: A new dataframe with the data filtered based on the condition
-    :rtype: pd.DataFrame
+    Filters and processes the dataframe based on the specified condition ('cooling' or 'heating').
+    Eliminates data where the RTU has achieved the setpoint and filters further based on time differences.
+    :param df: The input dataframe to process
+    :param condition: The operating mode, either 'cooling' or 'heating'
+    :return: Filtered dataframe
     """
-
     if condition not in ['heating', 'cooling']:
         return pd.DataFrame()
 
-    if condition == 'cooling':
-        data_sort = df[df[dfpts.zonetemperature.value] <= df[dfpts.coolingsetpoint.value]]
-        df[dfpts.tempdiff.value] = df[dfpts.zonetemperature.value] - df[dfpts.coolingsetpoint.value]
-    else:
-        data_sort = df[df[dfpts.zonetemperature.value] >= df[dfpts.heatingsetpoint.value]]
-        df[dfpts.tempdiff.value] = df[dfpts.heatingsetpoint.value] - df[dfpts.zonetemperature.value]
-    df[dfpts.conditioning.value] = df[condition].rolling(window=10).mean().fillna(value=1, inplace=False)
-    data_sort_mode = df[df[dfpts.conditioning.value] == 0]
-    if not data_sort.empty:
-        idx = data_sort.index[0]
-        df = df.loc[:idx]
-    if not data_sort_mode.empty:
-        idx = data_sort_mode.index[0]
-        df = df.loc[:idx]
+    # Filter rows and calculate temperature differences
+    def _filter_by_condition(df: pd.DataFrame, condition: Literal["heating", "cooling"]) -> pd.DataFrame:
+        if condition == 'cooling':
+            filtered = df[df[ZONE_TEMP] <= df[COOLING_SETPOINT]]
+            df[TEMP_DIFF] = df[ZONE_TEMP] - df[COOLING_SETPOINT]
+        else:  # condition =df= 'heating'
+            filtered = df[df[ZONE_TEMP] >= df[HEATING_SETPOINT]]
+            df[TEMP_DIFF] = df[HEATING_SETPOINT] - df[ZONE_TEMP]
+        return filtered
+
+    filtered_temp = _filter_by_condition(df, condition)
+
+    # Calculate rolling mean for conditioning
+    df[CONDITIONING] = df[condition].rolling(window=10).mean().fillna(1)
+
+    # Filter where conditioning equals 0
+    filtered_conditioning = df[df[CONDITIONING] == 0]
+
+    # Calculate time differences and filter for differences > 10 minutes
+    df[TIME_DIFF] = df.index.to_series().diff()
+    time_in_excess = df[df[TIME_DIFF] >= pd.Timedelta(minutes=10)]
+
+    # Update dataframe with the smallest valid index
+    for filter_df in [filtered_temp, filtered_conditioning, time_in_excess]:
+        if not filter_df.empty:
+            stop_label = filter_df.index[0]
+            stop_position = df.index.get_loc(stop_label)
+            df = df.iloc[:stop_position]
+
+    # Filter final dataframe based on the condition being active
     df = df[df[condition] > 0]
+    df = df.resample('1min').mean()
     return df
 
 

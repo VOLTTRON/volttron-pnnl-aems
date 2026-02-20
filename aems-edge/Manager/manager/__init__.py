@@ -133,7 +133,7 @@ class OptimalStartConfig:
     earliest_start_time: int
     allowable_setpoint_deviation: float
     optimal_start_lockout_temperature: float = 30
-    training_period_window: int = 10
+    training_period_window: int = 8
 
 
 @dataclass

@@ -278,7 +278,7 @@ class OptimalStartManager:
         """
         models = {}
         if weekend:
-            config.training_period_window = 5
+            config.training_period_window = 4
         for name, cls in MODELS.items():
             tag = '_'.join([name, 'we']) if weekend else name
             obj = cls(config, self.config.get_current_day_schedule)
