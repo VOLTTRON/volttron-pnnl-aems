@@ -10,7 +10,10 @@ services:
       - --entrypoints.websecure.address=:443
       - --entrypoints.websecure.http.tls=true
       - --entrypoints.websecure.http.tls.certresolver=${CERT_RESOLVER}
+      - --entrypoints.historian.address=:${HISTORIAN_REPLICATION_PORT}
       - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.filename=/etc/traefik/dynamic.yml
+      - --providers.file.watch=true
       - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
       - --certificatesresolvers.letsencrypt.acme.email=${ADMIN_EMAIL}
       - --certificatesresolvers.letsencrypt.acme.storage=/etc/certs/letsencrypt.json
@@ -28,6 +31,7 @@ services:
     ports:
       - 80:80
       - 443:443
+      - ${HISTORIAN_REPLICATION_PORT}:${HISTORIAN_REPLICATION_PORT}
       - ${TRAEFIK_TEST_PORT}:8080
     profiles:
       - proxy
@@ -37,7 +41,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - certs-data:/etc/certs/
       - ./proxy/certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
+      - ./proxy/historian-tcp.yml:/etc/traefik/dynamic/historian-tcp.yml
       - ./proxy/volttron-transport.yml:/etc/traefik/dynamic/volttron-transport.yml
+      - ./proxy/dynamic.yml:/etc/traefik/dynamic.yml:ro
 
   # Application that hosts static files and API
   client:
@@ -452,7 +458,7 @@ services:
     depends_on:
       certs:
         condition: service_completed_successfully
-      grafana-db:
+      historian:
         condition: service_started
     env_file:
       - .env.grafana
@@ -495,20 +501,32 @@ services:
       - grafana-cache:/var/lib/grafana
       - certs-data:/etc/certs/:ro
 
-  # Grafana database
-  grafana-db:
-    container_name: ${COMPOSE_PROJECT_NAME}-grafana-db
+  # Historian database
+  historian:
+    build:
+      context: ./historian
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+    container_name: ${COMPOSE_PROJECT_NAME}-historian
+    depends_on:
+      certs:
+        condition: service_completed_successfully
     env_file:
-      - .env.grafana
-    hostname: grafana-db
-    image: postgres:16-alpine
+      - .env.historian
+    hostname: historian
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/historian:${TAG}
     ports:
-      - ${GRAFANA_DATABASE_TEST_PORT}:5432
+      - ${HISTORIAN_DB_PORT}:5432
+      - ${HISTORIAN_TEST_PORT}:5432
     profiles:
-      - grafana
+      - volttron
     restart: unless-stopped
     volumes:
-      - grafana-data:/var/lib/postgresql/data
+      - historian-data:/var/lib/postgresql/data
+      - certs-data:/etc/certs/:ro
 
   # Creates Volttron configurations on startup
   volttron-setup:
@@ -593,5 +611,5 @@ volumes:
     driver: local
   grafana-cache:
     driver: local
-  grafana-data:
+  historian-data:
     driver: local

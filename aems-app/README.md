@@ -59,6 +59,7 @@
   - [Keycloak Authentication (optional)](#keycloak-authentication-optional)
   - [Nominatim (optional)](#nominatim-optional)
   - [Open Street Map Tiles (optional)](#open-street-map-tiles-optional)
+  - [Historian Database Replication](#historian-database-replication)
   - [Configuration](#configuration)
   - [TLS (SSL/HTTPS)](#tls-sslhttps)
   - [Docker Compose](#docker-compose)
@@ -762,6 +763,602 @@ docker run -it --rm -v $pwd/docker/map:/data ghcr.io/systemed/tilemaker:master /
 ```
 
 > <b>Note: </b> If using Mapbox-GL it must remain at version 1.x to utilize open-source license. MapLibre is the preferred library since it is a maintained fork of the 1.x branch and is open source. The OSM contribution message must also remain on the displayed map.
+
+### Historian Database Replication
+
+The AEMS historian database can be replicated to remote offsite locations for backup, disaster recovery, and read scaling. The replication system uses PostgreSQL logical replication with TLS encryption via Traefik.
+
+#### Overview
+
+**Key Features:**
+- 🔒 Secure TLS-encrypted connections through Traefik proxy
+- 📡 Real-time logical replication to offsite locations
+- 🎯 Selective table replication support
+- 🔧 Automated publisher configuration
+- 📊 Comprehensive monitoring capabilities
+- 🔄 Version-compatible across PostgreSQL 16+ versions
+
+**Architecture:**
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                    AEMS Primary Site                       │
+│                                                            │
+│  ┌──────────────┐      ┌──────────────┐      ┌──────────┐  │
+│  │  VOLTTRON    │────▶│  Historian   │◀─────│ Grafana  │  │
+│  │    Agent     │      │  Database    │      │          │  │
+│  └──────────────┘      │  (Publisher) │      └──────────┘  │
+│                        └──────┬───────┘                    │
+│                               │                            │
+│                        ┌──────▼───────┐                    │
+│                        │   Traefik    │                    │
+│                        │  TCP Proxy   │                    │
+│                        │  (TLS/SSL)   │                    │
+│                        └──────┬───────┘                    │
+└───────────────────────────────┼────────────────────────────┘
+                                │
+                     TLS Encrypted Connection
+                       (Port 5432 by default)
+                                │
+┌───────────────────────────────▼────────────────────────────┐
+│                    Remote Offsite Location                 │
+│                                                            │
+│                        ┌──────────────┐                    │
+│                        │  Historian   │                    │
+│                        │  Database    │                    │
+│                        │ (Subscriber) │                    │
+│                        └──────────────┘                    │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+```
+
+#### Prerequisites
+
+**Publisher (AEMS Primary Site):**
+- ✅ AEMS application running with Docker Compose
+- ✅ Traefik proxy enabled (`proxy` profile)
+- ✅ Historian database container running (`volttron` profile)
+- ✅ Port 5432 accessible from subscriber location
+- ✅ Firewall configured to allow incoming connections
+
+**Subscriber (Remote Site):**
+- ✅ PostgreSQL 16+ installed
+- ✅ Network connectivity to publisher
+- ✅ Sufficient disk space for replicated data
+- ✅ Root/admin access for database configuration
+
+#### Publisher Setup (Primary Database)
+
+The publisher configuration is **automatically handled** when you start the AEMS application.
+
+#### Subscriber Setup (Remote Replica)
+
+Follow these steps on the remote site to configure the subscriber database.
+
+**1. Install PostgreSQL**
+
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install postgresql-16 postgresql-client-16
+
+# Red Hat/CentOS
+sudo dnf install postgresql16-server postgresql16
+
+# macOS (Homebrew)
+brew install postgresql@16
+
+# Windows - Download from https://www.postgresql.org/download/windows/
+```
+
+**2. Create Subscriber Database**
+
+```bash
+# Connect as postgres superuser
+sudo -u postgres psql
+```
+
+```sql
+-- Create the historian database
+CREATE DATABASE historian;
+
+-- Connect to it
+\c historian
+
+-- Create necessary schemas
+CREATE SCHEMA IF NOT EXISTS public;
+
+-- Exit
+\q
+```
+
+**3. Create Subscription**
+
+> **⚠️ Important Connection Parameters**
+> 
+> Replace the placeholders with values from your publisher's configuration:
+> - `YOUR_PUBLISHER_HOSTNAME`: The `HOSTNAME` value from the publisher's `.env` file (e.g., your server's IP or domain name)
+> - `YOUR_HISTORIAN_REPLICATION_PORT`: The `HISTORIAN_REPLICATION_PORT` value from the publisher's `.env` file (default: **6543**, not 5432)
+> - `YOUR_REPLICATOR_PASSWORD`: The `HISTORIAN_REPLICATOR_PASSWORD` value from the publisher's `.env.secrets` file
+> - `sslmode`: 
+>   - Use `require` for **production** (enforces encrypted connection, recommended)
+>   - Use `prefer` for **internal LANs with self-signed certificates** (attempts SSL, falls back if unavailable)
+
+```bash
+# Connect to the subscriber database
+psql -U postgres -d historian
+```
+
+```sql
+-- Create the subscription
+CREATE SUBSCRIPTION historian_sub
+CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
+PUBLICATION historian_pub
+WITH (
+    copy_data = true,           -- Copy existing data
+    create_slot = true,         -- Create replication slot
+    enabled = true,             -- Enable immediately
+    slot_name = 'historian_sub_slot'
+);
+
+-- Verify subscription was created
+SELECT * FROM pg_subscription WHERE subname = 'historian_sub';
+
+-- Check subscription status
+SELECT 
+    subname AS subscription_name,
+    pid AS worker_pid,
+    received_lsn,
+    latest_end_lsn,
+    latest_end_time
+FROM pg_stat_subscription;
+```
+
+**Note:** If you receive a warning `WARNING: publication "historian_pub" does not exist on the publisher`, see the [Troubleshooting](#troubleshooting) section below for the solution.
+
+**4. Verify Replication**
+
+Wait a few moments for initial synchronization, then verify:
+
+```sql
+-- List all tables (should match publisher)
+\dt
+
+-- Check table row counts
+SELECT 
+    schemaname,
+    tablename,
+    n_live_tup AS row_count
+FROM pg_stat_user_tables
+ORDER BY n_live_tup DESC;
+
+-- Monitor replication lag
+SELECT 
+    subname,
+    status,
+    received_lsn,
+    latest_end_lsn,
+    latest_end_time,
+    latest_end_time - now() AS replication_lag
+FROM pg_stat_subscription;
+```
+
+#### Security Configuration
+
+**Publisher Security Layers:**
+
+1. **Host-Based Authentication** (`pg_hba.conf`)
+   - Requires SSL for replication connections
+   - Uses SCRAM-SHA-256 authentication
+   - Historian user explicitly denied from external networks
+   - Replicator user can ONLY use replication protocol, not regular database connections
+   - Can restrict by specific IP addresses
+
+2. **Traefik TLS Termination**
+   - All connections encrypted with TLS 1.2+
+   - Automatic certificate management
+   - Supports Let's Encrypt for public certificates
+
+3. **User Account Lockdown**
+   - Replication user has SELECT-only access
+   - Cannot modify or delete data
+   - No superuser, createdb, or createrole privileges
+   - NOINHERIT flag prevents privilege escalation
+   - Limited to replication protocol connections only
+   
+4. **Network Isolation**
+   - Historian user restricted to Docker internal network (172.16.0.0/12)
+   - Explicit denial rules prevent external access
+   - Replicator user cannot establish regular database sessions
+
+**Restricting Subscriber IP Address:**
+
+To allow only specific IP addresses:
+
+```bash
+# Edit pg_hba.conf
+nano docker/database/pg_hba.conf
+```
+
+Add your subscriber's IP:
+
+```conf
+# Allow specific subscriber IP
+hostssl replication     replicator      203.0.113.45/32         scram-sha-256
+```
+
+Then rebuild:
+
+```bash
+docker compose build historian
+docker compose up -d historian
+```
+
+**Certificate Management for Production:**
+
+```bash
+# Update .env for Let's Encrypt
+CERT_RESOLVER=letsencrypt
+ADMIN_EMAIL=your.email@example.com
+HOSTNAME=your-domain.com
+
+# Restart to obtain certificates
+docker compose down
+docker compose up -d
+```
+
+#### Monitoring & Maintenance
+
+**Monitor Replication on Publisher:**
+
+```sql
+-- Connect to publisher
+docker exec -it aems-historian psql -U historian -d historian
+
+-- Check active replication connections
+SELECT 
+    client_addr,
+    state,
+    sent_lsn,
+    write_lsn,
+    flush_lsn,
+    replay_lsn,
+    sync_state
+FROM pg_stat_replication;
+
+-- Check replication slots
+SELECT 
+    slot_name,
+    plugin,
+    slot_type,
+    active,
+    restart_lsn
+FROM pg_replication_slots;
+
+-- View WAL disk usage
+SELECT 
+    pg_size_pretty(sum(size)) AS wal_size
+FROM pg_ls_waldir();
+```
+
+**Monitor Replication on Subscriber:**
+
+```sql
+-- Connect to subscriber
+psql -U postgres -d historian
+
+-- Check subscription status
+SELECT 
+    subname,
+    subenabled,
+    subfailover,
+    substream
+FROM pg_subscription;
+
+-- Monitor replication lag
+SELECT 
+    subname AS subscription_name,
+    latest_end_lsn,
+    latest_end_time,
+    NOW() - latest_end_time AS replication_lag
+FROM pg_stat_subscription;
+
+-- Pause replication (if needed for maintenance)
+ALTER SUBSCRIPTION historian_sub DISABLE;
+
+-- Resume replication
+ALTER SUBSCRIPTION historian_sub ENABLE;
+
+-- Refresh subscription (re-sync tables if needed)
+ALTER SUBSCRIPTION historian_sub REFRESH PUBLICATION;
+```
+
+#### Performance & Load Management
+
+PostgreSQL logical replication does not automatically throttle based on server or network load. Here's how to manage replication performance during catch-up scenarios:
+
+**Understanding Replication Load:**
+
+When a subscriber reconnects after downtime or during initial sync, it may need to catch up on a large backlog of changes. This can impact:
+- **Publisher CPU/Disk I/O**: Reading and sending WAL data
+- **Subscriber CPU/Disk I/O**: Applying changes
+- **Network Bandwidth**: Transferring data between sites
+- **Application Performance**: Competing for resources
+
+**Configuration Options:**
+
+The following parameters in `postgresql.conf` control replication behavior:
+
+```conf
+# Balance speed vs. load - default settings provided
+max_sync_workers_per_subscription = 2   # Parallel workers (2-4 for balance)
+max_logical_replication_workers = 4     # Total workers across all subscriptions
+checkpoint_completion_target = 0.9      # Spread I/O over 90% of checkpoint interval
+checkpoint_timeout = 5min               # Checkpoint frequency
+```
+
+**Tuning Recommendations:**
+
+1. **For Faster Catch-Up (Higher Load):**
+   ```conf
+   max_sync_workers_per_subscription = 4
+   max_logical_replication_workers = 8
+   checkpoint_timeout = 3min
+   ```
+
+2. **For Lower Load (Slower Catch-Up):**
+   ```conf
+   max_sync_workers_per_subscription = 1
+   max_logical_replication_workers = 2
+   checkpoint_timeout = 10min
+   ```
+
+3. **Network Bandwidth Limiting:**
+   
+   PostgreSQL doesn't have built-in bandwidth throttling. Use OS-level tools:
+   
+   ```bash
+   # Linux - limit bandwidth with tc (traffic control)
+   # Limit to 10 Mbps for PostgreSQL port
+   tc qdisc add dev eth0 root tbf rate 10mbit burst 32kbit latency 400ms
+   
+   # Or use iptables rate limiting
+   iptables -A OUTPUT -p tcp --dport 5432 -m limit --limit 1000/s -j ACCEPT
+   ```
+
+**Monitoring During Catch-Up:**
+
+```sql
+-- On Publisher: Check replication lag and throughput
+SELECT 
+    client_addr,
+    state,
+    sent_lsn,
+    write_lsn,
+    pg_wal_lsn_diff(sent_lsn, write_lsn) AS lag_bytes,
+    pg_size_pretty(pg_wal_lsn_diff(sent_lsn, write_lsn)) AS lag_size,
+    backend_start,
+    NOW() - backend_start AS connection_duration
+FROM pg_stat_replication;
+
+-- On Subscriber: Monitor apply rate
+SELECT 
+    subname,
+    latest_end_time,
+    NOW() - latest_end_time AS replication_lag,
+    received_lsn,
+    latest_end_lsn
+FROM pg_stat_subscription;
+
+-- Check table sync progress
+SELECT 
+    subname,
+    relname,
+    srsubstate AS sync_state,
+    CASE srsubstate
+        WHEN 'i' THEN 'Initializing'
+        WHEN 'd' THEN 'Data is being copied'
+        WHEN 's' THEN 'Synchronized'
+        WHEN 'r' THEN 'Ready'
+    END AS state_description
+FROM pg_subscription_rel psr
+JOIN pg_subscription ps ON ps.oid = psr.srsubid
+JOIN pg_class pc ON pc.oid = psr.srrelid;
+```
+
+**Best Practices for Large Catch-Ups:**
+
+1. **Schedule During Off-Peak Hours:**
+   - Enable replication during low-traffic periods
+   - Temporarily pause application writes if possible
+
+2. **Incremental Sync Strategy:**
+   ```sql
+   -- Disable subscription temporarily
+   ALTER SUBSCRIPTION historian_sub DISABLE;
+   
+   -- Perform maintenance/optimization
+   VACUUM ANALYZE;
+   
+   -- Re-enable when ready
+   ALTER SUBSCRIPTION historian_sub ENABLE;
+   ```
+
+3. **Monitor System Resources:**
+   ```bash
+   # Publisher server monitoring
+   docker stats aems-historian
+   
+   # Watch I/O load
+   iostat -x 2
+   
+   # Network throughput
+   iftop -i eth0
+   ```
+
+4. **Pre-allocate Disk Space:**
+   - Ensure subscriber has sufficient free space
+   - Monitor with: `df -h` or `SELECT pg_database_size('historian');`
+
+5. **Consider WAL Archiving:**
+   - For very large catch-ups, consider using base backups + WAL replay
+   - Reduces load on publisher by using archived WAL files
+
+**Emergency Load Reduction:**
+
+If replication is impacting production:
+
+```sql
+-- On Subscriber: Temporarily pause replication
+ALTER SUBSCRIPTION historian_sub DISABLE;
+
+-- Resume when load decreases
+ALTER SUBSCRIPTION historian_sub ENABLE;
+```
+
+**Long-Term Optimization:**
+
+- **Partition Large Tables**: Reduces initial sync time
+- **Selective Replication**: Only replicate necessary tables
+- **Compression**: Enable on network layer (handled by Traefik TLS)
+- **Monitoring Alerts**: Set up alerts for replication lag > threshold
+
+#### SSL Mode Considerations
+
+The `sslmode` parameter controls SSL/TLS encryption for the replication connection:
+
+**Production Deployments (`sslmode=require`):**
+- ✅ **Recommended**: Enforces encrypted connections
+- ✅ Fails immediately if SSL cannot be established
+- ✅ Protects data in transit across networks
+- ⚠️ Requires valid SSL certificates on publisher
+
+**Internal LAN with Self-Signed Certificates (`sslmode=prefer`):**
+- ⚠️ **Use for**: Internal networks with self-signed certificates
+- ⚠️ Attempts SSL first, falls back to unencrypted if SSL fails
+- ⚠️ Less secure than `require` but more flexible for development/internal use
+- ✅ Useful when subscriber has certificate validation issues
+
+**Example using `prefer` for self-signed certificates:**
+```sql
+CREATE SUBSCRIPTION historian_sub
+CONNECTION 'host=172.31.32.1 port=6543 dbname=historian user=replicator password=your_password sslmode=prefer'
+PUBLICATION historian_pub
+WITH (
+    copy_data = true,
+    create_slot = true,
+    enabled = true,
+    slot_name = 'historian_sub_slot'
+);
+```
+
+#### Troubleshooting
+
+**Publication Does Not Exist:**
+
+If you receive: `WARNING: publication "historian_pub" does not exist on the publisher`
+
+**Cause:** The publication is created automatically during initial database setup. If your historian database existed before replication support was added, the initialization script was never executed.
+
+**Solution:**
+```bash
+# Verify if publication exists on publisher
+docker exec -it aems-historian psql -U historian -d historian -c "SELECT * FROM pg_publication;"
+
+# If missing, create it manually
+docker exec -it aems-historian psql -U historian -d historian -c "CREATE PUBLICATION historian_pub FOR ALL TABLES;"
+
+# Verify the subscription is now working
+psql -U postgres -d historian -c "SELECT * FROM pg_stat_subscription WHERE subname = 'historian_sub';"
+```
+
+**Connection Issues:**
+
+```bash
+# Test network connectivity
+telnet YOUR_PUBLISHER_HOSTNAME 5432
+
+# Check Traefik is running
+docker ps | grep proxy
+
+# Verify firewall rules
+sudo ufw status  # Linux
+Get-NetFirewallRule | Where-Object {$_.LocalPort -eq 5432}  # Windows
+
+# Check Traefik logs
+docker logs aems-proxy
+```
+
+**Authentication Failures:**
+
+```bash
+# Verify replicator user exists
+docker exec -it aems-historian psql -U historian -d historian -c "SELECT usename FROM pg_user WHERE usename = 'replicator';"
+
+# Check pg_hba.conf
+docker exec -it aems-historian cat /etc/postgresql/pg_hba.conf
+```
+
+**Solution:**
+1. Ensure `HISTORIAN_REPLICATOR_PASSWORD` is set in `.env.secrets`
+2. Verify password matches in subscription connection string
+3. Check `pg_hba.conf` has correct authentication method
+
+**Replication Lag:**
+
+```sql
+-- On subscriber, check lag
+SELECT 
+    subname,
+    NOW() - latest_end_time AS lag
+FROM pg_stat_subscription;
+```
+
+**Solutions:**
+1. Check network bandwidth and latency
+2. Verify subscriber has sufficient CPU and disk I/O
+3. Check for long-running transactions on publisher
+
+**Subscription Not Syncing:**
+
+```sql
+-- Check subscription worker status
+SELECT 
+    subname,
+    pid,
+    leader_pid,
+    relid
+FROM pg_stat_subscription_rel;
+```
+
+**Solutions:**
+1. Check publisher logs: `docker logs aems-historian`
+2. Check subscriber PostgreSQL logs
+3. Verify tables exist on subscriber
+
+**Replication Slot Not Released:**
+
+```sql
+-- On publisher, check slot status
+SELECT 
+    slot_name,
+    active,
+    restart_lsn,
+    pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS retained_wal
+FROM pg_replication_slots;
+```
+
+**Solution (if subscriber disconnected permanently):**
+
+```sql
+-- On subscriber:
+DROP SUBSCRIPTION historian_sub;
+
+-- On publisher:
+SELECT pg_drop_replication_slot('historian_sub_slot');
+
+-- Then recreate subscription on subscriber
+```
 
 ### Configuration
 

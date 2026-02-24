@@ -132,12 +132,12 @@ SITE_JSON="${OUTPUT_DIR}/site.json"
 # Legacy support for NUM_CONFIGS (use VOLTTRON_NUM_CONFIGS if available)
 NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS:-${NUM_CONFIGS:-"1"}}
 
-# Grafana DB settings for Volttron config generation (optional)
-GRAFANA_DB_NAME=${GRAFANA_DB_NAME:-""}
-GRAFANA_DB_USER=${GRAFANA_DB_USER:-""}
-GRAFANA_DB_PASSWORD=${GRAFANA_DB_PASSWORD:-""}
-GRAFANA_DB_HOST=${GRAFANA_DB_HOST:-""}
-GRAFANA_DB_PORT=${GRAFANA_DB_PORT:-""}
+# Historian DB settings for Volttron config generation (optional)
+HISTORIAN_DB_NAME=${HISTORIAN_DB_NAME:-""}
+HISTORIAN_DB_USER=${HISTORIAN_DB_USER:-""}
+HISTORIAN_DB_PASSWORD=${HISTORIAN_DB_PASSWORD:-""}
+HISTORIAN_DB_HOST=${HISTORIAN_DB_HOST:-""}
+HISTORIAN_DB_PORT=${HISTORIAN_DB_PORT:-""}
 
 # Base directories
 BASE_DIR="/home/user/configurations"
@@ -302,26 +302,26 @@ if [[ -n "${VOLTTRON_METER_PREFIX}" ]]; then
     GENERATE_CMD="${GENERATE_CMD} --meter-prefix \"${VOLTTRON_METER_PREFIX}\""
 fi
 
-# Add Grafana DB arguments if they are provided
-if [[ -n "${GRAFANA_DB_NAME}" ]]; then
-    GENERATE_CMD="${GENERATE_CMD} --db-name \"${GRAFANA_DB_NAME}\""
+# Add Historian DB arguments if they are provided
+if [[ -n "${HISTORIAN_DB_NAME}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --db-name \"${HISTORIAN_DB_NAME}\""
 fi
-if [[ -n "${GRAFANA_DB_USER}" ]]; then
-    GENERATE_CMD="${GENERATE_CMD} --db-user \"${GRAFANA_DB_USER}\""
+if [[ -n "${HISTORIAN_DB_USER}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --db-user \"${HISTORIAN_DB_USER}\""
 fi
-if [[ -n "${GRAFANA_DB_PASSWORD}" ]]; then
-    GENERATE_CMD="${GENERATE_CMD} --db-password \"${GRAFANA_DB_PASSWORD}\""
+if [[ -n "${HISTORIAN_DB_PASSWORD}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --db-password \"${HISTORIAN_DB_PASSWORD}\""
 fi
-if [[ -n "${GRAFANA_DB_HOST}" ]]; then
-    GENERATE_CMD="${GENERATE_CMD} --db-address \"${GRAFANA_DB_HOST}\""
+if [[ -n "${HISTORIAN_DB_HOST}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --db-address \"${HISTORIAN_DB_HOST}\""
 fi
-if [[ -n "${GRAFANA_DB_PORT}" ]]; then
-    GENERATE_CMD="${GENERATE_CMD} --db-port \"${GRAFANA_DB_PORT}\""
+if [[ -n "${HISTORIAN_DB_PORT}" ]]; then
+    GENERATE_CMD="${GENERATE_CMD} --db-port \"${HISTORIAN_DB_PORT}\""
 fi
 
 # Log the command, obfuscating the password
 LOG_CMD=${GENERATE_CMD}
-if [[ -n "${GRAFANA_DB_PASSWORD}" ]]; then
+if [[ -n "${HISTORIAN_DB_PASSWORD}" ]]; then
     LOG_CMD=$(echo "${GENERATE_CMD}" | sed -e "s/--db-password \"[^\"]*\"/--db-password \"\*\*\*\"/")
 fi
 log_info "Command: ${LOG_CMD}"
