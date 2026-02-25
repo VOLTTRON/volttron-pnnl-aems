@@ -53,9 +53,10 @@ services:
 
 volumes:
   # Reference existing grafana-db data volume
+  # Note: The actual volume name on production is aems_grafana-data
   grafana-db-data:
     external: true
-    name: ${COMPOSE_PROJECT_NAME:-aems-app}_grafana-db-data
+    name: aems_grafana-data
   
   # Reference existing certs volume from main compose
   certs-data:
