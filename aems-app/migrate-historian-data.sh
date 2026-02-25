@@ -229,19 +229,43 @@ SOURCE_DATA_COUNT=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "
 if [ -z "$SOURCE_TOPICS_COUNT" ] || [ -z "$SOURCE_DATA_COUNT" ]; then
     log_warning "Cannot query source database - attempting to fix pg_hba.conf authentication..."
     
-    # Backup and update pg_hba.conf to allow md5 authentication
-    docker exec "$SOURCE_CONTAINER" bash -c "cp /var/lib/postgresql/data/pg_hba.conf /var/lib/postgresql/data/pg_hba.conf.backup 2>/dev/null || true"
-    docker exec "$SOURCE_CONTAINER" bash -c "echo '# Added by migration script for database access' >> /var/lib/postgresql/data/pg_hba.conf"
-    docker exec "$SOURCE_CONTAINER" bash -c "echo 'local all all md5' >> /var/lib/postgresql/data/pg_hba.conf"
-    docker exec "$SOURCE_CONTAINER" bash -c "echo 'host all all all md5' >> /var/lib/postgresql/data/pg_hba.conf"
+    # Detect the actual pg_hba.conf location used by PostgreSQL
+    log_info "Detecting pg_hba.conf location..."
+    HBA_FILE=$(docker exec "$SOURCE_CONTAINER" sh -c "ps aux | grep postgres | grep 'hba_file=' | sed 's/.*hba_file=\([^ ]*\).*/\1/' | head -1")
     
-    # Reload PostgreSQL configuration
-    log_info "Reloading PostgreSQL configuration..."
-    docker exec "$SOURCE_CONTAINER" psql -U postgres -c "SELECT pg_reload_conf();" 2>/dev/null || \
-        docker exec "$SOURCE_CONTAINER" pg_ctl reload -D /var/lib/postgresql/data 2>/dev/null || true
+    if [ -z "$HBA_FILE" ]; then
+        # Fallback to default location
+        HBA_FILE="/var/lib/postgresql/data/pg_hba.conf"
+        log_info "Using default location: $HBA_FILE"
+    else
+        log_info "Detected location: $HBA_FILE"
+    fi
     
-    # Wait a moment for reload to take effect
-    sleep 2
+    # Backup the original file
+    docker exec "$SOURCE_CONTAINER" sh -c "cp '$HBA_FILE' '${HBA_FILE}.backup' 2>/dev/null || true"
+    
+    # Prepend md5 authentication rules to the TOP of the file (takes precedence over existing rules)
+    log_info "Adding md5 authentication rules to pg_hba.conf..."
+    docker exec "$SOURCE_CONTAINER" sh -c "sed -i '1i# ==== Added by migration script for database access ====' '$HBA_FILE'"
+    docker exec "$SOURCE_CONTAINER" sh -c "sed -i '2ilocal all all md5' '$HBA_FILE'"
+    docker exec "$SOURCE_CONTAINER" sh -c "sed -i '3ihost all all all md5' '$HBA_FILE'"
+    docker exec "$SOURCE_CONTAINER" sh -c "sed -i '4i# ====================================================' '$HBA_FILE'"
+    
+    # Restart the container to apply changes (more reliable than reload)
+    log_info "Restarting container to apply pg_hba.conf changes..."
+    docker compose -f docker-compose.grafana-db.yml restart grafana-db >> "$LOG_FILE" 2>&1
+    
+    # Wait for PostgreSQL to be ready
+    log_info "Waiting for PostgreSQL to be ready..."
+    sleep 5
+    
+    # Wait for the database to accept connections
+    for i in {1..30}; do
+        if docker exec "$SOURCE_CONTAINER" pg_isready -U "$SOURCE_USER" -d "$SOURCE_DB" > /dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
     
     # Retry the query
     log_info "Retrying database query..."
