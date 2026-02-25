@@ -24,10 +24,16 @@ NC='\033[0m' # No Color
 
 # Load environment variables from .env file if it exists
 if [ -f ".env" ]; then
-    # Export variables from .env file
-    set -a
-    source .env
-    set +a
+    # Read .env file line by line to properly handle spaces and special characters
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Skip comments and blank lines
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$line" ]] && continue
+        # Export valid variable assignments (VAR=value format)
+        if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)= ]]; then
+            export "$line"
+        fi
+    done < .env
 fi
 
 # Configuration
