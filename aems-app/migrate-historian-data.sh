@@ -5,6 +5,13 @@
 #
 # Migrates data from legacy grafana-db to historian database
 # Provides full visibility and control over the migration process
+#
+# PREREQUISITES:
+# 1. Start the temporary grafana-db service:
+#    docker compose -f docker-compose.grafana-db.yml up -d
+# 2. Ensure historian service is running:
+#    cd docker && docker compose up -d historian
+# 3. Run this script from the aems-app directory
 
 set -e
 
@@ -15,13 +22,21 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Load environment variables from .env file if it exists
+if [ -f ".env" ]; then
+    # Export variables from .env file
+    set -a
+    source .env
+    set +a
+fi
+
 # Configuration
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-aems-app}"
 SOURCE_CONTAINER="${SOURCE_CONTAINER:-${COMPOSE_PROJECT_NAME}-grafana-db}"
 TARGET_CONTAINER="${TARGET_CONTAINER:-${COMPOSE_PROJECT_NAME}-historian}"
-SOURCE_DB="${SOURCE_DB:-historian}"
+SOURCE_DB="${SOURCE_DB:-grafana}"
 TARGET_DB="${TARGET_DB:-historian}"
-SOURCE_USER="${SOURCE_USER:-historian}"
+SOURCE_USER="${SOURCE_USER:-postgres}"
 TARGET_USER="${TARGET_USER:-historian}"
 LOG_FILE="migration-$(date +%Y%m%d-%H%M%S).log"
 DRY_RUN=false
@@ -53,6 +68,12 @@ Usage: ./migrate-historian-data.sh [OPTIONS]
 
 Migrates historian time-series data from legacy grafana-db to historian database.
 
+PREREQUISITES:
+  Before running this script, you must start the temporary grafana-db service:
+    docker compose -f docker-compose.grafana-db.yml up -d
+
+  Ensure the historian service is also running in the main docker-compose.yml.
+
 Options:
     --source CONTAINER      Source container name (default: ${COMPOSE_PROJECT_NAME}-grafana-db)
     --target CONTAINER      Target container name (default: ${COMPOSE_PROJECT_NAME}-historian)
@@ -63,8 +84,10 @@ Options:
     --help                  Show this help message
 
 Examples:
-    # Run migration with defaults
+    # Full migration workflow
+    docker compose -f docker-compose.grafana-db.yml up -d
     ./migrate-historian-data.sh
+    docker compose -f docker-compose.grafana-db.yml down
 
     # Verify state without migrating
     ./migrate-historian-data.sh --verify-only
@@ -72,8 +95,12 @@ Examples:
     # Dry run to see what would happen
     ./migrate-historian-data.sh --dry-run
 
-    # Custom container names
+    # Custom container names (if needed)
     ./migrate-historian-data.sh --source my-old-db --target my-new-db
+
+AFTER MIGRATION:
+  Once migration is complete and verified, stop the temporary service:
+    docker compose -f docker-compose.grafana-db.yml down
 
 EOF
 }
@@ -189,12 +216,39 @@ echo ""
 log_info "Getting source database statistics..."
 
 # Get source record counts
-SOURCE_TOPICS_COUNT=$(docker exec "$SOURCE_CONTAINER" psql -U "$SOURCE_USER" -d "$SOURCE_DB" -t -c "SELECT COUNT(*) FROM topics;" 2>/dev/null | xargs)
-SOURCE_DATA_COUNT=$(docker exec "$SOURCE_CONTAINER" psql -U "$SOURCE_USER" -d "$SOURCE_DB" -t -c "SELECT COUNT(*) FROM data;" 2>/dev/null | xargs)
+SOURCE_TOPICS_COUNT=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$SOURCE_CONTAINER" psql -U "$SOURCE_USER" -d "$SOURCE_DB" -t -c "SELECT COUNT(*) FROM topics;" 2>/dev/null | xargs)
+SOURCE_DATA_COUNT=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$SOURCE_CONTAINER" psql -U "$SOURCE_USER" -d "$SOURCE_DB" -t -c "SELECT COUNT(*) FROM data;" 2>/dev/null | xargs)
 
+# If query failed, try to fix pg_hba.conf
 if [ -z "$SOURCE_TOPICS_COUNT" ] || [ -z "$SOURCE_DATA_COUNT" ]; then
-    log_error "Failed to query source database"
-    exit 1
+    log_warning "Cannot query source database - attempting to fix pg_hba.conf authentication..."
+    
+    # Backup and update pg_hba.conf to allow md5 authentication
+    docker exec "$SOURCE_CONTAINER" bash -c "cp /var/lib/postgresql/data/pg_hba.conf /var/lib/postgresql/data/pg_hba.conf.backup 2>/dev/null || true"
+    docker exec "$SOURCE_CONTAINER" bash -c "echo '# Added by migration script for database access' >> /var/lib/postgresql/data/pg_hba.conf"
+    docker exec "$SOURCE_CONTAINER" bash -c "echo 'local all all md5' >> /var/lib/postgresql/data/pg_hba.conf"
+    docker exec "$SOURCE_CONTAINER" bash -c "echo 'host all all all md5' >> /var/lib/postgresql/data/pg_hba.conf"
+    
+    # Reload PostgreSQL configuration
+    log_info "Reloading PostgreSQL configuration..."
+    docker exec "$SOURCE_CONTAINER" psql -U postgres -c "SELECT pg_reload_conf();" 2>/dev/null || \
+        docker exec "$SOURCE_CONTAINER" pg_ctl reload -D /var/lib/postgresql/data 2>/dev/null || true
+    
+    # Wait a moment for reload to take effect
+    sleep 2
+    
+    # Retry the query
+    log_info "Retrying database query..."
+    SOURCE_TOPICS_COUNT=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$SOURCE_CONTAINER" psql -U "$SOURCE_USER" -d "$SOURCE_DB" -t -c "SELECT COUNT(*) FROM topics;" 2>/dev/null | xargs)
+    SOURCE_DATA_COUNT=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$SOURCE_CONTAINER" psql -U "$SOURCE_USER" -d "$SOURCE_DB" -t -c "SELECT COUNT(*) FROM data;" 2>/dev/null | xargs)
+    
+    if [ -z "$SOURCE_TOPICS_COUNT" ] || [ -z "$SOURCE_DATA_COUNT" ]; then
+        log_error "Still cannot query source database after pg_hba.conf fix"
+        log_error "Please check the log file for details: $LOG_FILE"
+        exit 1
+    fi
+    
+    log_success "pg_hba.conf fixed - database is now accessible"
 fi
 
 log_info "Source database:"
@@ -212,8 +266,8 @@ if [ "$SOURCE_TOPICS_COUNT" -eq 0 ] || [ "$SOURCE_DATA_COUNT" -eq 0 ]; then
 fi
 
 # Get source data time range
-SOURCE_MIN_TS=$(docker exec "$SOURCE_CONTAINER" psql -U "$SOURCE_USER" -d "$SOURCE_DB" -t -c "SELECT MIN(ts) FROM data;" 2>/dev/null | xargs)
-SOURCE_MAX_TS=$(docker exec "$SOURCE_CONTAINER" psql -U "$SOURCE_USER" -d "$SOURCE_DB" -t -c "SELECT MAX(ts) FROM data;" 2>/dev/null | xargs)
+SOURCE_MIN_TS=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$SOURCE_CONTAINER" psql -U "$SOURCE_USER" -d "$SOURCE_DB" -t -c "SELECT MIN(ts) FROM data;" 2>/dev/null | xargs)
+SOURCE_MAX_TS=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$SOURCE_CONTAINER" psql -U "$SOURCE_USER" -d "$SOURCE_DB" -t -c "SELECT MAX(ts) FROM data;" 2>/dev/null | xargs)
 
 if [ -n "$SOURCE_MIN_TS" ] && [ -n "$SOURCE_MAX_TS" ]; then
     log_info "  Time range: $SOURCE_MIN_TS to $SOURCE_MAX_TS"
@@ -223,8 +277,8 @@ echo ""
 log_info "Getting target database statistics..."
 
 # Get target record counts
-TARGET_TOPICS_COUNT=$(docker exec "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "SELECT COUNT(*) FROM topics;" 2>/dev/null | xargs || echo "0")
-TARGET_DATA_COUNT=$(docker exec "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "SELECT COUNT(*) FROM data;" 2>/dev/null | xargs || echo "0")
+TARGET_TOPICS_COUNT=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "SELECT COUNT(*) FROM topics;" 2>/dev/null | xargs || echo "0")
+TARGET_DATA_COUNT=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "SELECT COUNT(*) FROM data;" 2>/dev/null | xargs || echo "0")
 
 log_info "Target database:"
 log_info "  Topics: $TARGET_TOPICS_COUNT"
@@ -279,7 +333,7 @@ trap cleanup EXIT
 
 # Step 1: Export from source
 log_info "Step 1/3: Exporting data from source database..."
-if docker exec "$SOURCE_CONTAINER" pg_dump -U "$SOURCE_USER" -d "$SOURCE_DB" \
+if docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$SOURCE_CONTAINER" pg_dump -U "$SOURCE_USER" -d "$SOURCE_DB" \
     --table=topics --table=data \
     --data-only \
     --inserts \
@@ -297,7 +351,7 @@ fi
 log_info "Step 2/3: Preparing target database..."
 
 # Create tables if they don't exist
-docker exec "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" > /dev/null 2>> "$LOG_FILE" << 'EOF'
+docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" > /dev/null 2>> "$LOG_FILE" << 'EOF'
 -- Create tables if they don't exist
 CREATE TABLE IF NOT EXISTS topics (
     topic_id SERIAL PRIMARY KEY,
@@ -336,7 +390,7 @@ sed -i 's/INSERT INTO data VALUES/INSERT INTO data VALUES ON CONFLICT (ts, topic
     sed -i '' 's/INSERT INTO data VALUES/INSERT INTO data VALUES ON CONFLICT (ts, topic_id) DO NOTHING /g' "$DUMP_FILE"
 
 # Import data
-if cat "$DUMP_FILE" | docker exec -i "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" > /dev/null 2>> "$LOG_FILE"; then
+if cat "$DUMP_FILE" | docker exec -i -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" > /dev/null 2>> "$LOG_FILE"; then
     log_success "Import completed"
 else
     log_error "Import failed - check log file for details"
@@ -348,8 +402,8 @@ echo ""
 log_info "Verifying migration..."
 
 # Get final target counts
-FINAL_TOPICS_COUNT=$(docker exec "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "SELECT COUNT(*) FROM topics;" 2>/dev/null | xargs)
-FINAL_DATA_COUNT=$(docker exec "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "SELECT COUNT(*) FROM data;" 2>/dev/null | xargs)
+FINAL_TOPICS_COUNT=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "SELECT COUNT(*) FROM topics;" 2>/dev/null | xargs)
+FINAL_DATA_COUNT=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "SELECT COUNT(*) FROM data;" 2>/dev/null | xargs)
 
 TOPICS_INSERTED=$((FINAL_TOPICS_COUNT - TARGET_TOPICS_COUNT))
 DATA_INSERTED=$((FINAL_DATA_COUNT - TARGET_DATA_COUNT))
@@ -370,7 +424,7 @@ fi
 
 # Optimize target database
 log_info "Optimizing target database..."
-docker exec "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -c "ANALYZE topics; ANALYZE data;" > /dev/null 2>> "$LOG_FILE"
+docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -c "ANALYZE topics; ANALYZE data;" > /dev/null 2>> "$LOG_FILE"
 log_success "Database optimized"
 
 # Final summary

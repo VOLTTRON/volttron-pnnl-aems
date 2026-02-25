@@ -1,0 +1,63 @@
+# Temporary Docker Compose file for grafana-db service
+# Used for data migration from legacy grafana-db to historian
+#
+# Usage:
+#   docker compose -f docker-compose.grafana-db.yml up -d
+#   ./migrate-historian-data.sh
+#   docker compose -f docker-compose.grafana-db.yml down
+
+services:
+  # Legacy grafana-db service for data migration
+  grafana-db:
+    build:
+      context: ./docker/historian
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+    container_name: ${COMPOSE_PROJECT_NAME:-aems-app}-grafana-db
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+    environment:
+      - POSTGRES_DB=grafana
+      - POSTGRES_USER=grafana
+      - POSTGRES_PASSWORD=${HISTORIAN_DATABASE_PASSWORD}
+    hostname: grafana-db
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME:-aems-app}/historian:${TAG:-latest}
+    ports:
+      - 5433:5432
+    restart: unless-stopped
+    volumes:
+      - grafana-db-data:/var/lib/postgresql/data
+      - certs-data:/etc/certs/:ro
+
+  # Reuse certs service from main compose file
+  certs:
+    build:
+      context: ./docker/certs
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+        - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+    container_name: ${COMPOSE_PROJECT_NAME:-aems-app}-certs
+    env_file:
+      - ./docker/.env.certs
+    hostname: certs
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME:-aems-app}/certs:${TAG:-latest}
+    volumes:
+      - certs-data:/etc/certs/
+
+volumes:
+  # Reference existing grafana-db data volume
+  grafana-db-data:
+    external: true
+    name: ${COMPOSE_PROJECT_NAME:-aems-app}_grafana-db-data
+  
+  # Reference existing certs volume from main compose
+  certs-data:
+    external: true
+    name: ${COMPOSE_PROJECT_NAME:-aems-app}_certs-data
