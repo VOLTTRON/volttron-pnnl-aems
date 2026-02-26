@@ -853,6 +853,39 @@ class GrafanaAPI:
             logging.error(f"Failed to get datasources: {e}")
             return []
     
+    def delete_datasource_by_uid(self, datasource_uid):
+        """
+        Delete a datasource by UID
+        
+        Args:
+            datasource_uid: Datasource UID to delete
+        
+        Returns:
+            tuple: (success, message)
+        """
+        try:
+            response = requests.delete(
+                f'{self.url}/api/datasources/uid/{datasource_uid}',
+                auth=self.auth,
+                headers=self.headers,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                return True, "Datasource deleted successfully"
+            else:
+                error_msg = response.text
+                try:
+                    error_json = response.json()
+                    error_msg = error_json.get('message', error_msg)
+                except:
+                    pass
+                return False, f"Failed to delete: {error_msg}"
+                
+        except Exception as e:
+            return False, f"Exception: {str(e)}"
+    
     def create_datasource(self, datasource_config):
         """
         Create a new datasource in Grafana
@@ -1543,73 +1576,78 @@ def main():
         if grafana_api.test_connection():
             logging.info("Connected to Grafana")
             
-            # List available datasources and auto-select PostgreSQL
+            # List available datasources and delete any existing PostgreSQL datasources
             datasources = grafana_api.get_datasources()
-            postgres_ds = None
             
             if datasources:
                 postgres_ds_list = [ds for ds in datasources if ds.get('type') == 'postgres']
                 if postgres_ds_list:
-                    postgres_ds = postgres_ds_list[0]
+                    logging.info(f"Found {len(postgres_ds_list)} existing PostgreSQL datasource(s), deleting them...")
+                    for postgres_ds in postgres_ds_list:
+                        ds_uid = postgres_ds.get('uid')
+                        ds_name = postgres_ds.get('name')
+                        if ds_uid:
+                            logging.info(f"Deleting datasource: {ds_name} (UID: {ds_uid})")
+                            delete_success, delete_msg = grafana_api.delete_datasource_by_uid(ds_uid)
+                            if delete_success:
+                                logging.info(f"Successfully deleted datasource: {ds_name}")
+                            else:
+                                logging.warning(f"Failed to delete datasource {ds_name}: {delete_msg}")
             
-            # If no PostgreSQL datasource found, create one
-            if not postgres_ds:
-                logging.info("No PostgreSQL datasource found, creating one...")
-                
-                # Check if PostgreSQL DB config exists
-                if 'PostgreSQL-DB' not in config:
-                    logging.error("No PostgreSQL-DB configuration found in config.ini")
-                    print("\nERROR: Missing PostgreSQL database configuration")
-                    print("Please add [PostgreSQL-DB] section to config.ini with:")
-                    print("  dbname = your_database_name")
-                    print("  user = your_database_user")
-                    print("  password = your_database_password")
-                    return
-                
-                db_config = config['PostgreSQL-DB']
-                
-                # Get database connection details
-                db_host = db_config.get('host', 'localhost')
-                db_port = db_config.get('port', '5432')
-                db_name = db_config.get('dbname', 'grafana')
-                db_user = db_config.get('user', 'grafana')
-                db_password = db_config.get('password', '')
-                
-                # Create PostgreSQL datasource configuration
-                datasource_config = {
-                    "name": "PostgreSQL",
-                    "type": "postgres",
-                    "access": "proxy",
-                    "url": f"{db_host}:{db_port}",
-                    "database": db_name,
-                    "user": db_user,
-                    "secureJsonData": {
-                        "password": db_password
-                    },
-                    "jsonData": {
-                        "sslmode": "disable",
-                        "postgresVersion": 1300,
-                        "timescaledb": False
-                    },
-                    "isDefault": True
-                }
-                
-                success, message, data = grafana_api.create_datasource(datasource_config)
-                
-                if success:
-                    datasource_uid = data.get('datasource', {}).get('uid')
-                    logging.info(f"PostgreSQL datasource created successfully")
-                    logging.info(f"Name: {datasource_config['name']}")
-                    logging.info(f"UID: {datasource_uid}")
-                else:
-                    logging.error(f"Failed to create datasource: {message}")
-                    print(f"\nERROR: Could not create PostgreSQL datasource: {message}")
-                    return
-            else:
-                # Auto-select existing PostgreSQL datasource
-                datasource_uid = postgres_ds.get('uid')
-                logging.info(f"Auto-selected PostgreSQL datasource: {postgres_ds.get('name')}")
+            # Now create a new PostgreSQL datasource with current config
+            logging.info("Creating new PostgreSQL datasource with current configuration...")
+            
+            # Check if PostgreSQL DB config exists
+            if 'PostgreSQL-DB' not in config:
+                logging.error("No PostgreSQL-DB configuration found in config.ini")
+                print("\nERROR: Missing PostgreSQL database configuration")
+                print("Please add [PostgreSQL-DB] section to config.ini with:")
+                print("  dbname = your_database_name")
+                print("  user = your_database_user")
+                print("  password = your_database_password")
+                return
+            
+            db_config = config['PostgreSQL-DB']
+            
+            # Get database connection details
+            db_host = db_config.get('host', 'localhost')
+            db_port = db_config.get('port', '5432')
+            db_name = db_config.get('dbname', 'historian')
+            db_user = db_config.get('user', 'historian')
+            db_password = db_config.get('password', '')
+            
+            # Create PostgreSQL datasource configuration
+            datasource_config = {
+                "name": "PostgreSQL",
+                "type": "postgres",
+                "access": "proxy",
+                "url": f"{db_host}:{db_port}",
+                "database": db_name,
+                "user": db_user,
+                "secureJsonData": {
+                    "password": db_password
+                },
+                "jsonData": {
+                    "sslmode": "disable",
+                    "postgresVersion": 1300,
+                    "timescaledb": False
+                },
+                "isDefault": True
+            }
+            
+            success, message, data = grafana_api.create_datasource(datasource_config)
+            
+            if success:
+                datasource_uid = data.get('datasource', {}).get('uid')
+                logging.info(f"PostgreSQL datasource created successfully")
+                logging.info(f"Name: {datasource_config['name']}")
+                logging.info(f"Host: {db_host}")
+                logging.info(f"Database: {db_name}")
                 logging.info(f"UID: {datasource_uid}")
+            else:
+                logging.error(f"Failed to create datasource: {message}")
+                print(f"\nERROR: Could not create PostgreSQL datasource: {message}")
+                return
             
             # Auto-select General folder (ID: 0)
             folders = grafana_api.get_folders()
