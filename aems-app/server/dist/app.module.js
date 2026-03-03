@@ -23,6 +23,7 @@ const framework_module_1 = require("./auth/framework.module");
 const middleware_module_1 = require("./middleware/middleware.module");
 const change_module_1 = require("./change/change.module");
 const keycloak_module_1 = require("./keycloak/keycloak.module");
+const historian_module_1 = require("./historian/historian.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -31,6 +32,7 @@ exports.AppModule = AppModule = __decorate([
         imports: [
             api_module_1.ApiModule,
             auth_module_1.AuthModule,
+            historian_module_1.HistorianModule,
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
                 expandVariables: true,

@@ -3,6 +3,7 @@ import { BaseContext } from "@apollo/server";
 import { LogType, FeedbackStatus } from "@prisma/client";
 import { PubSubEngine } from "graphql-subscriptions";
 import "@local/prisma";
+import { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, HistorianMultiUnitData } from "@/historian/historian.types";
 export interface PubSubEngineExt extends PubSubEngine {
     publish<T extends SubscriptionTopic>(topic: T | `${T}/${string}`, payload: SubscriptionEvent<T>): Promise<void>;
     subscribe<T extends SubscriptionTopic>(topic: T | `${T}/${string}`, onMessage: (event: SubscriptionEvent<T>) => Promise<void> | void, options: object): Promise<number>;
@@ -124,6 +125,26 @@ export type Scalars = {
     OccupancyGroupBy: {
         Input: PrismaJson.OccupancyGroupBy;
         Output: PrismaJson.OccupancyGroupBy;
+    };
+    HistorianDataPoint: {
+        Input: HistorianDataPoint;
+        Output: HistorianDataPoint;
+    };
+    HistorianTimeSeries: {
+        Input: HistorianTimeSeries;
+        Output: HistorianTimeSeries;
+    };
+    HistorianAggregate: {
+        Input: HistorianAggregate;
+        Output: HistorianAggregate;
+    };
+    HistorianMetricCurrent: {
+        Input: HistorianMetricCurrent;
+        Output: HistorianMetricCurrent;
+    };
+    HistorianMultiUnitData: {
+        Input: HistorianMultiUnitData;
+        Output: HistorianMultiUnitData;
     };
 };
 export interface Aggregate<T extends string> {

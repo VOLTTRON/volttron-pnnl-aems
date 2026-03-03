@@ -1,0 +1,41 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.HistorianObject = void 0;
+const common_1 = require("@nestjs/common");
+const builder_service_1 = require("../builder.service");
+const pothos_decorator_1 = require("../pothos.decorator");
+const historian_types_1 = require("../../historian/historian.types");
+const graphql_1 = require("graphql");
+let HistorianObject = class HistorianObject {
+    constructor(builder) {
+        this.AggregationType = builder.enumType(historian_types_1.AggregationType, {
+            name: "AggregationType",
+            description: "Type of aggregation to apply to historian data",
+        });
+        this.CalculationType = builder.enumType(historian_types_1.CalculationType, {
+            name: "CalculationType",
+            description: "Type of calculation to perform on historian data",
+        });
+        this.HistorianDataPoint = builder.addScalarType("HistorianDataPoint", new graphql_1.GraphQLScalarType({ name: "HistorianDataPoint" }));
+        this.HistorianTimeSeries = builder.addScalarType("HistorianTimeSeries", new graphql_1.GraphQLScalarType({ name: "HistorianTimeSeries" }));
+        this.HistorianAggregate = builder.addScalarType("HistorianAggregate", new graphql_1.GraphQLScalarType({ name: "HistorianAggregate" }));
+        this.HistorianMetricCurrent = builder.addScalarType("HistorianMetricCurrent", new graphql_1.GraphQLScalarType({ name: "HistorianMetricCurrent" }));
+        this.HistorianMultiUnitData = builder.addScalarType("HistorianMultiUnitData", new graphql_1.GraphQLScalarType({ name: "HistorianMultiUnitData" }));
+    }
+};
+exports.HistorianObject = HistorianObject;
+exports.HistorianObject = HistorianObject = __decorate([
+    (0, common_1.Injectable)(),
+    (0, pothos_decorator_1.PothosObject)(),
+    __metadata("design:paramtypes", [builder_service_1.SchemaBuilderService])
+], HistorianObject);
+//# sourceMappingURL=object.service.js.map

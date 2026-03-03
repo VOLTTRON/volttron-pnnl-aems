@@ -14,11 +14,13 @@ import { FrameworkModule } from "./auth/framework.module";
 import { MiddlewareModule } from "@/middleware/middleware.module";
 import { ChangeModule } from "./change/change.module";
 import { KeycloakSyncModule } from "./keycloak/keycloak.module";
+import { HistorianModule } from "./historian/historian.module";
 
 @Module({
   imports: [
     ApiModule,
     AuthModule,
+    HistorianModule,
     ConfigModule.forRoot({
       isGlobal: true,
       expandVariables: true,

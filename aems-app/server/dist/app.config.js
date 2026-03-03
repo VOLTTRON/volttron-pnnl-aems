@@ -140,6 +140,14 @@ class AppConfigService {
             username: process.env.DATABASE_USERNAME ?? "",
             password: process.env.DATABASE_PASSWORD ?? "",
         };
+        this.historian = {
+            url: process.env.HISTORIAN_DATABASE_URL || undefined,
+            host: process.env.HISTORIAN_HOST ?? "historian",
+            port: parseInt(process.env.HISTORIAN_PORT ?? "5432"),
+            name: process.env.HISTORIAN_NAME ?? "historian",
+            username: process.env.HISTORIAN_USER ?? "historian",
+            password: process.env.HISTORIAN_PASSWORD ?? "",
+        };
         this.ext = Object.entries(process.env)
             .filter(([key]) => key.startsWith("EXT_") && ["_PATH", "_ROLE", "_AUTHORIZED", "_UNAUTHORIZED"].find((k) => key.endsWith(k)))
             .reduce((acc, [key, value]) => {
