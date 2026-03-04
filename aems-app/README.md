@@ -851,7 +851,9 @@ brew install postgresql@16
 # Windows - Download from https://www.postgresql.org/download/windows/
 ```
 
-**2. Create Subscriber Database**
+**2. Create Subscriber Database and Tables**
+
+The subscriber database must have the same table structures as the publisher before creating the subscription.
 
 ```bash
 # Connect as postgres superuser
@@ -868,9 +870,39 @@ CREATE DATABASE historian;
 -- Create necessary schemas
 CREATE SCHEMA IF NOT EXISTS public;
 
+-- Create topics table with primary key
+CREATE TABLE IF NOT EXISTS topics (
+    topic_id SERIAL PRIMARY KEY,
+    topic_name VARCHAR(512) NOT NULL UNIQUE,
+    metadata TEXT
+);
+
+-- Create data table with PRIMARY KEY (REQUIRED for replication)
+-- The primary key is essential for logical replication to work with UPDATE operations
+CREATE TABLE IF NOT EXISTS data (
+    ts TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    topic_id INTEGER NOT NULL,
+    value_string TEXT NOT NULL,
+    PRIMARY KEY (topic_id, ts)
+);
+
+-- Create index for timestamp queries
+CREATE INDEX IF NOT EXISTS idx_data ON data(ts);
+
+-- Verify tables were created correctly
+\dt
+
+-- Verify primary keys exist
+SELECT tc.table_name, kcu.column_name 
+FROM information_schema.table_constraints tc 
+JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name 
+WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_name IN ('data', 'topics');
+
 -- Exit
 \q
 ```
+
+**Important:** The `data` table MUST have a primary key on `(topic_id, ts)` for replication to work. Without it, UPDATE operations will fail with "cannot update table because it does not have a replica identity" errors.
 
 **3. Create Subscription**
 
@@ -1359,6 +1391,120 @@ SELECT pg_drop_replication_slot('historian_sub_slot');
 
 -- Then recreate subscription on subscriber
 ```
+
+#### Cleaning Up Broken Subscriptions
+
+If subscriptions become corrupted, misconfigured, or need to be completely reset, follow these steps to clean up and recreate them.
+
+**When to Clean Up:**
+- Subscription is stuck in an error state
+- Configuration changes require subscription recreation
+- Replication slot has diverged or become invalid
+- Network/connectivity issues have corrupted subscription state
+- Switching from one publisher to another
+
+**Step 1: Remove Subscription on Subscriber**
+
+Try the standard drop method first:
+
+```bash
+# Connect to subscriber database
+psql -U postgres -d historian
+```
+
+```sql
+-- Try to drop the subscription normally
+DROP SUBSCRIPTION IF EXISTS historian_sub;
+
+-- Verify subscription is removed
+SELECT * FROM pg_subscription;
+
+-- Exit
+\q
+```
+
+**If DROP fails with connection errors**, use the direct catalog deletion method:
+
+```sql
+-- Connect to subscriber database
+psql -U postgres -d historian
+
+-- Method 1: Disable subscription first (prevents connection attempts)
+ALTER SUBSCRIPTION historian_sub DISABLE;
+DROP SUBSCRIPTION historian_sub;
+
+-- OR Method 2: Direct catalog deletion (if ALTER/DROP both fail)
+-- This removes the subscription without contacting the publisher
+DELETE FROM pg_subscription_rel WHERE srsubid = (SELECT oid FROM pg_subscription WHERE subname = 'historian_sub');
+DELETE FROM pg_subscription WHERE subname = 'historian_sub';
+
+-- Verify subscription is removed
+SELECT * FROM pg_subscription;
+
+-- Exit
+\q
+```
+
+**Note:** Direct catalog deletion should only be used when normal DROP fails due to publisher connectivity issues. This method bypasses the normal cleanup process and leaves the replication slot on the publisher, which must be manually cleaned up in Step 2.
+
+**Step 2: Clean Up Replication Slot on Publisher (if needed)**
+
+If the subscription drop didn't remove the slot automatically, clean it up manually:
+
+```bash
+# Connect to publisher historian database
+docker exec -it aems-historian psql -U historian -d historian
+```
+
+```sql
+-- Check for orphaned replication slots
+SELECT slot_name, active, pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS retained_wal
+FROM pg_replication_slots
+WHERE slot_name = 'historian_sub_slot';
+
+-- Drop the replication slot if it exists
+SELECT pg_drop_replication_slot('historian_sub_slot');
+
+-- Verify slot is removed
+SELECT * FROM pg_replication_slots;
+
+-- Exit
+\q
+```
+
+**Step 3: Recreate Subscription on Subscriber**
+
+After cleanup, recreate the subscription following the [Subscriber Setup](#subscriber-setup-remote-replica) instructions:
+
+```bash
+# Connect to subscriber
+psql -U postgres -d historian
+```
+
+```sql
+-- Recreate subscription with fresh configuration
+CREATE SUBSCRIPTION historian_sub
+CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
+PUBLICATION historian_pub
+WITH (
+    copy_data = true,
+    create_slot = true,
+    enabled = true,
+    slot_name = 'historian_sub_slot'
+);
+
+-- Verify subscription is working
+SELECT subname, subenabled, pid FROM pg_stat_subscription;
+
+-- Exit
+\q
+```
+
+**Important Notes:**
+- Dropping a subscription will delete all tracking data and require a full re-sync
+- If `copy_data = true`, all data will be copied again from the publisher
+- Ensure the publisher's replication slot is cleaned up to avoid WAL bloat
+- Monitor the initial sync progress as it may take time for large databases
 
 ### Configuration
 
