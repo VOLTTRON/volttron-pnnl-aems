@@ -26,6 +26,11 @@ export type Scalars = {
   FileGroupBy: { input: PrismaJson.FileGroupBy; output: PrismaJson.FileGroupBy; }
   GeographyGeoJson: { input: PrismaJson.GeographyGeoJson; output: PrismaJson.GeographyGeoJson; }
   GeographyGroupBy: { input: PrismaJson.GeographyGroupBy; output: PrismaJson.GeographyGroupBy; }
+  HistorianAggregate: { input: PrismaJson.HistorianAggregate; output: PrismaJson.HistorianAggregate; }
+  HistorianDataPoint: { input: PrismaJson.HistorianDataPoint; output: PrismaJson.HistorianDataPoint; }
+  HistorianMetricCurrent: { input: PrismaJson.HistorianMetricCurrent; output: PrismaJson.HistorianMetricCurrent; }
+  HistorianMultiUnitData: { input: PrismaJson.HistorianMultiUnitData; output: PrismaJson.HistorianMultiUnitData; }
+  HistorianTimeSeries: { input: PrismaJson.HistorianTimeSeries; output: PrismaJson.HistorianTimeSeries; }
   HolidayGroupBy: { input: PrismaJson.HolidayGroupBy; output: PrismaJson.HolidayGroupBy; }
   Json: { input: any; output: any; }
   LocationGroupBy: { input: PrismaJson.LocationGroupBy; output: PrismaJson.LocationGroupBy; }
@@ -146,6 +151,15 @@ export type AccountUpdateUserRelationInput = {
   disconnect?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
+/** Type of aggregation to apply to historian data */
+export enum AggregationType {
+  Avg = 'AVG',
+  Count = 'COUNT',
+  Max = 'MAX',
+  Min = 'MIN',
+  Sum = 'SUM'
+}
+
 export type Banner = {
   __typename?: 'Banner';
   createdAt?: Maybe<Scalars['DateTime']['output']>;
@@ -215,6 +229,17 @@ export type BooleanFilter = {
   equals?: InputMaybe<Scalars['Boolean']['input']>;
   not?: InputMaybe<BooleanFilter>;
 };
+
+export type CalculationOptionsInput = {
+  /** Time window for rolling calculations (e.g., '30 minutes', '1 hour') */
+  window?: InputMaybe<Scalars['String']['input']>;
+};
+
+/** Type of calculation to perform on historian data */
+export enum CalculationType {
+  RollingAverage = 'ROLLING_AVERAGE',
+  SetpointError = 'SETPOINT_ERROR'
+}
 
 export type Change = {
   __typename?: 'Change';
@@ -1781,6 +1806,16 @@ export type Query = {
   groupUnits?: Maybe<Array<Scalars['UnitGroupBy']['output']>>;
   /** Group a list of user. */
   groupUsers?: Maybe<Array<Scalars['UserGroupBy']['output']>>;
+  /** Get aggregated historian data with time grouping. Useful for downsampling and performance. */
+  historianAggregated?: Maybe<Array<Scalars['HistorianAggregate']['output']>>;
+  /** Get calculated metrics like setpoint errors or rolling averages. */
+  historianCalculated?: Maybe<Array<Scalars['HistorianDataPoint']['output']>>;
+  /** Get the current (latest) values for multiple topic patterns. Useful for gauges and stat displays. */
+  historianCurrentValues?: Maybe<Array<Scalars['HistorianMetricCurrent']['output']>>;
+  /** Get data for multiple units in a pivoted format. Useful for state timelines and comparisons. */
+  historianMultiUnit?: Maybe<Array<Scalars['HistorianMultiUnitData']['output']>>;
+  /** Get time series data for multiple topic patterns. Useful for line charts and time-based visualizations. */
+  historianTimeSeries?: Maybe<Array<Scalars['HistorianTimeSeries']['output']>>;
   /** Paginate through multiple accounts. */
   pageAccount?: Maybe<QueryPageAccountConnection>;
   /** Paginate through multiple banners. */
@@ -2094,6 +2129,59 @@ export type QueryGroupUsersArgs = {
   aggregate?: InputMaybe<UserAggregate>;
   by: Array<UserFields>;
   where?: InputMaybe<UserFilter>;
+};
+
+
+export type QueryHistorianAggregatedArgs = {
+  aggregation: AggregationType;
+  building?: InputMaybe<Scalars['String']['input']>;
+  campus?: InputMaybe<Scalars['String']['input']>;
+  endTime: Scalars['DateTime']['input'];
+  interval: Scalars['String']['input'];
+  startTime: Scalars['DateTime']['input'];
+  topicPattern: Scalars['String']['input'];
+  unit?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QueryHistorianCalculatedArgs = {
+  building?: InputMaybe<Scalars['String']['input']>;
+  calculation: CalculationType;
+  campus?: InputMaybe<Scalars['String']['input']>;
+  endTime: Scalars['DateTime']['input'];
+  options?: InputMaybe<CalculationOptionsInput>;
+  startTime: Scalars['DateTime']['input'];
+  topicPatterns: Array<Scalars['String']['input']>;
+  unit?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QueryHistorianCurrentValuesArgs = {
+  building?: InputMaybe<Scalars['String']['input']>;
+  campus?: InputMaybe<Scalars['String']['input']>;
+  topicPatterns: Array<Scalars['String']['input']>;
+  unit?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QueryHistorianMultiUnitArgs = {
+  building?: InputMaybe<Scalars['String']['input']>;
+  campus?: InputMaybe<Scalars['String']['input']>;
+  endTime: Scalars['DateTime']['input'];
+  interval?: InputMaybe<Scalars['String']['input']>;
+  startTime: Scalars['DateTime']['input'];
+  topicPattern: Scalars['String']['input'];
+  units: Array<Scalars['String']['input']>;
+};
+
+
+export type QueryHistorianTimeSeriesArgs = {
+  building?: InputMaybe<Scalars['String']['input']>;
+  campus?: InputMaybe<Scalars['String']['input']>;
+  endTime: Scalars['DateTime']['input'];
+  startTime: Scalars['DateTime']['input'];
+  topicPatterns: Array<Scalars['String']['input']>;
+  unit?: InputMaybe<Scalars['String']['input']>;
 };
 
 

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 export * from "./pothos";
+export * from "./types/historian";
 declare global {
     namespace session {
         interface SessionData {
@@ -61,6 +62,29 @@ declare global {
         };
         type UserGroupBy = Partial<Omit<Prisma.UserGroupByOutputType, "_count">> & {
             _count?: Partial<Prisma.UserGroupByOutputType["_count"]>;
+        };
+        type HistorianDataPoint = {
+            timestamp: Date;
+            value: number | null;
+            topicName: string;
+        };
+        type HistorianTimeSeries = {
+            topicName: string;
+            data: HistorianDataPoint[];
+        };
+        type HistorianAggregate = {
+            timestamp: Date;
+            value: number | null;
+            topicPattern: string;
+        };
+        type HistorianMetricCurrent = {
+            topicName: string;
+            value: number | null;
+            timestamp: Date;
+        };
+        type HistorianMultiUnitData = {
+            unit: string;
+            data: HistorianDataPoint[];
         };
     }
 }

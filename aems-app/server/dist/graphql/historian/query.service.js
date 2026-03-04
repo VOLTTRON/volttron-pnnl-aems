@@ -153,10 +153,6 @@ let HistorianQuery = class HistorianQuery {
                     required: true,
                     description: "Topic pattern with %UNIT% placeholder (e.g., 'PNNL/ROB/%UNIT%/OccupancyCommand')",
                 }),
-                units: t.arg.stringList({
-                    required: true,
-                    description: "Array of unit names to query (e.g., ['rtu01', 'rtu02', 'rtu03'])",
-                }),
                 startTime: t.arg({
                     type: builder.DateTime,
                     required: true,
@@ -176,15 +172,17 @@ let HistorianQuery = class HistorianQuery {
                 building: t.arg.string({
                     description: "Filter by building",
                 }),
+                units: t.arg.stringList({
+                    required: true,
+                    description: "Array of unit names to query (e.g., ['rtu01', 'rtu02', 'rtu03'])",
+                }),
             },
             resolve: async (_root, args, ctx, _info) => {
                 const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus ?? undefined, args.building ?? undefined, args.units);
                 if (accessControl?.isEmpty) {
                     return [];
                 }
-                const allowedUnitNames = accessControl
-                    ? accessControl.allowedUnits.map((u) => u.unit)
-                    : args.units;
+                const allowedUnitNames = accessControl ? accessControl.allowedUnits.map((u) => u.unit) : args.units;
                 const result = await historianService.getMultiUnit(args.topicPattern, allowedUnitNames, args.startTime, args.endTime, args.interval ?? undefined, args.campus ?? undefined, args.building ?? undefined);
                 return Object.entries(result).map(([unit, data]) => ({
                     unit,
@@ -247,8 +245,6 @@ exports.HistorianQuery = HistorianQuery;
 exports.HistorianQuery = HistorianQuery = __decorate([
     (0, common_1.Injectable)(),
     (0, pothos_decorator_1.PothosQuery)(),
-    __metadata("design:paramtypes", [builder_service_1.SchemaBuilderService,
-        historian_service_1.HistorianService,
-        object_service_1.HistorianObject])
+    __metadata("design:paramtypes", [builder_service_1.SchemaBuilderService, historian_service_1.HistorianService, object_service_1.HistorianObject])
 ], HistorianQuery);
 //# sourceMappingURL=query.service.js.map

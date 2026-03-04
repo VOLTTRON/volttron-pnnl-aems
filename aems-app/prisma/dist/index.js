@@ -16,6 +16,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Mutation = exports.Mode = void 0;
 __exportStar(require("./pothos"), exports);
+__exportStar(require("./types/historian"), exports);
 var Mode;
 (function (Mode) {
     Mode["Light"] = "light";
