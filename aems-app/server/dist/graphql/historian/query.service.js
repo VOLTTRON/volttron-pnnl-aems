@@ -44,8 +44,15 @@ let HistorianQuery = class HistorianQuery {
                     description: "Filter by unit",
                 }),
             },
-            resolve: async (_root, args, _ctx, _info) => {
-                return historianService.getCurrentValues(args.topicPatterns, args.campus ?? undefined, args.building ?? undefined, args.unit ?? undefined);
+            resolve: async (_root, args, ctx, _info) => {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus ?? undefined, args.building ?? undefined, args.unit ?? undefined);
+                if (accessControl?.isEmpty) {
+                    return [];
+                }
+                const { campus, building, unit } = accessControl
+                    ? accessControl.allowedUnits[0]
+                    : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+                return historianService.getCurrentValues(args.topicPatterns, campus, building, unit);
             },
         }));
         builder.queryField("historianTimeSeries", (t) => t.field({
@@ -77,8 +84,15 @@ let HistorianQuery = class HistorianQuery {
                     description: "Filter by unit",
                 }),
             },
-            resolve: async (_root, args, _ctx, _info) => {
-                return historianService.getTimeSeries(args.topicPatterns, args.startTime, args.endTime, args.campus ?? undefined, args.building ?? undefined, args.unit ?? undefined);
+            resolve: async (_root, args, ctx, _info) => {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus ?? undefined, args.building ?? undefined, args.unit ?? undefined);
+                if (accessControl?.isEmpty) {
+                    return [];
+                }
+                const { campus, building, unit } = accessControl
+                    ? accessControl.allowedUnits[0]
+                    : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+                return historianService.getTimeSeries(args.topicPatterns, args.startTime, args.endTime, campus, building, unit);
             },
         }));
         builder.queryField("historianAggregated", (t) => t.field({
@@ -119,8 +133,15 @@ let HistorianQuery = class HistorianQuery {
                     description: "Filter by unit",
                 }),
             },
-            resolve: async (_root, args, _ctx, _info) => {
-                return historianService.getAggregated(args.topicPattern, args.startTime, args.endTime, args.interval, args.aggregation, args.campus ?? undefined, args.building ?? undefined, args.unit ?? undefined);
+            resolve: async (_root, args, ctx, _info) => {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus ?? undefined, args.building ?? undefined, args.unit ?? undefined);
+                if (accessControl?.isEmpty) {
+                    return [];
+                }
+                const { campus, building, unit } = accessControl
+                    ? accessControl.allowedUnits[0]
+                    : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+                return historianService.getAggregated(args.topicPattern, args.startTime, args.endTime, args.interval, args.aggregation, campus, building, unit);
             },
         }));
         builder.queryField("historianMultiUnit", (t) => t.field({
@@ -156,8 +177,15 @@ let HistorianQuery = class HistorianQuery {
                     description: "Filter by building",
                 }),
             },
-            resolve: async (_root, args, _ctx, _info) => {
-                const result = await historianService.getMultiUnit(args.topicPattern, args.units, args.startTime, args.endTime, args.interval ?? undefined, args.campus ?? undefined, args.building ?? undefined);
+            resolve: async (_root, args, ctx, _info) => {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus ?? undefined, args.building ?? undefined, args.units);
+                if (accessControl?.isEmpty) {
+                    return [];
+                }
+                const allowedUnitNames = accessControl
+                    ? accessControl.allowedUnits.map((u) => u.unit)
+                    : args.units;
+                const result = await historianService.getMultiUnit(args.topicPattern, allowedUnitNames, args.startTime, args.endTime, args.interval ?? undefined, args.campus ?? undefined, args.building ?? undefined);
                 return Object.entries(result).map(([unit, data]) => ({
                     unit,
                     data,
@@ -202,8 +230,15 @@ let HistorianQuery = class HistorianQuery {
                     description: "Additional options for calculations",
                 }),
             },
-            resolve: async (_root, args, _ctx, _info) => {
-                return historianService.getCalculated(args.calculation, args.topicPatterns, args.startTime, args.endTime, args.campus ?? undefined, args.building ?? undefined, args.unit ?? undefined, args.options);
+            resolve: async (_root, args, ctx, _info) => {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus ?? undefined, args.building ?? undefined, args.unit ?? undefined);
+                if (accessControl?.isEmpty) {
+                    return [];
+                }
+                const { campus, building, unit } = accessControl
+                    ? accessControl.allowedUnits[0]
+                    : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+                return historianService.getCalculated(args.calculation, args.topicPatterns, args.startTime, args.endTime, campus, building, unit, args.options);
             },
         }));
     }

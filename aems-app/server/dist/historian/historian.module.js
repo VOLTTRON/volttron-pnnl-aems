@@ -9,11 +9,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.HistorianModule = void 0;
 const common_1 = require("@nestjs/common");
 const historian_service_1 = require("./historian.service");
+const prisma_module_1 = require("../prisma/prisma.module");
 let HistorianModule = class HistorianModule {
 };
 exports.HistorianModule = HistorianModule;
 exports.HistorianModule = HistorianModule = __decorate([
     (0, common_1.Module)({
+        imports: [prisma_module_1.PrismaModule],
         providers: [historian_service_1.HistorianService],
         exports: [historian_service_1.HistorianService],
     })

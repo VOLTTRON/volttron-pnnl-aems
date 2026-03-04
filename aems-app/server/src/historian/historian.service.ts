@@ -3,6 +3,7 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from "@nestjs/commo
 import { Pool, QueryResult as PgQueryResult } from "pg";
 import { Inject } from "@nestjs/common";
 import { AppConfigService } from "@/app.config";
+import { PrismaService } from "@/prisma/prisma.service";
 import {
   HistorianDataPoint,
   HistorianTimeSeries,
@@ -22,12 +23,26 @@ export {
   CalculationType,
 };
 
+export interface UnitAccess {
+  campus: string;
+  building: string;
+  unit: string;
+}
+
+export interface HistorianAccessControl {
+  allowedUnits: UnitAccess[];
+  isEmpty: boolean;
+}
+
 @Injectable()
 export class HistorianService implements OnModuleInit, OnModuleDestroy {
   private logger = new Logger(HistorianService.name);
   private pool: Pool;
 
-  constructor(@Inject(AppConfigService.Key) configService: AppConfigService) {
+  constructor(
+    @Inject(AppConfigService.Key) configService: AppConfigService,
+    private readonly prismaService: PrismaService,
+  ) {
     // Initialize PostgreSQL connection pool for historian database
     const { historian } = configService;
     
@@ -72,6 +87,77 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     await this.pool.end();
     this.logger.log("Historian database connection pool closed");
+  }
+
+  /**
+   * Filter historian query parameters based on user's unit assignments
+   * Returns filtered parameters or null if user is admin (no filtering needed)
+   */
+  async filterHistorianAccess(
+    userId: string | undefined,
+    isAdmin: boolean,
+    requestedCampus?: string,
+    requestedBuilding?: string,
+    requestedUnit?: string | string[],
+  ): Promise<HistorianAccessControl | null> {
+    // Admin bypass - full access
+    if (isAdmin) {
+      return null; // null means no filtering needed
+    }
+
+    // No user = no access
+    if (!userId) {
+      return { allowedUnits: [], isEmpty: true };
+    }
+
+    // Fetch user's assigned units with optional campus/building filtering
+    const whereClause: {
+      users: { some: { id: string } };
+      campus?: string;
+      building?: string;
+    } = {
+      users: { some: { id: userId } },
+    };
+    
+    if (requestedCampus) {
+      whereClause.campus = requestedCampus;
+    }
+    
+    if (requestedBuilding) {
+      whereClause.building = requestedBuilding;
+    }
+
+    const userUnits = await this.prismaService.prisma.unit.findMany({
+      where: whereClause,
+      select: { campus: true, building: true, name: true },
+    });
+
+    if (userUnits.length === 0) {
+      return { allowedUnits: [], isEmpty: true };
+    }
+
+    // If specific unit(s) requested, filter to only authorized ones
+    if (requestedUnit) {
+      const requestedUnits = Array.isArray(requestedUnit) ? requestedUnit : [requestedUnit];
+      const allowedUnits = userUnits
+        .filter((u) => requestedUnits.includes(u.name))
+        .map((u) => ({ campus: u.campus, building: u.building, unit: u.name }));
+
+      return {
+        allowedUnits,
+        isEmpty: allowedUnits.length === 0,
+      };
+    }
+
+    // No specific unit requested - return all authorized units for the campus/building
+    return {
+      allowedUnits: userUnits.map((u) => ({
+        campus: u.campus,
+        building: u.building,
+        unit: u.name,
+      })),
+      isEmpty: false,
+    };
   }
 
   /**

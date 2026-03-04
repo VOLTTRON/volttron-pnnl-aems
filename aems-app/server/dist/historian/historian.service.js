@@ -18,11 +18,13 @@ const common_1 = require("@nestjs/common");
 const pg_1 = require("pg");
 const common_2 = require("@nestjs/common");
 const app_config_1 = require("../app.config");
+const prisma_service_1 = require("../prisma/prisma.service");
 const historian_types_1 = require("./historian.types");
 Object.defineProperty(exports, "AggregationType", { enumerable: true, get: function () { return historian_types_1.AggregationType; } });
 Object.defineProperty(exports, "CalculationType", { enumerable: true, get: function () { return historian_types_1.CalculationType; } });
 let HistorianService = HistorianService_1 = class HistorianService {
-    constructor(configService) {
+    constructor(configService, prismaService) {
+        this.prismaService = prismaService;
         this.logger = new common_1.Logger(HistorianService_1.name);
         const { historian } = configService;
         if (historian.url) {
@@ -62,6 +64,48 @@ let HistorianService = HistorianService_1 = class HistorianService {
     async onModuleDestroy() {
         await this.pool.end();
         this.logger.log("Historian database connection pool closed");
+    }
+    async filterHistorianAccess(userId, isAdmin, requestedCampus, requestedBuilding, requestedUnit) {
+        if (isAdmin) {
+            return null;
+        }
+        if (!userId) {
+            return { allowedUnits: [], isEmpty: true };
+        }
+        const whereClause = {
+            users: { some: { id: userId } },
+        };
+        if (requestedCampus) {
+            whereClause.campus = requestedCampus;
+        }
+        if (requestedBuilding) {
+            whereClause.building = requestedBuilding;
+        }
+        const userUnits = await this.prismaService.prisma.unit.findMany({
+            where: whereClause,
+            select: { campus: true, building: true, name: true },
+        });
+        if (userUnits.length === 0) {
+            return { allowedUnits: [], isEmpty: true };
+        }
+        if (requestedUnit) {
+            const requestedUnits = Array.isArray(requestedUnit) ? requestedUnit : [requestedUnit];
+            const allowedUnits = userUnits
+                .filter((u) => requestedUnits.includes(u.name))
+                .map((u) => ({ campus: u.campus, building: u.building, unit: u.name }));
+            return {
+                allowedUnits,
+                isEmpty: allowedUnits.length === 0,
+            };
+        }
+        return {
+            allowedUnits: userUnits.map((u) => ({
+                campus: u.campus,
+                building: u.building,
+                unit: u.name,
+            })),
+            isEmpty: false,
+        };
     }
     buildTopicPattern(topicPattern, campus, building, unit) {
         let pattern = topicPattern;
@@ -362,6 +406,7 @@ exports.HistorianService = HistorianService;
 exports.HistorianService = HistorianService = HistorianService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_2.Inject)(app_config_1.AppConfigService.Key)),
-    __metadata("design:paramtypes", [app_config_1.AppConfigService])
+    __metadata("design:paramtypes", [app_config_1.AppConfigService,
+        prisma_service_1.PrismaService])
 ], HistorianService);
 //# sourceMappingURL=historian.service.js.map

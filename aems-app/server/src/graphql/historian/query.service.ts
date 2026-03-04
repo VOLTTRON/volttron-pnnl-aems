@@ -10,11 +10,7 @@ import { HistorianObject } from "./object.service";
 export class HistorianQuery {
   readonly CalculationOptionsInput;
 
-  constructor(
-    builder: SchemaBuilderService,
-    historianService: HistorianService,
-    historianObject: HistorianObject,
-  ) {
+  constructor(builder: SchemaBuilderService, historianService: HistorianService, historianObject: HistorianObject) {
     const { AggregationType: AggregationTypeEnum, CalculationType: CalculationTypeEnum } = historianObject;
 
     // Input type for calculation options
@@ -29,7 +25,8 @@ export class HistorianQuery {
     // Query: Get current (latest) values for metrics
     builder.queryField("historianCurrentValues", (t) =>
       t.field({
-        description: "Get the current (latest) values for multiple topic patterns. Useful for gauges and stat displays.",
+        description:
+          "Get the current (latest) values for multiple topic patterns. Useful for gauges and stat displays.",
         authScopes: { user: true },
         type: [historianObject.HistorianMetricCurrent],
         args: {
@@ -47,13 +44,27 @@ export class HistorianQuery {
             description: "Filter by unit",
           }),
         },
-        resolve: async (_root, args, _ctx, _info) => {
-          return historianService.getCurrentValues(
-            args.topicPatterns,
+        resolve: async (_root, args, ctx, _info) => {
+          // Apply access control
+          const accessControl = await historianService.filterHistorianAccess(
+            ctx.user?.id,
+            ctx.user?.authRoles.admin ?? false,
             args.campus ?? undefined,
             args.building ?? undefined,
             args.unit ?? undefined,
           );
+
+          // If user has no access, return empty results
+          if (accessControl?.isEmpty) {
+            return [];
+          }
+
+          // Use filtered parameters or original if admin
+          const { campus, building, unit } = accessControl
+            ? accessControl.allowedUnits[0]
+            : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+
+          return historianService.getCurrentValues(args.topicPatterns, campus, building, unit);
         },
       }),
     );
@@ -61,7 +72,8 @@ export class HistorianQuery {
     // Query: Get time series data
     builder.queryField("historianTimeSeries", (t) =>
       t.field({
-        description: "Get time series data for multiple topic patterns. Useful for line charts and time-based visualizations.",
+        description:
+          "Get time series data for multiple topic patterns. Useful for line charts and time-based visualizations.",
         authScopes: { user: true },
         type: [historianObject.HistorianTimeSeries],
         args: {
@@ -89,14 +101,33 @@ export class HistorianQuery {
             description: "Filter by unit",
           }),
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
+          // Apply access control
+          const accessControl = await historianService.filterHistorianAccess(
+            ctx.user?.id,
+            ctx.user?.authRoles.admin ?? false,
+            args.campus ?? undefined,
+            args.building ?? undefined,
+            args.unit ?? undefined,
+          );
+
+          // If user has no access, return empty results
+          if (accessControl?.isEmpty) {
+            return [];
+          }
+
+          // Use filtered parameters or original if admin
+          const { campus, building, unit } = accessControl
+            ? accessControl.allowedUnits[0]
+            : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+
           return historianService.getTimeSeries(
             args.topicPatterns,
             args.startTime,
             args.endTime,
-            args.campus ?? undefined,
-            args.building ?? undefined,
-            args.unit ?? undefined,
+            campus,
+            building,
+            unit,
           );
         },
       }),
@@ -142,16 +173,35 @@ export class HistorianQuery {
             description: "Filter by unit",
           }),
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
+          // Apply access control
+          const accessControl = await historianService.filterHistorianAccess(
+            ctx.user?.id,
+            ctx.user?.authRoles.admin ?? false,
+            args.campus ?? undefined,
+            args.building ?? undefined,
+            args.unit ?? undefined,
+          );
+
+          // If user has no access, return empty results
+          if (accessControl?.isEmpty) {
+            return [];
+          }
+
+          // Use filtered parameters or original if admin
+          const { campus, building, unit } = accessControl
+            ? accessControl.allowedUnits[0]
+            : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+
           return historianService.getAggregated(
             args.topicPattern,
             args.startTime,
             args.endTime,
             args.interval,
             args.aggregation as AggregationType,
-            args.campus ?? undefined,
-            args.building ?? undefined,
-            args.unit ?? undefined,
+            campus,
+            building,
+            unit,
           );
         },
       }),
@@ -167,10 +217,6 @@ export class HistorianQuery {
           topicPattern: t.arg.string({
             required: true,
             description: "Topic pattern with %UNIT% placeholder (e.g., 'PNNL/ROB/%UNIT%/OccupancyCommand')",
-          }),
-          units: t.arg.stringList({
-            required: true,
-            description: "Array of unit names to query (e.g., ['rtu01', 'rtu02', 'rtu03'])",
           }),
           startTime: t.arg({
             type: builder.DateTime,
@@ -191,11 +237,32 @@ export class HistorianQuery {
           building: t.arg.string({
             description: "Filter by building",
           }),
+          units: t.arg.stringList({
+            required: true,
+            description: "Array of unit names to query (e.g., ['rtu01', 'rtu02', 'rtu03'])",
+          }),
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
+          // Apply access control for multi-unit query
+          const accessControl = await historianService.filterHistorianAccess(
+            ctx.user?.id,
+            ctx.user?.authRoles.admin ?? false,
+            args.campus ?? undefined,
+            args.building ?? undefined,
+            args.units, // Pass the array of requested units
+          );
+
+          // If user has no access, return empty results
+          if (accessControl?.isEmpty) {
+            return [];
+          }
+
+          // Use filtered unit list or original if admin
+          const allowedUnitNames = accessControl ? accessControl.allowedUnits.map((u) => u.unit) : args.units;
+
           const result = await historianService.getMultiUnit(
             args.topicPattern,
-            args.units,
+            allowedUnitNames,
             args.startTime,
             args.endTime,
             args.interval ?? undefined,
@@ -252,15 +319,34 @@ export class HistorianQuery {
             description: "Additional options for calculations",
           }),
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
+          // Apply access control
+          const accessControl = await historianService.filterHistorianAccess(
+            ctx.user?.id,
+            ctx.user?.authRoles.admin ?? false,
+            args.campus ?? undefined,
+            args.building ?? undefined,
+            args.unit ?? undefined,
+          );
+
+          // If user has no access, return empty results
+          if (accessControl?.isEmpty) {
+            return [];
+          }
+
+          // Use filtered parameters or original if admin
+          const { campus, building, unit } = accessControl
+            ? accessControl.allowedUnits[0]
+            : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+
           return historianService.getCalculated(
             args.calculation as CalculationType,
             args.topicPatterns,
             args.startTime,
             args.endTime,
-            args.campus ?? undefined,
-            args.building ?? undefined,
-            args.unit ?? undefined,
+            campus,
+            building,
+            unit,
             args.options as Record<string, string> | undefined,
           );
         },
