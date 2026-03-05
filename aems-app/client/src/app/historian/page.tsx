@@ -58,7 +58,7 @@ export default function HistorianPage() {
   const { publisherInfo, subscriberSetupSql, monitoringSql } = data.historianReplicationInfo;
 
   return (
-    <div style={{ padding: "20px", maxWidth: "1400px", margin: "0 auto" }}>
+    <div style={{ padding: "20px", maxWidth: "1400px" }}>
       <H3>Historian Database Replication</H3>
       <p style={{ marginBottom: "20px", color: "#5C7080" }}>
         This page provides auto-generated SQL and information for setting up historian database replication to remote offsite locations.
@@ -158,7 +158,6 @@ export default function HistorianPage() {
                   />
                 </div>
                 <pre style={{
-                  backgroundColor: "#f5f8fa",
                   padding: "15px",
                   borderRadius: "3px",
                   overflow: "auto",
@@ -181,7 +180,6 @@ export default function HistorianPage() {
                   />
                 </div>
                 <pre style={{
-                  backgroundColor: "#f5f8fa",
                   padding: "15px",
                   borderRadius: "3px",
                   overflow: "auto",
@@ -204,7 +202,6 @@ export default function HistorianPage() {
                     />
                   </div>
                   <pre style={{
-                    backgroundColor: "#f5f8fa",
                     padding: "15px",
                     borderRadius: "3px",
                     overflow: "auto",
@@ -235,7 +232,6 @@ export default function HistorianPage() {
                   </ul>
                 </Callout>
                 <pre style={{
-                  backgroundColor: "#f5f8fa",
                   padding: "15px",
                   borderRadius: "3px",
                   overflow: "auto",
@@ -270,7 +266,6 @@ export default function HistorianPage() {
                   />
                 </div>
                 <pre style={{
-                  backgroundColor: "#f5f8fa",
                   padding: "15px",
                   borderRadius: "3px",
                   overflow: "auto",
@@ -292,7 +287,6 @@ export default function HistorianPage() {
                   />
                 </div>
                 <pre style={{
-                  backgroundColor: "#f5f8fa",
                   padding: "15px",
                   borderRadius: "3px",
                   overflow: "auto",
@@ -314,7 +308,6 @@ export default function HistorianPage() {
                   />
                 </div>
                 <pre style={{
-                  backgroundColor: "#f5f8fa",
                   padding: "15px",
                   borderRadius: "3px",
                   overflow: "auto",
@@ -336,7 +329,6 @@ export default function HistorianPage() {
                   />
                 </div>
                 <pre style={{
-                  backgroundColor: "#f5f8fa",
                   padding: "15px",
                   borderRadius: "3px",
                   overflow: "auto",

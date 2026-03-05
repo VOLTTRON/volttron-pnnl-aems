@@ -405,12 +405,12 @@ let HistorianService = HistorianService_1 = class HistorianService {
         try {
             const pubQuery = `
         SELECT 
-          pubname,
-          array_agg(schemaname || '.' || tablename) as tables
+          p.pubname,
+          array_agg(pt.schemaname || '.' || pt.tablename) as tables
         FROM pg_publication p
         LEFT JOIN pg_publication_tables pt ON p.pubname = pt.pubname
         WHERE p.pubname = 'historian_pub'
-        GROUP BY pubname
+        GROUP BY p.pubname
       `;
             const pubResult = await this.pool.query(pubQuery);
             const publicationName = pubResult.rows[0]?.pubname || 'historian_pub';

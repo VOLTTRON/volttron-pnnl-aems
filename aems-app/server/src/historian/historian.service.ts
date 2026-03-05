@@ -4,6 +4,8 @@ import { Pool, QueryResult as PgQueryResult } from "pg";
 import { Inject } from "@nestjs/common";
 import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
+import * as tls from "tls";
+import * as https from "https";
 import {
   HistorianDataPoint,
   HistorianTimeSeries,
@@ -50,7 +52,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool;
 
   constructor(
-    @Inject(AppConfigService.Key) configService: AppConfigService,
+    @Inject(AppConfigService.Key) private configService: AppConfigService,
     private readonly prismaService: PrismaService,
   ) {
     // Initialize PostgreSQL connection pool for historian database
@@ -621,25 +623,135 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Check if the proxy certificate is self-signed
+   * Returns true if self-signed, false if signed by CA
+   */
+  private async isProxyCertificateSelfSigned(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const { proxy } = this.configService;
+      const host = proxy.host || 'localhost';
+      const port = parseInt(proxy.port || '443');
+
+      // If not using HTTPS proxy, default to prefer (safer option)
+      if (proxy.protocol !== 'https') {
+        this.logger.debug('Proxy is not HTTPS, defaulting to sslmode=prefer');
+        resolve(true);
+        return;
+      }
+
+      const options = {
+        host,
+        port,
+        method: 'GET',
+        rejectUnauthorized: false, // Allow self-signed certs for inspection
+      };
+
+      const req = https.request(options, (res) => {
+        const cert = (res.socket as tls.TLSSocket).getPeerCertificate();
+        
+        if (!cert || Object.keys(cert).length === 0) {
+          this.logger.debug('No certificate found, defaulting to sslmode=prefer');
+          resolve(true);
+          return;
+        }
+
+        // Check if issuer equals subject (self-signed)
+        const isSelfSigned = cert.issuer && cert.subject && 
+          JSON.stringify(cert.issuer) === JSON.stringify(cert.subject);
+        
+        this.logger.debug(`Certificate is ${isSelfSigned ? 'self-signed' : 'CA-signed'}`);
+        resolve(isSelfSigned);
+      });
+
+      req.on('error', (error) => {
+        this.logger.warn(`Failed to check proxy certificate: ${error.message}, defaulting to sslmode=prefer`);
+        resolve(true); // Default to prefer on error (safer)
+      });
+
+      req.setTimeout(5000, () => {
+        req.destroy();
+        this.logger.warn('Certificate check timed out, defaulting to sslmode=prefer');
+        resolve(true);
+      });
+
+      req.end();
+    });
+  }
+
+  /**
+   * Ensure tables are added to publication if they exist but aren't published
+   * This handles the timing issue where tables are created after publication
+   */
+  private async ensureTablesInPublication(): Promise<void> {
+    try {
+      // Check if data and topics tables exist
+      const tableCheckQuery = `
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+          AND table_name IN ('data', 'topics')
+      `;
+      const tableResult: PgQueryResult = await this.pool.query(tableCheckQuery);
+      const existingTables = tableResult.rows.map((row: any) => row.table_name as string);
+
+      if (existingTables.length === 0) {
+        this.logger.debug('No historian tables exist yet');
+        return;
+      }
+
+      // Check which tables are already in the publication
+      const pubTablesQuery = `
+        SELECT tablename 
+        FROM pg_publication_tables 
+        WHERE pubname = 'historian_pub'
+      `;
+      const pubTablesResult: PgQueryResult = await this.pool.query(pubTablesQuery);
+      const publishedTables = pubTablesResult.rows.map((row: any) => row.tablename as string);
+
+      // Find tables that exist but aren't published
+      const missingTables = existingTables.filter(table => !publishedTables.includes(table));
+
+      if (missingTables.length > 0) {
+        this.logger.log(`Adding missing tables to publication: ${missingTables.join(', ')}`);
+        
+        // Add each missing table to the publication
+        for (const table of missingTables) {
+          const addTableQuery = `ALTER PUBLICATION historian_pub ADD TABLE ${table}`;
+          await this.pool.query(addTableQuery);
+          this.logger.log(`Added table '${table}' to historian_pub`);
+        }
+      } else {
+        this.logger.debug('All existing tables are already in publication');
+      }
+    } catch (error) {
+      this.logger.error('Error ensuring tables in publication', error);
+      // Don't throw - this is a non-critical operation that shouldn't break the info retrieval
+    }
+  }
+
+  /**
    * Get historian database replication information
    * Returns publisher info, subscriber setup SQL, and monitoring queries
    */
   async getReplicationInfo(): Promise<HistorianReplicationInfo> {
     try {
+      // Ensure tables are added to publication if they exist but aren't published
+      await this.ensureTablesInPublication();
+
       // Get publication info
       const pubQuery = `
         SELECT 
-          pubname,
-          array_agg(schemaname || '.' || tablename) as tables
+          p.pubname,
+          array_agg(pt.schemaname || '.' || pt.tablename) as tables
         FROM pg_publication p
         LEFT JOIN pg_publication_tables pt ON p.pubname = pt.pubname
         WHERE p.pubname = 'historian_pub'
-        GROUP BY pubname
+        GROUP BY p.pubname
       `;
       const pubResult: PgQueryResult = await this.pool.query(pubQuery);
       
-      const publicationName = pubResult.rows[0]?.pubname || 'historian_pub';
-      const publishedTables = pubResult.rows[0]?.tables || [];
+      const publicationName = pubResult.rows[0]?.pubname as string || 'historian_pub';
+      const publishedTables = pubResult.rows[0]?.tables as string[] || [];
 
       // Get active replication connections
       const connQuery = `
@@ -648,7 +760,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         WHERE application_name LIKE '%historian%'
       `;
       const connResult: PgQueryResult = await this.pool.query(connQuery);
-      const activeConnections = parseInt(connResult.rows[0]?.count || '0');
+      const activeConnections = parseInt(connResult.rows[0]?.count as string || '0');
 
       // Get replication slots
       const slotsQuery = `
@@ -743,12 +855,19 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const idxResult: PgQueryResult = await this.pool.query(idxQuery);
       
       const createIndexesSql = idxResult.rows
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         .map((row: any) => row.idx)
         .join('\n');
 
-      // Generate subscription template
+      // Check if certificate is self-signed and set SSL mode accordingly
+      const isSelfSigned = await this.isProxyCertificateSelfSigned();
+      const sslMode = isSelfSigned ? 'prefer' : 'require';
+      
+      this.logger.log(`Using sslmode=${sslMode} for historian replication`);
+
+      // Generate subscription template with dynamic SSL mode
       const createSubscriptionTemplate = `CREATE SUBSCRIPTION historian_sub
-CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
+CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}'
 PUBLICATION historian_pub
 WITH (
     copy_data = true,

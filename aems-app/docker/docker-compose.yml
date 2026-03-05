@@ -521,6 +521,8 @@ services:
     ports:
       - ${HISTORIAN_DB_PORT}:5432
       - ${HISTORIAN_TEST_PORT}:5432
+    profiles:
+      - historian
     restart: unless-stopped
     volumes:
       - historian-data:/var/lib/postgresql/data
