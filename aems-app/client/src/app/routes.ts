@@ -255,6 +255,16 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     components: components,
   },
   {
+    id: "historian",
+    parentId: "admin",
+    path: `historian`,
+    name: "Historian",
+    icon: IconNames.DATABASE,
+    scope: "admin",
+    display: "admin",
+    components: components,
+  },
+  {
     id: "auth",
     parentId: "home",
     path: `auth`,

@@ -30,6 +30,11 @@ let HistorianObject = class HistorianObject {
         this.HistorianAggregate = builder.addScalarType("HistorianAggregate", new graphql_1.GraphQLScalarType({ name: "HistorianAggregate" }));
         this.HistorianMetricCurrent = builder.addScalarType("HistorianMetricCurrent", new graphql_1.GraphQLScalarType({ name: "HistorianMetricCurrent" }));
         this.HistorianMultiUnitData = builder.addScalarType("HistorianMultiUnitData", new graphql_1.GraphQLScalarType({ name: "HistorianMultiUnitData" }));
+        this.HistorianReplicationInfo = builder.addScalarType("HistorianReplicationInfo", new graphql_1.GraphQLScalarType({ name: "HistorianReplicationInfo" }));
+        this.PublisherInfo = builder.addScalarType("PublisherInfo", new graphql_1.GraphQLScalarType({ name: "PublisherInfo" }));
+        this.SubscriberSetupSql = builder.addScalarType("SubscriberSetupSql", new graphql_1.GraphQLScalarType({ name: "SubscriberSetupSql" }));
+        this.MonitoringSql = builder.addScalarType("MonitoringSql", new graphql_1.GraphQLScalarType({ name: "MonitoringSql" }));
+        this.ReplicationSlot = builder.addScalarType("ReplicationSlot", new graphql_1.GraphQLScalarType({ name: "ReplicationSlot" }));
     }
 };
 exports.HistorianObject = HistorianObject;

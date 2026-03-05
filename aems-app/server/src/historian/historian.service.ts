@@ -11,6 +11,11 @@ import {
   HistorianMetricCurrent,
   AggregationType,
   CalculationType,
+  HistorianReplicationInfo,
+  PublisherInfo,
+  SubscriberSetupSql,
+  MonitoringSql,
+  ReplicationSlot,
 } from "./historian.types";
 
 // Re-export types for convenience
@@ -21,6 +26,11 @@ export {
   HistorianMetricCurrent,
   AggregationType,
   CalculationType,
+  HistorianReplicationInfo,
+  PublisherInfo,
+  SubscriberSetupSql,
+  MonitoringSql,
+  ReplicationSlot,
 };
 
 export interface UnitAccess {
@@ -606,6 +616,213 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }));
     } catch (error) {
       this.logger.error("Error calculating rolling average", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get historian database replication information
+   * Returns publisher info, subscriber setup SQL, and monitoring queries
+   */
+  async getReplicationInfo(): Promise<HistorianReplicationInfo> {
+    try {
+      // Get publication info
+      const pubQuery = `
+        SELECT 
+          pubname,
+          array_agg(schemaname || '.' || tablename) as tables
+        FROM pg_publication p
+        LEFT JOIN pg_publication_tables pt ON p.pubname = pt.pubname
+        WHERE p.pubname = 'historian_pub'
+        GROUP BY pubname
+      `;
+      const pubResult: PgQueryResult = await this.pool.query(pubQuery);
+      
+      const publicationName = pubResult.rows[0]?.pubname || 'historian_pub';
+      const publishedTables = pubResult.rows[0]?.tables || [];
+
+      // Get active replication connections
+      const connQuery = `
+        SELECT COUNT(*) as count
+        FROM pg_stat_replication
+        WHERE application_name LIKE '%historian%'
+      `;
+      const connResult: PgQueryResult = await this.pool.query(connQuery);
+      const activeConnections = parseInt(connResult.rows[0]?.count || '0');
+
+      // Get replication slots
+      const slotsQuery = `
+        SELECT 
+          slot_name,
+          plugin,
+          slot_type,
+          active,
+          restart_lsn,
+          confirmed_flush_lsn
+        FROM pg_replication_slots
+        WHERE slot_name LIKE '%historian%'
+      `;
+      const slotsResult: PgQueryResult = await this.pool.query(slotsQuery);
+      
+      const replicationSlots: ReplicationSlot[] = slotsResult.rows.map((row: any) => ({
+        slotName: row.slot_name as string,
+        plugin: row.plugin as string,
+        slotType: row.slot_type as string,
+        active: row.active as boolean,
+        restartLsn: row.restart_lsn as string,
+        confirmedFlushLsn: row.confirmed_flush_lsn as string,
+      }));
+
+      // Generate CREATE TABLE SQL for all published tables
+      const tableSchemaQuery = `
+        SELECT 
+          t.table_name,
+          string_agg(
+            '    ' || c.column_name || ' ' || 
+            UPPER(c.data_type) || 
+            CASE 
+              WHEN c.character_maximum_length IS NOT NULL 
+              THEN '(' || c.character_maximum_length || ')'
+              ELSE ''
+            END ||
+            CASE WHEN c.is_nullable = 'NO' THEN ' NOT NULL' ELSE '' END ||
+            CASE 
+              WHEN c.column_default IS NOT NULL 
+              THEN ' DEFAULT ' || c.column_default 
+              ELSE '' 
+            END,
+            E',\\n'
+            ORDER BY c.ordinal_position
+          ) as columns
+        FROM information_schema.tables t
+        JOIN information_schema.columns c ON t.table_name = c.table_name
+        WHERE t.table_schema = 'public' 
+          AND t.table_name IN ('data', 'topics')
+        GROUP BY t.table_name
+        ORDER BY t.table_name
+      `;
+      const schemaResult: PgQueryResult = await this.pool.query(tableSchemaQuery);
+      
+      const createTablesSql = schemaResult.rows
+        .map((row: any) => 
+          `CREATE TABLE IF NOT EXISTS ${row.table_name} (\n${row.columns}\n);`
+        )
+        .join('\n\n');
+
+      // Generate PRIMARY KEY constraints
+      const pkQuery = `
+        SELECT 
+          tc.table_name,
+          string_agg(kcu.column_name, ', ' ORDER BY kcu.ordinal_position) as pk_columns
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu 
+          ON tc.constraint_name = kcu.constraint_name
+        WHERE tc.constraint_type = 'PRIMARY KEY' 
+          AND tc.table_schema = 'public'
+          AND tc.table_name IN ('data', 'topics')
+        GROUP BY tc.table_name
+        ORDER BY tc.table_name
+      `;
+      const pkResult: PgQueryResult = await this.pool.query(pkQuery);
+      
+      const createConstraintsSql = pkResult.rows
+        .map((row: any) => 
+          `ALTER TABLE ${row.table_name} ADD PRIMARY KEY (${row.pk_columns});`
+        )
+        .join('\n');
+
+      // Generate INDEX creation
+      const idxQuery = `
+        SELECT indexdef || ';' as idx
+        FROM pg_indexes
+        WHERE schemaname = 'public'
+          AND tablename IN ('data', 'topics')
+          AND indexname NOT LIKE '%_pkey'
+        ORDER BY tablename, indexname
+      `;
+      const idxResult: PgQueryResult = await this.pool.query(idxQuery);
+      
+      const createIndexesSql = idxResult.rows
+        .map((row: any) => row.idx)
+        .join('\n');
+
+      // Generate subscription template
+      const createSubscriptionTemplate = `CREATE SUBSCRIPTION historian_sub
+CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
+PUBLICATION historian_pub
+WITH (
+    copy_data = true,
+    create_slot = true,
+    enabled = true,
+    slot_name = 'historian_sub_slot'
+);`;
+
+      // Monitoring SQL queries
+      const checkSchemaMatchSql = `-- On subscriber: Compare table structures
+SELECT 
+    table_name,
+    column_name,
+    data_type,
+    character_maximum_length,
+    is_nullable
+FROM information_schema.columns
+WHERE table_name IN ('data', 'topics')
+ORDER BY table_name, ordinal_position;`;
+
+      const checkReplicationLagSql = `-- On subscriber: Check replication lag
+SELECT 
+    subname AS subscription_name,
+    latest_end_lsn,
+    latest_end_time,
+    NOW() - latest_end_time AS replication_lag
+FROM pg_stat_subscription
+WHERE subname = 'historian_sub';`;
+
+      const checkSubscriptionStatusSql = `-- On subscriber: Check subscription and sync status
+SELECT 
+    subname,
+    relname,
+    CASE srsubstate
+        WHEN 'i' THEN 'Initializing'
+        WHEN 'd' THEN 'Data is being copied'
+        WHEN 's' THEN 'Synchronized'
+        WHEN 'r' THEN 'Ready (streaming)'
+    END as sync_state
+FROM pg_subscription_rel psr
+JOIN pg_subscription ps ON ps.oid = psr.srsubid
+JOIN pg_class pc ON pc.oid = psr.srrelid
+WHERE subname = 'historian_sub';`;
+
+      const checkSyncErrorsSql = `-- On subscriber: Check for sync errors
+SELECT 
+    subname,
+    sync_error_count,
+    apply_error_count
+FROM pg_stat_subscription_stats
+WHERE subname = 'historian_sub';`;
+
+      return {
+        publisherInfo: {
+          publicationName,
+          publishedTables,
+          activeConnections,
+          replicationSlots,
+        },
+        subscriberSetupSql: {
+          createTablesSql,
+          createConstraintsSql,
+          createIndexesSql,
+          createSubscriptionTemplate,
+        },
+        monitoringSql: {
+          checkSchemaMatchSql,
+          checkReplicationLagSql,
+          checkSubscriptionStatusSql,
+          checkSyncErrorsSql,
+        },
+      };
+    } catch (error) {
+      this.logger.error("Error fetching replication info", error);
       throw error;
     }
   }

@@ -9,6 +9,11 @@ import {
   HistorianAggregate,
   HistorianMetricCurrent,
   HistorianMultiUnitData,
+  HistorianReplicationInfo,
+  PublisherInfo,
+  SubscriberSetupSql,
+  MonitoringSql,
+  ReplicationSlot,
 } from "@/historian/historian.types";
 import { GraphQLScalarType } from "graphql";
 
@@ -20,6 +25,11 @@ export class HistorianObject {
   readonly HistorianAggregate;
   readonly HistorianMetricCurrent;
   readonly HistorianMultiUnitData;
+  readonly HistorianReplicationInfo;
+  readonly PublisherInfo;
+  readonly SubscriberSetupSql;
+  readonly MonitoringSql;
+  readonly ReplicationSlot;
   readonly AggregationType;
   readonly CalculationType;
 
@@ -60,6 +70,32 @@ export class HistorianObject {
     this.HistorianMultiUnitData = builder.addScalarType(
       "HistorianMultiUnitData",
       new GraphQLScalarType<HistorianMultiUnitData, unknown>({ name: "HistorianMultiUnitData" }),
+    );
+
+    // Replication types
+    this.HistorianReplicationInfo = builder.addScalarType(
+      "HistorianReplicationInfo",
+      new GraphQLScalarType<HistorianReplicationInfo, unknown>({ name: "HistorianReplicationInfo" }),
+    );
+
+    this.PublisherInfo = builder.addScalarType(
+      "PublisherInfo",
+      new GraphQLScalarType<PublisherInfo, unknown>({ name: "PublisherInfo" }),
+    );
+
+    this.SubscriberSetupSql = builder.addScalarType(
+      "SubscriberSetupSql",
+      new GraphQLScalarType<SubscriberSetupSql, unknown>({ name: "SubscriberSetupSql" }),
+    );
+
+    this.MonitoringSql = builder.addScalarType(
+      "MonitoringSql",
+      new GraphQLScalarType<MonitoringSql, unknown>({ name: "MonitoringSql" }),
+    );
+
+    this.ReplicationSlot = builder.addScalarType(
+      "ReplicationSlot",
+      new GraphQLScalarType<ReplicationSlot, unknown>({ name: "ReplicationSlot" }),
     );
   }
 }

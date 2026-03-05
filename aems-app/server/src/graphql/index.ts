@@ -9,6 +9,11 @@ import {
   HistorianAggregate,
   HistorianMetricCurrent,
   HistorianMultiUnitData,
+  HistorianReplicationInfo,
+  PublisherInfo,
+  SubscriberSetupSql,
+  MonitoringSql,
+  ReplicationSlot,
 } from "@/historian/historian.types";
 
 export interface PubSubEngineExt extends PubSubEngine {
@@ -60,6 +65,11 @@ export type Scalars = {
   HistorianAggregate: { Input: HistorianAggregate; Output: HistorianAggregate };
   HistorianMetricCurrent: { Input: HistorianMetricCurrent; Output: HistorianMetricCurrent };
   HistorianMultiUnitData: { Input: HistorianMultiUnitData; Output: HistorianMultiUnitData };
+  HistorianReplicationInfo: { Input: HistorianReplicationInfo; Output: HistorianReplicationInfo };
+  PublisherInfo: { Input: PublisherInfo; Output: PublisherInfo };
+  SubscriberSetupSql: { Input: SubscriberSetupSql; Output: SubscriberSetupSql };
+  MonitoringSql: { Input: MonitoringSql; Output: MonitoringSql };
+  ReplicationSlot: { Input: ReplicationSlot; Output: ReplicationSlot };
 };
 
 export interface Aggregate<T extends string> {

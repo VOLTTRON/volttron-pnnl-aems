@@ -9,5 +9,6 @@ export { default as Observance, default as ObservanceType } from "./constants/ob
 export { default as Stage, default as StageType } from "./constants/stage";
 export { default as Validate, default as ValidateType } from "./constants/validate";
 export { default as Zone, default as ZoneType } from "./constants/zone";
+export * from "./constants/historian";
 export * from "./utils";
 export * from "@local/prisma";

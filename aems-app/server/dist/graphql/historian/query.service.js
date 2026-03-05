@@ -239,6 +239,14 @@ let HistorianQuery = class HistorianQuery {
                 return historianService.getCalculated(args.calculation, args.topicPatterns, args.startTime, args.endTime, campus, building, unit, args.options);
             },
         }));
+        builder.queryField("historianReplicationInfo", (t) => t.field({
+            description: "Get historian database replication setup information and generated SQL (admin only)",
+            authScopes: { admin: true },
+            type: historianObject.HistorianReplicationInfo,
+            resolve: async (_root, _args, _ctx, _info) => {
+                return historianService.getReplicationInfo();
+            },
+        }));
     }
 };
 exports.HistorianQuery = HistorianQuery;

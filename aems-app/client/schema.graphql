@@ -923,6 +923,8 @@ scalar HistorianMetricCurrent
 
 scalar HistorianMultiUnitData
 
+scalar HistorianReplicationInfo
+
 scalar HistorianTimeSeries
 
 type Holiday {
@@ -1215,6 +1217,8 @@ enum ModelStage {
   Update
 }
 
+scalar MonitoringSql
+
 type Mutation {
   """Create a new account."""
   createAccount(create: AccountCreateInput!): Account
@@ -1504,6 +1508,8 @@ input PagingInput {
   take: Int!
 }
 
+scalar PublisherInfo
+
 type Query {
   """Read a list of geographies at a specific location."""
   areaGeographies(area: GeographyGeoJson!): [Geography!]
@@ -1710,6 +1716,11 @@ type Query {
     """Array of unit names to query (e.g., ['rtu01', 'rtu02', 'rtu03'])"""
     units: [String!]!
   ): [HistorianMultiUnitData!]
+
+  """
+  Get historian database replication setup information and generated SQL (admin only)
+  """
+  historianReplicationInfo: HistorianReplicationInfo
 
   """
   Get time series data for multiple topic patterns. Useful for line charts and time-based visualizations.
@@ -2061,6 +2072,8 @@ type QueryPageUserConnectionEdge {
   node: User
 }
 
+scalar ReplicationSlot
+
 type Schedule {
   correlation: String
   createdAt: DateTime
@@ -2299,6 +2312,8 @@ enum StringFilterMode {
   Default
   Insensitive
 }
+
+scalar SubscriberSetupSql
 
 type Subscription {
   """Read a list of geographies at a specific location."""

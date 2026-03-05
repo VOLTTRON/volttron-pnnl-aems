@@ -352,5 +352,17 @@ export class HistorianQuery {
         },
       }),
     );
+
+    // Query: Get replication information (admin only)
+    builder.queryField("historianReplicationInfo", (t) =>
+      t.field({
+        description: "Get historian database replication setup information and generated SQL (admin only)",
+        authScopes: { admin: true },
+        type: historianObject.HistorianReplicationInfo,
+        resolve: async (_root, _args, _ctx, _info) => {
+          return historianService.getReplicationInfo();
+        },
+      }),
+    );
   }
 }

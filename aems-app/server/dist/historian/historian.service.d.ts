@@ -1,8 +1,8 @@
 import { OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
-import { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType } from "./historian.types";
-export { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, };
+import { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot } from "./historian.types";
+export { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, };
 export interface UnitAccess {
     campus: string;
     building: string;
@@ -29,4 +29,5 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     getCalculated(calculation: CalculationType, topicPatterns: string[], startTime: Date, endTime: Date, campus?: string, building?: string, unit?: string, options?: Record<string, string>): Promise<HistorianDataPoint[]>;
     private calculateSetpointError;
     private calculateRollingAverage;
+    getReplicationInfo(): Promise<HistorianReplicationInfo>;
 }

@@ -521,8 +521,6 @@ services:
     ports:
       - ${HISTORIAN_DB_PORT}:5432
       - ${HISTORIAN_TEST_PORT}:5432
-    profiles:
-      - volttron
     restart: unless-stopped
     volumes:
       - historian-data:/var/lib/postgresql/data
