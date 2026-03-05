@@ -4,7 +4,7 @@ import { HistorianReplicationInfoDocument, HistorianReplicationInfoQuery } from 
 import { Button, Callout, Card, Elevation, H3, H4, H5, Intent, NonIdealState, Spinner, Tab, Tabs } from "@blueprintjs/core";
 import { IconNames } from "@blueprintjs/icons";
 import { useQuery } from "@apollo/client";
-import { useContext, useState } from "react";
+import { useContext, useState, useRef, useEffect } from "react";
 import { NotificationContext, NotificationType } from "../components/providers";
 
 export default function HistorianPage() {
@@ -16,6 +16,34 @@ export default function HistorianPage() {
     },
   });
   const [activeTab, setActiveTab] = useState("publisher");
+  const [tabWidth, setTabWidth] = useState<number | undefined>(undefined);
+  
+  const publisherRef = useRef<HTMLDivElement>(null);
+  const subscriberRef = useRef<HTMLDivElement>(null);
+  const monitoringRef = useRef<HTMLDivElement>(null);
+  const removalRef = useRef<HTMLDivElement>(null);
+
+  // Measure and set the maximum width from all tabs
+  useEffect(() => {
+    if (!data) return;
+    
+    const measureWidth = () => {
+      const widths = [
+        publisherRef.current?.scrollWidth || 0,
+        subscriberRef.current?.scrollWidth || 0,
+        monitoringRef.current?.scrollWidth || 0,
+        removalRef.current?.scrollWidth || 0,
+      ];
+      const maxWidth = Math.max(...widths);
+      if (maxWidth > 0) {
+        setTabWidth(maxWidth);
+      }
+    };
+
+    // Measure after a short delay to ensure content is rendered
+    const timeoutId = setTimeout(measureWidth, 100);
+    return () => clearTimeout(timeoutId);
+  }, [data]);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -57,6 +85,10 @@ export default function HistorianPage() {
 
   const { publisherInfo, subscriberSetupSql, monitoringSql } = data.historianReplicationInfo;
 
+  // Replace hostname placeholder with current browser hostname
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'YOUR_HOSTNAME';
+  const finalSubscriptionTemplate = subscriberSetupSql.createSubscriptionTemplate.replace('{{HOSTNAME}}', hostname);
+
   return (
     <div style={{ padding: "20px", maxWidth: "1400px" }}>
       <H3>Historian Database Replication</H3>
@@ -75,7 +107,7 @@ export default function HistorianPage() {
           id="publisher"
           title="Publisher Info"
           panel={
-            <div style={{ marginTop: "20px" }}>
+            <div ref={publisherRef} style={{ marginTop: "20px", width: tabWidth }}>
               <Card elevation={Elevation.TWO} style={{ marginBottom: "20px" }}>
                 <H4>Publication Status</H4>
                 <table className="bp5-html-table bp5-html-table-striped" style={{ width: "100%" }}>
@@ -142,7 +174,7 @@ export default function HistorianPage() {
           id="subscriber"
           title="Subscriber Setup"
           panel={
-            <div style={{ marginTop: "20px" }}>
+            <div ref={subscriberRef} style={{ marginTop: "20px", width: tabWidth }}>
               <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "20px" }}>
                 Run these SQL commands on your <strong>subscriber database</strong> to set up replication.
               </Callout>
@@ -219,17 +251,18 @@ export default function HistorianPage() {
                   <Button
                     icon={IconNames.DUPLICATE}
                     text="Copy"
-                    onClick={() => copyToClipboard(subscriberSetupSql.createSubscriptionTemplate)}
+                    onClick={() => copyToClipboard(finalSubscriptionTemplate)}
                     small
                   />
                 </div>
                 <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN} style={{ marginBottom: "10px" }}>
-                  <strong>Important:</strong> Replace the placeholder values with your actual connection details:
+                  <strong>Important:</strong> Replace the password placeholder with your actual replicator password:
                   <ul style={{ marginTop: "5px", marginBottom: "0" }}>
-                    <li><code>YOUR_PUBLISHER_HOSTNAME</code></li>
-                    <li><code>YOUR_HISTORIAN_REPLICATION_PORT</code></li>
                     <li><code>YOUR_REPLICATOR_PASSWORD</code></li>
                   </ul>
+                  <div style={{ marginTop: "10px", fontSize: "13px" }}>
+                    The hostname and port have been automatically populated based on your current environment.
+                  </div>
                 </Callout>
                 <pre style={{
                   padding: "15px",
@@ -238,7 +271,102 @@ export default function HistorianPage() {
                   fontSize: "12px",
                   fontFamily: "monospace"
                 }}>
-                  {subscriberSetupSql.createSubscriptionTemplate}
+                  {finalSubscriptionTemplate}
+                </pre>
+              </Card>
+            </div>
+          }
+        />
+
+        {/* Subscription Removal Tab */}
+        <Tab
+          id="removal"
+          title="Subscription Removal"
+          panel={
+            <div ref={removalRef} style={{ marginTop: "20px", width: tabWidth }}>
+              <Callout intent={Intent.DANGER} icon={IconNames.WARNING_SIGN} style={{ marginBottom: "20px" }}>
+                <strong>Warning:</strong> These commands will remove the subscription and optionally delete replicated data. 
+                Use with caution as these operations are <strong>destructive</strong> and cannot be undone.
+              </Callout>
+
+              <Card elevation={Elevation.TWO} style={{ marginBottom: "20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                  <H5>Drop Subscription</H5>
+                  <Button
+                    icon={IconNames.DUPLICATE}
+                    text="Copy"
+                    onClick={() => copyToClipboard("-- On subscriber: Drop the subscription\nDROP SUBSCRIPTION IF EXISTS historian_sub;")}
+                    small
+                  />
+                </div>
+                <p style={{ marginBottom: "10px", fontSize: "13px" }}>
+                  Run this command on the <strong>subscriber database</strong> to remove the subscription.
+                </p>
+                <pre style={{
+                  padding: "15px",
+                  borderRadius: "3px",
+                  overflow: "auto",
+                  fontSize: "12px",
+                  fontFamily: "monospace"
+                }}>
+                  {`-- On subscriber: Drop the subscription
+DROP SUBSCRIPTION IF EXISTS historian_sub;`}
+                </pre>
+              </Card>
+
+              <Card elevation={Elevation.TWO} style={{ marginBottom: "20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                  <H5>Drop Replication Slot (Publisher)</H5>
+                  <Button
+                    icon={IconNames.DUPLICATE}
+                    text="Copy"
+                    onClick={() => copyToClipboard("-- On publisher: Drop the replication slot\nSELECT pg_drop_replication_slot('historian_sub_slot');")}
+                    small
+                  />
+                </div>
+                <p style={{ marginBottom: "10px", fontSize: "13px" }}>
+                  <strong>Optional:</strong> Run this command on the <strong>publisher database</strong> to remove the replication slot 
+                  if it was not automatically cleaned up.
+                </p>
+                <pre style={{
+                  padding: "15px",
+                  borderRadius: "3px",
+                  overflow: "auto",
+                  fontSize: "12px",
+                  fontFamily: "monospace"
+                }}>
+                  {`-- On publisher: Drop the replication slot
+SELECT pg_drop_replication_slot('historian_sub_slot');`}
+                </pre>
+              </Card>
+
+              <Card elevation={Elevation.TWO}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                  <H5>Drop Replicated Tables</H5>
+                  <Button
+                    icon={IconNames.DUPLICATE}
+                    text="Copy"
+                    onClick={() => copyToClipboard("-- On subscriber: Drop replicated tables\nDROP TABLE IF EXISTS data CASCADE;\nDROP TABLE IF EXISTS topics CASCADE;")}
+                    small
+                  />
+                </div>
+                <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN} style={{ marginBottom: "10px" }}>
+                  <strong>Caution:</strong> This will permanently delete all replicated data on the subscriber. 
+                  Only run this if you want to completely remove the replicated tables.
+                </Callout>
+                <p style={{ marginBottom: "10px", fontSize: "13px" }}>
+                  <strong>Optional:</strong> Run these commands on the <strong>subscriber database</strong> to remove the replicated tables.
+                </p>
+                <pre style={{
+                  padding: "15px",
+                  borderRadius: "3px",
+                  overflow: "auto",
+                  fontSize: "12px",
+                  fontFamily: "monospace"
+                }}>
+                  {`-- On subscriber: Drop replicated tables
+DROP TABLE IF EXISTS data CASCADE;
+DROP TABLE IF EXISTS topics CASCADE;`}
                 </pre>
               </Card>
             </div>
@@ -250,7 +378,7 @@ export default function HistorianPage() {
           id="monitoring"
           title="Monitoring"
           panel={
-            <div style={{ marginTop: "20px" }}>
+            <div ref={monitoringRef} style={{ marginTop: "20px", width: tabWidth }}>
               <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "20px" }}>
                 Use these queries to monitor replication health and troubleshoot issues.
               </Callout>

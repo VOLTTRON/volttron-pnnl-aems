@@ -13,6 +13,7 @@ export interface HistorianAccessControl {
     isEmpty: boolean;
 }
 export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
+    private configService;
     private readonly prismaService;
     private logger;
     private pool;
@@ -29,5 +30,7 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     getCalculated(calculation: CalculationType, topicPatterns: string[], startTime: Date, endTime: Date, campus?: string, building?: string, unit?: string, options?: Record<string, string>): Promise<HistorianDataPoint[]>;
     private calculateSetpointError;
     private calculateRollingAverage;
+    private isProxyCertificateSelfSigned;
+    private ensureTablesInPublication;
     getReplicationInfo(): Promise<HistorianReplicationInfo>;
 }

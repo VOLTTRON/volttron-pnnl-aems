@@ -19,11 +19,13 @@ const pg_1 = require("pg");
 const common_2 = require("@nestjs/common");
 const app_config_1 = require("../app.config");
 const prisma_service_1 = require("../prisma/prisma.service");
+const https = require("https");
 const historian_types_1 = require("./historian.types");
 Object.defineProperty(exports, "AggregationType", { enumerable: true, get: function () { return historian_types_1.AggregationType; } });
 Object.defineProperty(exports, "CalculationType", { enumerable: true, get: function () { return historian_types_1.CalculationType; } });
 let HistorianService = HistorianService_1 = class HistorianService {
     constructor(configService, prismaService) {
+        this.configService = configService;
         this.prismaService = prismaService;
         this.logger = new common_1.Logger(HistorianService_1.name);
         const { historian } = configService;
@@ -401,8 +403,87 @@ let HistorianService = HistorianService_1 = class HistorianService {
             throw error;
         }
     }
+    async isProxyCertificateSelfSigned() {
+        return new Promise((resolve) => {
+            const { proxy } = this.configService;
+            const host = proxy.host || 'localhost';
+            const port = parseInt(proxy.port || '443');
+            if (proxy.protocol !== 'https') {
+                this.logger.debug('Proxy is not HTTPS, defaulting to sslmode=prefer');
+                resolve(true);
+                return;
+            }
+            const options = {
+                host,
+                port,
+                method: 'GET',
+                rejectUnauthorized: false,
+            };
+            const req = https.request(options, (res) => {
+                const cert = res.socket.getPeerCertificate();
+                if (!cert || Object.keys(cert).length === 0) {
+                    this.logger.debug('No certificate found, defaulting to sslmode=prefer');
+                    resolve(true);
+                    return;
+                }
+                const isSelfSigned = cert.issuer && cert.subject &&
+                    JSON.stringify(cert.issuer) === JSON.stringify(cert.subject);
+                this.logger.debug(`Certificate is ${isSelfSigned ? 'self-signed' : 'CA-signed'}`);
+                resolve(isSelfSigned);
+            });
+            req.on('error', (error) => {
+                this.logger.warn(`Failed to check proxy certificate: ${error.message}, defaulting to sslmode=prefer`);
+                resolve(true);
+            });
+            req.setTimeout(5000, () => {
+                req.destroy();
+                this.logger.warn('Certificate check timed out, defaulting to sslmode=prefer');
+                resolve(true);
+            });
+            req.end();
+        });
+    }
+    async ensureTablesInPublication() {
+        try {
+            const tableCheckQuery = `
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+          AND table_name IN ('data', 'topics')
+      `;
+            const tableResult = await this.pool.query(tableCheckQuery);
+            const existingTables = tableResult.rows.map((row) => row.table_name);
+            if (existingTables.length === 0) {
+                this.logger.debug('No historian tables exist yet');
+                return;
+            }
+            const pubTablesQuery = `
+        SELECT tablename 
+        FROM pg_publication_tables 
+        WHERE pubname = 'historian_pub'
+      `;
+            const pubTablesResult = await this.pool.query(pubTablesQuery);
+            const publishedTables = pubTablesResult.rows.map((row) => row.tablename);
+            const missingTables = existingTables.filter(table => !publishedTables.includes(table));
+            if (missingTables.length > 0) {
+                this.logger.log(`Adding missing tables to publication: ${missingTables.join(', ')}`);
+                for (const table of missingTables) {
+                    const addTableQuery = `ALTER PUBLICATION historian_pub ADD TABLE ${table}`;
+                    await this.pool.query(addTableQuery);
+                    this.logger.log(`Added table '${table}' to historian_pub`);
+                }
+            }
+            else {
+                this.logger.debug('All existing tables are already in publication');
+            }
+        }
+        catch (error) {
+            this.logger.error('Error ensuring tables in publication', error);
+        }
+    }
     async getReplicationInfo() {
         try {
+            await this.ensureTablesInPublication();
             const pubQuery = `
         SELECT 
           p.pubname,
@@ -502,8 +583,12 @@ let HistorianService = HistorianService_1 = class HistorianService {
             const createIndexesSql = idxResult.rows
                 .map((row) => row.idx)
                 .join('\n');
+            const isSelfSigned = await this.isProxyCertificateSelfSigned();
+            const sslMode = isSelfSigned ? 'prefer' : 'require';
+            this.logger.log(`Using sslmode=${sslMode} for historian replication`);
+            const replicationPort = this.configService.historian.replicationPort;
             const createSubscriptionTemplate = `CREATE SUBSCRIPTION historian_sub
-CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
+CONNECTION 'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}'
 PUBLICATION historian_pub
 WITH (
     copy_data = true,

@@ -156,6 +156,7 @@ export class AppConfigService {
     name: string;
     username: string;
     password: string;
+    replicationPort: number;
   };
   ext: Record<string, ExtConfig>;
   proxy: {
@@ -310,6 +311,7 @@ export class AppConfigService {
       name: process.env.HISTORIAN_NAME ?? "historian",
       username: process.env.HISTORIAN_USER ?? "historian",
       password: process.env.HISTORIAN_PASSWORD ?? "",
+      replicationPort: parseInt(process.env.HISTORIAN_REPLICATION_PORT ?? "5543"),
     };
     this.ext = Object.entries(process.env)
       .filter(

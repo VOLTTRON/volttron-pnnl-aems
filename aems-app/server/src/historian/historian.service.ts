@@ -865,9 +865,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       
       this.logger.log(`Using sslmode=${sslMode} for historian replication`);
 
-      // Generate subscription template with dynamic SSL mode
+      // Generate subscription template with dynamic SSL mode and replication port
+      // Hostname placeholder will be replaced by client-side code with window.location.hostname
+      const replicationPort = this.configService.historian.replicationPort;
       const createSubscriptionTemplate = `CREATE SUBSCRIPTION historian_sub
-CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}'
+CONNECTION 'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}'
 PUBLICATION historian_pub
 WITH (
     copy_data = true,

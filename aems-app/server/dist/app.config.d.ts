@@ -95,6 +95,7 @@ export declare class AppConfigService {
         name: string;
         username: string;
         password: string;
+        replicationPort: number;
     };
     ext: Record<string, ExtConfig>;
     proxy: {

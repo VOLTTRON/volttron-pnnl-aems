@@ -147,6 +147,7 @@ class AppConfigService {
             name: process.env.HISTORIAN_NAME ?? "historian",
             username: process.env.HISTORIAN_USER ?? "historian",
             password: process.env.HISTORIAN_PASSWORD ?? "",
+            replicationPort: parseInt(process.env.HISTORIAN_REPLICATION_PORT ?? "5543"),
         };
         this.ext = Object.entries(process.env)
             .filter(([key]) => key.startsWith("EXT_") && ["_PATH", "_ROLE", "_AUTHORIZED", "_UNAUTHORIZED"].find((k) => key.endsWith(k)))
