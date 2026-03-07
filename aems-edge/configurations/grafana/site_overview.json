@@ -134,6 +134,45 @@
         }
       ],
       "title": "Occupancy Status",
+      "transformations": [
+        {
+          "id": "filterByValue",
+          "options": {
+            "filters": [
+              {
+                "config": {
+                  "id": "isNull",
+                  "options": {}
+                },
+                "fieldName": "RTU01"
+              },
+              {
+                "config": {
+                  "id": "isNull",
+                  "options": {}
+                },
+                "fieldName": "RTU02"
+              },
+              {
+                "config": {
+                  "id": "isNull",
+                  "options": {}
+                },
+                "fieldName": "RTU03"
+              },
+              {
+                "config": {
+                  "id": "isNull",
+                  "options": {}
+                },
+                "fieldName": "RTU04"
+              }
+            ],
+            "match": "any",
+            "type": "exclude"
+          }
+        }
+      ],
       "type": "state-timeline"
     },
     {
@@ -250,6 +289,45 @@
         }
       ],
       "title": "Occupancy Setpoint Error",
+      "transformations": [
+        {
+          "id": "filterByValue",
+          "options": {
+            "filters": [
+              {
+                "config": {
+                  "id": "isNull",
+                  "options": {}
+                },
+                "fieldName": "RTU01"
+              },
+              {
+                "config": {
+                  "id": "isNull",
+                  "options": {}
+                },
+                "fieldName": "RTU02"
+              },
+              {
+                "config": {
+                  "id": "isNull",
+                  "options": {}
+                },
+                "fieldName": "RTU03"
+              },
+              {
+                "config": {
+                  "id": "isNull",
+                  "options": {}
+                },
+                "fieldName": "RTU04"
+              }
+            ],
+            "match": "any",
+            "type": "exclude"
+          }
+        }
+      ],
       "type": "state-timeline"
     },
     {
