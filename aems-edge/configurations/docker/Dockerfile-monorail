@@ -1,6 +1,6 @@
 ARG image_user=amd64
 ARG image_repo=eclipsevolttron/volttron
-ARG image_tag=develop
+ARG image_tag=optional_certs
 
 FROM ${image_repo}:${image_tag} AS volttron
 
@@ -11,18 +11,13 @@ USER $VOLTTRON_USER
 
 # copy over aems repo
 # May replace this with a git clone in the future
-RUN git clone -b monorail https://github.com/davidraker/volttron-platform-driver.git /code/volttron-platform-driver
-RUN git clone -b monorail https://github.com/davidraker/volttron-lib-base-driver.git /code/volttron-lib-base-driver
-RUN git clone -b monorail https://github.com/davidraker/volttron-lib-bacnet-driver.git /code/volttron-lib-bacnet-driver
-RUN git clone -b bus_adapter_changes https://github.com/davidraker/lib-protocol-proxy.git /code/lib-protocol-proxy
-RUN git clone -b timesync https://github.com/davidraker/lib-protocol-proxy-bacnet /code/lib-protocol-proxy-bacnet
+RUN git clone -b monorail https://github.com/eclipse-volttron/volttron-platform-driver.git /code/volttron-platform-driver
+RUN git clone -b monorail https://github.com/davidraker/volttron-lib-bacnet-plugin-object-user-lock-time /code/object-user-lock-time
 
-RUN pip install -e /code/volttron-lib-bacnet-driver
-RUN pip install -e /code/volttron-lib-base-driver
-RUN pip install -e /code/lib-protocol-proxy-bacnet
-RUN pip install -e /code/lib-protocol-proxy
-RUN pip install -e /code/volttron
-RUN pip install wheel==0.30.0
+RUN pip install -e /code/object-user-lock-time
+
+RUN pip install lib-protocol-proxy-bacnet
+RUN pip install --no-deps volttron-lib-bacnet-driver
 
 # Install libraries required for manager agent
 #RUN pip install poetry
