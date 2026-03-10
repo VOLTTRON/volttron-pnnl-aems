@@ -1,15 +1,16 @@
 "use client";
 
 import { HistorianReplicationInfoDocument, HistorianReplicationInfoQuery } from "@/graphql-codegen/graphql";
-import { Button, Callout, Card, Elevation, H3, H4, H5, Intent, NonIdealState, Spinner, Tab, Tabs } from "@blueprintjs/core";
+import { Button, Callout, Card, Elevation, H3, H4, H5, Intent, NonIdealState, Spinner, Tab, Tabs, ControlGroup } from "@blueprintjs/core";
 import { IconNames } from "@blueprintjs/icons";
 import { useQuery } from "@apollo/client";
-import { useContext, useState, useRef, useEffect } from "react";
+import { useContext, useState, useRef, useEffect, useMemo } from "react";
 import { NotificationContext, NotificationType } from "../components/providers";
+import { Table, Search, Paging } from "../components/common";
 
 export default function HistorianPage() {
   const { createNotification } = useContext(NotificationContext);
-  const { data, loading, error } = useQuery(HistorianReplicationInfoDocument, {
+  const { data, loading, error, refetch } = useQuery(HistorianReplicationInfoDocument, {
     fetchPolicy: "cache-and-network",
     onError(error) {
       createNotification?.(error.message, NotificationType.Error);
@@ -18,11 +19,72 @@ export default function HistorianPage() {
   const [activeTab, setActiveTab] = useState("publisher");
   const [tabWidth, setTabWidth] = useState<number | undefined>(undefined);
   
+  // State for Unit Status table
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<{
+    field: "campus" | "building" | "topic" | "unit" | "lastPublished" | "minutesAgo" | "status";
+    direction: "Asc" | "Desc";
+  }>({
+    field: "lastPublished",
+    direction: "Desc",
+  });
+  const [paging, setPaging] = useState({ take: 20, skip: 0 });
+  
   const publisherRef = useRef<HTMLDivElement>(null);
   const subscriberRef = useRef<HTMLDivElement>(null);
   const monitoringRef = useRef<HTMLDivElement>(null);
   const removalRef = useRef<HTMLDivElement>(null);
   const unitsRef = useRef<HTMLDivElement>(null);
+
+  // Memoized filtered and sorted unit data
+  const filteredUnits = useMemo(() => {
+    const units = data?.historianReplicationInfo?.unitPublishingStatus ?? [];
+    
+    // Filter by search term
+    const filtered = search
+      ? units.filter((unit: any) => {
+          const searchLower = search.toLowerCase();
+          return (
+            unit.campus?.toLowerCase().includes(searchLower) ||
+            unit.building?.toLowerCase().includes(searchLower) ||
+            unit.topic?.toLowerCase().includes(searchLower) ||
+            unit.status?.toLowerCase().includes(searchLower)
+          );
+        })
+      : units;
+
+    // Sort
+    const sorted = [...filtered].sort((a: any, b: any) => {
+      const aVal = a[sort.field];
+      const bVal = b[sort.field];
+      
+      // Handle dates
+      if (sort.field === "lastPublished") {
+        const aTime = new Date(aVal).getTime();
+        const bTime = new Date(bVal).getTime();
+        return sort.direction === "Asc" ? aTime - bTime : bTime - aTime;
+      }
+      
+      // Handle numbers
+      if (sort.field === "minutesAgo") {
+        return sort.direction === "Asc" ? aVal - bVal : bVal - aVal;
+      }
+      
+      // Handle strings
+      const aStr = String(aVal || "").toLowerCase();
+      const bStr = String(bVal || "").toLowerCase();
+      if (aStr < bStr) return sort.direction === "Asc" ? -1 : 1;
+      if (aStr > bStr) return sort.direction === "Asc" ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [data?.historianReplicationInfo?.unitPublishingStatus, search, sort]);
+
+  // Paginated data
+  const paginatedUnits = useMemo(() => {
+    return filteredUnits.slice(paging.skip, paging.skip + paging.take);
+  }, [filteredUnits, paging]);
 
   // Measure and set the maximum width from all tabs
   useEffect(() => {
@@ -384,57 +446,71 @@ DROP TABLE IF EXISTS topics CASCADE;`}
               </Callout>
 
               {unitPublishingStatus && unitPublishingStatus.length > 0 ? (
-                <Card elevation={Elevation.TWO}>
-                  <H4>Unit Publishing Status</H4>
-                  <table className="bp5-html-table bp5-html-table-striped" style={{ width: "100%" }}>
-                    <thead>
-                      <tr>
-                        <th>Campus</th>
-                        <th>Building</th>
-                        <th>Topic</th>
-                        <th>Last Published</th>
-                        <th>Time Ago</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {unitPublishingStatus.map((unit: any, index: number) => {
-                        const statusIntent = 
-                          unit.status === 'active' ? Intent.SUCCESS :
-                          unit.status === 'stale' ? Intent.WARNING :
-                          Intent.DANGER;
-                        
-                        const statusText = 
-                          unit.status === 'active' ? 'Active' :
-                          unit.status === 'stale' ? 'Stale' :
-                          'Inactive';
+                <>
+                  <ControlGroup style={{ marginBottom: "10px" }}>
+                    <div style={{ flex: 1 }} />
+                    <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
+                    <Search value={search} onValueChange={setSearch} placeholder="Search campus, building, topic, or status..." />
+                  </ControlGroup>
+                  
+                  <Card elevation={Elevation.TWO}>
+                    <Table
+                      rowKey="topic"
+                      rows={paginatedUnits}
+                      columns={[
+                        { field: "campus", label: "Campus", type: "string" },
+                        { field: "building", label: "Building", type: "string" },
+                        { 
+                          field: "topic", 
+                          label: "Topic", 
+                          renderer: (col, row, value) => <strong>{value}</strong>
+                        },
+                        { field: "lastPublished", label: "Last Published", type: "date" },
+                        { 
+                          field: "minutesAgo", 
+                          label: "Time Ago",
+                          renderer: (col, row, value) => `${value} minute${value !== 1 ? 's' : ''} ago`
+                        },
+                        { 
+                          field: "status", 
+                          label: "Status",
+                          renderer: (col, row, value) => {
+                            const statusIntent = 
+                              value === 'active' ? Intent.SUCCESS :
+                              value === 'stale' ? Intent.WARNING :
+                              Intent.DANGER;
+                            
+                            const statusText = 
+                              value === 'active' ? 'Active' :
+                              value === 'stale' ? 'Stale' :
+                              'Inactive';
 
-                        return (
-                          <tr key={index}>
-                            <td>{unit.campus || '-'}</td>
-                            <td>{unit.building || '-'}</td>
-                            <td><strong>{unit.topic}</strong></td>
-                            <td>{new Date(unit.lastPublished).toLocaleString()}</td>
-                            <td>{unit.minutesAgo} minute{unit.minutesAgo !== 1 ? 's' : ''} ago</td>
-                            <td>
+                            return (
                               <span className={`bp5-tag bp5-intent-${statusIntent === Intent.SUCCESS ? 'success' : statusIntent === Intent.WARNING ? 'warning' : 'danger'}`}>
                                 {statusText}
                               </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  <div style={{ marginTop: "15px", fontSize: "13px", color: "#5C7080" }}>
-                    <strong>Status Legend:</strong>
-                    <ul style={{ marginTop: "5px", marginBottom: "0" }}>
-                      <li><strong>Active:</strong> Data received within the last 5 minutes</li>
-                      <li><strong>Stale:</strong> Data received 5-60 minutes ago</li>
-                      <li><strong>Inactive:</strong> No data received in over 60 minutes</li>
-                    </ul>
-                  </div>
-                </Card>
+                            );
+                          }
+                        },
+                      ]}
+                      sort={sort}
+                      setSort={setSort}
+                    />
+                    <div style={{ marginTop: "15px", fontSize: "13px", color: "#5C7080" }}>
+                      <strong>Status Legend:</strong>
+                      <ul style={{ marginTop: "5px", marginBottom: "0" }}>
+                        <li><strong>Active:</strong> Data received within the last 5 minutes</li>
+                        <li><strong>Stale:</strong> Data received 5-60 minutes ago</li>
+                        <li><strong>Inactive:</strong> No data received in over 60 minutes</li>
+                      </ul>
+                    </div>
+                  </Card>
+                  
+                  <ControlGroup style={{ marginTop: "10px" }}>
+                    <div style={{ flex: 1 }} />
+                    <Paging length={filteredUnits.length} paging={paging} setPaging={setPaging} />
+                  </ControlGroup>
+                </>
               ) : (
                 <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN}>
                   No unit publishing data available. Units will appear here once they start publishing data to the historian database.
