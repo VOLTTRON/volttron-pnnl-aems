@@ -435,10 +435,10 @@ DROP TABLE IF EXISTS topics CASCADE;`}
           }
         />
 
-        {/* Unit Status Tab */}
+        {/* Historian Status Tab */}
         <Tab
-          id="units"
-          title="Unit Status"
+          id="historian-status"
+          title="Historian Status"
           panel={
             <div ref={unitsRef} style={{ marginTop: "20px", width: tabWidth }}>
               <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "20px" }}>

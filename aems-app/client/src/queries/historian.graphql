@@ -1,3 +1,77 @@
 query HistorianReplicationInfo {
   historianReplicationInfo
 }
+
+query HistorianTimeSeries(
+  $campus: String
+  $building: String
+  $unit: String
+  $startTime: DateTime!
+  $endTime: DateTime!
+  $topicPatterns: [String!]!
+) {
+  historianTimeSeries(
+    campus: $campus
+    building: $building
+    unit: $unit
+    startTime: $startTime
+    endTime: $endTime
+    topicPatterns: $topicPatterns
+  )
+}
+
+query HistorianCurrentValues(
+  $campus: String
+  $building: String
+  $unit: String
+  $topicPatterns: [String!]!
+) {
+  historianCurrentValues(
+    campus: $campus
+    building: $building
+    unit: $unit
+    topicPatterns: $topicPatterns
+  )
+}
+
+query HistorianAggregated(
+  $campus: String
+  $building: String
+  $unit: String
+  $startTime: DateTime!
+  $endTime: DateTime!
+  $interval: String!
+  $aggregation: AggregationType!
+  $topicPattern: String!
+) {
+  historianAggregated(
+    campus: $campus
+    building: $building
+    unit: $unit
+    startTime: $startTime
+    endTime: $endTime
+    interval: $interval
+    aggregation: $aggregation
+    topicPattern: $topicPattern
+  )
+}
+
+query HistorianMultiUnit(
+  $campus: String
+  $building: String
+  $startTime: DateTime!
+  $endTime: DateTime!
+  $interval: String
+  $topicPattern: String!
+  $units: [String!]!
+) {
+  historianMultiUnit(
+    campus: $campus
+    building: $building
+    startTime: $startTime
+    endTime: $endTime
+    interval: $interval
+    topicPattern: $topicPattern
+    units: $units
+  )
+}
