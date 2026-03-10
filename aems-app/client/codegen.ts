@@ -45,6 +45,7 @@ const config: CodegenConfig = {
           SubscriberSetupSql: "@local/common#SubscriberSetupSql",
           MonitoringSql: "@local/common#MonitoringSql",
           ReplicationSlot: "@local/common#ReplicationSlot",
+          UnitPublishingStatus: "@local/common#UnitPublishingStatus",
         },
       },
     },

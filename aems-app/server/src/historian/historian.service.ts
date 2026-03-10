@@ -18,6 +18,7 @@ import {
   SubscriberSetupSql,
   MonitoringSql,
   ReplicationSlot,
+  UnitPublishingStatus,
 } from "./historian.types";
 
 // Re-export types for convenience
@@ -33,6 +34,7 @@ export {
   SubscriberSetupSql,
   MonitoringSql,
   ReplicationSlot,
+  UnitPublishingStatus,
 };
 
 export interface UnitAccess {
@@ -730,6 +732,93 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Get unit publishing status - shows which units are actively publishing data
+   */
+  async getUnitPublishingStatus(): Promise<UnitPublishingStatus[]> {
+    try {
+      // Whitelists for valid campus and building names
+      const validCampuses = new Set(['PNNL', 'CAMPUS2', 'CAMPUS3']); // Add more as needed
+      const validBuildings = new Set(['ROB', 'ETB', 'PSF', 'BUILDING2']); // Add more as needed
+
+      const query = `
+        SELECT 
+          topic_name,
+          MAX(ts) as last_published
+        FROM data
+        NATURAL JOIN topics
+        WHERE topic_name LIKE '%/%'
+        GROUP BY topic_name
+        ORDER BY last_published DESC
+      `;
+
+      const result: PgQueryResult = await this.pool.query(query);
+      const now = new Date();
+
+      return result.rows
+        .map((row: any) => {
+        const topicName = row.topic_name as string;
+        const parts = topicName.split('/');
+        
+        let campus = '';
+        let building = '';
+        let topic = topicName;
+        let remainingParts = [...parts];
+
+        // Search for valid campus in parts
+        for (let i = 0; i < parts.length; i++) {
+          if (validCampuses.has(parts[i])) {
+            campus = parts[i];
+            remainingParts = parts.slice(i + 1);
+            break;
+          }
+        }
+
+        // Search for valid building in remaining parts
+        if (campus && remainingParts.length > 0) {
+          for (let i = 0; i < remainingParts.length; i++) {
+            if (validBuildings.has(remainingParts[i])) {
+              building = remainingParts[i];
+              remainingParts = remainingParts.slice(i + 1);
+              break;
+            }
+          }
+        }
+
+        // Extract topic identifier (remaining parts or full topic if no matches)
+        if (campus || building) {
+          topic = remainingParts.length > 0 ? remainingParts.join('/') : parts[parts.length - 1];
+        }
+
+        const lastPublished = new Date(row.last_published as string);
+        const minutesAgo = Math.floor((now.getTime() - lastPublished.getTime()) / 1000 / 60);
+        
+        let status: 'active' | 'stale' | 'inactive';
+        if (minutesAgo < 5) {
+          status = 'active';
+        } else if (minutesAgo < 60) {
+          status = 'stale';
+        } else {
+          status = 'inactive';
+        }
+
+          return {
+            campus,
+            building,
+            unit: topic, // Keep unit for backward compatibility
+            topic,
+            lastPublished,
+            minutesAgo,
+            status,
+          };
+        })
+        .filter((record) => record.campus && record.building); // Only include records with valid campus AND building
+    } catch (error) {
+      this.logger.error("Error fetching unit publishing status", error);
+      throw error;
+    }
+  }
+
+  /**
    * Get historian database replication information
    * Returns publisher info, subscriber setup SQL, and monitoring queries
    */
@@ -922,6 +1011,9 @@ SELECT
 FROM pg_stat_subscription_stats
 WHERE subname = 'historian_sub';`;
 
+      // Get unit publishing status
+      const unitPublishingStatus = await this.getUnitPublishingStatus();
+
       return {
         publisherInfo: {
           publicationName,
@@ -941,6 +1033,7 @@ WHERE subname = 'historian_sub';`;
           checkSubscriptionStatusSql,
           checkSyncErrorsSql,
         },
+        unitPublishingStatus,
       };
     } catch (error) {
       this.logger.error("Error fetching replication info", error);

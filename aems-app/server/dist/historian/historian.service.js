@@ -481,6 +481,78 @@ let HistorianService = HistorianService_1 = class HistorianService {
             this.logger.error('Error ensuring tables in publication', error);
         }
     }
+    async getUnitPublishingStatus() {
+        try {
+            const validCampuses = new Set(['PNNL', 'CAMPUS2', 'CAMPUS3']);
+            const validBuildings = new Set(['ROB', 'ETB', 'PSF', 'BUILDING2']);
+            const query = `
+        SELECT 
+          topic_name,
+          MAX(ts) as last_published
+        FROM data
+        NATURAL JOIN topics
+        WHERE topic_name LIKE '%/%'
+        GROUP BY topic_name
+        ORDER BY last_published DESC
+      `;
+            const result = await this.pool.query(query);
+            const now = new Date();
+            return result.rows
+                .map((row) => {
+                const topicName = row.topic_name;
+                const parts = topicName.split('/');
+                let campus = '';
+                let building = '';
+                let topic = topicName;
+                let remainingParts = [...parts];
+                for (let i = 0; i < parts.length; i++) {
+                    if (validCampuses.has(parts[i])) {
+                        campus = parts[i];
+                        remainingParts = parts.slice(i + 1);
+                        break;
+                    }
+                }
+                if (campus && remainingParts.length > 0) {
+                    for (let i = 0; i < remainingParts.length; i++) {
+                        if (validBuildings.has(remainingParts[i])) {
+                            building = remainingParts[i];
+                            remainingParts = remainingParts.slice(i + 1);
+                            break;
+                        }
+                    }
+                }
+                if (campus || building) {
+                    topic = remainingParts.length > 0 ? remainingParts.join('/') : parts[parts.length - 1];
+                }
+                const lastPublished = new Date(row.last_published);
+                const minutesAgo = Math.floor((now.getTime() - lastPublished.getTime()) / 1000 / 60);
+                let status;
+                if (minutesAgo < 5) {
+                    status = 'active';
+                }
+                else if (minutesAgo < 60) {
+                    status = 'stale';
+                }
+                else {
+                    status = 'inactive';
+                }
+                return {
+                    campus,
+                    building,
+                    unit: topic,
+                    topic,
+                    lastPublished,
+                    minutesAgo,
+                    status,
+                };
+            })
+                .filter((record) => record.campus && record.building);
+        }
+        catch (error) {
+            this.logger.error("Error fetching unit publishing status", error);
+            throw error;
+        }
+    }
     async getReplicationInfo() {
         try {
             await this.ensureTablesInPublication();
@@ -635,6 +707,7 @@ SELECT
     apply_error_count
 FROM pg_stat_subscription_stats
 WHERE subname = 'historian_sub';`;
+            const unitPublishingStatus = await this.getUnitPublishingStatus();
             return {
                 publisherInfo: {
                     publicationName,
@@ -654,6 +727,7 @@ WHERE subname = 'historian_sub';`;
                     checkSubscriptionStatusSql,
                     checkSyncErrorsSql,
                 },
+                unitPublishingStatus,
             };
         }
         catch (error) {

@@ -24,8 +24,18 @@ export interface MonitoringSql {
     checkSubscriptionStatusSql: string;
     checkSyncErrorsSql: string;
 }
+export interface UnitPublishingStatus {
+    campus: string;
+    building: string;
+    unit: string;
+    topic: string;
+    lastPublished: Date;
+    minutesAgo: number;
+    status: 'active' | 'stale' | 'inactive';
+}
 export interface HistorianReplicationInfo {
     publisherInfo: PublisherInfo;
     subscriberSetupSql: SubscriberSetupSql;
     monitoringSql: MonitoringSql;
+    unitPublishingStatus: UnitPublishingStatus[];
 }

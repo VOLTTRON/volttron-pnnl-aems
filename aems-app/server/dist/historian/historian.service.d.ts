@@ -1,8 +1,8 @@
 import { OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
-import { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot } from "./historian.types";
-export { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, };
+import { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, UnitPublishingStatus } from "./historian.types";
+export { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, UnitPublishingStatus, };
 export interface UnitAccess {
     campus: string;
     building: string;
@@ -32,5 +32,6 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     private calculateRollingAverage;
     private isProxyCertificateSelfSigned;
     private ensureTablesInPublication;
+    getUnitPublishingStatus(): Promise<UnitPublishingStatus[]>;
     getReplicationInfo(): Promise<HistorianReplicationInfo>;
 }

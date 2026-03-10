@@ -48,7 +48,7 @@ Object.defineProperty(exports, "ValidateType", { enumerable: true, get: function
 var zone_1 = require("./constants/zone");
 Object.defineProperty(exports, "Zone", { enumerable: true, get: function () { return zone_1.default; } });
 Object.defineProperty(exports, "ZoneType", { enumerable: true, get: function () { return zone_1.default; } });
-__exportStar(require("./constants/historian"), exports);
+__exportStar(require("./types/historian"), exports);
 __exportStar(require("./utils"), exports);
 __exportStar(require("@local/prisma"), exports);
 //# sourceMappingURL=index.js.map

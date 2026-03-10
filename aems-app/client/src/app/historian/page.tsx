@@ -22,6 +22,7 @@ export default function HistorianPage() {
   const subscriberRef = useRef<HTMLDivElement>(null);
   const monitoringRef = useRef<HTMLDivElement>(null);
   const removalRef = useRef<HTMLDivElement>(null);
+  const unitsRef = useRef<HTMLDivElement>(null);
 
   // Measure and set the maximum width from all tabs
   useEffect(() => {
@@ -33,6 +34,7 @@ export default function HistorianPage() {
         subscriberRef.current?.scrollWidth || 0,
         monitoringRef.current?.scrollWidth || 0,
         removalRef.current?.scrollWidth || 0,
+        unitsRef.current?.scrollWidth || 0,
       ];
       const maxWidth = Math.max(...widths);
       if (maxWidth > 0) {
@@ -83,7 +85,7 @@ export default function HistorianPage() {
     );
   }
 
-  const { publisherInfo, subscriberSetupSql, monitoringSql } = data.historianReplicationInfo;
+  const { publisherInfo, subscriberSetupSql, monitoringSql, unitPublishingStatus } = data.historianReplicationInfo;
 
   // Replace hostname placeholder with current browser hostname
   const hostname = typeof window !== 'undefined' ? window.location.hostname : 'YOUR_HOSTNAME';
@@ -138,7 +140,6 @@ export default function HistorianPage() {
                         <th>Plugin</th>
                         <th>Type</th>
                         <th>Active</th>
-                        <th>Restart LSN</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -152,7 +153,6 @@ export default function HistorianPage() {
                               {slot.active ? "Active" : "Inactive"}
                             </span>
                           </td>
-                          <td style={{ fontFamily: "monospace", fontSize: "12px" }}>{slot.restartLsn}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -369,6 +369,77 @@ DROP TABLE IF EXISTS data CASCADE;
 DROP TABLE IF EXISTS topics CASCADE;`}
                 </pre>
               </Card>
+            </div>
+          }
+        />
+
+        {/* Unit Status Tab */}
+        <Tab
+          id="units"
+          title="Unit Status"
+          panel={
+            <div ref={unitsRef} style={{ marginTop: "20px", width: tabWidth }}>
+              <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "20px" }}>
+                Monitor which units are actively publishing data to the historian database. Status updates every time this page is loaded.
+              </Callout>
+
+              {unitPublishingStatus && unitPublishingStatus.length > 0 ? (
+                <Card elevation={Elevation.TWO}>
+                  <H4>Unit Publishing Status</H4>
+                  <table className="bp5-html-table bp5-html-table-striped" style={{ width: "100%" }}>
+                    <thead>
+                      <tr>
+                        <th>Campus</th>
+                        <th>Building</th>
+                        <th>Topic</th>
+                        <th>Last Published</th>
+                        <th>Time Ago</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {unitPublishingStatus.map((unit: any, index: number) => {
+                        const statusIntent = 
+                          unit.status === 'active' ? Intent.SUCCESS :
+                          unit.status === 'stale' ? Intent.WARNING :
+                          Intent.DANGER;
+                        
+                        const statusText = 
+                          unit.status === 'active' ? 'Active' :
+                          unit.status === 'stale' ? 'Stale' :
+                          'Inactive';
+
+                        return (
+                          <tr key={index}>
+                            <td>{unit.campus || '-'}</td>
+                            <td>{unit.building || '-'}</td>
+                            <td><strong>{unit.topic}</strong></td>
+                            <td>{new Date(unit.lastPublished).toLocaleString()}</td>
+                            <td>{unit.minutesAgo} minute{unit.minutesAgo !== 1 ? 's' : ''} ago</td>
+                            <td>
+                              <span className={`bp5-tag bp5-intent-${statusIntent === Intent.SUCCESS ? 'success' : statusIntent === Intent.WARNING ? 'warning' : 'danger'}`}>
+                                {statusText}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <div style={{ marginTop: "15px", fontSize: "13px", color: "#5C7080" }}>
+                    <strong>Status Legend:</strong>
+                    <ul style={{ marginTop: "5px", marginBottom: "0" }}>
+                      <li><strong>Active:</strong> Data received within the last 5 minutes</li>
+                      <li><strong>Stale:</strong> Data received 5-60 minutes ago</li>
+                      <li><strong>Inactive:</strong> No data received in over 60 minutes</li>
+                    </ul>
+                  </div>
+                </Card>
+              ) : (
+                <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN}>
+                  No unit publishing data available. Units will appear here once they start publishing data to the historian database.
+                </Callout>
+              )}
             </div>
           }
         />
