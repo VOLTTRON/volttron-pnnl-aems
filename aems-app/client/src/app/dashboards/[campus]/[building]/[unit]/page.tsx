@@ -1,9 +1,13 @@
 "use client";
 
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState, useMemo } from "react";
 import { Card, HTMLSelect, Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
-import { ReadUnitsDocument, HistorianTimeSeriesDocument, HistorianCurrentValuesDocument } from "@/graphql-codegen/graphql";
+import {
+  ReadUnitsDocument,
+  HistorianTimeSeriesDocument,
+  HistorianCurrentValuesDocument,
+} from "@/graphql-codegen/graphql";
 import { CurrentContext, PreferencesContext, compilePreferences, RouteContext } from "@/app/components/providers";
 import { Role } from "@local/common";
 import { ECharts } from "@/app/components/common/echarts";
@@ -40,8 +44,11 @@ export default function DashboardPage({ params }: PageProps) {
     },
   });
 
-  const unitsList = unitsData?.readUnits || [];
-  const currentUnit = isSite ? null : unitsList[0];
+  // Calculate time range - memoized to prevent unnecessary re-renders
+  const [startTime, endTime] = useMemo(() => {
+    const now = new Date();
+    return [new Date(now.getTime() - parseTimeRange(timeRange)), now];
+  }, [timeRange]);
 
   // Register route resolvers for breadcrumbs
   useEffect(() => {
@@ -63,7 +70,7 @@ export default function DashboardPage({ params }: PageProps) {
           return "Site Overview";
         }
         // Find the unit in the data to get its label
-        const unit = unitsList.find((u) => u.name === decodedId);
+        const unit = unitsData?.readUnits?.find((u) => u.name === decodedId);
         return unit?.label || decodedId;
       });
 
@@ -73,54 +80,62 @@ export default function DashboardPage({ params }: PageProps) {
         removeResolver("dashboard-unit");
       };
     }
-  }, [addResolver, removeResolver, unitsList]);
-
-  // Calculate time range
-  const now = new Date();
-  const startTime = new Date(now.getTime() - parseTimeRange(timeRange));
+  }, [addResolver, removeResolver, unitsData]);
 
   if (!Role.User.granted(...(current?.role?.split(" ") ?? []))) {
     return <div>You do not have permission to view this page.</div>;
   }
 
   if (isSite) {
-    return <SiteDashboard 
-      campus={decodedCampus} 
-      building={decodedBuilding} 
-      units={unitsList}
+    return (
+      <SiteDashboard
+        campus={decodedCampus}
+        building={decodedBuilding}
+        units={unitsData?.readUnits ?? []}
+        startTime={startTime}
+        endTime={endTime}
+        timeRange={timeRange}
+        setTimeRange={setTimeRange}
+        mode={mode}
+      />
+    );
+  }
+
+  if (!unitsData?.readUnits?.[0]) {
+    return (
+      <div className={styles.loading}>
+        <Spinner /> Loading unit data...
+      </div>
+    );
+  }
+
+  return (
+    <UnitDashboard
+      campus={decodedCampus}
+      building={decodedBuilding}
+      unit={unitsData?.readUnits?.[0]}
       startTime={startTime}
-      endTime={now}
+      endTime={endTime}
       timeRange={timeRange}
       setTimeRange={setTimeRange}
       mode={mode}
-    />;
-  }
-
-  if (!currentUnit) {
-    return <div className={styles.loading}><Spinner /> Loading unit data...</div>;
-  }
-
-  return <UnitDashboard 
-    campus={decodedCampus} 
-    building={decodedBuilding} 
-    unit={currentUnit}
-    startTime={startTime}
-    endTime={now}
-    timeRange={timeRange}
-    setTimeRange={setTimeRange}
-    mode={mode}
-  />;
+    />
+  );
 }
 
 function parseTimeRange(range: string): number {
   const value = parseInt(range);
   const unit = range.replace(/\d+/, "");
-  
+
   switch (unit) {
-    case "m": return value * 60 * 1000;
-    case "h": return value * 60 * 60 * 1000;
-    case "d": return value * 24 * 60 * 60 * 1000;
-    default: return 3 * 60 * 60 * 1000; // Default 3 hours
+    case "m":
+      return value * 60 * 1000;
+    case "h":
+      return value * 60 * 60 * 1000;
+    case "d":
+      return value * 24 * 60 * 60 * 1000;
+    default:
+      return 3 * 60 * 60 * 1000; // Default 3 hours
   }
 }
 
@@ -134,10 +149,7 @@ function SiteDashboard({ campus, building, units, startTime, endTime, timeRange,
       building,
       startTime,
       endTime,
-      topicPatterns: [
-        `${campus}/${building}/%/OutdoorAirTemperature`,
-        "%/%/air_temperature",
-      ],
+      topicPatterns: [`${campus}/${building}/%/OutdoorAirTemperature`, "%/%/air_temperature"],
     },
     skip: unitNames.length === 0,
   });
@@ -174,7 +186,9 @@ function SiteDashboard({ campus, building, units, startTime, endTime, timeRange,
         <Card className={styles.chartCard}>
           <h3>Weather</h3>
           {weatherLoading ? (
-            <div className={styles.chartLoading}><Spinner /></div>
+            <div className={styles.chartLoading}>
+              <Spinner />
+            </div>
           ) : (
             <ECharts
               option={{
@@ -184,12 +198,13 @@ function SiteDashboard({ campus, building, units, startTime, endTime, timeRange,
                 grid: { top: 40, right: 60, bottom: 60, left: 60 },
                 xAxis: { type: "time" },
                 yAxis: { type: "value", name: "Temperature (°F)" },
-                series: weatherData?.historianTimeSeries?.map((series: any) => ({
-                  name: series.label,
-                  type: "line",
-                  smooth: true,
-                  data: series.data?.map((point: any) => [point.time, point.value]) || [],
-                })) || [],
+                series:
+                  weatherData?.historianTimeSeries?.map((series: any) => ({
+                    name: series.label,
+                    type: "line",
+                    smooth: true,
+                    data: series.data?.map((point: any) => [point.time, point.value]) || [],
+                  })) || [],
               }}
               style={{ height: "300px" }}
               theme={mode}
@@ -200,7 +215,9 @@ function SiteDashboard({ campus, building, units, startTime, endTime, timeRange,
         <Card className={styles.chartCard}>
           <h3>Building Power</h3>
           {powerLoading ? (
-            <div className={styles.chartLoading}><Spinner /></div>
+            <div className={styles.chartLoading}>
+              <Spinner />
+            </div>
           ) : (
             <ECharts
               option={{
@@ -210,12 +227,13 @@ function SiteDashboard({ campus, building, units, startTime, endTime, timeRange,
                 grid: { top: 40, right: 60, bottom: 60, left: 60 },
                 xAxis: { type: "time" },
                 yAxis: { type: "value", name: "Power (W)" },
-                series: powerData?.historianTimeSeries?.map((series: any) => ({
-                  name: series.label,
-                  type: "line",
-                  smooth: true,
-                  data: series.data?.map((point: any) => [point.time, point.value]) || [],
-                })) || [],
+                series:
+                  powerData?.historianTimeSeries?.map((series: any) => ({
+                    name: series.label,
+                    type: "line",
+                    smooth: true,
+                    data: series.data?.map((point: any) => [point.time, point.value]) || [],
+                  })) || [],
               }}
               style={{ height: "300px" }}
               theme={mode}
@@ -267,15 +285,11 @@ function UnitDashboard({ campus, building, unit, startTime, endTime, timeRange, 
   });
 
   const getValue = (pattern: string) => {
-    return currentValues?.historianCurrentValues?.find((v: any) => 
-      v.topic?.includes(pattern)
-    )?.value;
+    return currentValues?.historianCurrentValues?.find((v: any) => v.topic?.includes(pattern))?.value;
   };
 
   const getSeries = (pattern: string) => {
-    return timeSeriesData?.historianTimeSeries?.find((s: any) =>
-      s.topic?.includes(pattern)
-    );
+    return timeSeriesData?.historianTimeSeries?.find((s: any) => s.topic?.includes(pattern));
   };
 
   return (
@@ -283,7 +297,9 @@ function UnitDashboard({ campus, building, unit, startTime, endTime, timeRange, 
       <div className={styles.header}>
         <div>
           <h1>{unit.label || unit.name}</h1>
-          <p className={styles.subtitle}>{campus} / {building}</p>
+          <p className={styles.subtitle}>
+            {campus} / {building}
+          </p>
         </div>
         <HTMLSelect value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
           <option value="1h">Last Hour</option>
@@ -320,7 +336,9 @@ function UnitDashboard({ campus, building, unit, startTime, endTime, timeRange, 
         <Card className={styles.chartCard}>
           <h3>Temperature & Controls</h3>
           {timeSeriesLoading ? (
-            <div className={styles.chartLoading}><Spinner /></div>
+            <div className={styles.chartLoading}>
+              <Spinner />
+            </div>
           ) : (
             <ECharts
               option={{
