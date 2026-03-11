@@ -369,6 +369,31 @@ docker exec -i skeleton-database psql -U skeleton skeleton < backup.sql
 - **server**: NestJS API server
 - **services**: Background job processing
 
+### Testing Without VOLTTRON
+
+To test the application when VOLTTRON cannot connect to real data sources, configure the historian to replicate data from another historian instance:
+
+1. **Configure source historian** in `.env.historian-test`:
+   ```bash
+   TEST_HISTORIAN_HOST=source-historian.example.com
+   TEST_HISTORIAN_PORT=6543
+   TEST_HISTORIAN_USER=replicator
+   TEST_HISTORIAN_PASSWORD=your-password
+   ```
+
+2. **Restart historian**:
+   ```bash
+   docker compose restart historian
+   ```
+
+3. **Verify replication**:
+   ```bash
+   docker logs aems-historian
+   docker exec aems-historian psql -U historian -d historian -c "SELECT COUNT(*) FROM data;"
+   ```
+
+The historian will automatically detect the test configuration and subscribe to the remote historian. To disable, clear `TEST_HISTORIAN_HOST` and restart.
+
 ### Optional Profiles
 
 #### Proxy Profile (`proxy`)

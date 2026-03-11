@@ -516,6 +516,11 @@ services:
         condition: service_completed_successfully
     env_file:
       - .env.historian
+    environment:
+      - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+      - POSTGRES_PASSWORD=${HISTORIAN_DATABASE_PASSWORD}
+      - TEST_HISTORIAN_HOST=${TEST_HISTORIAN_HOST:-}
+      - TEST_HISTORIAN_PASSWORD=${TEST_HISTORIAN_PASSWORD:-}
     hostname: historian
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/historian:${TAG}
     ports:
@@ -527,6 +532,7 @@ services:
     volumes:
       - historian-data:/var/lib/postgresql/data
       - certs-data:/etc/certs/:ro
+      - ./historian/setup-subscriber.sh:/docker-entrypoint-initdb.d/setup-subscriber.sh:ro
 
   # Creates Volttron configurations on startup
   volttron-setup:
