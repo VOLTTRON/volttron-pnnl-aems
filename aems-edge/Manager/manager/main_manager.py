@@ -28,6 +28,7 @@ import logging
 import os
 import sys
 import re
+import random
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime as dt
 from pathlib import Path
@@ -368,8 +369,16 @@ class ManagerProxy:
 
         debug_ref = f'{inspect.stack()[0][3]}()->{inspect.stack()[1][3]}()'
         _log.debug(f'Calling: {self.cfg.actuator_identity} set_point -- {self.cfg.system_rpc_path}, {point}, {value}')
-        result = self._p.vip.rpc.call(self.cfg.actuator_identity, 'set_point', self.cfg.system_rpc_path, point,
-                                      value, on_property=on_property).get(timeout=10.0)
+        result = None
+        for attempt in range(4):
+            try:
+                result = self._p.vip.rpc.call(self.cfg.actuator_identity, 'set_point', self.cfg.system_rpc_path, point,
+                                              value, on_property=on_property).get(timeout=10.0)
+                break
+            except (gevent.Timeout, RemoteError) as ex:
+                _log.warning(
+                    f'{self.identity} - Failed to set on attempt {attempt + 1} -- {self.cfg.system_rpc_path} to {value}: {ex}')
+                gevent.sleep(30 + random.randint(-5, 5))
         _log.debug(f'{debug_ref}: -> {result}')
         return result
 
@@ -857,11 +866,7 @@ class ManagerProxy:
         :type point: str
         :return:
         """
-        try:
-            result = self.rpc_set_point(point=point, value=value, on_property=on_property)
-        except (gevent.Timeout, RemoteError) as ex:
-            _log.warning(f'Failed to set {self.cfg.system_rpc_path} - {point}  -- to {value}: {str(ex)}', exc_info=True)
-            return str(ex)
+        result = self.rpc_set_point(point=point, value=value, on_property=on_property)
         return result
 
     def change_occupancy(self, state: OccupancyTypes):
@@ -885,18 +890,12 @@ class ManagerProxy:
         else:
             new_occupancy_state = state.value
 
-        try:
-            result = self.rpc_set_point(Points.occupancy.value, new_occupancy_state)
-
-        except RemoteError as ex:
-            _log.warning(f'{self.identity} - Failed to set {self.cfg.system_rpc_path} to {state.value}: {ex}')
-            return str(ex)
-        return result
+        self.rpc_set_point(Points.occupancy.value, new_occupancy_state)
 
     def start_precontrol(self):
         """
         Makes RPC call to driver agent to enable any pre-control
-        actions needed for optimal start.
+        actions needed for optimal start
         :return:
         :rtype:
         """
@@ -940,7 +939,7 @@ class ManagerProxy:
         def parse_rpc_data(weather_results):
             weather_data = []
             for oat in weather_results:
-                weather_data.append((parser.parse(oat[0]).astimezone(self.cfg.timezone), oat[1]['temperature']))
+                weather_data.append((parser.parse(oat[0]).astimezone(self.cfg.timezone), oat[1]['air_temperature']))
             _log.debug(f'Parsed WEATHER forecast: {weather_data}')
             return weather_data
 
