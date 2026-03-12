@@ -74,6 +74,7 @@
   - [Quality](#quality)
   - [Initializing](#initializing)
   - [Running](#running)
+  - [Local Development with Docker Backend](#local-development-with-docker-backend)
   - [Configuration](#configuration-1)
 - [Contributing](#contributing)
   - [Development Workflow](#development-workflow)
@@ -1987,6 +1988,200 @@ To build and run the either application in production mode enter the following c
 yarn build
 yarn start:prod
 ```
+
+### Local Development with Docker Backend
+
+Run the Next.js client locally with hot reload while connecting to Docker backend services (database, Redis, GraphQL API). Enables session sharing and Keycloak authentication between local and Docker environments.
+
+#### Step 1: Configure Hostname
+
+**⚠️ IMPORTANT: Complete this step BEFORE starting Docker containers!**
+
+For session sharing and Keycloak authentication to work, you **cannot use `localhost`**. Configure a proper hostname first:
+
+**Option 1: Use Your Machine's IP Address**
+
+```bash
+# Find your machine's IP address
+# Windows: ipconfig
+# Linux/Mac: ifconfig or ip addr
+
+# Edit .env and set:
+HOSTNAME=192.168.1.100  # Replace with your actual IP address
+```
+
+**Option 2: Use Hosts File Mapping** (Recommended)
+
+```bash
+# Add to your hosts file:
+# Windows: C:\Windows\System32\drivers\etc\hosts
+# Linux/Mac: /etc/hosts
+
+192.168.1.100  myapp.local  # Replace IP with your machine's IP
+
+# Edit .env and set:
+HOSTNAME=myapp.local
+```
+
+**Why hostname configuration is critical:**
+- Session cookies require matching domains between local and Docker clients
+- Keycloak OAuth redirects require consistent hostname resolution
+- Using `localhost` will cause authentication failures and prevent session sharing
+
+#### Step 2: Start or Restart Docker Services
+
+**If this is your first time starting services:**
+
+```bash
+docker compose up -d
+```
+
+**If you changed the HOSTNAME after containers were already running:**
+
+You must regenerate certificates to include the new hostname. Use the reset script:
+
+```bash
+# Windows
+.\reset-service.ps1 certs
+
+# Linux/Mac
+./reset-service.sh certs
+```
+
+This script will:
+- Stop all containers
+- Remove certificate volumes
+- Regenerate certificates with the new hostname
+- Restart all services
+
+**Verify services are running:**
+
+```bash
+docker ps
+```
+
+You should see containers like `aems-proxy`, `aems-server`, `aems-database`, etc.
+
+#### Step 3: Create Client Environment File
+
+Create `client/.env.local` with the following configuration:
+
+```bash
+# Backend services (Docker) - replace ${HOSTNAME} with your actual configured hostname
+DATABASE_HOST=myapp.local
+DATABASE_PORT=6543
+REDIS_HOST=myapp.local
+REDIS_PORT=6379
+
+# Backend API rewrites - replace ${HOSTNAME} with your actual configured hostname
+REWRITE_AUTHJS_URL=https://myapp.local/authjs
+REWRITE_GRAPHQL_URL=https://myapp.local/graphql
+REWRITE_API_URL=https://myapp.local/api
+REWRITE_EXT_URL=https://myapp.local/ext
+
+# Certificate handling (automatically configured by yarn dev)
+NODE_TLS_REJECT_UNAUTHORIZED=0
+```
+
+**Important:** Replace `myapp.local` with your actual configured hostname (your IP address or custom hostname).
+
+#### Step 4: Start Local Development Client
+
+```bash
+cd client
+yarn dev
+```
+
+This command will:
+- Automatically copy TLS certificates from Docker's `aems-proxy` container
+- Start the HTTPS development server on port 3000
+- Configure backend service connections
+- Enable session sharing with Docker client
+
+**Access your local client:**
+
+```
+https://myapp.local:3000
+```
+
+Replace `myapp.local` with your configured hostname.
+
+#### Development Workflow
+
+1. **Start Docker services** (once per session):
+   ```bash
+   docker compose up -d
+   ```
+
+2. **Start local dev client**:
+   ```bash
+   cd client
+   yarn dev
+   ```
+
+3. **Make code changes** - Hot reload works automatically
+
+4. **Test in both environments** - Use same login session:
+   - Local dev: `https://myapp.local:3000`
+   - Docker prod: `https://myapp.local`
+
+5. **Stop local client** when done:
+   ```
+   CTRL-C
+   ```
+
+#### Troubleshooting
+
+**Certificates Not Copying**
+
+**Error**: `Docker container 'aems-proxy' is not running`
+
+**Solution**: Ensure Docker services are running:
+```bash
+docker compose up -d
+```
+
+**Session Not Shared / Keycloak Login Fails**
+
+**Cause**: Hostname mismatch or `localhost` being used
+
+**Solution**:
+1. Verify `.env` file has correct HOSTNAME (not `localhost`)
+2. If you changed HOSTNAME, regenerate certificates using `reset-service` script
+3. Ensure `client/.env.local` uses the same hostname
+4. Access local client using configured hostname, not `localhost`
+
+**Certificate Errors (ERR_TLS_CERT_ALTNAME_INVALID)**
+
+**Cause**: Certificates don't include your hostname
+
+**Solution**: Regenerate certificates with correct hostname:
+
+```bash
+# Windows
+.\reset-service.ps1
+
+# Linux/Mac
+./reset-service.sh
+```
+
+**Port Already in Use (port 3000)**
+
+**Solution**: Use a different port:
+```bash
+# Windows
+$env:PORT="3001"; yarn dev
+
+# Linux/Mac
+PORT=3001 yarn dev
+```
+
+#### Additional Notes
+
+- Certificates are valid for 1 year (regenerate if expired using reset-service script)
+- `.env.local` overrides `.env` for local development only
+- Stop Docker services when not needed to free system resources
+- See [client/README.local-dev.md](./client/README.local-dev.md) for detailed documentation
 
 ### Configuration
 
