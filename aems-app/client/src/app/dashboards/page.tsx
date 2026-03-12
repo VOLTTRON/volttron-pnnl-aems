@@ -2,7 +2,7 @@
 
 import { useContext } from "react";
 import { Card } from "@blueprintjs/core";
-import { CurrentContext, RouteContext } from "../components/providers";
+import { CurrentContext } from "../components/providers";
 import { Role } from "@local/common";
 import { useQuery } from "@apollo/client";
 import { ReadUnitsDocument } from "@/graphql-codegen/graphql";
@@ -22,16 +22,19 @@ export default function DashboardsPage() {
   }
 
   // Group units by campus and building
-  const grouped = (data?.readUnits ?? []).reduce((acc, unit) => {
-    const campus = unit.campus || "Unknown Campus";
-    const building = unit.building || "Unknown Building";
-    
-    if (!acc[campus]) acc[campus] = {};
-    if (!acc[campus][building]) acc[campus][building] = [];
-    acc[campus][building].push(unit);
-    
-    return acc;
-  }, {} as Record<string, Record<string, NonNullable<typeof data>["readUnits"]>>);
+  const grouped = (data?.readUnits ?? []).reduce(
+    (acc, unit) => {
+      const campus = unit.campus || "Unknown Campus";
+      const building = unit.building || "Unknown Building";
+
+      if (!acc[campus]) acc[campus] = {};
+      if (!acc[campus][building]) acc[campus][building] = [];
+      acc[campus][building].push(unit);
+
+      return acc;
+    },
+    {} as Record<string, Record<string, NonNullable<typeof data>["readUnits"]>>,
+  );
 
   return (
     <div className={styles.dashboards}>
@@ -44,7 +47,7 @@ export default function DashboardsPage() {
           {Object.entries(buildings).map(([building, units]) => (
             <div key={`${campus}-${building}`} className={styles.building}>
               <h3>{building}</h3>
-              
+
               <div className={styles.cards}>
                 <Link href={`/dashboards/${encodeURIComponent(campus)}/${encodeURIComponent(building)}/site`}>
                   <Card interactive className={styles.card}>
@@ -54,8 +57,8 @@ export default function DashboardsPage() {
                 </Link>
 
                 {(units || []).map((unit) => (
-                  <Link 
-                    key={unit.id} 
+                  <Link
+                    key={unit.id}
                     href={`/dashboards/${encodeURIComponent(campus)}/${encodeURIComponent(building)}/${encodeURIComponent(unit.name || unit.id || "")}`}
                   >
                     <Card interactive className={styles.card}>

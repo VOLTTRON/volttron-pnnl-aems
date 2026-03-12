@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useState, useMemo } from "react";
+import { useContext, useState, useMemo } from "react";
 import { Card, HTMLSelect, Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
 import {
@@ -27,9 +27,10 @@ export default function DashboardPage({ params }: PageProps) {
   const { current } = useContext(CurrentContext);
   const { preferences } = useContext(PreferencesContext);
   const { mode } = compilePreferences(preferences, current?.preferences);
-  const { addResolver, removeResolver } = useContext(RouteContext);
 
   const [timeRange, setTimeRange] = useState("3h");
+
+  const { resolvers, addResolver } = useContext(RouteContext);
 
   // Check if this is a site dashboard
   const isSite = decodedUnit === "site";
@@ -49,38 +50,6 @@ export default function DashboardPage({ params }: PageProps) {
     const now = new Date();
     return [new Date(now.getTime() - parseTimeRange(timeRange)), now];
   }, [timeRange]);
-
-  // Register route resolvers for breadcrumbs
-  useEffect(() => {
-    if (addResolver && removeResolver) {
-      // Campus resolver - just return the decoded campus name
-      addResolver("dashboard-campus", (id: string) => {
-        return decodeURIComponent(id);
-      });
-
-      // Building resolver - just return the decoded building name
-      addResolver("dashboard-building", (id: string) => {
-        return decodeURIComponent(id);
-      });
-
-      // Unit resolver - return "Site Overview" for site, or unit label if available
-      addResolver("dashboard-unit", (id: string) => {
-        const decodedId = decodeURIComponent(id);
-        if (decodedId === "site") {
-          return "Site Overview";
-        }
-        // Find the unit in the data to get its label
-        const unit = unitsData?.readUnits?.find((u) => u.name === decodedId);
-        return unit?.label || decodedId;
-      });
-
-      return () => {
-        removeResolver("dashboard-campus");
-        removeResolver("dashboard-building");
-        removeResolver("dashboard-unit");
-      };
-    }
-  }, [addResolver, removeResolver, unitsData]);
 
   if (!Role.User.granted(...(current?.role?.split(" ") ?? []))) {
     return <div>You do not have permission to view this page.</div>;
