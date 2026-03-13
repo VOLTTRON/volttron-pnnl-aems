@@ -244,7 +244,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           topic_name
         FROM data
         NATURAL JOIN topics
-        WHERE ${patterns.map((_, i) => `topic_name LIKE $${i + 1}`).join(" OR ")}
+        WHERE ${patterns.map((_, i) => `topic_name ILIKE $${i + 1}`).join(" OR ")}
         ORDER BY topic_name, ts DESC
       )
       SELECT
@@ -295,7 +295,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         topic_name
       FROM data
       NATURAL JOIN topics
-      WHERE (${patterns.map((_, i) => `topic_name LIKE $${i + 1}`).join(" OR ")})
+      WHERE (${patterns.map((_, i) => `topic_name ILIKE $${i + 1}`).join(" OR ")})
         AND ts >= $${patterns.length + 1}
         AND ts <= $${patterns.length + 2}
       ORDER BY topic_name, ts
@@ -375,7 +375,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         ${aggFunction}(${valueExpr}) AS value
       FROM data
       NATURAL JOIN topics
-      WHERE topic_name LIKE $1
+      WHERE topic_name ILIKE $1
         AND ts >= $2
         AND ts <= $3
       GROUP BY 1
@@ -445,7 +445,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         ${caseStatements.join(",\n        ")}
       FROM data
       NATURAL JOIN topics
-      WHERE (${patterns.map((_, i) => `topic_name LIKE $${i + 1}`).join(" OR ")})
+      WHERE (${patterns.map((_, i) => `topic_name ILIKE $${i + 1}`).join(" OR ")})
         AND ts >= $${patterns.length + 1}
         AND ts <= $${patterns.length + 2}
       GROUP BY 1
@@ -543,7 +543,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
         FROM data
         NATURAL JOIN topics
-        WHERE topic_name LIKE $1
+        WHERE topic_name ILIKE $1
           AND ts >= $3
           AND ts <= $4
       ),
@@ -553,7 +553,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
         FROM data
         NATURAL JOIN topics
-        WHERE topic_name LIKE $2
+        WHERE topic_name ILIKE $2
           AND ts >= $3
           AND ts <= $4
       )
@@ -604,7 +604,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         ) AS value
       FROM data
       NATURAL JOIN topics
-      WHERE topic_name = $1
+      WHERE topic_name ILIKE $1
         AND ts >= $2
         AND ts <= $3
       ORDER BY ts

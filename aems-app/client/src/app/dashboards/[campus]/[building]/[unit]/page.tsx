@@ -4,7 +4,7 @@ import { useContext, useState, useMemo } from "react";
 import { Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
 import { ReadUnitsDocument } from "@/graphql-codegen/graphql";
-import { CurrentContext, PreferencesContext, compilePreferences, RouteContext } from "@/app/components/providers";
+import { CurrentContext, PreferencesContext, compilePreferences } from "@/app/components/providers";
 import { Role } from "@local/common";
 import { SiteDashboard } from "./components/SiteDashboard";
 import { UnitDashboard } from "./components/UnitDashboard";
@@ -26,8 +26,6 @@ export default function DashboardPage({ params }: PageProps) {
 
   const [timeRange, setTimeRange] = useState("3h");
 
-  const { resolvers, addResolver } = useContext(RouteContext);
-
   // Check if this is a site dashboard
   const isSite = decodedUnit === "site";
 
@@ -39,6 +37,7 @@ export default function DashboardPage({ params }: PageProps) {
         ...(isSite ? {} : { name: { equals: decodedUnit } }),
       },
     },
+    fetchPolicy: 'network-only', // Ensure we get fresh data including campus, building, system
   });
 
   // Calculate time range - memoized to prevent unnecessary re-renders

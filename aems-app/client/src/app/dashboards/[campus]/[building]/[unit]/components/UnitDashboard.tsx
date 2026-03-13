@@ -13,6 +13,9 @@ import styles from "./UnitDashboard.module.scss";
 interface Unit {
   name?: string | null;
   label?: string | null;
+  campus?: string | null;
+  building?: string | null;
+  system?: string | null;
 }
 
 interface UnitDashboardProps {
@@ -36,40 +39,45 @@ export function UnitDashboard({
   setTimeRange,
   mode,
 }: UnitDashboardProps) {
+  // Use unit's stored campus, building, and system for historian queries
+  const unitCampus = unit.campus || campus;
+  const unitBuilding = unit.building || building;
+  const unitSystem = unit.system || unit.name || "";
+
   const { data: currentValues, loading: currentLoading } = useQuery(HistorianCurrentValuesDocument, {
     variables: {
-      campus,
-      building,
-      unit: unit.name,
+      campus: unitCampus,
+      building: unitBuilding,
+      unit: unitSystem,
       topicPatterns: [
-        `${campus}/${building}/%/OutdoorAirTemperature`,
-        `${campus}/${building}/${unit.name}/ZoneHumidity`,
-        `${campus}/${building}/${unit.name}/ZoneTemperature`,
-        `${campus}/${building}/${unit.name}/OccupiedHeatingSetPoint`,
-        `${campus}/${building}/${unit.name}/OccupiedCoolingSetPoint`,
-        `${campus}/${building}/${unit.name}/OccupancyCommand`,
-        `${campus}/${building}/${unit.name}/SupplyFanStatus`,
-        `${campus}/${building}/${unit.name}/FirstStageHeating`,
+        `${unitCampus}/${unitBuilding}/%/OutdoorAirTemperature`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/ZoneHumidity`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/ZoneTemperature`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/OccupiedHeatingSetPoint`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/OccupiedCoolingSetPoint`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/OccupancyCommand`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/SupplyFanStatus`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/FirstStageHeating`,
       ],
     },
   });
 
   const { data: timeSeriesData, loading: timeSeriesLoading } = useQuery(HistorianTimeSeriesDocument, {
     variables: {
-      campus,
-      building,
-      unit: unit.name,
+      campus: unitCampus,
+      building: unitBuilding,
+      unit: unitSystem,
       startTime,
       endTime,
       topicPatterns: [
-        `${campus}/${building}/${unit.name}/ZoneTemperature`,
-        `${campus}/${building}/${unit.name}/OccupiedCoolingSetPoint`,
-        `${campus}/${building}/${unit.name}/OccupiedHeatingSetPoint`,
-        `${campus}/${building}/${unit.name}/ZoneHumidity`,
-        `${campus}/${building}/%/OutdoorAirTemperature`,
-        `${campus}/${building}/${unit.name}/SupplyFanStatus`,
-        `${campus}/${building}/${unit.name}/FirstStageHeating`,
-        `${campus}/${building}/${unit.name}/OccupancyCommand`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/ZoneTemperature`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/OccupiedCoolingSetPoint`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/OccupiedHeatingSetPoint`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/ZoneHumidity`,
+        `${unitCampus}/${unitBuilding}/%/OutdoorAirTemperature`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/SupplyFanStatus`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/FirstStageHeating`,
+        `${unitCampus}/${unitBuilding}/${unitSystem}/OccupancyCommand`,
       ],
     },
   });
@@ -88,7 +96,7 @@ export function UnitDashboard({
         <div>
           <h1>{unit.label || unit.name}</h1>
           <p className={styles.subtitle}>
-            {campus} / {building}
+            {unitCampus} / {unitBuilding}
           </p>
         </div>
         <HTMLSelect value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>

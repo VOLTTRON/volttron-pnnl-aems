@@ -10,6 +10,9 @@ import styles from "./SiteDashboard.module.scss";
 interface Unit {
   name?: string | null;
   label?: string | null;
+  campus?: string | null;
+  building?: string | null;
+  system?: string | null;
 }
 
 interface SiteDashboardProps {
@@ -35,25 +38,29 @@ export function SiteDashboard({
 }: SiteDashboardProps) {
   // This will show aggregated data for all units in the building
   const unitNames = units.map((u) => u.name).filter(Boolean);
+  
+  // Use the first unit's stored campus/building values, or fall back to props
+  const siteCampus = units[0]?.campus || campus;
+  const siteBuilding = units[0]?.building || building;
 
   const { data: weatherData, loading: weatherLoading } = useQuery(HistorianTimeSeriesDocument, {
     variables: {
-      campus,
-      building,
+      campus: siteCampus,
+      building: siteBuilding,
       startTime,
       endTime,
-      topicPatterns: [`${campus}/${building}/%/OutdoorAirTemperature`, "%/%/air_temperature"],
+      topicPatterns: [`${siteCampus}/${siteBuilding}/%/OutdoorAirTemperature`, "%/%/air_temperature"],
     },
     skip: unitNames.length === 0,
   });
 
   const { data: powerData, loading: powerLoading } = useQuery(HistorianTimeSeriesDocument, {
     variables: {
-      campus,
-      building,
+      campus: siteCampus,
+      building: siteBuilding,
       startTime,
       endTime,
-      topicPatterns: [`${campus}/${building}/meter/Watts`],
+      topicPatterns: [`${siteCampus}/${siteBuilding}/meter/Watts`],
     },
     skip: unitNames.length === 0,
   });
@@ -62,8 +69,8 @@ export function SiteDashboard({
     <div className={styles.dashboard}>
       <div className={styles.header}>
         <div>
-          <h1>{building} - Site Overview</h1>
-          <p className={styles.subtitle}>{campus} Campus</p>
+          <h1>{siteBuilding} - Site Overview</h1>
+          <p className={styles.subtitle}>{siteCampus} Campus</p>
         </div>
         <HTMLSelect value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
           <option value="1h">Last Hour</option>

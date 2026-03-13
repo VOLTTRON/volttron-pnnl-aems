@@ -49,9 +49,9 @@ let HistorianQuery = class HistorianQuery {
                 if (accessControl?.isEmpty) {
                     return [];
                 }
-                const { campus, building, unit } = accessControl
-                    ? accessControl.allowedUnits[0]
-                    : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+                const campus = args.campus ?? undefined;
+                const building = args.building ?? undefined;
+                const unit = args.unit ?? undefined;
                 return historianService.getCurrentValues(args.topicPatterns, campus, building, unit);
             },
         }));
@@ -89,9 +89,9 @@ let HistorianQuery = class HistorianQuery {
                 if (accessControl?.isEmpty) {
                     return [];
                 }
-                const { campus, building, unit } = accessControl
-                    ? accessControl.allowedUnits[0]
-                    : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+                const campus = args.campus ?? undefined;
+                const building = args.building ?? undefined;
+                const unit = args.unit ?? undefined;
                 return historianService.getTimeSeries(args.topicPatterns, args.startTime, args.endTime, campus, building, unit);
             },
         }));
@@ -138,9 +138,9 @@ let HistorianQuery = class HistorianQuery {
                 if (accessControl?.isEmpty) {
                     return [];
                 }
-                const { campus, building, unit } = accessControl
-                    ? accessControl.allowedUnits[0]
-                    : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+                const campus = args.campus ?? undefined;
+                const building = args.building ?? undefined;
+                const unit = args.unit ?? undefined;
                 return historianService.getAggregated(args.topicPattern, args.startTime, args.endTime, args.interval, args.aggregation, campus, building, unit);
             },
         }));
@@ -233,9 +233,9 @@ let HistorianQuery = class HistorianQuery {
                 if (accessControl?.isEmpty) {
                     return [];
                 }
-                const { campus, building, unit } = accessControl
-                    ? accessControl.allowedUnits[0]
-                    : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+                const campus = args.campus ?? undefined;
+                const building = args.building ?? undefined;
+                const unit = args.unit ?? undefined;
                 return historianService.getCalculated(args.calculation, args.topicPatterns, args.startTime, args.endTime, campus, building, unit, args.options);
             },
         }));

@@ -59,10 +59,10 @@ export class HistorianQuery {
             return [];
           }
 
-          // Use filtered parameters or original if admin
-          const { campus, building, unit } = accessControl
-            ? accessControl.allowedUnits[0]
-            : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+          // Use requested parameters (already validated by access control)
+          const campus = args.campus ?? undefined;
+          const building = args.building ?? undefined;
+          const unit = args.unit ?? undefined;
 
           return historianService.getCurrentValues(args.topicPatterns, campus, building, unit);
         },
@@ -116,10 +116,10 @@ export class HistorianQuery {
             return [];
           }
 
-          // Use filtered parameters or original if admin
-          const { campus, building, unit } = accessControl
-            ? accessControl.allowedUnits[0]
-            : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+          // Use requested parameters (already validated by access control)
+          const campus = args.campus ?? undefined;
+          const building = args.building ?? undefined;
+          const unit = args.unit ?? undefined;
 
           return historianService.getTimeSeries(
             args.topicPatterns,
@@ -188,10 +188,10 @@ export class HistorianQuery {
             return [];
           }
 
-          // Use filtered parameters or original if admin
-          const { campus, building, unit } = accessControl
-            ? accessControl.allowedUnits[0]
-            : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+          // Use requested parameters (already validated by access control)
+          const campus = args.campus ?? undefined;
+          const building = args.building ?? undefined;
+          const unit = args.unit ?? undefined;
 
           return historianService.getAggregated(
             args.topicPattern,
@@ -334,10 +334,10 @@ export class HistorianQuery {
             return [];
           }
 
-          // Use filtered parameters or original if admin
-          const { campus, building, unit } = accessControl
-            ? accessControl.allowedUnits[0]
-            : { campus: args.campus ?? undefined, building: args.building ?? undefined, unit: args.unit ?? undefined };
+          // Use requested parameters (already validated by access control)
+          const campus = args.campus ?? undefined;
+          const building = args.building ?? undefined;
+          const unit = args.unit ?? undefined;
 
           return historianService.getCalculated(
             args.calculation as CalculationType,
