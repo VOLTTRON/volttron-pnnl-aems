@@ -8,6 +8,7 @@ import { CurrentContext, PreferencesContext, compilePreferences } from "@/app/co
 import { Role } from "@local/common";
 import { SiteDashboard } from "./components/SiteDashboard";
 import { UnitDashboard } from "./components/UnitDashboard";
+import { calculateTimeRange, calculateFromDateForPreset } from "./utils/timeRange";
 import styles from "./page.module.scss";
 
 interface PageProps {
@@ -24,7 +25,14 @@ export default function DashboardPage({ params }: PageProps) {
   const { preferences } = useContext(PreferencesContext);
   const { mode } = compilePreferences(preferences, current?.preferences);
 
-  const [timeRange, setTimeRange] = useState("3h");
+  // Date-based time range state
+  const [fromDate, setFromDate] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getTime() - 3 * 60 * 60 * 1000); // Default: 3 hours ago
+  });
+  const [toDate, setToDate] = useState<Date | null>(null);
+  const [useCurrentTime, setUseCurrentTime] = useState<boolean>(true);
+  const [selectedPreset, setSelectedPreset] = useState<string>("3h");
 
   // Check if this is a site dashboard
   const isSite = decodedUnit === "site";
@@ -41,15 +49,33 @@ export default function DashboardPage({ params }: PageProps) {
   });
 
   // Calculate time range - memoized to prevent unnecessary re-renders
-  const [startTime, endTime] = useMemo(() => {
-    const now = new Date();
-    const start = new Date(now.getTime() - parseTimeRange(timeRange));
-    return [start.toISOString(), now.toISOString()];
-  }, [timeRange]);
+  const { startTime, endTime } = useMemo(() => {
+    return calculateTimeRange(fromDate, toDate, useCurrentTime);
+  }, [fromDate, toDate, useCurrentTime]);
 
   if (!Role.User.granted(...(current?.role?.split(" ") ?? []))) {
     return <div>You do not have permission to view this page.</div>;
   }
+
+  // Handlers for time range selector
+  const handleApplyTimeRange = (
+    newFromDate: Date,
+    newToDate: Date | null,
+    newUseCurrentTime: boolean
+  ) => {
+    setFromDate(newFromDate);
+    setToDate(newToDate);
+    setUseCurrentTime(newUseCurrentTime);
+    setSelectedPreset("custom");
+  };
+
+  const handlePresetChange = (preset: string) => {
+    const newFromDate = calculateFromDateForPreset(preset);
+    setFromDate(newFromDate);
+    setToDate(null);
+    setUseCurrentTime(true);
+    setSelectedPreset(preset);
+  };
 
   if (isSite) {
     return (
@@ -59,8 +85,12 @@ export default function DashboardPage({ params }: PageProps) {
         units={unitsData?.readUnits ?? []}
         startTime={startTime}
         endTime={endTime}
-        timeRange={timeRange}
-        setTimeRange={setTimeRange}
+        fromDate={fromDate}
+        toDate={toDate}
+        useCurrentTime={useCurrentTime}
+        selectedPreset={selectedPreset}
+        onApplyTimeRange={handleApplyTimeRange}
+        onPresetChange={handlePresetChange}
         mode={mode}
       />
     );
@@ -81,25 +111,13 @@ export default function DashboardPage({ params }: PageProps) {
       unit={unitsData?.readUnits?.[0]}
       startTime={startTime}
       endTime={endTime}
-      timeRange={timeRange}
-      setTimeRange={setTimeRange}
+      fromDate={fromDate}
+      toDate={toDate}
+      useCurrentTime={useCurrentTime}
+      selectedPreset={selectedPreset}
+      onApplyTimeRange={handleApplyTimeRange}
+      onPresetChange={handlePresetChange}
       mode={mode}
     />
   );
-}
-
-function parseTimeRange(range: string): number {
-  const value = parseInt(range);
-  const unit = range.replace(/\d+/, "");
-
-  switch (unit) {
-    case "m":
-      return value * 60 * 1000;
-    case "h":
-      return value * 60 * 60 * 1000;
-    case "d":
-      return value * 24 * 60 * 60 * 1000;
-    default:
-      return 3 * 60 * 60 * 1000; // Default 3 hours
-  }
 }

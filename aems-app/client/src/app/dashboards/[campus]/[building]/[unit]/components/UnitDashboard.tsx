@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, HTMLSelect, Spinner } from "@blueprintjs/core";
+import { Card, Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
 import {
   HistorianTimeSeriesDocument,
@@ -8,6 +8,7 @@ import {
 } from "@/graphql-codegen/graphql";
 import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
+import { TimeRangeSelector } from "./TimeRangeSelector";
 import styles from "./UnitDashboard.module.scss";
 
 interface Unit {
@@ -24,8 +25,12 @@ interface UnitDashboardProps {
   unit: Unit;
   startTime: string;
   endTime: string;
-  timeRange: string;
-  setTimeRange: (value: string) => void;
+  fromDate: Date;
+  toDate: Date | null;
+  useCurrentTime: boolean;
+  selectedPreset: string;
+  onApplyTimeRange: (fromDate: Date, toDate: Date | null, useCurrentTime: boolean) => void;
+  onPresetChange: (preset: string) => void;
   mode: "light" | "dark";
 }
 
@@ -35,8 +40,12 @@ export function UnitDashboard({
   unit,
   startTime,
   endTime,
-  timeRange,
-  setTimeRange,
+  fromDate,
+  toDate,
+  useCurrentTime,
+  selectedPreset,
+  onApplyTimeRange,
+  onPresetChange,
   mode,
 }: UnitDashboardProps) {
   // Use unit's stored campus, building, and system for historian queries
@@ -93,19 +102,15 @@ export function UnitDashboard({
   return (
     <div className={styles.dashboard}>
       <div className={styles.header}>
-        <div>
-          <h1>{unit.label || unit.name}</h1>
-          <p className={styles.subtitle}>
-            {unitCampus} / {unitBuilding}
-          </p>
-        </div>
-        <HTMLSelect value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
-          <option value="1h">Last Hour</option>
-          <option value="3h">Last 3 Hours</option>
-          <option value="6h">Last 6 Hours</option>
-          <option value="12h">Last 12 Hours</option>
-          <option value="24h">Last 24 Hours</option>
-        </HTMLSelect>
+        <h1>{unit.label || unit.name}</h1>
+        <TimeRangeSelector
+          fromDate={fromDate}
+          toDate={toDate}
+          useCurrentTime={useCurrentTime}
+          selectedPreset={selectedPreset}
+          onApply={onApplyTimeRange}
+          onPresetChange={onPresetChange}
+        />
       </div>
 
       <div className={styles.gauges}>

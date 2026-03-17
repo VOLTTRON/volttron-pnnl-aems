@@ -1,0 +1,42 @@
+.container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.formGroup {
+  margin-bottom: 0;
+  
+  label {
+    margin-right: 0.5rem;
+    min-width: auto;
+  }
+}
+
+.checkbox {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.presetSelect {
+  select {
+    min-width: 150px;
+  }
+}
+
+.applyButton {
+  // No additional styles needed
+}
+
+.refreshButton {
+  margin-left: 0.25rem;
+}
+
+.error {
+  color: #db3737;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  width: 100%;
+  order: 999; // Ensure error appears at the end
+}

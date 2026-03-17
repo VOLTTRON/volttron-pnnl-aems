@@ -1,10 +1,11 @@
 "use client";
 
-import { Card, HTMLSelect, Spinner } from "@blueprintjs/core";
+import { Card, Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
 import { HistorianTimeSeriesDocument } from "@/graphql-codegen/graphql";
 import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
+import { TimeRangeSelector } from "./TimeRangeSelector";
 import styles from "./SiteDashboard.module.scss";
 
 interface Unit {
@@ -21,8 +22,12 @@ interface SiteDashboardProps {
   units: Unit[];
   startTime: string;
   endTime: string;
-  timeRange: string;
-  setTimeRange: (value: string) => void;
+  fromDate: Date;
+  toDate: Date | null;
+  useCurrentTime: boolean;
+  selectedPreset: string;
+  onApplyTimeRange: (fromDate: Date, toDate: Date | null, useCurrentTime: boolean) => void;
+  onPresetChange: (preset: string) => void;
   mode: "light" | "dark";
 }
 
@@ -32,8 +37,12 @@ export function SiteDashboard({
   units,
   startTime,
   endTime,
-  timeRange,
-  setTimeRange,
+  fromDate,
+  toDate,
+  useCurrentTime,
+  selectedPreset,
+  onApplyTimeRange,
+  onPresetChange,
   mode,
 }: SiteDashboardProps) {
   // This will show aggregated data for all units in the building
@@ -68,18 +77,15 @@ export function SiteDashboard({
   return (
     <div className={styles.dashboard}>
       <div className={styles.header}>
-        <div>
-          <h1>{siteBuilding} - Site Overview</h1>
-          <p className={styles.subtitle}>{siteCampus} Campus</p>
-        </div>
-        <HTMLSelect value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
-          <option value="1h">Last Hour</option>
-          <option value="3h">Last 3 Hours</option>
-          <option value="6h">Last 6 Hours</option>
-          <option value="12h">Last 12 Hours</option>
-          <option value="24h">Last 24 Hours</option>
-          <option value="7d">Last 7 Days</option>
-        </HTMLSelect>
+        <h1>{siteBuilding} - Site Overview</h1>
+        <TimeRangeSelector
+          fromDate={fromDate}
+          toDate={toDate}
+          useCurrentTime={useCurrentTime}
+          selectedPreset={selectedPreset}
+          onApply={onApplyTimeRange}
+          onPresetChange={onPresetChange}
+        />
       </div>
 
       <div className={styles.grid}>
