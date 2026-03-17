@@ -143,7 +143,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
     const userUnits = await this.prismaService.prisma.unit.findMany({
       where: whereClause,
-      select: { campus: true, building: true, name: true },
+      select: { campus: true, building: true, system: true },
     });
 
     if (userUnits.length === 0) {
@@ -154,8 +154,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     if (requestedUnit) {
       const requestedUnits = Array.isArray(requestedUnit) ? requestedUnit : [requestedUnit];
       const allowedUnits = userUnits
-        .filter((u) => requestedUnits.includes(u.name))
-        .map((u) => ({ campus: u.campus, building: u.building, unit: u.name }));
+        .filter((u) => requestedUnits.includes(u.system))
+        .map((u) => ({ campus: u.campus, building: u.building, unit: u.system }));
 
       return {
         allowedUnits,
@@ -168,7 +168,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       allowedUnits: userUnits.map((u) => ({
         campus: u.campus,
         building: u.building,
-        unit: u.name,
+        unit: u.system,
       })),
       isEmpty: false,
     };

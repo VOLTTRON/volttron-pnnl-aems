@@ -85,7 +85,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         }
         const userUnits = await this.prismaService.prisma.unit.findMany({
             where: whereClause,
-            select: { campus: true, building: true, name: true },
+            select: { campus: true, building: true, system: true },
         });
         if (userUnits.length === 0) {
             return { allowedUnits: [], isEmpty: true };
@@ -93,8 +93,8 @@ let HistorianService = HistorianService_1 = class HistorianService {
         if (requestedUnit) {
             const requestedUnits = Array.isArray(requestedUnit) ? requestedUnit : [requestedUnit];
             const allowedUnits = userUnits
-                .filter((u) => requestedUnits.includes(u.name))
-                .map((u) => ({ campus: u.campus, building: u.building, unit: u.name }));
+                .filter((u) => requestedUnits.includes(u.system))
+                .map((u) => ({ campus: u.campus, building: u.building, unit: u.system }));
             return {
                 allowedUnits,
                 isEmpty: allowedUnits.length === 0,
@@ -104,7 +104,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             allowedUnits: userUnits.map((u) => ({
                 campus: u.campus,
                 building: u.building,
-                unit: u.name,
+                unit: u.system,
             })),
             isEmpty: false,
         };
@@ -229,9 +229,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             d: "days",
         };
         const aggFunction = aggregation.toLowerCase();
-        const valueExpr = aggregation === historian_types_1.AggregationType.COUNT
-            ? "*"
-            : "CAST(NULLIF(value_string, 'null') AS double precision)";
+        const valueExpr = aggregation === historian_types_1.AggregationType.COUNT ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
         const query = `
       SELECT
         date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
@@ -406,38 +404,37 @@ let HistorianService = HistorianService_1 = class HistorianService {
     async isProxyCertificateSelfSigned() {
         return new Promise((resolve) => {
             const { proxy } = this.configService;
-            const host = proxy.host || 'localhost';
-            const port = parseInt(proxy.port || '443');
-            if (proxy.protocol !== 'https') {
-                this.logger.debug('Proxy is not HTTPS, defaulting to sslmode=prefer');
+            const host = proxy.host || "localhost";
+            const port = parseInt(proxy.port || "443");
+            if (proxy.protocol !== "https") {
+                this.logger.debug("Proxy is not HTTPS, defaulting to sslmode=prefer");
                 resolve(true);
                 return;
             }
             const options = {
                 host,
                 port,
-                method: 'GET',
+                method: "GET",
                 rejectUnauthorized: false,
             };
             const req = https.request(options, (res) => {
                 const cert = res.socket.getPeerCertificate();
                 if (!cert || Object.keys(cert).length === 0) {
-                    this.logger.debug('No certificate found, defaulting to sslmode=prefer');
+                    this.logger.debug("No certificate found, defaulting to sslmode=prefer");
                     resolve(true);
                     return;
                 }
-                const isSelfSigned = cert.issuer && cert.subject &&
-                    JSON.stringify(cert.issuer) === JSON.stringify(cert.subject);
-                this.logger.debug(`Certificate is ${isSelfSigned ? 'self-signed' : 'CA-signed'}`);
+                const isSelfSigned = cert.issuer && cert.subject && JSON.stringify(cert.issuer) === JSON.stringify(cert.subject);
+                this.logger.debug(`Certificate is ${isSelfSigned ? "self-signed" : "CA-signed"}`);
                 resolve(isSelfSigned);
             });
-            req.on('error', (error) => {
+            req.on("error", (error) => {
                 this.logger.warn(`Failed to check proxy certificate: ${error.message}, defaulting to sslmode=prefer`);
                 resolve(true);
             });
             req.setTimeout(5000, () => {
                 req.destroy();
-                this.logger.warn('Certificate check timed out, defaulting to sslmode=prefer');
+                this.logger.warn("Certificate check timed out, defaulting to sslmode=prefer");
                 resolve(true);
             });
             req.end();
@@ -454,7 +451,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             const tableResult = await this.pool.query(tableCheckQuery);
             const existingTables = tableResult.rows.map((row) => row.table_name);
             if (existingTables.length === 0) {
-                this.logger.debug('No historian tables exist yet');
+                this.logger.debug("No historian tables exist yet");
                 return;
             }
             const pubTablesQuery = `
@@ -464,9 +461,9 @@ let HistorianService = HistorianService_1 = class HistorianService {
       `;
             const pubTablesResult = await this.pool.query(pubTablesQuery);
             const publishedTables = pubTablesResult.rows.map((row) => row.tablename);
-            const missingTables = existingTables.filter(table => !publishedTables.includes(table));
+            const missingTables = existingTables.filter((table) => !publishedTables.includes(table));
             if (missingTables.length > 0) {
-                this.logger.log(`Adding missing tables to publication: ${missingTables.join(', ')}`);
+                this.logger.log(`Adding missing tables to publication: ${missingTables.join(", ")}`);
                 for (const table of missingTables) {
                     const addTableQuery = `ALTER PUBLICATION historian_pub ADD TABLE ${table}`;
                     await this.pool.query(addTableQuery);
@@ -474,17 +471,17 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 }
             }
             else {
-                this.logger.debug('All existing tables are already in publication');
+                this.logger.debug("All existing tables are already in publication");
             }
         }
         catch (error) {
-            this.logger.error('Error ensuring tables in publication', error);
+            this.logger.error("Error ensuring tables in publication", error);
         }
     }
     async getUnitPublishingStatus() {
         try {
-            const validCampuses = new Set(['PNNL', 'CAMPUS2', 'CAMPUS3']);
-            const validBuildings = new Set(['ROB', 'ETB', 'PSF', 'BUILDING2']);
+            const validCampuses = new Set(["PNNL", "CAMPUS2", "CAMPUS3"]);
+            const validBuildings = new Set(["ROB", "ETB", "PSF", "BUILDING2"]);
             const query = `
         SELECT 
           topic_name,
@@ -500,9 +497,9 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return result.rows
                 .map((row) => {
                 const topicName = row.topic_name;
-                const parts = topicName.split('/');
-                let campus = '';
-                let building = '';
+                const parts = topicName.split("/");
+                let campus = "";
+                let building = "";
                 let topic = topicName;
                 let remainingParts = [...parts];
                 for (let i = 0; i < parts.length; i++) {
@@ -522,19 +519,19 @@ let HistorianService = HistorianService_1 = class HistorianService {
                     }
                 }
                 if (campus || building) {
-                    topic = remainingParts.length > 0 ? remainingParts.join('/') : parts[parts.length - 1];
+                    topic = remainingParts.length > 0 ? remainingParts.join("/") : parts[parts.length - 1];
                 }
                 const lastPublished = new Date(row.last_published);
                 const minutesAgo = Math.floor((now.getTime() - lastPublished.getTime()) / 1000 / 60);
                 let status;
                 if (minutesAgo < 5) {
-                    status = 'active';
+                    status = "active";
                 }
                 else if (minutesAgo < 60) {
-                    status = 'stale';
+                    status = "stale";
                 }
                 else {
-                    status = 'inactive';
+                    status = "inactive";
                 }
                 return {
                     campus,
@@ -566,7 +563,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         GROUP BY p.pubname
       `;
             const pubResult = await this.pool.query(pubQuery);
-            const publicationName = pubResult.rows[0]?.pubname || 'historian_pub';
+            const publicationName = pubResult.rows[0]?.pubname || "historian_pub";
             const publishedTables = pubResult.rows[0]?.tables || [];
             const connQuery = `
         SELECT COUNT(*) as count
@@ -574,7 +571,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         WHERE application_name LIKE '%historian%'
       `;
             const connResult = await this.pool.query(connQuery);
-            const activeConnections = parseInt(connResult.rows[0]?.count || '0');
+            const activeConnections = parseInt(connResult.rows[0]?.count || "0");
             const slotsQuery = `
         SELECT 
           slot_name,
@@ -625,7 +622,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             const schemaResult = await this.pool.query(tableSchemaQuery);
             const createTablesSql = schemaResult.rows
                 .map((row) => `CREATE TABLE IF NOT EXISTS ${row.table_name} (\n${row.columns}\n);`)
-                .join('\n\n');
+                .join("\n\n");
             const pkQuery = `
         SELECT 
           tc.table_name,
@@ -642,7 +639,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             const pkResult = await this.pool.query(pkQuery);
             const createConstraintsSql = pkResult.rows
                 .map((row) => `ALTER TABLE ${row.table_name} ADD PRIMARY KEY (${row.pk_columns});`)
-                .join('\n');
+                .join("\n");
             const idxQuery = `
         SELECT indexdef || ';' as idx
         FROM pg_indexes
@@ -654,9 +651,9 @@ let HistorianService = HistorianService_1 = class HistorianService {
             const idxResult = await this.pool.query(idxQuery);
             const createIndexesSql = idxResult.rows
                 .map((row) => row.idx)
-                .join('\n');
+                .join("\n");
             const isSelfSigned = await this.isProxyCertificateSelfSigned();
-            const sslMode = isSelfSigned ? 'prefer' : 'require';
+            const sslMode = isSelfSigned ? "prefer" : "require";
             this.logger.log(`Using sslmode=${sslMode} for historian replication`);
             const replicationPort = this.configService.historian.replicationPort;
             const createSubscriptionTemplate = `CREATE SUBSCRIPTION historian_sub
