@@ -1,5 +1,5 @@
 import type { CodegenConfig } from "@graphql-codegen/cli";
-import { Holiday } from "@local/common";
+import "@local/common";
 
 const config: CodegenConfig = {
   schema: "./schema.graphql",

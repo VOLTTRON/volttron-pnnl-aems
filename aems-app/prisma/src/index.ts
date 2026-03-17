@@ -70,10 +70,10 @@ declare global {
     type HistorianDataPoint = {
       timestamp: Date;
       value: number | null;
-      topicName: string;
+      topic: string;
     };
     type HistorianTimeSeries = {
-      topicName: string;
+      topic: string;
       data: HistorianDataPoint[];
     };
     type HistorianAggregate = {
@@ -82,7 +82,7 @@ declare global {
       topicPattern: string;
     };
     type HistorianMetricCurrent = {
-      topicName: string;
+      topic: string;
       value: number | null;
       timestamp: Date;
     };

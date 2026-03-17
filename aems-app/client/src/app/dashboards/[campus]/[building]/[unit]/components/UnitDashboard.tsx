@@ -2,10 +2,7 @@
 
 import { Card, Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
-import {
-  HistorianTimeSeriesDocument,
-  HistorianCurrentValuesDocument,
-} from "@/graphql-codegen/graphql";
+import { HistorianTimeSeriesDocument, HistorianCurrentValuesDocument } from "@/graphql-codegen/graphql";
 import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
@@ -92,11 +89,11 @@ export function UnitDashboard({
   });
 
   const getValue = (pattern: string) => {
-    return currentValues?.historianCurrentValues?.find((v: any) => v.topic?.includes(pattern))?.value;
+    return currentValues?.historianCurrentValues?.find((v) => v.topic?.includes(pattern))?.value;
   };
 
   const getSeries = (pattern: string) => {
-    return timeSeriesData?.historianTimeSeries?.find((s: any) => s.topic?.includes(pattern));
+    return timeSeriesData?.historianTimeSeries?.find((s) => s.topic?.includes(pattern));
   };
 
   return (
@@ -160,21 +157,21 @@ export function UnitDashboard({
                     type: "line",
                     smooth: true,
                     yAxisIndex: 0,
-                    data: getSeries("ZoneTemperature")?.data?.map((p: any) => [p.time, p.value]) || [],
+                    data: getSeries("ZoneTemperature")?.data?.map((p) => [p.timestamp, p.value]) || [],
                     lineStyle: { width: 3 },
                   },
                   {
                     name: "Heating Setpoint",
                     type: "line",
                     yAxisIndex: 0,
-                    data: getSeries("OccupiedHeatingSetPoint")?.data?.map((p: any) => [p.time, p.value]) || [],
+                    data: getSeries("OccupiedHeatingSetPoint")?.data?.map((p) => [p.timestamp, p.value]) || [],
                     lineStyle: { type: "dashed" },
                   },
                   {
                     name: "Cooling Setpoint",
                     type: "line",
                     yAxisIndex: 0,
-                    data: getSeries("OccupiedCoolingSetPoint")?.data?.map((p: any) => [p.time, p.value]) || [],
+                    data: getSeries("OccupiedCoolingSetPoint")?.data?.map((p) => [p.timestamp, p.value]) || [],
                     lineStyle: { type: "dashed" },
                   },
                   {
@@ -182,7 +179,7 @@ export function UnitDashboard({
                     type: "line",
                     step: "end",
                     yAxisIndex: 1,
-                    data: getSeries("SupplyFanStatus")?.data?.map((p: any) => [p.time, p.value]) || [],
+                    data: getSeries("SupplyFanStatus")?.data?.map((p) => [p.timestamp, p.value]) || [],
                   },
                 ],
               }}

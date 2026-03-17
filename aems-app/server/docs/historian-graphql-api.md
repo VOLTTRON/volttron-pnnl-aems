@@ -49,7 +49,7 @@ query GetCurrentValues {
     building: "ROB",
     unit: "rtu01"
   ) {
-    topicName
+    topic
     value
     timestamp
   }
@@ -72,7 +72,7 @@ query {
   historianCurrentValues(
     topicPatterns: ["PNNL/ROB/%/OutdoorAirTemperature"]
   ) {
-    topicName
+    topic
     value
     timestamp
   }
@@ -102,7 +102,7 @@ query GetTimeSeries {
     building: "ROB",
     unit: "rtu01"
   ) {
-    topicName
+    topic
     data {
       timestamp
       value
@@ -250,7 +250,7 @@ query GetSetpointError {
   ) {
     timestamp
     value
-    topicName
+    topic
   }
 }
 ```
@@ -269,7 +269,7 @@ query GetRollingAverage {
   ) {
     timestamp
     value
-    topicName
+    topic
   }
 }
 ```
@@ -372,7 +372,7 @@ const GET_RTU_TIMESERIES = gql`
       startTime: $startTime,
       endTime: $endTime
     ) {
-      topicName
+      topic
       data {
         timestamp
         value

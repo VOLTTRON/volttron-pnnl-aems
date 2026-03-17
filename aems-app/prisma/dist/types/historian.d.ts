@@ -1,10 +1,10 @@
 export interface HistorianDataPoint {
     timestamp: Date;
     value: number | null;
-    topicName: string;
+    topic: string;
 }
 export interface HistorianTimeSeries {
-    topicName: string;
+    topic: string;
     data: HistorianDataPoint[];
 }
 export interface HistorianAggregate {
@@ -13,7 +13,7 @@ export interface HistorianAggregate {
     topicPattern: string;
 }
 export interface HistorianMetricCurrent {
-    topicName: string;
+    topic: string;
     value: number | null;
     timestamp: Date;
 }

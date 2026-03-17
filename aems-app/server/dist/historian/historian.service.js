@@ -164,7 +164,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         try {
             const result = await this.pool.query(query, patterns);
             return result.rows.map((row) => ({
-                topicName: row.topic_name,
+                topic: row.topic_name,
                 value: this.parseValue(row.value_string),
                 timestamp: new Date(row.timestamp),
             }));
@@ -194,19 +194,19 @@ let HistorianService = HistorianService_1 = class HistorianService {
         try {
             const result = await this.pool.query(query, [...patterns, startTime, endTime]);
             const grouped = result.rows.reduce((acc, row) => {
-                const topicName = row.topic_name;
-                if (!acc[topicName]) {
-                    acc[topicName] = [];
+                const topic = row.topic_name;
+                if (!acc[topic]) {
+                    acc[topic] = [];
                 }
-                acc[topicName].push({
+                acc[topic].push({
                     timestamp: new Date(row.timestamp),
                     value: this.parseValue(row.value_string),
-                    topicName: row.topic_name,
+                    topic: row.topic_name,
                 });
                 return acc;
             }, {});
-            return Object.entries(grouped).map(([topicName, data]) => ({
-                topicName,
+            return Object.entries(grouped).map(([topic, data]) => ({
+                topic,
                 data,
             }));
         }
@@ -305,7 +305,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                     grouped[unit].push({
                         timestamp,
                         value: row[unit] !== null ? parseFloat(row[unit]) : null,
-                        topicName: unit,
+                        topic: unit,
                     });
                 });
             });
@@ -365,7 +365,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return result.rows.map((row) => ({
                 timestamp: new Date(row.timestamp),
                 value: row.value !== null ? parseFloat(row.value) : null,
-                topicName: "setpoint_error",
+                topic: "setpoint_error",
             }));
         }
         catch (error) {
@@ -395,7 +395,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return result.rows.map((row) => ({
                 timestamp: new Date(row.timestamp),
                 value: row.value !== null ? parseFloat(row.value) : null,
-                topicName: `${pattern}_rolling_avg`,
+                topic: `${pattern}_rolling_avg`,
             }));
         }
         catch (error) {

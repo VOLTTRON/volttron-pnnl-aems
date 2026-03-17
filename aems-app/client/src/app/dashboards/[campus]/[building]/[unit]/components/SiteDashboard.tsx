@@ -3,6 +3,7 @@
 import { Card, Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
 import { HistorianTimeSeriesDocument } from "@/graphql-codegen/graphql";
+import { HistorianTimeSeries, HistorianDataPoint } from "@local/prisma";
 import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
@@ -105,11 +106,11 @@ export function SiteDashboard({
                 xAxis: { type: "time" },
                 yAxis: { type: "value", name: "Temperature (°F)" },
                 series:
-                  weatherData?.historianTimeSeries?.map((series: any) => ({
-                    name: series.label,
+                  weatherData?.historianTimeSeries?.map((series: HistorianTimeSeries) => ({
+                    name: series.topic,
                     type: "line",
                     smooth: true,
-                    data: series.data?.map((point: any) => [point.time, point.value]) || [],
+                    data: series.data?.map((point: HistorianDataPoint) => [point.timestamp, point.value]) || [],
                   })) || [],
               }}
               style={{ height: "300px" }}
@@ -134,11 +135,11 @@ export function SiteDashboard({
                 xAxis: { type: "time" },
                 yAxis: { type: "value", name: "Power (W)" },
                 series:
-                  powerData?.historianTimeSeries?.map((series: any) => ({
-                    name: series.label,
+                  powerData?.historianTimeSeries?.map((series: HistorianTimeSeries) => ({
+                    name: series.topic,
                     type: "line",
                     smooth: true,
-                    data: series.data?.map((point: any) => [point.time, point.value]) || [],
+                    data: series.data?.map((point: HistorianDataPoint) => [point.timestamp, point.value]) || [],
                   })) || [],
               }}
               style={{ height: "300px" }}

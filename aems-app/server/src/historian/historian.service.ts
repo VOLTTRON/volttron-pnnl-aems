@@ -59,7 +59,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ) {
     // Initialize PostgreSQL connection pool for historian database
     const { historian } = configService;
-    
+
     if (historian.url) {
       // Use full connection string if provided
       this.pool = new Pool({
@@ -132,11 +132,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     } = {
       users: { some: { id: userId } },
     };
-    
+
     if (requestedCampus) {
       whereClause.campus = requestedCampus;
     }
-    
+
     if (requestedBuilding) {
       whereClause.building = requestedBuilding;
     }
@@ -177,33 +177,28 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   /**
    * Build topic name pattern for SQL LIKE clause
    */
-  private buildTopicPattern(
-    topicPattern: string,
-    campus?: string,
-    building?: string,
-    unit?: string,
-  ): string {
+  private buildTopicPattern(topicPattern: string, campus?: string, building?: string, unit?: string): string {
     let pattern = topicPattern;
-    
+
     // Replace placeholders with actual values or wildcards
     if (campus) {
       pattern = pattern.replace("%CAMPUS%", campus);
     } else {
       pattern = pattern.replace("%CAMPUS%", "%");
     }
-    
+
     if (building) {
       pattern = pattern.replace("%BUILDING%", building);
     } else {
       pattern = pattern.replace("%BUILDING%", "%");
     }
-    
+
     if (unit) {
       pattern = pattern.replace("%UNIT%", unit);
     } else {
       pattern = pattern.replace("%UNIT%", "%");
     }
-    
+
     return pattern;
   }
 
@@ -231,9 +226,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return [];
     }
 
-    const patterns = topicPatterns.map((pattern) =>
-      this.buildTopicPattern(pattern, campus, building, unit),
-    );
+    const patterns = topicPatterns.map((pattern) => this.buildTopicPattern(pattern, campus, building, unit));
 
     // Build query to get latest value for each topic pattern
     const query = `
@@ -257,9 +250,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const result: PgQueryResult = await this.pool.query(query, patterns);
-      
+
       return result.rows.map((row: any) => ({
-        topicName: row.topic_name as string,
+        topic: row.topic_name as string,
         value: this.parseValue(row.value_string as string | null),
         timestamp: new Date(row.timestamp as string),
       }));
@@ -284,9 +277,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return [];
     }
 
-    const patterns = topicPatterns.map((pattern) =>
-      this.buildTopicPattern(pattern, campus, building, unit),
-    );
+    const patterns = topicPatterns.map((pattern) => this.buildTopicPattern(pattern, campus, building, unit));
 
     const query = `
       SELECT
@@ -303,26 +294,26 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const result: PgQueryResult = await this.pool.query(query, [...patterns, startTime, endTime]);
-      
+
       // Group data by topic name
       const grouped: Record<string, HistorianDataPoint[]> = result.rows.reduce(
         (acc: Record<string, HistorianDataPoint[]>, row: any) => {
-          const topicName = row.topic_name as string;
-          if (!acc[topicName]) {
-            acc[topicName] = [];
+          const topic = row.topic_name as string;
+          if (!acc[topic]) {
+            acc[topic] = [];
           }
-          acc[topicName].push({
+          acc[topic].push({
             timestamp: new Date(row.timestamp as string),
             value: this.parseValue(row.value_string as string | null),
-            topicName: row.topic_name as string,
+            topic: row.topic_name as string,
           });
           return acc;
         },
         {} as Record<string, HistorianDataPoint[]>,
       );
 
-      return Object.entries(grouped).map(([topicName, data]) => ({
-        topicName,
+      return Object.entries(grouped).map(([topic, data]) => ({
+        topic,
         data,
       }));
     } catch (error) {
@@ -353,7 +344,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
     }
 
-    const [,, intervalUnit] = intervalMatch;
+    const [, , intervalUnit] = intervalMatch;
     const intervalMap: Record<string, string> = {
       s: "seconds",
       m: "minutes",
@@ -364,9 +355,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
     const aggFunction = aggregation.toLowerCase();
     const valueExpr =
-      aggregation === AggregationType.COUNT
-        ? "*"
-        : "CAST(NULLIF(value_string, 'null') AS double precision)";
+      aggregation === AggregationType.COUNT ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
 
     // Use date_trunc for standard PostgreSQL, or time_bucket if TimescaleDB is available
     const query = `
@@ -384,7 +373,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const result: PgQueryResult = await this.pool.query(query, [pattern, startTime, endTime]);
-      
+
       return result.rows.map((row: any) => ({
         timestamp: new Date(row.timestamp as string),
         value: row.value !== null ? parseFloat(row.value as string) : null,
@@ -417,9 +406,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return `MAX(CASE WHEN topic_name LIKE $${i + 1} THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS "${unit}"`;
     });
 
-    const patterns = units.map((unit) =>
-      this.buildTopicPattern(topicPattern, campus, building, unit),
-    );
+    const patterns = units.map((unit) => this.buildTopicPattern(topicPattern, campus, building, unit));
 
     let timeGroup = "ts";
     const params: (string | Date)[] = [...patterns, startTime, endTime];
@@ -454,7 +441,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const result: PgQueryResult = await this.pool.query(query, params);
-      
+
       // Transform to expected format
       const grouped: Record<string, HistorianDataPoint[]> = {};
       units.forEach((unit) => {
@@ -467,7 +454,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           grouped[unit].push({
             timestamp,
             value: row[unit] !== null ? parseFloat(row[unit] as string) : null,
-            topicName: unit,
+            topic: unit,
           });
         });
       });
@@ -494,14 +481,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianDataPoint[]> {
     switch (calculation) {
       case CalculationType.SETPOINT_ERROR:
-        return this.calculateSetpointError(
-          topicPatterns,
-          startTime,
-          endTime,
-          campus,
-          building,
-          unit,
-        );
+        return this.calculateSetpointError(topicPatterns, startTime, endTime, campus, building, unit);
       case CalculationType.ROLLING_AVERAGE:
         return this.calculateRollingAverage(
           topicPatterns[0],
@@ -568,11 +548,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const result: PgQueryResult = await this.pool.query(query, [tempPattern, setpointPattern, startTime, endTime]);
-      
+
       return result.rows.map((row: any) => ({
         timestamp: new Date(row.timestamp as string),
         value: row.value !== null ? parseFloat(row.value as string) : null,
-        topicName: "setpoint_error",
+        topic: "setpoint_error",
       }));
     } catch (error) {
       this.logger.error("Error calculating setpoint error", error);
@@ -612,11 +592,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const result: PgQueryResult = await this.pool.query(query, [pattern, startTime, endTime]);
-      
+
       return result.rows.map((row: any) => ({
         timestamp: new Date(row.timestamp as string),
         value: row.value !== null ? parseFloat(row.value as string) : null,
-        topicName: `${pattern}_rolling_avg`,
+        topic: `${pattern}_rolling_avg`,
       }));
     } catch (error) {
       this.logger.error("Error calculating rolling average", error);
@@ -631,12 +611,12 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   private async isProxyCertificateSelfSigned(): Promise<boolean> {
     return new Promise((resolve) => {
       const { proxy } = this.configService;
-      const host = proxy.host || 'localhost';
-      const port = parseInt(proxy.port || '443');
+      const host = proxy.host || "localhost";
+      const port = parseInt(proxy.port || "443");
 
       // If not using HTTPS proxy, default to prefer (safer option)
-      if (proxy.protocol !== 'https') {
-        this.logger.debug('Proxy is not HTTPS, defaulting to sslmode=prefer');
+      if (proxy.protocol !== "https") {
+        this.logger.debug("Proxy is not HTTPS, defaulting to sslmode=prefer");
         resolve(true);
         return;
       }
@@ -644,35 +624,35 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const options = {
         host,
         port,
-        method: 'GET',
+        method: "GET",
         rejectUnauthorized: false, // Allow self-signed certs for inspection
       };
 
       const req = https.request(options, (res) => {
         const cert = (res.socket as tls.TLSSocket).getPeerCertificate();
-        
+
         if (!cert || Object.keys(cert).length === 0) {
-          this.logger.debug('No certificate found, defaulting to sslmode=prefer');
+          this.logger.debug("No certificate found, defaulting to sslmode=prefer");
           resolve(true);
           return;
         }
 
         // Check if issuer equals subject (self-signed)
-        const isSelfSigned = cert.issuer && cert.subject && 
-          JSON.stringify(cert.issuer) === JSON.stringify(cert.subject);
-        
-        this.logger.debug(`Certificate is ${isSelfSigned ? 'self-signed' : 'CA-signed'}`);
+        const isSelfSigned =
+          cert.issuer && cert.subject && JSON.stringify(cert.issuer) === JSON.stringify(cert.subject);
+
+        this.logger.debug(`Certificate is ${isSelfSigned ? "self-signed" : "CA-signed"}`);
         resolve(isSelfSigned);
       });
 
-      req.on('error', (error) => {
+      req.on("error", (error) => {
         this.logger.warn(`Failed to check proxy certificate: ${error.message}, defaulting to sslmode=prefer`);
         resolve(true); // Default to prefer on error (safer)
       });
 
       req.setTimeout(5000, () => {
         req.destroy();
-        this.logger.warn('Certificate check timed out, defaulting to sslmode=prefer');
+        this.logger.warn("Certificate check timed out, defaulting to sslmode=prefer");
         resolve(true);
       });
 
@@ -697,7 +677,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const existingTables = tableResult.rows.map((row: any) => row.table_name as string);
 
       if (existingTables.length === 0) {
-        this.logger.debug('No historian tables exist yet');
+        this.logger.debug("No historian tables exist yet");
         return;
       }
 
@@ -711,11 +691,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const publishedTables = pubTablesResult.rows.map((row: any) => row.tablename as string);
 
       // Find tables that exist but aren't published
-      const missingTables = existingTables.filter(table => !publishedTables.includes(table));
+      const missingTables = existingTables.filter((table) => !publishedTables.includes(table));
 
       if (missingTables.length > 0) {
-        this.logger.log(`Adding missing tables to publication: ${missingTables.join(', ')}`);
-        
+        this.logger.log(`Adding missing tables to publication: ${missingTables.join(", ")}`);
+
         // Add each missing table to the publication
         for (const table of missingTables) {
           const addTableQuery = `ALTER PUBLICATION historian_pub ADD TABLE ${table}`;
@@ -723,10 +703,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           this.logger.log(`Added table '${table}' to historian_pub`);
         }
       } else {
-        this.logger.debug('All existing tables are already in publication');
+        this.logger.debug("All existing tables are already in publication");
       }
     } catch (error) {
-      this.logger.error('Error ensuring tables in publication', error);
+      this.logger.error("Error ensuring tables in publication", error);
       // Don't throw - this is a non-critical operation that shouldn't break the info retrieval
     }
   }
@@ -737,8 +717,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   async getUnitPublishingStatus(): Promise<UnitPublishingStatus[]> {
     try {
       // Whitelists for valid campus and building names
-      const validCampuses = new Set(['PNNL', 'CAMPUS2', 'CAMPUS3']); // Add more as needed
-      const validBuildings = new Set(['ROB', 'ETB', 'PSF', 'BUILDING2']); // Add more as needed
+      const validCampuses = new Set(["PNNL", "CAMPUS2", "CAMPUS3"]); // Add more as needed
+      const validBuildings = new Set(["ROB", "ETB", "PSF", "BUILDING2"]); // Add more as needed
 
       const query = `
         SELECT 
@@ -756,50 +736,50 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       return result.rows
         .map((row: any) => {
-        const topicName = row.topic_name as string;
-        const parts = topicName.split('/');
-        
-        let campus = '';
-        let building = '';
-        let topic = topicName;
-        let remainingParts = [...parts];
+          const topicName = row.topic_name as string;
+          const parts = topicName.split("/");
 
-        // Search for valid campus in parts
-        for (let i = 0; i < parts.length; i++) {
-          if (validCampuses.has(parts[i])) {
-            campus = parts[i];
-            remainingParts = parts.slice(i + 1);
-            break;
-          }
-        }
+          let campus = "";
+          let building = "";
+          let topic = topicName;
+          let remainingParts = [...parts];
 
-        // Search for valid building in remaining parts
-        if (campus && remainingParts.length > 0) {
-          for (let i = 0; i < remainingParts.length; i++) {
-            if (validBuildings.has(remainingParts[i])) {
-              building = remainingParts[i];
-              remainingParts = remainingParts.slice(i + 1);
+          // Search for valid campus in parts
+          for (let i = 0; i < parts.length; i++) {
+            if (validCampuses.has(parts[i])) {
+              campus = parts[i];
+              remainingParts = parts.slice(i + 1);
               break;
             }
           }
-        }
 
-        // Extract topic identifier (remaining parts or full topic if no matches)
-        if (campus || building) {
-          topic = remainingParts.length > 0 ? remainingParts.join('/') : parts[parts.length - 1];
-        }
+          // Search for valid building in remaining parts
+          if (campus && remainingParts.length > 0) {
+            for (let i = 0; i < remainingParts.length; i++) {
+              if (validBuildings.has(remainingParts[i])) {
+                building = remainingParts[i];
+                remainingParts = remainingParts.slice(i + 1);
+                break;
+              }
+            }
+          }
 
-        const lastPublished = new Date(row.last_published as string);
-        const minutesAgo = Math.floor((now.getTime() - lastPublished.getTime()) / 1000 / 60);
-        
-        let status: 'active' | 'stale' | 'inactive';
-        if (minutesAgo < 5) {
-          status = 'active';
-        } else if (minutesAgo < 60) {
-          status = 'stale';
-        } else {
-          status = 'inactive';
-        }
+          // Extract topic identifier (remaining parts or full topic if no matches)
+          if (campus || building) {
+            topic = remainingParts.length > 0 ? remainingParts.join("/") : parts[parts.length - 1];
+          }
+
+          const lastPublished = new Date(row.last_published as string);
+          const minutesAgo = Math.floor((now.getTime() - lastPublished.getTime()) / 1000 / 60);
+
+          let status: "active" | "stale" | "inactive";
+          if (minutesAgo < 5) {
+            status = "active";
+          } else if (minutesAgo < 60) {
+            status = "stale";
+          } else {
+            status = "inactive";
+          }
 
           return {
             campus,
@@ -838,9 +818,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         GROUP BY p.pubname
       `;
       const pubResult: PgQueryResult = await this.pool.query(pubQuery);
-      
-      const publicationName = pubResult.rows[0]?.pubname as string || 'historian_pub';
-      const publishedTables = pubResult.rows[0]?.tables as string[] || [];
+
+      const publicationName = (pubResult.rows[0]?.pubname as string) || "historian_pub";
+      const publishedTables = (pubResult.rows[0]?.tables as string[]) || [];
 
       // Get active replication connections
       const connQuery = `
@@ -849,7 +829,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         WHERE application_name LIKE '%historian%'
       `;
       const connResult: PgQueryResult = await this.pool.query(connQuery);
-      const activeConnections = parseInt(connResult.rows[0]?.count as string || '0');
+      const activeConnections = parseInt((connResult.rows[0]?.count as string) || "0");
 
       // Get replication slots
       const slotsQuery = `
@@ -864,7 +844,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         WHERE slot_name LIKE '%historian%'
       `;
       const slotsResult: PgQueryResult = await this.pool.query(slotsQuery);
-      
+
       const replicationSlots: ReplicationSlot[] = slotsResult.rows.map((row: any) => ({
         slotName: row.slot_name as string,
         plugin: row.plugin as string,
@@ -903,12 +883,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         ORDER BY t.table_name
       `;
       const schemaResult: PgQueryResult = await this.pool.query(tableSchemaQuery);
-      
+
       const createTablesSql = schemaResult.rows
-        .map((row: any) => 
-          `CREATE TABLE IF NOT EXISTS ${row.table_name} (\n${row.columns}\n);`
-        )
-        .join('\n\n');
+        .map((row: any) => `CREATE TABLE IF NOT EXISTS ${row.table_name} (\n${row.columns}\n);`)
+        .join("\n\n");
 
       // Generate PRIMARY KEY constraints
       const pkQuery = `
@@ -925,12 +903,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         ORDER BY tc.table_name
       `;
       const pkResult: PgQueryResult = await this.pool.query(pkQuery);
-      
+
       const createConstraintsSql = pkResult.rows
-        .map((row: any) => 
-          `ALTER TABLE ${row.table_name} ADD PRIMARY KEY (${row.pk_columns});`
-        )
-        .join('\n');
+        .map((row: any) => `ALTER TABLE ${row.table_name} ADD PRIMARY KEY (${row.pk_columns});`)
+        .join("\n");
 
       // Generate INDEX creation
       const idxQuery = `
@@ -942,16 +918,16 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         ORDER BY tablename, indexname
       `;
       const idxResult: PgQueryResult = await this.pool.query(idxQuery);
-      
+
       const createIndexesSql = idxResult.rows
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         .map((row: any) => row.idx)
-        .join('\n');
+        .join("\n");
 
       // Check if certificate is self-signed and set SSL mode accordingly
       const isSelfSigned = await this.isProxyCertificateSelfSigned();
-      const sslMode = isSelfSigned ? 'prefer' : 'require';
-      
+      const sslMode = isSelfSigned ? "prefer" : "require";
+
       this.logger.log(`Using sslmode=${sslMode} for historian replication`);
 
       // Generate subscription template with dynamic SSL mode and replication port
