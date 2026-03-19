@@ -109,11 +109,11 @@ input AccountUpdateUserRelationInput {
 
 """Type of aggregation to apply to historian data"""
 enum AggregationType {
-  AVG
-  COUNT
-  MAX
-  MIN
-  SUM
+  Avg
+  Count
+  Max
+  Min
+  Sum
 }
 
 type Banner {
@@ -187,15 +187,10 @@ input BooleanFilter {
   not: BooleanFilter
 }
 
-input CalculationOptionsInput {
-  """Time window for rolling calculations (e.g., '30 minutes', '1 hour')"""
-  window: String
-}
-
 """Type of calculation to perform on historian data"""
 enum CalculationType {
-  ROLLING_AVERAGE
-  SETPOINT_ERROR
+  RollingAverage
+  SetpointError
 }
 
 type Change {
@@ -921,7 +916,7 @@ scalar HistorianDataPoint
 
 scalar HistorianMetricCurrent
 
-scalar HistorianMultiUnitData
+scalar HistorianMultiSystemData
 
 scalar HistorianReplicationInfo
 
@@ -1617,133 +1612,66 @@ type Query {
   groupUsers(aggregate: UserAggregate, by: [UserFields!]!, where: UserFilter): [UserGroupBy!]
 
   """
-  Get aggregated historian data with time grouping. Useful for downsampling and performance.
+  Get data for multiple systems with the same unit metric (for comparison charts)
   """
-  historianAggregated(
-    """Type of aggregation to apply"""
-    aggregation: AggregationType!
-
-    """Filter by building"""
-    building: String
-
-    """Filter by campus"""
-    campus: String
-
-    """End time"""
-    endTime: DateTime!
-
-    """Time interval for grouping (e.g., '1m', '5m', '1h')"""
-    interval: String!
-
-    """Start time"""
-    startTime: DateTime!
-
-    """Topic pattern to query"""
-    topicPattern: String!
-
-    """Filter by unit"""
-    unit: String
-  ): [HistorianAggregate!]
-
-  """Get calculated metrics like setpoint errors or rolling averages."""
-  historianCalculated(
-    """Filter by building"""
-    building: String
-
-    """Type of calculation to perform"""
-    calculation: CalculationType!
-
-    """Filter by campus"""
-    campus: String
-
-    """End time"""
-    endTime: DateTime!
-
-    """Additional options for calculations"""
-    options: CalculationOptionsInput
-
-    """Start time"""
-    startTime: DateTime!
-
-    """Topic patterns required for the calculation"""
-    topicPatterns: [String!]!
-
-    """Filter by unit"""
-    unit: String
-  ): [HistorianDataPoint!]
-
-  """
-  Get the current (latest) values for multiple topic patterns. Useful for gauges and stat displays.
-  """
-  historianCurrentValues(
-    """Filter by building"""
-    building: String
-
-    """Filter by campus"""
-    campus: String
-
-    """Array of topic patterns to query (e.g., 'PNNL/ROB/%/ZoneTemperature')"""
-    topicPatterns: [String!]!
-
-    """Filter by unit"""
-    unit: String
-  ): [HistorianMetricCurrent!]
-
-  """
-  Get data for multiple units in a pivoted format. Useful for state timelines and comparisons.
-  """
-  historianMultiUnit(
-    """Filter by building"""
-    building: String
-
-    """Filter by campus"""
-    campus: String
-
-    """End time"""
+  historianMultiSystemUnit(
+    building: String!
+    campus: String!
     endTime: DateTime!
 
     """Optional time interval for grouping"""
     interval: String
-
-    """Start time"""
+    metric: UnitMetric!
     startTime: DateTime!
-
-    """
-    Topic pattern with %UNIT% placeholder (e.g., 'PNNL/ROB/%UNIT%/OccupancyCommand')
-    """
-    topicPattern: String!
-
-    """Array of unit names to query (e.g., ['rtu01', 'rtu02', 'rtu03'])"""
-    units: [String!]!
-  ): [HistorianMultiUnitData!]
+    systems: [String!]!
+  ): [HistorianMultiSystemData!]
 
   """
   Get historian database replication setup information and generated SQL (admin only)
   """
   historianReplicationInfo: HistorianReplicationInfo
 
-  """
-  Get time series data for multiple topic patterns. Useful for line charts and time-based visualizations.
-  """
-  historianTimeSeries(
-    """Filter by building"""
-    building: String
+  """Calculate setpoint error (zone temp - setpoint) for a system"""
+  historianSetpointError(building: String!, campus: String!, endTime: DateTime!, startTime: DateTime!, system: String!): [HistorianDataPoint!]
 
-    """Filter by campus"""
-    campus: String
-
-    """End time for the time series"""
+  """Get aggregated data for a unit metric"""
+  historianUnitAggregated(
+    aggregation: AggregationType!
+    building: String!
+    campus: String!
     endTime: DateTime!
 
-    """Start time for the time series"""
+    """e.g., '1m', '5m', '1h'"""
+    interval: String!
+    metric: UnitMetric!
     startTime: DateTime!
+    system: String!
+  ): [HistorianAggregate!]
 
-    """Array of topic patterns to query"""
-    topicPatterns: [String!]!
+  """Get the current (latest) value for a unit metric"""
+  historianUnitCurrentValue(building: String!, campus: String!, metric: UnitMetric!, system: String!): HistorianMetricCurrent
 
-    """Filter by unit"""
-    unit: String
-  ): [HistorianTimeSeries!]
+  """Get time series data for a unit metric"""
+  historianUnitTimeSeries(building: String!, campus: String!, endTime: DateTime!, metric: UnitMetric!, startTime: DateTime!, system: String!): HistorianTimeSeries
+
+  """Get aggregated data for a weather metric"""
+  historianWeatherAggregated(
+    aggregation: AggregationType!
+    building: String!
+    campus: String!
+    endTime: DateTime!
+
+    """e.g., '1m', '5m', '1h'"""
+    interval: String!
+    metric: WeatherMetric!
+    startTime: DateTime!
+  ): [HistorianAggregate!]
+
+  """Get the current (latest) value for a weather metric"""
+  historianWeatherCurrentValue(building: String!, campus: String!, metric: WeatherMetric!): HistorianMetricCurrent
+
+  """Get time series data for a weather metric"""
+  historianWeatherTimeSeries(building: String!, campus: String!, endTime: DateTime!, metric: WeatherMetric!, startTime: DateTime!): HistorianTimeSeries
 
   """Paginate through multiple accounts."""
   pageAccount(after: String, before: String, first: Int, last: Int, where: AccountFilter): QueryPageAccountConnection
@@ -2693,6 +2621,28 @@ input UnitFilter {
 
 scalar UnitGroupBy
 
+"""Available metrics for unit/system data (HVAC equipment)"""
+enum UnitMetric {
+  AuxiliaryHeatCommand
+  CoolingDemand
+  DemandResponseFlag
+  EffectiveZoneTemperatureSetPoint
+  FirstStageCooling
+  FirstStageHeating
+  HeartBeat
+  HeatingDemand
+  OccupancyCommand
+  OccupiedCoolingSetPoint
+  OccupiedHeatingSetPoint
+  ReversingValve
+  SecondStageCooling
+  SupplyFanStatus
+  UnoccupiedCoolingSetPoint
+  UnoccupiedHeatingSetPoint
+  ZoneHumidity
+  ZoneTemperature
+}
+
 input UnitOrderBy {
   building: OrderBy
   campus: OrderBy
@@ -2902,4 +2852,22 @@ input UserUpdateInput {
 input UserUpdateUnitsRelationInput {
   connect: [UnitUniqueFilter!]
   disconnect: [UnitUniqueFilter!]
+}
+
+"""Available metrics for weather data"""
+enum WeatherMetric {
+  AirPressure
+  AirPressureAtMeanSeaLevel
+  AirTemperature
+  DewPointTemperature
+  HeatIndex
+  HeightAboveMeanSeaLevel
+  PrecipitationLast3Hours
+  PrecipitationLastHour
+  RelativeHumidity
+  VisibilityInAir
+  WindChill
+  WindFromDirection
+  WindSpeed
+  WindSpeedOfGust
 }

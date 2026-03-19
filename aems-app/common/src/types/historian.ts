@@ -46,13 +46,13 @@ export interface MonitoringSql {
 }
 
 /**
- * Unit publishing status
+ * System publishing status
  */
-export interface UnitPublishingStatus {
+export interface SystemPublishingStatus {
   campus: string;
   building: string;
-  unit: string;
-  topic: string;
+  system: string;
+  metric: string;
   lastPublished: Date;
   minutesAgo: number;
   status: 'active' | 'stale' | 'inactive';
@@ -65,5 +65,5 @@ export interface HistorianReplicationInfo {
   publisherInfo: PublisherInfo;
   subscriberSetupSql: SubscriberSetupSql;
   monitoringSql: MonitoringSql;
-  unitPublishingStatus: UnitPublishingStatus[];
+  systemPublishingStatus: SystemPublishingStatus[];
 }

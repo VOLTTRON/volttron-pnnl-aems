@@ -2,76 +2,144 @@ query HistorianReplicationInfo {
   historianReplicationInfo
 }
 
-query HistorianTimeSeries(
-  $campus: String
-  $building: String
-  $unit: String
+# Unit metric queries - for individual system data
+query HistorianUnitTimeSeries(
+  $campus: String!
+  $building: String!
+  $system: String!
+  $metric: UnitMetric!
   $startTime: DateTime!
   $endTime: DateTime!
-  $topicPatterns: [String!]!
 ) {
-  historianTimeSeries(
+  historianUnitTimeSeries(
     campus: $campus
     building: $building
-    unit: $unit
+    system: $system
+    metric: $metric
     startTime: $startTime
     endTime: $endTime
-    topicPatterns: $topicPatterns
   )
 }
 
-query HistorianCurrentValues(
-  $campus: String
-  $building: String
-  $unit: String
-  $topicPatterns: [String!]!
+query HistorianUnitCurrentValue(
+  $campus: String!
+  $building: String!
+  $system: String!
+  $metric: UnitMetric!
 ) {
-  historianCurrentValues(
+  historianUnitCurrentValue(
     campus: $campus
     building: $building
-    unit: $unit
-    topicPatterns: $topicPatterns
+    system: $system
+    metric: $metric
   )
 }
 
-query HistorianAggregated(
-  $campus: String
-  $building: String
-  $unit: String
+query HistorianUnitAggregated(
+  $campus: String!
+  $building: String!
+  $system: String!
+  $metric: UnitMetric!
   $startTime: DateTime!
   $endTime: DateTime!
   $interval: String!
   $aggregation: AggregationType!
-  $topicPattern: String!
 ) {
-  historianAggregated(
+  historianUnitAggregated(
     campus: $campus
     building: $building
-    unit: $unit
+    system: $system
+    metric: $metric
     startTime: $startTime
     endTime: $endTime
     interval: $interval
     aggregation: $aggregation
-    topicPattern: $topicPattern
   )
 }
 
-query HistorianMultiUnit(
-  $campus: String
-  $building: String
+# Weather metric queries - for building-level weather data
+query HistorianWeatherTimeSeries(
+  $campus: String!
+  $building: String!
+  $metric: WeatherMetric!
   $startTime: DateTime!
   $endTime: DateTime!
-  $interval: String
-  $topicPattern: String!
-  $units: [String!]!
 ) {
-  historianMultiUnit(
+  historianWeatherTimeSeries(
     campus: $campus
     building: $building
+    metric: $metric
+    startTime: $startTime
+    endTime: $endTime
+  )
+}
+
+query HistorianWeatherCurrentValue(
+  $campus: String!
+  $building: String!
+  $metric: WeatherMetric!
+) {
+  historianWeatherCurrentValue(
+    campus: $campus
+    building: $building
+    metric: $metric
+  )
+}
+
+query HistorianWeatherAggregated(
+  $campus: String!
+  $building: String!
+  $metric: WeatherMetric!
+  $startTime: DateTime!
+  $endTime: DateTime!
+  $interval: String!
+  $aggregation: AggregationType!
+) {
+  historianWeatherAggregated(
+    campus: $campus
+    building: $building
+    metric: $metric
     startTime: $startTime
     endTime: $endTime
     interval: $interval
-    topicPattern: $topicPattern
-    units: $units
+    aggregation: $aggregation
+  )
+}
+
+# Multi-system queries - for comparing multiple systems in a building
+query HistorianMultiSystemUnit(
+  $campus: String!
+  $building: String!
+  $systems: [String!]!
+  $metric: UnitMetric!
+  $startTime: DateTime!
+  $endTime: DateTime!
+  $interval: String
+) {
+  historianMultiSystemUnit(
+    campus: $campus
+    building: $building
+    systems: $systems
+    metric: $metric
+    startTime: $startTime
+    endTime: $endTime
+    interval: $interval
+  )
+}
+
+# Calculated metrics
+query HistorianSetpointError(
+  $campus: String!
+  $building: String!
+  $system: String!
+  $startTime: DateTime!
+  $endTime: DateTime!
+) {
+  historianSetpointError(
+    campus: $campus
+    building: $building
+    system: $system
+    startTime: $startTime
+    endTime: $endTime
   )
 }

@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
-import { Pool, QueryResult as PgQueryResult } from "pg";
+import { Pool } from "pg";
 import { Inject } from "@nestjs/common";
 import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
@@ -18,8 +17,9 @@ import {
   SubscriberSetupSql,
   MonitoringSql,
   ReplicationSlot,
-  UnitPublishingStatus,
-} from "./historian.types";
+  SystemPublishingStatus,
+} from "@local/common";
+import { UnitMetric, WeatherMetric, buildUnitTopicPath, buildWeatherTopicPath } from "./metrics";
 
 // Re-export types for convenience
 export {
@@ -34,19 +34,35 @@ export {
   SubscriberSetupSql,
   MonitoringSql,
   ReplicationSlot,
-  UnitPublishingStatus,
+  SystemPublishingStatus,
+  UnitMetric,
+  WeatherMetric,
 };
 
-export interface UnitAccess {
+export interface SystemAccess {
   campus: string;
   building: string;
-  unit: string;
+  system: string;
 }
 
 export interface HistorianAccessControl {
-  allowedUnits: UnitAccess[];
+  allowedSystems: SystemAccess[];
   isEmpty: boolean;
 }
+
+interface HistorianDataRow {
+  ts: string;
+  topic_id: number;
+  value_string: string;
+}
+
+interface HistorianTopicRow {
+  topic_id: number;
+  topic_name: string;
+  metadata: string | null;
+}
+
+interface HistorianJoinedRow extends HistorianDataRow, HistorianTopicRow {}
 
 @Injectable()
 export class HistorianService implements OnModuleInit, OnModuleDestroy {
@@ -76,7 +92,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         database: historian.name,
         user: historian.username,
         password: historian.password,
-        max: 20, // Maximum number of clients in the pool
+        max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 2000,
       });
@@ -89,7 +105,6 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     try {
-      // Test the connection
       const client = await this.pool.connect();
       this.logger.log("Successfully connected to historian database");
       client.release();
@@ -104,27 +119,23 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Filter historian query parameters based on user's unit assignments
-   * Returns filtered parameters or null if user is admin (no filtering needed)
+   * Filter historian query parameters based on user's system assignments
    */
   async filterHistorianAccess(
     userId: string | undefined,
     isAdmin: boolean,
     requestedCampus?: string,
     requestedBuilding?: string,
-    requestedUnit?: string | string[],
+    requestedSystem?: string | string[],
   ): Promise<HistorianAccessControl | null> {
-    // Admin bypass - full access
     if (isAdmin) {
-      return null; // null means no filtering needed
+      return null;
     }
 
-    // No user = no access
     if (!userId) {
-      return { allowedUnits: [], isEmpty: true };
+      return { allowedSystems: [], isEmpty: true };
     }
 
-    // Fetch user's assigned units with optional campus/building filtering
     const whereClause: {
       users: { some: { id: string } };
       campus?: string;
@@ -141,70 +152,37 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       whereClause.building = requestedBuilding;
     }
 
-    const userUnits = await this.prismaService.prisma.unit.findMany({
+    const userSystems = await this.prismaService.prisma.unit.findMany({
       where: whereClause,
       select: { campus: true, building: true, system: true },
     });
 
-    if (userUnits.length === 0) {
-      return { allowedUnits: [], isEmpty: true };
+    if (userSystems.length === 0) {
+      return { allowedSystems: [], isEmpty: true };
     }
 
-    // If specific unit(s) requested, filter to only authorized ones
-    if (requestedUnit) {
-      const requestedUnits = Array.isArray(requestedUnit) ? requestedUnit : [requestedUnit];
-      const allowedUnits = userUnits
-        .filter((u) => requestedUnits.includes(u.system))
-        .map((u) => ({ campus: u.campus, building: u.building, unit: u.system }));
+    if (requestedSystem) {
+      const requestedSystems = Array.isArray(requestedSystem) ? requestedSystem : [requestedSystem];
+      const allowedSystems = userSystems
+        .filter((s) => requestedSystems.includes(s.system))
+        .map((s) => ({ campus: s.campus, building: s.building, system: s.system }));
 
       return {
-        allowedUnits,
-        isEmpty: allowedUnits.length === 0,
+        allowedSystems,
+        isEmpty: allowedSystems.length === 0,
       };
     }
 
-    // No specific unit requested - return all authorized units for the campus/building
     return {
-      allowedUnits: userUnits.map((u) => ({
-        campus: u.campus,
-        building: u.building,
-        unit: u.system,
+      allowedSystems: userSystems.map((s) => ({
+        campus: s.campus,
+        building: s.building,
+        system: s.system,
       })),
       isEmpty: false,
     };
   }
 
-  /**
-   * Build topic name pattern for SQL LIKE clause
-   */
-  private buildTopicPattern(topicPattern: string, campus?: string, building?: string, unit?: string): string {
-    let pattern = topicPattern;
-
-    // Replace placeholders with actual values or wildcards
-    if (campus) {
-      pattern = pattern.replace("%CAMPUS%", campus);
-    } else {
-      pattern = pattern.replace("%CAMPUS%", "%");
-    }
-
-    if (building) {
-      pattern = pattern.replace("%BUILDING%", building);
-    } else {
-      pattern = pattern.replace("%BUILDING%", "%");
-    }
-
-    if (unit) {
-      pattern = pattern.replace("%UNIT%", unit);
-    } else {
-      pattern = pattern.replace("%UNIT%", "%");
-    }
-
-    return pattern;
-  }
-
-  /**
-   * Parse value_string to float, handling 'null' strings
-   */
   private parseValue(valueString: string | null): number | null {
     if (valueString === null || valueString === "null") {
       return null;
@@ -214,131 +192,208 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Get current (latest) values for multiple topic patterns
+   * Get current value for a unit metric
    */
-  async getCurrentValues(
-    topicPatterns: string[],
-    campus?: string,
-    building?: string,
-    unit?: string,
-  ): Promise<HistorianMetricCurrent[]> {
-    if (topicPatterns.length === 0) {
-      return [];
-    }
-
-    const patterns = topicPatterns.map((pattern) => this.buildTopicPattern(pattern, campus, building, unit));
-
-    // Build query to get latest value for each topic pattern
-    const query = `
-      WITH latest_data AS (
-        SELECT DISTINCT ON (topic_name)
-          ts,
-          value_string,
-          topic_name
-        FROM data
-        NATURAL JOIN topics
-        WHERE ${patterns.map((_, i) => `topic_name ILIKE $${i + 1}`).join(" OR ")}
-        ORDER BY topic_name, ts DESC
-      )
-      SELECT
-        ts AS timestamp,
-        value_string,
-        topic_name
-      FROM latest_data
-      ORDER BY topic_name
-    `;
-
-    try {
-      const result: PgQueryResult = await this.pool.query(query, patterns);
-
-      return result.rows.map((row: any) => ({
-        topic: row.topic_name as string,
-        value: this.parseValue(row.value_string as string | null),
-        timestamp: new Date(row.timestamp as string),
-      }));
-    } catch (error) {
-      this.logger.error("Error fetching current values", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get time series data for multiple topic patterns
-   */
-  async getTimeSeries(
-    topicPatterns: string[],
-    startTime: Date,
-    endTime: Date,
-    campus?: string,
-    building?: string,
-    unit?: string,
-  ): Promise<HistorianTimeSeries[]> {
-    if (topicPatterns.length === 0) {
-      return [];
-    }
-
-    const patterns = topicPatterns.map((pattern) => this.buildTopicPattern(pattern, campus, building, unit));
+  async getUnitCurrentValue(
+    campus: string,
+    building: string,
+    system: string,
+    metric: UnitMetric,
+  ): Promise<HistorianMetricCurrent | null> {
+    const topicPath = buildUnitTopicPath(campus, building, system, metric);
 
     const query = `
       SELECT
-        ts AS timestamp,
+        ts,
         value_string,
         topic_name
       FROM data
       NATURAL JOIN topics
-      WHERE (${patterns.map((_, i) => `topic_name ILIKE $${i + 1}`).join(" OR ")})
-        AND ts >= $${patterns.length + 1}
-        AND ts <= $${patterns.length + 2}
-      ORDER BY topic_name, ts
+      WHERE topic_name = $1
+      ORDER BY ts DESC
+      LIMIT 1
     `;
 
     try {
-      const result: PgQueryResult = await this.pool.query(query, [...patterns, startTime, endTime]);
+      const result = await this.pool.query<Pick<HistorianJoinedRow, "ts" | "value_string" | "topic_name">>(query, [
+        topicPath,
+      ]);
 
-      // Group data by topic name
-      const grouped: Record<string, HistorianDataPoint[]> = result.rows.reduce(
-        (acc: Record<string, HistorianDataPoint[]>, row: any) => {
-          const topic = row.topic_name as string;
-          if (!acc[topic]) {
-            acc[topic] = [];
-          }
-          acc[topic].push({
-            timestamp: new Date(row.timestamp as string),
-            value: this.parseValue(row.value_string as string | null),
-            topic: row.topic_name as string,
-          });
-          return acc;
-        },
-        {} as Record<string, HistorianDataPoint[]>,
-      );
+      if (result.rows.length === 0) {
+        return null;
+      }
 
-      return Object.entries(grouped).map(([topic, data]) => ({
-        topic,
-        data,
-      }));
+      const row = result.rows[0];
+      return {
+        system,
+        metric,
+        value: this.parseValue(row.value_string),
+        timestamp: new Date(row.ts),
+      };
     } catch (error) {
-      this.logger.error("Error fetching time series data", error);
+      this.logger.error("Error fetching unit current value", error);
       throw error;
     }
   }
 
   /**
-   * Get aggregated data with time grouping
-   * Note: Requires TimescaleDB extension for time_bucket function
+   * Get current value for a weather metric
    */
-  async getAggregated(
-    topicPattern: string,
+  async getWeatherCurrentValue(
+    campus: string,
+    building: string,
+    metric: WeatherMetric,
+  ): Promise<HistorianMetricCurrent | null> {
+    const topicPath = buildWeatherTopicPath(campus, building, metric);
+
+    const query = `
+      SELECT
+        ts,
+        value_string,
+        topic_name
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name = $1
+      ORDER BY ts DESC
+      LIMIT 1
+    `;
+
+    try {
+      const result = await this.pool.query<Pick<HistorianJoinedRow, "ts" | "value_string" | "topic_name">>(query, [
+        topicPath,
+      ]);
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const row = result.rows[0];
+      return {
+        system: "weather",
+        metric,
+        value: this.parseValue(row.value_string),
+        timestamp: new Date(row.ts),
+      };
+    } catch (error) {
+      this.logger.error("Error fetching weather current value", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get time series data for a unit metric
+   */
+  async getUnitTimeSeries(
+    campus: string,
+    building: string,
+    system: string,
+    metric: UnitMetric,
+    startTime: Date,
+    endTime: Date,
+  ): Promise<HistorianTimeSeries> {
+    const topicPath = buildUnitTopicPath(campus, building, system, metric);
+
+    const query = `
+      SELECT
+        ts,
+        value_string
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name = $1
+        AND ts >= $2
+        AND ts <= $3
+      ORDER BY ts
+    `;
+
+    try {
+      const result = await this.pool.query<Pick<HistorianJoinedRow, "ts" | "value_string">>(query, [
+        topicPath,
+        startTime,
+        endTime,
+      ]);
+
+      const data: HistorianDataPoint[] = result.rows.map((row) => ({
+        timestamp: new Date(row.ts),
+        value: this.parseValue(row.value_string),
+        system,
+        metric,
+      }));
+
+      return {
+        system,
+        metric,
+        data,
+      };
+    } catch (error) {
+      this.logger.error("Error fetching unit time series", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get time series data for a weather metric
+   */
+  async getWeatherTimeSeries(
+    campus: string,
+    building: string,
+    metric: WeatherMetric,
+    startTime: Date,
+    endTime: Date,
+  ): Promise<HistorianTimeSeries> {
+    const topicPath = buildWeatherTopicPath(campus, building, metric);
+
+    const query = `
+      SELECT
+        ts,
+        value_string
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name = $1
+        AND ts >= $2
+        AND ts <= $3
+      ORDER BY ts
+    `;
+
+    try {
+      const result = await this.pool.query<Pick<HistorianJoinedRow, "ts" | "value_string">>(query, [
+        topicPath,
+        startTime,
+        endTime,
+      ]);
+
+      const data: HistorianDataPoint[] = result.rows.map((row) => ({
+        timestamp: new Date(row.ts),
+        value: this.parseValue(row.value_string),
+        system: "weather",
+        metric,
+      }));
+
+      return {
+        system: "weather",
+        metric,
+        data,
+      };
+    } catch (error) {
+      this.logger.error("Error fetching weather time series", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get aggregated data for a unit metric
+   */
+  async getUnitAggregated(
+    campus: string,
+    building: string,
+    system: string,
+    metric: UnitMetric,
     startTime: Date,
     endTime: Date,
     interval: string,
     aggregation: AggregationType,
-    campus?: string,
-    building?: string,
-    unit?: string,
   ): Promise<HistorianAggregate[]> {
-    const pattern = this.buildTopicPattern(topicPattern, campus, building, unit);
+    const topicPath = buildUnitTopicPath(campus, building, system, metric);
 
-    // Validate and sanitize interval (e.g., '1m', '5m', '1h')
     const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
     if (!intervalMatch) {
       throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
@@ -351,20 +406,18 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       h: "hours",
       d: "days",
     };
-    // const pgInterval = `${amount} ${intervalMap[intervalUnit]}`;
 
     const aggFunction = aggregation.toLowerCase();
     const valueExpr =
-      aggregation === AggregationType.COUNT ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
+      aggregation === AggregationType.Count ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
 
-    // Use date_trunc for standard PostgreSQL, or time_bucket if TimescaleDB is available
     const query = `
       SELECT
         date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
         ${aggFunction}(${valueExpr}) AS value
       FROM data
       NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
+      WHERE topic_name = $1
         AND ts >= $2
         AND ts <= $3
       GROUP BY 1
@@ -372,12 +425,16 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     `;
 
     try {
-      const result: PgQueryResult = await this.pool.query(query, [pattern, startTime, endTime]);
+      const result = await this.pool.query<{ timestamp: string; value: number | string | null }>(query, [
+        topicPath,
+        startTime,
+        endTime,
+      ]);
 
-      return result.rows.map((row: any) => ({
-        timestamp: new Date(row.timestamp as string),
-        value: row.value !== null ? parseFloat(row.value as string) : null,
-        topicPattern: pattern,
+      return result.rows.map((row) => ({
+        timestamp: new Date(row.timestamp),
+        value: typeof row.value === "string" ? parseFloat(row.value) : null,
+        metric,
       }));
     } catch (error) {
       this.logger.error("Error fetching aggregated data", error);
@@ -386,35 +443,96 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Get multi-unit data for state timelines
+   * Get aggregated data for a weather metric
    */
-  async getMultiUnit(
-    topicPattern: string,
-    units: string[],
+  async getWeatherAggregated(
+    campus: string,
+    building: string,
+    metric: WeatherMetric,
+    startTime: Date,
+    endTime: Date,
+    interval: string,
+    aggregation: AggregationType,
+  ): Promise<HistorianAggregate[]> {
+    const topicPath = buildWeatherTopicPath(campus, building, metric);
+
+    const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
+    if (!intervalMatch) {
+      throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
+    }
+
+    const [, , intervalUnit] = intervalMatch;
+    const intervalMap: Record<string, string> = {
+      s: "seconds",
+      m: "minutes",
+      h: "hours",
+      d: "days",
+    };
+
+    const aggFunction = aggregation.toLowerCase();
+    const valueExpr =
+      aggregation === AggregationType.Count ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
+
+    const query = `
+      SELECT
+        date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
+        ${aggFunction}(${valueExpr}) AS value
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name = $1
+        AND ts >= $2
+        AND ts <= $3
+      GROUP BY 1
+      ORDER BY 1
+    `;
+
+    try {
+      const result = await this.pool.query<{ timestamp: string; value: number | string | null }>(query, [
+        topicPath,
+        startTime,
+        endTime,
+      ]);
+
+      return result.rows.map((row) => ({
+        timestamp: new Date(row.timestamp),
+        value: typeof row.value === "string" ? parseFloat(row.value) : null,
+        metric,
+      }));
+    } catch (error) {
+      this.logger.error("Error fetching aggregated data", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get multi-system data for a unit metric
+   */
+  async getMultiSystemUnit(
+    campus: string,
+    building: string,
+    systems: string[],
+    metric: UnitMetric,
     startTime: Date,
     endTime: Date,
     interval?: string,
-    campus?: string,
-    building?: string,
   ): Promise<Record<string, HistorianDataPoint[]>> {
-    if (units.length === 0) {
+    if (systems.length === 0) {
       return {};
     }
 
-    // Build CASE statements for each unit
-    const caseStatements = units.map((unit, i) => {
-      return `MAX(CASE WHEN topic_name LIKE $${i + 1} THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS "${unit}"`;
+    const topicPaths = systems.map((sys) => buildUnitTopicPath(campus, building, sys, metric));
+
+    const caseStatements = systems.map((sys, i) => {
+      return `MAX(CASE WHEN topic_name = $${i + 1} THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS "${sys}"`;
     });
 
-    const patterns = units.map((unit) => this.buildTopicPattern(topicPattern, campus, building, unit));
-
     let timeGroup = "ts";
-    const params: (string | Date)[] = [...patterns, startTime, endTime];
+    const params: (string | Date)[] = [...topicPaths, startTime, endTime];
 
     if (interval) {
       const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
       if (!intervalMatch) {
-        throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
+        throw new Error("Invalid interval format");
       }
       const [, , intervalUnit] = intervalMatch;
       const intervalMap: Record<string, string> = {
@@ -432,89 +550,53 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         ${caseStatements.join(",\n        ")}
       FROM data
       NATURAL JOIN topics
-      WHERE (${patterns.map((_, i) => `topic_name ILIKE $${i + 1}`).join(" OR ")})
-        AND ts >= $${patterns.length + 1}
-        AND ts <= $${patterns.length + 2}
+      WHERE topic_name = ANY($${topicPaths.length + 3}::text[])
+        AND ts >= $${topicPaths.length + 1}
+        AND ts <= $${topicPaths.length + 2}
       GROUP BY 1
       ORDER BY 1
     `;
 
     try {
-      const result: PgQueryResult = await this.pool.query(query, params);
+      params.push(...topicPaths);
+      const result = await this.pool.query<{ timestamp: string; [key: string]: number | string | null }>(query, params);
 
-      // Transform to expected format
       const grouped: Record<string, HistorianDataPoint[]> = {};
-      units.forEach((unit) => {
-        grouped[unit] = [];
+      systems.forEach((sys) => {
+        grouped[sys] = [];
       });
 
-      result.rows.forEach((row: any) => {
-        const timestamp = new Date(row.timestamp as string);
-        units.forEach((unit) => {
-          grouped[unit].push({
+      result.rows.forEach((row) => {
+        const timestamp = new Date(row.timestamp);
+        systems.forEach((sys) => {
+          grouped[sys].push({
             timestamp,
-            value: row[unit] !== null ? parseFloat(row[unit] as string) : null,
-            topic: unit,
+            value: typeof row[sys] === "string" ? parseFloat(row[sys]) : null,
+            system: sys,
+            metric,
           });
         });
       });
 
       return grouped;
     } catch (error) {
-      this.logger.error("Error fetching multi-unit data", error);
+      this.logger.error("Error fetching multi-system data", error);
       throw error;
     }
   }
 
   /**
-   * Get calculated metrics (e.g., setpoint errors, rolling averages)
+   * Calculate setpoint error for a system
    */
-  async getCalculated(
-    calculation: CalculationType,
-    topicPatterns: string[],
+  async calculateSetpointError(
+    campus: string,
+    building: string,
+    system: string,
     startTime: Date,
     endTime: Date,
-    campus?: string,
-    building?: string,
-    unit?: string,
-    options?: Record<string, string>,
   ): Promise<HistorianDataPoint[]> {
-    switch (calculation) {
-      case CalculationType.SETPOINT_ERROR:
-        return this.calculateSetpointError(topicPatterns, startTime, endTime, campus, building, unit);
-      case CalculationType.ROLLING_AVERAGE:
-        return this.calculateRollingAverage(
-          topicPatterns[0],
-          startTime,
-          endTime,
-          options?.window || "30 minutes",
-          campus,
-          building,
-          unit,
-        );
-      default:
-        throw new Error(`Unsupported calculation type: ${calculation as any}`);
-    }
-  }
-
-  /**
-   * Calculate setpoint error (zone temp - setpoint)
-   */
-  private async calculateSetpointError(
-    topicPatterns: string[],
-    startTime: Date,
-    endTime: Date,
-    campus?: string,
-    building?: string,
-    unit?: string,
-  ): Promise<HistorianDataPoint[]> {
-    if (topicPatterns.length !== 2) {
-      throw new Error("Setpoint error calculation requires exactly 2 topic patterns");
-    }
-
-    const [tempPattern, setpointPattern] = topicPatterns.map((pattern) =>
-      this.buildTopicPattern(pattern, campus, building, unit),
-    );
+    const tempPath = buildUnitTopicPath(campus, building, system, UnitMetric.ZoneTemperature);
+    const setpointPath = buildUnitTopicPath(campus, building, system, UnitMetric.EffectiveZoneTemperatureSetPoint);
 
     const query = `
       WITH zone_temps AS (
@@ -523,7 +605,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
         FROM data
         NATURAL JOIN topics
-        WHERE topic_name ILIKE $1
+        WHERE topic_name = $1
           AND ts >= $3
           AND ts <= $4
       ),
@@ -533,7 +615,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
         FROM data
         NATURAL JOIN topics
-        WHERE topic_name ILIKE $2
+        WHERE topic_name = $2
           AND ts >= $3
           AND ts <= $4
       )
@@ -547,12 +629,18 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     `;
 
     try {
-      const result: PgQueryResult = await this.pool.query(query, [tempPattern, setpointPattern, startTime, endTime]);
+      const result = await this.pool.query<{ timestamp: string; value: number | string | null }>(query, [
+        tempPath,
+        setpointPath,
+        startTime,
+        endTime,
+      ]);
 
-      return result.rows.map((row: any) => ({
-        timestamp: new Date(row.timestamp as string),
-        value: row.value !== null ? parseFloat(row.value as string) : null,
-        topic: "setpoint_error",
+      return result.rows.map((row) => ({
+        timestamp: new Date(row.timestamp),
+        value: typeof row.value === "string" ? parseFloat(row.value) : null,
+        system,
+        metric: UnitMetric.ZoneTemperature, // Use a valid enum value as placeholder for calculated metric
       }));
     } catch (error) {
       this.logger.error("Error calculating setpoint error", error);
@@ -560,61 +648,13 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /**
-   * Calculate rolling average
-   */
-  private async calculateRollingAverage(
-    topicPattern: string,
-    startTime: Date,
-    endTime: Date,
-    window: string,
-    campus?: string,
-    building?: string,
-    unit?: string,
-  ): Promise<HistorianDataPoint[]> {
-    const pattern = this.buildTopicPattern(topicPattern, campus, building, unit);
-
-    const query = `
-      SELECT
-        ts AS timestamp,
-        CAST(NULLIF(value_string, 'null') AS double precision) AS instantaneous,
-        AVG(CAST(NULLIF(value_string, 'null') AS double precision)) OVER (
-          ORDER BY ts
-          RANGE BETWEEN INTERVAL '${window}' PRECEDING AND CURRENT ROW
-        ) AS value
-      FROM data
-      NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
-        AND ts >= $2
-        AND ts <= $3
-      ORDER BY ts
-    `;
-
-    try {
-      const result: PgQueryResult = await this.pool.query(query, [pattern, startTime, endTime]);
-
-      return result.rows.map((row: any) => ({
-        timestamp: new Date(row.timestamp as string),
-        value: row.value !== null ? parseFloat(row.value as string) : null,
-        topic: `${pattern}_rolling_avg`,
-      }));
-    } catch (error) {
-      this.logger.error("Error calculating rolling average", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Check if the proxy certificate is self-signed
-   * Returns true if self-signed, false if signed by CA
-   */
+  // Keep the replication methods as they are system-agnostic
   private async isProxyCertificateSelfSigned(): Promise<boolean> {
     return new Promise((resolve) => {
       const { proxy } = this.configService;
       const host = proxy.host || "localhost";
       const port = parseInt(proxy.port || "443");
 
-      // If not using HTTPS proxy, default to prefer (safer option)
       if (proxy.protocol !== "https") {
         this.logger.debug("Proxy is not HTTPS, defaulting to sslmode=prefer");
         resolve(true);
@@ -625,7 +665,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         host,
         port,
         method: "GET",
-        rejectUnauthorized: false, // Allow self-signed certs for inspection
+        rejectUnauthorized: false,
       };
 
       const req = https.request(options, (res) => {
@@ -637,7 +677,6 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           return;
         }
 
-        // Check if issuer equals subject (self-signed)
         const isSelfSigned =
           cert.issuer && cert.subject && JSON.stringify(cert.issuer) === JSON.stringify(cert.subject);
 
@@ -647,7 +686,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       req.on("error", (error) => {
         this.logger.warn(`Failed to check proxy certificate: ${error.message}, defaulting to sslmode=prefer`);
-        resolve(true); // Default to prefer on error (safer)
+        resolve(true);
       });
 
       req.setTimeout(5000, () => {
@@ -660,43 +699,35 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  /**
-   * Ensure tables are added to publication if they exist but aren't published
-   * This handles the timing issue where tables are created after publication
-   */
   private async ensureTablesInPublication(): Promise<void> {
     try {
-      // Check if data and topics tables exist
       const tableCheckQuery = `
         SELECT table_name 
         FROM information_schema.tables 
         WHERE table_schema = 'public' 
           AND table_name IN ('data', 'topics')
       `;
-      const tableResult: PgQueryResult = await this.pool.query(tableCheckQuery);
-      const existingTables = tableResult.rows.map((row: any) => row.table_name as string);
+      const tableResult = await this.pool.query<{ table_name: string }>(tableCheckQuery);
+      const existingTables = tableResult.rows.map((row) => row.table_name);
 
       if (existingTables.length === 0) {
         this.logger.debug("No historian tables exist yet");
         return;
       }
 
-      // Check which tables are already in the publication
       const pubTablesQuery = `
         SELECT tablename 
         FROM pg_publication_tables 
         WHERE pubname = 'historian_pub'
       `;
-      const pubTablesResult: PgQueryResult = await this.pool.query(pubTablesQuery);
-      const publishedTables = pubTablesResult.rows.map((row: any) => row.tablename as string);
+      const pubTablesResult = await this.pool.query<{ tablename: string }>(pubTablesQuery);
+      const publishedTables = pubTablesResult.rows.map((row) => row.tablename);
 
-      // Find tables that exist but aren't published
       const missingTables = existingTables.filter((table) => !publishedTables.includes(table));
 
       if (missingTables.length > 0) {
         this.logger.log(`Adding missing tables to publication: ${missingTables.join(", ")}`);
 
-        // Add each missing table to the publication
         for (const table of missingTables) {
           const addTableQuery = `ALTER PUBLICATION historian_pub ADD TABLE ${table}`;
           await this.pool.query(addTableQuery);
@@ -707,18 +738,13 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (error) {
       this.logger.error("Error ensuring tables in publication", error);
-      // Don't throw - this is a non-critical operation that shouldn't break the info retrieval
     }
   }
 
-  /**
-   * Get unit publishing status - shows which units are actively publishing data
-   */
-  async getUnitPublishingStatus(): Promise<UnitPublishingStatus[]> {
+  async getSystemPublishingStatus(): Promise<SystemPublishingStatus[]> {
     try {
-      // Whitelists for valid campus and building names
-      const validCampuses = new Set(["PNNL", "CAMPUS2", "CAMPUS3"]); // Add more as needed
-      const validBuildings = new Set(["ROB", "ETB", "PSF", "BUILDING2"]); // Add more as needed
+      const validCampuses = new Set(["PNNL", "CAMPUS2", "CAMPUS3"]);
+      const validBuildings = new Set(["ROB", "ETB", "PSF", "BUILDING2"]);
 
       const query = `
         SELECT 
@@ -731,20 +757,18 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         ORDER BY last_published DESC
       `;
 
-      const result: PgQueryResult = await this.pool.query(query);
+      const result = await this.pool.query<{ topic_name: string; last_published: string }>(query);
       const now = new Date();
 
       return result.rows
-        .map((row: any) => {
-          const topicName = row.topic_name as string;
+        .map((row) => {
+          const topicName = row.topic_name;
           const parts = topicName.split("/");
 
           let campus = "";
           let building = "";
-          let topic = topicName;
           let remainingParts = [...parts];
 
-          // Search for valid campus in parts
           for (let i = 0; i < parts.length; i++) {
             if (validCampuses.has(parts[i])) {
               campus = parts[i];
@@ -753,7 +777,6 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
             }
           }
 
-          // Search for valid building in remaining parts
           if (campus && remainingParts.length > 0) {
             for (let i = 0; i < remainingParts.length; i++) {
               if (validBuildings.has(remainingParts[i])) {
@@ -764,12 +787,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
             }
           }
 
-          // Extract topic identifier (remaining parts or full topic if no matches)
-          if (campus || building) {
-            topic = remainingParts.length > 0 ? remainingParts.join("/") : parts[parts.length - 1];
-          }
-
-          const lastPublished = new Date(row.last_published as string);
+          const lastPublished = new Date(row.last_published);
           const minutesAgo = Math.floor((now.getTime() - lastPublished.getTime()) / 1000 / 60);
 
           let status: "active" | "stale" | "inactive";
@@ -784,30 +802,24 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           return {
             campus,
             building,
-            unit: topic, // Keep unit for backward compatibility
-            topic,
+            system: remainingParts.length > 1 ? remainingParts[0] : "",
+            metric: remainingParts.length > 1 ? remainingParts.slice(1).join("/") : remainingParts.join("/"),
             lastPublished,
             minutesAgo,
             status,
           };
         })
-        .filter((record) => record.campus && record.building); // Only include records with valid campus AND building
+        .filter((record) => record.campus && record.building);
     } catch (error) {
-      this.logger.error("Error fetching unit publishing status", error);
+      this.logger.error("Error fetching system publishing status", error);
       throw error;
     }
   }
 
-  /**
-   * Get historian database replication information
-   * Returns publisher info, subscriber setup SQL, and monitoring queries
-   */
   async getReplicationInfo(): Promise<HistorianReplicationInfo> {
     try {
-      // Ensure tables are added to publication if they exist but aren't published
       await this.ensureTablesInPublication();
 
-      // Get publication info
       const pubQuery = `
         SELECT 
           p.pubname,
@@ -817,21 +829,22 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         WHERE p.pubname = 'historian_pub'
         GROUP BY p.pubname
       `;
-      const pubResult: PgQueryResult = await this.pool.query(pubQuery);
+      const pubResult = await this.pool.query<{ pubname: string; tables: string[] }>(pubQuery);
 
-      const publicationName = (pubResult.rows[0]?.pubname as string) || "historian_pub";
-      const publishedTables = (pubResult.rows[0]?.tables as string[]) || [];
+      const publicationName = pubResult.rows[0]?.pubname || "historian_pub";
+      const publishedTables = pubResult.rows[0]?.tables || [];
 
-      // Get active replication connections
       const connQuery = `
         SELECT COUNT(*) as count
         FROM pg_stat_replication
         WHERE application_name LIKE '%historian%'
       `;
-      const connResult: PgQueryResult = await this.pool.query(connQuery);
-      const activeConnections = parseInt((connResult.rows[0]?.count as string) || "0");
+      const connResult = await this.pool.query<{ count: number | string | null }>(connQuery);
+      const activeConnections =
+        typeof connResult.rows[0]?.count === "string"
+          ? parseInt(connResult.rows[0]?.count)
+          : (connResult.rows[0]?.count ?? 0);
 
-      // Get replication slots
       const slotsQuery = `
         SELECT 
           slot_name,
@@ -843,18 +856,24 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         FROM pg_replication_slots
         WHERE slot_name LIKE '%historian%'
       `;
-      const slotsResult: PgQueryResult = await this.pool.query(slotsQuery);
+      const slotsResult = await this.pool.query<{
+        slot_name: string;
+        plugin: string;
+        slot_type: string;
+        active: boolean;
+        restart_lsn: string;
+        confirmed_flush_lsn: string;
+      }>(slotsQuery);
 
-      const replicationSlots: ReplicationSlot[] = slotsResult.rows.map((row: any) => ({
-        slotName: row.slot_name as string,
-        plugin: row.plugin as string,
-        slotType: row.slot_type as string,
-        active: row.active as boolean,
-        restartLsn: row.restart_lsn as string,
-        confirmedFlushLsn: row.confirmed_flush_lsn as string,
+      const replicationSlots: ReplicationSlot[] = slotsResult.rows.map((row) => ({
+        slotName: row.slot_name,
+        plugin: row.plugin,
+        slotType: row.slot_type,
+        active: row.active,
+        restartLsn: row.restart_lsn,
+        confirmedFlushLsn: row.confirmed_flush_lsn,
       }));
 
-      // Generate CREATE TABLE SQL for all published tables
       const tableSchemaQuery = `
         SELECT 
           t.table_name,
@@ -882,13 +901,12 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         GROUP BY t.table_name
         ORDER BY t.table_name
       `;
-      const schemaResult: PgQueryResult = await this.pool.query(tableSchemaQuery);
+      const schemaResult = await this.pool.query<{ table_name: string; columns: string }>(tableSchemaQuery);
 
       const createTablesSql = schemaResult.rows
-        .map((row: any) => `CREATE TABLE IF NOT EXISTS ${row.table_name} (\n${row.columns}\n);`)
+        .map((row) => `CREATE TABLE IF NOT EXISTS ${row.table_name} (\n${row.columns}\n);`)
         .join("\n\n");
 
-      // Generate PRIMARY KEY constraints
       const pkQuery = `
         SELECT 
           tc.table_name,
@@ -902,13 +920,12 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         GROUP BY tc.table_name
         ORDER BY tc.table_name
       `;
-      const pkResult: PgQueryResult = await this.pool.query(pkQuery);
+      const pkResult = await this.pool.query<{ table_name: string; pk_columns: string }>(pkQuery);
 
       const createConstraintsSql = pkResult.rows
-        .map((row: any) => `ALTER TABLE ${row.table_name} ADD PRIMARY KEY (${row.pk_columns});`)
+        .map((row) => `ALTER TABLE ${row.table_name} ADD PRIMARY KEY (${row.pk_columns});`)
         .join("\n");
 
-      // Generate INDEX creation
       const idxQuery = `
         SELECT indexdef || ';' as idx
         FROM pg_indexes
@@ -917,21 +934,15 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           AND indexname NOT LIKE '%_pkey'
         ORDER BY tablename, indexname
       `;
-      const idxResult: PgQueryResult = await this.pool.query(idxQuery);
+      const idxResult = await this.pool.query<{ idx: string }>(idxQuery);
 
-      const createIndexesSql = idxResult.rows
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        .map((row: any) => row.idx)
-        .join("\n");
+      const createIndexesSql = idxResult.rows.map((row) => row.idx).join("\n");
 
-      // Check if certificate is self-signed and set SSL mode accordingly
       const isSelfSigned = await this.isProxyCertificateSelfSigned();
       const sslMode = isSelfSigned ? "prefer" : "require";
 
       this.logger.log(`Using sslmode=${sslMode} for historian replication`);
 
-      // Generate subscription template with dynamic SSL mode and replication port
-      // Hostname placeholder will be replaced by client-side code with window.location.hostname
       const replicationPort = this.configService.historian.replicationPort;
       const createSubscriptionTemplate = `CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}'
@@ -943,7 +954,6 @@ WITH (
     slot_name = 'historian_sub_slot'
 );`;
 
-      // Monitoring SQL queries
       const checkSchemaMatchSql = `-- On subscriber: Compare table structures
 SELECT 
     table_name,
@@ -987,8 +997,7 @@ SELECT
 FROM pg_stat_subscription_stats
 WHERE subname = 'historian_sub';`;
 
-      // Get unit publishing status
-      const unitPublishingStatus = await this.getUnitPublishingStatus();
+      const systemPublishingStatus = await this.getSystemPublishingStatus();
 
       return {
         publisherInfo: {
@@ -1009,7 +1018,7 @@ WHERE subname = 'historian_sub';`;
           checkSubscriptionStatusSql,
           checkSyncErrorsSql,
         },
-        unitPublishingStatus,
+        systemPublishingStatus,
       };
     } catch (error) {
       this.logger.error("Error fetching replication info", error);

@@ -13,16 +13,19 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 var HistorianService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HistorianService = exports.CalculationType = exports.AggregationType = void 0;
+exports.HistorianService = exports.WeatherMetric = exports.UnitMetric = exports.CalculationType = exports.AggregationType = void 0;
 const common_1 = require("@nestjs/common");
 const pg_1 = require("pg");
 const common_2 = require("@nestjs/common");
 const app_config_1 = require("../app.config");
 const prisma_service_1 = require("../prisma/prisma.service");
 const https = require("https");
-const historian_types_1 = require("./historian.types");
-Object.defineProperty(exports, "AggregationType", { enumerable: true, get: function () { return historian_types_1.AggregationType; } });
-Object.defineProperty(exports, "CalculationType", { enumerable: true, get: function () { return historian_types_1.CalculationType; } });
+const common_3 = require("@local/common");
+Object.defineProperty(exports, "AggregationType", { enumerable: true, get: function () { return common_3.AggregationType; } });
+Object.defineProperty(exports, "CalculationType", { enumerable: true, get: function () { return common_3.CalculationType; } });
+const metrics_1 = require("./metrics");
+Object.defineProperty(exports, "UnitMetric", { enumerable: true, get: function () { return metrics_1.UnitMetric; } });
+Object.defineProperty(exports, "WeatherMetric", { enumerable: true, get: function () { return metrics_1.WeatherMetric; } });
 let HistorianService = HistorianService_1 = class HistorianService {
     constructor(configService, prismaService) {
         this.configService = configService;
@@ -67,12 +70,12 @@ let HistorianService = HistorianService_1 = class HistorianService {
         await this.pool.end();
         this.logger.log("Historian database connection pool closed");
     }
-    async filterHistorianAccess(userId, isAdmin, requestedCampus, requestedBuilding, requestedUnit) {
+    async filterHistorianAccess(userId, isAdmin, requestedCampus, requestedBuilding, requestedSystem) {
         if (isAdmin) {
             return null;
         }
         if (!userId) {
-            return { allowedUnits: [], isEmpty: true };
+            return { allowedSystems: [], isEmpty: true };
         }
         const whereClause = {
             users: { some: { id: userId } },
@@ -83,53 +86,31 @@ let HistorianService = HistorianService_1 = class HistorianService {
         if (requestedBuilding) {
             whereClause.building = requestedBuilding;
         }
-        const userUnits = await this.prismaService.prisma.unit.findMany({
+        const userSystems = await this.prismaService.prisma.unit.findMany({
             where: whereClause,
             select: { campus: true, building: true, system: true },
         });
-        if (userUnits.length === 0) {
-            return { allowedUnits: [], isEmpty: true };
+        if (userSystems.length === 0) {
+            return { allowedSystems: [], isEmpty: true };
         }
-        if (requestedUnit) {
-            const requestedUnits = Array.isArray(requestedUnit) ? requestedUnit : [requestedUnit];
-            const allowedUnits = userUnits
-                .filter((u) => requestedUnits.includes(u.system))
-                .map((u) => ({ campus: u.campus, building: u.building, unit: u.system }));
+        if (requestedSystem) {
+            const requestedSystems = Array.isArray(requestedSystem) ? requestedSystem : [requestedSystem];
+            const allowedSystems = userSystems
+                .filter((s) => requestedSystems.includes(s.system))
+                .map((s) => ({ campus: s.campus, building: s.building, system: s.system }));
             return {
-                allowedUnits,
-                isEmpty: allowedUnits.length === 0,
+                allowedSystems,
+                isEmpty: allowedSystems.length === 0,
             };
         }
         return {
-            allowedUnits: userUnits.map((u) => ({
-                campus: u.campus,
-                building: u.building,
-                unit: u.system,
+            allowedSystems: userSystems.map((s) => ({
+                campus: s.campus,
+                building: s.building,
+                system: s.system,
             })),
             isEmpty: false,
         };
-    }
-    buildTopicPattern(topicPattern, campus, building, unit) {
-        let pattern = topicPattern;
-        if (campus) {
-            pattern = pattern.replace("%CAMPUS%", campus);
-        }
-        else {
-            pattern = pattern.replace("%CAMPUS%", "%");
-        }
-        if (building) {
-            pattern = pattern.replace("%BUILDING%", building);
-        }
-        else {
-            pattern = pattern.replace("%BUILDING%", "%");
-        }
-        if (unit) {
-            pattern = pattern.replace("%UNIT%", unit);
-        }
-        else {
-            pattern = pattern.replace("%UNIT%", "%");
-        }
-        return pattern;
     }
     parseValue(valueString) {
         if (valueString === null || valueString === "null") {
@@ -138,85 +119,146 @@ let HistorianService = HistorianService_1 = class HistorianService {
         const parsed = parseFloat(valueString);
         return isNaN(parsed) ? null : parsed;
     }
-    async getCurrentValues(topicPatterns, campus, building, unit) {
-        if (topicPatterns.length === 0) {
-            return [];
-        }
-        const patterns = topicPatterns.map((pattern) => this.buildTopicPattern(pattern, campus, building, unit));
-        const query = `
-      WITH latest_data AS (
-        SELECT DISTINCT ON (topic_name)
-          ts,
-          value_string,
-          topic_name
-        FROM data
-        NATURAL JOIN topics
-        WHERE ${patterns.map((_, i) => `topic_name ILIKE $${i + 1}`).join(" OR ")}
-        ORDER BY topic_name, ts DESC
-      )
-      SELECT
-        ts AS timestamp,
-        value_string,
-        topic_name
-      FROM latest_data
-      ORDER BY topic_name
-    `;
-        try {
-            const result = await this.pool.query(query, patterns);
-            return result.rows.map((row) => ({
-                topic: row.topic_name,
-                value: this.parseValue(row.value_string),
-                timestamp: new Date(row.timestamp),
-            }));
-        }
-        catch (error) {
-            this.logger.error("Error fetching current values", error);
-            throw error;
-        }
-    }
-    async getTimeSeries(topicPatterns, startTime, endTime, campus, building, unit) {
-        if (topicPatterns.length === 0) {
-            return [];
-        }
-        const patterns = topicPatterns.map((pattern) => this.buildTopicPattern(pattern, campus, building, unit));
+    async getUnitCurrentValue(campus, building, system, metric) {
+        const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric);
         const query = `
       SELECT
-        ts AS timestamp,
+        ts,
         value_string,
         topic_name
       FROM data
       NATURAL JOIN topics
-      WHERE (${patterns.map((_, i) => `topic_name ILIKE $${i + 1}`).join(" OR ")})
-        AND ts >= $${patterns.length + 1}
-        AND ts <= $${patterns.length + 2}
-      ORDER BY topic_name, ts
+      WHERE topic_name = $1
+      ORDER BY ts DESC
+      LIMIT 1
     `;
         try {
-            const result = await this.pool.query(query, [...patterns, startTime, endTime]);
-            const grouped = result.rows.reduce((acc, row) => {
-                const topic = row.topic_name;
-                if (!acc[topic]) {
-                    acc[topic] = [];
-                }
-                acc[topic].push({
-                    timestamp: new Date(row.timestamp),
-                    value: this.parseValue(row.value_string),
-                    topic: row.topic_name,
-                });
-                return acc;
-            }, {});
-            return Object.entries(grouped).map(([topic, data]) => ({
-                topic,
-                data,
-            }));
+            const result = await this.pool.query(query, [
+                topicPath,
+            ]);
+            if (result.rows.length === 0) {
+                return null;
+            }
+            const row = result.rows[0];
+            return {
+                system,
+                metric,
+                value: this.parseValue(row.value_string),
+                timestamp: new Date(row.ts),
+            };
         }
         catch (error) {
-            this.logger.error("Error fetching time series data", error);
+            this.logger.error("Error fetching unit current value", error);
             throw error;
         }
     }
-    async getAggregated(topicPattern, startTime, endTime, interval, aggregation, campus, building, unit) {
-        const pattern = this.buildTopicPattern(topicPattern, campus, building, unit);
+    async getWeatherCurrentValue(campus, building, metric) {
+        const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric);
+        const query = `
+      SELECT
+        ts,
+        value_string,
+        topic_name
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name = $1
+      ORDER BY ts DESC
+      LIMIT 1
+    `;
+        try {
+            const result = await this.pool.query(query, [
+                topicPath,
+            ]);
+            if (result.rows.length === 0) {
+                return null;
+            }
+            const row = result.rows[0];
+            return {
+                system: "weather",
+                metric,
+                value: this.parseValue(row.value_string),
+                timestamp: new Date(row.ts),
+            };
+        }
+        catch (error) {
+            this.logger.error("Error fetching weather current value", error);
+            throw error;
+        }
+    }
+    async getUnitTimeSeries(campus, building, system, metric, startTime, endTime) {
+        const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric);
+        const query = `
+      SELECT
+        ts,
+        value_string
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name = $1
+        AND ts >= $2
+        AND ts <= $3
+      ORDER BY ts
+    `;
+        try {
+            const result = await this.pool.query(query, [
+                topicPath,
+                startTime,
+                endTime,
+            ]);
+            const data = result.rows.map((row) => ({
+                timestamp: new Date(row.ts),
+                value: this.parseValue(row.value_string),
+                system,
+                metric,
+            }));
+            return {
+                system,
+                metric,
+                data,
+            };
+        }
+        catch (error) {
+            this.logger.error("Error fetching unit time series", error);
+            throw error;
+        }
+    }
+    async getWeatherTimeSeries(campus, building, metric, startTime, endTime) {
+        const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric);
+        const query = `
+      SELECT
+        ts,
+        value_string
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name = $1
+        AND ts >= $2
+        AND ts <= $3
+      ORDER BY ts
+    `;
+        try {
+            const result = await this.pool.query(query, [
+                topicPath,
+                startTime,
+                endTime,
+            ]);
+            const data = result.rows.map((row) => ({
+                timestamp: new Date(row.ts),
+                value: this.parseValue(row.value_string),
+                system: "weather",
+                metric,
+            }));
+            return {
+                system: "weather",
+                metric,
+                data,
+            };
+        }
+        catch (error) {
+            this.logger.error("Error fetching weather time series", error);
+            throw error;
+        }
+    }
+    async getUnitAggregated(campus, building, system, metric, startTime, endTime, interval, aggregation) {
+        const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric);
         const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
         if (!intervalMatch) {
             throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
@@ -229,25 +271,29 @@ let HistorianService = HistorianService_1 = class HistorianService {
             d: "days",
         };
         const aggFunction = aggregation.toLowerCase();
-        const valueExpr = aggregation === historian_types_1.AggregationType.COUNT ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
+        const valueExpr = aggregation === common_3.AggregationType.Count ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
         const query = `
       SELECT
         date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
         ${aggFunction}(${valueExpr}) AS value
       FROM data
       NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
+      WHERE topic_name = $1
         AND ts >= $2
         AND ts <= $3
       GROUP BY 1
       ORDER BY 1
     `;
         try {
-            const result = await this.pool.query(query, [pattern, startTime, endTime]);
+            const result = await this.pool.query(query, [
+                topicPath,
+                startTime,
+                endTime,
+            ]);
             return result.rows.map((row) => ({
                 timestamp: new Date(row.timestamp),
-                value: row.value !== null ? parseFloat(row.value) : null,
-                topicPattern: pattern,
+                value: typeof row.value === "string" ? parseFloat(row.value) : null,
+                metric,
             }));
         }
         catch (error) {
@@ -255,20 +301,64 @@ let HistorianService = HistorianService_1 = class HistorianService {
             throw error;
         }
     }
-    async getMultiUnit(topicPattern, units, startTime, endTime, interval, campus, building) {
-        if (units.length === 0) {
+    async getWeatherAggregated(campus, building, metric, startTime, endTime, interval, aggregation) {
+        const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric);
+        const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
+        if (!intervalMatch) {
+            throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
+        }
+        const [, , intervalUnit] = intervalMatch;
+        const intervalMap = {
+            s: "seconds",
+            m: "minutes",
+            h: "hours",
+            d: "days",
+        };
+        const aggFunction = aggregation.toLowerCase();
+        const valueExpr = aggregation === common_3.AggregationType.Count ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
+        const query = `
+      SELECT
+        date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
+        ${aggFunction}(${valueExpr}) AS value
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name = $1
+        AND ts >= $2
+        AND ts <= $3
+      GROUP BY 1
+      ORDER BY 1
+    `;
+        try {
+            const result = await this.pool.query(query, [
+                topicPath,
+                startTime,
+                endTime,
+            ]);
+            return result.rows.map((row) => ({
+                timestamp: new Date(row.timestamp),
+                value: typeof row.value === "string" ? parseFloat(row.value) : null,
+                metric,
+            }));
+        }
+        catch (error) {
+            this.logger.error("Error fetching aggregated data", error);
+            throw error;
+        }
+    }
+    async getMultiSystemUnit(campus, building, systems, metric, startTime, endTime, interval) {
+        if (systems.length === 0) {
             return {};
         }
-        const caseStatements = units.map((unit, i) => {
-            return `MAX(CASE WHEN topic_name LIKE $${i + 1} THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS "${unit}"`;
+        const topicPaths = systems.map((sys) => (0, metrics_1.buildUnitTopicPath)(campus, building, sys, metric));
+        const caseStatements = systems.map((sys, i) => {
+            return `MAX(CASE WHEN topic_name = $${i + 1} THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS "${sys}"`;
         });
-        const patterns = units.map((unit) => this.buildTopicPattern(topicPattern, campus, building, unit));
         let timeGroup = "ts";
-        const params = [...patterns, startTime, endTime];
+        const params = [...topicPaths, startTime, endTime];
         if (interval) {
             const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
             if (!intervalMatch) {
-                throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
+                throw new Error("Invalid interval format");
             }
             const [, , intervalUnit] = intervalMatch;
             const intervalMap = {
@@ -285,50 +375,40 @@ let HistorianService = HistorianService_1 = class HistorianService {
         ${caseStatements.join(",\n        ")}
       FROM data
       NATURAL JOIN topics
-      WHERE (${patterns.map((_, i) => `topic_name ILIKE $${i + 1}`).join(" OR ")})
-        AND ts >= $${patterns.length + 1}
-        AND ts <= $${patterns.length + 2}
+      WHERE topic_name = ANY($${topicPaths.length + 3}::text[])
+        AND ts >= $${topicPaths.length + 1}
+        AND ts <= $${topicPaths.length + 2}
       GROUP BY 1
       ORDER BY 1
     `;
         try {
+            params.push(...topicPaths);
             const result = await this.pool.query(query, params);
             const grouped = {};
-            units.forEach((unit) => {
-                grouped[unit] = [];
+            systems.forEach((sys) => {
+                grouped[sys] = [];
             });
             result.rows.forEach((row) => {
                 const timestamp = new Date(row.timestamp);
-                units.forEach((unit) => {
-                    grouped[unit].push({
+                systems.forEach((sys) => {
+                    grouped[sys].push({
                         timestamp,
-                        value: row[unit] !== null ? parseFloat(row[unit]) : null,
-                        topic: unit,
+                        value: typeof row[sys] === "string" ? parseFloat(row[sys]) : null,
+                        system: sys,
+                        metric,
                     });
                 });
             });
             return grouped;
         }
         catch (error) {
-            this.logger.error("Error fetching multi-unit data", error);
+            this.logger.error("Error fetching multi-system data", error);
             throw error;
         }
     }
-    async getCalculated(calculation, topicPatterns, startTime, endTime, campus, building, unit, options) {
-        switch (calculation) {
-            case historian_types_1.CalculationType.SETPOINT_ERROR:
-                return this.calculateSetpointError(topicPatterns, startTime, endTime, campus, building, unit);
-            case historian_types_1.CalculationType.ROLLING_AVERAGE:
-                return this.calculateRollingAverage(topicPatterns[0], startTime, endTime, options?.window || "30 minutes", campus, building, unit);
-            default:
-                throw new Error(`Unsupported calculation type: ${calculation}`);
-        }
-    }
-    async calculateSetpointError(topicPatterns, startTime, endTime, campus, building, unit) {
-        if (topicPatterns.length !== 2) {
-            throw new Error("Setpoint error calculation requires exactly 2 topic patterns");
-        }
-        const [tempPattern, setpointPattern] = topicPatterns.map((pattern) => this.buildTopicPattern(pattern, campus, building, unit));
+    async calculateSetpointError(campus, building, system, startTime, endTime) {
+        const tempPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metrics_1.UnitMetric.ZoneTemperature);
+        const setpointPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metrics_1.UnitMetric.EffectiveZoneTemperatureSetPoint);
         const query = `
       WITH zone_temps AS (
         SELECT
@@ -336,7 +416,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
           CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
         FROM data
         NATURAL JOIN topics
-        WHERE topic_name ILIKE $1
+        WHERE topic_name = $1
           AND ts >= $3
           AND ts <= $4
       ),
@@ -346,7 +426,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
           CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
         FROM data
         NATURAL JOIN topics
-        WHERE topic_name ILIKE $2
+        WHERE topic_name = $2
           AND ts >= $3
           AND ts <= $4
       )
@@ -359,45 +439,21 @@ let HistorianService = HistorianService_1 = class HistorianService {
       ORDER BY t.ts
     `;
         try {
-            const result = await this.pool.query(query, [tempPattern, setpointPattern, startTime, endTime]);
+            const result = await this.pool.query(query, [
+                tempPath,
+                setpointPath,
+                startTime,
+                endTime,
+            ]);
             return result.rows.map((row) => ({
                 timestamp: new Date(row.timestamp),
-                value: row.value !== null ? parseFloat(row.value) : null,
-                topic: "setpoint_error",
+                value: typeof row.value === "string" ? parseFloat(row.value) : null,
+                system,
+                metric: metrics_1.UnitMetric.ZoneTemperature,
             }));
         }
         catch (error) {
             this.logger.error("Error calculating setpoint error", error);
-            throw error;
-        }
-    }
-    async calculateRollingAverage(topicPattern, startTime, endTime, window, campus, building, unit) {
-        const pattern = this.buildTopicPattern(topicPattern, campus, building, unit);
-        const query = `
-      SELECT
-        ts AS timestamp,
-        CAST(NULLIF(value_string, 'null') AS double precision) AS instantaneous,
-        AVG(CAST(NULLIF(value_string, 'null') AS double precision)) OVER (
-          ORDER BY ts
-          RANGE BETWEEN INTERVAL '${window}' PRECEDING AND CURRENT ROW
-        ) AS value
-      FROM data
-      NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
-        AND ts >= $2
-        AND ts <= $3
-      ORDER BY ts
-    `;
-        try {
-            const result = await this.pool.query(query, [pattern, startTime, endTime]);
-            return result.rows.map((row) => ({
-                timestamp: new Date(row.timestamp),
-                value: row.value !== null ? parseFloat(row.value) : null,
-                topic: `${pattern}_rolling_avg`,
-            }));
-        }
-        catch (error) {
-            this.logger.error("Error calculating rolling average", error);
             throw error;
         }
     }
@@ -478,7 +534,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             this.logger.error("Error ensuring tables in publication", error);
         }
     }
-    async getUnitPublishingStatus() {
+    async getSystemPublishingStatus() {
         try {
             const validCampuses = new Set(["PNNL", "CAMPUS2", "CAMPUS3"]);
             const validBuildings = new Set(["ROB", "ETB", "PSF", "BUILDING2"]);
@@ -500,7 +556,6 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 const parts = topicName.split("/");
                 let campus = "";
                 let building = "";
-                let topic = topicName;
                 let remainingParts = [...parts];
                 for (let i = 0; i < parts.length; i++) {
                     if (validCampuses.has(parts[i])) {
@@ -518,9 +573,6 @@ let HistorianService = HistorianService_1 = class HistorianService {
                         }
                     }
                 }
-                if (campus || building) {
-                    topic = remainingParts.length > 0 ? remainingParts.join("/") : parts[parts.length - 1];
-                }
                 const lastPublished = new Date(row.last_published);
                 const minutesAgo = Math.floor((now.getTime() - lastPublished.getTime()) / 1000 / 60);
                 let status;
@@ -536,8 +588,8 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 return {
                     campus,
                     building,
-                    unit: topic,
-                    topic,
+                    system: remainingParts.length > 1 ? remainingParts[0] : "",
+                    metric: remainingParts.length > 1 ? remainingParts.slice(1).join("/") : remainingParts.join("/"),
                     lastPublished,
                     minutesAgo,
                     status,
@@ -546,7 +598,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 .filter((record) => record.campus && record.building);
         }
         catch (error) {
-            this.logger.error("Error fetching unit publishing status", error);
+            this.logger.error("Error fetching system publishing status", error);
             throw error;
         }
     }
@@ -571,7 +623,9 @@ let HistorianService = HistorianService_1 = class HistorianService {
         WHERE application_name LIKE '%historian%'
       `;
             const connResult = await this.pool.query(connQuery);
-            const activeConnections = parseInt(connResult.rows[0]?.count || "0");
+            const activeConnections = typeof connResult.rows[0]?.count === "string"
+                ? parseInt(connResult.rows[0]?.count)
+                : (connResult.rows[0]?.count ?? 0);
             const slotsQuery = `
         SELECT 
           slot_name,
@@ -649,9 +703,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         ORDER BY tablename, indexname
       `;
             const idxResult = await this.pool.query(idxQuery);
-            const createIndexesSql = idxResult.rows
-                .map((row) => row.idx)
-                .join("\n");
+            const createIndexesSql = idxResult.rows.map((row) => row.idx).join("\n");
             const isSelfSigned = await this.isProxyCertificateSelfSigned();
             const sslMode = isSelfSigned ? "prefer" : "require";
             this.logger.log(`Using sslmode=${sslMode} for historian replication`);
@@ -704,7 +756,7 @@ SELECT
     apply_error_count
 FROM pg_stat_subscription_stats
 WHERE subname = 'historian_sub';`;
-            const unitPublishingStatus = await this.getUnitPublishingStatus();
+            const systemPublishingStatus = await this.getSystemPublishingStatus();
             return {
                 publisherInfo: {
                     publicationName,
@@ -724,7 +776,7 @@ WHERE subname = 'historian_sub';`;
                     checkSubscriptionStatusSql,
                     checkSyncErrorsSql,
                 },
-                unitPublishingStatus,
+                systemPublishingStatus,
             };
         }
         catch (error) {

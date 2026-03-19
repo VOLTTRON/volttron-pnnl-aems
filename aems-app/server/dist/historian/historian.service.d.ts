@@ -1,15 +1,16 @@
 import { OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
-import { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, UnitPublishingStatus } from "./historian.types";
-export { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, UnitPublishingStatus, };
-export interface UnitAccess {
+import { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, SystemPublishingStatus } from "@local/common";
+import { UnitMetric, WeatherMetric } from "./metrics";
+export { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, SystemPublishingStatus, UnitMetric, WeatherMetric, };
+export interface SystemAccess {
     campus: string;
     building: string;
-    unit: string;
+    system: string;
 }
 export interface HistorianAccessControl {
-    allowedUnits: UnitAccess[];
+    allowedSystems: SystemAccess[];
     isEmpty: boolean;
 }
 export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
@@ -20,18 +21,18 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     constructor(configService: AppConfigService, prismaService: PrismaService);
     onModuleInit(): Promise<void>;
     onModuleDestroy(): Promise<void>;
-    filterHistorianAccess(userId: string | undefined, isAdmin: boolean, requestedCampus?: string, requestedBuilding?: string, requestedUnit?: string | string[]): Promise<HistorianAccessControl | null>;
-    private buildTopicPattern;
+    filterHistorianAccess(userId: string | undefined, isAdmin: boolean, requestedCampus?: string, requestedBuilding?: string, requestedSystem?: string | string[]): Promise<HistorianAccessControl | null>;
     private parseValue;
-    getCurrentValues(topicPatterns: string[], campus?: string, building?: string, unit?: string): Promise<HistorianMetricCurrent[]>;
-    getTimeSeries(topicPatterns: string[], startTime: Date, endTime: Date, campus?: string, building?: string, unit?: string): Promise<HistorianTimeSeries[]>;
-    getAggregated(topicPattern: string, startTime: Date, endTime: Date, interval: string, aggregation: AggregationType, campus?: string, building?: string, unit?: string): Promise<HistorianAggregate[]>;
-    getMultiUnit(topicPattern: string, units: string[], startTime: Date, endTime: Date, interval?: string, campus?: string, building?: string): Promise<Record<string, HistorianDataPoint[]>>;
-    getCalculated(calculation: CalculationType, topicPatterns: string[], startTime: Date, endTime: Date, campus?: string, building?: string, unit?: string, options?: Record<string, string>): Promise<HistorianDataPoint[]>;
-    private calculateSetpointError;
-    private calculateRollingAverage;
+    getUnitCurrentValue(campus: string, building: string, system: string, metric: UnitMetric): Promise<HistorianMetricCurrent | null>;
+    getWeatherCurrentValue(campus: string, building: string, metric: WeatherMetric): Promise<HistorianMetricCurrent | null>;
+    getUnitTimeSeries(campus: string, building: string, system: string, metric: UnitMetric, startTime: Date, endTime: Date): Promise<HistorianTimeSeries>;
+    getWeatherTimeSeries(campus: string, building: string, metric: WeatherMetric, startTime: Date, endTime: Date): Promise<HistorianTimeSeries>;
+    getUnitAggregated(campus: string, building: string, system: string, metric: UnitMetric, startTime: Date, endTime: Date, interval: string, aggregation: AggregationType): Promise<HistorianAggregate[]>;
+    getWeatherAggregated(campus: string, building: string, metric: WeatherMetric, startTime: Date, endTime: Date, interval: string, aggregation: AggregationType): Promise<HistorianAggregate[]>;
+    getMultiSystemUnit(campus: string, building: string, systems: string[], metric: UnitMetric, startTime: Date, endTime: Date, interval?: string): Promise<Record<string, HistorianDataPoint[]>>;
+    calculateSetpointError(campus: string, building: string, system: string, startTime: Date, endTime: Date): Promise<HistorianDataPoint[]>;
     private isProxyCertificateSelfSigned;
     private ensureTablesInPublication;
-    getUnitPublishingStatus(): Promise<UnitPublishingStatus[]>;
+    getSystemPublishingStatus(): Promise<SystemPublishingStatus[]>;
     getReplicationInfo(): Promise<HistorianReplicationInfo>;
 }

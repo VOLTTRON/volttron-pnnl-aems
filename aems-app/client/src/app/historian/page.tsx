@@ -22,7 +22,7 @@ export default function HistorianPage() {
   // State for Unit Status table
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{
-    field: "campus" | "building" | "topic" | "unit" | "lastPublished" | "minutesAgo" | "status";
+    field: "campus" | "building" | "system" | "metric" | "lastPublished" | "minutesAgo" | "status";
     direction: "Asc" | "Desc";
   }>({
     field: "lastPublished",
@@ -38,7 +38,7 @@ export default function HistorianPage() {
 
   // Memoized filtered and sorted unit data
   const filteredUnits = useMemo(() => {
-    const units = data?.historianReplicationInfo?.unitPublishingStatus ?? [];
+    const units = data?.historianReplicationInfo?.systemPublishingStatus ?? [];
     
     // Filter by search term
     const filtered = search
@@ -47,7 +47,7 @@ export default function HistorianPage() {
           return (
             unit.campus?.toLowerCase().includes(searchLower) ||
             unit.building?.toLowerCase().includes(searchLower) ||
-            unit.topic?.toLowerCase().includes(searchLower) ||
+            unit.system?.toLowerCase().includes(searchLower) ||
             unit.status?.toLowerCase().includes(searchLower)
           );
         })
@@ -79,7 +79,7 @@ export default function HistorianPage() {
     });
 
     return sorted;
-  }, [data?.historianReplicationInfo?.unitPublishingStatus, search, sort]);
+  }, [data, search, sort]);
 
   // Paginated data
   const paginatedUnits = useMemo(() => {
@@ -147,7 +147,7 @@ export default function HistorianPage() {
     );
   }
 
-  const { publisherInfo, subscriberSetupSql, monitoringSql, unitPublishingStatus } = data.historianReplicationInfo;
+  const { publisherInfo, subscriberSetupSql, monitoringSql, systemPublishingStatus } = data.historianReplicationInfo;
 
   // Replace hostname placeholder with current browser hostname
   const hostname = typeof window !== 'undefined' ? window.location.hostname : 'YOUR_HOSTNAME';
@@ -445,24 +445,24 @@ DROP TABLE IF EXISTS topics CASCADE;`}
                 Monitor which units are actively publishing data to the historian database. Status updates every time this page is loaded.
               </Callout>
 
-              {unitPublishingStatus && unitPublishingStatus.length > 0 ? (
+              {systemPublishingStatus && systemPublishingStatus.length > 0 ? (
                 <>
                   <ControlGroup style={{ marginBottom: "10px" }}>
                     <div style={{ flex: 1 }} />
                     <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
-                    <Search value={search} onValueChange={setSearch} placeholder="Search campus, building, topic, or status..." />
+                    <Search value={search} onValueChange={setSearch} placeholder="Search campus, building, system, or status..." />
                   </ControlGroup>
                   
                   <Card elevation={Elevation.TWO}>
                     <Table
-                      rowKey="topic"
+                      rowKey="system"
                       rows={paginatedUnits}
                       columns={[
                         { field: "campus", label: "Campus", type: "string" },
                         { field: "building", label: "Building", type: "string" },
                         { 
-                          field: "topic", 
-                          label: "Topic", 
+                          field: "system", 
+                          label: "System", 
                           renderer: (col, row, value) => <strong>{value}</strong>
                         },
                         { field: "lastPublished", label: "Last Published", type: "date" },
@@ -513,7 +513,7 @@ DROP TABLE IF EXISTS topics CASCADE;`}
                 </>
               ) : (
                 <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN}>
-                  No unit publishing data available. Units will appear here once they start publishing data to the historian database.
+                  No system publishing data available. Systems will appear here once they start publishing data to the historian database.
                 </Callout>
               )}
             </div>

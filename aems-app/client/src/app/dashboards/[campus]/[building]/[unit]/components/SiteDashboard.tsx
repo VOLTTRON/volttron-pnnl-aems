@@ -3,25 +3,25 @@
 import React from "react";
 import { Card, Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
-import { HistorianTimeSeriesDocument, HistorianMultiUnitDocument } from "@/graphql-codegen/graphql";
-import { HistorianTimeSeries, HistorianDataPoint } from "@local/prisma";
+import {
+  HistorianMultiSystemUnitDocument,
+  HistorianSetpointErrorDocument,
+  HistorianWeatherTimeSeriesDocument,
+  HistorianUnitTimeSeriesDocument,
+  ReadUnitsQuery,
+  UnitMetric,
+  WeatherMetric,
+} from "@/graphql-codegen/graphql";
 import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
 import styles from "./SiteDashboard.module.scss";
-
-interface Unit {
-  name?: string | null;
-  label?: string | null;
-  campus?: string | null;
-  building?: string | null;
-  system?: string | null;
-}
+import { typeofString } from "@local/common";
 
 interface SiteDashboardProps {
   campus: string;
   building: string;
-  units: Unit[];
+  units: ReadUnitsQuery["readUnits"];
   startTime: string;
   endTime: string;
   fromDate: Date;
@@ -36,7 +36,7 @@ interface SiteDashboardProps {
 export function SiteDashboard({
   campus,
   building,
-  units,
+  units: optionalUnits,
   startTime,
   endTime,
   fromDate,
@@ -47,105 +47,97 @@ export function SiteDashboard({
   onPresetChange,
   mode,
 }: SiteDashboardProps) {
+  const units = optionalUnits ?? [];
   // Extract system names for queries and unit names for display
-  const unitSystems = units.map((u) => u.system).filter(Boolean) as string[];
-  const unitNames = units.map((u) => u.name || u.system).filter(Boolean) as string[];
-  
-  // Use the first unit's stored campus/building values, or fall back to props
-  const siteCampus = units[0]?.campus || campus;
-  const siteBuilding = units[0]?.building || building;
+  const unitSystems = units
+    .map((u) => u.system)
+    .filter(typeofString)
+    .sort()
+    .reverse();
 
-  // Occupancy Status data
-  const { data: occupancyData, loading: occupancyLoading } = useQuery(HistorianMultiUnitDocument, {
+  // Occupancy Status data using new multi-system query
+  const { data: occupancyData, loading: occupancyLoading } = useQuery(HistorianMultiSystemUnitDocument, {
     variables: {
-      campus: siteCampus,
-      building: siteBuilding,
+      campus: campus,
+      building: building,
+      systems: unitSystems,
+      metric: UnitMetric.OccupancyCommand,
       startTime,
       endTime,
-      topicPattern: `${siteCampus}/${siteBuilding}/%UNIT%/OccupancyCommand`,
-      units: unitSystems,
     },
     skip: unitSystems.length === 0,
   });
 
-  // Zone Temperature data for setpoint error calculation
-  const { data: zoneTempsData, loading: zoneTempsLoading } = useQuery(HistorianMultiUnitDocument, {
+  // Setpoint error data - using multi-system query with each system
+  const { data: setpointErrorData1, loading: setpointErrorLoading1 } = useQuery(HistorianSetpointErrorDocument, {
     variables: {
-      campus: siteCampus,
-      building: siteBuilding,
+      campus,
+      building,
+      system: unitSystems[0] || "",
       startTime,
       endTime,
-      topicPattern: `${siteCampus}/${siteBuilding}/%UNIT%/ZoneTemperature`,
-      units: unitSystems,
     },
     skip: unitSystems.length === 0,
   });
-
-  // Zone Setpoint data for setpoint error calculation
-  const { data: zoneSetpointsData, loading: zoneSetpointsLoading } = useQuery(HistorianMultiUnitDocument, {
+  const { data: setpointErrorData2, loading: setpointErrorLoading2 } = useQuery(HistorianSetpointErrorDocument, {
     variables: {
-      campus: siteCampus,
-      building: siteBuilding,
+      campus,
+      building,
+      system: unitSystems[1] || "",
       startTime,
       endTime,
-      topicPattern: `${siteCampus}/${siteBuilding}/%UNIT%/EffectiveZoneTemperatureSetPoint`,
-      units: unitSystems,
     },
-    skip: unitSystems.length === 0,
+    skip: unitSystems.length < 2,
+  });
+  const { data: setpointErrorData3, loading: setpointErrorLoading3 } = useQuery(HistorianSetpointErrorDocument, {
+    variables: {
+      campus,
+      building,
+      system: unitSystems[2] || "",
+      startTime,
+      endTime,
+    },
+    skip: unitSystems.length < 3,
   });
 
-  // Calculate setpoint errors
+  const setpointErrorLoading = setpointErrorLoading1 || setpointErrorLoading2 || setpointErrorLoading3;
   const setpointErrorData = React.useMemo(() => {
-    if (!zoneTempsData?.historianMultiUnit || !zoneSetpointsData?.historianMultiUnit) {
-      return null;
-    }
+    const results = [
+      unitSystems[0] && setpointErrorData1?.historianSetpointError
+        ? { system: unitSystems[0], data: setpointErrorData1.historianSetpointError }
+        : null,
+      unitSystems[1] && setpointErrorData2?.historianSetpointError
+        ? { system: unitSystems[1], data: setpointErrorData2.historianSetpointError }
+        : null,
+      unitSystems[2] && setpointErrorData3?.historianSetpointError
+        ? { system: unitSystems[2], data: setpointErrorData3.historianSetpointError }
+        : null,
+    ].filter((r) => r !== null);
 
-    const errors: any[] = [];
-    
-    zoneTempsData.historianMultiUnit.forEach((tempUnit: any) => {
-      const setpointUnit = zoneSetpointsData.historianMultiUnit?.find((sp: any) => sp.unit === tempUnit.unit);
-      if (!setpointUnit) return;
+    return results.length > 0 ? { historianMultiSystemUnit: results } : null;
+  }, [setpointErrorData1, setpointErrorData2, setpointErrorData3, unitSystems]);
 
-      const errorData: any[] = [];
-      tempUnit.data?.forEach((tempPoint: any, index: number) => {
-        const setpointPoint = setpointUnit.data?.[index];
-        if (setpointPoint && tempPoint.value !== null && setpointPoint.value !== null) {
-          errorData.push({
-            timestamp: tempPoint.timestamp,
-            value: tempPoint.value - setpointPoint.value,
-          });
-        }
-      });
-
-      errors.push({
-        unit: tempUnit.unit,
-        data: errorData,
-      });
-    });
-
-    return { historianMultiUnit: errors };
-  }, [zoneTempsData, zoneSetpointsData]);
-
-  const setpointErrorLoading = zoneTempsLoading || zoneSetpointsLoading;
-
-  const { data: weatherData, loading: weatherLoading } = useQuery(HistorianTimeSeriesDocument, {
+  // Weather data using new weather query
+  const { data: weatherData, loading: weatherLoading } = useQuery(HistorianWeatherTimeSeriesDocument, {
     variables: {
-      campus: siteCampus,
-      building: siteBuilding,
+      campus: campus,
+      building: building,
+      metric: WeatherMetric.AirTemperature,
       startTime,
       endTime,
-      topicPatterns: [`${siteCampus}/${siteBuilding}/%/OutdoorAirTemperature`, "%/%/air_temperature"],
     },
     skip: unitSystems.length === 0,
   });
 
-  const { data: powerData, loading: powerLoading } = useQuery(HistorianTimeSeriesDocument, {
+  // Power data - using unit metric for meter data
+  const { data: powerData, loading: powerLoading } = useQuery(HistorianUnitTimeSeriesDocument, {
     variables: {
-      campus: siteCampus,
-      building: siteBuilding,
+      campus: campus,
+      building: building,
+      system: "meter",
+      metric: UnitMetric.HeartBeat, // Using a placeholder - may need adjustment based on actual meter metric
       startTime,
       endTime,
-      topicPatterns: [`${siteCampus}/${siteBuilding}/meter/Watts`],
     },
     skip: unitSystems.length === 0,
   });
@@ -158,21 +150,25 @@ export function SiteDashboard({
   };
 
   // Helper function to prepare timeline data for ECharts
-  const prepareTimelineData = (data: any, getStateInfo: (value: number) => { label: string; color: string }) => {
-    if (!data?.historianMultiUnit) return [];
+  const prepareTimelineData = (
+    data: typeof occupancyData,
+    getStateInfo: (value: number) => { label: string; color: string },
+  ) => {
+    if (!data?.historianMultiSystemUnit) return [];
 
-    return data.historianMultiUnit.map((unitData: any, index: number) => {
-      const timelineData = unitData.data?.map((point: any) => {
-        const state = getStateInfo(point.value);
-        return {
-          name: point.timestamp,
-          value: [index, point.timestamp, point.timestamp, state.label],
-          itemStyle: { color: state.color },
-        };
-      }) || [];
+    return data.historianMultiSystemUnit.map((systemData: any, index: number) => {
+      const timelineData =
+        systemData.data?.map((point: any) => {
+          const state = getStateInfo(point.value ?? 0);
+          return {
+            name: point.timestamp,
+            value: [index, point.timestamp, point.timestamp, state.label],
+            itemStyle: { color: state.color },
+          };
+        }) || [];
 
       return {
-        name: unitData.unit,
+        name: systemData.system,
         type: "custom" as const,
         renderItem: (params: any, api: any) => {
           const categoryIndex = api.value(0);
@@ -181,7 +177,7 @@ export function SiteDashboard({
           const height = api.size([0, 1])[1] * 0.6;
 
           return {
-            type: "rect",
+            type: "rect" as const,
             shape: {
               x: start[0],
               y: start[1] - height / 2,
@@ -196,14 +192,16 @@ export function SiteDashboard({
           y: 0,
         },
         data: timelineData,
-      };
+      } as any;
     });
   };
 
   return (
     <div className={styles.dashboard}>
       <div className={styles.header}>
-        <h1>{siteBuilding} - Site Overview</h1>
+        <h1>
+          {campus} {building} - Site Overview
+        </h1>
         <TimeRangeSelector
           fromDate={fromDate}
           toDate={toDate}
@@ -216,7 +214,6 @@ export function SiteDashboard({
 
       <div className={styles.timelineGrid}>
         <Card className={styles.timelineCard}>
-          <h3>Occupancy Status</h3>
           {occupancyLoading ? (
             <div className={styles.chartLoading}>
               <Spinner />
@@ -224,13 +221,17 @@ export function SiteDashboard({
           ) : (
             <ECharts
               option={{
-                backgroundColor: mode === "dark" ? Colors.DARK_GRAY5 : Colors.WHITE,
+                title: { text: "Occupancy Status" },
+                backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: {
-                  formatter: (params: any) => {
-                    if (Array.isArray(params)) params = params[0];
-                    return `${params.seriesName}<br/>${params.value[3]}<br/>${new Date(params.value[1]).toLocaleString()}`;
-                  },
+                  trigger: "item",
                 },
+                // tooltip: {
+                //   formatter: (params: any) => {
+                //     if (Array.isArray(params)) params = params[0];
+                //     return `${params.seriesName}<br/>${params.value[3]}<br/>${new Date(params.value[1]).toLocaleString()}`;
+                //   },
+                // },
                 legend: {
                   bottom: 0,
                   data: ["Occupied", "Unoccupied", "Local Control"],
@@ -239,7 +240,7 @@ export function SiteDashboard({
                 xAxis: { type: "time" },
                 yAxis: {
                   type: "category",
-                  data: unitNames,
+                  data: unitSystems,
                   axisLabel: { interval: 0 },
                 },
                 series: prepareTimelineData(occupancyData, getOccupancyState),
@@ -251,7 +252,6 @@ export function SiteDashboard({
         </Card>
 
         <Card className={styles.timelineCard}>
-          <h3>Occupancy Setpoint Error</h3>
           {setpointErrorLoading ? (
             <div className={styles.chartLoading}>
               <Spinner />
@@ -259,31 +259,30 @@ export function SiteDashboard({
           ) : (
             <ECharts
               option={{
-                backgroundColor: mode === "dark" ? Colors.DARK_GRAY5 : Colors.WHITE,
+                title: { text: "Occupancy Setpoint Error" },
+                backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: {
-                  formatter: (params: any) => {
-                    if (Array.isArray(params)) params = params[0];
-                    return `${params.seriesName}<br/>Error: ${params.value[3]}<br/>${new Date(params.value[1]).toLocaleString()}`;
-                  },
+                  trigger: "item",
                 },
+                // tooltip: {
+                //   formatter: (params: any) => {
+                //     if (Array.isArray(params)) params = params[0];
+                //     return `${params.seriesName}<br/>Error: ${params.value[3]}<br/>${new Date(params.value[1]).toLocaleString()}`;
+                //   },
+                // },
                 grid: { top: 40, right: 60, bottom: 40, left: 80 },
                 xAxis: { type: "time" },
                 yAxis: {
                   type: "category",
-                  data: unitNames,
+                  data: unitSystems,
                   axisLabel: { interval: 0 },
                 },
                 series:
-                  setpointErrorData?.historianMultiUnit?.map((unitData: any, index: number) => ({
-                    name: unitData.unit,
+                  setpointErrorData?.historianMultiSystemUnit?.map((systemData: any, index: number) => ({
+                    name: systemData.system,
                     type: "scatter",
                     symbolSize: 8,
-                    data:
-                      unitData.data?.map((point: any) => [
-                        point.timestamp,
-                        index,
-                        point.value,
-                      ]) || [],
+                    data: systemData.data?.map((point: any) => [point.timestamp, index, point.value]) || [],
                     itemStyle: {
                       color: (params: any) => {
                         const value = params.data[2];
@@ -300,9 +299,8 @@ export function SiteDashboard({
         </Card>
       </div>
 
-      <div className={styles.grid}>
+      <div className={styles.timelineGrid}>
         <Card className={styles.chartCard}>
-          <h3>Weather</h3>
           {weatherLoading ? (
             <div className={styles.chartLoading}>
               <Spinner />
@@ -310,19 +308,27 @@ export function SiteDashboard({
           ) : (
             <ECharts
               option={{
-                backgroundColor: mode === "dark" ? Colors.DARK_GRAY5 : Colors.WHITE,
+                title: { text: "Weather" },
+                backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: { trigger: "axis" },
                 legend: { bottom: 0 },
-                grid: { top: 40, right: 60, bottom: 60, left: 60 },
+                grid: { top: 60, right: 60, bottom: 60, left: 60 },
                 xAxis: { type: "time" },
                 yAxis: { type: "value", name: "Temperature (°F)" },
-                series:
-                  weatherData?.historianTimeSeries?.map((series: HistorianTimeSeries) => ({
-                    name: series.topic,
-                    type: "line",
-                    smooth: true,
-                    data: series.data?.map((point: HistorianDataPoint) => [point.timestamp, point.value]) || [],
-                  })) || [],
+                series: weatherData?.historianWeatherTimeSeries
+                  ? [
+                      {
+                        name: "Outdoor Temperature",
+                        type: "line",
+                        smooth: true,
+                        data:
+                          weatherData.historianWeatherTimeSeries.data?.map((point: any) => [
+                            point.timestamp,
+                            point.value,
+                          ]) || [],
+                      },
+                    ]
+                  : [],
               }}
               style={{ height: "300px" }}
               theme={mode}
@@ -331,7 +337,6 @@ export function SiteDashboard({
         </Card>
 
         <Card className={styles.chartCard}>
-          <h3>Building Power</h3>
           {powerLoading ? (
             <div className={styles.chartLoading}>
               <Spinner />
@@ -339,19 +344,25 @@ export function SiteDashboard({
           ) : (
             <ECharts
               option={{
-                backgroundColor: mode === "dark" ? Colors.DARK_GRAY5 : Colors.WHITE,
+                title: { text: "Building Power" },
+                backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: { trigger: "axis" },
                 legend: { bottom: 0 },
-                grid: { top: 40, right: 60, bottom: 60, left: 60 },
+                grid: { top: 60, right: 60, bottom: 60, left: 60 },
                 xAxis: { type: "time" },
                 yAxis: { type: "value", name: "Power (W)" },
-                series:
-                  powerData?.historianTimeSeries?.map((series: HistorianTimeSeries) => ({
-                    name: series.topic,
-                    type: "line",
-                    smooth: true,
-                    data: series.data?.map((point: HistorianDataPoint) => [point.timestamp, point.value]) || [],
-                  })) || [],
+                series: powerData?.historianUnitTimeSeries
+                  ? [
+                      {
+                        name: "Building Power",
+                        type: "line",
+                        smooth: true,
+                        data:
+                          powerData.historianUnitTimeSeries.data?.map((point: any) => [point.timestamp, point.value]) ||
+                          [],
+                      },
+                    ]
+                  : [],
               }}
               style={{ height: "300px" }}
               theme={mode}

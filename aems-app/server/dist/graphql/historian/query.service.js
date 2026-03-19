@@ -17,226 +17,169 @@ const historian_service_1 = require("../../historian/historian.service");
 const object_service_1 = require("./object.service");
 let HistorianQuery = class HistorianQuery {
     constructor(builder, historianService, historianObject) {
-        const { AggregationType: AggregationTypeEnum, CalculationType: CalculationTypeEnum } = historianObject;
-        this.CalculationOptionsInput = builder.inputType("CalculationOptionsInput", {
-            fields: (t) => ({
-                window: t.string({
-                    description: "Time window for rolling calculations (e.g., '30 minutes', '1 hour')",
-                }),
-            }),
-        });
-        builder.queryField("historianCurrentValues", (t) => t.field({
-            description: "Get the current (latest) values for multiple topic patterns. Useful for gauges and stat displays.",
+        const { UnitMetric: UnitMetricEnum, WeatherMetric: WeatherMetricEnum, AggregationType: AggregationTypeEnum, } = historianObject;
+        builder.queryField("historianUnitCurrentValue", (t) => t.field({
+            description: "Get the current (latest) value for a unit metric",
             authScopes: { user: true },
-            type: [historianObject.HistorianMetricCurrent],
+            type: historianObject.HistorianMetricCurrent,
+            nullable: true,
             args: {
-                topicPatterns: t.arg.stringList({
-                    required: true,
-                    description: "Array of topic patterns to query (e.g., 'PNNL/ROB/%/ZoneTemperature')",
-                }),
-                campus: t.arg.string({
-                    description: "Filter by campus",
-                }),
-                building: t.arg.string({
-                    description: "Filter by building",
-                }),
-                unit: t.arg.string({
-                    description: "Filter by unit",
-                }),
+                campus: t.arg.string({ required: true }),
+                building: t.arg.string({ required: true }),
+                system: t.arg.string({ required: true }),
+                metric: t.arg({ type: UnitMetricEnum, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus ?? undefined, args.building ?? undefined, args.unit ?? undefined);
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building, args.system);
                 if (accessControl?.isEmpty) {
-                    return [];
+                    return null;
                 }
-                const campus = args.campus ?? undefined;
-                const building = args.building ?? undefined;
-                const unit = args.unit ?? undefined;
-                return historianService.getCurrentValues(args.topicPatterns, campus, building, unit);
+                return historianService.getUnitCurrentValue(args.campus, args.building, args.system, args.metric);
             },
         }));
-        builder.queryField("historianTimeSeries", (t) => t.field({
-            description: "Get time series data for multiple topic patterns. Useful for line charts and time-based visualizations.",
+        builder.queryField("historianUnitTimeSeries", (t) => t.field({
+            description: "Get time series data for a unit metric",
             authScopes: { user: true },
-            type: [historianObject.HistorianTimeSeries],
+            type: historianObject.HistorianTimeSeries,
             args: {
-                topicPatterns: t.arg.stringList({
-                    required: true,
-                    description: "Array of topic patterns to query",
-                }),
-                startTime: t.arg({
-                    type: builder.DateTime,
-                    required: true,
-                    description: "Start time for the time series",
-                }),
-                endTime: t.arg({
-                    type: builder.DateTime,
-                    required: true,
-                    description: "End time for the time series",
-                }),
-                campus: t.arg.string({
-                    description: "Filter by campus",
-                }),
-                building: t.arg.string({
-                    description: "Filter by building",
-                }),
-                unit: t.arg.string({
-                    description: "Filter by unit",
-                }),
+                campus: t.arg.string({ required: true }),
+                building: t.arg.string({ required: true }),
+                system: t.arg.string({ required: true }),
+                metric: t.arg({ type: UnitMetricEnum, required: true }),
+                startTime: t.arg({ type: builder.DateTime, required: true }),
+                endTime: t.arg({ type: builder.DateTime, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus ?? undefined, args.building ?? undefined, args.unit ?? undefined);
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building, args.system);
                 if (accessControl?.isEmpty) {
-                    return [];
+                    return { system: args.system, metric: args.metric, data: [] };
                 }
-                const campus = args.campus ?? undefined;
-                const building = args.building ?? undefined;
-                const unit = args.unit ?? undefined;
-                return historianService.getTimeSeries(args.topicPatterns, args.startTime, args.endTime, campus, building, unit);
+                return historianService.getUnitTimeSeries(args.campus, args.building, args.system, args.metric, args.startTime, args.endTime);
             },
         }));
-        builder.queryField("historianAggregated", (t) => t.field({
-            description: "Get aggregated historian data with time grouping. Useful for downsampling and performance.",
+        builder.queryField("historianUnitAggregated", (t) => t.field({
+            description: "Get aggregated data for a unit metric",
             authScopes: { user: true },
             type: [historianObject.HistorianAggregate],
             args: {
-                topicPattern: t.arg.string({
-                    required: true,
-                    description: "Topic pattern to query",
-                }),
-                startTime: t.arg({
-                    type: builder.DateTime,
-                    required: true,
-                    description: "Start time",
-                }),
-                endTime: t.arg({
-                    type: builder.DateTime,
-                    required: true,
-                    description: "End time",
-                }),
-                interval: t.arg.string({
-                    required: true,
-                    description: "Time interval for grouping (e.g., '1m', '5m', '1h')",
-                }),
-                aggregation: t.arg({
-                    type: AggregationTypeEnum,
-                    required: true,
-                    description: "Type of aggregation to apply",
-                }),
-                campus: t.arg.string({
-                    description: "Filter by campus",
-                }),
-                building: t.arg.string({
-                    description: "Filter by building",
-                }),
-                unit: t.arg.string({
-                    description: "Filter by unit",
-                }),
+                campus: t.arg.string({ required: true }),
+                building: t.arg.string({ required: true }),
+                system: t.arg.string({ required: true }),
+                metric: t.arg({ type: UnitMetricEnum, required: true }),
+                startTime: t.arg({ type: builder.DateTime, required: true }),
+                endTime: t.arg({ type: builder.DateTime, required: true }),
+                interval: t.arg.string({ required: true, description: "e.g., '1m', '5m', '1h'" }),
+                aggregation: t.arg({ type: AggregationTypeEnum, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus ?? undefined, args.building ?? undefined, args.unit ?? undefined);
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building, args.system);
                 if (accessControl?.isEmpty) {
                     return [];
                 }
-                const campus = args.campus ?? undefined;
-                const building = args.building ?? undefined;
-                const unit = args.unit ?? undefined;
-                return historianService.getAggregated(args.topicPattern, args.startTime, args.endTime, args.interval, args.aggregation, campus, building, unit);
+                return historianService.getUnitAggregated(args.campus, args.building, args.system, args.metric, args.startTime, args.endTime, args.interval, args.aggregation);
             },
         }));
-        builder.queryField("historianMultiUnit", (t) => t.field({
-            description: "Get data for multiple units in a pivoted format. Useful for state timelines and comparisons.",
+        builder.queryField("historianWeatherCurrentValue", (t) => t.field({
+            description: "Get the current (latest) value for a weather metric",
             authScopes: { user: true },
-            type: [historianObject.HistorianMultiUnitData],
+            type: historianObject.HistorianMetricCurrent,
+            nullable: true,
             args: {
-                topicPattern: t.arg.string({
-                    required: true,
-                    description: "Topic pattern with %UNIT% placeholder (e.g., 'PNNL/ROB/%UNIT%/OccupancyCommand')",
-                }),
-                startTime: t.arg({
-                    type: builder.DateTime,
-                    required: true,
-                    description: "Start time",
-                }),
-                endTime: t.arg({
-                    type: builder.DateTime,
-                    required: true,
-                    description: "End time",
-                }),
-                interval: t.arg.string({
-                    description: "Optional time interval for grouping",
-                }),
-                campus: t.arg.string({
-                    description: "Filter by campus",
-                }),
-                building: t.arg.string({
-                    description: "Filter by building",
-                }),
-                units: t.arg.stringList({
-                    required: true,
-                    description: "Array of unit names to query (e.g., ['rtu01', 'rtu02', 'rtu03'])",
-                }),
+                campus: t.arg.string({ required: true }),
+                building: t.arg.string({ required: true }),
+                metric: t.arg({ type: WeatherMetricEnum, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus ?? undefined, args.building ?? undefined, args.units);
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building);
+                if (accessControl?.isEmpty) {
+                    return null;
+                }
+                return historianService.getWeatherCurrentValue(args.campus, args.building, args.metric);
+            },
+        }));
+        builder.queryField("historianWeatherTimeSeries", (t) => t.field({
+            description: "Get time series data for a weather metric",
+            authScopes: { user: true },
+            type: historianObject.HistorianTimeSeries,
+            args: {
+                campus: t.arg.string({ required: true }),
+                building: t.arg.string({ required: true }),
+                metric: t.arg({ type: WeatherMetricEnum, required: true }),
+                startTime: t.arg({ type: builder.DateTime, required: true }),
+                endTime: t.arg({ type: builder.DateTime, required: true }),
+            },
+            resolve: async (_root, args, ctx, _info) => {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building);
+                if (accessControl?.isEmpty) {
+                    return { system: "weather", metric: args.metric, data: [] };
+                }
+                return historianService.getWeatherTimeSeries(args.campus, args.building, args.metric, args.startTime, args.endTime);
+            },
+        }));
+        builder.queryField("historianWeatherAggregated", (t) => t.field({
+            description: "Get aggregated data for a weather metric",
+            authScopes: { user: true },
+            type: [historianObject.HistorianAggregate],
+            args: {
+                campus: t.arg.string({ required: true }),
+                building: t.arg.string({ required: true }),
+                metric: t.arg({ type: WeatherMetricEnum, required: true }),
+                startTime: t.arg({ type: builder.DateTime, required: true }),
+                endTime: t.arg({ type: builder.DateTime, required: true }),
+                interval: t.arg.string({ required: true, description: "e.g., '1m', '5m', '1h'" }),
+                aggregation: t.arg({ type: AggregationTypeEnum, required: true }),
+            },
+            resolve: async (_root, args, ctx, _info) => {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building);
                 if (accessControl?.isEmpty) {
                     return [];
                 }
-                const allowedUnitNames = accessControl ? accessControl.allowedUnits.map((u) => u.unit) : args.units;
-                const result = await historianService.getMultiUnit(args.topicPattern, allowedUnitNames, args.startTime, args.endTime, args.interval ?? undefined, args.campus ?? undefined, args.building ?? undefined);
-                return Object.entries(result).map(([unit, data]) => ({
-                    unit,
+                return historianService.getWeatherAggregated(args.campus, args.building, args.metric, args.startTime, args.endTime, args.interval, args.aggregation);
+            },
+        }));
+        builder.queryField("historianMultiSystemUnit", (t) => t.field({
+            description: "Get data for multiple systems with the same unit metric (for comparison charts)",
+            authScopes: { user: true },
+            type: [historianObject.HistorianMultiSystemData],
+            args: {
+                campus: t.arg.string({ required: true }),
+                building: t.arg.string({ required: true }),
+                systems: t.arg.stringList({ required: true }),
+                metric: t.arg({ type: UnitMetricEnum, required: true }),
+                startTime: t.arg({ type: builder.DateTime, required: true }),
+                endTime: t.arg({ type: builder.DateTime, required: true }),
+                interval: t.arg.string({ description: "Optional time interval for grouping" }),
+            },
+            resolve: async (_root, args, ctx, _info) => {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building, args.systems);
+                if (accessControl?.isEmpty) {
+                    return [];
+                }
+                const allowedSystems = accessControl ? accessControl.allowedSystems.map((s) => s.system) : args.systems;
+                const result = await historianService.getMultiSystemUnit(args.campus, args.building, allowedSystems, args.metric, args.startTime, args.endTime, args.interval ?? undefined);
+                return Object.entries(result).map(([system, data]) => ({
+                    system,
                     data,
                 }));
             },
         }));
-        builder.queryField("historianCalculated", (t) => t.field({
-            description: "Get calculated metrics like setpoint errors or rolling averages.",
+        builder.queryField("historianSetpointError", (t) => t.field({
+            description: "Calculate setpoint error (zone temp - setpoint) for a system",
             authScopes: { user: true },
             type: [historianObject.HistorianDataPoint],
             args: {
-                calculation: t.arg({
-                    type: CalculationTypeEnum,
-                    required: true,
-                    description: "Type of calculation to perform",
-                }),
-                topicPatterns: t.arg.stringList({
-                    required: true,
-                    description: "Topic patterns required for the calculation",
-                }),
-                startTime: t.arg({
-                    type: builder.DateTime,
-                    required: true,
-                    description: "Start time",
-                }),
-                endTime: t.arg({
-                    type: builder.DateTime,
-                    required: true,
-                    description: "End time",
-                }),
-                campus: t.arg.string({
-                    description: "Filter by campus",
-                }),
-                building: t.arg.string({
-                    description: "Filter by building",
-                }),
-                unit: t.arg.string({
-                    description: "Filter by unit",
-                }),
-                options: t.arg({
-                    type: this.CalculationOptionsInput,
-                    description: "Additional options for calculations",
-                }),
+                campus: t.arg.string({ required: true }),
+                building: t.arg.string({ required: true }),
+                system: t.arg.string({ required: true }),
+                startTime: t.arg({ type: builder.DateTime, required: true }),
+                endTime: t.arg({ type: builder.DateTime, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus ?? undefined, args.building ?? undefined, args.unit ?? undefined);
+                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building, args.system);
                 if (accessControl?.isEmpty) {
                     return [];
                 }
-                const campus = args.campus ?? undefined;
-                const building = args.building ?? undefined;
-                const unit = args.unit ?? undefined;
-                return historianService.getCalculated(args.calculation, args.topicPatterns, args.startTime, args.endTime, campus, building, unit, args.options);
+                return historianService.calculateSetpointError(args.campus, args.building, args.system, args.startTime, args.endTime);
             },
         }));
         builder.queryField("historianReplicationInfo", (t) => t.field({

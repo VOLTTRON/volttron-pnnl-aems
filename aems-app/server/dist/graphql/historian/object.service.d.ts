@@ -1,5 +1,6 @@
 import { SchemaBuilderService } from "../builder.service";
-import { AggregationType, CalculationType, HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, HistorianMultiUnitData, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot } from "@/historian/historian.types";
+import { AggregationType, CalculationType, HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, HistorianMultiSystemData, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot } from "@local/common";
+import { UnitMetric, WeatherMetric } from "@/historian/metrics";
 export declare class HistorianObject {
     readonly HistorianDataPoint: PothosSchemaTypes.ScalarRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -25,12 +26,12 @@ export declare class HistorianObject {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
     }>, HistorianMetricCurrent, HistorianMetricCurrent, HistorianMetricCurrent>;
-    readonly HistorianMultiUnitData: PothosSchemaTypes.ScalarRef<PothosSchemaTypes.ExtendDefaultTypes<{
+    readonly HistorianMultiSystemData: PothosSchemaTypes.ScalarRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, HistorianMultiUnitData, HistorianMultiUnitData, HistorianMultiUnitData>;
+    }>, HistorianMultiSystemData, HistorianMultiSystemData, HistorianMultiSystemData>;
     readonly HistorianReplicationInfo: PothosSchemaTypes.ScalarRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
@@ -73,5 +74,17 @@ export declare class HistorianObject {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
     }>, import("@pothos/core").ValuesFromEnum<typeof CalculationType>, import("@pothos/core").ValuesFromEnum<typeof CalculationType>>;
+    readonly UnitMetric: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
+        Context: import("..").Context;
+        AuthScopes: import("../../auth").AuthRoles;
+        PrismaTypes: import("@local/prisma/dist/pothos").default;
+        Scalars: import("..").Scalars;
+    }>, import("@pothos/core").ValuesFromEnum<typeof UnitMetric>, import("@pothos/core").ValuesFromEnum<typeof UnitMetric>>;
+    readonly WeatherMetric: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
+        Context: import("..").Context;
+        AuthScopes: import("../../auth").AuthRoles;
+        PrismaTypes: import("@local/prisma/dist/pothos").default;
+        Scalars: import("..").Scalars;
+    }>, import("@pothos/core").ValuesFromEnum<typeof WeatherMetric>, import("@pothos/core").ValuesFromEnum<typeof WeatherMetric>>;
     constructor(builder: SchemaBuilderService);
 }

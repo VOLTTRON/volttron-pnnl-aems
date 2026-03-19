@@ -8,13 +8,14 @@ import {
   HistorianTimeSeries,
   HistorianAggregate,
   HistorianMetricCurrent,
-  HistorianMultiUnitData,
+  HistorianMultiSystemData,
   HistorianReplicationInfo,
   PublisherInfo,
   SubscriberSetupSql,
   MonitoringSql,
   ReplicationSlot,
-} from "@/historian/historian.types";
+} from "@local/common";
+import { UnitMetric, WeatherMetric } from "@/historian/metrics";
 import { GraphQLScalarType } from "graphql";
 
 @Injectable()
@@ -24,7 +25,7 @@ export class HistorianObject {
   readonly HistorianTimeSeries;
   readonly HistorianAggregate;
   readonly HistorianMetricCurrent;
-  readonly HistorianMultiUnitData;
+  readonly HistorianMultiSystemData;
   readonly HistorianReplicationInfo;
   readonly PublisherInfo;
   readonly SubscriberSetupSql;
@@ -32,6 +33,8 @@ export class HistorianObject {
   readonly ReplicationSlot;
   readonly AggregationType;
   readonly CalculationType;
+  readonly UnitMetric;
+  readonly WeatherMetric;
 
   constructor(builder: SchemaBuilderService) {
     // Enum types
@@ -43,6 +46,16 @@ export class HistorianObject {
     this.CalculationType = builder.enumType(CalculationType, {
       name: "CalculationType",
       description: "Type of calculation to perform on historian data",
+    });
+
+    this.UnitMetric = builder.enumType(UnitMetric, {
+      name: "UnitMetric",
+      description: "Available metrics for unit/system data (HVAC equipment)",
+    });
+
+    this.WeatherMetric = builder.enumType(WeatherMetric, {
+      name: "WeatherMetric",
+      description: "Available metrics for weather data",
     });
 
     // Object types
@@ -67,9 +80,9 @@ export class HistorianObject {
       new GraphQLScalarType<HistorianMetricCurrent, unknown>({ name: "HistorianMetricCurrent" }),
     );
 
-    this.HistorianMultiUnitData = builder.addScalarType(
-      "HistorianMultiUnitData",
-      new GraphQLScalarType<HistorianMultiUnitData, unknown>({ name: "HistorianMultiUnitData" }),
+    this.HistorianMultiSystemData = builder.addScalarType(
+      "HistorianMultiSystemData",
+      new GraphQLScalarType<HistorianMultiSystemData, unknown>({ name: "HistorianMultiSystemData" }),
     );
 
     // Replication types

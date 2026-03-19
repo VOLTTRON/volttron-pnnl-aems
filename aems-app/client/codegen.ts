@@ -40,6 +40,7 @@ const config: CodegenConfig = {
           HistorianAggregate: "PrismaJson.HistorianAggregate",
           HistorianMetricCurrent: "PrismaJson.HistorianMetricCurrent",
           HistorianMultiUnitData: "PrismaJson.HistorianMultiUnitData",
+          HistorianMultiSystemData: "PrismaJson.HistorianMultiSystemData",
           HistorianReplicationInfo: "@local/common#HistorianReplicationInfo",
           PublisherInfo: "@local/common#PublisherInfo",
           SubscriberSetupSql: "@local/common#SubscriberSetupSql",

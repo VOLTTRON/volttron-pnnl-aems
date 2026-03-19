@@ -1,34 +1,73 @@
+export declare enum UnitMetric {
+    AuxiliaryHeatCommand = "AuxiliaryHeatCommand",
+    CoolingDemand = "CoolingDemand",
+    DemandResponseFlag = "DemandResponseFlag",
+    EffectiveZoneTemperatureSetPoint = "EffectiveZoneTemperatureSetPoint",
+    FirstStageCooling = "FirstStageCooling",
+    FirstStageHeating = "FirstStageHeating",
+    HeartBeat = "HeartBeat",
+    HeatingDemand = "HeatingDemand",
+    OccupancyCommand = "OccupancyCommand",
+    OccupiedCoolingSetPoint = "OccupiedCoolingSetPoint",
+    OccupiedHeatingSetPoint = "OccupiedHeatingSetPoint",
+    ReversingValve = "ReversingValve",
+    SecondStageCooling = "SecondStageCooling",
+    SupplyFanStatus = "SupplyFanStatus",
+    UnoccupiedCoolingSetPoint = "UnoccupiedCoolingSetPoint",
+    UnoccupiedHeatingSetPoint = "UnoccupiedHeatingSetPoint",
+    ZoneHumidity = "ZoneHumidity",
+    ZoneTemperature = "ZoneTemperature"
+}
+export declare enum WeatherMetric {
+    AirPressure = "air_pressure",
+    AirPressureAtMeanSeaLevel = "air_pressure_at_mean_sea_level",
+    AirTemperature = "air_temperature",
+    DewPointTemperature = "dew_point_temperature",
+    HeatIndex = "heatIndex",
+    HeightAboveMeanSeaLevel = "height_above_mean_sea_level",
+    PrecipitationLast3Hours = "precipitationLast3Hours",
+    PrecipitationLastHour = "precipitationLastHour",
+    RelativeHumidity = "relative_humidity",
+    VisibilityInAir = "visibility_in_air",
+    WindFromDirection = "wind_from_direction",
+    WindSpeed = "wind_speed",
+    WindSpeedOfGust = "wind_speed_of_gust",
+    WindChill = "windChill"
+}
 export interface HistorianDataPoint {
     timestamp: Date;
     value: number | null;
-    topic: string;
+    system: string;
+    metric: UnitMetric | WeatherMetric;
 }
 export interface HistorianTimeSeries {
-    topic: string;
+    system: string;
+    metric: UnitMetric | WeatherMetric;
     data: HistorianDataPoint[];
 }
 export interface HistorianAggregate {
     timestamp: Date;
     value: number | null;
-    topicPattern: string;
+    metric: UnitMetric | WeatherMetric;
 }
 export interface HistorianMetricCurrent {
-    topic: string;
+    system: string;
+    metric: UnitMetric | WeatherMetric;
     value: number | null;
     timestamp: Date;
 }
-export interface HistorianMultiUnitData {
-    unit: string;
+export interface HistorianMultiSystemData {
+    system: string;
     data: HistorianDataPoint[];
 }
 export declare enum AggregationType {
-    SUM = "SUM",
-    AVG = "AVG",
-    MAX = "MAX",
-    MIN = "MIN",
-    COUNT = "COUNT"
+    Sum = "Sum",
+    Avg = "Avg",
+    Max = "Max",
+    Min = "Min",
+    Count = "Count"
 }
 export declare enum CalculationType {
-    SETPOINT_ERROR = "SETPOINT_ERROR",
-    ROLLING_AVERAGE = "ROLLING_AVERAGE"
+    SetpointError = "SetpointError",
+    RollingAverage = "RollingAverage"
 }

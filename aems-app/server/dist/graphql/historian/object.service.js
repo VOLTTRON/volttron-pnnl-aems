@@ -13,23 +13,32 @@ exports.HistorianObject = void 0;
 const common_1 = require("@nestjs/common");
 const builder_service_1 = require("../builder.service");
 const pothos_decorator_1 = require("../pothos.decorator");
-const historian_types_1 = require("../../historian/historian.types");
+const common_2 = require("@local/common");
+const metrics_1 = require("../../historian/metrics");
 const graphql_1 = require("graphql");
 let HistorianObject = class HistorianObject {
     constructor(builder) {
-        this.AggregationType = builder.enumType(historian_types_1.AggregationType, {
+        this.AggregationType = builder.enumType(common_2.AggregationType, {
             name: "AggregationType",
             description: "Type of aggregation to apply to historian data",
         });
-        this.CalculationType = builder.enumType(historian_types_1.CalculationType, {
+        this.CalculationType = builder.enumType(common_2.CalculationType, {
             name: "CalculationType",
             description: "Type of calculation to perform on historian data",
+        });
+        this.UnitMetric = builder.enumType(metrics_1.UnitMetric, {
+            name: "UnitMetric",
+            description: "Available metrics for unit/system data (HVAC equipment)",
+        });
+        this.WeatherMetric = builder.enumType(metrics_1.WeatherMetric, {
+            name: "WeatherMetric",
+            description: "Available metrics for weather data",
         });
         this.HistorianDataPoint = builder.addScalarType("HistorianDataPoint", new graphql_1.GraphQLScalarType({ name: "HistorianDataPoint" }));
         this.HistorianTimeSeries = builder.addScalarType("HistorianTimeSeries", new graphql_1.GraphQLScalarType({ name: "HistorianTimeSeries" }));
         this.HistorianAggregate = builder.addScalarType("HistorianAggregate", new graphql_1.GraphQLScalarType({ name: "HistorianAggregate" }));
         this.HistorianMetricCurrent = builder.addScalarType("HistorianMetricCurrent", new graphql_1.GraphQLScalarType({ name: "HistorianMetricCurrent" }));
-        this.HistorianMultiUnitData = builder.addScalarType("HistorianMultiUnitData", new graphql_1.GraphQLScalarType({ name: "HistorianMultiUnitData" }));
+        this.HistorianMultiSystemData = builder.addScalarType("HistorianMultiSystemData", new graphql_1.GraphQLScalarType({ name: "HistorianMultiSystemData" }));
         this.HistorianReplicationInfo = builder.addScalarType("HistorianReplicationInfo", new graphql_1.GraphQLScalarType({ name: "HistorianReplicationInfo" }));
         this.PublisherInfo = builder.addScalarType("PublisherInfo", new graphql_1.GraphQLScalarType({ name: "PublisherInfo" }));
         this.SubscriberSetupSql = builder.addScalarType("SubscriberSetupSql", new graphql_1.GraphQLScalarType({ name: "SubscriberSetupSql" }));

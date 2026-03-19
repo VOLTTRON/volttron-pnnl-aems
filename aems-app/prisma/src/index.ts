@@ -1,6 +1,10 @@
 import { Prisma } from "@prisma/client";
+import * as Historian from "./types/historian";
 export * from "./pothos";
 export * from "./types/historian";
+
+// Re-export historian enums for convenience
+export { UnitMetric, WeatherMetric, AggregationType, CalculationType } from "./types/historian";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -66,30 +70,14 @@ declare global {
     type UserGroupBy = Partial<Omit<Prisma.UserGroupByOutputType, "_count">> & {
       _count?: Partial<Prisma.UserGroupByOutputType["_count"]>;
     };
-    // Historian types
-    type HistorianDataPoint = {
-      timestamp: Date;
-      value: number | null;
-      topic: string;
-    };
-    type HistorianTimeSeries = {
-      topic: string;
-      data: HistorianDataPoint[];
-    };
-    type HistorianAggregate = {
-      timestamp: Date;
-      value: number | null;
-      topicPattern: string;
-    };
-    type HistorianMetricCurrent = {
-      topic: string;
-      value: number | null;
-      timestamp: Date;
-    };
-    type HistorianMultiUnitData = {
-      unit: string;
-      data: HistorianDataPoint[];
-    };
+    // Historian types - imported from types/historian.ts
+    type UnitMetric = Historian.UnitMetric;
+    type WeatherMetric = Historian.WeatherMetric;
+    type HistorianDataPoint = Historian.HistorianDataPoint;
+    type HistorianTimeSeries = Historian.HistorianTimeSeries;
+    type HistorianAggregate = Historian.HistorianAggregate;
+    type HistorianMetricCurrent = Historian.HistorianMetricCurrent;
+    type HistorianMultiSystemData = Historian.HistorianMultiSystemData;
   }
 }
 

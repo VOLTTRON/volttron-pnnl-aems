@@ -2,7 +2,13 @@
 
 import { Card, Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
-import { HistorianTimeSeriesDocument, HistorianCurrentValuesDocument } from "@/graphql-codegen/graphql";
+import {
+  HistorianUnitTimeSeriesDocument,
+  HistorianUnitCurrentValueDocument,
+  HistorianWeatherCurrentValueDocument,
+  UnitMetric,
+  WeatherMetric,
+} from "@/graphql-codegen/graphql";
 import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
@@ -50,51 +56,79 @@ export function UnitDashboard({
   const unitBuilding = unit.building || building;
   const unitSystem = unit.system || unit.name || "";
 
-  const { data: currentValues, loading: currentLoading } = useQuery(HistorianCurrentValuesDocument, {
+  // Current values for unit metrics
+  const { data: zoneTemp } = useQuery(HistorianUnitCurrentValueDocument, {
+    variables: { campus: unitCampus, building: unitBuilding, system: unitSystem, metric: UnitMetric.ZoneTemperature },
+  });
+  const { data: zoneHumidity } = useQuery(HistorianUnitCurrentValueDocument, {
+    variables: { campus: unitCampus, building: unitBuilding, system: unitSystem, metric: UnitMetric.ZoneHumidity },
+  });
+  const { data: heatingSetpoint } = useQuery(HistorianUnitCurrentValueDocument, {
     variables: {
       campus: unitCampus,
       building: unitBuilding,
-      unit: unitSystem,
-      topicPatterns: [
-        `${unitCampus}/${unitBuilding}/%/OutdoorAirTemperature`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/ZoneHumidity`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/ZoneTemperature`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/OccupiedHeatingSetPoint`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/OccupiedCoolingSetPoint`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/OccupancyCommand`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/SupplyFanStatus`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/FirstStageHeating`,
-      ],
+      system: unitSystem,
+      metric: UnitMetric.OccupiedHeatingSetPoint,
+    },
+  });
+  const { data: coolingSetpoint } = useQuery(HistorianUnitCurrentValueDocument, {
+    variables: {
+      campus: unitCampus,
+      building: unitBuilding,
+      system: unitSystem,
+      metric: UnitMetric.OccupiedCoolingSetPoint,
     },
   });
 
-  const { data: timeSeriesData, loading: timeSeriesLoading } = useQuery(HistorianTimeSeriesDocument, {
+  // Current value for weather metric
+  const { data: outdoorTemp } = useQuery(HistorianWeatherCurrentValueDocument, {
+    variables: { campus: unitCampus, building: unitBuilding, metric: WeatherMetric.AirTemperature },
+  });
+
+  // Time series for unit metrics
+  const { data: zoneTempSeries, loading: zoneTempLoading } = useQuery(HistorianUnitTimeSeriesDocument, {
     variables: {
       campus: unitCampus,
       building: unitBuilding,
-      unit: unitSystem,
+      system: unitSystem,
+      metric: UnitMetric.ZoneTemperature,
       startTime,
       endTime,
-      topicPatterns: [
-        `${unitCampus}/${unitBuilding}/${unitSystem}/ZoneTemperature`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/OccupiedCoolingSetPoint`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/OccupiedHeatingSetPoint`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/ZoneHumidity`,
-        `${unitCampus}/${unitBuilding}/%/OutdoorAirTemperature`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/SupplyFanStatus`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/FirstStageHeating`,
-        `${unitCampus}/${unitBuilding}/${unitSystem}/OccupancyCommand`,
-      ],
+    },
+  });
+  const { data: heatingSetpointSeries } = useQuery(HistorianUnitTimeSeriesDocument, {
+    variables: {
+      campus: unitCampus,
+      building: unitBuilding,
+      system: unitSystem,
+      metric: UnitMetric.OccupiedHeatingSetPoint,
+      startTime,
+      endTime,
+    },
+  });
+  const { data: coolingSetpointSeries } = useQuery(HistorianUnitTimeSeriesDocument, {
+    variables: {
+      campus: unitCampus,
+      building: unitBuilding,
+      system: unitSystem,
+      metric: UnitMetric.OccupiedCoolingSetPoint,
+      startTime,
+      endTime,
+    },
+  });
+  const { data: fanStatusSeries } = useQuery(HistorianUnitTimeSeriesDocument, {
+    variables: {
+      campus: unitCampus,
+      building: unitBuilding,
+      system: unitSystem,
+      metric: UnitMetric.SupplyFanStatus,
+      startTime,
+      endTime,
     },
   });
 
-  const getValue = (pattern: string) => {
-    return currentValues?.historianCurrentValues?.find((v) => v.topic?.includes(pattern))?.value;
-  };
-
-  const getSeries = (pattern: string) => {
-    return timeSeriesData?.historianTimeSeries?.find((s) => s.topic?.includes(pattern));
-  };
+  const currentLoading = false; // All queries are separate now
+  const timeSeriesLoading = zoneTempLoading; // Use one as indicator
 
   return (
     <div className={styles.dashboard}>
@@ -113,21 +147,21 @@ export function UnitDashboard({
       <div className={styles.gauges}>
         <Card className={styles.gauge}>
           <h4>Outdoor Air Temperature</h4>
-          <div className={styles.value}>{getValue("OutdoorAirTemperature")?.toFixed(1) || "--"}°F</div>
+          <div className={styles.value}>{outdoorTemp?.historianWeatherCurrentValue?.value?.toFixed(1) || "--"}°F</div>
         </Card>
         <Card className={styles.gauge}>
           <h4>Zone Humidity</h4>
-          <div className={styles.value}>{getValue("ZoneHumidity")?.toFixed(0) || "--"}%</div>
+          <div className={styles.value}>{zoneHumidity?.historianUnitCurrentValue?.value?.toFixed(0) || "--"}%</div>
         </Card>
         <Card className={styles.gauge}>
           <h4>Zone Temperature</h4>
-          <div className={styles.value}>{getValue("ZoneTemperature")?.toFixed(1) || "--"}°F</div>
+          <div className={styles.value}>{zoneTemp?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F</div>
         </Card>
         <Card className={styles.gauge}>
           <h4>Setpoints</h4>
           <div className={styles.setpoints}>
-            <span>Heat: {getValue("OccupiedHeatingSetPoint")?.toFixed(1) || "--"}°F</span>
-            <span>Cool: {getValue("OccupiedCoolingSetPoint")?.toFixed(1) || "--"}°F</span>
+            <span>Heat: {heatingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F</span>
+            <span>Cool: {coolingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F</span>
           </div>
         </Card>
       </div>
@@ -157,21 +191,25 @@ export function UnitDashboard({
                     type: "line",
                     smooth: true,
                     yAxisIndex: 0,
-                    data: getSeries("ZoneTemperature")?.data?.map((p) => [p.timestamp, p.value]) || [],
+                    data: zoneTempSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     lineStyle: { width: 3 },
                   },
                   {
                     name: "Heating Setpoint",
                     type: "line",
                     yAxisIndex: 0,
-                    data: getSeries("OccupiedHeatingSetPoint")?.data?.map((p) => [p.timestamp, p.value]) || [],
+                    data:
+                      heatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
+                      [],
                     lineStyle: { type: "dashed" },
                   },
                   {
                     name: "Cooling Setpoint",
                     type: "line",
                     yAxisIndex: 0,
-                    data: getSeries("OccupiedCoolingSetPoint")?.data?.map((p) => [p.timestamp, p.value]) || [],
+                    data:
+                      coolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
+                      [],
                     lineStyle: { type: "dashed" },
                   },
                   {
@@ -179,7 +217,7 @@ export function UnitDashboard({
                     type: "line",
                     step: "end",
                     yAxisIndex: 1,
-                    data: getSeries("SupplyFanStatus")?.data?.map((p) => [p.timestamp, p.value]) || [],
+                    data: fanStatusSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                   },
                 ],
               }}

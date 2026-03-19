@@ -8,13 +8,13 @@ import {
   HistorianTimeSeries,
   HistorianAggregate,
   HistorianMetricCurrent,
-  HistorianMultiUnitData,
+  HistorianMultiSystemData,
   HistorianReplicationInfo,
   PublisherInfo,
   SubscriberSetupSql,
   MonitoringSql,
   ReplicationSlot,
-} from "@/historian/historian.types";
+} from "@local/common";
 
 export interface PubSubEngineExt extends PubSubEngine {
   publish<T extends SubscriptionTopic>(topic: T | `${T}/${string}`, payload: SubscriptionEvent<T>): Promise<void>;
@@ -64,7 +64,7 @@ export type Scalars = {
   HistorianTimeSeries: { Input: HistorianTimeSeries; Output: HistorianTimeSeries };
   HistorianAggregate: { Input: HistorianAggregate; Output: HistorianAggregate };
   HistorianMetricCurrent: { Input: HistorianMetricCurrent; Output: HistorianMetricCurrent };
-  HistorianMultiUnitData: { Input: HistorianMultiUnitData; Output: HistorianMultiUnitData };
+  HistorianMultiSystemData: { Input: HistorianMultiSystemData; Output: HistorianMultiSystemData };
   HistorianReplicationInfo: { Input: HistorianReplicationInfo; Output: HistorianReplicationInfo };
   PublisherInfo: { Input: PublisherInfo; Output: PublisherInfo };
   SubscriberSetupSql: { Input: SubscriberSetupSql; Output: SubscriberSetupSql };
