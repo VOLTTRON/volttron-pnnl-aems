@@ -66,6 +66,26 @@ psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" 
     END
     \$\$;
 
+    -- CRITICAL: Ensure topics table has PRIMARY KEY for replication
+    -- Without a primary key, logical replication cannot replicate UPDATE operations
+    -- Check if topics table exists and add primary key if missing
+    DO \$\$
+    BEGIN
+        -- Check if topics table exists
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'topics') THEN
+            -- Check if primary key already exists
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint 
+                WHERE conname = 'topics_pkey' AND contype = 'p'
+            ) THEN
+                -- Add primary key on topic_id
+                ALTER TABLE topics ADD PRIMARY KEY (topic_id);
+                RAISE NOTICE 'Added PRIMARY KEY to topics table for replication';
+            END IF;
+        END IF;
+    END
+    \$\$;
+
     -- Create publication for all tables in the database
     DO \$\$
     BEGIN

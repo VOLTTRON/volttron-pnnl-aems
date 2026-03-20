@@ -168,7 +168,6 @@ export function UnitDashboard({
 
       <div className={styles.grid}>
         <Card className={styles.chartCard}>
-          <h3>Temperature & Controls</h3>
           {timeSeriesLoading ? (
             <div className={styles.chartLoading}>
               <Spinner />
@@ -176,7 +175,8 @@ export function UnitDashboard({
           ) : (
             <ECharts
               option={{
-                backgroundColor: mode === "dark" ? Colors.DARK_GRAY5 : Colors.WHITE,
+                title: { text: "Zone Temperature, Setpoints, and Supply Fan Status" },
+                backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: { trigger: "axis" },
                 legend: { bottom: 0 },
                 grid: { top: 40, right: 60, bottom: 60, left: 60 },

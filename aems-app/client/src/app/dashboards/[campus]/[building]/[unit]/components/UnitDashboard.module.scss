@@ -31,7 +31,8 @@
 }
 
 .gauge {
-  padding: 1.5rem;
+  padding: 0.5rem;
+  height: 220px;
   text-align: center;
 
   h4 {
@@ -66,12 +67,12 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
-  gap: 1.5rem;
+  gap: 0.5rem;
 }
 
 .chartCard {
-  padding: 1.5rem;
-  min-height: 400px;
+  padding: 10px;
+  height: 420px;
 
   h3 {
     margin: 0 0 1rem 0;
@@ -83,7 +84,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 300px;
+    height: 420px;
     color: var(--text-muted);
   }
 }
@@ -111,11 +112,11 @@
 
   .gauges {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .gauge {
-    padding: 1rem;
+    padding: 10px;
 
     .value {
       font-size: 2rem;
