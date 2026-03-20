@@ -21,11 +21,30 @@ import { useQuery } from "@apollo/client";
 import { useContext, useState, useMemo } from "react";
 import { NotificationContext, NotificationType } from "../components/providers";
 import { Table, Search, Paging } from "../components/common";
-import { filter } from "@/utils/client";
+import { filter, Term } from "@/utils/client";
 import styles from "./page.module.scss";
+import { orderBy } from "lodash";
 
 export default function HistorianPage() {
   const { createNotification } = useContext(NotificationContext);
+
+  // State for Unit Status table
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<{
+    field:
+      | keyof Term<
+          NonNullable<
+            NonNullable<HistorianReplicationInfoQuery["historianReplicationInfo"]>["systemPublishingStatus"]
+          >[0]
+        >
+      | "topic";
+    direction: "Asc" | "Desc";
+  }>({
+    field: "lastPublished",
+    direction: "Desc",
+  });
+  const [paging, setPaging] = useState({ take: 20, skip: 0 });
+
   const { data, loading, error, refetch } = useQuery(HistorianReplicationInfoDocument, {
     fetchPolicy: "cache-and-network",
     onError(error) {
@@ -34,17 +53,6 @@ export default function HistorianPage() {
   });
   const [activeTab, setActiveTab] = useState("publisher");
 
-  // State for Unit Status table
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<{
-    field: "campus" | "building" | "system" | "metric" | "lastPublished" | "minutesAgo" | "status" | "terms" | "topic";
-    direction: "Asc" | "Desc";
-  }>({
-    field: "lastPublished",
-    direction: "Desc",
-  });
-  const [paging, setPaging] = useState({ take: 20, skip: 0 });
-
   // Memoized filtered unit data using the filter utility
   const filteredUnits = useMemo(() => {
     const units = (data?.historianReplicationInfo?.systemPublishingStatus ?? []).map((v) => ({
@@ -52,8 +60,12 @@ export default function HistorianPage() {
       ...v,
     }));
     // Use the filter utility to search across specified fields
-    return filter(units, search, ["campus", "building", "system", "metric", "status"]);
-  }, [data, search]);
+    return orderBy(
+      filter(units, search, ["campus", "building", "system", "metric", "status"]),
+      [sort.field],
+      [sort.direction.toLowerCase() as "asc" | "desc"],
+    );
+  }, [data, search, sort]);
 
   // Paginated data
   const paginatedUnits = useMemo(() => {
