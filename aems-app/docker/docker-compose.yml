@@ -453,7 +453,7 @@ services:
     depends_on:
       certs:
         condition: service_completed_successfully
-      historian:
+      grafana-db:
         condition: service_started
     env_file:
       - .env.grafana
@@ -495,6 +495,21 @@ services:
     volumes:
       - grafana-cache:/var/lib/grafana
       - certs-data:/etc/certs/:ro
+
+  # Grafana database
+  grafana-db:
+    container_name: ${COMPOSE_PROJECT_NAME}-grafana-db
+    env_file:
+      - .env.grafana
+    hostname: grafana-db
+    image: postgres:16-alpine
+    ports:
+      - ${GRAFANA_DATABASE_TEST_PORT}:5432
+    profiles:
+      - grafana
+    restart: unless-stopped
+    volumes:
+      - grafana-data:/var/lib/postgresql/data
 
   # Historian database
   historian:
@@ -611,6 +626,8 @@ volumes:
   grafana-setup:
     driver: local
   grafana-cache:
+    driver: local
+  grafana-data:
     driver: local
   historian-data:
     driver: local
