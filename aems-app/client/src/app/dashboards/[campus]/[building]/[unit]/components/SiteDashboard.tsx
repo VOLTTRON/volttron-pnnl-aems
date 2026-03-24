@@ -129,17 +129,17 @@ export function SiteDashboard({
     skip: unitSystems.length === 0,
   });
 
-  // Power data - using unit metric for meter data
+  // Power data - using meter data
+  // Note: The actual metric name for power may need to be verified in the schema
   const { data: powerData, loading: powerLoading } = useQuery(HistorianUnitTimeSeriesDocument, {
     variables: {
       campus: campus,
       building: building,
       system: "meter",
-      metric: UnitMetric.HeartBeat, // Using a placeholder - may need adjustment based on actual meter metric
+      metric: UnitMetric.HeartBeat, // Placeholder - actual power metric may need to be added to schema
       startTime,
       endTime,
     },
-    skip: unitSystems.length === 0,
   });
 
   // Helper function to get state label and color
