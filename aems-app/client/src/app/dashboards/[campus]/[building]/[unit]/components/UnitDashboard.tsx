@@ -15,6 +15,8 @@ import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
 import styles from "./UnitDashboard.module.scss";
+import { Palettes } from "@/utils/palette";
+import { compilePreferences, PreferencesContext, CurrentContext, type Preferences } from "@/app/components/providers";
 
 interface Unit {
   name?: string | null;
@@ -53,6 +55,16 @@ export function UnitDashboard({
   onPresetChange,
   mode,
 }: UnitDashboardProps) {
+  // Get user palette preferences
+  const { preferences } = React.useContext(PreferencesContext);
+  const { current } = React.useContext(CurrentContext);
+  const { palette1, palette2, palette3 } = compilePreferences(preferences, current?.preferences);
+  
+  // Load palettes: primary for temps, secondary for demands, tertiary for status
+  const primaryPalette = Palettes.getPalette(palette1 || "Radiant Harmony");
+  const secondaryPalette = Palettes.getPalette(palette2 || "Desert Oasis");
+  const tertiaryPalette = Palettes.getPalette(palette3 || "Pastel Dreams");
+  
   // Use unit's stored campus, building, and system for historian queries
   const unitCampus = unit.campus || campus;
   const unitBuilding = unit.building || building;
@@ -429,14 +441,14 @@ export function UnitDashboard({
                   },
                 ],
                 series: [
-                  // Left axis - Status values
+                  // Left axis - Status values (tertiary palette for status/states)
                   {
                     name: "OccupancyCommand",
                     type: "line",
                     yAxisIndex: 0,
                     step: "end",
                     data: occupancyCommandSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    color: Colors.RED3,
+                    color: tertiaryPalette.primary.hex,
                   },
                   {
                     name: "SupplyFanStatus",
@@ -444,7 +456,7 @@ export function UnitDashboard({
                     yAxisIndex: 0,
                     step: "end",
                     data: fanStatusSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    color: Colors.GOLD3,
+                    color: tertiaryPalette.secondary.hex,
                   },
                   {
                     name: "FirstStageHeating",
@@ -452,7 +464,7 @@ export function UnitDashboard({
                     yAxisIndex: 0,
                     step: "end",
                     data: firstStageHeatingSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    color: Colors.GREEN3,
+                    color: secondaryPalette.quaternary.hex,
                   },
                   {
                     name: "CoolingStage",
@@ -460,37 +472,37 @@ export function UnitDashboard({
                     yAxisIndex: 0,
                     step: "end",
                     data: coolingStageSeriesData,
-                    color: Colors.BLUE5,
+                    color: secondaryPalette.secondary.hex,
                   },
-                  // Right axis - Temperature and humidity values
+                  // Right axis - Temperature and humidity values (primary palette for temps)
                   {
                     name: "ZoneTemperature",
                     type: "line",
                     yAxisIndex: 1,
                     data: zoneTempSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     lineStyle: { width: 3 },
-                    color: Colors.GREEN3,
+                    color: primaryPalette.tertiary.hex, // Main zone temp - prominent
                   },
                   {
                     name: "OutdoorAirTemperature",
                     type: "line",
                     yAxisIndex: 1,
                     data: outdoorTempSeries?.historianWeatherTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    color: Colors.VIOLET3,
+                    color: primaryPalette.quinary.hex,
                   },
                   {
                     name: "OccupiedHeatingSetPoint",
                     type: "line",
                     yAxisIndex: 1,
                     data: heatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    color: "#8B008B",
+                    color: secondaryPalette.quinary.hex, // Heating setpoint - warm end
                   },
                   {
                     name: "OccupiedCoolingSetPoint",
                     type: "line",
                     yAxisIndex: 1,
                     data: coolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    color: Colors.BLUE3,
+                    color: secondaryPalette.primary.hex, // Cooling setpoint - cool end
                   },
                   {
                     name: "UnoccupiedHeatingSetPoint",
@@ -498,7 +510,7 @@ export function UnitDashboard({
                     yAxisIndex: 1,
                     data: unoccupiedHeatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     lineStyle: { type: "dashed" },
-                    color: "#DDA0DD",
+                    color: secondaryPalette.quaternary.hex,
                   },
                   {
                     name: "UnoccupiedCoolingSetPoint",
@@ -506,14 +518,14 @@ export function UnitDashboard({
                     yAxisIndex: 1,
                     data: unoccupiedCoolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     lineStyle: { type: "dashed" },
-                    color: Colors.BLUE1,
+                    color: secondaryPalette.secondary.hex,
                   },
                   {
                     name: "ZoneHumidity",
                     type: "line",
                     yAxisIndex: 1,
                     data: zoneHumiditySeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    color: Colors.ORANGE3,
+                    color: primaryPalette.secondary.hex,
                   },
                 ],
               }}

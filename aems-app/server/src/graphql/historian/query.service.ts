@@ -33,14 +33,13 @@ export class HistorianQuery {
         },
         resolve: async (_root, args, ctx, _info) => {
           const accessControl = await historianService.filterHistorianAccess(
-            ctx.user?.id,
-            ctx.user?.authRoles.admin ?? false,
+            ctx.user!,
             args.campus,
             args.building,
             args.system,
           );
 
-          if (accessControl?.isEmpty) {
+          if (accessControl.allowedSystems.length === 0) {
             return null;
           }
 
@@ -65,14 +64,13 @@ export class HistorianQuery {
         },
         resolve: async (_root, args, ctx, _info) => {
           const accessControl = await historianService.filterHistorianAccess(
-            ctx.user?.id,
-            ctx.user?.authRoles.admin ?? false,
+            ctx.user!,
             args.campus,
             args.building,
             args.system,
           );
 
-          if (accessControl?.isEmpty) {
+          if (accessControl.allowedSystems.length === 0) {
             return { system: args.system, metric: args.metric, data: [] };
           }
 
@@ -106,14 +104,13 @@ export class HistorianQuery {
         },
         resolve: async (_root, args, ctx, _info) => {
           const accessControl = await historianService.filterHistorianAccess(
-            ctx.user?.id,
-            ctx.user?.authRoles.admin ?? false,
+            ctx.user!,
             args.campus,
             args.building,
             args.system,
           );
 
-          if (accessControl?.isEmpty) {
+          if (accessControl.allowedSystems.length === 0) {
             return [];
           }
 
@@ -148,14 +145,9 @@ export class HistorianQuery {
           metric: t.arg({ type: WeatherMetricEnum, required: true }),
         },
         resolve: async (_root, args, ctx, _info) => {
-          const accessControl = await historianService.filterHistorianAccess(
-            ctx.user?.id,
-            ctx.user?.authRoles.admin ?? false,
-            args.campus,
-            args.building,
-          );
+          const accessControl = await historianService.filterHistorianAccess(ctx.user!, args.campus, args.building);
 
-          if (accessControl?.isEmpty) {
+          if (accessControl.allowedSystems.length === 0) {
             return null;
           }
 
@@ -178,14 +170,9 @@ export class HistorianQuery {
           endTime: t.arg({ type: builder.DateTime, required: true }),
         },
         resolve: async (_root, args, ctx, _info) => {
-          const accessControl = await historianService.filterHistorianAccess(
-            ctx.user?.id,
-            ctx.user?.authRoles.admin ?? false,
-            args.campus,
-            args.building,
-          );
+          const accessControl = await historianService.filterHistorianAccess(ctx.user!, args.campus, args.building);
 
-          if (accessControl?.isEmpty) {
+          if (accessControl.allowedSystems.length === 0) {
             return { system: "weather", metric: args.metric, data: [] };
           }
 
@@ -216,14 +203,9 @@ export class HistorianQuery {
           aggregation: t.arg({ type: AggregationTypeEnum, required: true }),
         },
         resolve: async (_root, args, ctx, _info) => {
-          const accessControl = await historianService.filterHistorianAccess(
-            ctx.user?.id,
-            ctx.user?.authRoles.admin ?? false,
-            args.campus,
-            args.building,
-          );
+          const accessControl = await historianService.filterHistorianAccess(ctx.user!, args.campus, args.building);
 
-          if (accessControl?.isEmpty) {
+          if (accessControl.allowedSystems.length === 0) {
             return [];
           }
 
@@ -261,18 +243,17 @@ export class HistorianQuery {
         },
         resolve: async (_root, args, ctx, _info) => {
           const accessControl = await historianService.filterHistorianAccess(
-            ctx.user?.id,
-            ctx.user?.authRoles.admin ?? false,
+            ctx.user!,
             args.campus,
             args.building,
             args.systems,
           );
 
-          if (accessControl?.isEmpty) {
+          if (accessControl.allowedSystems.length === 0) {
             return [];
           }
 
-          const allowedSystems = accessControl ? accessControl.allowedSystems.map((s) => s.system) : args.systems;
+          const allowedSystems = accessControl.allowedSystems.map((s) => s.system);
 
           const result = await historianService.getMultiSystemUnit(
             args.campus,
@@ -283,7 +264,6 @@ export class HistorianQuery {
             args.endTime,
             args.interval ?? undefined,
           );
-
           return Object.entries(result).map(([system, data]) => ({
             system,
             data,
@@ -311,14 +291,13 @@ export class HistorianQuery {
         },
         resolve: async (_root, args, ctx, _info) => {
           const accessControl = await historianService.filterHistorianAccess(
-            ctx.user?.id,
-            ctx.user?.authRoles.admin ?? false,
+            ctx.user!,
             args.campus,
             args.building,
             args.system,
           );
 
-          if (accessControl?.isEmpty) {
+          if (accessControl.allowedSystems.length === 0) {
             return [];
           }
 

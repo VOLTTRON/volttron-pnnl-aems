@@ -70,46 +70,32 @@ let HistorianService = HistorianService_1 = class HistorianService {
         await this.pool.end();
         this.logger.log("Historian database connection pool closed");
     }
-    async filterHistorianAccess(userId, isAdmin, requestedCampus, requestedBuilding, requestedSystem) {
-        if (isAdmin) {
-            return null;
+    async filterHistorianAccess(user, campus, building, system) {
+        const whereClause = user.authRoles.admin
+            ? {}
+            : {
+                users: { some: { id: user.id } },
+            };
+        if (campus) {
+            whereClause.campus = { equals: campus, mode: "insensitive" };
         }
-        if (!userId) {
-            return { allowedSystems: [], isEmpty: true };
-        }
-        const whereClause = {
-            users: { some: { id: userId } },
-        };
-        if (requestedCampus) {
-            whereClause.campus = requestedCampus;
-        }
-        if (requestedBuilding) {
-            whereClause.building = requestedBuilding;
+        if (building) {
+            whereClause.building = { equals: building, mode: "insensitive" };
         }
         const userSystems = await this.prismaService.prisma.unit.findMany({
             where: whereClause,
             select: { campus: true, building: true, system: true },
         });
-        if (userSystems.length === 0) {
-            return { allowedSystems: [], isEmpty: true };
-        }
-        if (requestedSystem) {
-            const requestedSystems = Array.isArray(requestedSystem) ? requestedSystem : [requestedSystem];
-            const allowedSystems = userSystems
-                .filter((s) => requestedSystems.includes(s.system))
-                .map((s) => ({ campus: s.campus, building: s.building, system: s.system }));
-            return {
-                allowedSystems,
-                isEmpty: allowedSystems.length === 0,
-            };
+        const requestedSystems = Array.isArray(system) ? system : system ? [system] : [];
+        const requestedSystemsLower = requestedSystems.map((s) => s.toLowerCase());
+        const allowedSystems = userSystems
+            .filter((s) => requestedSystemsLower.includes(s.system.toLowerCase()))
+            .map((s) => ({ campus: s.campus, building: s.building, system: s.system }));
+        if ("weather" in requestedSystems) {
+            allowedSystems.push({ campus: campus ?? "", building: building ?? "", system: "weather" });
         }
         return {
-            allowedSystems: userSystems.map((s) => ({
-                campus: s.campus,
-                building: s.building,
-                system: s.system,
-            })),
-            isEmpty: false,
+            allowedSystems,
         };
     }
     parseValue(valueString) {
@@ -128,7 +114,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         topic_name
       FROM data
       NATURAL JOIN topics
-      WHERE topic_name = $1
+      WHERE topic_name ILIKE $1
       ORDER BY ts DESC
       LIMIT 1
     `;
@@ -161,7 +147,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         topic_name
       FROM data
       NATURAL JOIN topics
-      WHERE topic_name = $1
+      WHERE topic_name ILIKE $1
       ORDER BY ts DESC
       LIMIT 1
     `;
@@ -193,7 +179,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         value_string
       FROM data
       NATURAL JOIN topics
-      WHERE topic_name = $1
+      WHERE topic_name ILIKE $1
         AND ts >= $2
         AND ts <= $3
       ORDER BY ts
@@ -229,7 +215,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         value_string
       FROM data
       NATURAL JOIN topics
-      WHERE topic_name = $1
+      WHERE topic_name ILIKE $1
         AND ts >= $2
         AND ts <= $3
       ORDER BY ts
@@ -278,7 +264,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         ${aggFunction}(${valueExpr}) AS value
       FROM data
       NATURAL JOIN topics
-      WHERE topic_name = $1
+      WHERE topic_name ILIKE $1
         AND ts >= $2
         AND ts <= $3
       GROUP BY 1
@@ -322,7 +308,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         ${aggFunction}(${valueExpr}) AS value
       FROM data
       NATURAL JOIN topics
-      WHERE topic_name = $1
+      WHERE topic_name ILIKE $1
         AND ts >= $2
         AND ts <= $3
       GROUP BY 1
@@ -349,12 +335,11 @@ let HistorianService = HistorianService_1 = class HistorianService {
         if (systems.length === 0) {
             return {};
         }
-        const topicPaths = systems.map((sys) => (0, metrics_1.buildUnitTopicPath)(campus, building, sys, metric));
-        const caseStatements = systems.map((sys, i) => {
-            return `MAX(CASE WHEN topic_name = $${i + 1} THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS "${sys}"`;
+        const caseStatements = systems.map((sys) => {
+            return `MAX(CASE WHEN UPPER(split_part(topic_name, '/', 3)) = UPPER('${sys}') THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS "${sys}"`;
         });
         let timeGroup = "ts";
-        const params = [...topicPaths, startTime, endTime];
+        const params = [startTime, endTime];
         if (interval) {
             const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
             if (!intervalMatch) {
@@ -375,14 +360,13 @@ let HistorianService = HistorianService_1 = class HistorianService {
         ${caseStatements.join(",\n        ")}
       FROM data
       NATURAL JOIN topics
-      WHERE topic_name = ANY($${topicPaths.length + 3}::text[])
-        AND ts >= $${topicPaths.length + 1}
-        AND ts <= $${topicPaths.length + 2}
+      WHERE topic_name LIKE '${campus}/${building}/%/${metric}'
+        AND ts >= $1
+        AND ts <= $2
       GROUP BY 1
       ORDER BY 1
     `;
         try {
-            params.push(...topicPaths);
             const result = await this.pool.query(query, params);
             const grouped = {};
             systems.forEach((sys) => {
@@ -393,7 +377,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 systems.forEach((sys) => {
                     grouped[sys].push({
                         timestamp,
-                        value: typeof row[sys] === "string" ? parseFloat(row[sys]) : null,
+                        value: typeof row[sys] === "string" ? parseFloat(row[sys]) : row[sys] ?? null,
                         system: sys,
                         metric,
                     });
@@ -403,6 +387,169 @@ let HistorianService = HistorianService_1 = class HistorianService {
         }
         catch (error) {
             this.logger.error("Error fetching multi-system data", error);
+            throw error;
+        }
+    }
+    async getMultiSystemUnitRanges(campus, building, systems, metric, startTime, endTime) {
+        if (systems.length === 0) {
+            return [];
+        }
+        const query = `
+      WITH system_data AS (
+        SELECT 
+          UPPER(split_part(topic_name, '/', 3)) as system,
+          ts,
+          CAST(NULLIF(value_string, 'null') AS double precision) as value
+        FROM data
+        NATURAL JOIN topics
+        WHERE topic_name LIKE '${campus}/${building}/%/${metric}'
+          AND ts >= $1
+          AND ts <= $2
+          AND CAST(NULLIF(value_string, 'null') AS double precision) IS NOT NULL
+        ORDER BY system, ts
+      ),
+      value_changes AS (
+        SELECT 
+          system,
+          ts,
+          value,
+          LAG(value) OVER (PARTITION BY system ORDER BY ts) as prev_value,
+          LEAD(ts) OVER (PARTITION BY system ORDER BY ts) as next_ts
+        FROM system_data
+      ),
+      range_starts AS (
+        SELECT 
+          system,
+          ts as start_time,
+          next_ts as end_time,
+          value
+        FROM value_changes
+        WHERE prev_value IS NULL OR prev_value != value
+      )
+      SELECT 
+        system,
+        start_time,
+        COALESCE(end_time, $2) as end_time,
+        value
+      FROM range_starts
+      ORDER BY system, start_time
+    `;
+        try {
+            const result = await this.pool.query(query, [startTime, endTime]);
+            const grouped = {};
+            systems.forEach((sys) => {
+                grouped[sys.toUpperCase()] = [];
+            });
+            result.rows.forEach((row) => {
+                const systemKey = row.system.toUpperCase();
+                if (grouped[systemKey]) {
+                    grouped[systemKey].push({
+                        startTime: new Date(row.start_time),
+                        endTime: new Date(row.end_time),
+                        value: row.value,
+                        system: row.system,
+                        metric,
+                    });
+                }
+            });
+            return systems.map((sys) => ({
+                system: sys,
+                ranges: grouped[sys.toUpperCase()] || [],
+            }));
+        }
+        catch (error) {
+            this.logger.error("Error fetching multi-system ranges", error);
+            throw error;
+        }
+    }
+    async getMultiSystemSetpointErrorRanges(campus, building, systems, startTime, endTime) {
+        if (systems.length === 0) {
+            return [];
+        }
+        const query = `
+      WITH zone_temps AS (
+        SELECT
+          UPPER(split_part(topic_name, '/', 3)) as system,
+          ts,
+          CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
+        FROM data
+        NATURAL JOIN topics
+        WHERE topic_name LIKE '${campus}/${building}/%/ZoneTemperature'
+          AND ts >= $1
+          AND ts <= $2
+      ),
+      zone_setpoints AS (
+        SELECT
+          UPPER(split_part(topic_name, '/', 3)) as system,
+          ts,
+          CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
+        FROM data
+        NATURAL JOIN topics
+        WHERE topic_name LIKE '${campus}/${building}/%/EffectiveZoneTemperatureSetPoint'
+          AND ts >= $1
+          AND ts <= $2
+      ),
+      error_data AS (
+        SELECT 
+          t.system,
+          t.ts,
+          ROUND((t.temp_value - s.sp_value)::numeric, 1) AS error_value
+        FROM zone_temps t
+        JOIN zone_setpoints s ON t.system = s.system AND t.ts = s.ts
+        WHERE t.temp_value IS NOT NULL AND s.sp_value IS NOT NULL
+        ORDER BY t.system, t.ts
+      ),
+      value_changes AS (
+        SELECT 
+          system,
+          ts,
+          error_value,
+          LAG(error_value) OVER (PARTITION BY system ORDER BY ts) as prev_value,
+          LEAD(ts) OVER (PARTITION BY system ORDER BY ts) as next_ts
+        FROM error_data
+      ),
+      range_starts AS (
+        SELECT 
+          system,
+          ts as start_time,
+          next_ts as end_time,
+          error_value
+        FROM value_changes
+        WHERE prev_value IS NULL OR ABS(prev_value - error_value) > 0.5
+      )
+      SELECT 
+        system,
+        start_time,
+        COALESCE(end_time, $2) as end_time,
+        error_value as value
+      FROM range_starts
+      ORDER BY system, start_time
+    `;
+        try {
+            const result = await this.pool.query(query, [startTime, endTime]);
+            const grouped = {};
+            systems.forEach((sys) => {
+                grouped[sys.toUpperCase()] = [];
+            });
+            result.rows.forEach((row) => {
+                const systemKey = row.system.toUpperCase();
+                if (grouped[systemKey]) {
+                    grouped[systemKey].push({
+                        startTime: new Date(row.start_time),
+                        endTime: new Date(row.end_time),
+                        value: row.value,
+                        system: row.system,
+                        metric: metrics_1.UnitMetric.ZoneTemperature,
+                    });
+                }
+            });
+            return systems.map((sys) => ({
+                system: sys,
+                ranges: grouped[sys.toUpperCase()] || [],
+            }));
+        }
+        catch (error) {
+            this.logger.error("Error fetching setpoint error ranges", error);
             throw error;
         }
     }
@@ -416,7 +563,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
           CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
         FROM data
         NATURAL JOIN topics
-        WHERE topic_name = $1
+        WHERE topic_name ILIKE $1
           AND ts >= $3
           AND ts <= $4
       ),
@@ -426,7 +573,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
           CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
         FROM data
         NATURAL JOIN topics
-        WHERE topic_name = $2
+        WHERE topic_name ILIKE $2
           AND ts >= $3
           AND ts <= $4
       )

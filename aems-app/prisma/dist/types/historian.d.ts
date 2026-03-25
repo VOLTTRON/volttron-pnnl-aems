@@ -60,6 +60,17 @@ export interface HistorianMultiSystemData {
     system: string;
     data: HistorianDataPoint[];
 }
+export interface HistorianDataRange {
+    startTime: Date;
+    endTime: Date;
+    value: number | null;
+    system: string;
+    metric: UnitMetric | WeatherMetric;
+}
+export interface HistorianMultiSystemRanges {
+    system: string;
+    ranges: HistorianDataRange[];
+}
 export declare enum AggregationType {
     Sum = "Sum",
     Avg = "Avg",

@@ -17,6 +17,8 @@ import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
 import styles from "./SiteDashboard.module.scss";
 import { typeofString } from "@local/common";
+import { Palettes } from "@/utils/palette";
+import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
 
 interface SiteDashboardProps {
   campus: string;
@@ -48,6 +50,17 @@ export function SiteDashboard({
   mode,
 }: SiteDashboardProps) {
   const units = optionalUnits ?? [];
+  
+  // Get user palette preferences
+  const { preferences } = React.useContext(PreferencesContext);
+  const { current } = React.useContext(CurrentContext);
+  const { palette1, palette2, palette3 } = compilePreferences(preferences, current?.preferences);
+  
+  // Load palettes: primary for temps, secondary for demands, tertiary for status
+  const primaryPalette = Palettes.getPalette(palette1 || "Radiant Harmony");
+  const secondaryPalette = Palettes.getPalette(palette2 || "Desert Oasis");
+  const tertiaryPalette = Palettes.getPalette(palette3 || "Pastel Dreams");
+  
   // Extract system names for queries and unit names for display
   const unitSystems = units
     .map((u) => u.system)
@@ -142,11 +155,12 @@ export function SiteDashboard({
     },
   });
 
-  // Helper function to get state label and color
+  // Helper function to get state label and color using tertiary palette (status/states)
   const getOccupancyState = (value: number) => {
-    if (value === 0) return { label: "Unoccupied", color: Colors.BLUE3 };
-    if (value === 1) return { label: "Occupied", color: Colors.GREEN3 };
-    return { label: "Local Control", color: Colors.RED3 };
+    if (value === 1) return { label: "Local Control", color: tertiaryPalette.primary.hex }; // High alert
+    if (value === 2) return { label: "Occupied", color: tertiaryPalette.tertiary.hex }; // Neutral/middle
+    if (value === 3) return { label: "Unoccupied", color: tertiaryPalette.quinary.hex }; // Low/passive
+    return { label: "Unknown", color: tertiaryPalette.secondary.hex };
   };
 
   // Helper function to prepare timeline data for ECharts
@@ -157,15 +171,22 @@ export function SiteDashboard({
     if (!data?.historianMultiSystemUnit) return [];
 
     return data.historianMultiSystemUnit.map((systemData: any, index: number) => {
-      const timelineData =
-        systemData.data?.map((point: any) => {
-          const state = getStateInfo(point.value ?? 0);
-          return {
-            name: point.timestamp,
-            value: [index, point.timestamp, point.timestamp, state.label],
-            itemStyle: { color: state.color },
-          };
-        }) || [];
+      const points = systemData.data || [];
+      const timelineData = points.map((point: any, i: number) => {
+        const state = getStateInfo(point.value ?? 0);
+        const startTime = point.timestamp;
+        // End time is either the next point's timestamp, or add a default duration (e.g., 5 minutes)
+        const endTime =
+          i < points.length - 1
+            ? points[i + 1].timestamp
+            : new Date(new Date(startTime).getTime() + 5 * 60 * 1000).toISOString();
+
+        return {
+          name: state.label,
+          value: [index, startTime, endTime, state.label],
+          itemStyle: { color: state.color },
+        };
+      });
 
       return {
         name: systemData.system,
@@ -181,7 +202,7 @@ export function SiteDashboard({
             shape: {
               x: start[0],
               y: start[1] - height / 2,
-              width: end[0] - start[0],
+              width: Math.max(end[0] - start[0], 1), // Ensure minimum 1px width
               height: height,
             },
             style: api.style(),
@@ -286,8 +307,9 @@ export function SiteDashboard({
                     itemStyle: {
                       color: (params: any) => {
                         const value = params.data[2];
-                        if (Math.abs(value) < 2) return Colors.BLUE3;
-                        return Colors.ORANGE3;
+                        // Use secondary palette for error metrics (good = low, bad = high)
+                        if (Math.abs(value) < 2) return secondaryPalette.quinary.hex; // Good (low error)
+                        return secondaryPalette.primary.hex; // Bad (high error)
                       },
                     },
                   })) || [],
@@ -321,6 +343,8 @@ export function SiteDashboard({
                         name: "Outdoor Temperature",
                         type: "line",
                         smooth: true,
+                        itemStyle: { color: primaryPalette.tertiary.hex }, // Use primary palette for temperatures
+                        lineStyle: { color: primaryPalette.tertiary.hex },
                         data:
                           weatherData.historianWeatherTimeSeries.data?.map((point: any) => [
                             point.timestamp,
@@ -357,6 +381,8 @@ export function SiteDashboard({
                         name: "Building Power",
                         type: "line",
                         smooth: true,
+                        itemStyle: { color: secondaryPalette.secondary.hex }, // Use secondary palette for power/demand
+                        lineStyle: { color: secondaryPalette.secondary.hex },
                         data:
                           powerData.historianUnitTimeSeries.data?.map((point: any) => [point.timestamp, point.value]) ||
                           [],

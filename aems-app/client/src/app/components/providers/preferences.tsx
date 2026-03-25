@@ -6,7 +6,11 @@ import { useState } from "react";
 import { SensitivePreferences } from "./current";
 import { Mode, Preferences as ServerPreferences } from "@local/prisma";
 
-type Preferences = Omit<ServerPreferences, (typeof SensitivePreferences)[number]>;
+export type Preferences = Omit<ServerPreferences, (typeof SensitivePreferences)[number]> & {
+  palette1?: string; // Primary palette (temperatures, main metrics)
+  palette2?: string; // Secondary palette (setpoints, demands)
+  palette3?: string; // Tertiary palette (status, states)
+};
 
 export type setPreferences = (preferences: Preferences) => void;
 
@@ -18,6 +22,9 @@ export const PreferencesContext = createContext<{
 export const DefaultPreferences: Preferences = {
   theme: "default",
   mode: Mode.Light,
+  palette1: "Radiant Harmony", // Primary: vibrant diverging
+  palette2: "Desert Oasis", // Secondary: earthy diverging
+  palette3: "Pastel Dreams", // Tertiary: soft diverging
 };
 
 export const isPreferences = (preferences: any): preferences is Preferences => {

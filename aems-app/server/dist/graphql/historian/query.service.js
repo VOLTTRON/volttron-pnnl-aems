@@ -30,8 +30,8 @@ let HistorianQuery = class HistorianQuery {
                 metric: t.arg({ type: UnitMetricEnum, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building, args.system);
-                if (accessControl?.isEmpty) {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, args.system);
+                if (accessControl.allowedSystems.length === 0) {
                     return null;
                 }
                 return historianService.getUnitCurrentValue(args.campus, args.building, args.system, args.metric);
@@ -50,8 +50,8 @@ let HistorianQuery = class HistorianQuery {
                 endTime: t.arg({ type: builder.DateTime, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building, args.system);
-                if (accessControl?.isEmpty) {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, args.system);
+                if (accessControl.allowedSystems.length === 0) {
                     return { system: args.system, metric: args.metric, data: [] };
                 }
                 return historianService.getUnitTimeSeries(args.campus, args.building, args.system, args.metric, args.startTime, args.endTime);
@@ -72,8 +72,8 @@ let HistorianQuery = class HistorianQuery {
                 aggregation: t.arg({ type: AggregationTypeEnum, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building, args.system);
-                if (accessControl?.isEmpty) {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, args.system);
+                if (accessControl.allowedSystems.length === 0) {
                     return [];
                 }
                 return historianService.getUnitAggregated(args.campus, args.building, args.system, args.metric, args.startTime, args.endTime, args.interval, args.aggregation);
@@ -90,8 +90,8 @@ let HistorianQuery = class HistorianQuery {
                 metric: t.arg({ type: WeatherMetricEnum, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building);
-                if (accessControl?.isEmpty) {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building);
+                if (accessControl.allowedSystems.length === 0) {
                     return null;
                 }
                 return historianService.getWeatherCurrentValue(args.campus, args.building, args.metric);
@@ -109,8 +109,8 @@ let HistorianQuery = class HistorianQuery {
                 endTime: t.arg({ type: builder.DateTime, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building);
-                if (accessControl?.isEmpty) {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building);
+                if (accessControl.allowedSystems.length === 0) {
                     return { system: "weather", metric: args.metric, data: [] };
                 }
                 return historianService.getWeatherTimeSeries(args.campus, args.building, args.metric, args.startTime, args.endTime);
@@ -130,8 +130,8 @@ let HistorianQuery = class HistorianQuery {
                 aggregation: t.arg({ type: AggregationTypeEnum, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building);
-                if (accessControl?.isEmpty) {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building);
+                if (accessControl.allowedSystems.length === 0) {
                     return [];
                 }
                 return historianService.getWeatherAggregated(args.campus, args.building, args.metric, args.startTime, args.endTime, args.interval, args.aggregation);
@@ -151,11 +151,11 @@ let HistorianQuery = class HistorianQuery {
                 interval: t.arg.string({ description: "Optional time interval for grouping" }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building, args.systems);
-                if (accessControl?.isEmpty) {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, args.systems);
+                if (accessControl.allowedSystems.length === 0) {
                     return [];
                 }
-                const allowedSystems = accessControl ? accessControl.allowedSystems.map((s) => s.system) : args.systems;
+                const allowedSystems = accessControl.allowedSystems.map((s) => s.system);
                 const result = await historianService.getMultiSystemUnit(args.campus, args.building, allowedSystems, args.metric, args.startTime, args.endTime, args.interval ?? undefined);
                 return Object.entries(result).map(([system, data]) => ({
                     system,
@@ -175,8 +175,8 @@ let HistorianQuery = class HistorianQuery {
                 endTime: t.arg({ type: builder.DateTime, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user?.id, ctx.user?.authRoles.admin ?? false, args.campus, args.building, args.system);
-                if (accessControl?.isEmpty) {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, args.system);
+                if (accessControl.allowedSystems.length === 0) {
                     return [];
                 }
                 return historianService.calculateSetpointError(args.campus, args.building, args.system, args.startTime, args.endTime);

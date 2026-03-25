@@ -39,3 +39,14 @@ export interface HistorianReplicationInfo {
     monitoringSql: MonitoringSql;
     systemPublishingStatus: SystemPublishingStatus[];
 }
+export interface HistorianDataRange {
+    startTime: Date;
+    endTime: Date;
+    value: number | null;
+    system: string;
+    metric: string;
+}
+export interface HistorianMultiSystemRanges {
+    system: string;
+    ranges: HistorianDataRange[];
+}
