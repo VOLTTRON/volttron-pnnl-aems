@@ -1,13 +1,13 @@
 import { UpdateDialog } from "@/app/dialog";
 import { IconNames } from "@blueprintjs/icons";
 import { useContext, useState } from "react";
-import { compilePreferences, CurrentContext, PreferencesContext } from "../providers";
+import { compilePreferences, CurrentContext, PreferencesContext, ClientPreferences } from "../providers";
 import { Button, FormGroup, InputGroup } from "@blueprintjs/core";
-import { Palette, Palettes, PaletteScheme } from "@/utils/palette";
-import { PalettePicker } from "./palette";
+import { Palette, Palettes } from "@/utils/palette";
+import { PaletteFilter, PalettePicker } from "./palette";
 
-// Get only diverging palettes for chart colors
-const divergingPalettes = Palettes.getPalettes({ scheme: PaletteScheme.Diverging });
+// Get all available palettes for chart colors
+const BasePalettes = Palettes.getPalettes({});
 
 export function Preferences({ handleClose }: { handleClose: () => void }) {
   const { current, updateCurrent } = useContext(CurrentContext);
@@ -16,11 +16,10 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
   const currentPrefs = compilePreferences(preferences, current?.preferences);
 
   const [name, setName] = useState(currentName);
-  const [palette1, setPalette1] = useState<Palette>(
-    Palettes.getPalette(currentPrefs.palette1 || "Radiant Harmony"),
-  );
+  const [palettes, setPalettes] = useState<Palettes>(Palettes.getPalettes({}));
+  const [palette1, setPalette1] = useState<Palette>(Palettes.getPalette(currentPrefs.palette1 || "Radiant Harmony"));
   const [palette2, setPalette2] = useState<Palette>(Palettes.getPalette(currentPrefs.palette2 || "Desert Oasis"));
-  const [palette3, setPalette3] = useState<Palette>(Palettes.getPalette(currentPrefs.palette3 || "Pastel Dreams"));
+  const [palette3, setPalette3] = useState<Palette>(Palettes.getPalette(currentPrefs.palette3 || "Earthy Elegance"));
 
   const hasChanges =
     currentName !== name ||
@@ -29,13 +28,16 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
     currentPrefs.palette3 !== palette3.name;
 
   const handleUpdate = async () => {
+    const serverPreferences = {
+      name: name,
+    };
+    const clientPreferences: ClientPreferences = {
+      palette1: palette1.name,
+      palette2: palette2.name,
+      palette3: palette3.name,
+    };
     await updateCurrent?.({
-      preferences: compilePreferences(preferences, current?.preferences, {
-        name: name,
-        palette1: palette1.name,
-        palette2: palette2.name,
-        palette3: palette3.name,
-      }),
+      preferences: compilePreferences(preferences, current?.preferences, serverPreferences, clientPreferences),
     });
     handleClose();
   };
@@ -58,16 +60,20 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
         />
       </FormGroup>
 
+      <FormGroup label="Palette Filter">
+        <PaletteFilter palettes={BasePalettes} onChange={setPalettes} />
+      </FormGroup>
+
       <FormGroup label="Primary Chart Palette" helperText="Used for temperatures and main metrics">
-        <PalettePicker palettes={divergingPalettes} palette={palette1} onChange={setPalette1} />
+        <PalettePicker palettes={palettes} palette={palette1} onChange={setPalette1} />
       </FormGroup>
 
       <FormGroup label="Secondary Chart Palette" helperText="Used for setpoints and demands">
-        <PalettePicker palettes={divergingPalettes} palette={palette2} onChange={setPalette2} />
+        <PalettePicker palettes={palettes} palette={palette2} onChange={setPalette2} />
       </FormGroup>
 
       <FormGroup label="Tertiary Chart Palette" helperText="Used for status and states">
-        <PalettePicker palettes={divergingPalettes} palette={palette3} onChange={setPalette3} />
+        <PalettePicker palettes={palettes} palette={palette3} onChange={setPalette3} />
       </FormGroup>
     </UpdateDialog>
   );

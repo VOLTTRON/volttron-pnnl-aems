@@ -4,13 +4,17 @@ import { merge, omit } from "lodash";
 import { createContext, useCallback, useEffect } from "react";
 import { useState } from "react";
 import { SensitivePreferences } from "./current";
-import { Mode, Preferences as ServerPreferences } from "@local/prisma";
+import { Mode, Preferences as PrismaPreferences } from "@local/prisma";
 
-export type Preferences = Omit<ServerPreferences, (typeof SensitivePreferences)[number]> & {
+export interface ClientPreferences {
   palette1?: string; // Primary palette (temperatures, main metrics)
   palette2?: string; // Secondary palette (setpoints, demands)
   palette3?: string; // Tertiary palette (status, states)
-};
+}
+
+export type ServerPreferences = Omit<PrismaPreferences, (typeof SensitivePreferences)[number]>;
+
+export type Preferences = ServerPreferences & ClientPreferences & Partial<PrismaPreferences>;
 
 export type setPreferences = (preferences: Preferences) => void;
 
@@ -24,7 +28,7 @@ export const DefaultPreferences: Preferences = {
   mode: Mode.Light,
   palette1: "Radiant Harmony", // Primary: vibrant diverging
   palette2: "Desert Oasis", // Secondary: earthy diverging
-  palette3: "Pastel Dreams", // Tertiary: soft diverging
+  palette3: "Earthy Elegance", // Tertiary: soft diverging
 };
 
 export const isPreferences = (preferences: any): preferences is Preferences => {
@@ -36,20 +40,24 @@ export const isPreferences = (preferences: any): preferences is Preferences => {
   );
 };
 
-export function compilePreferences<T extends Preferences, S extends ServerPreferences>(
-  ...preferences: (Partial<T> | Partial<S> | null | undefined)[]
-): T & S {
+export function compilePreferences<
+  T extends ClientPreferences,
+  S extends ServerPreferences,
+  P extends PrismaPreferences,
+>(...preferences: (Partial<T> | Partial<S> | Partial<P> | null | undefined)[]): Preferences & T & S & P {
   return merge({}, DefaultPreferences, ...preferences);
 }
 
 function getLocalStorage(): Preferences | undefined {
-  const value = localStorage.getItem("preferences");
+  const value = localStorage.getItem(`preferences`);
   const preferences = value ? JSON.parse(value) : undefined;
-  return isPreferences(preferences) ? preferences : undefined;
+  const sanitized = omit(preferences, SensitivePreferences);
+  return isPreferences(sanitized) ? sanitized : undefined;
 }
 
 function setLocalStorage(preferences: Preferences) {
-  localStorage.setItem("preferences", JSON.stringify(preferences));
+  const sanitized = omit(preferences, SensitivePreferences);
+  localStorage.setItem(`preferences`, JSON.stringify(sanitized));
 }
 
 /**
