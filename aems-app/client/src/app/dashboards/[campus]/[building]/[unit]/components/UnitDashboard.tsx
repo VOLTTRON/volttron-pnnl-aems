@@ -424,8 +424,8 @@ export function UnitDashboard({
                 title: { text: unit.system || unit.name || "" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: { trigger: "axis" },
-                legend: { bottom: 0 },
-                grid: { top: 60, right: 60, bottom: 60, left: 60 },
+                legend: { bottom: 0, show: true },
+                grid: { top: 60, right: 60, bottom: 80, left: 60 },
                 xAxis: { type: "time" },
                 yAxis: [
                   {

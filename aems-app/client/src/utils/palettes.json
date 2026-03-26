@@ -378,6 +378,87 @@
                     "hex": "#ff8a65ff"
                 }
             ]
+        },
+        {
+            "name": "AEMS Cool Tones",
+            "type": "Custom",
+            "scheme": "Diverging",
+            "colors": [
+                {
+                    "name": "Deep-Navy",
+                    "hex": "#003d5bff"
+                },
+                {
+                    "name": "Steel-Blue",
+                    "hex": "#1982c4ff"
+                },
+                {
+                    "name": "Sky-Blue",
+                    "hex": "#4fc3f7ff"
+                },
+                {
+                    "name": "Medium-Purple",
+                    "hex": "#7b1fa2ff"
+                },
+                {
+                    "name": "Lavender-Purple",
+                    "hex": "#ba68c8ff"
+                }
+            ]
+        },
+        {
+            "name": "AEMS Warm Tones",
+            "type": "Custom",
+            "scheme": "Diverging",
+            "colors": [
+                {
+                    "name": "Fire-Red",
+                    "hex": "#d32f2fff"
+                },
+                {
+                    "name": "Red-Orange",
+                    "hex": "#e76f51ff"
+                },
+                {
+                    "name": "Bright-Orange",
+                    "hex": "#f77f00ff"
+                },
+                {
+                    "name": "Earth-Amber",
+                    "hex": "#dda15eff"
+                },
+                {
+                    "name": "Golden-Yellow",
+                    "hex": "#fcbf49ff"
+                }
+            ]
+        },
+        {
+            "name": "AEMS Vibrant Harmony",
+            "type": "Custom",
+            "scheme": "Diverging",
+            "colors": [
+                {
+                    "name": "Coral-Pink",
+                    "hex": "#ff6b6bff"
+                },
+                {
+                    "name": "Sunshine-Yellow",
+                    "hex": "#ffe66dff"
+                },
+                {
+                    "name": "Spring-Green",
+                    "hex": "#6bcf7fff"
+                },
+                {
+                    "name": "Teal-Blue",
+                    "hex": "#00b4d8ff"
+                },
+                {
+                    "name": "Plum-Purple",
+                    "hex": "#9d4eddff"
+                }
+            ]
         }
     ]
 }

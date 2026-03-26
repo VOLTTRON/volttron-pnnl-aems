@@ -163,6 +163,16 @@ export function SiteDashboard({
     return { label: "Unknown", color: tertiaryPalette.secondary.hex };
   };
 
+  // Helper function to get setpoint error state with color coding
+  // Using diverging scale: blue (cold) -> green (optimal) -> yellow/red (warm)
+  const getSetpointErrorState = (errorValue: number) => {
+    if (errorValue < -2) return { label: "Very Cold (< -2°F)", color: primaryPalette.primary.hex }; // Deep Navy
+    if (errorValue < -1) return { label: "Slightly Cold (-2 to -1°F)", color: primaryPalette.tertiary.hex }; // Sky Blue
+    if (errorValue <= 1) return { label: "Optimal (-1 to 1°F)", color: tertiaryPalette.tertiary.hex }; // Spring Green
+    if (errorValue <= 2) return { label: "Slightly Warm (1 to 2°F)", color: secondaryPalette.quaternary.hex }; // Earth Amber
+    return { label: "Very Warm (> 2°F)", color: secondaryPalette.primary.hex }; // Fire Red
+  };
+
   // Helper function to prepare timeline data for ECharts
   const prepareTimelineData = (
     data: typeof occupancyData,
@@ -255,9 +265,10 @@ export function SiteDashboard({
                 // },
                 legend: {
                   bottom: 0,
-                  data: ["Occupied", "Unoccupied", "Local Control"],
+                  show: true,
+                  data: ["Local Control", "Occupied", "Unoccupied"],
                 },
-                grid: { top: 40, right: 60, bottom: 60, left: 80 },
+                grid: { top: 40, right: 60, bottom: 80, left: 80 },
                 xAxis: { type: "time" },
                 yAxis: {
                   type: "category",
@@ -285,34 +296,25 @@ export function SiteDashboard({
                 tooltip: {
                   trigger: "item",
                 },
-                // tooltip: {
-                //   formatter: (params: any) => {
-                //     if (Array.isArray(params)) params = params[0];
-                //     return `${params.seriesName}<br/>Error: ${params.value[3]}<br/>${new Date(params.value[1]).toLocaleString()}`;
-                //   },
-                // },
-                grid: { top: 40, right: 60, bottom: 40, left: 80 },
+                legend: {
+                  bottom: 0,
+                  show: true,
+                  data: [
+                    "Very Cold (< -2°F)",
+                    "Slightly Cold (-2 to -1°F)",
+                    "Optimal (-1 to 1°F)",
+                    "Slightly Warm (1 to 2°F)",
+                    "Very Warm (> 2°F)",
+                  ],
+                },
+                grid: { top: 40, right: 60, bottom: 80, left: 80 },
                 xAxis: { type: "time" },
                 yAxis: {
                   type: "category",
                   data: unitSystems,
                   axisLabel: { interval: 0 },
                 },
-                series:
-                  setpointErrorData?.historianMultiSystemUnit?.map((systemData: any, index: number) => ({
-                    name: systemData.system,
-                    type: "scatter",
-                    symbolSize: 8,
-                    data: systemData.data?.map((point: any) => [point.timestamp, index, point.value]) || [],
-                    itemStyle: {
-                      color: (params: any) => {
-                        const value = params.data[2];
-                        // Use secondary palette for error metrics (good = low, bad = high)
-                        if (Math.abs(value) < 2) return secondaryPalette.quinary.hex; // Good (low error)
-                        return secondaryPalette.primary.hex; // Bad (high error)
-                      },
-                    },
-                  })) || [],
+                series: prepareTimelineData(setpointErrorData || undefined, getSetpointErrorState),
               }}
               style={{ height: "400px" }}
               theme={mode}
@@ -333,8 +335,8 @@ export function SiteDashboard({
                 title: { text: "Weather" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: { trigger: "axis" },
-                legend: { bottom: 0 },
-                grid: { top: 60, right: 60, bottom: 60, left: 60 },
+                legend: { bottom: 0, show: true },
+                grid: { top: 60, right: 60, bottom: 80, left: 60 },
                 xAxis: { type: "time" },
                 yAxis: { type: "value", name: "Temperature (°F)" },
                 series: weatherData?.historianWeatherTimeSeries
@@ -371,8 +373,8 @@ export function SiteDashboard({
                 title: { text: "Building Power" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: { trigger: "axis" },
-                legend: { bottom: 0 },
-                grid: { top: 60, right: 60, bottom: 60, left: 60 },
+                legend: { bottom: 0, show: true },
+                grid: { top: 60, right: 60, bottom: 80, left: 60 },
                 xAxis: { type: "time" },
                 yAxis: { type: "value", name: "Power (W)" },
                 series: powerData?.historianUnitTimeSeries

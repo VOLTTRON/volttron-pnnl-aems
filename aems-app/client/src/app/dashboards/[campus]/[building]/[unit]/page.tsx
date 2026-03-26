@@ -28,11 +28,11 @@ export default function DashboardPage({ params }: PageProps) {
   // Date-based time range state
   const [fromDate, setFromDate] = useState<Date>(() => {
     const now = new Date();
-    return new Date(now.getTime() - 3 * 60 * 60 * 1000); // Default: 3 hours ago
+    return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // Default: 7 days ago
   });
   const [toDate, setToDate] = useState<Date | null>(null);
   const [useCurrentTime, setUseCurrentTime] = useState<boolean>(true);
-  const [selectedPreset, setSelectedPreset] = useState<string>("3h");
+  const [selectedPreset, setSelectedPreset] = useState<string>("7d");
 
   // Check if this is a site dashboard
   const isSite = decodedUnit === "site";

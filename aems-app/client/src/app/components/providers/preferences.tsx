@@ -26,9 +26,9 @@ export const PreferencesContext = createContext<{
 export const DefaultPreferences: Preferences = {
   theme: "default",
   mode: Mode.Light,
-  palette1: "Radiant Harmony", // Primary: vibrant diverging
-  palette2: "Desert Oasis", // Secondary: earthy diverging
-  palette3: "Earthy Elegance", // Tertiary: soft diverging
+  palette1: "AEMS Cool Tones", // Primary: blues and purples for cooling/temperature
+  palette2: "AEMS Warm Tones", // Secondary: reds, oranges, yellows for heating/setpoints
+  palette3: "AEMS Vibrant Harmony", // Tertiary: vibrant diverging for status/efficiency
 };
 
 export const isPreferences = (preferences: any): preferences is Preferences => {
