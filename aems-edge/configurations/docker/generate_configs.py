@@ -549,6 +549,7 @@ def generate_device_config(config_num: int, prefix: str, gateway_address: str,
         campus (str): Campus identifier for the device.
         building (str): Building identifier for the device.
         output_dir (str | bytes): Base directory to store the generated configuration files.
+        output_dir (str | bytes): Base directory to store the generated configuration files.
         registry_file_name (str): Name of the registry file to include in the device configuration.
             Defaults to 'schneider.csv'.
 

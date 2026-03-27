@@ -26,11 +26,15 @@ from datetime import timedelta as td
 import gevent
 
 from volttron.platform.agent.utils import get_aware_utc_now
-from volttron.platform.scheduling import cron
+from volttron.platform.scheduling import cron, periodic
 
 from .points import OccupancyTypes, Points, cooling
 
 _log = logging.getLogger(__name__)
+
+TIME_CONSTANT_SECONDS = 900
+STALE_DATA_TIMEOUT = td(seconds=TIME_CONSTANT_SECONDS)
+LOCKOUT_DEADBAND = 1.0
 
 
 class LockOutManager:
@@ -58,7 +62,8 @@ class LockOutManager:
         self._get_current_oat_fn = get_current_oat_fn
         self._scheduler_fn = scheduler_fn
         self._sync_occupancy_state_fn = sync_occupancy_state_fn
-        self._optimal_start_lockout_greenlet = None
+        self._optimal_start_greenlet = None
+        self._reinforce_greenlet = None
         self.cooling_lockout_temp = -100.0
         self.clg_lockout_active = False
         self.electric_heat_lockout_temp = 200.0
@@ -108,29 +113,59 @@ class LockOutManager:
         """
         _log.debug(f'Updating Lockout Manager configuration: {self.clg_lockout_active} -- {self.has_economizer}')
         if bool(has_economizer) != self.has_economizer:
-            self.release_cooling_lockout()
+            self.release_all()
         if self.is_heatpump != bool(is_heatpump):
-            self.release_heating_lockout()
+            self.release_all()
         self.has_economizer = bool(has_economizer)
         self.is_heatpump = bool(is_heatpump)
         self.cooling_lockout_temp = cooling_lockout_temp
         self.economizer_switchover_setpoint = economizer_setpoint
         self.electric_heat_lockout_temp = heating_lockout_temp
         self.optimal_start_lockout_temp = optimal_start_lockout_temperature
-        self.economizer_switchover_setpoint = economizer_setpoint
-        if self.optimal_start_lockout_temp is not None:
-            if self._optimal_start_lockout_greenlet is not None:
-                self._optimal_start_lockout_greenlet.cancel()
-            self._optimal_start_lockout_greenlet = self._scheduler_fn(cron('0 * * * *'),
-                                                                      self.evaluate_optimal_start_lockout)
-        else:
-            if self._optimal_start_lockout_greenlet is not None:
-                self._optimal_start_lockout_greenlet.cancel()
-                self._optimal_start_lockout_greenlet = None
-                self.optimal_start_lockout_active = False
-                self._sync_occupancy_state_fn()
+        self._configure_optimal_start_schedule()
         if self.has_economizer:
             self._control_fn(Points.economizersetpoint.value, self.economizer_switchover_setpoint)
+
+    def _cancel_greenlet(self, attr: str):
+        """
+        Cancels a specific greenlet attribute if it exists.
+
+        This method checks for the existence of a greenlet object tied to a given
+        attribute name. If the greenlet is found, it calls its `cancel` method and
+        sets the attribute to None. This ensures cleanup of the greenlet and resets
+        the state of the specified attribute.
+
+        :param attr: The name of the attribute, as a string, that holds a reference
+                     to the greenlet to be canceled.
+        :type attr: str
+        """
+        greenlet = getattr(self, attr, None)
+        if greenlet is not None:
+            greenlet.cancel()
+            setattr(self, attr, None)
+
+    def _configure_optimal_start_schedule(self):
+        """
+        Configures the optimal start schedule by managing the greenlet and scheduling
+        the evaluation of the optimal start lockout based on the current
+        `optimal_start_lockout_temp`.
+
+        This method adjusts the cron schedule to run in an hourly manner and ensures
+        that the greenlet responsible for evaluating the optimal start lockout is
+        appropriately canceled or initialized. It also updates the state of
+        `optimal_start_lockout_active` and synchronizes the occupancy state
+        accordingly when necessary.
+
+        :return: None
+        """
+        self._cancel_greenlet('_optimal_start_greenlet')
+        if self.optimal_start_lockout_temp is not None:
+            self._optimal_start_greenlet = self._scheduler_fn(
+                cron('0 * * * *'), self.evaluate_optimal_start_lockout
+            )
+        elif self.optimal_start_lockout_active:
+            self.optimal_start_lockout_active = False
+            self._sync_occupancy_state_fn()
 
     def evaluate_optimal_start_lockout(self):
         """
@@ -151,16 +186,20 @@ class LockOutManager:
             _log.debug(f'No weather forecast, cannot evaluate optimal start lockout!')
             return
 
-        _log.debug(f'Optimal Start Lockout - OAT {min(forecast)} -- {self.optimal_start_lockout_temp}')
+        try:
+            min_temp = min(forecast)
+        except ValueError as ex:
+            _log.error(f'Error evaluating optimal start lockout: {ex}')
+            min_temp = None
+
+        _log.debug(f'Optimal Start Lockout - OAT {min_temp} -- {self.optimal_start_lockout_temp}')
         # If the temperature is below the optimal start lockout temperature, activate the lockout
-        if min(forecast) < self.optimal_start_lockout_temp:
+        if min_temp is not None and min_temp < self.optimal_start_lockout_temp:
             self._change_occupancy_fn(OccupancyTypes.OCCUPIED)
             self.optimal_start_lockout_active = True
-            return
-
         # If the lockout is currently active and the temperature is above the optimal start lockout temperature,
         # deactivate the lockout
-        if self.optimal_start_lockout_active:
+        elif self.optimal_start_lockout_active:
             self.optimal_start_lockout_active = False
             self._sync_occupancy_state_fn()
 
@@ -175,7 +214,7 @@ class LockOutManager:
         current_time = get_aware_utc_now()
         timestamp, oat = self._get_current_oat_fn()
         # TODO: make the stale data time configurable
-        if timestamp is None or current_time - timestamp > td(seconds=900):
+        if timestamp is None or current_time - timestamp > STALE_DATA_TIMEOUT:
             self.release_all()
             return
         self.evaluate_electric_heating_lockout(oat)
@@ -201,10 +240,15 @@ class LockOutManager:
         if oat > self.electric_heat_lockout_temp and not self.electric_heat_lockout_active:
             self._control_fn(Points.auxiliaryheatcommand.value, 0)
             self.electric_heat_lockout_active = True
-        if ((self.electric_heat_lockout_temp - oat > 1.0 or self.electric_heat_lockout_temp is None)
-                and self.electric_heat_lockout_active):
+            self._reinforce_greenlet = self._scheduler_fn(periodic(TIME_CONSTANT_SECONDS,
+                                                                   start=td(seconds=TIME_CONSTANT_SECONDS)),
+                                                                   self._reinforce_active_lockouts)
+        elif (self.electric_heat_lockout_active
+              and (self.electric_heat_lockout_temp is None
+                   or self.electric_heat_lockout_temp - oat > LOCKOUT_DEADBAND)):
             self._control_fn(Points.auxiliaryheatcommand.value, None)
             self.electric_heat_lockout_active = False
+            self._cancel_greenlet('_reinforce_greenlet')
 
     def evaluate_cooling_lockout(self, oat: float):
         """
@@ -213,28 +257,35 @@ class LockOutManager:
         :param oat: Current outdoor-air temperature measurement
         :type oat: float
         """
-        # Check if outdoor-air temperature is below the cooling
-        # lockout temperature and the lockout is not active
         if oat < self.cooling_lockout_temp and not self.clg_lockout_active:
-            # Set all cooling stages to 0 and log any errors
-            for stage in cooling.stages:
-                _log.debug(f"LOCKOUT: {stage.point} -- 0")
-                result = self._control_fn(stage.point, 0)
-                if isinstance(result, str):
-                    _log.warning(f'Setting {stage.point} to 0: {result}')
-            # Set the cooling lockout to active
+            self._set_cooling_stages(0)
             self.clg_lockout_active = True
-        # Check if outdoor-air temperature is above the cooling lockout
-        # temperature by more than 1 degree or if the lockout temperature
-        # is not set, and the lockout is active
-        if ((oat - self.cooling_lockout_temp > 1.0 or self.cooling_lockout_temp is None) and self.clg_lockout_active):
-            # Set all cooling stages to None and log any errors
-            for stage in cooling.stages:
-                result = self._control_fn(stage.point, None)
-                if isinstance(result, str):
-                    _log.warning(f'Setting {stage.point} to None: {result}')
-            # Set the cooling lockout to inactive
+            self._reinforce_greenlet = self._scheduler_fn(periodic(TIME_CONSTANT_SECONDS,
+                                                                   start=td(seconds=TIME_CONSTANT_SECONDS)),
+                                                                   self._reinforce_active_lockouts)
+        elif self.clg_lockout_active and (
+                self.cooling_lockout_temp is None
+                or oat - self.cooling_lockout_temp > LOCKOUT_DEADBAND):
+            self._set_cooling_stages(None)
             self.clg_lockout_active = False
+            self._cancel_greenlet('_reinforce_greenlet')
+
+    def _reinforce_active_lockouts(self):
+        """
+        Ensures active lockouts for heating and cooling systems are enforced by appropriately
+        adjusting controls or cancelling associated tasks. It checks the current state of
+        electric heat lockout and cooling lockout and executes the respective control actions
+        using predefined functions and methods.
+
+        :return: None
+        """
+        _log.debug('Reinforcing active lockout controls')
+        if self.electric_heat_lockout_active:
+            self._control_fn(Points.auxiliaryheatcommand.value, 0)
+        elif self.clg_lockout_active:
+            self._set_cooling_stages(0)
+        else:
+            self._cancel_greenlet('_reinforce_greenlet')
 
     def release_all(self):
         """
@@ -250,6 +301,7 @@ class LockOutManager:
         if self.has_economizer:
             # Release cooling lockout
             self.release_cooling_lockout()
+        self._cancel_greenlet('_reinforce_greenlet')
 
     def release_cooling_lockout(self):
         """
@@ -262,10 +314,7 @@ class LockOutManager:
 
         :return: None
         """
-        for stage in cooling.stages:
-            result = self._control_fn(stage.point, None)
-            if isinstance(result, str):
-                _log.warning(f'Setting {stage.point} to 0: {result}')
+        self._set_cooling_stages(None)
         self.clg_lockout_active = False
 
     def release_heating_lockout(self):
@@ -278,3 +327,21 @@ class LockOutManager:
         """
         self._control_fn(Points.auxiliaryheatcommand.value, None)
         self.electric_heat_lockout_active = False
+
+    def _set_cooling_stages(self, value):
+        """
+        Set the cooling stages with the specified value.
+
+        This method iterates through each cooling stage to update its
+        associated point to the provided value. It performs actions via
+        the `_control_fn` method and logs information regarding the process.
+
+        :param value: The desired value to set for the cooling stages.
+        :type value: Any
+        :return: None
+        """
+        for stage in cooling.stages:
+            _log.debug(f'Cooling lockout: {stage.point} -> {value}')
+            result = self._control_fn(stage.point, value)
+            if isinstance(result, str):
+                _log.warning(f'Setting {stage.point} to {value}: {result}')
