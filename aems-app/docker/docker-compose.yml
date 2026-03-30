@@ -578,6 +578,175 @@ services:
       - ./volttron/setup/configs/platform_config.yml:/platform_config.yml
       - ./volttron/logs/:/home/volttron/logs/
 
+  # FastAPI AEMS server
+  aems-fastapi-server:
+    build:
+      context: ../../aems-lib-fastapi
+      dockerfile: Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}-aems-fastapi-server
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    env_file:
+      - .env.aems-fastapi
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    hostname: aems-fastapi-server
+    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    ports:
+      - ${AEMS_FASTAPI_TEST_PORT}:8000
+    profiles:
+      - fastapi
+    restart: unless-stopped
+    volumes:
+      - aems-volttron-home:/var/volttron
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # FastAPI AEMS agents
+  aems-listener:
+    command: [
+      "python", "/app/start-legacy.py",
+      "--agent-dir", "/volttron/examples/ListenerAgent",
+      "--config", "config",
+      "--identity", "listener",
+      "--address", "ws://aems-fastapi-server:8000"
+    ]
+    container_name: ${COMPOSE_PROJECT_NAME}-aems-listener
+    depends_on:
+      aems-fastapi-server:
+        condition: service_healthy
+    env_file:
+      - .env.aems-fastapi
+    hostname: aems-listener
+    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    profiles:
+      - fastapi-agents
+    restart: unless-stopped
+    volumes:
+      - aems-volttron-home:/var/volttron
+      - aems-agent-logs:/var/log/aems
+
+  aems-sql-historian:
+    command: [
+      "python", "/app/start-legacy.py",
+      "--agent-dir", "/volttron/services/core/SQLHistorian",
+      "--config", "/app/configs/historian/config",
+      "--identity", "platform.historian",
+      "--address", "ws://aems-fastapi-server:8000"
+    ]
+    container_name: ${COMPOSE_PROJECT_NAME}-aems-sql-historian
+    depends_on:
+      aems-fastapi-server:
+        condition: service_healthy
+    env_file:
+      - .env.aems-fastapi
+    hostname: aems-sql-historian
+    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    profiles:
+      - fastapi-agents
+    restart: unless-stopped
+    volumes:
+      - aems-volttron-home:/var/volttron
+      - aems-agent-logs:/var/log/aems
+
+  aems-manager:
+    command: [
+      "python", "/app/start-legacy.py",
+      "--agent-dir", "/volttron-pnnl-aems/aems-edge/Manager",
+      "--config", "/app/configs/aems-manager/config",
+      "--identity", "manager.rtu02",
+      "--address", "ws://aems-fastapi-server:8000"
+    ]
+    container_name: ${COMPOSE_PROJECT_NAME}-aems-manager
+    depends_on:
+      aems-fastapi-server:
+        condition: service_healthy
+    env_file:
+      - .env.aems-fastapi
+    hostname: aems-manager
+    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    profiles:
+      - fastapi-agents
+    restart: unless-stopped
+    volumes:
+      - aems-volttron-home:/var/volttron
+      - aems-agent-logs:/var/log/aems
+
+  aems-weather-dot-gov:
+    command: [
+      "python", "/app/start-legacy.py",
+      "--agent-dir", "/volttron/services/core/WeatherDotGov",
+      "--config", "/app/configs/weather/config",
+      "--identity", "platform.weather",
+      "--address", "ws://aems-fastapi-server:8000"
+    ]
+    container_name: ${COMPOSE_PROJECT_NAME}-aems-weather-dot-gov
+    depends_on:
+      aems-fastapi-server:
+        condition: service_healthy
+    env_file:
+      - .env.aems-fastapi
+    hostname: aems-weather-dot-gov
+    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    profiles:
+      - fastapi-agents
+    restart: unless-stopped
+    volumes:
+      - aems-volttron-home:/var/volttron
+      - aems-agent-logs:/var/log/aems
+
+  aems-nf-driver:
+    command: [
+      "python", "/app/start-legacy.py",
+      "--agent-dir", "/volttron-pnnl-aems/aems-edge/Normal",
+      "--config", "/app/configs/nf-driver/config",
+      "--identity", "platform.driver",
+      "--address", "ws://aems-fastapi-server:8000"
+    ]
+    container_name: ${COMPOSE_PROJECT_NAME}-aems-nf-driver
+    depends_on:
+      aems-fastapi-server:
+        condition: service_healthy
+    env_file:
+      - .env.aems-fastapi
+    hostname: aems-nf-driver
+    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    profiles:
+      - fastapi-agents
+    restart: unless-stopped
+    volumes:
+      - aems-volttron-home:/var/volttron
+      - aems-agent-logs:/var/log/aems
+
+  aems-ilc:
+    command: [
+      "python", "/app/start-legacy.py",
+      "--agent-dir", "/volttron-pnnl-applications/GridServices/Control/ILCAgent",
+      "--config", "/app/configs/ilc/config",
+      "--identity", "ilc.platform",
+      "--address", "ws://aems-fastapi-server:8000"
+    ]
+    container_name: ${COMPOSE_PROJECT_NAME}-aems-ilc
+    depends_on:
+      aems-fastapi-server:
+        condition: service_healthy
+      aems-nf-driver:
+        condition: service_started
+    env_file:
+      - .env.aems-fastapi
+    hostname: aems-ilc
+    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    profiles:
+      - fastapi-agents
+    restart: unless-stopped
+    volumes:
+      - aems-volttron-home:/var/volttron
+      - aems-agent-logs:/var/log/aems
+
 volumes:
   certs-data:
     driver: local
@@ -612,4 +781,8 @@ volumes:
   grafana-cache:
     driver: local
   historian-data:
+    driver: local
+  aems-volttron-home:
+    driver: local
+  aems-agent-logs:
     driver: local
