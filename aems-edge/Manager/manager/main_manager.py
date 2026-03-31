@@ -50,7 +50,7 @@ from .data_utils import Data, DataFileAccess
 from .holiday_manager import HolidayManager
 from .lock_out_manager import LockOutManager
 from .occupancy_override_manager import OccupancyOverride
-from .optimal_start_manager import OptimalStartConfig, OptimalStartManager
+from .optimal_start_manager import OptimalStartConfig, OptimalStartManager, PlatformCallbacks
 from .points import DaysOfWeek, OccupancyTypes, Points, SetpointControlType
 
 SCHEDULE = 'Schedule'
@@ -271,17 +271,21 @@ class ManagerProxy:
         self.occupancy_override = OccupancyOverride(change_occupancy_fn=self.change_occupancy,
                                                     scheduler_fn=self.core.schedule,
                                                     sync_occupancy_state_fn=self.sync_occupancy_state)
-        self.optimal_start = OptimalStartManager(schedule=self.cfg.schedule,
-                                                 config=self.cfg,
-                                                 identity=self.identity,
-                                                 scheduler_fn=self.core.schedule,
-                                                 holiday_manager=self.holiday_manager,
-                                                 data_handler=self.data_handler,
-                                                 publish_fn=self.publish,
-                                                 change_occupancy_fn=self.change_occupancy,
-                                                 config_set_fn=self.config_set,
-                                                 config_get_fn=self.config_get)
-
+        callbacks = PlatformCallbacks(
+            schedule_fn=self.core.schedule,
+            change_occupancy_fn=self.change_occupancy,
+            publish_fn=self.publish,
+            config_get_fn=self.config_get,
+            config_set_fn=self.config_set,
+        )
+        self.optimal_start = OptimalStartManager(
+            schedule=self.cfg.schedule,
+            config=self.cfg,
+            identity=self.identity,
+            holiday_manager=self.holiday_manager,
+            data_handler=self.data_handler,
+            callbacks=callbacks,
+        )
         self.lockout_manager = LockOutManager(get_forecast_fn=self.get_weather_forecast,
                                               get_current_oat_fn=self.get_current_oat,
                                               control_fn=self.do_zone_control,
