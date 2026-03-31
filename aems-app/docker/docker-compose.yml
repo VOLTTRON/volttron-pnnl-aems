@@ -596,14 +596,16 @@ services:
       retries: 3
       start_period: 10s
     hostname: aems-fastapi-server
-    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     ports:
-      - ${AEMS_FASTAPI_TEST_PORT}:8000
+      - ${AEMS_FASTAPI_TEST_PORT:-5410}:8000
     profiles:
       - fastapi
     restart: unless-stopped
     volumes:
       - aems-volttron-home:/var/volttron
+      # Docker socket provides high-privilege access to the host Docker daemon.
+      # Required for the FastAPI server to manage agent containers.
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
   # FastAPI AEMS agents
@@ -622,8 +624,9 @@ services:
     env_file:
       - .env.aems-fastapi
     hostname: aems-listener
-    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
+      - fastapi
       - fastapi-agents
     restart: unless-stopped
     volumes:
@@ -645,8 +648,9 @@ services:
     env_file:
       - .env.aems-fastapi
     hostname: aems-sql-historian
-    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
+      - fastapi
       - fastapi-agents
     restart: unless-stopped
     volumes:
@@ -668,8 +672,9 @@ services:
     env_file:
       - .env.aems-fastapi
     hostname: aems-manager
-    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
+      - fastapi
       - fastapi-agents
     restart: unless-stopped
     volumes:
@@ -691,8 +696,9 @@ services:
     env_file:
       - .env.aems-fastapi
     hostname: aems-weather-dot-gov
-    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
+      - fastapi
       - fastapi-agents
     restart: unless-stopped
     volumes:
@@ -714,8 +720,9 @@ services:
     env_file:
       - .env.aems-fastapi
     hostname: aems-nf-driver
-    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
+      - fastapi
       - fastapi-agents
     restart: unless-stopped
     volumes:
@@ -739,8 +746,9 @@ services:
     env_file:
       - .env.aems-fastapi
     hostname: aems-ilc
-    image: ${COMPOSE_CONTAINER_REGISTRY}/aems-fastapi:${TAG}
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
+      - fastapi
       - fastapi-agents
     restart: unless-stopped
     volumes:
