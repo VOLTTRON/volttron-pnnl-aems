@@ -25,8 +25,7 @@ Advanced Energy Management System (AEMS). Three repos work together:
 repos/
   volttron-pnnl-aems/          # This repo
   aems-lib-fastapi/            # FastAPI message bus + orchestration pipeline
-  VOLTTRON/sim-rtu/            # Simulated RTU devices (optional)
-  VOLTTRON/volttron/           # Legacy VOLTTRON source (for agent code)
+  sim-rtu/                     # Simulated RTU devices (optional)
 ```
 
 ```bash
@@ -45,8 +44,8 @@ Fastest path to a running system with no hardware.
 
 ```bash
 cd ~/repos
-git clone https://github.com/VOLTTRON/sim-rtu.git VOLTTRON/sim-rtu
-cd VOLTTRON/sim-rtu
+git clone https://github.com/VOLTTRON/sim-rtu.git sim-rtu
+cd sim-rtu
 make build
 ./bin/sim-rtu --config configs/default.yml
 ```
@@ -84,7 +83,7 @@ nf_driver = true
 Install sim-rtu device configs:
 
 ```bash
-~/repos/VOLTTRON/sim-rtu/scripts/switch-to-nf.sh ~/repos/aems-lib-fastapi
+~/repos/sim-rtu/scripts/switch-to-nf.sh ~/repos/aems-lib-fastapi
 ```
 
 ### 4. Run the orchestration pipeline
@@ -348,10 +347,10 @@ sim-rtu provides scripts to install the right configs:
 
 ```bash
 # Switch to NF driver
-~/repos/VOLTTRON/sim-rtu/scripts/switch-to-nf.sh ~/repos/aems-lib-fastapi
+~/repos/sim-rtu/scripts/switch-to-nf.sh ~/repos/aems-lib-fastapi
 
 # Switch to BACnet driver
-~/repos/VOLTTRON/sim-rtu/scripts/switch-to-bacnet.sh ~/repos/aems-lib-fastapi
+~/repos/sim-rtu/scripts/switch-to-bacnet.sh ~/repos/aems-lib-fastapi
 ```
 
 See [sim-rtu driver-switching.md](https://github.com/VOLTTRON/sim-rtu/blob/main/docs/driver-switching.md) for details.
