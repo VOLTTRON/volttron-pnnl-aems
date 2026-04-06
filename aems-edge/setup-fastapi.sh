@@ -141,7 +141,7 @@ generate_nf_driver_config() {
     cat > "${nf_config_path}" << EOF
 {
     "driver_config": {
-        "url": "${gateway_address}"
+        "url": "http://${gateway_address}"
     },
     "device_list": [${device_list}
     ],

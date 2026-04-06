@@ -670,7 +670,7 @@ class NormalFrameworkConnector(Agent):
         :type kwargs: dict
         :return: None
         """
-        self.polling_service = self.core.periodic(self.polling_interval, self.scrape_all, wait=self.polling_interval)
+        self.polling_service = self.core.schedule(self.polling_interval, self.scrape_all)
 
     def initialize_devices(self, device_list: list, **kwargs):
         """
