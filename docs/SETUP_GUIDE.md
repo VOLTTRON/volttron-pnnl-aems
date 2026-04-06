@@ -41,7 +41,7 @@ source ./secrets.sh      # Linux/Mac
 # .\secrets.ps1          # Windows
 ```
 
-Or edit `.env` directly, replacing all `SeT_tHiS_iN_0x3A-.env.secrets-` placeholders.
+Or edit `.env` directly, replacing all `SeT_tHiS_iN_0x3A-.env.secrets-` placeholders with real values.
 
 ### Required Variables
 
@@ -248,7 +248,7 @@ docker compose restart aems-nf-driver
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| `SeT_tHiS_iN_0x3A` in errors | Placeholder passwords not replaced | Replace all `SeT_tHiS_iN_0x3A-.env.secrets-` in `.env` with real values |
+| `SeT_tHiS_iN_0x3A-.env.secrets-` in errors | Placeholder passwords not replaced | Replace all `SeT_tHiS_iN_0x3A-.env.secrets-` values in `.env` with real passwords |
 | Port 5410 conflict | Both `volttron` and `fastapi` profiles enabled | Use only one: remove `volttron` from `COMPOSE_PROFILES` |
 | Historian can't connect | Wrong host/port for Docker networking | Historian host is `historian` (Docker service name), port `5432` |
 | `fastapi-setup` build fails | Missing symlink for aems-lib-fastapi | Run `ln -s ../aems-lib-fastapi .` from repo root |
