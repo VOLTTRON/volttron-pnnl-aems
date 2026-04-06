@@ -49,7 +49,7 @@ Or edit `.env` directly, replacing all `SeT_tHiS_iN_0x3A-.env.secrets-` placehol
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `HOSTNAME` | Server FQDN or IP | `aems1.pnl.gov` |
+| `HOSTNAME` | Server FQDN (**must be FQDN**, not IP — Traefik routes by Host header; an IP causes 404s) | `aems1.pnl.gov` |
 | `COMPOSE_PROFILES` | Active profiles (comma-separated) | `proxy,sso,redis,fastapi,fastapi-agents,grafana` |
 | `COMPOSE_PROJECT_NAME` | Docker project name | `aems` |
 | `COMPOSE_CONTAINER_REGISTRY` | Image registry (`localhost` for local builds) | `localhost` |
@@ -89,6 +89,7 @@ Or edit `.env` directly, replacing all `SeT_tHiS_iN_0x3A-.env.secrets-` placehol
 | `VOLTTRON_TIMEZONE` | Site timezone | `America/Los_Angeles` |
 | `VOLTTRON_WEATHER_STATION` | weather.gov station ID | `KPSC` |
 | `VOLTTRON_ILC` | Enable ILC agent | `true` |
+| `VOLTTRON_NF_GATEWAY_URL` | NF gateway URL for Docker containers (NF driver runs inside a container and needs to reach the gateway on the host; use `host.docker.internal`) | `http://host.docker.internal:8081` |
 
 #### Redis
 
@@ -244,6 +245,32 @@ docker compose up -d
 docker compose restart aems-nf-driver
 ```
 
+### Regenerating configs
+
+The `fastapi-setup` container uses a lock file to run only once. To regenerate configs:
+
+```bash
+# Remove the lock file (inside Docker volume)
+docker run --rm -v aems_fastapi-setup:/data alpine rm -f /data/.fastapi_setup_complete
+
+# Rebuild the setup image (if setup-fastapi.sh changed)
+docker compose --profile fastapi build fastapi-setup
+
+# Regenerate configs
+docker compose --profile fastapi run --rm fastapi-setup
+
+# Recreate symlink for registry CSVs (needed after every regeneration — see below)
+docker run --rm -v $(pwd)/fastapi/setup:/setup alpine sh -c \
+  'ln -sf configs/configuration_store /setup/configuration_store'
+
+# Restart agents to pick up new configs
+docker compose --profile fastapi-agents restart
+```
+
+### The `configuration_store` symlink
+
+The NF driver config references registry CSVs at `/app/site-config/configuration_store/...` but `fastapi-setup` generates them at `/app/site-config/configs/configuration_store/...`. A symlink bridges the gap. **Recreate it after every config regeneration** using the command above.
+
 ## Troubleshooting
 
 | Problem | Cause | Fix |
@@ -261,6 +288,18 @@ docker compose restart aems-nf-driver
 | Web UI unreachable via HTTPS | Certs container failed or HOSTNAME wrong | Check `docker compose logs certs` and verify `HOSTNAME` in `.env` |
 | Keycloak login fails | Wrong `KEYCLOAK_CLIENT_SECRET` or HOSTNAME mismatch | Regenerate secret in Keycloak admin, update `.env` |
 | `docker compose build` very slow | No Docker BuildKit cache | Set `DOCKER_BUILDKIT=1` or use `docker buildx` |
+| Traefik returns 404 | HOSTNAME set to IP instead of FQDN | Set HOSTNAME to the server's FQDN (e.g., `aems1.pnl.gov`) |
+| NF driver `ConnectTimeout` | Container can't reach host services | Verify `extra_hosts` and `VOLTTRON_NF_GATEWAY_URL` use `host.docker.internal` |
+| NF driver `MissingSchema` | Gateway URL missing `http://` | Check `VOLTTRON_NF_GATEWAY_URL` starts with `http://` |
+| Config regeneration has no effect | Lock file prevents re-run | Remove lock file from Docker volume (see Regenerating configs) |
+| NF driver can't find registry CSVs | Missing `configuration_store` symlink | Recreate symlink after config regeneration (see above) |
+| RPC `get_point`/`set_point` fails with KeyError | Device topic prefix mismatch | Fixed in code: driver handles both `PNNL/ROB/rtu02` and `devices/PNNL/ROB/rtu02` |
+
+## Docker Networking: `host.docker.internal`
+
+Containers reach host services via `host.docker.internal` (mapped by `extra_hosts` in compose). Used by:
+- **`services`** container → FastAPI server (`VOLTTRON_AUTH_URL`, `VOLTTRON_API_URL`)
+- **NF driver** → Normal Framework gateway (`VOLTTRON_NF_GATEWAY_URL`)
 
 ## Architecture Notes
 
