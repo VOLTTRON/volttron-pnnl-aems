@@ -712,7 +712,12 @@ class NormalFrameworkConnector(Agent):
         :return: The device associated with the given topic.
         :rtype: Device
         """
-        return self.device_dict[topic]
+        if topic in self.device_dict:
+            return self.device_dict[topic]
+        prefixed = f"devices/{topic}"
+        if prefixed in self.device_dict:
+            return self.device_dict[prefixed]
+        raise KeyError(topic)
 
     @RPC.export
     def get_point(self, device_path: str, point_name: str, **kwargs):
