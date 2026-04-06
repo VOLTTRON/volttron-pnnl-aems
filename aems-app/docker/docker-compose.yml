@@ -673,7 +673,7 @@ services:
     command: [
       "python", "/app/start-legacy.py",
       "--agent-dir", "/volttron/services/core/SQLHistorian",
-      "--config", "/app/site-config/historian.config",
+      "--config", "/app/site-config/configs/historian.config",
       "--identity", "platform.historian",
       "--address", "ws://aems-fastapi-server:8000"
     ]
@@ -704,7 +704,7 @@ services:
     command: [
       "python", "/app/start-legacy.py",
       "--agent-dir", "/volttron-pnnl-aems/aems-edge/Manager",
-      "--config", "/app/site-config/configuration_store/manager.rtu02/devices/PNNL/ROB/manager.rtu02.config",
+      "--config", "/app/site-config/configs/configuration_store/manager.rtu02/devices/PNNL/ROB/manager.rtu02.config",
       "--identity", "manager.rtu02",
       "--address", "ws://aems-fastapi-server:8000"
     ]
@@ -735,7 +735,7 @@ services:
     command: [
       "python", "/app/start-legacy.py",
       "--agent-dir", "/volttron/services/core/WeatherDotGov",
-      "--config", "/app/site-config/weather.config",
+      "--config", "/app/site-config/configs/weather.config",
       "--identity", "platform.weather",
       "--address", "ws://aems-fastapi-server:8000"
     ]
@@ -799,7 +799,7 @@ services:
     command: [
       "python", "/app/start-legacy.py",
       "--agent-dir", "/volttron-pnnl-applications/GridServices/Control/ILCAgent",
-      "--config", "/app/site-config/ilc.config",
+      "--config", "/app/site-config/configs/ilc.config",
       "--identity", "ilc.platform",
       "--address", "ws://aems-fastapi-server:8000"
     ]
