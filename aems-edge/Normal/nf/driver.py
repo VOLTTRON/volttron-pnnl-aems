@@ -202,7 +202,7 @@ class Device:
                     index=int(row['Index']),
                     bacnet_object_type=DATA_TYPE_MAP[row['BACnet Object Type']],
                     unit=row['Units'],
-                    write_priority=int(row['Write Priority']),
+                    write_priority=int(row['Write Priority']) if row.get('Write Priority', '').strip() else 16,
                     writeable=True if row.get('Writable', 'true').lower() == 'true' else False,
                     device_id=self.device_id
                 )

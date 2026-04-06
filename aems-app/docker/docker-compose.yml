@@ -116,6 +116,7 @@ services:
         condition: service_completed_successfully
       grafana-setup:
         condition: service_completed_successfully
+        required: false
       database:
         condition: service_started
     # deploy:
@@ -167,6 +168,7 @@ services:
         condition: service_started
       grafana-setup:
         condition: service_completed_successfully
+        required: false
     env_file:
       - .env.services
     extra_hosts:
@@ -523,6 +525,7 @@ services:
       - ${HISTORIAN_TEST_PORT}:5432
     profiles:
       - volttron
+      - fastapi
     restart: unless-stopped
     volumes:
       - historian-data:/var/lib/postgresql/data
@@ -550,6 +553,29 @@ services:
       - ./.env.volttron:/home/aems-app/docker/.env.volttron:ro
       - volttron-setup:/home/user/setup/
       - ./volttron/setup/:/home/user/volttron/
+
+  # Creates FastAPI agent configurations on startup
+  fastapi-setup:
+    build:
+      context: ../../aems-edge
+      dockerfile: ./Dockerfile
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - NO_PROXY=${NO_PROXY}
+    container_name: ${COMPOSE_PROJECT_NAME}-fastapi-setup
+    environment:
+      - SETUP_MODE=fastapi
+    env_file:
+      - .env.volttron
+    hostname: fastapi-setup
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
+    profiles:
+      - fastapi
+    restart: "no"
+    volumes:
+      - fastapi-setup:/home/user/setup/
+      - ./fastapi/setup/:/home/user/volttron/
 
   # Volttron - runs on host network for direct access
   volttron:
@@ -587,6 +613,8 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+      fastapi-setup:
+        condition: service_completed_successfully
     env_file:
       - .env.aems-fastapi
     healthcheck:
@@ -604,6 +632,7 @@ services:
     restart: unless-stopped
     volumes:
       - aems-volttron-home:/var/volttron
+      - ./fastapi/setup/:/app/site-config/:ro
       # Docker socket provides high-privilege access to the host Docker daemon.
       # Required for the FastAPI server to manage agent containers.
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -623,6 +652,12 @@ services:
         condition: service_healthy
     env_file:
       - .env.aems-fastapi
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://aems-fastapi-server:8000/connections/listener"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     hostname: aems-listener
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
@@ -632,12 +667,13 @@ services:
     volumes:
       - aems-volttron-home:/var/volttron
       - aems-agent-logs:/var/log/aems
+      - ./fastapi/setup/:/app/site-config/:ro
 
   aems-sql-historian:
     command: [
       "python", "/app/start-legacy.py",
       "--agent-dir", "/volttron/services/core/SQLHistorian",
-      "--config", "/app/configs/historian/config",
+      "--config", "/app/site-config/historian.config",
       "--identity", "platform.historian",
       "--address", "ws://aems-fastapi-server:8000"
     ]
@@ -647,6 +683,12 @@ services:
         condition: service_healthy
     env_file:
       - .env.aems-fastapi
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://aems-fastapi-server:8000/connections/platform.historian"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     hostname: aems-sql-historian
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
@@ -656,12 +698,13 @@ services:
     volumes:
       - aems-volttron-home:/var/volttron
       - aems-agent-logs:/var/log/aems
+      - ./fastapi/setup/:/app/site-config/:ro
 
   aems-manager:
     command: [
       "python", "/app/start-legacy.py",
       "--agent-dir", "/volttron-pnnl-aems/aems-edge/Manager",
-      "--config", "/app/configs/aems-manager/config",
+      "--config", "/app/site-config/configuration_store/manager.rtu02/devices/PNNL/ROB/manager.rtu02.config",
       "--identity", "manager.rtu02",
       "--address", "ws://aems-fastapi-server:8000"
     ]
@@ -671,6 +714,12 @@ services:
         condition: service_healthy
     env_file:
       - .env.aems-fastapi
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://aems-fastapi-server:8000/connections/manager.rtu02"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     hostname: aems-manager
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
@@ -680,12 +729,13 @@ services:
     volumes:
       - aems-volttron-home:/var/volttron
       - aems-agent-logs:/var/log/aems
+      - ./fastapi/setup/:/app/site-config/:ro
 
   aems-weather-dot-gov:
     command: [
       "python", "/app/start-legacy.py",
       "--agent-dir", "/volttron/services/core/WeatherDotGov",
-      "--config", "/app/configs/weather/config",
+      "--config", "/app/site-config/weather.config",
       "--identity", "platform.weather",
       "--address", "ws://aems-fastapi-server:8000"
     ]
@@ -695,6 +745,12 @@ services:
         condition: service_healthy
     env_file:
       - .env.aems-fastapi
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://aems-fastapi-server:8000/connections/platform.weather"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     hostname: aems-weather-dot-gov
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
@@ -704,12 +760,13 @@ services:
     volumes:
       - aems-volttron-home:/var/volttron
       - aems-agent-logs:/var/log/aems
+      - ./fastapi/setup/:/app/site-config/:ro
 
   aems-nf-driver:
     command: [
       "python", "/app/start-legacy.py",
       "--agent-dir", "/volttron-pnnl-aems/aems-edge/Normal",
-      "--config", "/app/configs/nf-driver/config",
+      "--config", "/app/site-config/configs/nf-driver/config",
       "--identity", "platform.driver",
       "--address", "ws://aems-fastapi-server:8000"
     ]
@@ -719,6 +776,12 @@ services:
         condition: service_healthy
     env_file:
       - .env.aems-fastapi
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://aems-fastapi-server:8000/connections/platform.driver"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     hostname: aems-nf-driver
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
@@ -728,12 +791,15 @@ services:
     volumes:
       - aems-volttron-home:/var/volttron
       - aems-agent-logs:/var/log/aems
+      - ./fastapi/setup/:/app/site-config/:ro
+      # Mount local NF driver fix (Write Priority empty string handling)
+      - ../../aems-edge/Normal/nf/driver.py:/volttron-pnnl-aems/aems-edge/Normal/nf/driver.py:ro
 
   aems-ilc:
     command: [
       "python", "/app/start-legacy.py",
       "--agent-dir", "/volttron-pnnl-applications/GridServices/Control/ILCAgent",
-      "--config", "/app/configs/ilc/config",
+      "--config", "/app/site-config/ilc.config",
       "--identity", "ilc.platform",
       "--address", "ws://aems-fastapi-server:8000"
     ]
@@ -745,6 +811,12 @@ services:
         condition: service_started
     env_file:
       - .env.aems-fastapi
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://aems-fastapi-server:8000/connections/ilc.platform"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     hostname: aems-ilc
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
@@ -754,6 +826,28 @@ services:
     volumes:
       - aems-volttron-home:/var/volttron
       - aems-agent-logs:/var/log/aems
+      - ./fastapi/setup/:/app/site-config/:ro
+
+  # Simulated RTU devices for development/testing
+  sim-rtu:
+    build:
+      context: ../../sim-rtu
+      dockerfile: ./Dockerfile
+    command: ["--config", "configs/docker-accessible.yml"]
+    container_name: ${COMPOSE_PROJECT_NAME}-sim-rtu
+    hostname: sim-rtu
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/sim-rtu:${TAG}
+    ports:
+      - ${SIM_RTU_API_PORT:-8080}:8080
+      - ${SIM_RTU_BACNET_PORT:-47808}:47808/udp
+    profiles:
+      - sim-rtu
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/v1/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   certs-data:
@@ -777,6 +871,8 @@ volumes:
   keycloak-data:
     driver: local
   volttron-setup:
+    driver: local
+  fastapi-setup:
     driver: local
   volttron-data:
     driver: local

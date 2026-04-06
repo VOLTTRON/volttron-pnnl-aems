@@ -44,6 +44,6 @@ COPY . .
 
 # Make setup scripts executable and run main setup script
 WORKDIR /home/user/
-RUN chmod +x setup.sh setup-volttron.sh setup-grafana.sh
+RUN chmod +x setup.sh setup-volttron.sh setup-grafana.sh setup-fastapi.sh
 
 CMD ["./setup.sh"]

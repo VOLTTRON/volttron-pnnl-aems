@@ -61,6 +61,16 @@ case "${SETUP_MODE}" in
             exit 1
         fi
         ;;
+    "fastapi")
+        log_info "=== Running FastAPI Setup ==="
+        if [[ -f "${BASE_DIR}/setup-fastapi.sh" ]]; then
+            chmod +x "${BASE_DIR}/setup-fastapi.sh"
+            exec "${BASE_DIR}/setup-fastapi.sh"
+        else
+            log_error "FastAPI setup script not found at: ${BASE_DIR}/setup-fastapi.sh"
+            exit 1
+        fi
+        ;;
     "both")
         log_info "=== Running Both Volttron and Grafana Setup (Legacy Mode) ==="
         log_warning "Using legacy 'both' mode - consider using separate containers with SETUP_MODE=volttron and SETUP_MODE=grafana for better separation"
@@ -99,7 +109,7 @@ case "${SETUP_MODE}" in
         ;;
     *)
         log_error "Invalid SETUP_MODE: ${SETUP_MODE}"
-        log_error "Valid values are: volttron, grafana, both"
+        log_error "Valid values are: volttron, grafana, fastapi, both"
         exit 1
         ;;
 esac

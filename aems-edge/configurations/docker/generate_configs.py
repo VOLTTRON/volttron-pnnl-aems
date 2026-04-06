@@ -806,7 +806,11 @@ def generate_bacnet_proxy_config(gateway_address: str, output_dir: str | bytes):
     try:
         gateway_network = ipaddress.ip_network(gateway_address + '/24', strict=False)
     except ValueError:
-        raise ValueError('Invalid gateway-address format!')
+        # Gateway address is not an IP (e.g., HTTP URL for REST-based drivers).
+        # BACnet proxy config is not needed in this case -- skip generation.
+        sys.stderr.write(f"WARNING: gateway-address '{gateway_address}' is not an IP address. "
+                         "Skipping BACnet proxy config generation.\n")
+        return
 
     interfaces = ni.interfaces()
     for interface in interfaces:
@@ -1069,9 +1073,15 @@ def main():
     output_path = os.path.join(args.output_dir, args.config_subdir)
     config_store_path = os.path.join(output_path, "configuration_store")
 
-    # Remove existing configs directory
+    # Remove existing configs directory contents (but not the directory itself,
+    # which may be a bind mount that cannot be removed)
     if os.path.exists(output_path):
-        shutil.rmtree(output_path)
+        for item in os.listdir(output_path):
+            item_path = os.path.join(output_path, item)
+            if os.path.isdir(item_path):
+                shutil.rmtree(item_path)
+            else:
+                os.remove(item_path)
     os.makedirs(output_path, exist_ok=True)
     os.makedirs(config_store_path, exist_ok=True)
 
