@@ -1,541 +1,271 @@
 # AEMS System Setup Guide
 
-Advanced Energy Management System (AEMS). Three repos work together:
-
-| Repo | Purpose |
-|------|---------|
-| **volttron-pnnl-aems** (this repo) | AEMS edge agents, device configs, Docker Compose orchestration |
-| **aems-lib-fastapi** | FastAPI message bus replacing legacy VOLTTRON platform |
-| **sim-rtu** | Simulated RTU devices for development (optional) |
-
----
+Authoritative guide for deploying AEMS from scratch. Based on the running aems1 production deployment.
 
 ## Prerequisites
 
-| Requirement | Version | Check |
-|-------------|---------|-------|
-| Python | 3.10+ | `python3 --version` |
-| Docker + Compose | 24+ / v2 | `docker compose version` |
-| Git | any | `git --version` |
-| Go | 1.24+ (sim-rtu only) | `go version` |
+- Docker 20.10+ and Docker Compose v2+
+- Git
+- Go 1.24+ (only if using sim-rtu)
 
-## Repository Layout
+## 1. Clone Repositories
 
-```
-repos/
-  volttron-pnnl-aems/          # This repo
-  aems-lib-fastapi/            # FastAPI message bus + orchestration pipeline
-  sim-rtu/                     # Simulated RTU devices (optional)
-```
+Three repos, all siblings:
 
 ```bash
-mkdir -p ~/repos && cd ~/repos
-git clone https://github.com/VOLTTRON/volttron-pnnl-aems.git
-git clone <your-aems-lib-fastapi-repo> aems-lib-fastapi
+mkdir ~/repos && cd ~/repos
+git clone git@github.com:VOLTTRON/volttron-pnnl-aems.git
+git clone git@github.com:VOLTTRON/aems-lib-fastapi.git
+# Optional: simulated devices for development
+git clone git@github.com:VOLTTRON/sim-rtu.git
 ```
 
----
-
-## Quick Start (Simulated Devices)
-
-Fastest path to a running system with no hardware.
-
-### 1. Build and start sim-rtu
+Create symlinks (compose build contexts expect siblings):
 
 ```bash
-cd ~/repos
-git clone https://github.com/VOLTTRON/sim-rtu.git sim-rtu
-cd sim-rtu
-make build
-./bin/sim-rtu --config configs/default.yml
+cd volttron-pnnl-aems
+ln -s ../aems-lib-fastapi .
+ln -s ../sim-rtu .        # only if using sim-rtu
 ```
 
-Verify:
+## 2. Configure .env
+
+The root `.env` at `aems-app/.env` is the **master configuration file**. Per-service `.env.*` files in `aems-app/docker/` are templates that interpolate from it. Do NOT edit the per-service files unless overriding specific values.
 
 ```bash
-curl http://127.0.0.1:8080/api/v1/status
-curl http://127.0.0.1:8080/api/v1/devices
+cd aems-app
+cp .env.secrets.example .env.secrets
+# Edit .env.secrets with real passwords (see table below)
+# Then source it to overlay onto .env:
+source ./secrets.sh      # Linux/Mac
+# .\secrets.ps1          # Windows
 ```
 
-### 2. Install aems-lib-fastapi
+Or edit `.env` directly, replacing all `SeT_tHiS_iN_0x3A-.env.secrets-` placeholders.
+
+### Required Variables
+
+#### Site Configuration
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `HOSTNAME` | Server FQDN or IP | `aems1.pnl.gov` |
+| `COMPOSE_PROFILES` | Active profiles (comma-separated) | `proxy,sso,redis,fastapi,fastapi-agents,grafana` |
+| `COMPOSE_PROJECT_NAME` | Docker project name | `aems` |
+| `COMPOSE_CONTAINER_REGISTRY` | Image registry (`localhost` for local builds) | `localhost` |
+| `TAG` | Image tag | `latest` |
+| `ADMIN_EMAIL` | Email for Let's Encrypt certs | `admin@example.com` |
+
+#### Database
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_NAME` | App database name | `aems` |
+| `DATABASE_USERNAME` | App database user | `aems` |
+| `DATABASE_PASSWORD` | App database password | **must set** |
+| `HISTORIAN_DATABASE_PASSWORD` | Historian DB password | **must set** |
+| `HISTORIAN_REPLICATOR_PASSWORD` | Historian replication password | **must set** |
+
+#### Authentication
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `AUTH_PROVIDERS` | Auth method | `keycloak` (prod) or `local` (dev) |
+| `SESSION_SECRET` | Session signing key | **must set** |
+| `JWT_SECRET` | JWT signing key | **must set** |
+| `KEYCLOAK_CLIENT_SECRET` | Keycloak app client secret | **must set** |
+| `KEYCLOAK_ADMIN_PASSWORD` | Keycloak admin password | **must set** |
+| `KEYCLOAK_DATABASE_PASSWORD` | Keycloak DB password | **must set** |
+
+#### Edge Platform (VOLTTRON/FastAPI)
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VOLTTRON_CAMPUS` | Site campus ID | `PNNL` |
+| `VOLTTRON_BUILDING` | Building ID | `ROB` |
+| `VOLTTRON_PREFIX` | Device prefix | `rtu` |
+| `VOLTTRON_NUM_CONFIGS` | Number of RTU devices | `5` |
+| `VOLTTRON_GATEWAY_ADDRESS` | BACnet gateway or sim-rtu IP | `192.168.1.1` |
+| `VOLTTRON_TIMEZONE` | Site timezone | `America/Los_Angeles` |
+| `VOLTTRON_WEATHER_STATION` | weather.gov station ID | `KPSC` |
+| `VOLTTRON_ILC` | Enable ILC agent | `true` |
+
+#### Redis
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDIS_USERNAME` | Redis user | `redis` |
+| `REDIS_PASSWORD` | Redis password | **must set** |
+
+### Profile Selection
+
+| Profile | What it enables | When to use |
+|---------|----------------|-------------|
+| `proxy` | Traefik reverse proxy + TLS | Always (production) |
+| `sso` | Keycloak SSO | Production with SSO |
+| `redis` | Redis cache/sessions | Production |
+| `fastapi` | FastAPI server + setup + historian | Always (replaces volttron) |
+| `fastapi-agents` | Agent containers | Always with fastapi |
+| `grafana` | Monitoring dashboards | Production |
+| `sim-rtu` | Simulated RTU devices | Development/testing only |
+| `volttron` | Legacy VOLTTRON monolith | Legacy only, **DO NOT use with fastapi** |
+
+Example profiles:
 
 ```bash
-cd ~/repos/aems-lib-fastapi
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[pipeline,drivers]"
+# Production
+COMPOSE_PROFILES=proxy,sso,redis,fastapi,fastapi-agents,grafana
+
+# Development (no SSO, no proxy, simulated devices)
+COMPOSE_PROFILES=fastapi,fastapi-agents,sim-rtu
+
+# Minimal (just the app + FastAPI)
+COMPOSE_PROFILES=fastapi,fastapi-agents
 ```
 
-### 3. Create config.ini
+> **WARNING:** Do not enable both `volttron` and `fastapi` profiles. They both bind to port 5410 and will conflict.
+
+## 3. Build and Start
 
 ```bash
-cp config.ini.example config.ini
+cd aems-app/docker
+docker compose build
+docker compose up -d
 ```
 
-Set the driver mode (NF recommended):
+The startup order is automatic via `depends_on` and healthchecks:
 
-```ini
-[agents]
-platform_driver = false
-nf_driver = true
-```
+1. `database` (healthcheck: pg_isready)
+2. `init` (migrations) + `certs` (TLS) -- one-shot
+3. `fastapi-setup` (config generation from env vars) -- one-shot
+4. `aems-fastapi-server` (waits for setup + init)
+5. Agent containers: listener, sql-historian, manager, weather, nf-driver, ilc (wait for server healthy)
+6. `client` + `server` + `services` (wait for init + database)
+7. `proxy`, `grafana`, `keycloak`, etc. (based on profiles)
 
-Install sim-rtu device configs:
+## 4. Verify
 
 ```bash
-~/repos/sim-rtu/scripts/switch-to-nf.sh ~/repos/aems-lib-fastapi
-```
-
-### 4. Run the orchestration pipeline
-
-```bash
-python orchestrate.py
-```
-
-This generates agent configs, `agents-config.json`, and Docker Compose services from `config.ini`.
-
-### 5. Start Docker stack
-
-```bash
-cd ~/repos/volttron-pnnl-aems/aems-app/docker
-docker compose --profile fastapi --profile fastapi-agents up -d --build
-```
-
-### 6. Verify
-
-```bash
-# Health check
-curl http://localhost:5410/health/
-
-# Read a simulated point
-curl http://localhost:5410/devices/SIM/RTU/Schneider/ZoneTemperature
-
-# Write a setpoint
-curl -X PUT http://localhost:5410/devices/SIM/RTU/Schneider/OccupiedCoolingSetPoint \
-     -H "Content-Type: application/json" \
-     -d '{"value": 73.0, "priority": 16}'
-
-# All simulated devices
-curl http://localhost:5410/devices/SIM/RTU/Schneider
-curl http://localhost:5410/devices/SIM/RTU/OpenStat
-curl http://localhost:5410/devices/SIM/RTU/DENT
-
 # Container status
-docker compose --profile fastapi ps
+docker compose ps
+
+# FastAPI health
+curl -s http://localhost:5410/health/
+
+# Connected agents
+curl -s http://localhost:5410/connections
+
+# Web UI
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3010/
 ```
 
----
+## 5. Access
 
-## Production Setup (Real Hardware)
+| Service | URL | Notes |
+|---------|-----|-------|
+| Web UI | `https://HOSTNAME/` | Via Traefik proxy |
+| GraphQL | `https://HOSTNAME/graphql` | API playground |
+| FastAPI | `http://localhost:5410/` | Agent message bus |
+| Grafana | `https://HOSTNAME/grafana` | Monitoring |
+| Keycloak | `https://HOSTNAME/auth/sso` | SSO admin |
 
-### 1. Network requirements
+## Per-Service .env Files
 
-- AEMS host on same subnet as BACnet devices (or via BACnet router)
-- UDP port **47808** open between AEMS host and devices
-- If using NF gateway: HTTP access on port 8081
+Located in `aems-app/docker/`. These interpolate from the root `.env` -- do NOT edit directly unless overriding.
 
-### 2. Configure config.ini
-
-```bash
-cd ~/repos/aems-lib-fastapi
-cp config.ini.example config.ini
-```
-
-```ini
-[site]
-campus = PNNL
-building = SEB
-timezone = America/Los_Angeles
-gateway_address = 192.168.1.1
-stat_type = schneider
-
-[device:1]
-name = rtu01
-address = 192.168.1.101
-device_id = 1001
-stat_type = schneider
-
-[device:2]
-name = rtu02
-address = 192.168.1.102
-device_id = 1002
-stat_type = schneider
-
-[meter]
-name = meter
-address = 192.168.1.100
-device_id = 100
-registry = dent.csv
-```
-
-### 3. Choose driver mode
-
-See [Driver Modes](#driver-modes) below.
-
-### 4. Run orchestration and deploy
-
-```bash
-cd ~/repos/aems-lib-fastapi
-source .venv/bin/activate
-python orchestrate.py
-
-cd ~/repos/volttron-pnnl-aems/aems-app/docker
-docker compose --profile fastapi --profile fastapi-agents up -d --build
-```
-
-### 5. Verify
-
-```bash
-# BACnet connectivity
-nc -zu 192.168.1.101 47808
-
-# Read a point
-curl http://localhost:5410/devices/PNNL/SEB/RTU01/ZoneTemperature
-
-# Write a setpoint
-curl -X PUT http://localhost:5410/devices/PNNL/SEB/RTU01/OccupiedCoolingSetPoint \
-     -H "Content-Type: application/json" \
-     -d '{"value": 74.0, "priority": 16}'
-```
-
----
-
-## Device Configuration
-
-### Schneider SE8650 Thermostat
-
-`config.ini` device section:
-
-```ini
-[device:1]
-name = rtu01
-address = 192.168.1.101
-device_id = 1001
-stat_type = schneider
-```
-
-Registry: `schneider.csv` (~60 points: temps, setpoints, modes, stages)
-
-Thermostat config (`configs/aems-manager/schneider.config`):
-
-```json
-{
-    "campus": "PNNL",
-    "building": "SEB",
-    "system": "SCHNEIDER",
-    "system_status_point": "OccupancyCommand",
-    "setpoint_control": 1,
-    "local_tz": "US/Pacific",
-    "default_setpoints": {
-        "UnoccupiedHeatingSetPoint": 65,
-        "UnoccupiedCoolingSetPoint": 78,
-        "DeadBand": 3,
-        "OccupiedSetPoint": 71
-    },
-    "schedule": {
-        "Monday":    {"start": "6:00", "end": "18:00"},
-        "Tuesday":   {"start": "6:00", "end": "18:00"},
-        "Wednesday": {"start": "6:00", "end": "18:00"},
-        "Thursday":  {"start": "6:00", "end": "18:00"},
-        "Friday":    {"start": "6:00", "end": "18:00"},
-        "Saturday":  "always_off",
-        "Sunday":    "always_off"
-    },
-    "occupancy_values": {
-        "occupied": 2,
-        "unoccupied": 3
-    }
-}
-```
-
-Key fields:
-
-| Field | Description |
-|-------|-------------|
-| `setpoint_control` | `1` = Schneider dual-setpoint |
-| `default_setpoints` | Unoccupied fallback temperatures |
-| `schedule` | Occupied hours per day |
-| `occupancy_values` | Schneider: `2`/`3` |
-
-### OpenStat Thermostat
-
-Same pattern as Schneider with these differences:
-
-| Field | Schneider | OpenStat |
-|-------|-----------|----------|
-| `stat_type` | `schneider` | `openstat` |
-| `setpoint_control` | `1` (dual) | `0` (single) |
-| `occupancy_values` | `2`/`3` | `1`/`0` |
-| Registry | `schneider.csv` | `openstat.csv` |
-
-### DENT Power Meter
-
-```ini
-[meter]
-name = meter
-address = 192.168.1.100
-device_id = 100
-registry = dent.csv
-```
-
-Registry: `dent.csv` (~40 points: voltage, current, power, PF, THD)
-
----
-
-## Driver Modes
-
-### NF Driver (Recommended)
-
-Use when a Normal Framework gateway is available (sim-rtu or real NF gateway).
-
-```ini
-[agents]
-platform_driver = false
-nf_driver = true
-```
-
-NF driver config (`configs/nf-driver/config`):
-
-```yaml
-polling_interval: 60
-driver_config:
-  url: http://sim-rtu:8080          # or http://aems-gateway.local:8081
-  client_id: my-client
-  client_secret: my-secret
-device_list:
-- device_id: 86254
-  registry_file: schneider.csv
-  points_per_request: 25
-  topic: SIM/RTU/Schneider
-```
-
-### Legacy BACnet Driver
-
-Use for direct BACnet/IP to devices (no NF gateway).
-
-```ini
-[agents]
-platform_driver = true
-nf_driver = false
-```
-
-Requires BACnet proxy agent. Device config (`configs/platform-driver/devices/rtu01.config`):
-
-```json
-{
-    "driver_config": {
-        "device_address": "192.168.1.101",
-        "device_id": 1001
-    },
-    "driver_type": "bacnet",
-    "registry_config": "config://registry_configs/schneider.csv",
-    "interval": 60,
-    "timezone": "US/Pacific",
-    "heart_beat_point": "HeartBeat"
-}
-```
-
-Python 3.12+ requires:
-
-```bash
-pip install bacpypes==0.16.7 pyasyncore pyasynchat
-```
-
-### Switching Between Modes
-
-sim-rtu provides scripts to install the right configs:
-
-```bash
-# Switch to NF driver
-~/repos/sim-rtu/scripts/switch-to-nf.sh ~/repos/aems-lib-fastapi
-
-# Switch to BACnet driver
-~/repos/sim-rtu/scripts/switch-to-bacnet.sh ~/repos/aems-lib-fastapi
-```
-
-See [sim-rtu driver-switching.md](https://github.com/VOLTTRON/sim-rtu/blob/main/docs/driver-switching.md) for details.
-
----
-
-## AEMS Agents
-
-All agents run as Docker containers connecting via WebSocket to `aems-fastapi-server`.
-
-| Agent | Identity | Purpose |
-|-------|----------|---------|
-| **Manager** | `manager.rtuXX` | Per-device energy management (schedules, setpoints, occupancy) |
-| **NF Driver** | `platform.driver` | BACnet device polling via Normal Framework |
-| **SQL Historian** | `platform.historian` | Time-series data storage (PostgreSQL) |
-| **Weather** | `platform.weather` | Weather.gov station polling |
-| **ILC** | `ilc.platform` | Intelligent Load Control (depends on NF driver) |
-| **Listener** | `listener` | Debug/example pub/sub agent |
-
-### Manager Agent
-
-One instance per managed device. Configure via `config.ini`:
-
-```ini
-[aems_manager]
-prefix = rtu
-num_devices = 3          # creates manager.rtu01, manager.rtu02, manager.rtu03
-```
-
-Thermostat config in `aems-edge/configurations/thermostats/schneider.config`.
-
-### Weather Agent
-
-```ini
-[weather]
-station = KRIC           # nearest weather.gov station ID
-```
-
-Config file (`configs/weather/config`):
-
-```json
-{
-    "database_file": "weather.sqlite",
-    "max_size_gb": 1,
-    "poll_locations": [{"station": "KPSC"}],
-    "poll_interval": 60
-}
-```
-
-### ILC Agent
-
-Intelligent Load Control. Requires NF driver running. Config templates in `aems-edge/configurations/templates/`.
-
-### SQL Historian
-
-```ini
-[database]
-db_name = volttron
-db_user = volttron
-db_password = CHANGE_ME    # set a real password
-db_address = historian     # Docker service name
-db_port = 5432
-```
-
----
-
-## Orchestration Pipeline
-
-`config.ini` drives a three-step pipeline:
-
-```
-config.ini
-  → generate_configs.py       → configs/          (agent config files)
-  → generate-agents-config.py → agents-config.json (agent metadata)
-  → generate-docker-compose.py → docker-compose.yml (container definitions)
-```
-
-Run all steps:
-
-```bash
-cd ~/repos/aems-lib-fastapi
-python orchestrate.py
-```
-
-Flags:
-
-| Flag | Purpose |
+| File | Purpose |
 |------|---------|
-| `--config my-site.ini` | Use a different config file |
-| `--dry-run` | Preview without writing files |
-| `--skip-configs` | Skip if `configs/` already exists |
-| `--aems-edge-path /path` | Override default `../volttron-pnnl-aems/aems-edge` |
+| `.env.aems-fastapi` | FastAPI server + agent containers (port, VOLTTRON_HOME) |
+| `.env.certs` | TLS certificate generation (HOSTNAME) |
+| `.env.client` | Next.js frontend (database, auth, proxy settings) |
+| `.env.database` | PostgreSQL app database (user, password, db name) |
+| `.env.grafana` | Grafana dashboards (admin, OAuth, datasource) |
+| `.env.historian` | Historian PostgreSQL (user, password, replication) |
+| `.env.init` | Database migration container (connection string) |
+| `.env.keycloak` | Keycloak SSO (hostname, DB, admin creds) |
+| `.env.nominatim` | Geocoding service (PBF data source) |
+| `.env.redis` | Redis cache (username, password) |
+| `.env.seeders` | Database seed data (instance type, paths) |
+| `.env.server` | Backend API server (auth, session, logging) |
+| `.env.services` | Background services (auth, VOLTTRON integration) |
+| `.env.sim-rtu` | Simulated RTU config (log level, config path) |
+| `.env.volttron` | Legacy VOLTTRON + fastapi-setup (all VOLTTRON_* vars) |
+| `.env.wiki` | Bookstack wiki (app key, DB, Keycloak) |
 
-See [aems-lib-fastapi PIPELINE.md](https://github.com/VOLTTRON/aems-lib-fastapi/blob/develop/docs/PIPELINE.md) for full details.
+## Generated Configs
 
----
+The `fastapi-setup` container generates agent configs in `aems-app/docker/fastapi/setup/` from environment variables:
 
-## Mixed Setup (Simulated + Real)
+| Config | Agent | Generated From |
+|--------|-------|---------------|
+| `historian.config` | SQL Historian | `HISTORIAN_DATABASE_PASSWORD`, historian service hostname |
+| `weather.config` | Weather agent | `VOLTTRON_WEATHER_STATION` |
+| `configuration_store/manager.rtuXX/` | Manager agents | `VOLTTRON_CAMPUS`, `VOLTTRON_BUILDING`, `VOLTTRON_PREFIX` |
+| `configs/nf-driver/config` | NF Driver | `VOLTTRON_GATEWAY_ADDRESS`, `VOLTTRON_NUM_CONFIGS` |
+| `site.json` | Services | `VOLTTRON_PREFIX`, `VOLTTRON_NUM_CONFIGS` |
+| `ilc.config` | ILC agent | `VOLTTRON_ILC`, campus/building/prefix |
 
-Run sim-rtu alongside real hardware for development.
+> **Note:** On aems1, only ONE manager agent runs (`manager.rtu02`), not all 5 devices. The manager identity is hardcoded in the compose file. To run additional managers, duplicate the `aems-manager` service block with updated `--config`, `--identity`, and `container_name`.
 
-```ini
-[site]
-campus = PNNL
-building = SEB
-timezone = America/Los_Angeles
-gateway_address = 192.168.1.1
-stat_type = schneider
+## Common Operations
 
-# Simulated devices (sim-rtu)
-[device:1]
-name = sim-schneider
-address = 127.0.0.1
-device_id = 86254
-stat_type = schneider
-
-# Real devices
-[device:2]
-name = rtu01
-address = 192.168.1.101
-device_id = 1001
-stat_type = schneider
-
-[meter]
-name = meter
-address = 192.168.1.100
-device_id = 100
-registry = dent.csv
-```
-
-Topic separation:
-
-| Device | Topic | Source |
-|--------|-------|--------|
-| sim-schneider | `SIM/RTU/Schneider` | sim-rtu on localhost |
-| rtu01 | `PNNL/SEB/RTU01` | Real Schneider SE8650 |
-| meter | `PNNL/SEB/METER` | Real DENT meter |
-
----
-
-## Verification
+### Read a point
 
 ```bash
-# Health check
-curl http://localhost:5410/health/
-
-# Container status
-docker compose --profile fastapi ps
-
-# Read a point
-curl http://localhost:5410/devices/PNNL/SEB/RTU01/ZoneTemperature
-
-# Write a setpoint
-curl -X PUT http://localhost:5410/devices/PNNL/SEB/RTU01/OccupiedCoolingSetPoint \
-     -H "Content-Type: application/json" \
-     -d '{"value": 74.0, "priority": 16}'
-
-# API docs (Swagger UI)
-open http://localhost:5410/docs
-
-# Agent logs
-docker compose logs -f aems-manager
-docker compose logs -f aems-nf-driver
+curl -X POST http://localhost:5410/gs \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"get_point","params":{"args":["PNNL/ROB/rtu01","ZoneTemperature"]}}'
 ```
 
----
+### Check agent status
+
+```bash
+curl http://localhost:5410/connections/platform.driver
+```
+
+### View logs
+
+```bash
+docker compose logs -f aems-nf-driver
+docker compose logs -f aems-manager
+docker compose logs -f aems-fastapi-server
+```
+
+### Rebuild after code changes
+
+```bash
+docker compose build aems-fastapi-server
+docker compose up -d
+```
+
+### Restart a single agent
+
+```bash
+docker compose restart aems-nf-driver
+```
 
 ## Troubleshooting
 
-| Problem | Fix |
-|---------|-----|
-| `Address already in use` on 47808 | `lsof -i UDP:47808` — kill conflicting process |
-| `No module named asyncore` | Python 3.12+ removed it. `pip install pyasyncore pyasynchat` |
-| `No response from device` (BACnet) | Check `device_address` in config. Use `172.17.0.1` for Docker |
-| Connection refused on 8080 | sim-rtu not running or bound to `127.0.0.1`. Use `0.0.0.0` for Docker |
-| AEMS not polling | Check `polling_interval` in NF config. Default 60s |
-| `bacpypes` import errors | Must be `bacpypes==0.16.7` exactly (not bacpypes3) |
-| Config changes not taking effect | AEMS reads configs at startup. Restart after changes |
-| `orchestrate.py` exits code 2 | `volttron-pnnl-aems/aems-edge` not found. Use `--aems-edge-path` |
-| Docker: can't reach sim-rtu | Use `172.17.0.1` (docker0 bridge) or container name |
-| Firewall blocking BACnet | `sudo ufw allow 47808/udp` |
-| Wrong BACnet device ID | Run WhoIs discovery (see [BACnet discovery](#2-configure-configini)) |
-| NF gateway unreachable | Verify URL, check OAuth creds, `curl http://<gateway>:8081/health` |
-| Wrong occupancy behavior | Schneider: `2`=occupied/`3`=unoccupied. OpenStat: `1`/`0` |
-| Intermittent BACnet reads | Reduce `points_per_request` to avoid timeouts |
-| FastAPI server unhealthy | `docker compose logs aems-fastapi-server`. Check port 5410 |
-| Agent containers exit immediately | Server must be healthy first. Check `docker compose ps` |
-| `db_password = CHANGE_ME` | Set a real database password in `config.ini` |
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| `SeT_tHiS_iN_0x3A` in errors | Placeholder passwords not replaced | Replace all `SeT_tHiS_iN_0x3A-.env.secrets-` in `.env` with real values |
+| Port 5410 conflict | Both `volttron` and `fastapi` profiles enabled | Use only one: remove `volttron` from `COMPOSE_PROFILES` |
+| Historian can't connect | Wrong host/port for Docker networking | Historian host is `historian` (Docker service name), port `5432` |
+| `fastapi-setup` build fails | Missing symlink for aems-lib-fastapi | Run `ln -s ../aems-lib-fastapi .` from repo root |
+| `aems-edge` build context not found | Missing symlink or wrong relative path | Verify `../../aems-edge` resolves from `aems-app/docker/` |
+| SQL Historian crashes | Missing `psycopg2` | Verify the FastAPI image includes `psycopg2-binary` |
+| NF driver crash | Empty `Write Priority` field in registry | Patch `aems-edge/Normal/nf/driver.py` to handle empty strings |
+| Agent containers exit immediately | FastAPI server not healthy yet | Check `docker compose ps` -- server must show `healthy` |
+| `fastapi-setup` exits with error | VOLTTRON_* env vars not set | Check `.env` has all required VOLTTRON_* variables |
+| Config changes not taking effect | Configs read at startup only | Restart the affected container |
+| Web UI unreachable via HTTPS | Certs container failed or HOSTNAME wrong | Check `docker compose logs certs` and verify `HOSTNAME` in `.env` |
+| Keycloak login fails | Wrong `KEYCLOAK_CLIENT_SECRET` or HOSTNAME mismatch | Regenerate secret in Keycloak admin, update `.env` |
+| `docker compose build` very slow | No Docker BuildKit cache | Set `DOCKER_BUILDKIT=1` or use `docker buildx` |
+
+## Architecture Notes
+
+- **Image builds are local.** `COMPOSE_CONTAINER_REGISTRY=localhost` means `docker compose build` builds all images locally. No remote registry pull.
+- **Docker compose runs from `aems-app/docker/`** but the root `.env` at `aems-app/.env` is loaded automatically (compose walks up to find it).
+- **FastAPI server exposes port 8000 internally**, mapped to `5410` externally via `AEMS_FASTAPI_TEST_PORT`.
+- **Agent containers connect to the server via WebSocket** at `ws://aems-fastapi-server:8000` (Docker internal DNS).
+- **The NF driver mounts a local fix** for the Write Priority empty string bug (`driver.py` bind mount in compose).
