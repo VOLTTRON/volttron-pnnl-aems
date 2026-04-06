@@ -119,13 +119,16 @@ generate_nf_driver_config() {
 
     local nf_config_path="${nf_config_dir}/config"
 
-    # Build device list as JSON array
+    # Build device list as JSON array, reading device IDs from generated configs
     local device_list=""
-    local device_id_base=86254
     for ((i=1; i<=num_configs; i++)); do
         local device_name="${prefix}$(printf "%02d" $i)"
         local topic="devices/${campus}/${building}/${device_name}"
-        local device_id=$((device_id_base + i - 1))
+        local device_config="${output_dir}/configs/configuration_store/platform.driver/devices/${campus}/${building}/${device_name}"
+        local device_id=$i
+        if [[ -f "${device_config}" ]]; then
+            device_id=$(python3 -c "import json; print(json.load(open('${device_config}')).get('driver_config',{}).get('device_id', $i))" 2>/dev/null || echo "$i")
+        fi
         local registry_file="/app/site-config/configuration_store/platform.driver/registry_configs/schneider.csv"
         if [[ $i -gt 1 ]]; then
             device_list="${device_list},"
