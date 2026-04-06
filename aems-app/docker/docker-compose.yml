@@ -776,6 +776,8 @@ services:
         condition: service_healthy
     env_file:
       - .env.aems-fastapi
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://aems-fastapi-server:8000/connections/platform.driver"]
       interval: 30s

@@ -141,7 +141,7 @@ generate_nf_driver_config() {
     cat > "${nf_config_path}" << EOF
 {
     "driver_config": {
-        "url": "http://${gateway_address}"
+        "url": "${VOLTTRON_NF_GATEWAY_URL}"
     },
     "device_list": [${device_list}
     ],
@@ -171,6 +171,7 @@ VOLTTRON_WEATHER_STATION=${VOLTTRON_WEATHER_STATION:-""}
 VOLTTRON_REGISTRY_FILE_PATH=${VOLTTRON_REGISTRY_FILE_PATH:-""}
 VOLTTRON_BACNET_ADDRESS=${VOLTTRON_BACNET_ADDRESS:-""}
 VOLTTRON_ILC=${VOLTTRON_ILC:-"false"}
+VOLTTRON_NF_GATEWAY_URL=${VOLTTRON_NF_GATEWAY_URL:-"http://host.docker.internal:8081"}
 
 VOLTTRON_SMTP_ADDRESS=${VOLTTRON_SMTP_ADDRESS:-""}
 VOLTTRON_SMTP_USERNAME=${VOLTTRON_SMTP_USERNAME:-""}
