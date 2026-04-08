@@ -50,17 +50,17 @@ export function SiteDashboard({
   mode,
 }: SiteDashboardProps) {
   const units = optionalUnits ?? [];
-  
+
   // Get user palette preferences
   const { preferences } = React.useContext(PreferencesContext);
   const { current } = React.useContext(CurrentContext);
   const { palette1, palette2, palette3 } = compilePreferences(preferences, current?.preferences);
-  
+
   // Load palettes: primary for temps, secondary for demands, tertiary for status
   const primaryPalette = Palettes.getPalette(palette1 || "Radiant Harmony");
   const secondaryPalette = Palettes.getPalette(palette2 || "Desert Oasis");
   const tertiaryPalette = Palettes.getPalette(palette3 || "Pastel Dreams");
-  
+
   // Extract system names for queries and unit names for display
   const unitSystems = units
     .map((u) => u.system)
@@ -174,16 +174,83 @@ export function SiteDashboard({
   };
 
   // Helper function to prepare timeline data for ECharts
+  // Groups data by state/range so legend items match series names
   const prepareTimelineData = (
     data: typeof occupancyData,
     getStateInfo: (value: number) => { label: string; color: string },
+    startTime: string,
+    endTime: string,
+    systems: string[],
   ) => {
     if (!data?.historianMultiSystemUnit) return [];
 
-    return data.historianMultiSystemUnit.map((systemData: any, index: number) => {
+    const series: any[] = [];
+
+    // Create "Unknown" background series first (renders behind everything)
+    const unknownState = getStateInfo(0); // Get "Unknown" state info
+    const unknownData = systems.map((systemName) => ({
+      value: [systemName, startTime, endTime, unknownState.label, unknownState.color],
+      itemStyle: { color: unknownState.color },
+    }));
+
+    series.push({
+      name: unknownState.label,
+      type: "custom" as const,
+      itemStyle: {
+        color: unknownState.color,
+      },
+      emphasis: {
+        disabled: true,
+      },
+      renderItem: (params: any, api: any) => {
+        const systemName = api.value(0);
+        const start = api.coord([api.value(1), systemName]);
+        const end = api.coord([api.value(2), systemName]);
+        const height = api.size([0, 1])[1] * 0.6;
+        const color = api.value(4);
+
+        return {
+          type: "rect" as const,
+          shape: {
+            x: start[0],
+            y: start[1] - height / 2,
+            width: Math.max(end[0] - start[0], 1),
+            height: height,
+          },
+          style: {
+            fill: color,
+            stroke: null,
+          },
+        };
+      },
+      encode: {
+        x: [1, 2],
+        y: 0,
+      },
+      data: unknownData,
+    });
+
+    // Collect valid states (excluding "Unknown")
+    const stateMap = new Map<string, { label: string; color: string; data: any[] }>();
+
+    // Process each system's data
+    data.historianMultiSystemUnit.forEach((systemData: any) => {
       const points = systemData.data || [];
-      const timelineData = points.map((point: any, i: number) => {
-        const state = getStateInfo(point.value ?? 0);
+      const systemName = systemData.system;
+
+      points.forEach((point: any, i: number) => {
+        // Skip invalid data points
+        if (point.value == null || typeof point.value !== "number") {
+          return;
+        }
+
+        const state = getStateInfo(point.value);
+
+        // Skip "Unknown" states - they're already rendered as background
+        if (state.label === "Unknown") {
+          return;
+        }
+
         const startTime = point.timestamp;
         // End time is either the next point's timestamp, or add a default duration (e.g., 5 minutes)
         const endTime =
@@ -191,40 +258,64 @@ export function SiteDashboard({
             ? points[i + 1].timestamp
             : new Date(new Date(startTime).getTime() + 5 * 60 * 1000).toISOString();
 
-        return {
-          name: state.label,
-          value: [index, startTime, endTime, state.label],
-          itemStyle: { color: state.color },
-        };
-      });
+        // Get or create state entry
+        if (!stateMap.has(state.label)) {
+          stateMap.set(state.label, {
+            label: state.label,
+            color: state.color,
+            data: [],
+          });
+        }
 
-      return {
-        name: systemData.system,
+        // Add data point to this state's series - use system name instead of index
+        stateMap.get(state.label)!.data.push({
+          value: [systemName, startTime, endTime, state.label, state.color],
+          itemStyle: { color: state.color },
+        });
+      });
+    });
+
+    // Add valid state series (these render on top of "Unknown" background)
+    stateMap.forEach((stateData) => {
+      series.push({
+        name: stateData.label,
         type: "custom" as const,
+        itemStyle: {
+          color: stateData.color,
+        },
+        emphasis: {
+          disabled: true,
+        },
         renderItem: (params: any, api: any) => {
-          const categoryIndex = api.value(0);
-          const start = api.coord([api.value(1), categoryIndex]);
-          const end = api.coord([api.value(2), categoryIndex]);
+          const systemName = api.value(0);
+          const start = api.coord([api.value(1), systemName]);
+          const end = api.coord([api.value(2), systemName]);
           const height = api.size([0, 1])[1] * 0.6;
+          const color = api.value(4);
 
           return {
             type: "rect" as const,
             shape: {
               x: start[0],
               y: start[1] - height / 2,
-              width: Math.max(end[0] - start[0], 1), // Ensure minimum 1px width
+              width: Math.max(end[0] - start[0], 1),
               height: height,
             },
-            style: api.style(),
+            style: {
+              fill: color,
+              stroke: null,
+            },
           };
         },
         encode: {
           x: [1, 2],
           y: 0,
         },
-        data: timelineData,
-      } as any;
+        data: stateData.data,
+      });
     });
+
+    return series;
   };
 
   return (
@@ -252,6 +343,7 @@ export function SiteDashboard({
           ) : (
             <ECharts
               option={{
+                animation: false,
                 title: { text: "Occupancy Status" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: {
@@ -266,7 +358,7 @@ export function SiteDashboard({
                 legend: {
                   bottom: 0,
                   show: true,
-                  data: ["Local Control", "Occupied", "Unoccupied"],
+                  data: ["Unknown", "Local Control", "Occupied", "Unoccupied"],
                 },
                 grid: { top: 40, right: 60, bottom: 80, left: 80 },
                 xAxis: { type: "time" },
@@ -275,7 +367,7 @@ export function SiteDashboard({
                   data: unitSystems,
                   axisLabel: { interval: 0 },
                 },
-                series: prepareTimelineData(occupancyData, getOccupancyState),
+                series: prepareTimelineData(occupancyData, getOccupancyState, startTime, endTime, unitSystems),
               }}
               style={{ height: "400px" }}
               theme={mode}
@@ -291,6 +383,7 @@ export function SiteDashboard({
           ) : (
             <ECharts
               option={{
+                animation: false,
                 title: { text: "Occupancy Setpoint Error" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: {
@@ -300,6 +393,7 @@ export function SiteDashboard({
                   bottom: 0,
                   show: true,
                   data: [
+                    "Unknown",
                     "Very Cold (< -2°F)",
                     "Slightly Cold (-2 to -1°F)",
                     "Optimal (-1 to 1°F)",
@@ -314,7 +408,13 @@ export function SiteDashboard({
                   data: unitSystems,
                   axisLabel: { interval: 0 },
                 },
-                series: prepareTimelineData(setpointErrorData || undefined, getSetpointErrorState),
+                series: prepareTimelineData(
+                  setpointErrorData || undefined,
+                  getSetpointErrorState,
+                  startTime,
+                  endTime,
+                  unitSystems,
+                ),
               }}
               style={{ height: "400px" }}
               theme={mode}
