@@ -142,6 +142,19 @@ export function SiteDashboard({
     skip: unitSystems.length === 0,
   });
 
+  // Unit outdoor air temperature data - sensors on RTUs
+  const { data: outdoorTempData, loading: outdoorTempLoading } = useQuery(HistorianMultiSystemUnitDocument, {
+    variables: {
+      campus: campus,
+      building: building,
+      systems: unitSystems,
+      metric: UnitMetric.OutdoorAirTemperature,
+      startTime,
+      endTime,
+    },
+    skip: unitSystems.length === 0,
+  });
+
   // Power data - using meter data
   // Note: The actual metric name for power may need to be verified in the schema
   const { data: powerData, loading: powerLoading } = useQuery(HistorianUnitTimeSeriesDocument, {
@@ -219,6 +232,7 @@ export function SiteDashboard({
           },
           style: {
             fill: color,
+            opacity: 0.7,
             stroke: null,
           },
         };
@@ -425,36 +439,48 @@ export function SiteDashboard({
 
       <div className={styles.timelineGrid}>
         <Card className={styles.chartCard}>
-          {weatherLoading ? (
+          {weatherLoading || outdoorTempLoading ? (
             <div className={styles.chartLoading}>
               <Spinner />
             </div>
           ) : (
             <ECharts
               option={{
-                title: { text: "Weather" },
+                title: { text: "Outdoor Temperature" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: { trigger: "axis" },
                 legend: { bottom: 0, show: true },
                 grid: { top: 60, right: 60, bottom: 80, left: 60 },
                 xAxis: { type: "time" },
                 yAxis: { type: "value", name: "Temperature (°F)" },
-                series: weatherData?.historianWeatherTimeSeries
-                  ? [
-                      {
-                        name: "Outdoor Temperature",
-                        type: "line",
-                        smooth: true,
-                        itemStyle: { color: primaryPalette.tertiary.hex }, // Use primary palette for temperatures
-                        lineStyle: { color: primaryPalette.tertiary.hex },
-                        data:
-                          weatherData.historianWeatherTimeSeries.data?.map((point: any) => [
-                            point.timestamp,
-                            point.value,
-                          ]) || [],
-                      },
-                    ]
-                  : [],
+                series: [
+                  // Weather station outdoor temperature
+                  ...(weatherData?.historianWeatherTimeSeries
+                    ? [
+                        {
+                          name: "Weather Station",
+                          type: "line" as const,
+                          smooth: true,
+                          itemStyle: { color: secondaryPalette.primary.hex },
+                          lineStyle: { color: secondaryPalette.primary.hex, width: 2 },
+                          data:
+                            weatherData.historianWeatherTimeSeries.data?.map((point: any) => [
+                              point.timestamp,
+                              point.value,
+                            ]) || [],
+                        },
+                      ]
+                    : []),
+                  // Unit sensor outdoor temperatures
+                  ...(outdoorTempData?.historianMultiSystemUnit?.map((systemData: any, index: number) => ({
+                    name: `${systemData.system} Sensor`,
+                    type: "line" as const,
+                    smooth: true,
+                    itemStyle: { color: primaryPalette.getColor(index % 5).hex },
+                    lineStyle: { color: primaryPalette.getColor(index % 5).hex },
+                    data: systemData.data?.map((point: any) => [point.timestamp, point.value]) || [],
+                  })) || []),
+                ],
               }}
               style={{ height: "300px" }}
               theme={mode}

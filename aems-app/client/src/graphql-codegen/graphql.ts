@@ -3779,6 +3779,7 @@ export type UnitFilter = {
 export enum UnitMetric {
   AuxiliaryHeatCommand = 'AuxiliaryHeatCommand',
   CoolingDemand = 'CoolingDemand',
+  DeadBand = 'DeadBand',
   DemandResponseFlag = 'DemandResponseFlag',
   EffectiveZoneTemperatureSetPoint = 'EffectiveZoneTemperatureSetPoint',
   FirstStageCooling = 'FirstStageCooling',
@@ -3788,6 +3789,8 @@ export enum UnitMetric {
   OccupancyCommand = 'OccupancyCommand',
   OccupiedCoolingSetPoint = 'OccupiedCoolingSetPoint',
   OccupiedHeatingSetPoint = 'OccupiedHeatingSetPoint',
+  OccupiedSetPoint = 'OccupiedSetPoint',
+  OutdoorAirTemperature = 'OutdoorAirTemperature',
   ReversingValve = 'ReversingValve',
   SecondStageCooling = 'SecondStageCooling',
   SupplyFanStatus = 'SupplyFanStatus',

@@ -2625,6 +2625,7 @@ scalar UnitGroupBy
 enum UnitMetric {
   AuxiliaryHeatCommand
   CoolingDemand
+  DeadBand
   DemandResponseFlag
   EffectiveZoneTemperatureSetPoint
   FirstStageCooling
@@ -2634,6 +2635,8 @@ enum UnitMetric {
   OccupancyCommand
   OccupiedCoolingSetPoint
   OccupiedHeatingSetPoint
+  OccupiedSetPoint
+  OutdoorAirTemperature
   ReversingValve
   SecondStageCooling
   SupplyFanStatus

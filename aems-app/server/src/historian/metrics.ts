@@ -3,15 +3,14 @@
  * Core metric enums are exported from @local/prisma
  */
 
-export { UnitMetric, WeatherMetric } from "@local/prisma";
-import { UnitMetric, WeatherMetric } from "@local/prisma";
+import { UnitMetric, WeatherMetric, MeterMetric } from "@local/prisma";
 
 /**
  * Metadata about a metric
  */
 export interface MetricInfo {
-  topic: UnitMetric | WeatherMetric; // The enum value itself
-  category: "unit" | "weather";
+  topic: UnitMetric | WeatherMetric | MeterMetric; // The enum value itself
+  category: "unit" | "weather" | "meter";
   description?: string;
   unit?: string; // e.g., "°F", "%", "psi"
 }
@@ -30,6 +29,12 @@ export const UnitMetricInfo: Record<UnitMetric, MetricInfo> = {
     category: "unit",
     description: "Cooling demand percentage",
     unit: "%",
+  },
+  [UnitMetric.DeadBand]: {
+    topic: UnitMetric.DeadBand,
+    category: "unit",
+    description: "Temperature dead band",
+    unit: "°F",
   },
   [UnitMetric.DemandResponseFlag]: {
     topic: UnitMetric.DemandResponseFlag,
@@ -78,6 +83,18 @@ export const UnitMetricInfo: Record<UnitMetric, MetricInfo> = {
     topic: UnitMetric.OccupiedHeatingSetPoint,
     category: "unit",
     description: "Occupied heating setpoint",
+    unit: "°F",
+  },
+  [UnitMetric.OccupiedSetPoint]: {
+    topic: UnitMetric.OccupiedSetPoint,
+    category: "unit",
+    description: "Occupied setpoint",
+    unit: "°F",
+  },
+  [UnitMetric.OutdoorAirTemperature]: {
+    topic: UnitMetric.OutdoorAirTemperature,
+    category: "unit",
+    description: "Outdoor air temperature",
     unit: "°F",
   },
   [UnitMetric.ReversingValve]: {
@@ -212,13 +229,34 @@ export const WeatherMetricInfo: Record<WeatherMetric, MetricInfo> = {
 };
 
 /**
+ * Metadata for meter metrics
+ */
+export const MeterMetricInfo: Record<MeterMetric, MetricInfo> = {
+  [MeterMetric.Power]: {
+    topic: MeterMetric.Power,
+    category: "meter",
+    description: "Whole building power consumption",
+    unit: "W",
+  },
+  [MeterMetric.Demand]: {
+    topic: MeterMetric.Demand,
+    category: "meter",
+    description: "Whole building power demand",
+    unit: "W",
+  },
+};
+
+/**
  * Helper function to get metric topic name (returns the enum value as string)
  */
-export function getMetricTopicName(metric: UnitMetric | WeatherMetric): string {
+export function getMetricTopicName(metric: UnitMetric | WeatherMetric | MeterMetric): string {
   if (Object.values(UnitMetric).includes(metric as UnitMetric)) {
     return UnitMetricInfo[metric as UnitMetric].topic;
   }
-  return WeatherMetricInfo[metric as WeatherMetric].topic;
+  if (Object.values(WeatherMetric).includes(metric as WeatherMetric)) {
+    return WeatherMetricInfo[metric as WeatherMetric].topic;
+  }
+  return MeterMetricInfo[metric as MeterMetric].topic;
 }
 
 /**
@@ -235,4 +273,12 @@ export function buildUnitTopicPath(campus: string, building: string, system: str
 export function buildWeatherTopicPath(campus: string, building: string, metric: WeatherMetric): string {
   const topic = WeatherMetricInfo[metric].topic;
   return `${campus}/${building}/weather/${topic}`;
+}
+
+/**
+ * Helper function to build topic path for meter metric
+ */
+export function buildMeterTopicPath(campus: string, building: string, metric: MeterMetric): string {
+  const topic = MeterMetricInfo[metric].topic;
+  return `${campus}/${building}/meter/${topic}`;
 }

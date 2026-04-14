@@ -69,6 +69,7 @@
     "@pothos/plugin-prisma-utils": "^1.2.0",
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.2.2",
+    "@types/geojson": "^7946.0.16",
     "@types/http-errors": "^2.0.4",
     "@types/jest": "^29.5.12",
     "@types/jsonpath": "^0.2.4",

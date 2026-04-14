@@ -14,6 +14,7 @@
 export enum UnitMetric {
   AuxiliaryHeatCommand = "AuxiliaryHeatCommand",
   CoolingDemand = "CoolingDemand",
+  DeadBand = "DeadBand",
   DemandResponseFlag = "DemandResponseFlag",
   EffectiveZoneTemperatureSetPoint = "EffectiveZoneTemperatureSetPoint",
   FirstStageCooling = "FirstStageCooling",
@@ -23,6 +24,8 @@ export enum UnitMetric {
   OccupancyCommand = "OccupancyCommand",
   OccupiedCoolingSetPoint = "OccupiedCoolingSetPoint",
   OccupiedHeatingSetPoint = "OccupiedHeatingSetPoint",
+  OccupiedSetPoint = "OccupiedSetPoint",
+  OutdoorAirTemperature = "OutdoorAirTemperature",
   ReversingValve = "ReversingValve",
   SecondStageCooling = "SecondStageCooling",
   SupplyFanStatus = "SupplyFanStatus",
@@ -53,6 +56,15 @@ export enum WeatherMetric {
   WindChill = "windChill",
 }
 
+/**
+ * Metrics for meter/power data
+ * These metrics apply at the campus/building level for whole-building measurements
+ */
+export enum MeterMetric {
+  Power = "WholeBuildingPower",
+  Demand = "Demand",
+}
+
 // ============================================================================
 // Data Types
 // ============================================================================
@@ -61,24 +73,24 @@ export interface HistorianDataPoint {
   timestamp: Date;
   value: number | null;
   system: string;
-  metric: UnitMetric | WeatherMetric;
+  metric: UnitMetric | WeatherMetric | MeterMetric;
 }
 
 export interface HistorianTimeSeries {
   system: string;
-  metric: UnitMetric | WeatherMetric;
+  metric: UnitMetric | WeatherMetric | MeterMetric;
   data: HistorianDataPoint[];
 }
 
 export interface HistorianAggregate {
   timestamp: Date;
   value: number | null;
-  metric: UnitMetric | WeatherMetric;
+  metric: UnitMetric | WeatherMetric | MeterMetric;
 }
 
 export interface HistorianMetricCurrent {
   system: string;
-  metric: UnitMetric | WeatherMetric;
+  metric: UnitMetric | WeatherMetric | MeterMetric;
   value: number | null;
   timestamp: Date;
 }
@@ -97,7 +109,7 @@ export interface HistorianDataRange {
   endTime: Date;
   value: number | null;
   system: string;
-  metric: UnitMetric | WeatherMetric;
+  metric: UnitMetric | WeatherMetric | MeterMetric;
 }
 
 /**

@@ -1,10 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CalculationType = exports.AggregationType = exports.WeatherMetric = exports.UnitMetric = void 0;
+exports.CalculationType = exports.AggregationType = exports.MeterMetric = exports.WeatherMetric = exports.UnitMetric = void 0;
 var UnitMetric;
 (function (UnitMetric) {
     UnitMetric["AuxiliaryHeatCommand"] = "AuxiliaryHeatCommand";
     UnitMetric["CoolingDemand"] = "CoolingDemand";
+    UnitMetric["DeadBand"] = "DeadBand";
     UnitMetric["DemandResponseFlag"] = "DemandResponseFlag";
     UnitMetric["EffectiveZoneTemperatureSetPoint"] = "EffectiveZoneTemperatureSetPoint";
     UnitMetric["FirstStageCooling"] = "FirstStageCooling";
@@ -14,6 +15,8 @@ var UnitMetric;
     UnitMetric["OccupancyCommand"] = "OccupancyCommand";
     UnitMetric["OccupiedCoolingSetPoint"] = "OccupiedCoolingSetPoint";
     UnitMetric["OccupiedHeatingSetPoint"] = "OccupiedHeatingSetPoint";
+    UnitMetric["OccupiedSetPoint"] = "OccupiedSetPoint";
+    UnitMetric["OutdoorAirTemperature"] = "OutdoorAirTemperature";
     UnitMetric["ReversingValve"] = "ReversingValve";
     UnitMetric["SecondStageCooling"] = "SecondStageCooling";
     UnitMetric["SupplyFanStatus"] = "SupplyFanStatus";
@@ -39,6 +42,11 @@ var WeatherMetric;
     WeatherMetric["WindSpeedOfGust"] = "wind_speed_of_gust";
     WeatherMetric["WindChill"] = "windChill";
 })(WeatherMetric || (exports.WeatherMetric = WeatherMetric = {}));
+var MeterMetric;
+(function (MeterMetric) {
+    MeterMetric["Power"] = "WholeBuildingPower";
+    MeterMetric["Demand"] = "Demand";
+})(MeterMetric || (exports.MeterMetric = MeterMetric = {}));
 var AggregationType;
 (function (AggregationType) {
     AggregationType["Sum"] = "Sum";

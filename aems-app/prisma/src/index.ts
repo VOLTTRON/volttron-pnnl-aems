@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import type * as GeoJSON from "geojson";
 import * as Historian from "./types/historian";
 export * from "./pothos";
 export * from "./types/historian";

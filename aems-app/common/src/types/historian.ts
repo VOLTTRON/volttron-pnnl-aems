@@ -55,7 +55,7 @@ export interface SystemPublishingStatus {
   metric: string;
   lastPublished: Date;
   minutesAgo: number;
-  status: 'active' | 'stale' | 'inactive';
+  status: "active" | "stale" | "inactive";
 }
 
 /**
@@ -66,25 +66,4 @@ export interface HistorianReplicationInfo {
   subscriberSetupSql: SubscriberSetupSql;
   monitoringSql: MonitoringSql;
   systemPublishingStatus: SystemPublishingStatus[];
-}
-
-/**
- * Represents a time range where a metric value remains constant
- * Optimized for timeline/state visualizations to reduce data transfer
- */
-export interface HistorianDataRange {
-  startTime: Date;
-  endTime: Date;
-  value: number | null;
-  system: string;
-  metric: string;
-}
-
-/**
- * Multi-system data organized as ranges instead of individual points
- * Significantly reduces payload size for timeline visualizations
- */
-export interface HistorianMultiSystemRanges {
-  system: string;
-  ranges: HistorianDataRange[];
 }

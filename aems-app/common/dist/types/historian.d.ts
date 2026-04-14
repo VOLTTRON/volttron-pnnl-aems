@@ -31,22 +31,11 @@ export interface SystemPublishingStatus {
     metric: string;
     lastPublished: Date;
     minutesAgo: number;
-    status: 'active' | 'stale' | 'inactive';
+    status: "active" | "stale" | "inactive";
 }
 export interface HistorianReplicationInfo {
     publisherInfo: PublisherInfo;
     subscriberSetupSql: SubscriberSetupSql;
     monitoringSql: MonitoringSql;
     systemPublishingStatus: SystemPublishingStatus[];
-}
-export interface HistorianDataRange {
-    startTime: Date;
-    endTime: Date;
-    value: number | null;
-    system: string;
-    metric: string;
-}
-export interface HistorianMultiSystemRanges {
-    system: string;
-    ranges: HistorianDataRange[];
 }
