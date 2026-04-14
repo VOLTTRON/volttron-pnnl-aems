@@ -64,8 +64,8 @@ export function UnitDashboard({
   const primaryPalette = Palettes.getPalette(palette1 || "Radiant Harmony");
   const secondaryPalette = Palettes.getPalette(palette2 || "Desert Oasis");
   const tertiaryPalette = Palettes.getPalette(palette3 || "Pastel Dreams");
-  const warmPalette = Palettes.getPalette(paletteWarm || "AEMS Warm Tones");
-  const coolPalette = Palettes.getPalette(paletteCool || "AEMS Cool Tones");
+  const warmPalette = Palettes.getPalette(paletteWarm || "Red");
+  const coolPalette = Palettes.getPalette(paletteCool || "Blue");
   
   // Use unit's stored campus, building, and system for historian queries
   const unitCampus = unit.campus || campus;
@@ -379,36 +379,39 @@ export function UnitDashboard({
           <h4>Setpoints</h4>
           <div className={styles.setpointGrid}>
             {/* Column headers */}
-            <div></div>
             <div className={styles.columnHeader}>HEAT</div>
             <div className={styles.columnHeader}>COOL</div>
             
-            {/* Occupied row */}
+            {/* Occupied label - spans both columns */}
             <div className={styles.rowLabel}>OCCUPIED</div>
+            
+            {/* Occupied values */}
             <div 
               className={styles.setpointValue} 
-              style={{ color: warmPalette.primary.hex }}
+              style={{ color: warmPalette.tertiary.hex }}
             >
               {heatingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F
             </div>
             <div 
               className={styles.setpointValue}
-              style={{ color: coolPalette.primary.hex }}
+              style={{ color: coolPalette.tertiary.hex }}
             >
               {coolingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F
             </div>
             
-            {/* Unoccupied row */}
+            {/* Unoccupied label - spans both columns */}
             <div className={styles.rowLabel}>UNOCCUPIED</div>
+            
+            {/* Unoccupied values */}
             <div 
               className={styles.setpointValue}
-              style={{ color: warmPalette.tertiary.hex }}
+              style={{ color: warmPalette.primary.hex }}
             >
               {unoccupiedHeatingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F
             </div>
             <div 
               className={styles.setpointValue}
-              style={{ color: coolPalette.tertiary.hex }}
+              style={{ color: coolPalette.primary.hex }}
             >
               {unoccupiedCoolingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F
             </div>

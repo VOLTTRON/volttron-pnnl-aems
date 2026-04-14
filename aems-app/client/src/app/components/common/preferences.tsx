@@ -20,12 +20,20 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
   const [palette1, setPalette1] = useState<Palette>(Palettes.getPalette(currentPrefs.palette1 || "Radiant Harmony"));
   const [palette2, setPalette2] = useState<Palette>(Palettes.getPalette(currentPrefs.palette2 || "Desert Oasis"));
   const [palette3, setPalette3] = useState<Palette>(Palettes.getPalette(currentPrefs.palette3 || "Earthy Elegance"));
+  const [paletteWarm, setPaletteWarm] = useState<Palette>(
+    Palettes.getPalette(currentPrefs.paletteWarm || "Radiant Harmony"),
+  );
+  const [paletteCool, setPaletteCool] = useState<Palette>(
+    Palettes.getPalette(currentPrefs.paletteCool || "Desert Oasis"),
+  );
 
   const hasChanges =
     currentName !== name ||
     currentPrefs.palette1 !== palette1.name ||
     currentPrefs.palette2 !== palette2.name ||
-    currentPrefs.palette3 !== palette3.name;
+    currentPrefs.palette3 !== palette3.name ||
+    currentPrefs.paletteWarm !== paletteWarm.name ||
+    currentPrefs.paletteCool !== paletteCool.name;
 
   const handleUpdate = async () => {
     const serverPreferences = {
@@ -35,6 +43,8 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
       palette1: palette1.name,
       palette2: palette2.name,
       palette3: palette3.name,
+      paletteWarm: paletteWarm.name,
+      paletteCool: paletteCool.name,
     };
     await updateCurrent?.({
       preferences: compilePreferences(preferences, current?.preferences, serverPreferences, clientPreferences),
@@ -74,6 +84,14 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
 
       <FormGroup label="Tertiary Chart Palette" helperText="Used for status and states">
         <PalettePicker palettes={palettes} palette={palette3} onChange={setPalette3} />
+      </FormGroup>
+
+      <FormGroup label="Warm Chart Palette" helperText="Used for warm metrics">
+        <PalettePicker palettes={palettes} palette={paletteWarm} onChange={setPaletteWarm} />
+      </FormGroup>
+
+      <FormGroup label="Cool Chart Palette" helperText="Used for cool metrics">
+        <PalettePicker palettes={palettes} palette={paletteCool} onChange={setPaletteCool} />
       </FormGroup>
     </UpdateDialog>
   );
