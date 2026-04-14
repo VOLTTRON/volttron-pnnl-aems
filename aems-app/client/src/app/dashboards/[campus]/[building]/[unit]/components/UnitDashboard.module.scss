@@ -1,5 +1,5 @@
 .dashboard {
-  padding: 2rem;
+  padding: 14px;
   width: 100%;
   max-width: 1800px;
   margin: 0;
@@ -25,42 +25,103 @@
 
 .gauges {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 0.5rem;
+  grid-template-columns: repeat(1, 195px); // Mobile-first: start with 1 box
+}
+
+// Mobile/Tablet with compact nav (37px) - calculated: n*195 + (n-1)*4 + 37 + 28
+@media (min-width: 497px) and (max-width: 1023px) {
+  .gauges {
+    grid-template-columns: repeat(2, 195px); // 2 boxes
+  }
+}
+
+@media (min-width: 696px) and (max-width: 1023px) {
+  .gauges {
+    grid-template-columns: repeat(3, 195px); // 3 boxes (3+3+2)
+  }
+}
+
+@media (min-width: 895px) and (max-width: 1023px) {
+  .gauges {
+    grid-template-columns: repeat(4, 195px); // 4 boxes (4+4)
+  }
+}
+
+// Desktop with full nav (~200px) - calculated: n*195 + (n-1)*4 + 200 + 28
+@media (min-width: 1048px) {
+  .gauges {
+    grid-template-columns: repeat(4, 195px); // 4 boxes (4+4)
+  }
+}
+
+// 8 boxes: 8*195 + 7*4 = 1588px, fits in dashboard with 14px padding
+@media (min-width: 1800px) {
+  .gauges {
+    grid-template-columns: repeat(8, 195px); // 8 boxes in one row
+  }
 }
 
 .gauge {
-  padding: 0.5rem;
-  height: 220px;
+  width: 195px;
+  height: 195px;
+  padding: 0.75rem;
   text-align: center;
 
   h4 {
-    margin: 0 0 1rem 0;
+    margin: 0 0 0.5rem 0;
     color: var(--text-muted);
-    font-size: 0.9rem;
+    font-size: 0.75rem;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
 
   .value {
-    font-size: 2.5rem;
+    font-size: 1.8rem;
     font-weight: 600;
     color: var(--primary);
     margin: 0;
   }
 
-  .setpoints {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    font-size: 1.2rem;
-    font-weight: 500;
+  .setpointGrid {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr;
+    gap: 0.125rem;
+    width: 100%;
+    font-size: 0.55rem;
+  }
 
-    span {
-      color: var(--text-primary);
-    }
+  .columnHeader {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-align: center;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    padding: 0.125rem;
+  }
+
+  .rowLabel {
+    font-size: 0.55rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    padding: 0.125rem 0.25rem;
+  }
+
+  .setpointValue {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem;
+    font-weight: 700;
+    font-size: 1.1rem;
   }
 }
 

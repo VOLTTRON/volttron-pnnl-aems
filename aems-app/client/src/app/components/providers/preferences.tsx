@@ -10,6 +10,8 @@ export interface ClientPreferences {
   palette1?: string; // Primary palette (temperatures, main metrics)
   palette2?: string; // Secondary palette (setpoints, demands)
   palette3?: string; // Tertiary palette (status, states)
+  paletteWarm?: string; // Warm palette (heating, warm colors)
+  paletteCool?: string; // Cool palette (cooling, cool colors)
 }
 
 export type ServerPreferences = Omit<PrismaPreferences, (typeof SensitivePreferences)[number]>;
@@ -29,6 +31,8 @@ export const DefaultPreferences: Preferences = {
   palette1: "AEMS Cool Tones", // Primary: blues and purples for cooling/temperature
   palette2: "AEMS Warm Tones", // Secondary: reds, oranges, yellows for heating/setpoints
   palette3: "AEMS Vibrant Harmony", // Tertiary: vibrant diverging for status/efficiency
+  paletteWarm: "AEMS Warm Tones", // Warm: heating-related colors
+  paletteCool: "AEMS Cool Tones", // Cool: cooling-related colors
 };
 
 export const isPreferences = (preferences: any): preferences is Preferences => {

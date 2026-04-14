@@ -58,12 +58,14 @@ export function UnitDashboard({
   // Get user palette preferences
   const { preferences } = React.useContext(PreferencesContext);
   const { current } = React.useContext(CurrentContext);
-  const { palette1, palette2, palette3 } = compilePreferences(preferences, current?.preferences);
+  const { palette1, palette2, palette3, paletteWarm, paletteCool } = compilePreferences(preferences, current?.preferences);
   
   // Load palettes: primary for temps, secondary for demands, tertiary for status
   const primaryPalette = Palettes.getPalette(palette1 || "Radiant Harmony");
   const secondaryPalette = Palettes.getPalette(palette2 || "Desert Oasis");
   const tertiaryPalette = Palettes.getPalette(palette3 || "Pastel Dreams");
+  const warmPalette = Palettes.getPalette(paletteWarm || "AEMS Warm Tones");
+  const coolPalette = Palettes.getPalette(paletteCool || "AEMS Cool Tones");
   
   // Use unit's stored campus, building, and system for historian queries
   const unitCampus = unit.campus || campus;
@@ -375,11 +377,41 @@ export function UnitDashboard({
         </Card>
         <Card className={styles.gauge}>
           <h4>Setpoints</h4>
-          <div className={styles.setpoints}>
-            <span>Heat: {heatingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F</span>
-            <span>Cool: {coolingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F</span>
-            <span>Unocc Heat: {unoccupiedHeatingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F</span>
-            <span>Unocc Cool: {unoccupiedCoolingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F</span>
+          <div className={styles.setpointGrid}>
+            {/* Column headers */}
+            <div></div>
+            <div className={styles.columnHeader}>HEAT</div>
+            <div className={styles.columnHeader}>COOL</div>
+            
+            {/* Occupied row */}
+            <div className={styles.rowLabel}>OCCUPIED</div>
+            <div 
+              className={styles.setpointValue} 
+              style={{ color: warmPalette.primary.hex }}
+            >
+              {heatingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F
+            </div>
+            <div 
+              className={styles.setpointValue}
+              style={{ color: coolPalette.primary.hex }}
+            >
+              {coolingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F
+            </div>
+            
+            {/* Unoccupied row */}
+            <div className={styles.rowLabel}>UNOCCUPIED</div>
+            <div 
+              className={styles.setpointValue}
+              style={{ color: warmPalette.tertiary.hex }}
+            >
+              {unoccupiedHeatingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F
+            </div>
+            <div 
+              className={styles.setpointValue}
+              style={{ color: coolPalette.tertiary.hex }}
+            >
+              {unoccupiedCoolingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F
+            </div>
           </div>
         </Card>
         <Card className={styles.gauge}>
