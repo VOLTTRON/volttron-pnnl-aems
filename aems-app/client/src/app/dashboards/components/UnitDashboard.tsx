@@ -932,7 +932,7 @@ export function UnitDashboard({
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: { trigger: "axis" },
                 legend: { bottom: 0, show: true },
-                grid: { top: 60, right: 60, bottom: 80, left: 60 },
+                grid: { top: 60, right: 40, bottom: 80, left: 40 },
                 xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: [
                   {
@@ -945,6 +945,15 @@ export function UnitDashboard({
                     type: "value",
                     name: "Temperature (°F) / Humidity (%)",
                     position: "right",
+                    nameTextStyle: {
+                      align: "right",
+                    },
+                    axisLabel: {
+                      show: true,
+                      formatter: (value: number) => {
+                        return `${value}`;
+                      },
+                    },
                   },
                 ],
                 series: [

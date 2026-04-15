@@ -357,7 +357,7 @@ export function SiteDashboard({
                   show: true,
                   data: ["Unknown", "Local Control", "Occupied", "Unoccupied"],
                 },
-                grid: { top: 40, right: 60, bottom: 80, left: 80 },
+                grid: { top: 40, right: 40, bottom: 80, left: 40 },
                 xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: {
                   type: "category",
@@ -398,7 +398,7 @@ export function SiteDashboard({
                     "Very Warm (> 2°F)",
                   ],
                 },
-                grid: { top: 40, right: 60, bottom: 80, left: 80 },
+                grid: { top: 40, right: 40, bottom: 80, left: 40 },
                 xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: {
                   type: "category",
@@ -433,7 +433,7 @@ export function SiteDashboard({
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: { trigger: "axis" },
                 legend: { bottom: 0, show: true },
-                grid: { top: 60, right: 60, bottom: 80, left: 60 },
+                grid: { top: 60, right: 40, bottom: 80, left: 40 },
                 xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: { type: "value", name: "Temperature (°F)" },
                 series: [
