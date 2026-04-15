@@ -8,7 +8,6 @@ import { CurrentContext, PreferencesContext, compilePreferences } from "@/app/co
 import { Role } from "@local/common";
 import { SiteDashboard } from "@/app/dashboards/components/SiteDashboard";
 import { UnitDashboard } from "@/app/dashboards/components/UnitDashboard";
-import { calculateTimeRange, calculateFromDateForPreset } from "@/app/dashboards/utils/timeRange";
 import styles from "./page.module.scss";
 
 interface PageProps {
@@ -25,14 +24,13 @@ export default function DashboardPage({ params }: PageProps) {
   const { preferences } = useContext(PreferencesContext);
   const { mode } = compilePreferences(preferences, current?.preferences);
 
-  // Date-based time range state
-  const [fromDate, setFromDate] = useState<Date>(() => {
+  // Time range state - only ISO strings needed for GraphQL queries
+  const [startTime, setStartTime] = useState<string>(() => {
     const now = new Date();
-    return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // Default: 7 days ago
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return weekAgo.toISOString();
   });
-  const [toDate, setToDate] = useState<Date | null>(null);
-  const [useCurrentTime, setUseCurrentTime] = useState<boolean>(true);
-  const [selectedPreset, setSelectedPreset] = useState<string>("7d");
+  const [endTime, setEndTime] = useState<string>(() => new Date().toISOString());
 
   // Check if this is a site dashboard
   const isSite = decodedUnit === "site";
@@ -48,29 +46,14 @@ export default function DashboardPage({ params }: PageProps) {
     fetchPolicy: "network-only", // Ensure we get fresh data including campus, building, system
   });
 
-  // Calculate time range - memoized to prevent unnecessary re-renders
-  const { startTime, endTime } = useMemo(() => {
-    return calculateTimeRange(fromDate, toDate, useCurrentTime);
-  }, [fromDate, toDate, useCurrentTime]);
-
   if (!Role.User.granted(...(current?.role?.split(" ") ?? []))) {
     return <div>You do not have permission to view this page.</div>;
   }
 
-  // Handlers for time range selector
-  const handleApplyTimeRange = (newFromDate: Date, newToDate: Date | null, newUseCurrentTime: boolean) => {
-    setFromDate(newFromDate);
-    setToDate(newToDate);
-    setUseCurrentTime(newUseCurrentTime);
-    setSelectedPreset("custom");
-  };
-
-  const handlePresetChange = (preset: string) => {
-    const newFromDate = calculateFromDateForPreset(preset);
-    setFromDate(newFromDate);
-    setToDate(null);
-    setUseCurrentTime(true);
-    setSelectedPreset(preset);
+  // Handler for time range selector
+  const handleApplyTimeRange = (newStartTime: string, newEndTime: string) => {
+    setStartTime(newStartTime);
+    setEndTime(newEndTime);
   };
 
   if (isSite) {
@@ -81,12 +64,7 @@ export default function DashboardPage({ params }: PageProps) {
         units={unitsData?.readUnits ?? []}
         startTime={startTime}
         endTime={endTime}
-        fromDate={fromDate}
-        toDate={toDate}
-        useCurrentTime={useCurrentTime}
-        selectedPreset={selectedPreset}
         onApplyTimeRange={handleApplyTimeRange}
-        onPresetChange={handlePresetChange}
         mode={mode}
       />
     );
@@ -107,12 +85,7 @@ export default function DashboardPage({ params }: PageProps) {
       unit={unitsData?.readUnits?.[0]}
       startTime={startTime}
       endTime={endTime}
-      fromDate={fromDate}
-      toDate={toDate}
-      useCurrentTime={useCurrentTime}
-      selectedPreset={selectedPreset}
       onApplyTimeRange={handleApplyTimeRange}
-      onPresetChange={handlePresetChange}
       mode={mode}
     />
   );

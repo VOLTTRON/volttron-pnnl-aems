@@ -26,12 +26,7 @@ interface SiteDashboardProps {
   units: ReadUnitsQuery["readUnits"];
   startTime: string;
   endTime: string;
-  fromDate: Date;
-  toDate: Date | null;
-  useCurrentTime: boolean;
-  selectedPreset: string;
-  onApplyTimeRange: (fromDate: Date, toDate: Date | null, useCurrentTime: boolean) => void;
-  onPresetChange: (preset: string) => void;
+  onApplyTimeRange: (startTime: string, endTime: string) => void;
   mode: "light" | "dark";
 }
 
@@ -41,12 +36,7 @@ export function SiteDashboard({
   units: optionalUnits,
   startTime,
   endTime,
-  fromDate,
-  toDate,
-  useCurrentTime,
-  selectedPreset,
   onApplyTimeRange,
-  onPresetChange,
   mode,
 }: SiteDashboardProps) {
   const units = optionalUnits ?? [];
@@ -338,14 +328,7 @@ export function SiteDashboard({
         <h1>
           {campus} {building} - Site Overview
         </h1>
-        <TimeRangeSelector
-          fromDate={fromDate}
-          toDate={toDate}
-          useCurrentTime={useCurrentTime}
-          selectedPreset={selectedPreset}
-          onApply={onApplyTimeRange}
-          onPresetChange={onPresetChange}
-        />
+        <TimeRangeSelector onApply={onApplyTimeRange} />
       </div>
 
       <div className={styles.timelineGrid}>
