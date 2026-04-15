@@ -932,7 +932,23 @@ export function UnitDashboard({
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: { trigger: "axis" },
                 legend: { bottom: 0, show: true },
-                grid: { top: 60, right: 40, bottom: 80, left: 40 },
+                dataZoom: [
+                  {
+                    type: "slider",
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                    bottom: 60,
+                    height: 20,
+                  },
+                  {
+                    type: "inside",
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                  },
+                ],
+                grid: { top: 60, right: 40, bottom: 110, left: 40 },
                 xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: [
                   {
@@ -1064,7 +1080,7 @@ export function UnitDashboard({
                   },
                 ],
               }}
-              style={{ height: "500px" }}
+              style={{ height: "580px" }}
               theme={mode}
             />
           )}

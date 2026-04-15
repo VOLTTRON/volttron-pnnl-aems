@@ -357,7 +357,23 @@ export function SiteDashboard({
                   show: true,
                   data: ["Unknown", "Local Control", "Occupied", "Unoccupied"],
                 },
-                grid: { top: 40, right: 40, bottom: 80, left: 40 },
+                dataZoom: [
+                  {
+                    type: "slider",
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                    bottom: 60,
+                    height: 20,
+                  },
+                  {
+                    type: "inside",
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                  },
+                ],
+                grid: { top: 40, right: 40, bottom: 110, left: 40 },
                 xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: {
                   type: "category",
@@ -366,7 +382,7 @@ export function SiteDashboard({
                 },
                 series: prepareTimelineData(occupancyData, getOccupancyState, startTime, endTime, unitSystems),
               }}
-              style={{ height: "400px" }}
+              style={{ height: "480px" }}
               theme={mode}
             />
           )}
@@ -398,7 +414,23 @@ export function SiteDashboard({
                     "Very Warm (> 2°F)",
                   ],
                 },
-                grid: { top: 40, right: 40, bottom: 80, left: 40 },
+                dataZoom: [
+                  {
+                    type: "slider",
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                    bottom: 60,
+                    height: 20,
+                  },
+                  {
+                    type: "inside",
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                  },
+                ],
+                grid: { top: 40, right: 40, bottom: 110, left: 40 },
                 xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: {
                   type: "category",
@@ -413,7 +445,7 @@ export function SiteDashboard({
                   unitSystems,
                 ),
               }}
-              style={{ height: "400px" }}
+              style={{ height: "460px" }}
               theme={mode}
             />
           )}
@@ -433,7 +465,23 @@ export function SiteDashboard({
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: { trigger: "axis" },
                 legend: { bottom: 0, show: true },
-                grid: { top: 60, right: 40, bottom: 80, left: 40 },
+                dataZoom: [
+                  {
+                    type: "slider",
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                    bottom: 60,
+                    height: 20,
+                  },
+                  {
+                    type: "inside",
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                  },
+                ],
+                grid: { top: 60, right: 40, bottom: 110, left: 40 },
                 xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: { type: "value", name: "Temperature (°F)" },
                 series: [
@@ -465,7 +513,7 @@ export function SiteDashboard({
                   })) || []),
                 ],
               }}
-              style={{ height: "300px" }}
+              style={{ height: "380px" }}
               theme={mode}
             />
           )}
@@ -483,7 +531,23 @@ export function SiteDashboard({
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: { trigger: "axis" },
                 legend: { bottom: 0, show: true },
-                grid: { top: 60, right: 60, bottom: 80, left: 60 },
+                dataZoom: [
+                  {
+                    type: "slider",
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                    bottom: 60,
+                    height: 20,
+                  },
+                  {
+                    type: "inside",
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                  },
+                ],
+                grid: { top: 60, right: 60, bottom: 110, left: 60 },
                 xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: { type: "value", name: "Power (W)" },
                 series: powerData?.historianUnitTimeSeries
@@ -501,7 +565,7 @@ export function SiteDashboard({
                     ]
                   : [],
               }}
-              style={{ height: "300px" }}
+              style={{ height: "380px" }}
               theme={mode}
             />
           )}
