@@ -445,6 +445,13 @@ export function UnitDashboard({
   const currentLoading = false; // All queries are separate now
   const timeSeriesLoading = zoneTempLoading; // Use one as indicator
 
+  // Calculate 24-hour range for sparkline charts
+  const sparklineStartTime = React.useMemo(() => {
+    const end = new Date(endTime);
+    const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+    return start.toISOString();
+  }, [endTime]);
+
   return (
     <div className={styles.dashboard}>
       <div className={styles.header}>
@@ -725,7 +732,7 @@ export function UnitDashboard({
               option={{
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 grid: { top: 0, right: 0, bottom: 0, left: 0 },
-                xAxis: { type: "time", show: false },
+                xAxis: { type: "time", show: false, min: sparklineStartTime, max: endTime },
                 yAxis: { type: "value", show: false, min: 0, max: 3 },
                 tooltip: { show: false },
                 series: [{
@@ -753,7 +760,7 @@ export function UnitDashboard({
               option={{
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 grid: { top: 0, right: 0, bottom: 0, left: 0 },
-                xAxis: { type: "time", show: false },
+                xAxis: { type: "time", show: false, min: sparklineStartTime, max: endTime },
                 yAxis: { type: "value", show: false, min: 0, max: 1 },
                 tooltip: { show: false },
                 series: [{
@@ -779,7 +786,7 @@ export function UnitDashboard({
               option={{
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 grid: { top: 0, right: 0, bottom: 0, left: 0 },
-                xAxis: { type: "time", show: false },
+                xAxis: { type: "time", show: false, min: sparklineStartTime, max: endTime },
                 yAxis: { type: "value", show: false, min: 0, max: 1 },
                 tooltip: { show: false },
                 series: [{
@@ -805,7 +812,7 @@ export function UnitDashboard({
               option={{
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 grid: { top: 0, right: 0, bottom: 0, left: 0 },
-                xAxis: { type: "time", show: false },
+                xAxis: { type: "time", show: false, min: sparklineStartTime, max: endTime },
                 yAxis: { type: "value", show: false, min: 0, max: 2 },
                 tooltip: { show: false },
                 series: [{
@@ -842,7 +849,7 @@ export function UnitDashboard({
                 tooltip: { trigger: "axis" },
                 legend: { bottom: 0, show: true },
                 grid: { top: 60, right: 60, bottom: 80, left: 60 },
-                xAxis: { type: "time" },
+                xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: [
                   {
                     type: "value",

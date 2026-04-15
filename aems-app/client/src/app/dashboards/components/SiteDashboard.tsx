@@ -375,7 +375,7 @@ export function SiteDashboard({
                   data: ["Unknown", "Local Control", "Occupied", "Unoccupied"],
                 },
                 grid: { top: 40, right: 60, bottom: 80, left: 80 },
-                xAxis: { type: "time" },
+                xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: {
                   type: "category",
                   data: unitSystems,
@@ -416,7 +416,7 @@ export function SiteDashboard({
                   ],
                 },
                 grid: { top: 40, right: 60, bottom: 80, left: 80 },
-                xAxis: { type: "time" },
+                xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: {
                   type: "category",
                   data: unitSystems,
@@ -451,7 +451,7 @@ export function SiteDashboard({
                 tooltip: { trigger: "axis" },
                 legend: { bottom: 0, show: true },
                 grid: { top: 60, right: 60, bottom: 80, left: 60 },
-                xAxis: { type: "time" },
+                xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: { type: "value", name: "Temperature (°F)" },
                 series: [
                   // Weather station outdoor temperature
@@ -501,7 +501,7 @@ export function SiteDashboard({
                 tooltip: { trigger: "axis" },
                 legend: { bottom: 0, show: true },
                 grid: { top: 60, right: 60, bottom: 80, left: 60 },
-                xAxis: { type: "time" },
+                xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: { type: "value", name: "Power (W)" },
                 series: powerData?.historianUnitTimeSeries
                   ? [
