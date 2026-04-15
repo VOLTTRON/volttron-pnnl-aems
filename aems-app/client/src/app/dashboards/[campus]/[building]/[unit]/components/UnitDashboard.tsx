@@ -58,7 +58,7 @@ export function UnitDashboard({
   // Get user palette preferences
   const { preferences } = React.useContext(PreferencesContext);
   const { current } = React.useContext(CurrentContext);
-  const { palette1, palette2, palette3, paletteWarm, paletteCool } = compilePreferences(preferences, current?.preferences);
+  const { palette1, palette2, palette3, paletteWarm, paletteCool, paletteGradient } = compilePreferences(preferences, current?.preferences);
   
   // Load palettes: primary for temps, secondary for demands, tertiary for status
   const primaryPalette = Palettes.getPalette(palette1 || "Radiant Harmony");
@@ -66,6 +66,103 @@ export function UnitDashboard({
   const tertiaryPalette = Palettes.getPalette(palette3 || "Pastel Dreams");
   const warmPalette = Palettes.getPalette(paletteWarm || "Red");
   const coolPalette = Palettes.getPalette(paletteCool || "Blue");
+  const gradientPalette = Palettes.getPalette(paletteGradient || "Teal");
+  
+  // Helper function to blend two hex colors (50/50 mix)
+  const blendColors = (color1: string, color2: string): string => {
+    const hex1 = color1.replace('#', '');
+    const hex2 = color2.replace('#', '');
+    
+    const r1 = parseInt(hex1.substring(0, 2), 16);
+    const g1 = parseInt(hex1.substring(2, 4), 16);
+    const b1 = parseInt(hex1.substring(4, 6), 16);
+    
+    const r2 = parseInt(hex2.substring(0, 2), 16);
+    const g2 = parseInt(hex2.substring(2, 4), 16);
+    const b2 = parseInt(hex2.substring(4, 6), 16);
+    
+    const r = Math.round((r1 + r2) / 2);
+    const g = Math.round((g1 + g2) / 2);
+    const b = Math.round((b1 + b2) / 2);
+    
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  };
+
+  // Build smooth temperature gradient with blended intermediate colors
+  const buildTemperatureGradient = React.useMemo(() => {
+    const gradient: [number, string][] = [];
+    
+    // Cool palette section (0-60°F = 0-0.5 of range)
+    const coolColors = [];
+    for (let i = 0; i < 5; i++) {
+      coolColors.push(coolPalette.getColor(i).hex);
+    }
+    
+    // Add cool colors with blends
+    for (let i = 0; i < coolColors.length; i++) {
+      const position = (i / (coolColors.length - 1)) * 0.5; // Map to 0-0.5
+      gradient.push([position, coolColors[i]]);
+      
+      // Add blend between this and next color
+      if (i < coolColors.length - 1) {
+        const blendPosition = ((i + 0.5) / (coolColors.length - 1)) * 0.5;
+        gradient.push([blendPosition, blendColors(coolColors[i], coolColors[i + 1])]);
+      }
+    }
+    
+    // Warm palette section (60-120°F = 0.5-1.0 of range) - reversed
+    const warmColors = [];
+    for (let i = 4; i >= 0; i--) { // Reverse order
+      warmColors.push(warmPalette.getColor(i).hex);
+    }
+    
+    // Add transition blend between cool and warm
+    const transitionBlend = blendColors(coolColors[coolColors.length - 1], warmColors[0]);
+    gradient.push([0.5, transitionBlend]);
+    
+    // Add warm colors with blends
+    for (let i = 0; i < warmColors.length; i++) {
+      const position = 0.5 + (i / (warmColors.length - 1)) * 0.5; // Map to 0.5-1.0
+      if (i > 0) { // Skip first as we already added transition blend at 0.5
+        gradient.push([position, warmColors[i]]);
+      }
+      
+      // Add blend between this and next color
+      if (i < warmColors.length - 1) {
+        const blendPosition = 0.5 + ((i + 0.5) / (warmColors.length - 1)) * 0.5;
+        gradient.push([blendPosition, blendColors(warmColors[i], warmColors[i + 1])]);
+      }
+    }
+    
+    // Sort by position to ensure correct order
+    return gradient.sort((a, b) => a[0] - b[0]);
+  }, [coolPalette, warmPalette]);
+
+  // Build smooth humidity gradient with blended intermediate colors
+  const buildHumidityGradient = React.useMemo(() => {
+    const gradient: [number, string][] = [];
+    
+    // Get gradient palette colors in reverse order
+    const colors = [];
+    for (let i = 4; i >= 0; i--) {  // Reverse order
+      colors.push(gradientPalette.getColor(i).hex);
+    }
+    
+    // Add colors with blends
+    for (let i = 0; i < colors.length; i++) {
+      const position = i / (colors.length - 1); // Map evenly across 0-1
+      gradient.push([position, colors[i]]);
+      
+      // Add blend between this and next color
+      if (i < colors.length - 1) {
+        const blendPosition = (i + 0.5) / (colors.length - 1);
+        gradient.push([blendPosition, blendColors(colors[i], colors[i + 1])]);
+      }
+    }
+    
+    // Sort by position to ensure correct order
+    return gradient.sort((a, b) => a[0] - b[0]);
+  }, [gradientPalette]);
   
   // Use unit's stored campus, building, and system for historian queries
   const unitCampus = unit.campus || campus;
@@ -365,15 +462,219 @@ export function UnitDashboard({
       <div className={styles.gauges}>
         <Card className={styles.gauge}>
           <h4>Outdoor Air Temperature</h4>
-          <div className={styles.value}>{outdoorTemp?.historianWeatherCurrentValue?.value?.toFixed(1) || "--"}°F</div>
+          <ECharts
+            option={{
+              backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+              series: [
+                {
+                  type: 'gauge',
+                  center: ['50%', '60%'],
+                  radius: '95%',
+                  startAngle: 200,
+                  endAngle: -20,
+                  min: 0,
+                  max: 120,
+                  splitNumber: 12,
+                  itemStyle: {
+                    color: mode === 'dark' ? '#ffffff' : '#333333',
+                  },
+                  progress: {
+                    show: true,
+                    width: 14,
+                    itemStyle: {
+                      color: mode === 'dark' ? '#ffffff' : '#333333',
+                    }
+                  },
+                  pointer: {
+                    show: false,
+                  },
+                  axisLine: {
+                    lineStyle: {
+                      width: 22,
+                      color: buildTemperatureGradient
+                    }
+                  },
+                  axisTick: {
+                    distance: -28,
+                    length: 5,
+                    lineStyle: {
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      width: 1
+                    }
+                  },
+                  splitLine: {
+                    distance: -34,
+                    length: 8,
+                    lineStyle: {
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      width: 2
+                    }
+                  },
+                  axisLabel: {
+                    show: false
+                  },
+                  detail: {
+                    fontSize: 36,
+                    fontWeight: 'bold',
+                    color: mode === 'dark' ? '#fff' : '#000',
+                    formatter: '{value}°F',
+                    offsetCenter: [0, '15%']
+                  },
+                  data: [
+                    {
+                      value: outdoorTemp?.historianWeatherCurrentValue?.value || 0
+                    }
+                  ]
+                }
+              ]
+            }}
+            style={{ height: '160px', overflow: 'hidden' }}
+            theme={mode}
+          />
         </Card>
         <Card className={styles.gauge}>
           <h4>Zone Humidity</h4>
-          <div className={styles.value}>{zoneHumidity?.historianUnitCurrentValue?.value?.toFixed(0) || "--"}%</div>
+          <ECharts
+            option={{
+              backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+              series: [
+                {
+                  type: 'gauge',
+                  center: ['50%', '60%'],
+                  radius: '95%',
+                  startAngle: 200,
+                  endAngle: -20,
+                  min: 0,
+                  max: 100,
+                  splitNumber: 10,
+                  itemStyle: {
+                    color: mode === 'dark' ? '#ffffff' : '#333333',
+                  },
+                  progress: {
+                    show: true,
+                    width: 14,
+                    itemStyle: {
+                      color: mode === 'dark' ? '#ffffff' : '#333333',
+                    }
+                  },
+                  pointer: {
+                    show: false,
+                  },
+                  axisLine: {
+                    lineStyle: {
+                      width: 22,
+                      color: buildHumidityGradient
+                    }
+                  },
+                  axisTick: {
+                    distance: -28,
+                    length: 5,
+                    lineStyle: {
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      width: 1
+                    }
+                  },
+                  splitLine: {
+                    distance: -34,
+                    length: 8,
+                    lineStyle: {
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      width: 2
+                    }
+                  },
+                  axisLabel: {
+                    show: false
+                  },
+                  detail: {
+                    fontSize: 36,
+                    fontWeight: 'bold',
+                    color: mode === 'dark' ? '#fff' : '#000',
+                    formatter: '{value}%',
+                    offsetCenter: [0, '15%']
+                  },
+                  data: [
+                    {
+                      value: zoneHumidity?.historianUnitCurrentValue?.value || 0
+                    }
+                  ]
+                }
+              ]
+            }}
+            style={{ height: '160px', overflow: 'hidden' }}
+            theme={mode}
+          />
         </Card>
         <Card className={styles.gauge}>
           <h4>Zone Temperature</h4>
-          <div className={styles.value}>{zoneTemp?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F</div>
+          <ECharts
+            option={{
+              backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+              series: [
+                {
+                  type: 'gauge',
+                  center: ['50%', '60%'],
+                  radius: '95%',
+                  startAngle: 200,
+                  endAngle: -20,
+                  min: 0,
+                  max: 120,
+                  splitNumber: 12,
+                  itemStyle: {
+                    color: mode === 'dark' ? '#ffffff' : '#333333',
+                  },
+                  progress: {
+                    show: true,
+                    width: 14,
+                    itemStyle: {
+                      color: mode === 'dark' ? '#ffffff' : '#333333',
+                    }
+                  },
+                  pointer: {
+                    show: false,
+                  },
+                  axisLine: {
+                    lineStyle: {
+                      width: 22,
+                      color: buildTemperatureGradient
+                    }
+                  },
+                  axisTick: {
+                    distance: -28,
+                    length: 5,
+                    lineStyle: {
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      width: 1
+                    }
+                  },
+                  splitLine: {
+                    distance: -34,
+                    length: 8,
+                    lineStyle: {
+                      color: mode === 'dark' ? '#fff' : '#000',
+                      width: 2
+                    }
+                  },
+                  axisLabel: {
+                    show: false
+                  },
+                  detail: {
+                    fontSize: 36,
+                    fontWeight: 'bold',
+                    color: mode === 'dark' ? '#fff' : '#000',
+                    formatter: '{value}°F',
+                    offsetCenter: [0, '15%']
+                  },
+                  data: [
+                    {
+                      value: zoneTemp?.historianUnitCurrentValue?.value || 70
+                    }
+                  ]
+                }
+              ]
+            }}
+            style={{ height: '160px', overflow: 'hidden' }}
+            theme={mode}
+          />
         </Card>
         <Card className={styles.gauge}>
           <h4>Setpoints</h4>
@@ -419,30 +720,110 @@ export function UnitDashboard({
         </Card>
         <Card className={styles.gauge}>
           <h4>Occupancy Command</h4>
-          <div className={styles.value}>
-            {occupancyCommand?.historianUnitCurrentValue?.value === 1 ? "LOCAL CONTROL" :
-             occupancyCommand?.historianUnitCurrentValue?.value === 2 ? "OCCUPIED" :
-             occupancyCommand?.historianUnitCurrentValue?.value === 3 ? "UNOCCUPIED" : "--"}
+          <div style={{ position: 'relative', height: 'calc(100% - 1.25rem)' }}>
+            <ECharts
+              option={{
+                backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+                grid: { top: 0, right: 0, bottom: 0, left: 0 },
+                xAxis: { type: "time", show: false },
+                yAxis: { type: "value", show: false, min: 0, max: 3 },
+                tooltip: { show: false },
+                series: [{
+                  type: "line",
+                  step: "end",
+                  data: occupancyCommandSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
+                  color: tertiaryPalette.primary.hex,
+                  showSymbol: false,
+                }]
+              }}
+              style={{ height: '100%', width: '100%', position: 'absolute', top: 0, left: 0 }}
+              theme={mode}
+            />
+            <div className={styles.value} style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {occupancyCommand?.historianUnitCurrentValue?.value === 1 ? "LOCAL CONTROL" :
+               occupancyCommand?.historianUnitCurrentValue?.value === 2 ? "OCCUPIED" :
+               occupancyCommand?.historianUnitCurrentValue?.value === 3 ? "UNOCCUPIED" : "--"}
+            </div>
           </div>
         </Card>
         <Card className={styles.gauge}>
           <h4>Heating Command</h4>
-          <div className={styles.value}>
-            {heatingCommand?.historianUnitCurrentValue?.value ? "ON" : "OFF"}
+          <div style={{ position: 'relative', height: 'calc(100% - 1.25rem)' }}>
+            <ECharts
+              option={{
+                backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+                grid: { top: 0, right: 0, bottom: 0, left: 0 },
+                xAxis: { type: "time", show: false },
+                yAxis: { type: "value", show: false, min: 0, max: 1 },
+                tooltip: { show: false },
+                series: [{
+                  type: "line",
+                  step: "end",
+                  data: firstStageHeatingSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
+                  color: secondaryPalette.quaternary.hex,
+                  showSymbol: false,
+                }]
+              }}
+              style={{ height: '100%', width: '100%', position: 'absolute', top: 0, left: 0 }}
+              theme={mode}
+            />
+            <div className={styles.value} style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {heatingCommand?.historianUnitCurrentValue?.value ? "ON" : "OFF"}
+            </div>
           </div>
         </Card>
         <Card className={styles.gauge}>
           <h4>Supply Fan</h4>
-          <div className={styles.value}>
-            {supplyFan?.historianUnitCurrentValue?.value ? "ON" : "OFF"}
+          <div style={{ position: 'relative', height: 'calc(100% - 1.25rem)' }}>
+            <ECharts
+              option={{
+                backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+                grid: { top: 0, right: 0, bottom: 0, left: 0 },
+                xAxis: { type: "time", show: false },
+                yAxis: { type: "value", show: false, min: 0, max: 1 },
+                tooltip: { show: false },
+                series: [{
+                  type: "line",
+                  step: "end",
+                  data: fanStatusSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
+                  color: tertiaryPalette.secondary.hex,
+                  showSymbol: false,
+                }]
+              }}
+              style={{ height: '100%', width: '100%', position: 'absolute', top: 0, left: 0 }}
+              theme={mode}
+            />
+            <div className={styles.value} style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {supplyFan?.historianUnitCurrentValue?.value ? "ON" : "OFF"}
+            </div>
           </div>
         </Card>
         <Card className={styles.gauge}>
           <h4>Cooling Stage</h4>
-          <div className={styles.value}>
-            {coolingStage === 0 ? "OFF" :
-             coolingStage === 1 ? "1 Stage Cooling" :
-             coolingStage === 2 ? "2 Stage Cooling" : "--"}
+          <div style={{ position: 'relative', height: 'calc(100% - 1.25rem)' }}>
+            <ECharts
+              option={{
+                backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+                grid: { top: 0, right: 0, bottom: 0, left: 0 },
+                xAxis: { type: "time", show: false },
+                yAxis: { type: "value", show: false, min: 0, max: 2 },
+                tooltip: { show: false },
+                series: [{
+                  type: "line",
+                  step: "end",
+                  data: coolingStageSeriesData,
+                  color: secondaryPalette.secondary.hex,
+                  showSymbol: false,
+                }]
+              }}
+              style={{ height: '100%', width: '100%', position: 'absolute', top: 0, left: 0 }}
+              theme={mode}
+            />
+            <div className={styles.value} style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {coolingStage === 0 ? "OFF" :
+               coolingStage === 1 ? "1 Stage Cooling" :
+               coolingStage === 2 ? "2 Stage Cooling" : "--"}
+            </div>
           </div>
         </Card>
       </div>

@@ -26,6 +26,9 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
   const [paletteCool, setPaletteCool] = useState<Palette>(
     Palettes.getPalette(currentPrefs.paletteCool || "Desert Oasis"),
   );
+  const [paletteGradient, setPaletteGradient] = useState<Palette>(
+    Palettes.getPalette(currentPrefs.paletteGradient || "Turquoise"),
+  );
 
   const hasChanges =
     currentName !== name ||
@@ -33,7 +36,8 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
     currentPrefs.palette2 !== palette2.name ||
     currentPrefs.palette3 !== palette3.name ||
     currentPrefs.paletteWarm !== paletteWarm.name ||
-    currentPrefs.paletteCool !== paletteCool.name;
+    currentPrefs.paletteCool !== paletteCool.name ||
+    currentPrefs.paletteGradient !== paletteGradient.name;
 
   const handleUpdate = async () => {
     const serverPreferences = {
@@ -45,6 +49,7 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
       palette3: palette3.name,
       paletteWarm: paletteWarm.name,
       paletteCool: paletteCool.name,
+      paletteGradient: paletteGradient.name,
     };
     await updateCurrent?.({
       preferences: compilePreferences(preferences, current?.preferences, serverPreferences, clientPreferences),
@@ -92,6 +97,10 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
 
       <FormGroup label="Cool Chart Palette" helperText="Used for cool metrics">
         <PalettePicker palettes={palettes} palette={paletteCool} onChange={setPaletteCool} />
+      </FormGroup>
+
+      <FormGroup label="Gradient Chart Palette" helperText="Used for gradient metrics">
+        <PalettePicker palettes={palettes} palette={paletteGradient} onChange={setPaletteGradient} />
       </FormGroup>
     </UpdateDialog>
   );
