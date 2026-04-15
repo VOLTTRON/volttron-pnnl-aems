@@ -360,6 +360,7 @@ export function SiteDashboard({
                 dataZoom: [
                   {
                     type: "slider",
+                    realtime: false,
                     xAxisIndex: 0,
                     start: 0,
                     end: 100,
@@ -417,6 +418,7 @@ export function SiteDashboard({
                 dataZoom: [
                   {
                     type: "slider",
+                    realtime: false,
                     xAxisIndex: 0,
                     start: 0,
                     end: 100,
@@ -468,6 +470,7 @@ export function SiteDashboard({
                 dataZoom: [
                   {
                     type: "slider",
+                    realtime: false,
                     xAxisIndex: 0,
                     start: 0,
                     end: 100,
@@ -534,6 +537,7 @@ export function SiteDashboard({
                 dataZoom: [
                   {
                     type: "slider",
+                    realtime: false,
                     xAxisIndex: 0,
                     start: 0,
                     end: 100,

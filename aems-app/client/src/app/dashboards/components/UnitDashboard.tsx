@@ -935,6 +935,7 @@ export function UnitDashboard({
                 dataZoom: [
                   {
                     type: "slider",
+                    realtime: false,
                     xAxisIndex: 0,
                     start: 0,
                     end: 100,
