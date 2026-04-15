@@ -463,9 +463,17 @@ export function SiteDashboard({
           ) : (
             <ECharts
               option={{
+                animation: false,
                 title: { text: "Outdoor Temperature" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
-                tooltip: { trigger: "axis" },
+                tooltip: {
+                  trigger: "axis",
+                  renderMode: "richText",
+                  appendToBody: true,
+                  axisPointer: {
+                    animation: false,
+                  },
+                },
                 legend: { bottom: 0, show: true },
                 dataZoom: [
                   {
@@ -495,6 +503,7 @@ export function SiteDashboard({
                           name: "Weather Station",
                           type: "line" as const,
                           smooth: true,
+                          sampling: "lttb" as const,
                           itemStyle: { color: secondaryPalette.primary.hex },
                           lineStyle: { color: secondaryPalette.primary.hex, width: 2 },
                           data:
@@ -510,6 +519,7 @@ export function SiteDashboard({
                     name: `${systemData.system} Sensor`,
                     type: "line" as const,
                     smooth: true,
+                    sampling: "lttb" as const,
                     itemStyle: { color: primaryPalette.getColor(index % 5).hex },
                     lineStyle: { color: primaryPalette.getColor(index % 5).hex },
                     data: systemData.data?.map((point: any) => [point.timestamp, point.value]) || [],
@@ -530,9 +540,17 @@ export function SiteDashboard({
           ) : (
             <ECharts
               option={{
+                animation: false,
                 title: { text: "Building Power" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
-                tooltip: { trigger: "axis" },
+                tooltip: {
+                  trigger: "axis",
+                  renderMode: "richText",
+                  appendToBody: true,
+                  axisPointer: {
+                    animation: false,
+                  },
+                },
                 legend: { bottom: 0, show: true },
                 dataZoom: [
                   {
@@ -560,6 +578,7 @@ export function SiteDashboard({
                         name: "Building Power",
                         type: "line",
                         smooth: true,
+                        sampling: "lttb" as const,
                         itemStyle: { color: secondaryPalette.secondary.hex }, // Use secondary palette for power/demand
                         lineStyle: { color: secondaryPalette.secondary.hex },
                         data:

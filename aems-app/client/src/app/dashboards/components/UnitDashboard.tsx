@@ -464,6 +464,7 @@ export function UnitDashboard({
           ) : (
             <ECharts
               option={{
+                animation: false,
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 series: [
                   {
@@ -554,6 +555,7 @@ export function UnitDashboard({
           ) : (
             <ECharts
               option={{
+                animation: false,
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 series: [
                   {
@@ -644,6 +646,7 @@ export function UnitDashboard({
           ) : (
             <ECharts
               option={{
+                animation: false,
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 series: [
                   {
@@ -928,9 +931,17 @@ export function UnitDashboard({
           ) : (
             <ECharts
               option={{
+                animation: false,
                 title: { text: unit.system || unit.name || "" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
-                tooltip: { trigger: "axis" },
+                tooltip: {
+                  trigger: "axis",
+                  renderMode: "richText",
+                  appendToBody: true,
+                  axisPointer: {
+                    animation: false,
+                  },
+                },
                 legend: { bottom: 0, show: true },
                 dataZoom: [
                   {
@@ -980,6 +991,7 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: 0,
                     step: "end",
+                    sampling: "lttb",
                     data:
                       occupancyCommandSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -990,6 +1002,7 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: 0,
                     step: "end",
+                    sampling: "lttb",
                     data: fanStatusSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     color: tertiaryPalette.secondary.hex,
                   },
@@ -998,6 +1011,7 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: 0,
                     step: "end",
+                    sampling: "lttb",
                     data:
                       firstStageHeatingSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1008,6 +1022,7 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: 0,
                     step: "end",
+                    sampling: "lttb",
                     data: coolingStageSeriesData,
                     color: secondaryPalette.secondary.hex,
                   },
@@ -1016,6 +1031,7 @@ export function UnitDashboard({
                     name: "ZoneTemperature",
                     type: "line",
                     yAxisIndex: 1,
+                    sampling: "lttb",
                     data: zoneTempSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     lineStyle: { width: 3 },
                     color: primaryPalette.tertiary.hex, // Main zone temp - prominent
@@ -1024,6 +1040,7 @@ export function UnitDashboard({
                     name: "OutdoorAirTemperature",
                     type: "line",
                     yAxisIndex: 1,
+                    sampling: "lttb",
                     data:
                       outdoorTempSeries?.historianWeatherTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1033,6 +1050,7 @@ export function UnitDashboard({
                     name: "OccupiedHeatingSetPoint",
                     type: "line",
                     yAxisIndex: 1,
+                    sampling: "lttb",
                     data:
                       heatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1042,6 +1060,7 @@ export function UnitDashboard({
                     name: "OccupiedCoolingSetPoint",
                     type: "line",
                     yAxisIndex: 1,
+                    sampling: "lttb",
                     data:
                       coolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1051,6 +1070,7 @@ export function UnitDashboard({
                     name: "UnoccupiedHeatingSetPoint",
                     type: "line",
                     yAxisIndex: 1,
+                    sampling: "lttb",
                     data:
                       unoccupiedHeatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [
                         p.timestamp,
@@ -1063,6 +1083,7 @@ export function UnitDashboard({
                     name: "UnoccupiedCoolingSetPoint",
                     type: "line",
                     yAxisIndex: 1,
+                    sampling: "lttb",
                     data:
                       unoccupiedCoolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [
                         p.timestamp,
@@ -1075,6 +1096,7 @@ export function UnitDashboard({
                     name: "ZoneHumidity",
                     type: "line",
                     yAxisIndex: 1,
+                    sampling: "lttb",
                     data:
                       zoneHumiditySeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     color: primaryPalette.secondary.hex,
