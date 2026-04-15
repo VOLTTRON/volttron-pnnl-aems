@@ -6,9 +6,9 @@ import { useQuery } from "@apollo/client";
 import { ReadUnitsDocument } from "@/graphql-codegen/graphql";
 import { CurrentContext, PreferencesContext, compilePreferences } from "@/app/components/providers";
 import { Role } from "@local/common";
-import { SiteDashboard } from "./components/SiteDashboard";
-import { UnitDashboard } from "./components/UnitDashboard";
-import { calculateTimeRange, calculateFromDateForPreset } from "./utils/timeRange";
+import { SiteDashboard } from "@/app/dashboards/components/SiteDashboard";
+import { UnitDashboard } from "@/app/dashboards/components/UnitDashboard";
+import { calculateTimeRange, calculateFromDateForPreset } from "@/app/dashboards/utils/timeRange";
 import styles from "./page.module.scss";
 
 interface PageProps {
@@ -45,7 +45,7 @@ export default function DashboardPage({ params }: PageProps) {
         ...(isSite ? {} : { name: { equals: decodedUnit } }),
       },
     },
-    fetchPolicy: 'network-only', // Ensure we get fresh data including campus, building, system
+    fetchPolicy: "network-only", // Ensure we get fresh data including campus, building, system
   });
 
   // Calculate time range - memoized to prevent unnecessary re-renders
@@ -58,11 +58,7 @@ export default function DashboardPage({ params }: PageProps) {
   }
 
   // Handlers for time range selector
-  const handleApplyTimeRange = (
-    newFromDate: Date,
-    newToDate: Date | null,
-    newUseCurrentTime: boolean
-  ) => {
+  const handleApplyTimeRange = (newFromDate: Date, newToDate: Date | null, newUseCurrentTime: boolean) => {
     setFromDate(newFromDate);
     setToDate(newToDate);
     setUseCurrentTime(newUseCurrentTime);
