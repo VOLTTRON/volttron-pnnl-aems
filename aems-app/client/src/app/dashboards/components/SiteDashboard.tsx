@@ -19,6 +19,7 @@ import styles from "./SiteDashboard.module.scss";
 import { typeofString } from "@local/common";
 import { Palettes } from "@/utils/palette";
 import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
+import { optimizeSystemNames } from "@/utils/systemNameOptimizer";
 
 interface SiteDashboardProps {
   campus: string;
@@ -57,6 +58,12 @@ export function SiteDashboard({
     .filter(typeofString)
     .sort()
     .reverse();
+
+  // Optimize system names for display in charts
+  const { displayNames: optimizedSystemNames, leftMargin: chartLeftMargin } = React.useMemo(
+    () => optimizeSystemNames(unitSystems),
+    [unitSystems]
+  );
 
   // Occupancy Status data using new multi-system query
   const { data: occupancyData, loading: occupancyLoading } = useQuery(HistorianMultiSystemUnitDocument, {
@@ -184,15 +191,22 @@ export function SiteDashboard({
     startTime: string,
     endTime: string,
     systems: string[],
+    displayNames: string[],
   ) => {
     if (!data?.historianMultiSystemUnit) return [];
 
     const series: any[] = [];
 
+    // Create mapping from original system names to display names
+    const systemToDisplayName = new Map<string, string>();
+    systems.forEach((sys, idx) => {
+      systemToDisplayName.set(sys, displayNames[idx] || sys);
+    });
+
     // Create "Unknown" background series first (renders behind everything)
     const unknownState = getStateInfo(0); // Get "Unknown" state info
-    const unknownData = systems.map((systemName) => ({
-      value: [systemName, startTime, endTime, unknownState.label, unknownState.color],
+    const unknownData = displayNames.map((displayName) => ({
+      value: [displayName, startTime, endTime, unknownState.label, unknownState.color],
       itemStyle: { color: unknownState.color },
     }));
 
@@ -271,9 +285,10 @@ export function SiteDashboard({
           });
         }
 
-        // Add data point to this state's series - use system name instead of index
+        // Add data point to this state's series - use display name for Y-axis
+        const displayName = systemToDisplayName.get(systemName) || systemName;
         stateMap.get(state.label)!.data.push({
-          value: [systemName, startTime, endTime, state.label, state.color],
+          value: [displayName, startTime, endTime, state.label, state.color],
           itemStyle: { color: state.color },
         });
       });
@@ -345,13 +360,14 @@ export function SiteDashboard({
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: {
                   trigger: "item",
+                  valueFormatter: (value: any) => {
+                    // For timeline custom series, value is an array: [systemName, startTime, endTime, label, color]
+                    if (Array.isArray(value)) {
+                      return value[3]; // Return just the occupancy label
+                    }
+                    return String(value);
+                  },
                 },
-                // tooltip: {
-                //   formatter: (params: any) => {
-                //     if (Array.isArray(params)) params = params[0];
-                //     return `${params.seriesName}<br/>${params.value[3]}<br/>${new Date(params.value[1]).toLocaleString()}`;
-                //   },
-                // },
                 legend: {
                   bottom: 0,
                   show: true,
@@ -374,14 +390,14 @@ export function SiteDashboard({
                     end: 100,
                   },
                 ],
-                grid: { top: 40, right: 40, bottom: 110, left: 40 },
+                grid: { top: 40, right: 40, bottom: 110, left: chartLeftMargin + 20 },
                 xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: {
                   type: "category",
-                  data: unitSystems,
+                  data: optimizedSystemNames,
                   axisLabel: { interval: 0 },
                 },
-                series: prepareTimelineData(occupancyData, getOccupancyState, startTime, endTime, unitSystems),
+                series: prepareTimelineData(occupancyData, getOccupancyState, startTime, endTime, unitSystems, optimizedSystemNames),
               }}
               style={{ height: "480px" }}
               theme={mode}
@@ -402,6 +418,13 @@ export function SiteDashboard({
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: {
                   trigger: "item",
+                  valueFormatter: (value: any) => {
+                    // For timeline custom series, value is an array: [systemName, startTime, endTime, label, color]
+                    if (Array.isArray(value)) {
+                      return value[3]; // Return just the error range label
+                    }
+                    return String(value);
+                  },
                 },
                 legend: {
                   bottom: 0,
@@ -432,11 +455,11 @@ export function SiteDashboard({
                     end: 100,
                   },
                 ],
-                grid: { top: 40, right: 40, bottom: 110, left: 40 },
+                grid: { top: 40, right: 40, bottom: 110, left: chartLeftMargin + 20 },
                 xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: {
                   type: "category",
-                  data: unitSystems,
+                  data: optimizedSystemNames,
                   axisLabel: { interval: 0 },
                 },
                 series: prepareTimelineData(
@@ -445,9 +468,10 @@ export function SiteDashboard({
                   startTime,
                   endTime,
                   unitSystems,
+                  optimizedSystemNames,
                 ),
               }}
-              style={{ height: "460px" }}
+              style={{ height: "480px" }}
               theme={mode}
             />
           )}
@@ -473,6 +497,11 @@ export function SiteDashboard({
                   axisPointer: {
                     animation: false,
                   },
+                  valueFormatter: (value: any) => {
+                    if (value == null) return "N/A";
+                    if (typeof value !== "number") return String(value);
+                    return `${value.toFixed(2)}°F`;
+                  },
                 },
                 legend: { bottom: 0, show: true },
                 dataZoom: [
@@ -494,7 +523,7 @@ export function SiteDashboard({
                 ],
                 grid: { top: 60, right: 40, bottom: 110, left: 40 },
                 xAxis: { type: "time", min: startTime, max: endTime },
-                yAxis: { type: "value", name: "Temperature (°F)" },
+                yAxis: { type: "value", name: "Temperature (°F)", position: "left", nameTextStyle: { align: "left" } },
                 series: [
                   // Weather station outdoor temperature
                   ...(weatherData?.historianWeatherTimeSeries
@@ -550,6 +579,11 @@ export function SiteDashboard({
                   axisPointer: {
                     animation: false,
                   },
+                  valueFormatter: (value: any) => {
+                    if (value == null) return "N/A";
+                    if (typeof value !== "number") return String(value);
+                    return `${value.toFixed(2)} W`;
+                  },
                 },
                 legend: { bottom: 0, show: true },
                 dataZoom: [
@@ -571,7 +605,7 @@ export function SiteDashboard({
                 ],
                 grid: { top: 60, right: 60, bottom: 110, left: 60 },
                 xAxis: { type: "time", min: startTime, max: endTime },
-                yAxis: { type: "value", name: "Power (W)" },
+                yAxis: { type: "value", name: "Power (W)", position: "left", nameTextStyle: { align: "left" } },
                 series: powerData?.historianUnitTimeSeries
                   ? [
                       {

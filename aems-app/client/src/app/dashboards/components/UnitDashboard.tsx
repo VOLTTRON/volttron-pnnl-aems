@@ -35,6 +35,27 @@ interface UnitDashboardProps {
   mode: "light" | "dark";
 }
 
+// Enum for chart series indices to avoid magic numbers
+enum SeriesIndex {
+  OccupancyCommand = 0,
+  SupplyFanStatus = 1,
+  FirstStageHeating = 2,
+  CoolingStage = 3,
+  ZoneTemperature = 4,
+  OutdoorAirTemperature = 5,
+  OccupiedHeatingSetPoint = 6,
+  OccupiedCoolingSetPoint = 7,
+  UnoccupiedHeatingSetPoint = 8,
+  UnoccupiedCoolingSetPoint = 9,
+  ZoneHumidity = 10,
+}
+
+// Enum for Y-axis indices
+enum YAxisIndex {
+  Status = 0,
+  TemperatureHumidity = 1,
+}
+
 export function UnitDashboard({
   campus,
   building,
@@ -941,6 +962,40 @@ export function UnitDashboard({
                   axisPointer: {
                     animation: false,
                   },
+                  valueFormatter: (value: any, dataIndex?: number) => {
+                    if (value == null) return "N/A";
+                    if (typeof value !== "number") return String(value);
+
+                    // Status series - no units needed
+                    if (
+                      dataIndex === SeriesIndex.OccupancyCommand ||
+                      dataIndex === SeriesIndex.SupplyFanStatus ||
+                      dataIndex === SeriesIndex.FirstStageHeating ||
+                      dataIndex === SeriesIndex.CoolingStage
+                    ) {
+                      return value.toFixed(2);
+                    }
+
+                    // Humidity - percentage
+                    if (dataIndex === SeriesIndex.ZoneHumidity) {
+                      return `${value.toFixed(2)}%`;
+                    }
+
+                    // Temperature series - Fahrenheit
+                    if (
+                      dataIndex === SeriesIndex.ZoneTemperature ||
+                      dataIndex === SeriesIndex.OutdoorAirTemperature ||
+                      dataIndex === SeriesIndex.OccupiedHeatingSetPoint ||
+                      dataIndex === SeriesIndex.OccupiedCoolingSetPoint ||
+                      dataIndex === SeriesIndex.UnoccupiedHeatingSetPoint ||
+                      dataIndex === SeriesIndex.UnoccupiedCoolingSetPoint
+                    ) {
+                      return `${value.toFixed(2)}°F`;
+                    }
+
+                    // Fallback
+                    return value.toFixed(2);
+                  },
                 },
                 legend: { bottom: 0, show: true },
                 dataZoom: [
@@ -967,6 +1022,9 @@ export function UnitDashboard({
                     type: "value",
                     name: "Status",
                     position: "left",
+                    nameTextStyle: {
+                      align: "left",
+                    },
                     max: 3,
                   },
                   {
@@ -984,92 +1042,101 @@ export function UnitDashboard({
                     },
                   },
                 ],
-                series: [
-                  // Left axis - Status values (tertiary palette for status/states)
-                  {
+                series: (() => {
+                  // Create series with explicit indices to ensure enum and array order match
+                  const seriesMap = new Map<SeriesIndex, any>();
+
+                  seriesMap.set(SeriesIndex.OccupancyCommand, {
                     name: "OccupancyCommand",
                     type: "line",
-                    yAxisIndex: 0,
+                    yAxisIndex: YAxisIndex.Status,
                     step: "end",
                     sampling: "lttb",
                     data:
                       occupancyCommandSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
                     color: tertiaryPalette.primary.hex,
-                  },
-                  {
+                  });
+
+                  seriesMap.set(SeriesIndex.SupplyFanStatus, {
                     name: "SupplyFanStatus",
                     type: "line",
-                    yAxisIndex: 0,
+                    yAxisIndex: YAxisIndex.Status,
                     step: "end",
                     sampling: "lttb",
                     data: fanStatusSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     color: tertiaryPalette.secondary.hex,
-                  },
-                  {
+                  });
+
+                  seriesMap.set(SeriesIndex.FirstStageHeating, {
                     name: "FirstStageHeating",
                     type: "line",
-                    yAxisIndex: 0,
+                    yAxisIndex: YAxisIndex.Status,
                     step: "end",
                     sampling: "lttb",
                     data:
                       firstStageHeatingSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
                     color: secondaryPalette.quaternary.hex,
-                  },
-                  {
+                  });
+
+                  seriesMap.set(SeriesIndex.CoolingStage, {
                     name: "CoolingStage",
                     type: "line",
-                    yAxisIndex: 0,
+                    yAxisIndex: YAxisIndex.Status,
                     step: "end",
                     sampling: "lttb",
                     data: coolingStageSeriesData,
                     color: secondaryPalette.secondary.hex,
-                  },
-                  // Right axis - Temperature and humidity values (primary palette for temps)
-                  {
+                  });
+
+                  seriesMap.set(SeriesIndex.ZoneTemperature, {
                     name: "ZoneTemperature",
                     type: "line",
-                    yAxisIndex: 1,
+                    yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
                     data: zoneTempSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     lineStyle: { width: 3 },
-                    color: primaryPalette.tertiary.hex, // Main zone temp - prominent
-                  },
-                  {
+                    color: primaryPalette.tertiary.hex,
+                  });
+
+                  seriesMap.set(SeriesIndex.OutdoorAirTemperature, {
                     name: "OutdoorAirTemperature",
                     type: "line",
-                    yAxisIndex: 1,
+                    yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
                     data:
                       outdoorTempSeries?.historianWeatherTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
                     color: primaryPalette.quinary.hex,
-                  },
-                  {
+                  });
+
+                  seriesMap.set(SeriesIndex.OccupiedHeatingSetPoint, {
                     name: "OccupiedHeatingSetPoint",
                     type: "line",
-                    yAxisIndex: 1,
+                    yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
                     data:
                       heatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
-                    color: secondaryPalette.quinary.hex, // Heating setpoint - warm end
-                  },
-                  {
+                    color: secondaryPalette.quinary.hex,
+                  });
+
+                  seriesMap.set(SeriesIndex.OccupiedCoolingSetPoint, {
                     name: "OccupiedCoolingSetPoint",
                     type: "line",
-                    yAxisIndex: 1,
+                    yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
                     data:
                       coolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
-                    color: secondaryPalette.primary.hex, // Cooling setpoint - cool end
-                  },
-                  {
+                    color: secondaryPalette.primary.hex,
+                  });
+
+                  seriesMap.set(SeriesIndex.UnoccupiedHeatingSetPoint, {
                     name: "UnoccupiedHeatingSetPoint",
                     type: "line",
-                    yAxisIndex: 1,
+                    yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
                     data:
                       unoccupiedHeatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [
@@ -1078,11 +1145,12 @@ export function UnitDashboard({
                       ]) || [],
                     lineStyle: { type: "dashed" },
                     color: secondaryPalette.quaternary.hex,
-                  },
-                  {
+                  });
+
+                  seriesMap.set(SeriesIndex.UnoccupiedCoolingSetPoint, {
                     name: "UnoccupiedCoolingSetPoint",
                     type: "line",
-                    yAxisIndex: 1,
+                    yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
                     data:
                       unoccupiedCoolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [
@@ -1091,17 +1159,23 @@ export function UnitDashboard({
                       ]) || [],
                     lineStyle: { type: "dashed" },
                     color: secondaryPalette.secondary.hex,
-                  },
-                  {
+                  });
+
+                  seriesMap.set(SeriesIndex.ZoneHumidity, {
                     name: "ZoneHumidity",
                     type: "line",
-                    yAxisIndex: 1,
+                    yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
                     data:
                       zoneHumiditySeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     color: primaryPalette.secondary.hex,
-                  },
-                ],
+                  });
+
+                  // Extract series in enum order
+                  return Array.from(seriesMap.entries())
+                    .sort(([a], [b]) => a - b)
+                    .map(([, series]) => series);
+                })(),
               }}
               style={{ height: "580px" }}
               theme={mode}
