@@ -24,6 +24,7 @@ import { optimizeSystemNames } from "@/utils/systemNameOptimizer";
 interface SiteDashboardProps {
   campus: string;
   building: string;
+  system: string;
   units: ReadUnitsQuery["readUnits"];
   startTime: string;
   endTime: string;
@@ -34,6 +35,7 @@ interface SiteDashboardProps {
 export function SiteDashboard({
   campus,
   building,
+  system,
   units: optionalUnits,
   startTime,
   endTime,
@@ -62,7 +64,7 @@ export function SiteDashboard({
   // Optimize system names for display in charts
   const { displayNames: optimizedSystemNames, leftMargin: chartLeftMargin } = React.useMemo(
     () => optimizeSystemNames(unitSystems),
-    [unitSystems]
+    [unitSystems],
   );
 
   // Occupancy Status data using new multi-system query
@@ -397,7 +399,14 @@ export function SiteDashboard({
                   data: optimizedSystemNames,
                   axisLabel: { interval: 0 },
                 },
-                series: prepareTimelineData(occupancyData, getOccupancyState, startTime, endTime, unitSystems, optimizedSystemNames),
+                series: prepareTimelineData(
+                  occupancyData,
+                  getOccupancyState,
+                  startTime,
+                  endTime,
+                  unitSystems,
+                  optimizedSystemNames,
+                ),
               }}
               style={{ height: "480px" }}
               theme={mode}

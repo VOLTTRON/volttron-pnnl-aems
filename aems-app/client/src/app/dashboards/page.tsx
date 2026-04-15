@@ -49,7 +49,9 @@ export default function DashboardsPage() {
               <h3>{building}</h3>
 
               <div className={styles.cards}>
-                <Link href={`/dashboards/${encodeURIComponent(campus)}/${encodeURIComponent(building)}/site`}>
+                <Link
+                  href={`/dashboards/${encodeURIComponent(campus).toLocaleLowerCase()}/${encodeURIComponent(building).toLocaleLowerCase()}/site`}
+                >
                   <Card interactive className={styles.card}>
                     <h4>Site Overview</h4>
                     <p>View aggregated data for all units in {building}</p>
@@ -59,7 +61,7 @@ export default function DashboardsPage() {
                 {(units || []).map((unit) => (
                   <Link
                     key={unit.id}
-                    href={`/dashboards/${encodeURIComponent(campus)}/${encodeURIComponent(building)}/${encodeURIComponent(unit.name || unit.id || "")}`}
+                    href={`/dashboards/${encodeURIComponent(campus).toLocaleLowerCase()}/${encodeURIComponent(building).toLocaleLowerCase()}/${encodeURIComponent(unit.system || unit.name || unit.id || "").toLocaleLowerCase()}`}
                   >
                     <Card interactive className={styles.card}>
                       <h4>{unit.label || unit.name}</h4>

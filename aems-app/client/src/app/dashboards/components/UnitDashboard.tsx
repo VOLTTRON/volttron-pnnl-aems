@@ -28,6 +28,7 @@ interface Unit {
 interface UnitDashboardProps {
   campus: string;
   building: string;
+  system: string;
   unit: Unit;
   startTime: string;
   endTime: string;

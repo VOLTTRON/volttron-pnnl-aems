@@ -3,7 +3,7 @@
 import { useContext, useState, useMemo } from "react";
 import { Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
-import { ReadUnitsDocument } from "@/graphql-codegen/graphql";
+import { ReadUnitsDocument, StringFilterMode } from "@/graphql-codegen/graphql";
 import { CurrentContext, PreferencesContext, compilePreferences } from "@/app/components/providers";
 import { Role } from "@local/common";
 import { SiteDashboard } from "@/app/dashboards/components/SiteDashboard";
@@ -38,13 +38,28 @@ export default function DashboardPage({ params }: PageProps) {
   const { data: unitsData } = useQuery(ReadUnitsDocument, {
     variables: {
       where: {
-        campus: { equals: decodedCampus },
-        building: { equals: decodedBuilding },
-        ...(isSite ? {} : { name: { equals: decodedUnit } }),
+        campus: { equals: decodedCampus, mode: StringFilterMode.Insensitive },
+        building: { equals: decodedBuilding, mode: StringFilterMode.Insensitive },
+        ...(isSite
+          ? {}
+          : {
+              OR: [
+                { name: { equals: decodedUnit, mode: StringFilterMode.Insensitive } },
+                { system: { equals: decodedUnit, mode: StringFilterMode.Insensitive } },
+                { id: { equals: decodedUnit, mode: StringFilterMode.Insensitive } },
+              ],
+            }),
       },
     },
     fetchPolicy: "network-only", // Ensure we get fresh data including campus, building, system
   });
+
+  const { foundCampus, foundBuilding, foundSystem } = useMemo(() => {
+    const foundCampus = unitsData?.readUnits?.[0]?.campus ?? decodedCampus;
+    const foundBuilding = unitsData?.readUnits?.[0]?.building ?? decodedBuilding;
+    const foundSystem = isSite ? "Site" : (unitsData?.readUnits?.[0]?.system ?? decodedUnit);
+    return { foundCampus, foundBuilding, foundSystem };
+  }, [unitsData, decodedCampus, decodedBuilding, isSite, decodedUnit]);
 
   if (!Role.User.granted(...(current?.role?.split(" ") ?? []))) {
     return <div>You do not have permission to view this page.</div>;
@@ -59,8 +74,9 @@ export default function DashboardPage({ params }: PageProps) {
   if (isSite) {
     return (
       <SiteDashboard
-        campus={decodedCampus}
-        building={decodedBuilding}
+        campus={foundCampus}
+        building={foundBuilding}
+        system={foundSystem}
         units={unitsData?.readUnits ?? []}
         startTime={startTime}
         endTime={endTime}
@@ -82,6 +98,7 @@ export default function DashboardPage({ params }: PageProps) {
     <UnitDashboard
       campus={decodedCampus}
       building={decodedBuilding}
+      system={foundSystem}
       unit={unitsData?.readUnits?.[0]}
       startTime={startTime}
       endTime={endTime}
