@@ -1057,6 +1057,25 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         confirmedFlushLsn: row.confirmed_flush_lsn,
       }));
 
+      // Query for sequences used by the tables
+      const sequenceQuery = `
+        SELECT DISTINCT
+          seq.relname as sequence_name
+        FROM pg_class seq
+        JOIN pg_depend dep ON seq.oid = dep.objid
+        JOIN pg_class tbl ON dep.refobjid = tbl.oid
+        WHERE seq.relkind = 'S'
+          AND tbl.relname IN ('data', 'topics')
+          AND tbl.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+        ORDER BY seq.relname
+      `;
+      const sequenceResult = await this.pool.query<{ sequence_name: string }>(sequenceQuery);
+
+      // Generate CREATE SEQUENCE statements
+      const createSequencesSql = sequenceResult.rows
+        .map((row) => `CREATE SEQUENCE IF NOT EXISTS ${row.sequence_name};`)
+        .join("\n");
+
       const tableSchemaQuery = `
         SELECT 
           t.table_name,
@@ -1086,8 +1105,14 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       `;
       const schemaResult = await this.pool.query<{ table_name: string; columns: string }>(tableSchemaQuery);
 
-      const createTablesSql = schemaResult.rows
-        .map((row) => `CREATE TABLE IF NOT EXISTS ${row.table_name} (\n${row.columns}\n);`)
+      // Combine sequences and tables, with sequences first
+      const createTablesSql = [
+        createSequencesSql,
+        schemaResult.rows
+          .map((row) => `CREATE TABLE IF NOT EXISTS ${row.table_name} (\n${row.columns}\n);`)
+          .join("\n\n"),
+      ]
+        .filter((sql) => sql.length > 0)
         .join("\n\n");
 
       const pkQuery = `

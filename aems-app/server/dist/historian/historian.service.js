@@ -793,6 +793,21 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 restartLsn: row.restart_lsn,
                 confirmedFlushLsn: row.confirmed_flush_lsn,
             }));
+            const sequenceQuery = `
+        SELECT DISTINCT
+          seq.relname as sequence_name
+        FROM pg_class seq
+        JOIN pg_depend dep ON seq.oid = dep.objid
+        JOIN pg_class tbl ON dep.refobjid = tbl.oid
+        WHERE seq.relkind = 'S'
+          AND tbl.relname IN ('data', 'topics')
+          AND tbl.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+        ORDER BY seq.relname
+      `;
+            const sequenceResult = await this.pool.query(sequenceQuery);
+            const createSequencesSql = sequenceResult.rows
+                .map((row) => `CREATE SEQUENCE IF NOT EXISTS ${row.sequence_name};`)
+                .join("\n");
             const tableSchemaQuery = `
         SELECT 
           t.table_name,
@@ -821,8 +836,13 @@ let HistorianService = HistorianService_1 = class HistorianService {
         ORDER BY t.table_name
       `;
             const schemaResult = await this.pool.query(tableSchemaQuery);
-            const createTablesSql = schemaResult.rows
-                .map((row) => `CREATE TABLE IF NOT EXISTS ${row.table_name} (\n${row.columns}\n);`)
+            const createTablesSql = [
+                createSequencesSql,
+                schemaResult.rows
+                    .map((row) => `CREATE TABLE IF NOT EXISTS ${row.table_name} (\n${row.columns}\n);`)
+                    .join("\n\n"),
+            ]
+                .filter((sql) => sql.length > 0)
                 .join("\n\n");
             const pkQuery = `
         SELECT 
