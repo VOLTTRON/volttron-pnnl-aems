@@ -77,5 +77,16 @@
         ],
         "testEnvironment": "node"
     },
-    "packageManager": "yarn@4.9.1"
+    "packageManager": "yarn@4.9.1",
+    "resolutions": {
+        "fast-xml-parser": ">=4.5.4",
+        "sha.js": ">=2.4.12",
+        "form-data": ">=4.0.4",
+        "tar": ">=7.5.2",
+        "minimatch": ">=10.0.0",
+        "flatted": ">=3.3.3",
+        "serialize-javascript": ">=6.0.3",
+        "picomatch": ">=4.0.3",
+        "path-to-regexp": ">=8.3.0"
+    }
 }
