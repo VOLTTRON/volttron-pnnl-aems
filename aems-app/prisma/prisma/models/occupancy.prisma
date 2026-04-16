@@ -20,4 +20,9 @@ model Occupancy {
     // indices
     @@index([date])
     @@index([stage])
+    @@index([label], map: "occupancies_label")
+    @@index([createdAt], map: "occupancies_createdAt")
+    @@index([updatedAt], map: "occupancies_updatedAt")
+    @@index([scheduleId], map: "occupancies_scheduleId")
+    @@index([configurationId], map: "occupancies_configurationId")
 }

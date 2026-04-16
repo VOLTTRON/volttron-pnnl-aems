@@ -48,4 +48,15 @@ model Unit {
     // indices
     @@index([label])
     @@index([stage])
+    @@index([name], map: "units_name")
+    @@index([campus], map: "units_campus")
+    @@index([building], map: "units_building")
+    @@index([system], map: "units_system")
+    @@index([campus, building], map: "units_campus_building")
+    @@index([campus, building, system], map: "units_campus_building_system")
+    @@index([createdAt], map: "units_createdAt")
+    @@index([updatedAt], map: "units_updatedAt")
+    @@index([configurationId], map: "units_configurationId")
+    @@index([controlId], map: "units_controlId")
+    @@index([locationId], map: "units_locationId")
 }
