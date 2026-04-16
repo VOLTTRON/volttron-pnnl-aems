@@ -149,6 +149,15 @@ export class AppConfigService {
     username: string;
     password: string;
   };
+  historian: {
+    url?: string;
+    host: string;
+    port: number;
+    name: string;
+    username: string;
+    password: string;
+    replicationPort: number;
+  };
   ext: Record<string, ExtConfig>;
   proxy: {
     protocol: string;
@@ -294,6 +303,15 @@ export class AppConfigService {
       schema: process.env.DATABASE_SCHEMA ?? "",
       username: process.env.DATABASE_USERNAME ?? "",
       password: process.env.DATABASE_PASSWORD ?? "",
+    };
+    this.historian = {
+      url: process.env.HISTORIAN_DATABASE_URL || undefined,
+      host: process.env.HISTORIAN_HOST ?? "historian",
+      port: parseInt(process.env.HISTORIAN_PORT ?? "5432"),
+      name: process.env.HISTORIAN_NAME ?? "historian",
+      username: process.env.HISTORIAN_USER ?? "historian",
+      password: process.env.HISTORIAN_PASSWORD ?? "",
+      replicationPort: parseInt(process.env.HISTORIAN_REPLICATION_PORT ?? "5543"),
     };
     this.ext = Object.entries(process.env)
       .filter(

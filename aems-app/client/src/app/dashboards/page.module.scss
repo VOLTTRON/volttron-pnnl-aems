@@ -1,0 +1,76 @@
+.dashboards {
+  padding: 14px;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0;
+
+  h1 {
+    margin-bottom: 0.5rem;
+  }
+
+  > p {
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+  }
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.campus {
+  margin-bottom: 3rem;
+
+  h2 {
+    color: var(--primary);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--divider);
+  }
+}
+
+.building {
+  margin-bottom: 2rem;
+
+  h3 {
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+}
+
+.card {
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 100%;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+}

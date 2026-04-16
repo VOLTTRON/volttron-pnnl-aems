@@ -1,5 +1,5 @@
 import type { CodegenConfig } from "@graphql-codegen/cli";
-import { Holiday } from "@local/common";
+import "@local/common";
 
 const config: CodegenConfig = {
   schema: "./schema.graphql",
@@ -35,6 +35,18 @@ const config: CodegenConfig = {
           ControlGroupBy: "PrismaJson.ControlGroupBy",
           ChangeGroupBy: "PrismaJson.ChangeGroupBy",
           ConfigurationGroupBy: "PrismaJson.ConfigurationGroupBy",
+          HistorianDataPoint: "PrismaJson.HistorianDataPoint",
+          HistorianTimeSeries: "PrismaJson.HistorianTimeSeries",
+          HistorianAggregate: "PrismaJson.HistorianAggregate",
+          HistorianMetricCurrent: "PrismaJson.HistorianMetricCurrent",
+          HistorianMultiUnitData: "PrismaJson.HistorianMultiUnitData",
+          HistorianMultiSystemData: "PrismaJson.HistorianMultiSystemData",
+          HistorianReplicationInfo: "@local/common#HistorianReplicationInfo",
+          PublisherInfo: "@local/common#PublisherInfo",
+          SubscriberSetupSql: "@local/common#SubscriberSetupSql",
+          MonitoringSql: "@local/common#MonitoringSql",
+          ReplicationSlot: "@local/common#ReplicationSlot",
+          UnitPublishingStatus: "@local/common#UnitPublishingStatus",
         },
       },
     },

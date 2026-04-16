@@ -1,5 +1,11 @@
 import { Prisma } from "@prisma/client";
+import type * as GeoJSON from "geojson";
+import * as Historian from "./types/historian";
 export * from "./pothos";
+export * from "./types/historian";
+
+// Re-export historian enums for convenience
+export { UnitMetric, WeatherMetric, AggregationType, CalculationType } from "./types/historian";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -65,6 +71,14 @@ declare global {
     type UserGroupBy = Partial<Omit<Prisma.UserGroupByOutputType, "_count">> & {
       _count?: Partial<Prisma.UserGroupByOutputType["_count"]>;
     };
+    // Historian types - imported from types/historian.ts
+    type UnitMetric = Historian.UnitMetric;
+    type WeatherMetric = Historian.WeatherMetric;
+    type HistorianDataPoint = Historian.HistorianDataPoint;
+    type HistorianTimeSeries = Historian.HistorianTimeSeries;
+    type HistorianAggregate = Historian.HistorianAggregate;
+    type HistorianMetricCurrent = Historian.HistorianMetricCurrent;
+    type HistorianMultiSystemData = Historian.HistorianMultiSystemData;
   }
 }
 

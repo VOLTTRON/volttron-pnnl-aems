@@ -88,6 +88,15 @@ export declare class AppConfigService {
         username: string;
         password: string;
     };
+    historian: {
+        url?: string;
+        host: string;
+        port: number;
+        name: string;
+        username: string;
+        password: string;
+        replicationPort: number;
+    };
     ext: Record<string, ExtConfig>;
     proxy: {
         protocol: string;

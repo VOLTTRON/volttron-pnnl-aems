@@ -216,6 +216,249 @@
                     "hex": "#eae2b7ff"
                 }
             ]
+        },
+        {
+            "name": "Ocean Depth",
+            "type": "Custom",
+            "scheme": "Diverging",
+            "colors": [
+                {
+                    "name": "Deep-Navy",
+                    "hex": "#003d5bff"
+                },
+                {
+                    "name": "Teal",
+                    "hex": "#00798cff"
+                },
+                {
+                    "name": "Seafoam",
+                    "hex": "#30c5d2ff"
+                },
+                {
+                    "name": "Mint",
+                    "hex": "#88d9e6ff"
+                },
+                {
+                    "name": "Ice-Blue",
+                    "hex": "#c8e9f0ff"
+                }
+            ]
+        },
+        {
+            "name": "Autumn Forest",
+            "type": "Custom",
+            "scheme": "Diverging",
+            "colors": [
+                {
+                    "name": "Deep-Burgundy",
+                    "hex": "#6a0f49ff"
+                },
+                {
+                    "name": "Rust",
+                    "hex": "#ae2d4cff"
+                },
+                {
+                    "name": "Amber",
+                    "hex": "#d77c3cff"
+                },
+                {
+                    "name": "Golden",
+                    "hex": "#f4c753ff"
+                },
+                {
+                    "name": "Tan",
+                    "hex": "#f2e6ceff"
+                }
+            ]
+        },
+        {
+            "name": "Twilight Sky",
+            "type": "Custom",
+            "scheme": "Diverging",
+            "colors": [
+                {
+                    "name": "Deep-Purple",
+                    "hex": "#4a148cff"
+                },
+                {
+                    "name": "Violet",
+                    "hex": "#7b1fa2ff"
+                },
+                {
+                    "name": "Lavender",
+                    "hex": "#ba68c8ff"
+                },
+                {
+                    "name": "Peach",
+                    "hex": "#ffab91ff"
+                },
+                {
+                    "name": "Coral",
+                    "hex": "#ff6e40ff"
+                }
+            ]
+        },
+        {
+            "name": "Arctic Fire",
+            "type": "Custom",
+            "scheme": "Diverging",
+            "colors": [
+                {
+                    "name": "Ice-Blue",
+                    "hex": "#e0f7faff"
+                },
+                {
+                    "name": "Sky-Blue",
+                    "hex": "#4fc3f7ff"
+                },
+                {
+                    "name": "Pearl",
+                    "hex": "#fafafaff"
+                },
+                {
+                    "name": "Salmon",
+                    "hex": "#ff8a80ff"
+                },
+                {
+                    "name": "Fire-Red",
+                    "hex": "#d32f2fff"
+                }
+            ]
+        },
+        {
+            "name": "Monochrome Pro",
+            "type": "Custom",
+            "scheme": "Diverging",
+            "colors": [
+                {
+                    "name": "Charcoal",
+                    "hex": "#37474fff"
+                },
+                {
+                    "name": "Dark-Gray",
+                    "hex": "#607d8bff"
+                },
+                {
+                    "name": "Medium-Gray",
+                    "hex": "#90a4aeff"
+                },
+                {
+                    "name": "Light-Gray",
+                    "hex": "#cfd8dcff"
+                },
+                {
+                    "name": "Cool-Blue",
+                    "hex": "#b0bec5ff"
+                }
+            ]
+        },
+        {
+            "name": "Spring Bloom",
+            "type": "Custom",
+            "scheme": "Diverging",
+            "colors": [
+                {
+                    "name": "Lavender",
+                    "hex": "#9575cdff"
+                },
+                {
+                    "name": "Lilac",
+                    "hex": "#ce93d8ff"
+                },
+                {
+                    "name": "Soft-Yellow",
+                    "hex": "#fff9c4ff"
+                },
+                {
+                    "name": "Peach",
+                    "hex": "#ffcc80ff"
+                },
+                {
+                    "name": "Coral",
+                    "hex": "#ff8a65ff"
+                }
+            ]
+        },
+        {
+            "name": "AEMS Cool Tones",
+            "type": "Custom",
+            "scheme": "Diverging",
+            "colors": [
+                {
+                    "name": "Deep-Navy",
+                    "hex": "#003d5bff"
+                },
+                {
+                    "name": "Steel-Blue",
+                    "hex": "#1982c4ff"
+                },
+                {
+                    "name": "Sky-Blue",
+                    "hex": "#4fc3f7ff"
+                },
+                {
+                    "name": "Medium-Purple",
+                    "hex": "#7b1fa2ff"
+                },
+                {
+                    "name": "Lavender-Purple",
+                    "hex": "#ba68c8ff"
+                }
+            ]
+        },
+        {
+            "name": "AEMS Warm Tones",
+            "type": "Custom",
+            "scheme": "Diverging",
+            "colors": [
+                {
+                    "name": "Fire-Red",
+                    "hex": "#d32f2fff"
+                },
+                {
+                    "name": "Red-Orange",
+                    "hex": "#e76f51ff"
+                },
+                {
+                    "name": "Bright-Orange",
+                    "hex": "#f77f00ff"
+                },
+                {
+                    "name": "Earth-Amber",
+                    "hex": "#dda15eff"
+                },
+                {
+                    "name": "Golden-Yellow",
+                    "hex": "#fcbf49ff"
+                }
+            ]
+        },
+        {
+            "name": "AEMS Vibrant Harmony",
+            "type": "Custom",
+            "scheme": "Diverging",
+            "colors": [
+                {
+                    "name": "Coral-Pink",
+                    "hex": "#ff6b6bff"
+                },
+                {
+                    "name": "Sunshine-Yellow",
+                    "hex": "#ffe66dff"
+                },
+                {
+                    "name": "Spring-Green",
+                    "hex": "#6bcf7fff"
+                },
+                {
+                    "name": "Teal-Blue",
+                    "hex": "#00b4d8ff"
+                },
+                {
+                    "name": "Plum-Purple",
+                    "hex": "#9d4eddff"
+                }
+            ]
         }
     ]
 }

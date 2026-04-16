@@ -22,6 +22,7 @@ import { ScheduleObject } from "./schedule/object.service";
 import { SetpointObject } from "./setpoint/object.service";
 import { UnitObject } from "./unit/object.service";
 import { UserObject } from "./user/object.service";
+import { HistorianObject } from "./historian/object.service";
 // graphql queries
 import { AccountQuery } from "./account/query.service";
 import { BannerQuery } from "./banner/query.service";
@@ -41,6 +42,7 @@ import { ScheduleQuery } from "./schedule/query.service";
 import { SetpointQuery } from "./setpoint/query.service";
 import { UnitQuery } from "./unit/query.service";
 import { UserQuery } from "./user/query.service";
+import { HistorianQuery } from "./historian/query.service";
 // graphql mutations
 import { AccountMutation } from "./account/mutate.service";
 import { BannerMutation } from "./banner/mutate.service";
@@ -60,9 +62,10 @@ import { SetpointMutation } from "./setpoint/mutate.service";
 import { UnitMutation } from "./unit/mutate.service";
 import { UserMutation } from "./user/mutate.service";
 import { ChangeModule } from "@/change/change.module";
+import { HistorianModule } from "@/historian/historian.module";
 
 @Module({
-  imports: [PrismaModule, SubscriptionModule, ChangeModule],
+  imports: [PrismaModule, SubscriptionModule, ChangeModule, HistorianModule],
   exports: [SchemaBuilderService],
   providers: [
     SchemaBuilderService,
@@ -84,6 +87,7 @@ import { ChangeModule } from "@/change/change.module";
     GeographyObject,
     ChangeObject,
     UnitObject,
+    HistorianObject,
     AccountQuery,
     BannerQuery,
     ChangeQuery,
@@ -103,6 +107,7 @@ import { ChangeModule } from "@/change/change.module";
     GeographyQuery,
     ChangeQuery,
     UnitQuery,
+    HistorianQuery,
     AccountMutation,
     BannerMutation,
     ChangeMutation,
@@ -127,7 +132,7 @@ export class SchemaModule implements ModuleMetadata {
   static register(): DynamicModule {
     return {
       module: SchemaModule,
-      imports: [DiscoveryModule, PrismaModule, SubscriptionModule, ChangeModule],
+      imports: [DiscoveryModule, PrismaModule, SubscriptionModule, ChangeModule, HistorianModule],
       providers: [
         SchemaBuilderService,
         {

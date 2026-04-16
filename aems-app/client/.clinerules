@@ -24,8 +24,22 @@
 - **Common Module**: Shared utilities and constants from `@local/common`
 - **Prisma Module**: Database types from `@local/prisma`
 
+## Type Safety Rules (CRITICAL)
+- **NEVER use `any` types** - Always use proper TypeScript types from GraphQL codegen or defined interfaces
+- Use explicit type imports from `@/graphql-codegen/graphql` for all GraphQL data structures
+- Example: `import { HistorianDataPoint, HistorianTimeSeries } from '@/graphql-codegen/graphql'`
+- Prefer `unknown` over `any` if the type is truly not known, then use type guards
+- Fix type errors rather than bypassing them with `any`
+- TypeScript strict mode is enabled - respect it
+
+## Code Quality Principles
+- **DRY (Don't Repeat Yourself)** is a fundamental principle that must be followed
+- Extract repeated logic into reusable functions, hooks, or utilities
+- Share common types and utilities across components
+- Avoid duplicating data transformations or business logic
+- If you find yourself copying code, create a shared utility instead
+
 ## Important Notes
-- Always run `yarn compile:graphql` after GraphQL schema changes
 - Use Blueprint.js components and theming system
 - Follow Next.js App Router patterns with server components
 - README files should contain documentation only - no code examples belong in README files

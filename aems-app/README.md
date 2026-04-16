@@ -74,6 +74,7 @@
   - [Quality](#quality)
   - [Initializing](#initializing)
   - [Running](#running)
+  - [Local Development with Docker Backend](#local-development-with-docker-backend)
   - [Configuration](#configuration-1)
 - [Contributing](#contributing)
   - [Development Workflow](#development-workflow)
@@ -851,7 +852,9 @@ brew install postgresql@16
 # Windows - Download from https://www.postgresql.org/download/windows/
 ```
 
-**2. Create Subscriber Database**
+**2. Create Subscriber Database and Tables**
+
+The subscriber database must have the same table structures as the publisher before creating the subscription.
 
 ```bash
 # Connect as postgres superuser
@@ -868,9 +871,39 @@ CREATE DATABASE historian;
 -- Create necessary schemas
 CREATE SCHEMA IF NOT EXISTS public;
 
+-- Create topics table with primary key
+CREATE TABLE IF NOT EXISTS topics (
+    topic_id SERIAL PRIMARY KEY,
+    topic_name VARCHAR(512) NOT NULL UNIQUE,
+    metadata TEXT
+);
+
+-- Create data table with PRIMARY KEY (REQUIRED for replication)
+-- The primary key is essential for logical replication to work with UPDATE operations
+CREATE TABLE IF NOT EXISTS data (
+    ts TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    topic_id INTEGER NOT NULL,
+    value_string TEXT NOT NULL,
+    PRIMARY KEY (topic_id, ts)
+);
+
+-- Create index for timestamp queries
+CREATE INDEX IF NOT EXISTS idx_data ON data(ts);
+
+-- Verify tables were created correctly
+\dt
+
+-- Verify primary keys exist
+SELECT tc.table_name, kcu.column_name 
+FROM information_schema.table_constraints tc 
+JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name 
+WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_name IN ('data', 'topics');
+
 -- Exit
 \q
 ```
+
+**Important:** The `data` table MUST have a primary key on `(topic_id, ts)` for replication to work. Without it, UPDATE operations will fail with "cannot update table because it does not have a replica identity" errors.
 
 **3. Create Subscription**
 
@@ -1360,6 +1393,120 @@ SELECT pg_drop_replication_slot('historian_sub_slot');
 -- Then recreate subscription on subscriber
 ```
 
+#### Cleaning Up Broken Subscriptions
+
+If subscriptions become corrupted, misconfigured, or need to be completely reset, follow these steps to clean up and recreate them.
+
+**When to Clean Up:**
+- Subscription is stuck in an error state
+- Configuration changes require subscription recreation
+- Replication slot has diverged or become invalid
+- Network/connectivity issues have corrupted subscription state
+- Switching from one publisher to another
+
+**Step 1: Remove Subscription on Subscriber**
+
+Try the standard drop method first:
+
+```bash
+# Connect to subscriber database
+psql -U postgres -d historian
+```
+
+```sql
+-- Try to drop the subscription normally
+DROP SUBSCRIPTION IF EXISTS historian_sub;
+
+-- Verify subscription is removed
+SELECT * FROM pg_subscription;
+
+-- Exit
+\q
+```
+
+**If DROP fails with connection errors**, use the direct catalog deletion method:
+
+```sql
+-- Connect to subscriber database
+psql -U postgres -d historian
+
+-- Method 1: Disable subscription first (prevents connection attempts)
+ALTER SUBSCRIPTION historian_sub DISABLE;
+DROP SUBSCRIPTION historian_sub;
+
+-- OR Method 2: Direct catalog deletion (if ALTER/DROP both fail)
+-- This removes the subscription without contacting the publisher
+DELETE FROM pg_subscription_rel WHERE srsubid = (SELECT oid FROM pg_subscription WHERE subname = 'historian_sub');
+DELETE FROM pg_subscription WHERE subname = 'historian_sub';
+
+-- Verify subscription is removed
+SELECT * FROM pg_subscription;
+
+-- Exit
+\q
+```
+
+**Note:** Direct catalog deletion should only be used when normal DROP fails due to publisher connectivity issues. This method bypasses the normal cleanup process and leaves the replication slot on the publisher, which must be manually cleaned up in Step 2.
+
+**Step 2: Clean Up Replication Slot on Publisher (if needed)**
+
+If the subscription drop didn't remove the slot automatically, clean it up manually:
+
+```bash
+# Connect to publisher historian database
+docker exec -it aems-historian psql -U historian -d historian
+```
+
+```sql
+-- Check for orphaned replication slots
+SELECT slot_name, active, pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS retained_wal
+FROM pg_replication_slots
+WHERE slot_name = 'historian_sub_slot';
+
+-- Drop the replication slot if it exists
+SELECT pg_drop_replication_slot('historian_sub_slot');
+
+-- Verify slot is removed
+SELECT * FROM pg_replication_slots;
+
+-- Exit
+\q
+```
+
+**Step 3: Recreate Subscription on Subscriber**
+
+After cleanup, recreate the subscription following the [Subscriber Setup](#subscriber-setup-remote-replica) instructions:
+
+```bash
+# Connect to subscriber
+psql -U postgres -d historian
+```
+
+```sql
+-- Recreate subscription with fresh configuration
+CREATE SUBSCRIPTION historian_sub
+CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
+PUBLICATION historian_pub
+WITH (
+    copy_data = true,
+    create_slot = true,
+    enabled = true,
+    slot_name = 'historian_sub_slot'
+);
+
+-- Verify subscription is working
+SELECT subname, subenabled, pid FROM pg_stat_subscription;
+
+-- Exit
+\q
+```
+
+**Important Notes:**
+- Dropping a subscription will delete all tracking data and require a full re-sync
+- If `copy_data = true`, all data will be copied again from the publisher
+- Ensure the publisher's replication slot is cleaned up to avoid WAL bloat
+- Monitor the initial sync progress as it may take time for large databases
+
 ### Configuration
 
 Default configuration for docker compose can be found at [.env](./.env). Overrides for secrets can be placed in a [.env.secrets](./.env.secrets) file. The [.env.secrets](./.env.secrets) file will need to be set as system environment variables by either using the provided scripts ([secrets.ps1](./secrets.ps1) or [secrets.sh](./secrets.sh)) or some other means prior to building and running the containers. The PowerShell script can also unset all listed variables using the `clear` argument. There are default users with temporary passwords defined for local authentication in the [docker/seed/20211103151730-system-user.json](./docker/seed/20211103151730-system-user.json) file.
@@ -1841,6 +1988,200 @@ To build and run the either application in production mode enter the following c
 yarn build
 yarn start:prod
 ```
+
+### Local Development with Docker Backend
+
+Run the Next.js client locally with hot reload while connecting to Docker backend services (database, Redis, GraphQL API). Enables session sharing and Keycloak authentication between local and Docker environments.
+
+#### Step 1: Configure Hostname
+
+**⚠️ IMPORTANT: Complete this step BEFORE starting Docker containers!**
+
+For session sharing and Keycloak authentication to work, you **cannot use `localhost`**. Configure a proper hostname first:
+
+**Option 1: Use Your Machine's IP Address**
+
+```bash
+# Find your machine's IP address
+# Windows: ipconfig
+# Linux/Mac: ifconfig or ip addr
+
+# Edit .env and set:
+HOSTNAME=192.168.1.100  # Replace with your actual IP address
+```
+
+**Option 2: Use Hosts File Mapping** (Recommended)
+
+```bash
+# Add to your hosts file:
+# Windows: C:\Windows\System32\drivers\etc\hosts
+# Linux/Mac: /etc/hosts
+
+192.168.1.100  myapp.local  # Replace IP with your machine's IP
+
+# Edit .env and set:
+HOSTNAME=myapp.local
+```
+
+**Why hostname configuration is critical:**
+- Session cookies require matching domains between local and Docker clients
+- Keycloak OAuth redirects require consistent hostname resolution
+- Using `localhost` will cause authentication failures and prevent session sharing
+
+#### Step 2: Start or Restart Docker Services
+
+**If this is your first time starting services:**
+
+```bash
+docker compose up -d
+```
+
+**If you changed the HOSTNAME after containers were already running:**
+
+You must regenerate certificates to include the new hostname. Use the reset script:
+
+```bash
+# Windows
+.\reset-service.ps1 certs
+
+# Linux/Mac
+./reset-service.sh certs
+```
+
+This script will:
+- Stop all containers
+- Remove certificate volumes
+- Regenerate certificates with the new hostname
+- Restart all services
+
+**Verify services are running:**
+
+```bash
+docker ps
+```
+
+You should see containers like `aems-proxy`, `aems-server`, `aems-database`, etc.
+
+#### Step 3: Create Client Environment File
+
+Create `client/.env.local` with the following configuration:
+
+```bash
+# Backend services (Docker) - replace ${HOSTNAME} with your actual configured hostname
+DATABASE_HOST=myapp.local
+DATABASE_PORT=6543
+REDIS_HOST=myapp.local
+REDIS_PORT=6379
+
+# Backend API rewrites - replace ${HOSTNAME} with your actual configured hostname
+REWRITE_AUTHJS_URL=https://myapp.local/authjs
+REWRITE_GRAPHQL_URL=https://myapp.local/graphql
+REWRITE_API_URL=https://myapp.local/api
+REWRITE_EXT_URL=https://myapp.local/ext
+
+# Certificate handling (automatically configured by yarn dev)
+NODE_TLS_REJECT_UNAUTHORIZED=0
+```
+
+**Important:** Replace `myapp.local` with your actual configured hostname (your IP address or custom hostname).
+
+#### Step 4: Start Local Development Client
+
+```bash
+cd client
+yarn dev
+```
+
+This command will:
+- Automatically copy TLS certificates from Docker's `aems-proxy` container
+- Start the HTTPS development server on port 3000
+- Configure backend service connections
+- Enable session sharing with Docker client
+
+**Access your local client:**
+
+```
+https://myapp.local:3000
+```
+
+Replace `myapp.local` with your configured hostname.
+
+#### Development Workflow
+
+1. **Start Docker services** (once per session):
+   ```bash
+   docker compose up -d
+   ```
+
+2. **Start local dev client**:
+   ```bash
+   cd client
+   yarn dev
+   ```
+
+3. **Make code changes** - Hot reload works automatically
+
+4. **Test in both environments** - Use same login session:
+   - Local dev: `https://myapp.local:3000`
+   - Docker prod: `https://myapp.local`
+
+5. **Stop local client** when done:
+   ```
+   CTRL-C
+   ```
+
+#### Troubleshooting
+
+**Certificates Not Copying**
+
+**Error**: `Docker container 'aems-proxy' is not running`
+
+**Solution**: Ensure Docker services are running:
+```bash
+docker compose up -d
+```
+
+**Session Not Shared / Keycloak Login Fails**
+
+**Cause**: Hostname mismatch or `localhost` being used
+
+**Solution**:
+1. Verify `.env` file has correct HOSTNAME (not `localhost`)
+2. If you changed HOSTNAME, regenerate certificates using `reset-service` script
+3. Ensure `client/.env.local` uses the same hostname
+4. Access local client using configured hostname, not `localhost`
+
+**Certificate Errors (ERR_TLS_CERT_ALTNAME_INVALID)**
+
+**Cause**: Certificates don't include your hostname
+
+**Solution**: Regenerate certificates with correct hostname:
+
+```bash
+# Windows
+.\reset-service.ps1
+
+# Linux/Mac
+./reset-service.sh
+```
+
+**Port Already in Use (port 3000)**
+
+**Solution**: Use a different port:
+```bash
+# Windows
+$env:PORT="3001"; yarn dev
+
+# Linux/Mac
+PORT=3001 yarn dev
+```
+
+#### Additional Notes
+
+- Certificates are valid for 1 year (regenerate if expired using reset-service script)
+- `.env.local` overrides `.env` for local development only
+- Stop Docker services when not needed to free system resources
+- See [client/README.local-dev.md](./client/README.local-dev.md) for detailed documentation
 
 ### Configuration
 

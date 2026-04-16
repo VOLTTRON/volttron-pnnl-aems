@@ -1,4 +1,9 @@
 /* eslint-disable */
+import { HistorianReplicationInfo } from '@local/common';
+import { MonitoringSql } from '@local/common';
+import { PublisherInfo } from '@local/common';
+import { ReplicationSlot } from '@local/common';
+import { SubscriberSetupSql } from '@local/common';
 import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
@@ -26,13 +31,23 @@ export type Scalars = {
   FileGroupBy: { input: PrismaJson.FileGroupBy; output: PrismaJson.FileGroupBy; }
   GeographyGeoJson: { input: PrismaJson.GeographyGeoJson; output: PrismaJson.GeographyGeoJson; }
   GeographyGroupBy: { input: PrismaJson.GeographyGroupBy; output: PrismaJson.GeographyGroupBy; }
+  HistorianAggregate: { input: PrismaJson.HistorianAggregate; output: PrismaJson.HistorianAggregate; }
+  HistorianDataPoint: { input: PrismaJson.HistorianDataPoint; output: PrismaJson.HistorianDataPoint; }
+  HistorianMetricCurrent: { input: PrismaJson.HistorianMetricCurrent; output: PrismaJson.HistorianMetricCurrent; }
+  HistorianMultiSystemData: { input: PrismaJson.HistorianMultiSystemData; output: PrismaJson.HistorianMultiSystemData; }
+  HistorianReplicationInfo: { input: HistorianReplicationInfo; output: HistorianReplicationInfo; }
+  HistorianTimeSeries: { input: PrismaJson.HistorianTimeSeries; output: PrismaJson.HistorianTimeSeries; }
   HolidayGroupBy: { input: PrismaJson.HolidayGroupBy; output: PrismaJson.HolidayGroupBy; }
   Json: { input: any; output: any; }
   LocationGroupBy: { input: PrismaJson.LocationGroupBy; output: PrismaJson.LocationGroupBy; }
   LogGroupBy: { input: PrismaJson.LogGroupBy; output: PrismaJson.LogGroupBy; }
+  MonitoringSql: { input: MonitoringSql; output: MonitoringSql; }
   OccupancyGroupBy: { input: PrismaJson.OccupancyGroupBy; output: PrismaJson.OccupancyGroupBy; }
+  PublisherInfo: { input: PublisherInfo; output: PublisherInfo; }
+  ReplicationSlot: { input: ReplicationSlot; output: ReplicationSlot; }
   ScheduleGroupBy: { input: PrismaJson.ScheduleGroupBy; output: PrismaJson.ScheduleGroupBy; }
   SetpointGroupBy: { input: PrismaJson.SetpointGroupBy; output: PrismaJson.SetpointGroupBy; }
+  SubscriberSetupSql: { input: SubscriberSetupSql; output: SubscriberSetupSql; }
   UnitGroupBy: { input: PrismaJson.UnitGroupBy; output: PrismaJson.UnitGroupBy; }
   UserGroupBy: { input: PrismaJson.UserGroupBy; output: PrismaJson.UserGroupBy; }
   UserPreferences: { input: PrismaJson.UserPreferences; output: PrismaJson.UserPreferences; }
@@ -146,6 +161,15 @@ export type AccountUpdateUserRelationInput = {
   disconnect?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
+/** Type of aggregation to apply to historian data */
+export enum AggregationType {
+  Avg = 'Avg',
+  Count = 'Count',
+  Max = 'Max',
+  Min = 'Min',
+  Sum = 'Sum'
+}
+
 export type Banner = {
   __typename?: 'Banner';
   createdAt?: Maybe<Scalars['DateTime']['output']>;
@@ -215,6 +239,12 @@ export type BooleanFilter = {
   equals?: InputMaybe<Scalars['Boolean']['input']>;
   not?: InputMaybe<BooleanFilter>;
 };
+
+/** Type of calculation to perform on historian data */
+export enum CalculationType {
+  RollingAverage = 'RollingAverage',
+  SetpointError = 'SetpointError'
+}
 
 export type Change = {
   __typename?: 'Change';
@@ -1781,6 +1811,24 @@ export type Query = {
   groupUnits?: Maybe<Array<Scalars['UnitGroupBy']['output']>>;
   /** Group a list of user. */
   groupUsers?: Maybe<Array<Scalars['UserGroupBy']['output']>>;
+  /** Get data for multiple systems with the same unit metric (for comparison charts) */
+  historianMultiSystemUnit?: Maybe<Array<Scalars['HistorianMultiSystemData']['output']>>;
+  /** Get historian database replication setup information and generated SQL (admin only) */
+  historianReplicationInfo?: Maybe<Scalars['HistorianReplicationInfo']['output']>;
+  /** Calculate setpoint error (zone temp - setpoint) for a system */
+  historianSetpointError?: Maybe<Array<Scalars['HistorianDataPoint']['output']>>;
+  /** Get aggregated data for a unit metric */
+  historianUnitAggregated?: Maybe<Array<Scalars['HistorianAggregate']['output']>>;
+  /** Get the current (latest) value for a unit metric */
+  historianUnitCurrentValue?: Maybe<Scalars['HistorianMetricCurrent']['output']>;
+  /** Get time series data for a unit metric */
+  historianUnitTimeSeries?: Maybe<Scalars['HistorianTimeSeries']['output']>;
+  /** Get aggregated data for a weather metric */
+  historianWeatherAggregated?: Maybe<Array<Scalars['HistorianAggregate']['output']>>;
+  /** Get the current (latest) value for a weather metric */
+  historianWeatherCurrentValue?: Maybe<Scalars['HistorianMetricCurrent']['output']>;
+  /** Get time series data for a weather metric */
+  historianWeatherTimeSeries?: Maybe<Scalars['HistorianTimeSeries']['output']>;
   /** Paginate through multiple accounts. */
   pageAccount?: Maybe<QueryPageAccountConnection>;
   /** Paginate through multiple banners. */
@@ -2094,6 +2142,83 @@ export type QueryGroupUsersArgs = {
   aggregate?: InputMaybe<UserAggregate>;
   by: Array<UserFields>;
   where?: InputMaybe<UserFilter>;
+};
+
+
+export type QueryHistorianMultiSystemUnitArgs = {
+  building: Scalars['String']['input'];
+  campus: Scalars['String']['input'];
+  endTime: Scalars['DateTime']['input'];
+  interval?: InputMaybe<Scalars['String']['input']>;
+  metric: UnitMetric;
+  startTime: Scalars['DateTime']['input'];
+  systems: Array<Scalars['String']['input']>;
+};
+
+
+export type QueryHistorianSetpointErrorArgs = {
+  building: Scalars['String']['input'];
+  campus: Scalars['String']['input'];
+  endTime: Scalars['DateTime']['input'];
+  startTime: Scalars['DateTime']['input'];
+  system: Scalars['String']['input'];
+};
+
+
+export type QueryHistorianUnitAggregatedArgs = {
+  aggregation: AggregationType;
+  building: Scalars['String']['input'];
+  campus: Scalars['String']['input'];
+  endTime: Scalars['DateTime']['input'];
+  interval: Scalars['String']['input'];
+  metric: UnitMetric;
+  startTime: Scalars['DateTime']['input'];
+  system: Scalars['String']['input'];
+};
+
+
+export type QueryHistorianUnitCurrentValueArgs = {
+  building: Scalars['String']['input'];
+  campus: Scalars['String']['input'];
+  metric: UnitMetric;
+  system: Scalars['String']['input'];
+};
+
+
+export type QueryHistorianUnitTimeSeriesArgs = {
+  building: Scalars['String']['input'];
+  campus: Scalars['String']['input'];
+  endTime: Scalars['DateTime']['input'];
+  metric: UnitMetric;
+  startTime: Scalars['DateTime']['input'];
+  system: Scalars['String']['input'];
+};
+
+
+export type QueryHistorianWeatherAggregatedArgs = {
+  aggregation: AggregationType;
+  building: Scalars['String']['input'];
+  campus: Scalars['String']['input'];
+  endTime: Scalars['DateTime']['input'];
+  interval: Scalars['String']['input'];
+  metric: WeatherMetric;
+  startTime: Scalars['DateTime']['input'];
+};
+
+
+export type QueryHistorianWeatherCurrentValueArgs = {
+  building: Scalars['String']['input'];
+  campus: Scalars['String']['input'];
+  metric: WeatherMetric;
+};
+
+
+export type QueryHistorianWeatherTimeSeriesArgs = {
+  building: Scalars['String']['input'];
+  campus: Scalars['String']['input'];
+  endTime: Scalars['DateTime']['input'];
+  metric: WeatherMetric;
+  startTime: Scalars['DateTime']['input'];
 };
 
 
@@ -3650,6 +3775,31 @@ export type UnitFilter = {
   zoneOrientation?: InputMaybe<StringFilter>;
 };
 
+/** Available metrics for unit/system data (HVAC equipment) */
+export enum UnitMetric {
+  AuxiliaryHeatCommand = 'AuxiliaryHeatCommand',
+  CoolingDemand = 'CoolingDemand',
+  DeadBand = 'DeadBand',
+  DemandResponseFlag = 'DemandResponseFlag',
+  EffectiveZoneTemperatureSetPoint = 'EffectiveZoneTemperatureSetPoint',
+  FirstStageCooling = 'FirstStageCooling',
+  FirstStageHeating = 'FirstStageHeating',
+  HeartBeat = 'HeartBeat',
+  HeatingDemand = 'HeatingDemand',
+  OccupancyCommand = 'OccupancyCommand',
+  OccupiedCoolingSetPoint = 'OccupiedCoolingSetPoint',
+  OccupiedHeatingSetPoint = 'OccupiedHeatingSetPoint',
+  OccupiedSetPoint = 'OccupiedSetPoint',
+  OutdoorAirTemperature = 'OutdoorAirTemperature',
+  ReversingValve = 'ReversingValve',
+  SecondStageCooling = 'SecondStageCooling',
+  SupplyFanStatus = 'SupplyFanStatus',
+  UnoccupiedCoolingSetPoint = 'UnoccupiedCoolingSetPoint',
+  UnoccupiedHeatingSetPoint = 'UnoccupiedHeatingSetPoint',
+  ZoneHumidity = 'ZoneHumidity',
+  ZoneTemperature = 'ZoneTemperature'
+}
+
 export type UnitOrderBy = {
   building?: InputMaybe<OrderBy>;
   campus?: InputMaybe<OrderBy>;
@@ -3856,6 +4006,24 @@ export type UserUpdateUnitsRelationInput = {
   connect?: InputMaybe<Array<UnitUniqueFilter>>;
   disconnect?: InputMaybe<Array<UnitUniqueFilter>>;
 };
+
+/** Available metrics for weather data */
+export enum WeatherMetric {
+  AirPressure = 'AirPressure',
+  AirPressureAtMeanSeaLevel = 'AirPressureAtMeanSeaLevel',
+  AirTemperature = 'AirTemperature',
+  DewPointTemperature = 'DewPointTemperature',
+  HeatIndex = 'HeatIndex',
+  HeightAboveMeanSeaLevel = 'HeightAboveMeanSeaLevel',
+  PrecipitationLast3Hours = 'PrecipitationLast3Hours',
+  PrecipitationLastHour = 'PrecipitationLastHour',
+  RelativeHumidity = 'RelativeHumidity',
+  VisibilityInAir = 'VisibilityInAir',
+  WindChill = 'WindChill',
+  WindFromDirection = 'WindFromDirection',
+  WindSpeed = 'WindSpeed',
+  WindSpeedOfGust = 'WindSpeedOfGust'
+}
 
 export type BannerFieldsFragment = { __typename?: 'Banner', id?: string | null, message?: string | null, expiration?: string | null, createdAt?: string | null, updatedAt?: string | null } & { ' $fragmentName'?: 'BannerFieldsFragment' };
 
@@ -4157,6 +4325,104 @@ export type ReadGeographiesQueryVariables = Exact<{
 
 
 export type ReadGeographiesQuery = { __typename?: 'Query', countGeographies?: number | null, readGeographies?: Array<{ __typename?: 'Geography', id?: string | null, name?: string | null, group?: string | null, type?: string | null, geojson?: PrismaJson.GeographyGeoJson | null, createdAt?: string | null, updatedAt?: string | null }> | null };
+
+export type HistorianReplicationInfoQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type HistorianReplicationInfoQuery = { __typename?: 'Query', historianReplicationInfo?: HistorianReplicationInfo | null };
+
+export type HistorianUnitTimeSeriesQueryVariables = Exact<{
+  campus: Scalars['String']['input'];
+  building: Scalars['String']['input'];
+  system: Scalars['String']['input'];
+  metric: UnitMetric;
+  startTime: Scalars['DateTime']['input'];
+  endTime: Scalars['DateTime']['input'];
+}>;
+
+
+export type HistorianUnitTimeSeriesQuery = { __typename?: 'Query', historianUnitTimeSeries?: PrismaJson.HistorianTimeSeries | null };
+
+export type HistorianUnitCurrentValueQueryVariables = Exact<{
+  campus: Scalars['String']['input'];
+  building: Scalars['String']['input'];
+  system: Scalars['String']['input'];
+  metric: UnitMetric;
+}>;
+
+
+export type HistorianUnitCurrentValueQuery = { __typename?: 'Query', historianUnitCurrentValue?: PrismaJson.HistorianMetricCurrent | null };
+
+export type HistorianUnitAggregatedQueryVariables = Exact<{
+  campus: Scalars['String']['input'];
+  building: Scalars['String']['input'];
+  system: Scalars['String']['input'];
+  metric: UnitMetric;
+  startTime: Scalars['DateTime']['input'];
+  endTime: Scalars['DateTime']['input'];
+  interval: Scalars['String']['input'];
+  aggregation: AggregationType;
+}>;
+
+
+export type HistorianUnitAggregatedQuery = { __typename?: 'Query', historianUnitAggregated?: Array<PrismaJson.HistorianAggregate> | null };
+
+export type HistorianWeatherTimeSeriesQueryVariables = Exact<{
+  campus: Scalars['String']['input'];
+  building: Scalars['String']['input'];
+  metric: WeatherMetric;
+  startTime: Scalars['DateTime']['input'];
+  endTime: Scalars['DateTime']['input'];
+}>;
+
+
+export type HistorianWeatherTimeSeriesQuery = { __typename?: 'Query', historianWeatherTimeSeries?: PrismaJson.HistorianTimeSeries | null };
+
+export type HistorianWeatherCurrentValueQueryVariables = Exact<{
+  campus: Scalars['String']['input'];
+  building: Scalars['String']['input'];
+  metric: WeatherMetric;
+}>;
+
+
+export type HistorianWeatherCurrentValueQuery = { __typename?: 'Query', historianWeatherCurrentValue?: PrismaJson.HistorianMetricCurrent | null };
+
+export type HistorianWeatherAggregatedQueryVariables = Exact<{
+  campus: Scalars['String']['input'];
+  building: Scalars['String']['input'];
+  metric: WeatherMetric;
+  startTime: Scalars['DateTime']['input'];
+  endTime: Scalars['DateTime']['input'];
+  interval: Scalars['String']['input'];
+  aggregation: AggregationType;
+}>;
+
+
+export type HistorianWeatherAggregatedQuery = { __typename?: 'Query', historianWeatherAggregated?: Array<PrismaJson.HistorianAggregate> | null };
+
+export type HistorianMultiSystemUnitQueryVariables = Exact<{
+  campus: Scalars['String']['input'];
+  building: Scalars['String']['input'];
+  systems: Array<Scalars['String']['input']> | Scalars['String']['input'];
+  metric: UnitMetric;
+  startTime: Scalars['DateTime']['input'];
+  endTime: Scalars['DateTime']['input'];
+  interval?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type HistorianMultiSystemUnitQuery = { __typename?: 'Query', historianMultiSystemUnit?: Array<PrismaJson.HistorianMultiSystemData> | null };
+
+export type HistorianSetpointErrorQueryVariables = Exact<{
+  campus: Scalars['String']['input'];
+  building: Scalars['String']['input'];
+  system: Scalars['String']['input'];
+  startTime: Scalars['DateTime']['input'];
+  endTime: Scalars['DateTime']['input'];
+}>;
+
+
+export type HistorianSetpointErrorQuery = { __typename?: 'Query', historianSetpointError?: Array<PrismaJson.HistorianDataPoint> | null };
 
 export type ReadHolidayQueryVariables = Exact<{
   where: HolidayUniqueFilter;
@@ -4527,6 +4793,15 @@ export const CreateFileDocument = {"kind":"Document","definitions":[{"kind":"Ope
 export const AreaGeographiesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AreaGeographies"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"area"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GeographyGeoJson"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"areaGeographies"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"area"},"value":{"kind":"Variable","name":{"kind":"Name","value":"area"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"group"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"geojson"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<AreaGeographiesQuery, AreaGeographiesQueryVariables>;
 export const ReadGeographyDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadGeography"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"where"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GeographyUniqueFilter"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readGeography"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"group"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"geojson"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<ReadGeographyQuery, ReadGeographyQueryVariables>;
 export const ReadGeographiesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadGeographies"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"where"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"GeographyFilter"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"paging"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PagingInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"orderBy"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GeographyOrderBy"}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"distinct"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GeographyFields"}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readGeographies"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}},{"kind":"Argument","name":{"kind":"Name","value":"paging"},"value":{"kind":"Variable","name":{"kind":"Name","value":"paging"}}},{"kind":"Argument","name":{"kind":"Name","value":"orderBy"},"value":{"kind":"Variable","name":{"kind":"Name","value":"orderBy"}}},{"kind":"Argument","name":{"kind":"Name","value":"distinct"},"value":{"kind":"Variable","name":{"kind":"Name","value":"distinct"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"group"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"geojson"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"countGeographies"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}}]}]}}]} as unknown as DocumentNode<ReadGeographiesQuery, ReadGeographiesQueryVariables>;
+export const HistorianReplicationInfoDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"HistorianReplicationInfo"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"historianReplicationInfo"}}]}}]} as unknown as DocumentNode<HistorianReplicationInfoQuery, HistorianReplicationInfoQueryVariables>;
+export const HistorianUnitTimeSeriesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"HistorianUnitTimeSeries"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"campus"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"building"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"system"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metric"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UnitMetric"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"historianUnitTimeSeries"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"campus"},"value":{"kind":"Variable","name":{"kind":"Name","value":"campus"}}},{"kind":"Argument","name":{"kind":"Name","value":"building"},"value":{"kind":"Variable","name":{"kind":"Name","value":"building"}}},{"kind":"Argument","name":{"kind":"Name","value":"system"},"value":{"kind":"Variable","name":{"kind":"Name","value":"system"}}},{"kind":"Argument","name":{"kind":"Name","value":"metric"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metric"}}},{"kind":"Argument","name":{"kind":"Name","value":"startTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}}},{"kind":"Argument","name":{"kind":"Name","value":"endTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}}}]}]}}]} as unknown as DocumentNode<HistorianUnitTimeSeriesQuery, HistorianUnitTimeSeriesQueryVariables>;
+export const HistorianUnitCurrentValueDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"HistorianUnitCurrentValue"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"campus"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"building"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"system"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metric"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UnitMetric"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"historianUnitCurrentValue"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"campus"},"value":{"kind":"Variable","name":{"kind":"Name","value":"campus"}}},{"kind":"Argument","name":{"kind":"Name","value":"building"},"value":{"kind":"Variable","name":{"kind":"Name","value":"building"}}},{"kind":"Argument","name":{"kind":"Name","value":"system"},"value":{"kind":"Variable","name":{"kind":"Name","value":"system"}}},{"kind":"Argument","name":{"kind":"Name","value":"metric"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metric"}}}]}]}}]} as unknown as DocumentNode<HistorianUnitCurrentValueQuery, HistorianUnitCurrentValueQueryVariables>;
+export const HistorianUnitAggregatedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"HistorianUnitAggregated"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"campus"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"building"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"system"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metric"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UnitMetric"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"interval"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"aggregation"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AggregationType"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"historianUnitAggregated"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"campus"},"value":{"kind":"Variable","name":{"kind":"Name","value":"campus"}}},{"kind":"Argument","name":{"kind":"Name","value":"building"},"value":{"kind":"Variable","name":{"kind":"Name","value":"building"}}},{"kind":"Argument","name":{"kind":"Name","value":"system"},"value":{"kind":"Variable","name":{"kind":"Name","value":"system"}}},{"kind":"Argument","name":{"kind":"Name","value":"metric"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metric"}}},{"kind":"Argument","name":{"kind":"Name","value":"startTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}}},{"kind":"Argument","name":{"kind":"Name","value":"endTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}}},{"kind":"Argument","name":{"kind":"Name","value":"interval"},"value":{"kind":"Variable","name":{"kind":"Name","value":"interval"}}},{"kind":"Argument","name":{"kind":"Name","value":"aggregation"},"value":{"kind":"Variable","name":{"kind":"Name","value":"aggregation"}}}]}]}}]} as unknown as DocumentNode<HistorianUnitAggregatedQuery, HistorianUnitAggregatedQueryVariables>;
+export const HistorianWeatherTimeSeriesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"HistorianWeatherTimeSeries"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"campus"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"building"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metric"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"WeatherMetric"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"historianWeatherTimeSeries"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"campus"},"value":{"kind":"Variable","name":{"kind":"Name","value":"campus"}}},{"kind":"Argument","name":{"kind":"Name","value":"building"},"value":{"kind":"Variable","name":{"kind":"Name","value":"building"}}},{"kind":"Argument","name":{"kind":"Name","value":"metric"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metric"}}},{"kind":"Argument","name":{"kind":"Name","value":"startTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}}},{"kind":"Argument","name":{"kind":"Name","value":"endTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}}}]}]}}]} as unknown as DocumentNode<HistorianWeatherTimeSeriesQuery, HistorianWeatherTimeSeriesQueryVariables>;
+export const HistorianWeatherCurrentValueDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"HistorianWeatherCurrentValue"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"campus"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"building"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metric"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"WeatherMetric"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"historianWeatherCurrentValue"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"campus"},"value":{"kind":"Variable","name":{"kind":"Name","value":"campus"}}},{"kind":"Argument","name":{"kind":"Name","value":"building"},"value":{"kind":"Variable","name":{"kind":"Name","value":"building"}}},{"kind":"Argument","name":{"kind":"Name","value":"metric"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metric"}}}]}]}}]} as unknown as DocumentNode<HistorianWeatherCurrentValueQuery, HistorianWeatherCurrentValueQueryVariables>;
+export const HistorianWeatherAggregatedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"HistorianWeatherAggregated"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"campus"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"building"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metric"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"WeatherMetric"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"interval"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"aggregation"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AggregationType"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"historianWeatherAggregated"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"campus"},"value":{"kind":"Variable","name":{"kind":"Name","value":"campus"}}},{"kind":"Argument","name":{"kind":"Name","value":"building"},"value":{"kind":"Variable","name":{"kind":"Name","value":"building"}}},{"kind":"Argument","name":{"kind":"Name","value":"metric"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metric"}}},{"kind":"Argument","name":{"kind":"Name","value":"startTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}}},{"kind":"Argument","name":{"kind":"Name","value":"endTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}}},{"kind":"Argument","name":{"kind":"Name","value":"interval"},"value":{"kind":"Variable","name":{"kind":"Name","value":"interval"}}},{"kind":"Argument","name":{"kind":"Name","value":"aggregation"},"value":{"kind":"Variable","name":{"kind":"Name","value":"aggregation"}}}]}]}}]} as unknown as DocumentNode<HistorianWeatherAggregatedQuery, HistorianWeatherAggregatedQueryVariables>;
+export const HistorianMultiSystemUnitDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"HistorianMultiSystemUnit"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"campus"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"building"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"systems"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"metric"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UnitMetric"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"interval"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"historianMultiSystemUnit"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"campus"},"value":{"kind":"Variable","name":{"kind":"Name","value":"campus"}}},{"kind":"Argument","name":{"kind":"Name","value":"building"},"value":{"kind":"Variable","name":{"kind":"Name","value":"building"}}},{"kind":"Argument","name":{"kind":"Name","value":"systems"},"value":{"kind":"Variable","name":{"kind":"Name","value":"systems"}}},{"kind":"Argument","name":{"kind":"Name","value":"metric"},"value":{"kind":"Variable","name":{"kind":"Name","value":"metric"}}},{"kind":"Argument","name":{"kind":"Name","value":"startTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}}},{"kind":"Argument","name":{"kind":"Name","value":"endTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}}},{"kind":"Argument","name":{"kind":"Name","value":"interval"},"value":{"kind":"Variable","name":{"kind":"Name","value":"interval"}}}]}]}}]} as unknown as DocumentNode<HistorianMultiSystemUnitQuery, HistorianMultiSystemUnitQueryVariables>;
+export const HistorianSetpointErrorDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"HistorianSetpointError"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"campus"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"building"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"system"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"DateTime"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"historianSetpointError"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"campus"},"value":{"kind":"Variable","name":{"kind":"Name","value":"campus"}}},{"kind":"Argument","name":{"kind":"Name","value":"building"},"value":{"kind":"Variable","name":{"kind":"Name","value":"building"}}},{"kind":"Argument","name":{"kind":"Name","value":"system"},"value":{"kind":"Variable","name":{"kind":"Name","value":"system"}}},{"kind":"Argument","name":{"kind":"Name","value":"startTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"startTime"}}},{"kind":"Argument","name":{"kind":"Name","value":"endTime"},"value":{"kind":"Variable","name":{"kind":"Name","value":"endTime"}}}]}]}}]} as unknown as DocumentNode<HistorianSetpointErrorQuery, HistorianSetpointErrorQueryVariables>;
 export const ReadHolidayDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadHoliday"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"where"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"HolidayUniqueFilter"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readHoliday"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"day"}},{"kind":"Field","name":{"kind":"Name","value":"month"}},{"kind":"Field","name":{"kind":"Name","value":"observance"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"correlation"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"stage"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<ReadHolidayQuery, ReadHolidayQueryVariables>;
 export const ReadHolidaysDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadHolidays"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"where"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"HolidayFilter"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"paging"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PagingInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"orderBy"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"HolidayOrderBy"}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"distinct"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"HolidayFields"}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readHolidays"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}},{"kind":"Argument","name":{"kind":"Name","value":"paging"},"value":{"kind":"Variable","name":{"kind":"Name","value":"paging"}}},{"kind":"Argument","name":{"kind":"Name","value":"orderBy"},"value":{"kind":"Variable","name":{"kind":"Name","value":"orderBy"}}},{"kind":"Argument","name":{"kind":"Name","value":"distinct"},"value":{"kind":"Variable","name":{"kind":"Name","value":"distinct"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"day"}},{"kind":"Field","name":{"kind":"Name","value":"month"}},{"kind":"Field","name":{"kind":"Name","value":"observance"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"correlation"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"stage"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"countHolidays"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}}]}]}}]} as unknown as DocumentNode<ReadHolidaysQuery, ReadHolidaysQueryVariables>;
 export const CreateHolidayDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateHoliday"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"create"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"HolidayCreateInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createHoliday"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"create"},"value":{"kind":"Variable","name":{"kind":"Name","value":"create"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"day"}},{"kind":"Field","name":{"kind":"Name","value":"month"}},{"kind":"Field","name":{"kind":"Name","value":"observance"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"correlation"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"stage"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<CreateHolidayMutation, CreateHolidayMutationVariables>;

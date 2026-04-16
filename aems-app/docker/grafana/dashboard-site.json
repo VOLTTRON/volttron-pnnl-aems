@@ -1,0 +1,523 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 19,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "cdb6353d-4933-4890-971e-23030607da34"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed"
+          },
+          "custom": {
+            "fillOpacity": 70,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineWidth": 0,
+            "spanNulls": 300000
+          },
+          "mappings": [
+            {
+              "options": {
+                "1": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "Local Control"
+                },
+                "2": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "Occupied"
+                },
+                "3": {
+                  "color": "blue",
+                  "index": 2,
+                  "text": "Unoccupied"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 17,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 6,
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "auto",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "cdb6353d-4933-4890-971e-23030607da34"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__timeGroup(ts, $__interval) AS time,\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU01' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS rtu01,\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU02' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS rtu02,\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU03' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS rtu03,\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU04' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS rtu04,\n  MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU05' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS rtu05\nFROM data\nNATURAL JOIN topics\nWHERE topic_name LIKE 'PNNL/ROB/%/OccupancyCommand'\n  AND $__timeFilter(ts)\nGROUP BY 1\nORDER BY 1\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Occupancy Status",
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "cdb6353d-4933-4890-971e-23030607da34"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-BlYlRd"
+          },
+          "custom": {
+            "fillOpacity": 70,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineWidth": 0,
+            "spanNulls": 300000
+          },
+          "mappings": [],
+          "max": 5,
+          "min": -5,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "blue",
+                "value": -3
+              },
+              {
+                "color": "super-light-blue",
+                "value": -2
+              },
+              {
+                "color": "green",
+                "value": -1
+              },
+              {
+                "color": "green",
+                "value": 1
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "#E24D42",
+                "value": 3
+              }
+            ]
+          },
+          "unit": "fahrenheit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 17,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 11,
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "never",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "cdb6353d-4933-4890-971e-23030607da34"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH zone_temps AS (\n  SELECT\n    $__timeGroup(ts, $__interval) AS time,\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU01' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU01_temp,\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU02' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU02_temp,\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU03' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU03_temp,\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU04' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU04_temp,\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU05' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU05_temp\n  FROM data\n  NATURAL JOIN topics\n  WHERE topic_name LIKE 'PNNL/ROB/%/ZoneTemperature'\n    AND $__timeFilter(ts)\n  GROUP BY 1\n),\nzone_setpoints AS (\n  SELECT\n    $__timeGroup(ts, $__interval) AS time,\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU01' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU01_sp,\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU02' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU02_sp,\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU03' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU03_sp,\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU04' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU04_sp,\n    MAX(CASE WHEN upper(split_part(topic_name, '/', 3)) = 'RTU05' THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS RTU05_sp\n  FROM data\n  NATURAL JOIN topics\n  WHERE topic_name LIKE 'PNNL/ROB/%/EffectiveZoneTemperatureSetPoint'\n    AND $__timeFilter(ts)\n  GROUP BY 1\n)\nSELECT\n  t.time,\n  t.RTU01_temp - s.RTU01_sp AS RTU01,\n  t.RTU02_temp - s.RTU02_sp AS RTU02,\n  t.RTU03_temp - s.RTU03_sp AS RTU03,\n  t.RTU04_temp - s.RTU04_sp AS RTU04,\n  t.RTU05_temp - s.RTU05_sp AS RTU05\nFROM zone_temps t\nJOIN zone_setpoints s ON t.time = s.time\nORDER BY t.time\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Occupancy Setpoint Error",
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "cdb6353d-4933-4890-971e-23030607da34"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "cdb6353d-4933-4890-971e-23030607da34"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"Outdoor Air Temperature\" from data natural join topics where topic_name like 'PNNL/ROB/%/OutdoorAirTemperature' AND $__timeFilter(ts) ORDER BY 1;",
+          "refId": "E",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "cdb6353d-4933-4890-971e-23030607da34"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT ts as \"time\", CAST(NULLIF(value_string, 'null') AS double precision) as \"Air temperature\" from data natural join topics where topic_name like '%/%/air_temperature' AND $__timeFilter(ts) ORDER BY 1;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Weather",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "cdb6353d-4933-4890-971e-23030607da34"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "cdb6353d-4933-4890-971e-23030607da34"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\r\nSELECT\r\n  ts as \"time\",\r\n  CAST(NULLIF(value_string, 'null') AS double precision) as \"Instantaneous Power\",\r\n  AVG(CAST(NULLIF(value_string, 'null') AS double precision)) OVER (\r\n    ORDER BY ts\r\n    RANGE BETWEEN INTERVAL '30 minutes' PRECEDING AND '0 minutes' FOLLOWING\r\n  ) AS \"30 Min. Avg. Power\",\r\n  AVG(CAST(NULLIF(value_string, 'null') AS double precision)) OVER (\r\n    ORDER BY ts\r\n    RANGE BETWEEN INTERVAL '15 minutes' PRECEDING AND '15 minutes' FOLLOWING\r\n  ) AS \"15 Min. Avg. Power\"\r\nFROM\r\n  data\r\nnatural join topics where\r\n  topic_name = 'PNNL/ROB/meter/Watts'\r\n  AND $__timeFilter(ts)\r\nORDER BY\r\n  ts;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Building Power",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 38,
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "PNNL ROB - Site Overview",
+  "uid": "f4ba4d0b-9375-4c3a-a03f-5fc0d2f68db4",
+  "version": 1,
+  "weekStart": ""
+}

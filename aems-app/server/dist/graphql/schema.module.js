@@ -31,6 +31,7 @@ const object_service_14 = require("./schedule/object.service");
 const object_service_15 = require("./setpoint/object.service");
 const object_service_16 = require("./unit/object.service");
 const object_service_17 = require("./user/object.service");
+const object_service_18 = require("./historian/object.service");
 const query_service_1 = require("./account/query.service");
 const query_service_2 = require("./banner/query.service");
 const query_service_3 = require("./change/query.service");
@@ -49,6 +50,7 @@ const query_service_15 = require("./schedule/query.service");
 const query_service_16 = require("./setpoint/query.service");
 const query_service_17 = require("./unit/query.service");
 const query_service_18 = require("./user/query.service");
+const query_service_19 = require("./historian/query.service");
 const mutate_service_1 = require("./account/mutate.service");
 const mutate_service_2 = require("./banner/mutate.service");
 const mutate_service_3 = require("./change/mutate.service");
@@ -67,11 +69,12 @@ const mutate_service_15 = require("./setpoint/mutate.service");
 const mutate_service_16 = require("./unit/mutate.service");
 const mutate_service_17 = require("./user/mutate.service");
 const change_module_1 = require("../change/change.module");
+const historian_module_1 = require("../historian/historian.module");
 let SchemaModule = SchemaModule_1 = class SchemaModule {
     static register() {
         return {
             module: SchemaModule_1,
-            imports: [core_1.DiscoveryModule, prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule, change_module_1.ChangeModule],
+            imports: [core_1.DiscoveryModule, prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule, change_module_1.ChangeModule, historian_module_1.HistorianModule],
             providers: [
                 builder_service_1.SchemaBuilderService,
                 {
@@ -103,7 +106,7 @@ let SchemaModule = SchemaModule_1 = class SchemaModule {
 exports.SchemaModule = SchemaModule;
 exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule, change_module_1.ChangeModule],
+        imports: [prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule, change_module_1.ChangeModule, historian_module_1.HistorianModule],
         exports: [builder_service_1.SchemaBuilderService],
         providers: [
             builder_service_1.SchemaBuilderService,
@@ -125,6 +128,7 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             object_service_9.GeographyObject,
             object_service_3.ChangeObject,
             object_service_16.UnitObject,
+            object_service_18.HistorianObject,
             query_service_1.AccountQuery,
             query_service_2.BannerQuery,
             query_service_3.ChangeQuery,
@@ -144,6 +148,7 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             query_service_10.GeographyQuery,
             query_service_3.ChangeQuery,
             query_service_17.UnitQuery,
+            query_service_19.HistorianQuery,
             mutate_service_1.AccountMutation,
             mutate_service_2.BannerMutation,
             mutate_service_3.ChangeMutation,

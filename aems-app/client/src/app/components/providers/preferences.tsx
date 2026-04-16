@@ -4,9 +4,20 @@ import { merge, omit } from "lodash";
 import { createContext, useCallback, useEffect } from "react";
 import { useState } from "react";
 import { SensitivePreferences } from "./current";
-import { Mode, Preferences as ServerPreferences } from "@local/prisma";
+import { Mode, Preferences as PrismaPreferences } from "@local/prisma";
 
-type Preferences = Omit<ServerPreferences, (typeof SensitivePreferences)[number]>;
+export interface ClientPreferences {
+  palette1?: string; // Primary palette (temperatures, main metrics)
+  palette2?: string; // Secondary palette (setpoints, demands)
+  palette3?: string; // Tertiary palette (status, states)
+  paletteWarm?: string; // Warm palette (heating, warm colors)
+  paletteCool?: string; // Cool palette (cooling, cool colors)
+  paletteGradient?: string; // Gradient palette (humidity, gradients)
+}
+
+export type ServerPreferences = Omit<PrismaPreferences, (typeof SensitivePreferences)[number]>;
+
+export type Preferences = ServerPreferences & ClientPreferences & Partial<PrismaPreferences>;
 
 export type setPreferences = (preferences: Preferences) => void;
 
@@ -18,6 +29,12 @@ export const PreferencesContext = createContext<{
 export const DefaultPreferences: Preferences = {
   theme: "default",
   mode: Mode.Light,
+  palette1: "AEMS Cool Tones", // Primary: blues and purples for cooling/temperature
+  palette2: "AEMS Warm Tones", // Secondary: reds, oranges, yellows for heating/setpoints
+  palette3: "AEMS Vibrant Harmony", // Tertiary: vibrant diverging for status/efficiency
+  paletteWarm: "Red", // Warm: heating-related colors
+  paletteCool: "Blue", // Cool: cooling-related colors
+  paletteGradient: "Turquoise", // Gradient: gradient-based metrics
 };
 
 export const isPreferences = (preferences: any): preferences is Preferences => {
@@ -29,20 +46,24 @@ export const isPreferences = (preferences: any): preferences is Preferences => {
   );
 };
 
-export function compilePreferences<T extends Preferences, S extends ServerPreferences>(
-  ...preferences: (Partial<T> | Partial<S> | null | undefined)[]
-): T & S {
+export function compilePreferences<
+  T extends ClientPreferences,
+  S extends ServerPreferences,
+  P extends PrismaPreferences,
+>(...preferences: (Partial<T> | Partial<S> | Partial<P> | null | undefined)[]): Preferences & T & S & P {
   return merge({}, DefaultPreferences, ...preferences);
 }
 
 function getLocalStorage(): Preferences | undefined {
-  const value = localStorage.getItem("preferences");
+  const value = localStorage.getItem(`preferences`);
   const preferences = value ? JSON.parse(value) : undefined;
-  return isPreferences(preferences) ? preferences : undefined;
+  const sanitized = omit(preferences, SensitivePreferences);
+  return isPreferences(sanitized) ? sanitized : undefined;
 }
 
 function setLocalStorage(preferences: Preferences) {
-  localStorage.setItem("preferences", JSON.stringify(preferences));
+  const sanitized = omit(preferences, SensitivePreferences);
+  localStorage.setItem(`preferences`, JSON.stringify(sanitized));
 }
 
 /**

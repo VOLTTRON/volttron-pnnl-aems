@@ -14,8 +14,14 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Mutation = exports.Mode = void 0;
+exports.Mutation = exports.Mode = exports.CalculationType = exports.AggregationType = exports.WeatherMetric = exports.UnitMetric = void 0;
 __exportStar(require("./pothos"), exports);
+__exportStar(require("./types/historian"), exports);
+var historian_1 = require("./types/historian");
+Object.defineProperty(exports, "UnitMetric", { enumerable: true, get: function () { return historian_1.UnitMetric; } });
+Object.defineProperty(exports, "WeatherMetric", { enumerable: true, get: function () { return historian_1.WeatherMetric; } });
+Object.defineProperty(exports, "AggregationType", { enumerable: true, get: function () { return historian_1.AggregationType; } });
+Object.defineProperty(exports, "CalculationType", { enumerable: true, get: function () { return historian_1.CalculationType; } });
 var Mode;
 (function (Mode) {
     Mode["Light"] = "light";

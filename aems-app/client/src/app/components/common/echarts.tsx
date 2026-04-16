@@ -18,7 +18,7 @@ export function ECharts({ option, style, settings, loading, theme }: ReactEChart
   useEffect(() => {
     let chart: ECharts | undefined;
     if (chartRef.current !== null) {
-      chart = init(chartRef.current, theme, { renderer: "svg" });
+      chart = init(chartRef.current, theme, { renderer: "canvas" });
     }
     function resizeChart() {
       chart?.resize();
@@ -35,7 +35,9 @@ export function ECharts({ option, style, settings, loading, theme }: ReactEChart
   useEffect(() => {
     if (chartRef.current !== null) {
       const chart = getInstanceByDom(chartRef.current);
-      chart!.setOption(option, settings);
+      // Use notMerge: false for better performance on updates
+      // Use lazyUpdate: true to batch rendering updates
+      chart!.setOption(option, { notMerge: false, lazyUpdate: true, ...settings });
     }
   }, [option, settings, theme]);
 

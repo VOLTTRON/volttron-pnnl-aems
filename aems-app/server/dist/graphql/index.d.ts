@@ -3,6 +3,7 @@ import { BaseContext } from "@apollo/server";
 import { LogType, FeedbackStatus } from "@prisma/client";
 import { PubSubEngine } from "graphql-subscriptions";
 import "@local/prisma";
+import { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, HistorianMultiSystemData, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot } from "@local/common";
 export interface PubSubEngineExt extends PubSubEngine {
     publish<T extends SubscriptionTopic>(topic: T | `${T}/${string}`, payload: SubscriptionEvent<T>): Promise<void>;
     subscribe<T extends SubscriptionTopic>(topic: T | `${T}/${string}`, onMessage: (event: SubscriptionEvent<T>) => Promise<void> | void, options: object): Promise<number>;
@@ -124,6 +125,46 @@ export type Scalars = {
     OccupancyGroupBy: {
         Input: PrismaJson.OccupancyGroupBy;
         Output: PrismaJson.OccupancyGroupBy;
+    };
+    HistorianDataPoint: {
+        Input: HistorianDataPoint;
+        Output: HistorianDataPoint;
+    };
+    HistorianTimeSeries: {
+        Input: HistorianTimeSeries;
+        Output: HistorianTimeSeries;
+    };
+    HistorianAggregate: {
+        Input: HistorianAggregate;
+        Output: HistorianAggregate;
+    };
+    HistorianMetricCurrent: {
+        Input: HistorianMetricCurrent;
+        Output: HistorianMetricCurrent;
+    };
+    HistorianMultiSystemData: {
+        Input: HistorianMultiSystemData;
+        Output: HistorianMultiSystemData;
+    };
+    HistorianReplicationInfo: {
+        Input: HistorianReplicationInfo;
+        Output: HistorianReplicationInfo;
+    };
+    PublisherInfo: {
+        Input: PublisherInfo;
+        Output: PublisherInfo;
+    };
+    SubscriberSetupSql: {
+        Input: SubscriberSetupSql;
+        Output: SubscriberSetupSql;
+    };
+    MonitoringSql: {
+        Input: MonitoringSql;
+        Output: MonitoringSql;
+    };
+    ReplicationSlot: {
+        Input: ReplicationSlot;
+        Output: ReplicationSlot;
     };
 };
 export interface Aggregate<T extends string> {
