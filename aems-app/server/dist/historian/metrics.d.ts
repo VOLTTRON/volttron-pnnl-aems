@@ -1,5 +1,4 @@
-import { UnitMetric, WeatherMetric, MeterMetric } from "@local/prisma";
-export { UnitMetric, WeatherMetric, MeterMetric } from "@local/prisma";
+import { UnitMetric, WeatherMetric, MeterMetric } from "@local/common";
 export interface MetricInfo {
     topic: UnitMetric | WeatherMetric | MeterMetric;
     category: "unit" | "weather" | "meter";

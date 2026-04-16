@@ -20,8 +20,10 @@ import {
   SystemPublishingStatus,
   HistorianDataRange,
   HistorianMultiSystemRanges,
+  UnitMetric,
+  WeatherMetric,
 } from "@local/common";
-import { UnitMetric, WeatherMetric, buildUnitTopicPath, buildWeatherTopicPath } from "./metrics";
+import { buildUnitTopicPath, buildWeatherTopicPath } from "./metrics";
 
 // Re-export types for convenience
 export {
@@ -506,7 +508,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     });
 
     let timeGroup = "ts";
-    const params: (Date)[] = [startTime, endTime];
+    const params: Date[] = [startTime, endTime];
 
     if (interval) {
       const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
@@ -547,7 +549,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         systems.forEach((sys) => {
           grouped[sys].push({
             timestamp,
-            value: typeof row[sys] === "string" ? parseFloat(row[sys]) : row[sys] ?? null,
+            value: typeof row[sys] === "string" ? parseFloat(row[sys]) : (row[sys] ?? null),
             system: sys,
             metric,
           });

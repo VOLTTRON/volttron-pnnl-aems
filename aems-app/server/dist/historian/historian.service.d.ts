@@ -1,8 +1,7 @@
 import { OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
-import { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, SystemPublishingStatus, HistorianMultiSystemRanges } from "@local/common";
-import { UnitMetric, WeatherMetric } from "./metrics";
+import { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, SystemPublishingStatus, HistorianMultiSystemRanges, UnitMetric, WeatherMetric } from "@local/common";
 export { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, SystemPublishingStatus, UnitMetric, WeatherMetric, };
 export interface SystemAccess {
     campus: string;

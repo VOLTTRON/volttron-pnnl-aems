@@ -23,9 +23,9 @@ const https = require("https");
 const common_3 = require("@local/common");
 Object.defineProperty(exports, "AggregationType", { enumerable: true, get: function () { return common_3.AggregationType; } });
 Object.defineProperty(exports, "CalculationType", { enumerable: true, get: function () { return common_3.CalculationType; } });
+Object.defineProperty(exports, "UnitMetric", { enumerable: true, get: function () { return common_3.UnitMetric; } });
+Object.defineProperty(exports, "WeatherMetric", { enumerable: true, get: function () { return common_3.WeatherMetric; } });
 const metrics_1 = require("./metrics");
-Object.defineProperty(exports, "UnitMetric", { enumerable: true, get: function () { return metrics_1.UnitMetric; } });
-Object.defineProperty(exports, "WeatherMetric", { enumerable: true, get: function () { return metrics_1.WeatherMetric; } });
 let HistorianService = HistorianService_1 = class HistorianService {
     constructor(configService, prismaService) {
         this.configService = configService;
@@ -377,7 +377,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 systems.forEach((sys) => {
                     grouped[sys].push({
                         timestamp,
-                        value: typeof row[sys] === "string" ? parseFloat(row[sys]) : row[sys] ?? null,
+                        value: typeof row[sys] === "string" ? parseFloat(row[sys]) : (row[sys] ?? null),
                         system: sys,
                         metric,
                     });
@@ -539,7 +539,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                         endTime: new Date(row.end_time),
                         value: row.value,
                         system: row.system,
-                        metric: metrics_1.UnitMetric.ZoneTemperature,
+                        metric: common_3.UnitMetric.ZoneTemperature,
                     });
                 }
             });
@@ -554,8 +554,8 @@ let HistorianService = HistorianService_1 = class HistorianService {
         }
     }
     async calculateSetpointError(campus, building, system, startTime, endTime) {
-        const tempPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metrics_1.UnitMetric.ZoneTemperature);
-        const setpointPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metrics_1.UnitMetric.EffectiveZoneTemperatureSetPoint);
+        const tempPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, common_3.UnitMetric.ZoneTemperature);
+        const setpointPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, common_3.UnitMetric.EffectiveZoneTemperatureSetPoint);
         const query = `
       WITH zone_temps AS (
         SELECT
@@ -596,7 +596,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 timestamp: new Date(row.timestamp),
                 value: typeof row.value === "string" ? parseFloat(row.value) : null,
                 system,
-                metric: metrics_1.UnitMetric.ZoneTemperature,
+                metric: common_3.UnitMetric.ZoneTemperature,
             }));
         }
         catch (error) {

@@ -14,7 +14,6 @@ const common_1 = require("@nestjs/common");
 const builder_service_1 = require("../builder.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const common_2 = require("@local/common");
-const metrics_1 = require("../../historian/metrics");
 const graphql_1 = require("graphql");
 let HistorianObject = class HistorianObject {
     constructor(builder) {
@@ -26,11 +25,11 @@ let HistorianObject = class HistorianObject {
             name: "CalculationType",
             description: "Type of calculation to perform on historian data",
         });
-        this.UnitMetric = builder.enumType(metrics_1.UnitMetric, {
+        this.UnitMetric = builder.enumType(common_2.UnitMetric, {
             name: "UnitMetric",
             description: "Available metrics for unit/system data (HVAC equipment)",
         });
-        this.WeatherMetric = builder.enumType(metrics_1.WeatherMetric, {
+        this.WeatherMetric = builder.enumType(common_2.WeatherMetric, {
             name: "WeatherMetric",
             description: "Available metrics for weather data",
         });

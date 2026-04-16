@@ -1,6 +1,5 @@
 import { SchemaBuilderService } from "../builder.service";
-import { AggregationType, CalculationType, HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, HistorianMultiSystemData, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot } from "@local/common";
-import { UnitMetric, WeatherMetric } from "@/historian/metrics";
+import { AggregationType, CalculationType, HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianMetricCurrent, HistorianMultiSystemData, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, UnitMetric, WeatherMetric } from "@local/common";
 export declare class HistorianObject {
     readonly HistorianDataPoint: PothosSchemaTypes.ScalarRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;

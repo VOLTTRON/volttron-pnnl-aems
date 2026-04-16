@@ -14,8 +14,9 @@ import {
   SubscriberSetupSql,
   MonitoringSql,
   ReplicationSlot,
+  UnitMetric,
+  WeatherMetric,
 } from "@local/common";
-import { UnitMetric, WeatherMetric } from "@/historian/metrics";
 import { GraphQLScalarType } from "graphql";
 
 @Injectable()

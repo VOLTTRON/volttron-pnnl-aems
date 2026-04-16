@@ -3,7 +3,7 @@
  * Core metric enums are exported from @local/prisma
  */
 
-import { UnitMetric, WeatherMetric, MeterMetric } from "@local/prisma";
+import { UnitMetric, WeatherMetric, MeterMetric } from "@local/common";
 
 /**
  * Metadata about a metric
