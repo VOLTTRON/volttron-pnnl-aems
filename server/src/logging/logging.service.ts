@@ -1,6 +1,6 @@
 import { AppConfigService } from "@/app.config";
 import { LoggerService, Injectable, LogLevel, ConsoleLogger, Inject } from "@nestjs/common";
-import { getLogLevels } from ".";
+import { getLogLevels, ThrottledLoggerService } from ".";
 
 @Injectable()
 export class AppLoggerService implements LoggerService {
@@ -8,13 +8,18 @@ export class AppLoggerService implements LoggerService {
 
   constructor(@Inject(AppConfigService.Key) configService: AppConfigService) {
     if (configService.log.console.level) {
-      this.loggers.push(
-        new ConsoleLogger({
-          logLevels: getLogLevels(configService.log.console.level),
-          prefix: "Server",
-          timestamp: true,
-        }),
-      );
+      const consoleLogger = new ConsoleLogger({
+        logLevels: getLogLevels(configService.log.console.level),
+        prefix: configService.instanceName,
+        timestamp: true,
+      });
+
+      // Wrap with throttled logger if enabled
+      const finalLogger = configService.log.throttle.enabled
+        ? new ThrottledLoggerService(consoleLogger, configService)
+        : consoleLogger;
+
+      this.loggers.push(finalLogger);
     }
   }
 

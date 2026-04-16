@@ -29,12 +29,24 @@ export declare class AppConfigService {
         prisma: {
             level: string;
         };
+        throttle: {
+            enabled: boolean;
+            debounce: {
+                fatal: number;
+                error: number;
+                warn: number;
+                log: number;
+                debug: number;
+                verbose: number;
+            };
+        };
     };
     session: {
         maxAge: number;
         store: string;
         secret: string;
     };
+    instanceName: string;
     instanceType: string;
     graphql: {
         editor: boolean;
@@ -103,32 +115,13 @@ export declare class AppConfigService {
             batchSize: number;
             geojsonContribution: string;
         };
-        cleanup: {
+        event: {
+            prune: boolean;
             age: {
                 value: number;
                 unit: ReturnType<typeof toDurationUnit>;
             };
         };
-        config: {
-            timeout: number;
-            authUrl: string;
-            apiUrl: string;
-            username: string;
-            password: string;
-            verbose: boolean;
-            holidaySchedule: boolean;
-        };
-        control: {
-            templatePaths: string[];
-        };
-        setup: {
-            ilcPaths: string[];
-            thermostatPaths: string[];
-        };
-    };
-    volttron: {
-        ca: string;
-        mocked: boolean;
     };
     cors: {
         origin?: string;

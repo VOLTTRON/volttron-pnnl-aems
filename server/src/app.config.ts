@@ -1,8 +1,7 @@
 import { registerAs } from "@nestjs/config";
 import { Normalization, parseBoolean, RoleType } from "@local/common";
 import { Logger } from "@nestjs/common";
-import { resolve } from "node:path";
-import { readFileSync } from "node:fs";
+import { readSecret } from "./utils/readSecret";
 
 export interface ExtConfig {
   path?: `/ext/${string}`;
@@ -90,12 +89,24 @@ export class AppConfigService {
     prisma: {
       level: string;
     };
+    throttle: {
+      enabled: boolean;
+      debounce: {
+        fatal: number;
+        error: number;
+        warn: number;
+        log: number;
+        debug: number;
+        verbose: number;
+      };
+    };
   };
   session: {
     maxAge: number;
     store: string;
     secret: string;
   };
+  instanceName: string;
   instanceType: string;
   graphql: {
     editor: boolean;
@@ -164,32 +175,13 @@ export class AppConfigService {
       batchSize: number;
       geojsonContribution: string;
     };
-    cleanup: {
+    event: {
+      prune: boolean;
       age: {
         value: number;
         unit: ReturnType<typeof toDurationUnit>;
       };
     };
-    config: {
-      timeout: number;
-      authUrl: string;
-      apiUrl: string;
-      username: string;
-      password: string;
-      verbose: boolean;
-      holidaySchedule: boolean;
-    };
-    control: {
-      templatePaths: string[];
-    };
-    setup: {
-      ilcPaths: string[];
-      thermostatPaths: string[];
-    };
-  };
-  volttron: {
-    ca: string;
-    mocked: boolean;
   };
   cors: {
     origin?: string;
@@ -218,12 +210,24 @@ export class AppConfigService {
       prisma: {
         level: process.env.LOG_PRISMA_LEVEL ?? "",
       },
+      throttle: {
+        enabled: parseBoolean(process.env.LOG_THROTTLE_ENABLED ?? "true"),
+        debounce: {
+          fatal: parseInt(process.env.LOG_THROTTLE_DEBOUNCE_FATAL ?? "300"),
+          error: parseInt(process.env.LOG_THROTTLE_DEBOUNCE_ERROR ?? "300"),
+          warn: parseInt(process.env.LOG_THROTTLE_DEBOUNCE_WARN ?? "300"),
+          log: parseInt(process.env.LOG_THROTTLE_DEBOUNCE_INFO ?? process.env.LOG_THROTTLE_DEBOUNCE_LOG ?? "60"),
+          debug: parseInt(process.env.LOG_THROTTLE_DEBOUNCE_DEBUG ?? "30"),
+          verbose: parseInt(process.env.LOG_THROTTLE_DEBOUNCE_VERBOSE ?? "30"),
+        },
+      },
     };
     this.session = {
       maxAge: parseInt(process.env.SESSION_MAX_AGE ?? "86400000"),
       store: process.env.SESSION_STORE ?? "",
-      secret: process.env.SESSION_SECRET ?? "",
+      secret: readSecret("SESSION_SECRET", ""),
     };
+    this.instanceName = process.env.INSTANCE_NAME ?? "";
     this.instanceType = process.env.INSTANCE_TYPE ?? "";
     this.graphql = {
       editor: parseBoolean(process.env.GRAPHQL_EDITOR),
@@ -236,7 +240,7 @@ export class AppConfigService {
       host: process.env.REDIS_HOST ?? "localhost",
       port: parseInt(process.env.REDIS_PORT ?? "6379"),
       username: process.env.REDIS_USERNAME || undefined,
-      password: process.env.REDIS_PASSWORD || undefined,
+      password: readSecret("REDIS_PASSWORD", "") || undefined,
       db: process.env.REDIS_DB ? parseInt(process.env.REDIS_DB) : undefined,
     };
     this.auth = {
@@ -245,7 +249,7 @@ export class AppConfigService {
       debug: parseBoolean(process.env.AUTH_DEBUG),
     };
     this.jwt = {
-      secret: process.env.JWT_SECRET ?? "",
+      secret: readSecret("JWT_SECRET", ""),
       expiresIn: parseInt(process.env.JWT_EXPIRES_IN ?? "86400"),
     };
     this.keycloak = {
@@ -257,7 +261,7 @@ export class AppConfigService {
       logoutUrl: process.env.KEYCLOAK_LOGOUT_URL ?? "",
       scope: process.env.KEYCLOAK_SCOPE ?? "",
       clientId: process.env.KEYCLOAK_CLIENT_ID ?? "",
-      clientSecret: process.env.KEYCLOAK_CLIENT_SECRET ?? "",
+      clientSecret: readSecret("KEYCLOAK_CLIENT_SECRET", ""),
       issuerUrl: process.env.KEYCLOAK_ISSUER_URL ?? "",
       wellKnownUrl: process.env.KEYCLOAK_WELL_KNOWN_URL ?? "",
       passRoles: parseBoolean(process.env.KEYCLOAK_PASS_ROLES),
@@ -275,7 +279,7 @@ export class AppConfigService {
       name: process.env.DATABASE_NAME ?? "",
       schema: process.env.DATABASE_SCHEMA ?? "",
       username: process.env.DATABASE_USERNAME ?? "",
-      password: process.env.DATABASE_PASSWORD ?? "",
+      password: readSecret("DATABASE_PASSWORD", ""),
     };
     this.ext = Object.entries(process.env)
       .filter(
@@ -334,43 +338,13 @@ export class AppConfigService {
         batchSize: parseInt(process.env.SERVICE_SEED_BATCH_SIZE ?? "100"),
         geojsonContribution: process.env.SERVICE_SEED_GEOJSON_CONTRIBUTION ?? "",
       },
-      cleanup: {
+      event: {
+        prune: parseBoolean(process.env.SERVICE_EVENT_PRUNE),
         age: {
-          value: parseInt(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_CLEANUP_AGE ?? "")?.[1] ?? "0"),
-          unit: toDurationUnit(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_CLEANUP_AGE ?? "")?.[0] ?? "milliseconds"),
+          value: parseInt(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_EVENT_AGE ?? "")?.[1] ?? "0"),
+          unit: toDurationUnit(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_EVENT_AGE ?? "")?.[0] ?? "milliseconds"),
         },
       },
-      config: {
-        timeout: parseInt(process.env.SERVICE_CONFIG_TIMEOUT ?? "5000"),
-        authUrl: process.env.SERVICE_CONFIG_AUTH_URL ?? "",
-        apiUrl: process.env.SERVICE_CONFIG_API_URL ?? "",
-        username: process.env.SERVICE_CONFIG_USERNAME ?? "",
-        password: process.env.SERVICE_CONFIG_PASSWORD ?? "",
-        verbose: parseBoolean(process.env.SERVICE_CONFIG_VERBOSE),
-        holidaySchedule: parseBoolean(process.env.SERVICE_CONFIG_HOLIDAY_SCHEDULE),
-      },
-      control: {
-        templatePaths: (process.env.SERVICE_SETUP_TEMPLATE_PATHS ?? "")
-          .split(",")
-          .map((f) => f.trim())
-          .filter(Boolean),
-      },
-      setup: {
-        ilcPaths: (process.env.SERVICE_SETUP_ILC_PATHS ?? "")
-          .split(",")
-          .map((f) => f.trim())
-          .filter(Boolean),
-        thermostatPaths: (process.env.SERVICE_SETUP_THERMOSTAT_PATHS ?? "")
-          .split(",")
-          .map((f) => f.trim())
-          .filter(Boolean),
-      },
-    };
-    this.volttron = {
-      ca: process.env.VOLTTRON_CA
-        ? readFileSync(resolve(__dirname, process.env.VOLTTRON_CA ?? "")).toString("utf-8")
-        : "",
-      mocked: parseBoolean(process.env.VOLTTRON_MOCKED),
     };
     this.cors = {
       origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,

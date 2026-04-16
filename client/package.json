@@ -8,7 +8,10 @@
   "type": "module",
   "types": "index.ts",
   "scripts": {
-    "dev": "next dev",
+    "copy-certs": "node copy-certs.cjs",
+    "dev": "node server.cjs",
+    "dev:http": "next dev -H 0.0.0.0",
+    "dev:https": "node server.cjs",
     "build": "yarn compile && next build",
     "start": "next dev",
     "start:dev": "next dev",

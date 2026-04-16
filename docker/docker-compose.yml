@@ -1,3 +1,27 @@
+secrets:
+  session_secret:
+    file: ./secrets/session_secret.txt
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  database_password:
+    file: ./secrets/database_password.txt
+  redis_password:
+    file: ./secrets/redis_password.txt
+  keycloak_client_secret:
+    file: ./secrets/keycloak_client_secret.txt
+  keycloak_admin_password:
+    file: ./secrets/keycloak_admin_password.txt
+  keycloak_database_password:
+    file: ./secrets/keycloak_database_password.txt
+  nominatim_database_password:
+    file: ./secrets/nominatim_database_password.txt
+  bookstack_root_password:
+    file: ./secrets/bookstack_root_password.txt
+  bookstack_database_password:
+    file: ./secrets/bookstack_database_password.txt
+  bookstack_keycloak_client_secret:
+    file: ./secrets/bookstack_keycloak_client_secret.txt
+
 services:
   # Proxy that can be configured for HTTP or HTTPS
   proxy:
@@ -60,6 +84,9 @@ services:
     #   replicas: 2
     env_file:
       - .env.client
+    secrets:
+      - database_password
+      - redis_password
     healthcheck:
       test: "curl --fail http://localhost:3000 || exit 1"
       interval: 10s
@@ -114,6 +141,12 @@ services:
     #   replicas: 2
     env_file:
       - .env.server
+    secrets:
+      - session_secret
+      - jwt_secret
+      - database_password
+      - redis_password
+      - keycloak_client_secret
     healthcheck:
       test: "curl http://localhost:3000/graphql"
       interval: 10s
@@ -156,6 +189,12 @@ services:
         condition: service_started
     env_file:
       - .env.services
+    secrets:
+      - session_secret
+      - jwt_secret
+      - database_password
+      - redis_password
+      - keycloak_client_secret
     healthcheck:
       test: "curl http://localhost:3000/graphql"
       interval: 10s
@@ -177,6 +216,8 @@ services:
         condition: service_started
     env_file:
       - .env.seeders
+    secrets:
+      - database_password
     healthcheck:
       test: "curl http://localhost:3000/graphql"
       interval: 10s
@@ -207,6 +248,8 @@ services:
       - .env.init
     hostname: init
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/init:${TAG}
+    secrets:
+      - database_password
 
   # Creates self-signed TLS certs for localhost and domain
   certs:
@@ -240,6 +283,10 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}-database
     env_file:
       - .env.database
+    environment:
+      POSTGRES_PASSWORD_FILE: ${POSTGRES_PASSWORD_FILE:-}
+    secrets:
+      - database_password
     healthcheck:
       test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
@@ -255,11 +302,23 @@ services:
 
   # Redis
   redis:
+    command: >
+      sh -c "
+      if [ -f /run/secrets/redis_password ]; then
+        redis-server --requirepass $$(cat /run/secrets/redis_password)
+      elif [ ! -z \"$$REDIS_PASSWORD\" ]; then
+        redis-server --requirepass $$REDIS_PASSWORD
+      else
+        redis-server
+      fi
+      "
     container_name: ${COMPOSE_PROJECT_NAME}-redis
     env_file:
       - .env.redis
     hostname: redis
     image: redis:6.2
+    secrets:
+      - redis_password
     ports:
       - ${REDIS_TEST_PORT}:6379
     profiles:
@@ -285,6 +344,10 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}-nominatim
     env_file:
       - .env.nominatim
+    environment:
+      POSTGRES_PASSWORD_FILE: ${NOMINATIM_POSTGRES_PASSWORD_FILE:-}
+    secrets:
+      - nominatim_database_password
     hostname: nominatim
     image: mediagis/nominatim:4.4
     ports:
@@ -308,6 +371,9 @@ services:
         condition: service_started
     env_file:
       - .env.wiki
+    secrets:
+      - bookstack_database_password
+      - bookstack_keycloak_client_secret
     hostname: wiki
     image: lscr.io/linuxserver/bookstack:25.11.5
     ports:
@@ -326,8 +392,14 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}-wiki-db
     env_file:
       - .env.wiki
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: ${MYSQL_ROOT_PASSWORD_FILE:-}
+      MYSQL_PASSWORD_FILE: ${MYSQL_PASSWORD_FILE:-}
     hostname: wiki-db
     image: lscr.io/linuxserver/mariadb:11.4.8
+    secrets:
+      - bookstack_root_password
+      - bookstack_database_password
     ports:
       - ${BOOKSTACK_DATABASE_TEST_PORT}:3306
     profiles:
@@ -351,6 +423,13 @@ services:
         condition: service_healthy
     env_file:
       - .env.keycloak
+    environment:
+      KEYCLOAK_ADMIN_PASSWORD_FILE: ${KEYCLOAK_ADMIN_PASSWORD_FILE:-}
+      KC_DB_PASSWORD_FILE: ${KC_DB_PASSWORD_FILE:-}
+    secrets:
+      - keycloak_admin_password
+      - keycloak_database_password
+      - keycloak_client_secret
     hostname: keycloak
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/keycloak:${TAG}
     labels:
@@ -392,6 +471,8 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}-keycloak-db
     env_file:
       - .env.keycloak
+    environment:
+      POSTGRES_PASSWORD_FILE: ${KC_DB_POSTGRES_PASSWORD_FILE:-}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
@@ -402,6 +483,8 @@ services:
     profiles:
       - sso
     restart: unless-stopped
+    secrets:
+      - keycloak_database_password
     volumes:
       - keycloak-data:/var/lib/postgresql/data
 

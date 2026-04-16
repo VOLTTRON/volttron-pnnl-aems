@@ -9,4 +9,10 @@ model File {
     feedbackId    String?
     user          User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
     feedback      Feedback? @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+    @@index([mimeType], map: "files_mimeType")
+    @@index([createdAt], map: "files_createdAt")
+    @@index([updatedAt], map: "files_updatedAt")
+    @@index([userId], map: "files_userId")
+    @@index([feedbackId], map: "files_feedbackId")
 }

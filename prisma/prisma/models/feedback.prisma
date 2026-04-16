@@ -15,4 +15,10 @@ model Feedback {
     user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
     assignee   User?          @relation("assignee", fields: [assigneeId], references: [id], onDelete: Cascade)
     files      File[]
+
+    @@index([status], map: "feedback_status")
+    @@index([createdAt], map: "feedback_createdAt")
+    @@index([updatedAt], map: "feedback_updatedAt")
+    @@index([userId], map: "feedback_userId")
+    @@index([assigneeId], map: "feedback_assigneeId")
 }

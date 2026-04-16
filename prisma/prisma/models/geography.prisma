@@ -13,4 +13,6 @@ model Geography {
     @@index([group], map: "geography_group")
     @@index([type], map: "geography_type")
     @@index([geometry], map: "geography_geometry")
+    @@index([createdAt], map: "geography_createdAt")
+    @@index([updatedAt], map: "geography_updatedAt")
 }
