@@ -23,4 +23,6 @@ model User {
 
     @@index([name], map: "users_name")
     @@index([email], map: "users_email")
+    @@index([createdAt], map: "users_createdAt")
+    @@index([updatedAt], map: "users_updatedAt")
 }

@@ -330,10 +330,22 @@ export function GeographyPicker({
   const transformRequest: RequestTransformFunction = useCallback(
     (url, type) => {
       switch (type) {
-        case "Tile":
+        case "Glyphs":
         case "Image":
+        case "Source":
+        case "SpriteImage":
+        case "SpriteJSON":
+        case "Style":
+        case "Tile":
           try {
-            return { url: new URL(url, origin).toString() };
+            const parsedUrl = new URL(url, origin);
+            const parsedOrigin = new URL(origin!);
+            // Replace hostname and port with current origin
+            parsedUrl.protocol = parsedOrigin.protocol;
+            parsedUrl.hostname = parsedOrigin.hostname;
+            parsedUrl.port = parsedOrigin.port;
+
+            return { url: parsedUrl.toString() };
           } catch (e) {
             console.error("Failed to parse URL:", url, e);
           }

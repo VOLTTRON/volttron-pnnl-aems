@@ -14,6 +14,8 @@ docker-images.**
 
 # secrets
 .env.secrets
+docker/secrets/
+docker/.env.secrets.docker
 
 # other
 *.bat

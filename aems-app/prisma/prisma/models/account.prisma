@@ -17,4 +17,7 @@ model Account {
 
     @@id([provider, providerAccountId])
     @@unique([id])
+    @@index([createdAt], map: "accounts_createdAt")
+    @@index([updatedAt], map: "accounts_updatedAt")
+    @@index([userId], map: "accounts_userId")
 }

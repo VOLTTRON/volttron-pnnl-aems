@@ -143,6 +143,462 @@ The Skeleton App is built on a modern, scalable architecture:
 
 This guide supports Windows, Linux, and macOS installations.
 
+### System Architecture Diagrams
+
+The architecture is organized into multiple diagrams for clarity. Each diagram focuses on a specific aspect of the system.
+
+#### 1. High-Level System Overview
+
+This diagram shows the major architectural layers and how they interact.
+
+```mermaid
+graph TB
+    Users([External Users<br/>Web Browsers])
+    
+    subgraph Edge["Edge Layer"]
+        Proxy[Traefik Reverse Proxy<br/>TLS/SSL Termination<br/>Route Management]
+    end
+    
+    subgraph AppTier["Application Tier"]
+        Client[Next.js Client<br/>React Frontend]
+        Server[NestJS Server<br/>GraphQL API<br/>Auth Gateway]
+    end
+    
+    subgraph AuthTier["Authentication Tier"]
+        Keycloak[Keycloak SSO<br/>OAuth/OIDC]
+        AuthJS[Auth.js<br/>Session Management]
+    end
+    
+    subgraph DataTier["Data Tier"]
+        Database[(PostgreSQL<br/>+ PostGIS)]
+        Redis[(Redis<br/>Cache & Pub/Sub)]
+    end
+    
+    subgraph Optional["Optional Services<br/>(Role-Based Access)"]
+        Maps[MapTiles Server]
+        Geocode[Nominatim Geocoding]
+        Wiki[BookStack Wiki]
+    end
+    
+    Users -->|HTTPS| Proxy
+    Proxy -->|Route: /| Client
+    Proxy -->|Route: /graphql<br/>/api, /ext/*| Server
+    Proxy -->|Route: /auth/sso/| Keycloak
+    
+    Client <-->|GraphQL/REST| Server
+    Server --> AuthJS
+    Server -.->|OAuth| Keycloak
+    AuthJS --> Redis
+    
+    Server -->|Check Roles<br/>Proxy Request| Maps
+    Server -->|Check Roles<br/>Proxy Request| Geocode
+    Server -->|Check Roles<br/>Proxy Request| Wiki
+    
+    Server --> Database
+    Server --> Redis
+    
+    classDef edge fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef app fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef auth fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef data fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef optional fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    
+    class Proxy edge
+    class Client,Server app
+    class Keycloak,AuthJS auth
+    class Database,Redis data
+    class Maps,Geocode,Wiki optional
+```
+
+**Key Points:**
+- **4-Tier Architecture**: Edge → Application → Authentication → Data
+- **Security Gateway**: Server acts as auth gateway for optional services at `/ext/*` routes
+- **Role-Based Access**: Server checks user roles before proxying to Maps/Geocode/Wiki
+- **Centralized Routing**: Traefik routes `/ext/*` to Server, not directly to optional services
+- **Flexible Authentication**: Supports both Auth.js (default) and Keycloak SSO
+
+#### 2. Application Architecture
+
+End-to-end application flow from client to server.
+
+```mermaid
+graph TB
+    subgraph Build["Build System"]
+        Prisma[Prisma Module<br/>Database Schema<br/>Type Generation]
+        Common[Common Module<br/>Shared Types<br/>Utilities]
+    end
+    
+    subgraph Frontend["Frontend (Next.js)"]
+        Pages[Pages & Routes]
+        Components[React Components]
+        Queries[GraphQL Queries]
+        ClientAPI[Apollo Client]
+    end
+    
+    subgraph Backend["Backend (NestJS)"]
+        GraphQL[GraphQL API<br/>Apollo Server]
+        Resolvers[Resolvers]
+        PothosSchema[Pothos Schema<br/>Builders]
+        Services[Business Logic<br/>Services]
+    end
+    
+    Prisma -->|Generates| Common
+    Common -->|Used by| Frontend
+    Common -->|Used by| Backend
+    Prisma -->|Client| Backend
+    
+    Pages --> Components
+    Components --> Queries
+    Queries --> ClientAPI
+    ClientAPI <-->|GraphQL/REST| GraphQL
+    
+    GraphQL --> Resolvers
+    Resolvers --> Services
+    PothosSchema --> GraphQL
+    
+    Services -->|Uses| Prisma
+    
+    classDef build fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef frontend fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef backend fill:#ce93d8,stroke:#6a1b9a,stroke-width:2px
+    
+    class Prisma,Common build
+    class Pages,Components,Queries,ClientAPI frontend
+    class GraphQL,Resolvers,PothosSchema,Services backend
+```
+
+**Key Points:**
+- **Build Order**: Prisma → Common → Server/Client
+- **Type Safety**: End-to-end TypeScript with generated types
+- **Request Flow**: Client → Apollo Client → GraphQL API → Resolvers → Services → Prisma
+- **GraphQL**: Pothos for type-safe schema building
+- **Monorepo**: Shared code via common module
+
+#### 3. Authentication & Security
+
+Shows authentication flows and security mechanisms.
+
+```mermaid
+graph TB
+    User([User])
+    
+    subgraph ClientAuth["Client Layer"]
+        NextAuth[Auth.js Provider]
+        SessionClient[Session Context]
+    end
+    
+    subgraph ServerAuth["Server Layer"]
+        Guards[Auth Guards]
+        SessionMgr[Session Manager]
+        TokenVerify[Token Verification]
+        ExtProxy[External Service<br/>Proxy Handler]
+    end
+    
+    subgraph AuthProviders["Authentication Providers"]
+        LocalAuth[Local Auth<br/>Email/Password]
+        Keycloak[Keycloak SSO<br/>OAuth/OIDC]
+        OAuth[OAuth Providers<br/>Google, GitHub, etc.]
+    end
+    
+    subgraph Storage["Session Storage"]
+        Redis[(Redis<br/>Session Store)]
+        Database[(PostgreSQL<br/>User Data & Roles)]
+    end
+    
+    subgraph ExtServices["External Services<br/>(Role-Protected)"]
+        Maps[MapTiles]
+        Geocode[Nominatim]
+        Wiki[BookStack]
+    end
+    
+    User -->|Login Request| NextAuth
+    NextAuth --> SessionClient
+    
+    NextAuth -->|Authenticate| LocalAuth
+    NextAuth -.->|SSO| Keycloak
+    NextAuth -.->|OAuth| OAuth
+    
+    SessionClient -->|API Calls| Guards
+    SessionClient -->|/ext/* Requests| ExtProxy
+    
+    Guards --> TokenVerify
+    Guards --> SessionMgr
+    ExtProxy --> Guards
+    
+    ExtProxy -->|Check Role<br/>Then Proxy| Maps
+    ExtProxy -->|Check Role<br/>Then Proxy| Geocode
+    ExtProxy -->|Check Role<br/>Then Proxy| Wiki
+    
+    SessionMgr <--> Redis
+    TokenVerify <--> Redis
+    Guards --> Database
+    
+    LocalAuth --> Database
+    Keycloak --> Database
+    SessionMgr --> Database
+    
+    classDef client fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef server fill:#ce93d8,stroke:#6a1b9a,stroke-width:2px
+    classDef providers fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef storage fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef external fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    
+    class NextAuth,SessionClient client
+    class Guards,SessionMgr,TokenVerify,ExtProxy server
+    class LocalAuth,Keycloak,OAuth providers
+    class Redis,Database storage
+    class Maps,Geocode,Wiki external
+```
+
+**Key Points:**
+- **Multi-Provider**: Supports local, SSO, and OAuth authentication
+- **Session Management**: JWT tokens stored in Redis
+- **Role-Based Access**: Guards enforce permissions on all endpoints including `/ext/*`
+- **External Service Gateway**: Server proxies requests to Maps/Geocode/Wiki after role validation
+- **EXT_*_ROLES Configuration**: Each external service has configurable role requirements
+- **SSO Integration**: Optional Keycloak for enterprise environments
+
+#### 4. Data Architecture
+
+Details the data persistence layer and caching strategy.
+
+```mermaid
+graph TB
+    subgraph Application["Application Services"]
+        Server[NestJS Server]
+        Services[Background Services]
+    end
+    
+    subgraph Cache["Cache Layer"]
+        Redis[(Redis)]
+        SessionCache[Session Store]
+        PubSub[Pub/Sub<br/>Subscriptions]
+        QueryCache[Query Cache]
+    end
+    
+    subgraph Primary["Primary Database"]
+        PostgreSQL[(PostgreSQL 16+)]
+        PostGIS[PostGIS Extension<br/>Geospatial Data]
+        PrismaORM[Prisma ORM<br/>Query Layer]
+    end
+    
+    subgraph Volumes["Persistent Storage"]
+        DBData[/Database Files/]
+        Uploads[/File Uploads/]
+        ClientCache[/Build Cache/]
+    end
+    
+    Server --> SessionCache
+    Server --> QueryCache
+    Server --> PubSub
+    SessionCache --> Redis
+    QueryCache --> Redis
+    PubSub --> Redis
+    
+    Server --> PrismaORM
+    Services --> PrismaORM
+    PrismaORM --> PostgreSQL
+    PostgreSQL --> PostGIS
+    
+    PostgreSQL -.-> DBData
+    Server -.-> Uploads
+    
+    classDef app fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef cache fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef db fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef storage fill:#fafafa,stroke:#424242,stroke-width:2px
+    
+    class Server,Services app
+    class Redis,SessionCache,PubSub,QueryCache cache
+    class PostgreSQL,PostGIS,PrismaORM db
+    class DBData,Uploads,ClientCache storage
+```
+
+**Key Points:**
+- **Redis Caching**: Sessions, query results, and real-time pub/sub
+- **PostgreSQL + PostGIS**: Relational data with geospatial capabilities
+- **Prisma ORM**: Type-safe database queries and migrations
+- **Volume Persistence**: Data survives container restarts
+
+#### 5. Geospatial Services (Optional)
+
+Architecture for map and geocoding features with role-based access control.
+
+```mermaid
+graph TB
+    Client[Next.js Client]
+    
+    subgraph ServerLayer["NestJS Server Layer"]
+        Server[GraphQL/REST API]
+        ExtGateway[External Service<br/>Gateway /ext/*]
+        RoleCheck[Role Authorization<br/>Middleware]
+    end
+    
+    subgraph MapServices["Internal Map Services"]
+        MapTiles[MapTiles Server<br/>OpenStreetMap Tiles]
+        Nominatim[Nominatim<br/>Geocoding API]
+    end
+    
+    subgraph MapData["Map Data Storage"]
+        Tiles[/MBTiles Files<br/>Vector/Raster Tiles/]
+        OSMData[/OSM Data<br/>.pbf Files/]
+        NomDB[(Nominatim DB<br/>PostgreSQL)]
+    end
+    
+    subgraph ClientMap["Client Components"]
+        MapLibre[MapLibre GL<br/>Map Rendering]
+        Geocoder[Address Search<br/>Autocomplete]
+    end
+    
+    Client --> MapLibre
+    Client --> Geocoder
+    
+    MapLibre -->|Request Tiles<br/>/ext/map| ExtGateway
+    Geocoder -->|Search Query| Server
+    
+    ExtGateway --> RoleCheck
+    Server -->|Geocode Request<br/>/ext/nom| ExtGateway
+    
+    RoleCheck -->|Authorized| MapTiles
+    RoleCheck -->|Authorized| Nominatim
+    
+    MapTiles --> Tiles
+    Nominatim --> OSMData
+    Nominatim --> NomDB
+    
+    classDef client fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef server fill:#ce93d8,stroke:#6a1b9a,stroke-width:2px
+    classDef services fill:#fff8e1,stroke:#f57f17,stroke-width:2px
+    classDef data fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    
+    class Client,MapLibre,Geocoder client
+    class Server,ExtGateway,RoleCheck server
+    class MapTiles,Nominatim services
+    class Tiles,OSMData,NomDB data
+```
+
+**Key Points:**
+- **Self-Hosted Maps**: No external API dependencies for tiles
+- **Role-Based Gateway**: Server enforces role permissions before proxying to map services
+- **Secure Access**: Client requests map tiles via `/ext/map` through the auth gateway
+- **Geocoding**: Address search proxied through server with role validation
+- **MapLibre GL**: Open-source map rendering library
+- **Data Sharing**: Nominatim uses same OSM data as tiles
+- **EXT_MAP_ROLES & EXT_NOM_ROLES**: Configurable role requirements per service
+
+#### 6. Infrastructure & Deployment
+
+Docker deployment architecture showing all application containers and services.
+
+```mermaid
+graph TB
+    subgraph Init["Initialization Containers<br/>(Run Once)"]
+        Certs[Certificate Generator<br/>mkcert + Let's Encrypt]
+        Migrations[Database Migrations<br/>Prisma]
+    end
+    
+    subgraph Proxy["Traefik Proxy"]
+        TLS[TLS Termination]
+        Router[Dynamic Routing]
+        LetsEncrypt[Let's Encrypt<br/>ACME]
+    end
+    
+    subgraph AppContainers["Application Containers"]
+        ClientC[Client<br/>Next.js Frontend<br/>Replicable]
+        ServerC[Server - Gateway<br/>NestJS API + Auth<br/>Replicable]
+        ServicesC[Server - Background Services<br/>Log Management<br/>INSTANCE_TYPE=*]
+        SeedersC[Server - Seeders<br/>Database Seeding<br/>INSTANCE_TYPE=^seed]
+    end
+    
+    subgraph Optional["Optional Containers<br/>(Role-Protected via Server)"]
+        MapC[Map Tiles Server<br/>OpenStreetMap]
+        NomC[Nominatim Geocoding<br/>Address Lookup]
+        WikiC[BookStack Wiki<br/>Documentation]
+    end
+    
+    subgraph Secrets["Secrets Management"]
+        SecretFiles[/Docker Secrets<br/>File-based/]
+        EnvVars[Environment Variables<br/>Fallback]
+    end
+    
+    subgraph Build["Multi-Stage Build Process"]
+        Base[Base Image<br/>Node.js 22]
+        PrismaBuild[Prisma Builder]
+        CommonBuild[Common Builder]
+        AppBuild[App Builder]
+        Runner[Production Runner]
+    end
+    
+    Certs -->|Provides Certs| TLS
+    Migrations -->|Schema| AppContainers
+    
+    Router -->|Route: /| ClientC
+    Router -->|Route: /graphql<br/>/api, /ext/*| ServerC
+    
+    ServerC -->|Internal Proxy<br/>After Role Check| MapC
+    ServerC -->|Internal Proxy<br/>After Role Check| NomC
+    ServerC -->|Internal Proxy<br/>After Role Check| WikiC
+    
+    SecretFiles -->|Mounted at<br/>/run/secrets/| AppContainers
+    EnvVars -.->|Fallback| AppContainers
+    
+    Base --> PrismaBuild
+    PrismaBuild --> CommonBuild
+    CommonBuild --> AppBuild
+    AppBuild --> Runner
+    Runner --> AppContainers
+    Runner --> Optional
+    
+    classDef init fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef proxy fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef containers fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef optional fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    classDef secrets fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef build fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    
+    class Certs,Migrations init
+    class TLS,Router,LetsEncrypt proxy
+    class ClientC,ServerC,ServicesC,SeedersC containers
+    class MapC,NomC,WikiC optional
+    class SecretFiles,EnvVars secrets
+    class Base,PrismaBuild,CommonBuild,AppBuild,Runner build
+```
+
+**Key Points:**
+- **Four Server-Based Containers**: All use same `server:${TAG}` image with different configurations
+  - **Server - Gateway**: Main API server (INSTANCE_TYPE=""), handles GraphQL/REST/Auth, can be replicated
+  - **Server - Background Services**: Runs log management and other services (INSTANCE_TYPE=*)
+  - **Server - Seeders**: Database seeding only (INSTANCE_TYPE=^seed), restarts on failure (max 3x)
+  - **Client**: Next.js frontend, can be replicated for load balancing
+- **Horizontal Scaling**: Both Client and Server (Gateway) support deploy.replicas for scaling
+- **Automated Init**: Certificates and database migrations run once before application containers start
+- **Multi-Stage Builds**: Optimized Docker images with proper dependency order (prisma → common → server/client)
+- **Security Gateway**: Server (Gateway) acts as auth gateway for optional services at `/ext/*` routes
+- **Route Isolation**: Traefik routes `/ext/*` only to Server, not directly to optional containers
+- **Internal Network**: Optional services only accessible via Server's internal proxy after role validation
+- **Secrets Management**: File-based secrets with environment variable fallback for flexibility
+- **Zero-Downtime Deployments**: Traefik routing enables rolling updates without service interruption
+- **Cross-Platform**: Consistent builds on Windows, Mac, and Linux
+
+---
+
+### Architecture Summary
+
+The Skeleton App follows a modern **microservices architecture** with clear separation of concerns:
+
+1. **Edge Layer**: Traefik handles TLS termination and intelligent routing
+2. **Application Layer**: Separate Next.js frontend and NestJS backend services
+3. **Authentication Layer**: Flexible auth with local, OAuth, and SSO support
+4. **Data Layer**: PostgreSQL with PostGIS for geospatial data, Redis for caching
+5. **Optional Services**: Self-hosted maps, geocoding, and documentation wiki
+
+**Design Principles:**
+- **Type Safety**: End-to-end TypeScript with generated types
+- **Security**: TLS encryption, role-based access control, secrets management
+- **Scalability**: Stateless services, Redis caching, horizontal scaling ready
+- **Modularity**: Optional services can be enabled/disabled via Docker profiles
+- **Developer Experience**: Hot reload, automated testing, comprehensive tooling
+
 ---
 
 ## 🚀 Getting Started
@@ -1509,7 +1965,102 @@ SELECT subname, subenabled, pid FROM pg_stat_subscription;
 
 ### Configuration
 
-Default configuration for docker compose can be found at [.env](./.env). Overrides for secrets can be placed in a [.env.secrets](./.env.secrets) file. The [.env.secrets](./.env.secrets) file will need to be set as system environment variables by either using the provided scripts ([secrets.ps1](./secrets.ps1) or [secrets.sh](./secrets.sh)) or some other means prior to building and running the containers. The PowerShell script can also unset all listed variables using the `clear` argument. There are default users with temporary passwords defined for local authentication in the [docker/seed/20211103151730-system-user.json](./docker/seed/20211103151730-system-user.json) file.
+Default configuration for docker compose can be found at [.env](./.env). Sensitive values should be stored in [.env.secrets](./.env.secrets) file. There are default users with temporary passwords defined for local authentication in the [docker/seed/20211103151730-system-user.json](./docker/seed/20211103151730-system-user.json) file.
+
+#### Docker Secrets Management
+
+The application supports **Docker secrets** for secure handling of sensitive information in production deployments. This approach provides enhanced security compared to environment variables.
+
+**How It Works:**
+
+1. Secrets are defined in `.env.secrets` file (never commit this file!)
+2. Run the secrets script to generate individual secret files in `docker/secrets/`
+3. Docker Compose automatically mounts these secrets to containers at `/run/secrets/`
+4. Applications read from secrets first, then fall back to environment variables
+5. Third-party containers (PostgreSQL, Redis, etc.) use native secret file support
+
+**Generate Secret Files:**
+
+```bash
+# Windows
+.\secrets.ps1
+
+# Linux/Mac
+./secrets.sh
+```
+
+This generates:
+1. Individual secret files in `docker/secrets/` (e.g., `database_password.txt`)
+2. A `.env.secrets.docker` file with `_FILE` environment variable definitions
+
+**Deploy with Secrets:**
+
+```bash
+# Use the generated .env.secrets.docker file
+docker compose --env-file docker/.env.secrets.docker up -d
+```
+
+**Supported Secrets:**
+
+- `SESSION_SECRET` - Server session management
+- `JWT_SECRET` - JWT token signing
+- `DATABASE_PASSWORD` - Main PostgreSQL database
+- `REDIS_PASSWORD` - Redis authentication
+- `KEYCLOAK_CLIENT_SECRET` - OAuth client secret
+- `KEYCLOAK_ADMIN_PASSWORD` - Admin interface password
+- `KEYCLOAK_DATABASE_PASSWORD` - Keycloak's database
+- `NOMINATIM_DATABASE_PASSWORD` - Nominatim's database
+- `BOOKSTACK_ROOT_PASSWORD` - Wiki database root
+- `BOOKSTACK_DATABASE_PASSWORD` - Wiki database user
+- `BOOKSTACK_KEYCLOAK_CLIENT_SECRET` - Wiki OAuth client
+
+**Fallback Behavior:**
+
+The system provides flexible secret management through conditional environment variables:
+
+**Without Secrets (Backward Compatible):**
+- Don't run `secrets.sh` / `secrets.ps1`
+- Start containers normally: `docker compose up -d`
+- Database containers read passwords from `.env` files (e.g., `POSTGRES_PASSWORD`)
+- Everything works as before - no changes needed
+
+**With Secrets (Enhanced Security):**
+- Run `secrets.sh` / `secrets.ps1` to generate secret files
+- Start containers with: `docker compose --env-file docker/.env.secrets.docker up -d`
+- The `.env.secrets.docker` file sets `_FILE` variables (e.g., `POSTGRES_PASSWORD_FILE`)
+- Database containers read passwords from `/run/secrets/` instead
+- Plain password variables are ignored when `_FILE` is set
+
+This provides flexibility for different deployment scenarios:
+- **Development**: Use environment variables directly (simpler setup, no secrets script needed)
+- **Production**: Use Docker secrets (enhanced security, run secrets script)
+- **CI/CD**: Choose based on your platform's secret management capabilities
+
+**Security Benefits:**
+
+- ✅ Secrets never appear in container environment variables
+- ✅ Secrets are not visible in `docker inspect` output
+- ✅ File-based secrets can have restricted permissions (chmod 600)
+- ✅ Easier secret rotation without container rebuilds
+- ✅ Compatible with Docker Swarm and Kubernetes secrets
+
+**Example Configuration:**
+
+```yaml
+# docker-compose.yml snippet
+secrets:
+  database_password:
+    file: ./docker/secrets/database_password.txt
+
+services:
+  database:
+    secrets:
+      - database_password
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/database_password
+```
+
+See [.env.secrets.example](./.env.secrets.example) for detailed documentation and all available secrets.
 
 The file [docker-compose.yml](./docker-compose.yml) or [docker/docker-compose.yml](./docker/docker-compose.yml) may need to be edited for some deployments. The docker compose definition contains a few optional containers that can be enabled by adding profiles. Proxy (`proxy`) is a Traefik proxy that can serve locally signed or valid internet certificates provided by Let's Encrypt. Open Street Map (`map`) is map file service that can be configured to provide Open Street Map tiles. Nominatim (`nom`) is an address lookup and auto-complete service that is configured to utilize the same data and area as the optional map container.
 
@@ -2159,10 +2710,10 @@ docker compose up -d
 
 ```bash
 # Windows
-.\reset-service.ps1
+.\reset-service.ps1 certs
 
 # Linux/Mac
-./reset-service.sh
+./reset-service.sh certs
 ```
 
 **Port Already in Use (port 3000)**
@@ -2181,7 +2732,6 @@ PORT=3001 yarn dev
 - Certificates are valid for 1 year (regenerate if expired using reset-service script)
 - `.env.local` overrides `.env` for local development only
 - Stop Docker services when not needed to free system resources
-- See [client/README.local-dev.md](./client/README.local-dev.md) for detailed documentation
 
 ### Configuration
 

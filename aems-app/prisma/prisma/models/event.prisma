@@ -5,4 +5,8 @@ model Event {
     payload   Json
     createdAt DateTime @default(now()) @db.Timestamptz(6)
     updatedAt DateTime @updatedAt() @db.Timestamptz(6)
+
+    @@index([topic], map: "events_topic")
+    @@index([createdAt], map: "events_createdAt")
+    @@index([updatedAt], map: "events_updatedAt")
 }

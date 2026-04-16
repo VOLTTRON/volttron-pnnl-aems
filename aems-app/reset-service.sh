@@ -25,6 +25,7 @@ show_help() {
     echo ""
     echo "Note: This will bring down ALL containers, remove the specified volumes, then bring everything back up."
     echo "Warning: This will permanently delete all data in the service's volumes!"
+    echo -e "\033[1;31mTHIS CHANGE IS UNRECOVERABLE!\033[0m"
     exit 0
 }
 
@@ -256,6 +257,7 @@ if [[ "$FORCE" != "true" && "$DRY_RUN" != "true" ]]; then
     echo ""
     print_yellow "WARNING: This will bring down ALL containers, delete the volumes, then bring everything back up!"
     print_yellow "This will permanently delete all data in these volumes!"
+    print_red "THIS CHANGE IS UNRECOVERABLE!"
     read -p "Are you sure you want to continue? (yes/no): " confirmation
     if [[ "$confirmation" != "yes" ]]; then
         print_yellow "Reset cancelled by user"

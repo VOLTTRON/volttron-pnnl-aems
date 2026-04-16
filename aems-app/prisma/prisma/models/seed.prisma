@@ -3,4 +3,9 @@ model Seed {
     timestamp DateTime @db.Timestamptz(6)
     createdAt DateTime @default(now()) @db.Timestamptz(6)
     updatedAt DateTime @updatedAt() @db.Timestamptz(6)
+
+    @@index([filename], map: "seed_filename")
+    @@index([timestamp], map: "seed_timestamp")
+    @@index([createdAt], map: "seed_createdAt")
+    @@index([updatedAt], map: "seed_updatedAt")
 }
