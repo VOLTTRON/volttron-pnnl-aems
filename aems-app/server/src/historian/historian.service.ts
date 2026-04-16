@@ -182,7 +182,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     system: string,
     metric: UnitMetric,
   ): Promise<HistorianMetricCurrent | null> {
-    const topicPath = buildUnitTopicPath(campus, building, system, metric);
+    const topicPath = buildUnitTopicPath(campus, building, system, metric, this.configService.historian.topicMap);
 
     const query = `
       SELECT
@@ -226,7 +226,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     building: string,
     metric: WeatherMetric,
   ): Promise<HistorianMetricCurrent | null> {
-    const topicPath = buildWeatherTopicPath(campus, building, metric);
+    const topicPath = buildWeatherTopicPath(campus, building, metric, this.configService.historian.topicMap);
 
     const query = `
       SELECT
@@ -273,7 +273,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     startTime: Date,
     endTime: Date,
   ): Promise<HistorianTimeSeries> {
-    const topicPath = buildUnitTopicPath(campus, building, system, metric);
+    const topicPath = buildUnitTopicPath(campus, building, system, metric, this.configService.historian.topicMap);
 
     const query = `
       SELECT
@@ -322,7 +322,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     startTime: Date,
     endTime: Date,
   ): Promise<HistorianTimeSeries> {
-    const topicPath = buildWeatherTopicPath(campus, building, metric);
+    const topicPath = buildWeatherTopicPath(campus, building, metric, this.configService.historian.topicMap);
 
     const query = `
       SELECT
@@ -374,7 +374,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     interval: string,
     aggregation: AggregationType,
   ): Promise<HistorianAggregate[]> {
-    const topicPath = buildUnitTopicPath(campus, building, system, metric);
+    const topicPath = buildUnitTopicPath(campus, building, system, metric, this.configService.historian.topicMap);
 
     const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
     if (!intervalMatch) {
@@ -436,7 +436,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     interval: string,
     aggregation: AggregationType,
   ): Promise<HistorianAggregate[]> {
-    const topicPath = buildWeatherTopicPath(campus, building, metric);
+    const topicPath = buildWeatherTopicPath(campus, building, metric, this.configService.historian.topicMap);
 
     const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
     if (!intervalMatch) {
@@ -778,8 +778,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     startTime: Date,
     endTime: Date,
   ): Promise<HistorianDataPoint[]> {
-    const tempPath = buildUnitTopicPath(campus, building, system, UnitMetric.ZoneTemperature);
-    const setpointPath = buildUnitTopicPath(campus, building, system, UnitMetric.EffectiveZoneTemperatureSetPoint);
+    const tempPath = buildUnitTopicPath(campus, building, system, UnitMetric.ZoneTemperature, this.configService.historian.topicMap);
+    const setpointPath = buildUnitTopicPath(campus, building, system, UnitMetric.EffectiveZoneTemperatureSetPoint, this.configService.historian.topicMap);
 
     const query = `
       WITH zone_temps AS (

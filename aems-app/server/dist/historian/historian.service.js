@@ -106,7 +106,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         return isNaN(parsed) ? null : parsed;
     }
     async getUnitCurrentValue(campus, building, system, metric) {
-        const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric);
+        const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric, this.configService.historian.topicMap);
         const query = `
       SELECT
         ts,
@@ -139,7 +139,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         }
     }
     async getWeatherCurrentValue(campus, building, metric) {
-        const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric);
+        const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         const query = `
       SELECT
         ts,
@@ -172,7 +172,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         }
     }
     async getUnitTimeSeries(campus, building, system, metric, startTime, endTime) {
-        const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric);
+        const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric, this.configService.historian.topicMap);
         const query = `
       SELECT
         ts,
@@ -208,7 +208,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         }
     }
     async getWeatherTimeSeries(campus, building, metric, startTime, endTime) {
-        const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric);
+        const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         const query = `
       SELECT
         ts,
@@ -244,7 +244,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         }
     }
     async getUnitAggregated(campus, building, system, metric, startTime, endTime, interval, aggregation) {
-        const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric);
+        const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric, this.configService.historian.topicMap);
         const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
         if (!intervalMatch) {
             throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
@@ -288,7 +288,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         }
     }
     async getWeatherAggregated(campus, building, metric, startTime, endTime, interval, aggregation) {
-        const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric);
+        const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
         if (!intervalMatch) {
             throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
@@ -554,8 +554,8 @@ let HistorianService = HistorianService_1 = class HistorianService {
         }
     }
     async calculateSetpointError(campus, building, system, startTime, endTime) {
-        const tempPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, common_3.UnitMetric.ZoneTemperature);
-        const setpointPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, common_3.UnitMetric.EffectiveZoneTemperatureSetPoint);
+        const tempPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, common_3.UnitMetric.ZoneTemperature, this.configService.historian.topicMap);
+        const setpointPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, common_3.UnitMetric.EffectiveZoneTemperatureSetPoint, this.configService.historian.topicMap);
         const query = `
       WITH zone_temps AS (
         SELECT

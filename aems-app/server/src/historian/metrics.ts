@@ -4,6 +4,21 @@
  */
 
 import { UnitMetric, WeatherMetric, MeterMetric } from "@local/common";
+import { HistorianTopicMapConfig } from "./types";
+
+// ============================================================================
+// Default Topic Templates
+// ============================================================================
+
+/**
+ * Default topic path templates for historian data
+ * These can be overridden via configuration file
+ */
+export const DefaultTopicTemplates = {
+  Unit: "{campus}/{building}/{system}/{metric}",
+  Weather: "{campus}/{building}/weather/{metric}",
+  Meter: "{campus}/{building}/meter/{metric}",
+} as const;
 
 /**
  * Metadata about a metric
@@ -260,25 +275,81 @@ export function getMetricTopicName(metric: UnitMetric | WeatherMetric | MeterMet
 }
 
 /**
+ * Generate complete default topic map configuration
+ * This creates a configuration object with all default values that can be
+ * written to a JSON file and customized by users
+ */
+export function generateDefaultTopicMapConfig(): HistorianTopicMapConfig {
+  return {
+    templates: {
+      Unit: DefaultTopicTemplates.Unit,
+      Weather: DefaultTopicTemplates.Weather,
+      Meter: DefaultTopicTemplates.Meter,
+    },
+    unitMetrics: Object.fromEntries(
+      Object.values(UnitMetric).map((m) => [m, m]),
+    ) as Record<UnitMetric, string>,
+    weatherMetrics: Object.fromEntries(
+      Object.values(WeatherMetric).map((m) => [m, m]),
+    ) as Record<WeatherMetric, string>,
+    meterMetrics: Object.fromEntries(
+      Object.values(MeterMetric).map((m) => [m, m]),
+    ) as Record<MeterMetric, string>,
+  };
+}
+
+/**
  * Helper function to build topic path for unit metric
  */
-export function buildUnitTopicPath(campus: string, building: string, system: string, metric: UnitMetric): string {
-  const topic = UnitMetricInfo[metric].topic;
-  return `${campus}/${building}/${system}/${topic}`;
+export function buildUnitTopicPath(
+  campus: string,
+  building: string,
+  system: string,
+  metric: UnitMetric,
+  topicMap?: Partial<HistorianTopicMapConfig>,
+): string {
+  const template = topicMap?.templates?.Unit ?? DefaultTopicTemplates.Unit;
+  const metricName = topicMap?.unitMetrics?.[metric] ?? metric;
+
+  return template
+    .replace("{campus}", campus)
+    .replace("{building}", building)
+    .replace("{system}", system)
+    .replace("{metric}", metricName);
 }
 
 /**
  * Helper function to build topic path for weather metric
  */
-export function buildWeatherTopicPath(campus: string, building: string, metric: WeatherMetric): string {
-  const topic = WeatherMetricInfo[metric].topic;
-  return `${campus}/${building}/weather/${topic}`;
+export function buildWeatherTopicPath(
+  campus: string,
+  building: string,
+  metric: WeatherMetric,
+  topicMap?: Partial<HistorianTopicMapConfig>,
+): string {
+  const template = topicMap?.templates?.Weather ?? DefaultTopicTemplates.Weather;
+  const metricName = topicMap?.weatherMetrics?.[metric] ?? metric;
+
+  return template
+    .replace("{campus}", campus)
+    .replace("{building}", building)
+    .replace("{metric}", metricName);
 }
 
 /**
  * Helper function to build topic path for meter metric
  */
-export function buildMeterTopicPath(campus: string, building: string, metric: MeterMetric): string {
-  const topic = MeterMetricInfo[metric].topic;
-  return `${campus}/${building}/meter/${topic}`;
+export function buildMeterTopicPath(
+  campus: string,
+  building: string,
+  metric: MeterMetric,
+  topicMap?: Partial<HistorianTopicMapConfig>,
+): string {
+  const template = topicMap?.templates?.Meter ?? DefaultTopicTemplates.Meter;
+  const metricName = topicMap?.meterMetrics?.[metric] ?? metric;
+
+  return template
+    .replace("{campus}", campus)
+    .replace("{building}", building)
+    .replace("{metric}", metricName);
 }

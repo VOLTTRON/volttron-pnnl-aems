@@ -59,6 +59,27 @@ class AppConfigService {
             return "";
         }
     }
+    loadHistorianTopicMap(configPath) {
+        if (!configPath) {
+            this.logger.debug("No HISTORIAN_CONFIG_MAPPING_PATH specified, using default topic mapping");
+            return undefined;
+        }
+        try {
+            const absolutePath = (0, node_path_1.resolve)(__dirname, configPath);
+            const fileContent = this.readFile(absolutePath);
+            if (!fileContent) {
+                this.logger.warn(`Failed to read historian config from: ${configPath}`);
+                return undefined;
+            }
+            const parsed = JSON.parse(fileContent);
+            this.logger.log(`Loaded historian topic mapping from: ${configPath}`);
+            return parsed;
+        }
+        catch (error) {
+            this.logger.error(`Error loading historian topic mapping from ${configPath}`, error);
+            return undefined;
+        }
+    }
     constructor() {
         this.logger = new common_2.Logger(AppConfigService.name);
         this.normalize = common_1.Normalization.process(common_1.Normalization.Trim, common_1.Normalization.Compact, common_1.Normalization.Lowercase);
@@ -161,6 +182,8 @@ class AppConfigService {
             username: process.env.HISTORIAN_USER ?? "historian",
             password: process.env.HISTORIAN_PASSWORD ?? "",
             replicationPort: parseInt(process.env.HISTORIAN_REPLICATION_PORT ?? "5543"),
+            configMappingPath: process.env.HISTORIAN_CONFIG_MAPPING_PATH || undefined,
+            topicMap: this.loadHistorianTopicMap(process.env.HISTORIAN_CONFIG_MAPPING_PATH),
         };
         this.ext = Object.entries(process.env)
             .filter(([key]) => key.startsWith("EXT_") && ["_PATH", "_ROLE", "_AUTHORIZED", "_UNAUTHORIZED"].find((k) => key.endsWith(k)))
