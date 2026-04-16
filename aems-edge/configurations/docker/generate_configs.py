@@ -13,6 +13,8 @@ import ipaddress
 ADDRESS_OFFSET_DEFAULT = 0
 SCHNEIDER_CSV_NAME = 'schneider.csv'
 SCHNEIDER_OAT_CSV_NAME = 'schneider_oat.csv'
+OPENSTAT_CSV_NAME = 'openstat.csv'
+OPENSTAT_OAT_CSV_NAME = 'openstat_oat.csv'
 DENT_CSV_NAME = 'dent.csv'
 MANAGER_CONFIG_FILENAME_TEMPLATE = "manager.{device_name}.config"
 
@@ -22,53 +24,75 @@ DEVICE_BLOCK_DICT = lambda campus, building, device_name: {
     }
 }
 
-
+openstat_registry = \
+"""Reference Point Name,Volttron Point Name,Units,Unit Details,BACnet Object Type,Property,Writable,Index,Write Priority,Notes,active
+RoomT,ZoneTemperature,degreesFahrenheit,,analogInput,presentValue,TRUE,6,8,Room temperature,TRUE
+RoomRH,ZoneHumidity,percent,,analogInput,presentValue,TRUE,7,8,Room RH,TRUE
+AO_3,OutdoorDamperSignal,percent,(default 0.0),analogOutput,presentValue,TRUE,3,8,ECON,FALSE
+RoomTSP,OccupiedSetPoint,degreesFahrenheit,(default 73.0),analogValue,presentValue,TRUE,1,8,Room temperature setpoint,TRUE
+HTG_Dem,HeatingDemand,percent,(default 0.0),analogValue,presentValue,TRUE,6,8,Heating Demand,TRUE
+CLG_Dem,CoolingDemand,percent,(default 0.0),analogValue,presentValue,TRUE,7,8,Cooling Demand,TRUE
+Eff_T,EffectiveZoneTemperature,degreesFahrenheit,(default 0.0),analogValue,presentValue,TRUE,9,8,Effective temperature used for control,FALSE
+SATemp,SupplyAirTemperature,degreesFahrenheit,(default 55.400001525878906),analogValue,presentValue,TRUE,16,8,Supply temperature,FALSE
+SATFRSP_Set,SATFRSP_Set,degreesFahrenheit,(default 38.0),analogValue,presentValue,TRUE,19,8,Set supply freezing temperature,FALSE
+Fan_MinOn_Time,Fan_MinOn_Time,minutes,(default 1.0),analogValue,presentValue,TRUE,24,8,Fan minimum ON time,FALSE
+OvrTime_Set,OccupancyOverrideTime,minutes,(default 60.0),analogValue,presentValue,TRUE,27,8,Set occupancy override time,FALSE
+MotionOvrTime_Set,StandbyTime,noUnits,(default 10.0),analogValue,presentValue,TRUE,28,8,Occupancy standby time,FALSE
+OATemp,OutdoorAirTemperature,degreesFahrenheit,(default 60.0),analogValue,presentValue,TRUE,29,8,Outside air temperature,FALSE
+MinCLSP_Set,MinimumCoolingSetPoint,degreesFahrenheit,(default 59.0),analogValue,presentValue,TRUE,33,8,Set minimum cooling setpoint,FALSE
+MaxHTSP_Set,MaximumHeatingSetPoint,degreesFahrenheit,(default 82.4000015258789),analogValue,presentValue,TRUE,34,8,Set maximum heating setpoint,FALSE
+OccCLSP_Set,OccupiedCoolingSetPoint,degreesFahrenheit,(default 77.0),analogValue,presentValue,TRUE,35,8,Set occupied cooling setpoint,TRUE
+OccHTSP_Set,OccupiedHeatingSetPoint,degreesFahrenheit,(default 76.0),analogValue,presentValue,TRUE,36,8,Set occupied heating setpoint,TRUE
+SP_DB__Set,DeadBand,deltaDegreesFahrenheit,(default 2.0),analogValue,presentValue,TRUE,37,8,Set deadband,TRUE
+Unoc_CL_Set,UnoccupiedCoolingSetPoint,degreesFahrenheit,(default 78.80000305175781),analogValue,presentValue,TRUE,38,8,Set unoccupied cooling setpoint,TRUE
+Unoc_HT_Set,UnoccupiedHeatingSetPoint,degreesFahrenheit,(default 64.4000015258789),analogValue,presentValue,TRUE,39,8,Set unoccupied heating setpoint,TRUE
+STBCoolOffset,StandByCoolingOffset,deltaDegreesFahrenheit,(default 2.0),analogValue,presentValue,TRUE,40,8,Set standby cooling offset (+),FALSE
+STBHeatOffset,StandByHeatingOffset,deltaDegreesFahrenheit,(default -2.0),analogValue,presentValue,TRUE,41,8,Set standby heating offset (-),FALSE
+EffCLSP,EffectiveCoolingSetPoint,degreesFahrenheit,(default 76.0),analogValue,presentValue,TRUE,42,8,Effective cooling setpoint,FALSE
+EffHTSP,EffectiveHeatingSetPoint,degreesFahrenheit,(default 64.4000015258789),analogValue,presentValue,TRUE,43,8,Effective heating setpoint,FALSE
+Eff_RH,EffectiveZoneHumidity,percent,(default 95.0),analogValue,presentValue,TRUE,51,8,Effective humidity used for control,FALSE
+ComprLockout,CoolingLockoutOutdoorAirTemperature,degreesFahrenheit,(default 40.0),analogValue,presentValue,TRUE,60,8,Compressor Lockout,FALSE
+EconoMin_Pos,EconomizerMinimumPosition,percent,(default 15.0),analogValue,presentValue,TRUE,65,8,Econo min position,FALSE
+EconoMaxCO2Pos,EconomizerMaximumC02,percent,(default 100.0),analogValue,presentValue,TRUE,66,8,Econo max position (for CO2),FALSE
+OATheatOutAuth,HeatingLockoutOutdoorAirTemperature,degreesFahrenheit,(default 70.0),analogValue,presentValue,TRUE,67,8,Heating authorization (from OAT),FALSE
+OATeconOutAuth,EconomizerSwitchOverSetPoint,degreesFahrenheit,(default 65.0),analogValue,presentValue,TRUE,68,8,Econo authorization (from OAT),FALSE
+MatSP,MixedAirTempereatureSetPoint,degreesFahrenheit,(default 65.0),analogValue,presentValue,TRUE,78,8,Mix air temperature for economizer,FALSE
+MAT,MixedAirTemperature,degreesFahrenheit,(default 0.0),analogValue,presentValue,TRUE,79,8,Mix air temperature,FALSE
+Motion,Motion,Enum,0-1,binaryInput,presentValue,TRUE,1,8,Motion detection,FALSE
+BO_1,SupplyFanStatus,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,1,8,G (Preset as Custom),TRUE
+BO_2,FirstStageCooling,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,2,8,Y1,TRUE
+BO_3,SecondStageCooling,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,3,8,Y2,TRUE
+BO_4,FirstStageHeating,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,4,8,W1,TRUE
+BO_5,ReversingValve,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,5,8,O (O/B),TRUE
+Mot_Det,Mot_Det,Enum,0-1 (default 0),binaryValue,presentValue,TRUE,3,8,Motion detection,FALSE
+AutogenDesc,AutogenDesc,Enum,0-1 (default 1),binaryValue,presentValue,TRUE,4,8,Autogenerate I/O descriptions,FALSE
+Occ_Sch,Occ_Sch,Enum,0-1 (default 0),binaryValue,presentValue,TRUE,5,8,System occupancy schedule,FALSE
+Freeze_Status,Freeze_Status,Enum,0-1 (default 0),binaryValue,presentValue,TRUE,7,8,Freeze condition status,FALSE
+Free_CL_Author,Free_CL_Author,Enum,0-1 (default 0),binaryValue,presentValue,TRUE,8,8,Free cooling authorization status,FALSE
+EnthalpyAuth,EnthalpyAuth,Enum,0-1 (default 0),binaryValue,presentValue,TRUE,21,8,Enthalpy authorize,FALSE
+CFG_FAN,CFG_FAN,State,State count: 6 (default 1),multiStateValue,presentValue,TRUE,23,8,"1=BO-2, 2=AO-1, 3=AO-2, 4=BO-1 & AO-1, 5=BO-1 & AO-2",FALSE
+AI_OAT,AI_OAT,State,State count: 7 (default 1),multiStateValue,presentValue,TRUE,27,8,"1=AI-1, 2=AI-2, 3=AI-3, 4=AI-4, 5=AI-5, 6=External",FALSE
+AI_SAT,AI_SAT,State,State count: 7 (default 4),multiStateValue,presentValue,TRUE,28,8,"1=AI-1, 2=AI-2, 3=AI-3, 4=AI-4, 5=AI-5, 6=External",FALSE
+AO_ECO,AO_ECO,State,State count: 7 (default 7),multiStateValue,presentValue,TRUE,30,8,"1=BO-5, 2=BO-6, 3=BO-7, 4=AO-1, 5=AO-2, 6=AO-3",FALSE
+CFG_EXH,CFG_EXH,State,State count: 6 (default 1),multiStateValue,presentValue,TRUE,32,8,"1=BO-6, 2=BO-7, 3=AO-3, 4=BO-6 & AO-3, 5=BO-7 & AO-3",FALSE
+BI_PIR,BI_PIR,State,State count: 11 (default 1),multiStateValue,presentValue,TRUE,44,8,"1=NO, AI-1 (BI), 2=NC, AI-1 (BI), 3=NO, AI-2 (BI), 4=NC, AI-2 (BI), 5=NO, AI-3 (BI), 6=NC, AI-3 (BI), 7=NO, AI-4 (BI), 8=NC, AI-4 (BI), 9=External, 10=Intern",FALSE
+BI_SCH_Input,BI_SCH_Input,State,State count: 9 (default 2),multiStateValue,presentValue,TRUE,45,8,"1=None (On), 2=Scheduler, 3=AI-1 (BI), 4=AI-2 (BI), 5=AI-3 (BI), 6=AI-4 (BI), 7=AI-5 (BI), 8=External",FALSE
+BO_HUM,BO_HUM,State,State count: 9 (default 1),multiStateValue,presentValue,TRUE,48,8,"1=BO-2, 2=BO-3, 3=BO-4, 4=BO-5, 5=BO-6, 6=BO-7, 7=BO-5 & BO-6, 8=BO-6 & BO-7",FALSE
+AO_HUM,AO_HUM,State,State count: 4 (default 1),multiStateValue,presentValue,TRUE,49,8,"1=AO-1, 2=AO-2, 3=AO-3",FALSE
+AI_RH,AI_RH,State,State count: 8 (default 8),multiStateValue,presentValue,TRUE,52,8,"1=AI-1, 2=AI-2, 3=AI-3, 4=AI-4, 5=AI-5, 6=External, 7=Intern",FALSE
+AI_SRH,AI_SRH,State,State count: 7 (default 1),multiStateValue,presentValue,TRUE,54,8,"1=AI-1, 2=AI-2, 3=AI-3, 4=AI-4, 5=AI-5, 6=External",FALSE
+AIC_SRH,AIC_SRH,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,55,8,1=2-10V,FALSE
+OAH_Loc,OAH_Loc,State,State count: 8 (default 1),multiStateValue,presentValue,TRUE,57,8,"1=AI-1, 2=AI-2, 3=AI-3, 4=AI-4, 5=AI-5, 6=External, 7=Intern",FALSE
+MAT_Loc,MAT_Loc,State,State count: 7 (default 1),multiStateValue,presentValue,TRUE,58,8,"1=AI-1, 2=AI-2, 3=AI-3, 4=AI-4, 5=AI-5, 6=External",FALSE
+CFGSetp,CFGSetp,State,State count: 3 (default 2),multiStateValue,presentValue,TRUE,62,8,"1=Center, 2=Cool SP",FALSE
+CFGUnit,CFGUnit,State,State count: 2 (default 2),multiStateValue,presentValue,TRUE,64,8,1=Imper,FALSE
+BO_OCC,BO_OCC,State,State count: 10 (default 1),multiStateValue,presentValue,TRUE,65,8,"1=BO-2, 2=BO-3, 3=BO-4, 4=BO-5, 5=BO-6, 6=BO-7, 7=AO-1, 8=AO-2, 9=AO-3",FALSE
+BO_DEHU,BO_DEHU,State,State count: 7 (default 1),multiStateValue,presentValue,TRUE,68,8,"1=BO-2, 2=BO-3, 3=BO-4, 4=BO-5, 5=BO-6, 6=BO-7",FALSE
+PB,ProportionalBand,State,State count: 8 (default 3),multiStateValue,presentValue,TRUE,70,8,"1=4F 1_7C, 2=5F 2_2C, 3=6F 2_8C, 4=7F 3_3C, 5=8F 3_9C, 6=9F 5_0C, 7=10F 5_6C",FALSE
+Preset,Preset,State,State count: 12 (default 12),multiStateValue,presentValue,TRUE,127,8,"1=RT ECON, 2=HP 2STG, 3=RT IAQ, 4=RT MOD, 5=HP DEH, 6=HUM-DEH, 7=RT 3STG, 8=RT 4STG, 9=HP 3STG, 10=HP 4STG, 11=Custom",FALSE
+Occ_Cmd,OccupancyCommand,State,State count: 3 (default 1),multiStateValue,presentValue,TRUE,6,8,"1=Occupied, 2=Unoccup",TRUE"""
 
 schneider_registry = \
-"""Reference Point Name,Volttron Point Name,Units,Unit Details,BACnet Object Type,Property,Writable,Index,Write Priority,Notes,active
-Effective Setpoint,EffectiveZoneTemperatureSetPoint,degreesFahrenheit,,analogInput,presentValue,TRUE,329,16,,TRUE
-PI Heating Demand,HeatingDemand,percent,(default 100.0),analogOutput,presentValue,TRUE,21,16,,TRUE
-PI Cooling Demand,CoolingDemand,percent,(default 0.0),analogOutput,presentValue,TRUE,22,16,,TRUE
-Economizer Demand,EconomizerDemand,percent,(default 0.0),analogOutput,presentValue,TRUE,23,16,,FALSE
-StandbyTime,StandbyTime,noUnits,(default 0.0),analogValue,presentValue,TRUE,25,16,Param. A (AV25),FALSE
-ActOcc,MotionOccupancy,noUnits,(default 0.0),analogValue,presentValue,FALSE,26,,Only Used on PIR,FALSE
-SptPriorValue,SptPriorValue,noUnits,(default 0.0),analogValue,presentValue,TRUE,27,16,Param. C (AV27),FALSE
-CommFailTmr,CommunicationFailureTimer,noUnits,(default 0.0),analogValue,presentValue,TRUE,28,16,Param. D (AV28),FALSE
-DR Flag,DemandResponseFlag,enum,,analogValue,presentValue,TRUE,29,8,,TRUE
-HeartBeat,HeartBeat,enum,,analogValue,presentValue,TRUE,30,8,,TRUE
-Occupied Heat Setpoint,OccupiedHeatingSetPoint,degreesFahrenheit,(default 72.0),analogValue,presentValue,TRUE,39,16,,TRUE
-Occupied Cool Setpoint,OccupiedCoolingSetPoint,degreesFahrenheit,(default 75.0),analogValue,presentValue,TRUE,40,16,,TRUE
-Unoccupied Heat Setpoint,UnoccupiedHeatingSetPoint,degreesFahrenheit,(default 62.0),analogValue,presentValue,TRUE,43,16,,TRUE
-Unoccupied Cool Setpoint,UnoccupiedCoolingSetPoint,degreesFahrenheit,(default 80.0),analogValue,presentValue,TRUE,44,16,,TRUE
-Standby Temperature Differential,StandbyTemperatureOffset,deltaDegreesFahrenheit,(default 4.0),analogValue,presentValue,TRUE,46,16,,FALSE
-Heating Setpoint Limit,HeatingSetpointLimit,degreesFahrenheit,(default 90.0),analogValue,presentValue,TRUE,58,16,,FALSE
-Cooling Setpoint Limit,CoolingSetpointLimit,degreesFahrenheit,(default 54.0),analogValue,presentValue,TRUE,59,16,,FALSE
-Minimum Deadband,DeadBand,deltaDegreesFahrenheit,(default 3.0),analogValue,presentValue,TRUE,63,16,,FALSE
-Proportional Band,ProportionalBand,noUnits,(default 3.0),analogValue,presentValue,TRUE,65,16,,FALSE
-Number of Cooling Stages,NumberCoolingStages,noUnits,(default 2.0),analogValue,presentValue,TRUE,75,16,,FALSE
-Anti Short Cycle Time,AntiShortCycleTime,minutes,(default 2.0),analogValue,presentValue,TRUE,86,16,,FALSE
-Number of Heating Stages,NumberHeatingStages,noUnits,(default 2.0),analogValue,presentValue,TRUE,87,16,,FALSE
-Changeover Setpoint,EconomizerSwitchOverSetPoint,degreesFahrenheit,(default 55.0),analogValue,presentValue,TRUE,95,16,,FALSE
-Room Temperature,ZoneTemperature,degreesFahrenheit,(default 68.70000457763672),analogValue,presentValue,TRUE,100,16,,TRUE
-Room Humidity,ZoneHumidity,percentRelativeHumidity,(default 14.0),analogValue,presentValue,TRUE,103,16,,TRUE
-G Fan Status,SupplyFanStatus,Enum,0-1 (default 1),binaryOutput,presentValue,TRUE,25,16,,TRUE
-Y1 Status,FirstStageCooling,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,26,16,,TRUE
-Y2 Status,SecondStageCooling,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,27,16,,TRUE
-W1 Status,FirstStageHeating,Enum,0-1 (default 1),binaryOutput,presentValue,TRUE,28,16,,TRUE
-W2/OB Status,ReversingValve,Enum,0-1 (default 1),binaryOutput,presentValue,TRUE,29,16,,TRUE
-BO1 Auxiliary Binary Output,AuxiliaryHeatCommand,Enum,0-1 (default 1),binaryOutput,presentValue,TRUE,98,16,,TRUE
-Effective Occupancy,EffectiveOccupancy,State,State count: 4,multiStateInput,presentValue,TRUE,33,16,"1=Unoccupied, 2=Override, 3=Standby",FALSE
-Effective System Mode,EffectiveSystemMode,State,State count: 2,multiStateInput,presentValue,TRUE,314,16,1=Heat,FALSE
-Time source,TimeSource,State,State count: 5,multiStateInput,presentValue,TRUE,325,16,"1=Local, 2=BACnet, 3=NTP, 4=Cloud",FALSE
-Occupancy Command,OccupancyCommand,State,State count: 3 (default 2),multiStateValue,presentValue,TRUE,10,16,"1=Occupied, 2=Unocc.",TRUE
-System Mode,SystemMode,State,State count: 4 (default 4),multiStateValue,presentValue,TRUE,16,16,"1=Auto, 2=Cool, 3=Heat",FALSE
-Fan Mode,FanMode,State,State count: 3 (default 2),multiStateValue,presentValue,TRUE,17,16,"1=Auto, 2=Smart",FALSE
-Setpoint Function,SetpointFunction,State,State count: 2 (default 2),multiStateValue,presentValue,TRUE,58,9,1=Attach SP,FALSE
-Economizer Configuration,HasEconomizer,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,72,9,1=On,FALSE
-Reversing valve operation,ReversingValveOperation,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,117,9,1=B,FALSE
-Application,Application,State,State count: 2 (default 1),multiStateValue,presentValue,TRUE,119,9,1=Heatpump,FALSE"""
-
-schneider_oat_registry = \
 """Reference Point Name,Volttron Point Name,Units,Unit Details,BACnet Object Type,Property,Writable,Index,Write Priority,Notes,active
 Effective Setpoint,EffectiveZoneTemperatureSetPoint,degreesFahrenheit,,analogInput,presentValue,TRUE,329,16,,TRUE
 PI Heating Demand,HeatingDemand,percent,(default 100.0),analogOutput,presentValue,TRUE,21,16,,TRUE
@@ -94,7 +118,7 @@ Anti Short Cycle Time,AntiShortCycleTime,minutes,(default 2.0),analogValue,prese
 Number of Heating Stages,NumberHeatingStages,noUnits,(default 2.0),analogValue,presentValue,TRUE,87,16,,FALSE
 Changeover Setpoint,EconomizerSwitchOverSetPoint,degreesFahrenheit,(default 55.0),analogValue,presentValue,TRUE,95,16,,FALSE
 Room Temperature,ZoneTemperature,degreesFahrenheit,(default 68.70000457763672),analogValue,presentValue,TRUE,100,16,,TRUE
-Outdoor Temperature,OutdoorAirTemperature,degreesFahrenheit,(default -40.0),analogValue,presentValue,TRUE,101,16,,TRUE
+Outdoor Temperature,OutdoorAirTemperature,degreesFahrenheit,(default -40.0),analogValue,presentValue,TRUE,101,16,,FALSE
 Room Humidity,ZoneHumidity,percentRelativeHumidity,(default 14.0),analogValue,presentValue,TRUE,103,16,,TRUE
 G Fan Status,SupplyFanStatus,Enum,0-1 (default 1),binaryOutput,presentValue,TRUE,25,16,,TRUE
 Y1 Status,FirstStageCooling,Enum,0-1 (default 0),binaryOutput,presentValue,TRUE,26,16,,TRUE
@@ -164,11 +188,10 @@ platform_driver_config = lambda timezone, num_configs: {
     "publish_all_depth": True
 }
 
-device_config_dict_template = lambda device_address, device_id, registry_file_name, campus, building, device_name: {
+device_config_dict_template = lambda device_address, device_id, registry_file_name: {
     "driver_config": {
         "device_address": device_address,
         "device_id": device_id,
-        "heart_beat_point": f"devices/{campus}/{building}/{device_name}/HeartBeat",
         "min_priority": 2
     },
     "interval": 60,
@@ -178,12 +201,12 @@ device_config_dict_template = lambda device_address, device_id, registry_file_na
 }
 
 
-manager_config_store_dict_template = lambda campus, building, device_name, timezone: {
+manager_config_store_dict_template = lambda campus, building, device_name, timezone, setpoint_control: {
     "campus": campus,
     "building": building,
     "system": device_name,
     "system_status_point": "OccupancyCommand",
-    "setpoint_control": 1,
+    "setpoint_control": setpoint_control,
     "local_tz": timezone,
     "default_setpoints": {
         "UnoccupiedHeatingSetPoint": 65,
@@ -329,6 +352,25 @@ bacnet_proxy_agent_block = {
                               "config": "$CONFIG/bacnet_proxy.config", "priority": "10"},
     "platform.actuator": {"source": "$VOLTTRON_ROOT/services/core/ActuatorAgent", "tag": "actuator"},
 }
+
+
+def enable_outdoor_air_temp(registry_str: str) -> str:
+    lines = registry_str.splitlines()
+
+    header = lines[0]
+    updated_lines = [header]
+
+    for line in lines[1:]:
+        cols = line.split(",")
+
+        # Volttron Point Name is column index 1
+        if len(cols) > 1 and cols[1] == "OutdoorAirTemperature":
+            cols[-1] = "TRUE"  # set 'active' column
+
+        updated_lines.append(",".join(cols))
+
+    return "\n".join(updated_lines)
+
 
 def get_gateway_prefix(address: str) -> str:
     """
@@ -511,13 +553,45 @@ def generate_device_config(config_num: int, prefix: str, gateway_address: str,
             Defaults to 'schneider.csv'.
 
     """
-    device_address, device_id = generate_device_address(gateway_address, config_num)
-    device_config = device_config_dict_template(device_address, device_id, registry_file_name, campus, building, f"{prefix}{str(config_num).zfill(2)}")
-    device_config_dir = Path(output_dir, 'platform.driver', 'devices', campus, building)
-    device_config_dir.mkdir(parents=True, exist_ok=True)
-    device_file_path = device_config_dir / f"{prefix}{str(config_num).zfill(2)}"
-    with open(device_file_path, 'w') as f:
-        json.dump(device_config, f, indent=4)
+
+    def _add_openstat_config(device_config: dict):
+        """
+        Adds configuration specific to OpenStat thermostat.
+        """
+        driver_config = device_config['driver_config']
+        driver_config['plugins'] = ["object-user-lock-time"]
+        driver_config['object_user_lock_interval'] = 1800
+
+    def _add_schneider_config(device_config: dict, campus: str, building: str, prefix: str, config_num: int):
+        """
+        Adds configuration specific to Schneider thermostat.
+        """
+        device_config['driver_config']['heart_beat_point'] = (
+            f"devices/{campus}/{building}/{prefix}{str(config_num).zfill(2)}/HeartBeat"
+        )
+
+    # Generate the dynamically calculated device address and ID
+    device_address, generated_device_id = generate_device_address(gateway_address, config_num)
+    # Create the device configuration dictionary
+    device_config = device_config_dict_template(
+        device_address=device_address,
+        device_id=generated_device_id,
+        registry_file_name=registry_file_name
+    )
+
+    # Add device specific configurations
+    if 'schneider' in registry_file_name:
+        _add_schneider_config(device_config, campus, building, prefix, config_num)
+    elif 'openstat' in registry_file_name:
+        _add_openstat_config(device_config)
+
+    # Set up the configuration file path using the specified directory structure
+    config_dir = Path(output_dir, 'platform.driver', 'devices', campus, building)
+    config_dir.mkdir(parents=True, exist_ok=True)  # Ensure directories exist
+    config_file_path = config_dir / f"{prefix}{str(config_num).zfill(2)}"
+    # Save the configuration JSON to the file
+    with config_file_path.open(mode='w') as config_file:
+        json.dump(device_config, config_file, indent=4)
 
 
 def generate_meter_config(device_address: str, device_id: int, prefix: str,
@@ -541,9 +615,8 @@ def generate_meter_config(device_address: str, device_id: int, prefix: str,
         registry_file_name: The name of the registry file to be used. Defaults to
             'dent.csv'.
     """
-    device_config = device_config_dict_template(device_address, device_id, registry_file_name,
-                                                campus, building, prefix)
-    device_config['driver_config'].pop("heart_beat_point")
+    device_config = device_config_dict_template(device_address, device_id, registry_file_name)
+    # device_config['driver_config'].pop("heart_beat_point")
     device_config_dir = Path(output_dir, 'platform.driver', 'devices', campus, building)
     device_config_dir.mkdir(parents=True, exist_ok=True)
     device_file_path = device_config_dir / prefix
@@ -584,7 +657,7 @@ def handle_registry_csv(output_dir: str | bytes, registry_file_path: str, regist
 def generate_platform_driver_configs(num_configs: int, output_dir: str | bytes,
                                      registry_file_path: str, prefix: str, meter_prefix: str,
                                      campus: str, building: str, bacnet_network: str,
-                                     gateway_address: str, rtu_oat_sensor: int, meter_ip: bool):
+                                     gateway_address: str, rtu_oat_sensor: int, meter_ip: bool, stat_type: str):
     """
     Generates platform driver configuration files and handles registry CSV files based on the inputs provided.
 
@@ -594,6 +667,7 @@ def generate_platform_driver_configs(num_configs: int, output_dir: str | bytes,
     as registers them to the specified output directory.
 
     Args:
+        stat_type: thermostat type (schneider or openstat)
         num_configs (int): The number of device configurations to generate.
         output_dir (str | bytes): The directory where the generated configurations
             will be stored.
@@ -610,23 +684,40 @@ def generate_platform_driver_configs(num_configs: int, output_dir: str | bytes,
             the range of devices.
         meter_ip (bool): Indicates whether the meter is addressed via an IP address.
     """
+
+    def generate_and_handle_configs(output_dir, registry_file_path, registry_data):
+        for file_name, registry_content in registry_data:
+            handle_registry_csv(output_dir, registry_file_path, registry_content, file_name)
+
+    # Generate device configurations
     for config_num in range(1, num_configs + 1):
-        registry_file_name = SCHNEIDER_OAT_CSV_NAME if config_num == rtu_oat_sensor else SCHNEIDER_CSV_NAME
+        registry_file_name = (
+            SCHNEIDER_OAT_CSV_NAME if (stat_type == 'schneider' and config_num == rtu_oat_sensor)
+            else SCHNEIDER_CSV_NAME if stat_type == 'schneider'
+            else OPENSTAT_OAT_CSV_NAME if config_num == rtu_oat_sensor
+            else OPENSTAT_CSV_NAME
+        )
         generate_device_config(config_num, prefix, bacnet_network, campus, building, output_dir, registry_file_name)
-    device_id = 100
-    if meter_ip:
-        gateway_prefix = get_gateway_prefix(gateway_address)
-        device_address = f"{gateway_prefix}.100"
-    else:
-        device_address =  f"{bacnet_network}:25"
-    generate_meter_config(device_address, device_id, meter_prefix, campus, building, output_dir, "dent.csv")
-    handle_registry_csv(output_dir, registry_file_path, schneider_registry, SCHNEIDER_CSV_NAME)
-    handle_registry_csv(output_dir, registry_file_path, schneider_oat_registry, SCHNEIDER_OAT_CSV_NAME)
-    handle_registry_csv(output_dir, registry_file_path, dent_meter_registry, DENT_CSV_NAME)
+
+    # Generate meter configuration
+    device_address = (
+        f"{get_gateway_prefix(gateway_address)}.100" if meter_ip
+        else f"{bacnet_network}:25"
+    )
+    generate_meter_config(device_address, 100, meter_prefix, campus, building, output_dir, "dent.csv")
+
+    # Handle registry CSVs
+    generate_and_handle_configs(output_dir, registry_file_path, [
+        (SCHNEIDER_CSV_NAME, schneider_registry),
+        (SCHNEIDER_OAT_CSV_NAME, enable_outdoor_air_temp(schneider_registry)),
+        (OPENSTAT_CSV_NAME, openstat_registry),
+        (OPENSTAT_OAT_CSV_NAME, enable_outdoor_air_temp(openstat_registry)),
+        (DENT_CSV_NAME, dent_meter_registry),
+    ])
 
 
 def generate_manager_config(config_num: int, prefix: str, campus: str, building: str,
-                            output_dir: str | bytes, timezone: str, rtu_oat_sensor: int = 0) -> None:
+                            output_dir: str | bytes, timezone: str, rtu_oat_sensor: int = 0, setpoint_control: int = 1) -> None:
     """
     Generates a manager configuration file for a specified device.
 
@@ -637,6 +728,7 @@ def generate_manager_config(config_num: int, prefix: str, campus: str, building:
     related to the outdoor temperature will be added to the configuration.
 
     Args:
+        setpoint_control: 1 for schneider devices (detached setpoint) 0 for openstat devices (common setpoint)
         config_num: The unique configuration number used to generate the device name.
         prefix: A string used as a prefix in the device name generation.
         campus: The campus identifier where the device is located.
@@ -650,7 +742,7 @@ def generate_manager_config(config_num: int, prefix: str, campus: str, building:
 
     """
     device_name = f"{prefix}{str(config_num).zfill(2)}"
-    manager_config = manager_config_store_dict_template(campus, building, device_name, timezone)
+    manager_config = manager_config_store_dict_template(campus, building, device_name, timezone, setpoint_control)
     if config_num != rtu_oat_sensor:
         manager_config['outdoor_temperature_topic'] = f"devices/{campus}/{building}/rtu{str(rtu_oat_sensor).zfill(2)}/all"
     manager_config_dir = Path(output_dir, 'configuration_store', f'manager.{device_name}', 'devices', campus, building)
@@ -942,9 +1034,10 @@ def main():
     """
     parser = configargparse.ArgParser(default_config_files=['config.ini'])
     parser.add('--num-configs', type=int, default=2, help='Number of devices')
+    parser.add('--stat-type', type=str, default='schneider', help='Type of thermostat: schneider or openstat')
     parser.add('--output-dir', type=str, required=True, help='Directory to output configs')
     parser.add('--config-subdir', help='Subdirectory for config files', default='')
-    parser.add('--prefix', type=str, default='RTU', help='Device prefix')
+    parser.add('--prefix', type=str, default='rtu', help='Device prefix')
     parser.add('--meter-prefix', type=str, default='meter', help='Meter prefix') ## ADD
     parser.add('--campus', type=str, required=True)
     parser.add('--building', type=str, required=True)
@@ -997,13 +1090,15 @@ def main():
         bacnet_network=bacnet_network,
         gateway_address=args.gateway_address,
         rtu_oat_sensor=args.rtu_oat_sensor,
-        meter_ip=args.meter_ip
+        meter_ip=args.meter_ip,
+        stat_type=args.stat_type
     )
 
     # Generate manager configs
+    setpoint_control = 1 if args.stat_type == 'schneider' else 0
     for config_num in range(1, args.num_configs + 1):
         generate_manager_config(config_num, args.prefix, args.campus, args.building,
-                                output_path, args.timezone, args.rtu_oat_sensor)
+                                output_path, args.timezone, args.rtu_oat_sensor, setpoint_control)
 
     # Generate canonical "config" for platform.driver
     generate_driver_config(args.timezone, output_path, args.num_configs)

@@ -1,6 +1,6 @@
 ARG image_user=amd64
 ARG image_repo=eclipsevolttron/volttron
-ARG image_tag=develop
+ARG image_tag=optional_certs
 
 FROM ${image_repo}:${image_tag} AS volttron
 
