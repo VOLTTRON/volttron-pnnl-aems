@@ -1,4 +1,5 @@
 import { RoleType } from "@local/common";
+import { HistorianTopicMapConfig } from "./historian/types";
 export interface ExtConfig {
     path?: `/ext/${string}`;
     role?: typeof RoleType.User;
@@ -108,6 +109,8 @@ export declare class AppConfigService {
         username: string;
         password: string;
         replicationPort: number;
+        configMappingPath?: string;
+        topicMap?: Partial<HistorianTopicMapConfig>;
     };
     ext: Record<string, ExtConfig>;
     proxy: {
@@ -166,6 +169,7 @@ export declare class AppConfigService {
     };
     normalize: import("@local/common/dist/constants").IProcess;
     readFile(file: string): string;
+    private loadHistorianTopicMap;
     constructor();
 }
 declare const AppConfigToken: (() => AppConfigService) & import("@nestjs/config").ConfigFactoryKeyHost<AppConfigService>;

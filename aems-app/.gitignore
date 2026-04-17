@@ -19,3 +19,4 @@ docker/.env.secrets.docker
 
 # other
 *.bat
+*.log

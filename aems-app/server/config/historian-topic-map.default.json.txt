@@ -1,0 +1,24 @@
+Historian Topic Mapping Configuration
+========================================
+
+This file defines the default topic path templates and metric name mappings
+for the historian database queries.
+
+Usage:
+------
+1. Copy this file to historian-topic-map.json
+2. Edit the templates and/or metric mappings as needed
+3. Set HISTORIAN_CONFIG_MAPPING_PATH environment variable to the file path
+4. Restart the server
+
+Configuration Structure:
+------------------------
+- templates: Define topic path structure for Unit/Weather/Meter metrics
+  - Template variables: {campus}, {building}, {system}, {metric}
+- unitMetrics: Map UnitMetric enum values to database metric strings
+- weatherMetrics: Map WeatherMetric enum values to database metric strings
+- meterMetrics: Map MeterMetric enum values to database metric strings
+
+Partial configurations are supported - unmapped values use defaults.
+
+See type definition in: server/src/historian/types.ts

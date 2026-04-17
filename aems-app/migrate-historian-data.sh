@@ -377,21 +377,25 @@ else
 fi
 
 # Step 2: Prepare target database
-log_info "Step 2/3: Preparing target database..."
+log_info "Step 2/3: Preparing target database and verifying PRIMARY KEYs..."
+
+# Create temporary file for SQL output
+TEMP_SQL_OUTPUT="$TEMP_DIR/sql_output.txt"
 
 # Create tables if they don't exist
-docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" > /dev/null 2>> "$LOG_FILE" << 'EOF'
+log_info "Creating tables if needed..."
+docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" 2>&1 | tee -a "$LOG_FILE" > "$TEMP_SQL_OUTPUT" << 'EOF'
 -- Create tables if they don't exist
 CREATE TABLE IF NOT EXISTS topics (
-    topic_id SERIAL PRIMARY KEY,
-    topic_name VARCHAR(512) UNIQUE NOT NULL
+    topic_id SERIAL,
+    topic_name VARCHAR(512) UNIQUE NOT NULL,
+    metadata TEXT
 );
 
 CREATE TABLE IF NOT EXISTS data (
     ts TIMESTAMP NOT NULL,
     topic_id INTEGER REFERENCES topics(topic_id),
-    value_string TEXT,
-    UNIQUE(ts, topic_id)
+    value_string TEXT
 );
 
 -- Create indexes if they don't exist
@@ -400,12 +404,129 @@ CREATE INDEX IF NOT EXISTS idx_data_topic_id ON data(topic_id);
 CREATE INDEX IF NOT EXISTS idx_topics_name ON topics(topic_name);
 EOF
 
-if [ $? -eq 0 ]; then
-    log_success "Target database prepared"
-else
-    log_error "Failed to prepare target database"
+if [ $? -ne 0 ]; then
+    log_error "Failed to create tables"
+    cat "$TEMP_SQL_OUTPUT" >> "$LOG_FILE"
     exit 1
 fi
+
+# Check and fix PRIMARY KEY on topics table
+log_info "Checking PRIMARY KEY on 'topics' table..."
+TOPICS_PK_EXISTS=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "SELECT COUNT(*) FROM pg_constraint WHERE conname = 'topics_pkey' AND contype = 'p';" 2>/dev/null | xargs)
+
+if [ "$TOPICS_PK_EXISTS" = "0" ]; then
+    log_warning "No PRIMARY KEY found on 'topics' - adding PRIMARY KEY (topic_id)"
+    
+    # First ensure the column is NOT NULL (prerequisite for PRIMARY KEY)
+    log_info "Ensuring topic_id column is NOT NULL..."
+    
+    # Use -c flag instead of heredoc for proper authentication
+    docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -c "ALTER TABLE topics ALTER COLUMN topic_id SET NOT NULL;" 2>&1 | tee -a "$LOG_FILE" > "$TEMP_SQL_OUTPUT"
+    
+    if [ $? -ne 0 ]; then
+        log_error "Failed to set topic_id to NOT NULL"
+        cat "$TEMP_SQL_OUTPUT" | tee -a "$LOG_FILE"
+        exit 1
+    fi
+    
+    log_info "Adding PRIMARY KEY to topics table..."
+    docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -c "ALTER TABLE topics ADD PRIMARY KEY (topic_id);" 2>&1 | tee -a "$LOG_FILE" > "$TEMP_SQL_OUTPUT"
+    
+    if [ $? -ne 0 ]; then
+        log_error "Failed to add PRIMARY KEY to 'topics' table"
+        cat "$TEMP_SQL_OUTPUT" | tee -a "$LOG_FILE"
+        exit 1
+    fi
+    
+    # Verify it was created
+    TOPICS_PK_EXISTS=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "SELECT COUNT(*) FROM pg_constraint WHERE conname = 'topics_pkey' AND contype = 'p';" 2>/dev/null | xargs)
+    if [ "$TOPICS_PK_EXISTS" = "1" ]; then
+        log_success "PRIMARY KEY 'topics_pkey' created successfully"
+    else
+        log_error "Failed to verify PRIMARY KEY creation on 'topics' table"
+        log_error "SQL output:"
+        cat "$TEMP_SQL_OUTPUT" | tee -a "$LOG_FILE"
+        exit 1
+    fi
+else
+    log_success "PRIMARY KEY 'topics_pkey' already exists"
+fi
+
+# Check and fix PRIMARY KEY on data table
+log_info "Checking PRIMARY KEY on 'data' table..."
+DATA_PK_EXISTS=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "SELECT COUNT(*) FROM pg_constraint WHERE conname = 'data_pkey' AND contype = 'p';" 2>/dev/null | xargs)
+
+if [ "$DATA_PK_EXISTS" = "0" ]; then
+    log_warning "No PRIMARY KEY found on 'data' - adding PRIMARY KEY (topic_id, ts)"
+    
+    # First ensure the columns are NOT NULL (prerequisite for PRIMARY KEY)
+    log_info "Ensuring topic_id and ts columns are NOT NULL..."
+    
+    # Use -c flag instead of heredoc for proper authentication
+    docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -c "ALTER TABLE data ALTER COLUMN topic_id SET NOT NULL;" 2>&1 | tee -a "$LOG_FILE" > "$TEMP_SQL_OUTPUT"
+    
+    if [ $? -ne 0 ]; then
+        log_error "Failed to set topic_id to NOT NULL on data table"
+        cat "$TEMP_SQL_OUTPUT" | tee -a "$LOG_FILE"
+        exit 1
+    fi
+    
+    docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -c "ALTER TABLE data ALTER COLUMN ts SET NOT NULL;" 2>&1 | tee -a "$LOG_FILE" > "$TEMP_SQL_OUTPUT"
+    
+    if [ $? -ne 0 ]; then
+        log_error "Failed to set ts to NOT NULL on data table"
+        cat "$TEMP_SQL_OUTPUT" | tee -a "$LOG_FILE"
+        exit 1
+    fi
+    
+    log_info "Adding PRIMARY KEY to data table..."
+    docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -c "ALTER TABLE data ADD PRIMARY KEY (topic_id, ts);" 2>&1 | tee -a "$LOG_FILE" > "$TEMP_SQL_OUTPUT"
+    
+    if [ $? -ne 0 ]; then
+        log_error "Failed to add PRIMARY KEY to 'data' table"
+        cat "$TEMP_SQL_OUTPUT" | tee -a "$LOG_FILE"
+        exit 1
+    fi
+    
+    # Verify it was created
+    DATA_PK_EXISTS=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "SELECT COUNT(*) FROM pg_constraint WHERE conname = 'data_pkey' AND contype = 'p';" 2>/dev/null | xargs)
+    if [ "$DATA_PK_EXISTS" = "1" ]; then
+        log_success "PRIMARY KEY 'data_pkey' created successfully"
+    else
+        log_error "Failed to verify PRIMARY KEY creation on 'data' table"
+        log_error "SQL output:"
+        cat "$TEMP_SQL_OUTPUT" | tee -a "$LOG_FILE"
+        exit 1
+    fi
+else
+    log_success "PRIMARY KEY 'data_pkey' already exists"
+fi
+
+# Verify replica identity settings
+log_info "Verifying replica identity settings..."
+docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "
+SELECT 
+    '  ' || c.relname || ': ' ||
+    CASE c.relreplident
+        WHEN 'd' THEN 'DEFAULT (primary key) ✓'
+        WHEN 'n' THEN 'NOTHING ✗'
+        WHEN 'f' THEN 'FULL'
+        WHEN 'i' THEN 'INDEX'
+    END
+FROM pg_class c
+WHERE c.relname IN ('data', 'topics')
+ORDER BY c.relname;
+" 2>&1 | while IFS= read -r line; do
+    if [[ "$line" =~ ✓ ]]; then
+        log_success "$line"
+    elif [[ "$line" =~ ✗ ]]; then
+        log_error "$line"
+    else
+        log_info "$line"
+    fi
+done
+
+log_success "Target database prepared with all PRIMARY KEYs verified"
 
 # Step 3: Import to target
 log_info "Step 3/3: Importing data to target database..."

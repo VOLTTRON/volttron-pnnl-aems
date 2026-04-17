@@ -1,0 +1,50 @@
+{
+  "templates": {
+    "Unit": "{campus}/{building}/{system}/{metric}",
+    "Weather": "{campus}/{building}/weather/{metric}",
+    "Meter": "{campus}/{building}/meter/{metric}"
+  },
+  "unitMetrics": {
+    "AuxiliaryHeatCommand": "AuxiliaryHeatCommand",
+    "CoolingDemand": "CoolingDemand",
+    "DeadBand": "DeadBand",
+    "DemandResponseFlag": "DemandResponseFlag",
+    "EffectiveZoneTemperatureSetPoint": "EffectiveZoneTemperatureSetPoint",
+    "FirstStageCooling": "FirstStageCooling",
+    "FirstStageHeating": "FirstStageHeating",
+    "HeartBeat": "HeartBeat",
+    "HeatingDemand": "HeatingDemand",
+    "OccupancyCommand": "OccupancyCommand",
+    "OccupiedCoolingSetPoint": "OccupiedCoolingSetPoint",
+    "OccupiedHeatingSetPoint": "OccupiedHeatingSetPoint",
+    "OccupiedSetPoint": "OccupiedSetPoint",
+    "OutdoorAirTemperature": "OutdoorAirTemperature",
+    "ReversingValve": "ReversingValve",
+    "SecondStageCooling": "SecondStageCooling",
+    "SupplyFanStatus": "SupplyFanStatus",
+    "UnoccupiedCoolingSetPoint": "UnoccupiedCoolingSetPoint",
+    "UnoccupiedHeatingSetPoint": "UnoccupiedHeatingSetPoint",
+    "ZoneHumidity": "ZoneHumidity",
+    "ZoneTemperature": "ZoneTemperature"
+  },
+  "weatherMetrics": {
+    "AirPressure": "air_pressure",
+    "AirPressureAtMeanSeaLevel": "air_pressure_at_mean_sea_level",
+    "AirTemperature": "air_temperature",
+    "DewPointTemperature": "dew_point_temperature",
+    "HeatIndex": "heatIndex",
+    "HeightAboveMeanSeaLevel": "height_above_mean_sea_level",
+    "PrecipitationLast3Hours": "precipitationLast3Hours",
+    "PrecipitationLastHour": "precipitationLastHour",
+    "RelativeHumidity": "relative_humidity",
+    "VisibilityInAir": "visibility_in_air",
+    "WindFromDirection": "wind_from_direction",
+    "WindSpeed": "wind_speed",
+    "WindSpeedOfGust": "wind_speed_of_gust",
+    "WindChill": "windChill"
+  },
+  "meterMetrics": {
+    "Power": "WholeBuildingPower",
+    "Demand": "Demand"
+  }
+}

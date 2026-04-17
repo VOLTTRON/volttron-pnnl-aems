@@ -1963,6 +1963,214 @@ SELECT subname, subenabled, pid FROM pg_stat_subscription;
 - Ensure the publisher's replication slot is cleaned up to avoid WAL bloat
 - Monitor the initial sync progress as it may take time for large databases
 
+### Historian Topic Mapping
+
+The historian topic mapping configuration defines how VOLTTRON topics are structured and mapped for data storage in the historian database. This configuration enables flexible topic naming conventions and metric organization for different data types (HVAC units, weather sensors, power meters).
+
+#### Overview
+
+The topic mapping file provides:
+- **Topic Templates**: URL patterns for organizing different data types
+- **Metric Mappings**: Standardized metric names for various sensor types
+- **Flexible Structure**: Customizable for different building configurations
+
+#### File Locations
+
+**Production Deployment:**
+```
+./docker/historian/historian-topic-map.json
+```
+Used by the Docker-deployed historian service in production environments.
+
+**Default Template:**
+```
+./aems-app/server/config/historian-topic-map.default.json
+```
+The default generated template used as a starting point for new deployments.
+
+**Note:** Both files are identical by default. Customize the production file (`./docker/historian/historian-topic-map.json`) for your specific deployment needs.
+
+#### Configuration Structure
+
+The mapping file contains three main sections:
+
+**1. Templates**
+
+Topic templates define the URL structure for different data types:
+
+```json
+{
+  "templates": {
+    "Unit": "{campus}/{building}/{system}/{metric}",
+    "Weather": "{campus}/{building}/weather/{metric}",
+    "Meter": "{campus}/{building}/meter/{metric}"
+  }
+}
+```
+
+Variables in templates:
+- `{campus}` - Campus or site identifier
+- `{building}` - Building identifier
+- `{system}` - HVAC system or zone identifier
+- `{metric}` - Specific measurement type
+
+**2. Unit Metrics**
+
+HVAC unit sensor mappings for thermostats and climate control systems:
+
+```json
+{
+  "unitMetrics": {
+    "ZoneTemperature": "ZoneTemperature",
+    "OccupiedCoolingSetPoint": "OccupiedCoolingSetPoint",
+    "OccupiedHeatingSetPoint": "OccupiedHeatingSetPoint",
+    "FirstStageCooling": "FirstStageCooling",
+    "FirstStageHeating": "FirstStageHeating"
+  }
+}
+```
+
+Available unit metrics include:
+- **Temperature Control**: ZoneTemperature, OccupiedSetPoint, UnoccupiedSetPoint
+- **Heating/Cooling**: HeatingDemand, CoolingDemand, AuxiliaryHeatCommand
+- **System Status**: SupplyFanStatus, OccupancyCommand, HeartBeat
+- **Advanced Control**: DeadBand, DemandResponseFlag, ReversingValve
+
+**3. Weather Metrics**
+
+Weather station sensor mappings:
+
+```json
+{
+  "weatherMetrics": {
+    "AirTemperature": "air_temperature",
+    "RelativeHumidity": "relative_humidity",
+    "WindSpeed": "wind_speed",
+    "AirPressure": "air_pressure"
+  }
+}
+```
+
+Available weather metrics include:
+- **Temperature**: AirTemperature, DewPointTemperature, HeatIndex, WindChill
+- **Atmospheric**: AirPressure, AirPressureAtMeanSeaLevel
+- **Wind**: WindSpeed, WindFromDirection, WindSpeedOfGust
+- **Precipitation**: PrecipitationLastHour, PrecipitationLast3Hours
+- **Other**: RelativeHumidity, VisibilityInAir
+
+**4. Meter Metrics**
+
+Power and utility meter mappings:
+
+```json
+{
+  "meterMetrics": {
+    "Power": "WholeBuildingPower",
+    "Demand": "Demand"
+  }
+}
+```
+
+#### Topic Examples
+
+Based on the templates, VOLTTRON topics are structured as:
+
+**HVAC Unit Data:**
+```
+campus1/building1/zone101/ZoneTemperature
+campus1/building1/zone102/OccupiedCoolingSetPoint
+```
+
+**Weather Data:**
+```
+campus1/building1/weather/air_temperature
+campus1/building1/weather/relative_humidity
+```
+
+**Meter Data:**
+```
+campus1/building1/meter/WholeBuildingPower
+campus1/building1/meter/Demand
+```
+
+#### Customization Guide
+
+**Adding Custom Metrics:**
+
+1. Edit the production mapping file:
+   ```bash
+   nano ./docker/historian/historian-topic-map.json
+   ```
+
+2. Add your custom metric to the appropriate section:
+   ```json
+   {
+     "unitMetrics": {
+       "CustomSensorName": "custom_database_column"
+     }
+   }
+   ```
+
+3. Restart the historian service:
+   ```bash
+   docker compose restart historian
+   ```
+
+**Modifying Templates:**
+
+To change the topic structure, update the template pattern:
+
+```json
+{
+  "templates": {
+    "Unit": "{site}/{building}/{floor}/{room}/{metric}",
+    "Weather": "{site}/weather/{station}/{metric}"
+  }
+}
+```
+
+**Best Practices:**
+
+- **Consistent Naming**: Use consistent metric names across your deployment
+- **Hierarchical Structure**: Organize topics from general to specific
+- **Readable Names**: Use clear, descriptive metric names
+- **Version Control**: Track changes to the mapping file in your version control system
+- **Documentation**: Document custom metrics and their meanings
+- **Testing**: Test topic mappings with sample data before production deployment
+
+#### Integration with VOLTTRON
+
+The topic mapping file is used by:
+
+1. **VOLTTRON Agent**: Maps published topics to database storage
+2. **Historian Service**: Stores time-series data based on topic patterns
+3. **GraphQL API**: Queries data using the defined metric names
+4. **Grafana Dashboards**: Visualizes metrics using the standardized names
+
+#### Troubleshooting
+
+**Topics Not Being Stored:**
+
+- Verify the topic matches a defined template pattern
+- Check that the metric is defined in the appropriate metrics section
+- Review historian service logs: `docker logs aems-historian`
+
+**Metric Name Mismatches:**
+
+- Ensure VOLTTRON agent publishes using the mapped metric names
+- Verify the mapping file has been loaded by restarting the service
+- Check for typos in metric names (names are case-sensitive)
+
+**Configuration Not Taking Effect:**
+
+```bash
+# Restart the historian service to reload configuration
+docker compose restart historian
+
+# Verify the file is mounted correctly
+docker exec -it aems-historian cat /app/config/historian-topic-map.json
+```
+
 ### Configuration
 
 Default configuration for docker compose can be found at [.env](./.env). Sensitive values should be stored in [.env.secrets](./.env.secrets) file. There are default users with temporary passwords defined for local authentication in the [docker/seed/20211103151730-system-user.json](./docker/seed/20211103151730-system-user.json) file.

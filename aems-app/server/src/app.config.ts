@@ -4,6 +4,7 @@ import { Logger } from "@nestjs/common";
 import { readSecret } from "./utils/readSecret";
 import { resolve } from "node:path";
 import { readFileSync } from "node:fs";
+import { HistorianTopicMapConfig } from "./historian/types";
 
 export interface ExtConfig {
   path?: `/ext/${string}`;
@@ -170,6 +171,8 @@ export class AppConfigService {
     username: string;
     password: string;
     replicationPort: number;
+    configMappingPath?: string;
+    topicMap?: Partial<HistorianTopicMapConfig>;
   };
   ext: Record<string, ExtConfig>;
   proxy: {
@@ -235,6 +238,30 @@ export class AppConfigService {
     } catch (error) {
       this.logger.error(`Failed to read file: ${file}`, error);
       return "";
+    }
+  }
+
+  private loadHistorianTopicMap(configPath?: string): Partial<HistorianTopicMapConfig> | undefined {
+    if (!configPath) {
+      this.logger.debug("No HISTORIAN_CONFIG_MAPPING_PATH specified, using default topic mapping");
+      return undefined;
+    }
+
+    try {
+      const absolutePath = resolve(__dirname, configPath);
+      const fileContent = this.readFile(absolutePath);
+
+      if (!fileContent) {
+        this.logger.warn(`Failed to read historian config from: ${configPath}`);
+        return undefined;
+      }
+
+      const parsed = JSON.parse(fileContent) as Partial<HistorianTopicMapConfig>;
+      this.logger.log(`Loaded historian topic mapping from: ${configPath}`);
+      return parsed;
+    } catch (error) {
+      this.logger.error(`Error loading historian topic mapping from ${configPath}`, error);
+      return undefined;
     }
   }
 
@@ -338,6 +365,8 @@ export class AppConfigService {
       username: process.env.HISTORIAN_USER ?? "historian",
       password: process.env.HISTORIAN_PASSWORD ?? "",
       replicationPort: parseInt(process.env.HISTORIAN_REPLICATION_PORT ?? "5543"),
+      configMappingPath: process.env.HISTORIAN_CONFIG_MAPPING_PATH || undefined,
+      topicMap: this.loadHistorianTopicMap(process.env.HISTORIAN_CONFIG_MAPPING_PATH),
     };
     this.ext = Object.entries(process.env)
       .filter(

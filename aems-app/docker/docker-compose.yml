@@ -189,6 +189,7 @@ services:
     volumes:
       - file-upload:/app/upload/
       - grafana-setup:/app/grafana/:ro
+      - ./historian/historian-topic-map.json:/app/config/historian-topic-map.json:ro
 
   # Runs application services
   services:

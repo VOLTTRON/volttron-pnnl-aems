@@ -1,11 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MeterMetricInfo = exports.WeatherMetricInfo = exports.UnitMetricInfo = void 0;
+exports.MeterMetricInfo = exports.WeatherMetricInfo = exports.UnitMetricInfo = exports.DefaultTopicTemplates = void 0;
 exports.getMetricTopicName = getMetricTopicName;
+exports.generateDefaultTopicMapConfig = generateDefaultTopicMapConfig;
 exports.buildUnitTopicPath = buildUnitTopicPath;
 exports.buildWeatherTopicPath = buildWeatherTopicPath;
 exports.buildMeterTopicPath = buildMeterTopicPath;
 const common_1 = require("@local/common");
+exports.DefaultTopicTemplates = {
+    Unit: "{campus}/{building}/{system}/{metric}",
+    Weather: "{campus}/{building}/weather/{metric}",
+    Meter: "{campus}/{building}/meter/{metric}",
+};
 exports.UnitMetricInfo = {
     [common_1.UnitMetric.AuxiliaryHeatCommand]: {
         topic: common_1.UnitMetric.AuxiliaryHeatCommand,
@@ -234,16 +240,41 @@ function getMetricTopicName(metric) {
     }
     return exports.MeterMetricInfo[metric].topic;
 }
-function buildUnitTopicPath(campus, building, system, metric) {
-    const topic = exports.UnitMetricInfo[metric].topic;
-    return `${campus}/${building}/${system}/${topic}`;
+function generateDefaultTopicMapConfig() {
+    return {
+        templates: {
+            Unit: exports.DefaultTopicTemplates.Unit,
+            Weather: exports.DefaultTopicTemplates.Weather,
+            Meter: exports.DefaultTopicTemplates.Meter,
+        },
+        unitMetrics: Object.fromEntries(Object.values(common_1.UnitMetric).map((m) => [m, m])),
+        weatherMetrics: Object.fromEntries(Object.values(common_1.WeatherMetric).map((m) => [m, m])),
+        meterMetrics: Object.fromEntries(Object.values(common_1.MeterMetric).map((m) => [m, m])),
+    };
 }
-function buildWeatherTopicPath(campus, building, metric) {
-    const topic = exports.WeatherMetricInfo[metric].topic;
-    return `${campus}/${building}/weather/${topic}`;
+function buildUnitTopicPath(campus, building, system, metric, topicMap) {
+    const template = topicMap?.templates?.Unit ?? exports.DefaultTopicTemplates.Unit;
+    const metricName = topicMap?.unitMetrics?.[metric] ?? metric;
+    return template
+        .replace("{campus}", campus)
+        .replace("{building}", building)
+        .replace("{system}", system)
+        .replace("{metric}", metricName);
 }
-function buildMeterTopicPath(campus, building, metric) {
-    const topic = exports.MeterMetricInfo[metric].topic;
-    return `${campus}/${building}/meter/${topic}`;
+function buildWeatherTopicPath(campus, building, metric, topicMap) {
+    const template = topicMap?.templates?.Weather ?? exports.DefaultTopicTemplates.Weather;
+    const metricName = topicMap?.weatherMetrics?.[metric] ?? metric;
+    return template
+        .replace("{campus}", campus)
+        .replace("{building}", building)
+        .replace("{metric}", metricName);
+}
+function buildMeterTopicPath(campus, building, metric, topicMap) {
+    const template = topicMap?.templates?.Meter ?? exports.DefaultTopicTemplates.Meter;
+    const metricName = topicMap?.meterMetrics?.[metric] ?? metric;
+    return template
+        .replace("{campus}", campus)
+        .replace("{building}", building)
+        .replace("{metric}", metricName);
 }
 //# sourceMappingURL=metrics.js.map
