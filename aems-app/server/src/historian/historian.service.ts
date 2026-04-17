@@ -5,6 +5,10 @@ import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
 import * as tls from "tls";
 import * as https from "https";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 import {
   HistorianDataPoint,
   HistorianTimeSeries,
@@ -109,7 +113,6 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     try {
       const client = await this.pool.connect();
-      this.logger.log("Successfully connected to historian database");
       client.release();
     } catch (error) {
       this.logger.error("Failed to connect to historian database", error);
@@ -778,8 +781,20 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     startTime: Date,
     endTime: Date,
   ): Promise<HistorianDataPoint[]> {
-    const tempPath = buildUnitTopicPath(campus, building, system, UnitMetric.ZoneTemperature, this.configService.historian.topicMap);
-    const setpointPath = buildUnitTopicPath(campus, building, system, UnitMetric.EffectiveZoneTemperatureSetPoint, this.configService.historian.topicMap);
+    const tempPath = buildUnitTopicPath(
+      campus,
+      building,
+      system,
+      UnitMetric.ZoneTemperature,
+      this.configService.historian.topicMap,
+    );
+    const setpointPath = buildUnitTopicPath(
+      campus,
+      building,
+      system,
+      UnitMetric.EffectiveZoneTemperatureSetPoint,
+      this.configService.historian.topicMap,
+    );
 
     const query = `
       WITH zone_temps AS (
@@ -909,15 +924,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const missingTables = existingTables.filter((table) => !publishedTables.includes(table));
 
       if (missingTables.length > 0) {
-        this.logger.log(`Adding missing tables to publication: ${missingTables.join(", ")}`);
-
         for (const table of missingTables) {
           const addTableQuery = `ALTER PUBLICATION historian_pub ADD TABLE ${table}`;
           await this.pool.query(addTableQuery);
-          this.logger.log(`Added table '${table}' to historian_pub`);
         }
-      } else {
-        this.logger.debug("All existing tables are already in publication");
       }
     } catch (error) {
       this.logger.error("Error ensuring tables in publication", error);
@@ -1057,99 +1067,218 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         confirmedFlushLsn: row.confirmed_flush_lsn,
       }));
 
-      // Query for sequences used by the tables
+      // Use pg_dump to get the complete, accurate schema
+      const { historian } = this.configService;
+      const host = historian.host || "localhost";
+      const port = historian.port || 5432;
+      const database = historian.name || "historian";
+      const username = historian.username || "postgres";
+      const password = historian.password || "";
+
+      // Query for sequences referenced by the tables first
+      // Sequences are independent objects that need to be explicitly included in pg_dump
       const sequenceQuery = `
         SELECT DISTINCT
-          seq.relname as sequence_name
-        FROM pg_class seq
-        JOIN pg_depend dep ON seq.oid = dep.objid
-        JOIN pg_class tbl ON dep.refobjid = tbl.oid
-        WHERE seq.relkind = 'S'
-          AND tbl.relname IN ('data', 'topics')
-          AND tbl.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
-        ORDER BY seq.relname
+          substring(c.column_default from 'nextval\\(''([^'']+)''') as sequence_name
+        FROM information_schema.columns c
+        WHERE c.table_name IN ('data', 'topics')
+          AND c.column_default LIKE '%nextval%'
+        ORDER BY 1
       `;
-      const sequenceResult = await this.pool.query<{ sequence_name: string }>(sequenceQuery);
+      let sequenceNames: string[] = [];
+      try {
+        const sequenceResult = await this.pool.query<{ sequence_name: string | null }>(sequenceQuery);
+        sequenceNames = sequenceResult.rows
+          .map((row) => row.sequence_name)
+          .filter((name): name is string => name !== null);
+      } catch (seqError: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        this.logger.warn(`Failed to query sequences: ${seqError?.message || seqError}`);
+      }
 
-      // Generate CREATE SEQUENCE statements
-      const createSequencesSql = sequenceResult.rows
-        .map((row) => `CREATE SEQUENCE IF NOT EXISTS ${row.sequence_name};`)
-        .join("\n");
+      // Build pg_dump command for schema only, targeting tables and their sequences
+      const tableArgs = ["-t data", "-t topics", ...sequenceNames.map((seq) => `-t ${seq}`)].join(" ");
+      const pgDumpCommand = `pg_dump -h ${host} -p ${port} -U ${username} -d ${database} --schema-only ${tableArgs}`;
 
-      const tableSchemaQuery = `
-        SELECT 
-          t.table_name,
-          string_agg(
-            '    ' || c.column_name || ' ' || 
-            UPPER(c.data_type) || 
-            CASE 
-              WHEN c.character_maximum_length IS NOT NULL 
-              THEN '(' || c.character_maximum_length || ')'
-              ELSE ''
-            END ||
-            CASE WHEN c.is_nullable = 'NO' THEN ' NOT NULL' ELSE '' END ||
-            CASE 
-              WHEN c.column_default IS NOT NULL 
-              THEN ' DEFAULT ' || c.column_default 
-              ELSE '' 
-            END,
-            E',\\n'
-            ORDER BY c.ordinal_position
-          ) as columns
-        FROM information_schema.tables t
-        JOIN information_schema.columns c ON t.table_name = c.table_name
-        WHERE t.table_schema = 'public' 
-          AND t.table_name IN ('data', 'topics')
-        GROUP BY t.table_name
-        ORDER BY t.table_name
-      `;
-      const schemaResult = await this.pool.query<{ table_name: string; columns: string }>(tableSchemaQuery);
+      let pgDumpOutput = "";
+      try {
+        const { stdout } = await execAsync(pgDumpCommand, {
+          env: { ...process.env, PGPASSWORD: password },
+          maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+        });
+        pgDumpOutput = stdout;
+      } catch (dumpError: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        this.logger.warn(`pg_dump failed, falling back to manual schema generation: ${dumpError?.message}`);
+        // Fallback to manual schema generation if pg_dump is not available
+        pgDumpOutput = "";
+      }
 
-      // Combine sequences and tables, with sequences first
-      const createTablesSql = [
-        createSequencesSql,
-        schemaResult.rows
-          .map((row) => `CREATE TABLE IF NOT EXISTS ${row.table_name} (\n${row.columns}\n);`)
-          .join("\n\n"),
-      ]
-        .filter((sql) => sql.length > 0)
-        .join("\n\n");
+      let createTablesSql = "";
+      let createConstraintsSql = "";
+      let createIndexesSql = "";
 
-      const pkQuery = `
-        SELECT 
-          tc.table_name,
-          string_agg(kcu.column_name, ', ' ORDER BY kcu.ordinal_position) as pk_columns
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu 
-          ON tc.constraint_name = kcu.constraint_name
-        WHERE tc.constraint_type = 'PRIMARY KEY' 
-          AND tc.table_schema = 'public'
-          AND tc.table_name IN ('data', 'topics')
-        GROUP BY tc.table_name
-        ORDER BY tc.table_name
-      `;
-      const pkResult = await this.pool.query<{ table_name: string; pk_columns: string }>(pkQuery);
+      if (pgDumpOutput) {
+        // Parse pg_dump output into sections
+        const lines = pgDumpOutput.split("\n");
+        const tableLines: string[] = [];
+        const constraintLines: string[] = [];
+        const indexLines: string[] = [];
+        let currentSection: "table" | "constraint" | "index" | "skip" = "skip";
+        let currentStatement = "";
 
-      const createConstraintsSql = pkResult.rows
-        .map((row) => `ALTER TABLE ${row.table_name} ADD PRIMARY KEY (${row.pk_columns});`)
-        .join("\n");
+        for (const line of lines) {
+          // Skip comments and SET commands
+          if (line.startsWith("--") || line.match(/^SET /i) || line.match(/^SELECT pg_catalog/i)) {
+            continue;
+          }
 
-      const idxQuery = `
-        SELECT indexdef || ';' as idx
-        FROM pg_indexes
-        WHERE schemaname = 'public'
-          AND tablename IN ('data', 'topics')
-          AND indexname NOT LIKE '%_pkey'
-        ORDER BY tablename, indexname
-      `;
-      const idxResult = await this.pool.query<{ idx: string }>(idxQuery);
+          // Detect section starts
+          if (line.match(/^CREATE SEQUENCE/i)) {
+            currentSection = "table";
+            currentStatement = line;
+          } else if (line.match(/^CREATE TABLE/i)) {
+            currentSection = "table";
+            // Make it idempotent
+            currentStatement = line.replace(/^CREATE TABLE/i, "CREATE TABLE IF NOT EXISTS");
+          } else if (line.match(/^ALTER TABLE .* ADD CONSTRAINT/i) && line.match(/PRIMARY KEY/i)) {
+            currentSection = "constraint";
+            currentStatement = line;
+          } else if (line.match(/^CREATE .*INDEX/i)) {
+            currentSection = "index";
+            currentStatement = line;
+          } else if (line.trim() === "") {
+            // Empty line - end of statement
+            if (currentStatement && currentSection !== "skip") {
+              if (currentSection === "table") {
+                tableLines.push(currentStatement);
+              } else if (currentSection === "constraint") {
+                constraintLines.push(currentStatement);
+              } else if (currentSection === "index") {
+                indexLines.push(currentStatement);
+              }
+            }
+            currentStatement = "";
+            currentSection = "skip";
+          } else {
+            // Continue current statement
+            if (currentSection !== "skip") {
+              currentStatement += "\n" + line;
+            }
+          }
+        }
 
-      const createIndexesSql = idxResult.rows.map((row) => row.idx).join("\n");
+        // Capture any remaining statement
+        if (currentStatement && currentSection !== "skip") {
+          if (currentSection === "table") {
+            tableLines.push(currentStatement);
+          } else if (currentSection === "constraint") {
+            constraintLines.push(currentStatement);
+          } else if (currentSection === "index") {
+            indexLines.push(currentStatement);
+          }
+        }
+
+        createTablesSql = tableLines.join("\n\n");
+        createConstraintsSql = constraintLines.join("\n");
+        createIndexesSql = indexLines.join("\n");
+      }
+
+      // Fallback to manual queries if pg_dump output is empty or parsing failed
+      if (!createTablesSql) {
+        // Query for sequences - find any sequences referenced in column defaults
+        const sequenceQuery = `
+          SELECT DISTINCT
+            substring(c.column_default from 'nextval\\(''([^'']+)''') as sequence_name
+          FROM information_schema.columns c
+          WHERE c.table_name IN ('data', 'topics')
+            AND c.column_default LIKE '%nextval%'
+          ORDER BY 1
+        `;
+        const sequenceResult = await this.pool.query<{ sequence_name: string | null }>(sequenceQuery);
+
+        const createSequencesSql = sequenceResult.rows
+          .filter((row) => row.sequence_name !== null)
+          .map((row) => `CREATE SEQUENCE IF NOT EXISTS ${row.sequence_name};`)
+          .join("\n");
+
+        // Query for table schema
+        const tableSchemaQuery = `
+          SELECT 
+            t.table_name,
+            string_agg(
+              '    ' || c.column_name || ' ' || 
+              UPPER(c.data_type) || 
+              CASE 
+                WHEN c.character_maximum_length IS NOT NULL 
+                THEN '(' || c.character_maximum_length || ')'
+                ELSE ''
+              END ||
+              CASE WHEN c.is_nullable = 'NO' THEN ' NOT NULL' ELSE '' END ||
+              CASE 
+                WHEN c.column_default IS NOT NULL 
+                THEN ' DEFAULT ' || c.column_default 
+                ELSE '' 
+              END,
+              E',\\n'
+              ORDER BY c.ordinal_position
+            ) as columns
+          FROM information_schema.tables t
+          JOIN information_schema.columns c ON t.table_name = c.table_name
+          WHERE t.table_schema = 'public' 
+            AND t.table_name IN ('data', 'topics')
+          GROUP BY t.table_name
+          ORDER BY t.table_name
+        `;
+        const schemaResult = await this.pool.query<{ table_name: string; columns: string }>(tableSchemaQuery);
+
+        createTablesSql = [
+          createSequencesSql,
+          schemaResult.rows
+            .map((row) => `CREATE TABLE IF NOT EXISTS ${row.table_name} (\n${row.columns}\n);`)
+            .join("\n\n"),
+        ]
+          .filter((sql) => sql.length > 0)
+          .join("\n\n");
+      }
+
+      if (!createConstraintsSql) {
+        const pkQuery = `
+          SELECT 
+            tc.table_name,
+            string_agg(kcu.column_name, ', ' ORDER BY kcu.ordinal_position) as pk_columns
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu 
+            ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
+          WHERE tc.constraint_type = 'PRIMARY KEY' 
+            AND tc.table_name IN ('data', 'topics')
+          GROUP BY tc.table_name
+          ORDER BY tc.table_name
+        `;
+        const pkResult = await this.pool.query<{ table_name: string; pk_columns: string }>(pkQuery);
+
+        createConstraintsSql = pkResult.rows
+          .map((row) => `ALTER TABLE ${row.table_name} ADD PRIMARY KEY (${row.pk_columns});`)
+          .join("\n");
+      }
+
+      if (!createIndexesSql) {
+        const idxQuery = `
+          SELECT indexdef || ';' as idx
+          FROM pg_indexes
+          WHERE schemaname = 'public'
+            AND tablename IN ('data', 'topics')
+            AND indexname NOT LIKE '%_pkey'
+          ORDER BY tablename, indexname
+        `;
+        const idxResult = await this.pool.query<{ idx: string }>(idxQuery);
+
+        createIndexesSql = idxResult.rows.map((row) => row.idx).join("\n");
+      }
 
       const isSelfSigned = await this.isProxyCertificateSelfSigned();
       const sslMode = isSelfSigned ? "prefer" : "require";
-
-      this.logger.log(`Using sslmode=${sslMode} for historian replication`);
 
       const replicationPort = this.configService.historian.replicationPort;
       const createSubscriptionTemplate = `CREATE SUBSCRIPTION historian_sub

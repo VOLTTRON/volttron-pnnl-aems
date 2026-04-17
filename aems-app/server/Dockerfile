@@ -13,8 +13,8 @@ ENV NODE_ENV=production
 # may be necessary for proxy with self signed cert
 RUN npm config set strict-ssl false
 
-# used for healthcheck
-RUN apk add --no-cache curl
+# used for healthcheck and pg_dump for historian schema extraction
+RUN apk add --no-cache curl postgresql-client
 
 # setup yarn
 RUN corepack enable
