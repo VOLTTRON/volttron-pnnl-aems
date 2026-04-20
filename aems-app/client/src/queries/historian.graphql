@@ -74,6 +74,55 @@ query HistorianWeatherTimeSeries(
   )
 }
 
+# Meter metric queries - for building-level meter data (power, demand)
+query HistorianMeterTimeSeries(
+  $campus: String!
+  $building: String!
+  $metric: MeterMetric!
+  $startTime: DateTime!
+  $endTime: DateTime!
+) {
+  historianMeterTimeSeries(
+    campus: $campus
+    building: $building
+    metric: $metric
+    startTime: $startTime
+    endTime: $endTime
+  )
+}
+
+query HistorianMeterCurrentValue(
+  $campus: String!
+  $building: String!
+  $metric: MeterMetric!
+) {
+  historianMeterCurrentValue(
+    campus: $campus
+    building: $building
+    metric: $metric
+  )
+}
+
+query HistorianMeterAggregated(
+  $campus: String!
+  $building: String!
+  $metric: MeterMetric!
+  $startTime: DateTime!
+  $endTime: DateTime!
+  $interval: String!
+  $aggregation: AggregationType!
+) {
+  historianMeterAggregated(
+    campus: $campus
+    building: $building
+    metric: $metric
+    startTime: $startTime
+    endTime: $endTime
+    interval: $interval
+    aggregation: $aggregation
+  )
+}
+
 query HistorianWeatherCurrentValue(
   $campus: String!
   $building: String!

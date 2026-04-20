@@ -16,6 +16,7 @@ import {
   ReplicationSlot,
   UnitMetric,
   WeatherMetric,
+  MeterMetric,
 } from "@local/common";
 import { GraphQLScalarType } from "graphql";
 
@@ -36,6 +37,7 @@ export class HistorianObject {
   readonly CalculationType;
   readonly UnitMetric;
   readonly WeatherMetric;
+  readonly MeterMetric;
 
   constructor(builder: SchemaBuilderService) {
     // Enum types
@@ -57,6 +59,11 @@ export class HistorianObject {
     this.WeatherMetric = builder.enumType(WeatherMetric, {
       name: "WeatherMetric",
       description: "Available metrics for weather data",
+    });
+
+    this.MeterMetric = builder.enumType(MeterMetric, {
+      name: "MeterMetric",
+      description: "Available metrics for meter data (building-level power/demand)",
     });
 
     // Object types

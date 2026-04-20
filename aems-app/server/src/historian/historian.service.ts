@@ -26,8 +26,9 @@ import {
   HistorianMultiSystemRanges,
   UnitMetric,
   WeatherMetric,
+  MeterMetric,
 } from "@local/common";
-import { buildUnitTopicPath, buildWeatherTopicPath } from "./metrics";
+import { buildUnitTopicPath, buildWeatherTopicPath, buildMeterTopicPath } from "./metrics";
 
 // Re-export types for convenience
 export {
@@ -45,6 +46,7 @@ export {
   SystemPublishingStatus,
   UnitMetric,
   WeatherMetric,
+  MeterMetric,
 };
 
 export interface SystemAccess {
@@ -163,6 +165,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     if ("weather" in requestedSystems) {
       allowedSystems.push({ campus: campus ?? "", building: building ?? "", system: "weather" });
     }
+    if ("meter" in requestedSystems) {
+      allowedSystems.push({ campus: campus ?? "", building: building ?? "", system: "meter" });
+    }
+
     return {
       allowedSystems,
     };
@@ -485,6 +491,161 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }));
     } catch (error) {
       this.logger.error("Error fetching aggregated data", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get current value for a meter metric
+   */
+  async getMeterCurrentValue(
+    campus: string,
+    building: string,
+    metric: MeterMetric,
+  ): Promise<HistorianMetricCurrent | null> {
+    const topicPath = buildMeterTopicPath(campus, building, metric, this.configService.historian.topicMap);
+
+    const query = `
+      SELECT
+        ts,
+        value_string,
+        topic_name
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name ILIKE $1
+      ORDER BY ts DESC
+      LIMIT 1
+    `;
+
+    try {
+      const result = await this.pool.query<Pick<HistorianJoinedRow, "ts" | "value_string" | "topic_name">>(query, [
+        topicPath,
+      ]);
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const row = result.rows[0];
+      return {
+        system: "meter",
+        metric,
+        value: this.parseValue(row.value_string),
+        timestamp: new Date(row.ts),
+      };
+    } catch (error) {
+      this.logger.error("Error fetching meter current value", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get time series data for a meter metric
+   */
+  async getMeterTimeSeries(
+    campus: string,
+    building: string,
+    metric: MeterMetric,
+    startTime: Date,
+    endTime: Date,
+  ): Promise<HistorianTimeSeries> {
+    const topicPath = buildMeterTopicPath(campus, building, metric, this.configService.historian.topicMap);
+
+    const query = `
+      SELECT
+        ts,
+        value_string
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name ILIKE $1
+        AND ts >= $2
+        AND ts <= $3
+      ORDER BY ts
+    `;
+
+    try {
+      const result = await this.pool.query<Pick<HistorianJoinedRow, "ts" | "value_string">>(query, [
+        topicPath,
+        startTime,
+        endTime,
+      ]);
+
+      const data: HistorianDataPoint[] = result.rows.map((row) => ({
+        timestamp: new Date(row.ts),
+        value: this.parseValue(row.value_string),
+        system: "meter",
+        metric,
+      }));
+
+      return {
+        system: "meter",
+        metric,
+        data,
+      };
+    } catch (error) {
+      this.logger.error("Error fetching meter time series", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get aggregated data for a meter metric
+   */
+  async getMeterAggregated(
+    campus: string,
+    building: string,
+    metric: MeterMetric,
+    startTime: Date,
+    endTime: Date,
+    interval: string,
+    aggregation: AggregationType,
+  ): Promise<HistorianAggregate[]> {
+    const topicPath = buildMeterTopicPath(campus, building, metric, this.configService.historian.topicMap);
+
+    const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
+    if (!intervalMatch) {
+      throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
+    }
+
+    const [, , intervalUnit] = intervalMatch;
+    const intervalMap: Record<string, string> = {
+      s: "seconds",
+      m: "minutes",
+      h: "hours",
+      d: "days",
+    };
+
+    const aggFunction = aggregation.toLowerCase();
+    const valueExpr =
+      aggregation === AggregationType.Count ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
+
+    const query = `
+      SELECT
+        date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
+        ${aggFunction}(${valueExpr}) AS value
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name ILIKE $1
+        AND ts >= $2
+        AND ts <= $3
+      GROUP BY 1
+      ORDER BY 1
+    `;
+
+    try {
+      const result = await this.pool.query<{ timestamp: string; value: number | string | null }>(query, [
+        topicPath,
+        startTime,
+        endTime,
+      ]);
+
+      return result.rows.map((row) => ({
+        timestamp: new Date(row.timestamp),
+        value: typeof row.value === "string" ? parseFloat(row.value) : null,
+        metric,
+      }));
+    } catch (error) {
+      this.logger.error("Error fetching meter aggregated data", error);
       throw error;
     }
   }
