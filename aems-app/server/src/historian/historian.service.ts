@@ -1121,10 +1121,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       if (pgDumpOutput) {
         // Parse pg_dump output into sections
         const lines = pgDumpOutput.split("\n");
+        const sequenceLines: string[] = [];
         const tableLines: string[] = [];
         const constraintLines: string[] = [];
         const indexLines: string[] = [];
-        let currentSection: "table" | "constraint" | "index" | "skip" = "skip";
+        let currentSection: "sequence" | "table" | "constraint" | "index" | "skip" = "skip";
         let currentStatement = "";
 
         for (const line of lines) {
@@ -1135,8 +1136,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
           // Detect section starts
           if (line.match(/^CREATE SEQUENCE/i)) {
-            currentSection = "table";
-            currentStatement = line;
+            currentSection = "sequence";
+            // Make sequence creation idempotent
+            currentStatement = line.replace(/^CREATE SEQUENCE/i, "CREATE SEQUENCE IF NOT EXISTS");
           } else if (line.match(/^CREATE TABLE/i)) {
             currentSection = "table";
             // Make it idempotent
@@ -1150,7 +1152,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           } else if (line.trim() === "") {
             // Empty line - end of statement
             if (currentStatement && currentSection !== "skip") {
-              if (currentSection === "table") {
+              if (currentSection === "sequence") {
+                sequenceLines.push(currentStatement);
+              } else if (currentSection === "table") {
                 tableLines.push(currentStatement);
               } else if (currentSection === "constraint") {
                 constraintLines.push(currentStatement);
@@ -1170,7 +1174,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
         // Capture any remaining statement
         if (currentStatement && currentSection !== "skip") {
-          if (currentSection === "table") {
+          if (currentSection === "sequence") {
+            sequenceLines.push(currentStatement);
+          } else if (currentSection === "table") {
             tableLines.push(currentStatement);
           } else if (currentSection === "constraint") {
             constraintLines.push(currentStatement);
@@ -1179,7 +1185,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           }
         }
 
-        createTablesSql = tableLines.join("\n\n");
+        // CRITICAL: Sequences must come before tables
+        createTablesSql = [...sequenceLines, ...tableLines].join("\n\n");
         createConstraintsSql = constraintLines.join("\n");
         createIndexesSql = indexLines.join("\n");
       }

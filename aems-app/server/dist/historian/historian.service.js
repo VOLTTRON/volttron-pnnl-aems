@@ -833,6 +833,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             let createIndexesSql = "";
             if (pgDumpOutput) {
                 const lines = pgDumpOutput.split("\n");
+                const sequenceLines = [];
                 const tableLines = [];
                 const constraintLines = [];
                 const indexLines = [];
@@ -843,8 +844,8 @@ let HistorianService = HistorianService_1 = class HistorianService {
                         continue;
                     }
                     if (line.match(/^CREATE SEQUENCE/i)) {
-                        currentSection = "table";
-                        currentStatement = line;
+                        currentSection = "sequence";
+                        currentStatement = line.replace(/^CREATE SEQUENCE/i, "CREATE SEQUENCE IF NOT EXISTS");
                     }
                     else if (line.match(/^CREATE TABLE/i)) {
                         currentSection = "table";
@@ -860,7 +861,10 @@ let HistorianService = HistorianService_1 = class HistorianService {
                     }
                     else if (line.trim() === "") {
                         if (currentStatement && currentSection !== "skip") {
-                            if (currentSection === "table") {
+                            if (currentSection === "sequence") {
+                                sequenceLines.push(currentStatement);
+                            }
+                            else if (currentSection === "table") {
                                 tableLines.push(currentStatement);
                             }
                             else if (currentSection === "constraint") {
@@ -880,7 +884,10 @@ let HistorianService = HistorianService_1 = class HistorianService {
                     }
                 }
                 if (currentStatement && currentSection !== "skip") {
-                    if (currentSection === "table") {
+                    if (currentSection === "sequence") {
+                        sequenceLines.push(currentStatement);
+                    }
+                    else if (currentSection === "table") {
                         tableLines.push(currentStatement);
                     }
                     else if (currentSection === "constraint") {
@@ -890,7 +897,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                         indexLines.push(currentStatement);
                     }
                 }
-                createTablesSql = tableLines.join("\n\n");
+                createTablesSql = [...sequenceLines, ...tableLines].join("\n\n");
                 createConstraintsSql = constraintLines.join("\n");
                 createIndexesSql = indexLines.join("\n");
             }
