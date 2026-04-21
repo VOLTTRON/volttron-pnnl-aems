@@ -77,8 +77,13 @@ declare global {
     type HistorianDataPoint = Historian.HistorianDataPoint;
     type HistorianTimeSeries = Historian.HistorianTimeSeries;
     type HistorianAggregate = Historian.HistorianAggregate;
+    type HistorianAggregateResult = Historian.HistorianAggregateResult;
     type HistorianMetricCurrent = Historian.HistorianMetricCurrent;
     type HistorianMultiSystemData = Historian.HistorianMultiSystemData;
+    type HistorianDataRange = Historian.HistorianDataRange;
+    type HistorianMultiSystemRanges = Historian.HistorianMultiSystemRanges;
+    type AggregationType = Historian.AggregationType;
+    type CalculationType = Historian.CalculationType;
   }
 }
 

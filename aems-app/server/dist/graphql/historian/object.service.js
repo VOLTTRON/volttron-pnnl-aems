@@ -33,10 +33,15 @@ let HistorianObject = class HistorianObject {
             name: "WeatherMetric",
             description: "Available metrics for weather data",
         });
+        this.MeterMetric = builder.enumType(common_2.MeterMetric, {
+            name: "MeterMetric",
+            description: "Available metrics for meter data (building-level power/demand)",
+        });
         this.HistorianDataPoint = builder.addScalarType("HistorianDataPoint", new graphql_1.GraphQLScalarType({ name: "HistorianDataPoint" }));
         this.HistorianTimeSeries = builder.addScalarType("HistorianTimeSeries", new graphql_1.GraphQLScalarType({ name: "HistorianTimeSeries" }));
         this.HistorianAggregate = builder.addScalarType("HistorianAggregate", new graphql_1.GraphQLScalarType({ name: "HistorianAggregate" }));
         this.HistorianMetricCurrent = builder.addScalarType("HistorianMetricCurrent", new graphql_1.GraphQLScalarType({ name: "HistorianMetricCurrent" }));
+        this.HistorianAggregateResult = builder.addScalarType("HistorianAggregateResult", new graphql_1.GraphQLScalarType({ name: "HistorianAggregateResult" }));
         this.HistorianMultiSystemData = builder.addScalarType("HistorianMultiSystemData", new graphql_1.GraphQLScalarType({ name: "HistorianMultiSystemData" }));
         this.HistorianReplicationInfo = builder.addScalarType("HistorianReplicationInfo", new graphql_1.GraphQLScalarType({ name: "HistorianReplicationInfo" }));
         this.PublisherInfo = builder.addScalarType("PublisherInfo", new graphql_1.GraphQLScalarType({ name: "PublisherInfo" }));

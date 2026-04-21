@@ -7,6 +7,7 @@ import {
   HistorianDataPoint,
   HistorianTimeSeries,
   HistorianAggregate,
+  HistorianAggregateResult,
   HistorianMetricCurrent,
   HistorianMultiSystemData,
   HistorianReplicationInfo,
@@ -16,6 +17,7 @@ import {
   ReplicationSlot,
   UnitMetric,
   WeatherMetric,
+  MeterMetric,
 } from "@local/common";
 import { GraphQLScalarType } from "graphql";
 
@@ -25,6 +27,7 @@ export class HistorianObject {
   readonly HistorianDataPoint;
   readonly HistorianTimeSeries;
   readonly HistorianAggregate;
+  readonly HistorianAggregateResult;
   readonly HistorianMetricCurrent;
   readonly HistorianMultiSystemData;
   readonly HistorianReplicationInfo;
@@ -36,6 +39,7 @@ export class HistorianObject {
   readonly CalculationType;
   readonly UnitMetric;
   readonly WeatherMetric;
+  readonly MeterMetric;
 
   constructor(builder: SchemaBuilderService) {
     // Enum types
@@ -59,6 +63,11 @@ export class HistorianObject {
       description: "Available metrics for weather data",
     });
 
+    this.MeterMetric = builder.enumType(MeterMetric, {
+      name: "MeterMetric",
+      description: "Available metrics for meter data (building-level power/demand)",
+    });
+
     // Object types
     // Scalar types - registered with builder to match Scalars declaration
     this.HistorianDataPoint = builder.addScalarType(
@@ -79,6 +88,11 @@ export class HistorianObject {
     this.HistorianMetricCurrent = builder.addScalarType(
       "HistorianMetricCurrent",
       new GraphQLScalarType<HistorianMetricCurrent, unknown>({ name: "HistorianMetricCurrent" }),
+    );
+
+    this.HistorianAggregateResult = builder.addScalarType(
+      "HistorianAggregateResult",
+      new GraphQLScalarType<HistorianAggregateResult, unknown>({ name: "HistorianAggregateResult" }),
     );
 
     this.HistorianMultiSystemData = builder.addScalarType(

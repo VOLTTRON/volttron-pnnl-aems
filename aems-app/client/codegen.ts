@@ -38,6 +38,7 @@ const config: CodegenConfig = {
           HistorianDataPoint: "PrismaJson.HistorianDataPoint",
           HistorianTimeSeries: "PrismaJson.HistorianTimeSeries",
           HistorianAggregate: "PrismaJson.HistorianAggregate",
+          HistorianAggregateResult: "PrismaJson.HistorianAggregateResult",
           HistorianMetricCurrent: "PrismaJson.HistorianMetricCurrent",
           HistorianMultiUnitData: "PrismaJson.HistorianMultiUnitData",
           HistorianMultiSystemData: "PrismaJson.HistorianMultiSystemData",

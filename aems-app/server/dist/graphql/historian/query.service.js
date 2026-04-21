@@ -15,9 +15,10 @@ const builder_service_1 = require("../builder.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const historian_service_1 = require("../../historian/historian.service");
 const object_service_1 = require("./object.service");
+const common_2 = require("@local/common");
 let HistorianQuery = class HistorianQuery {
     constructor(builder, historianService, historianObject) {
-        const { UnitMetric: UnitMetricEnum, WeatherMetric: WeatherMetricEnum, AggregationType: AggregationTypeEnum, } = historianObject;
+        const { UnitMetric: UnitMetricEnum, WeatherMetric: WeatherMetricEnum, MeterMetric: MeterMetricEnum, AggregationType: AggregationTypeEnum, } = historianObject;
         builder.queryField("historianUnitCurrentValue", (t) => t.field({
             description: "Get the current (latest) value for a unit metric",
             authScopes: { user: true },
@@ -52,7 +53,15 @@ let HistorianQuery = class HistorianQuery {
             resolve: async (_root, args, ctx, _info) => {
                 const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, args.system);
                 if (accessControl.allowedSystems.length === 0) {
-                    return { system: args.system, metric: args.metric, data: [] };
+                    return {
+                        system: args.system,
+                        metric: args.metric,
+                        data: [],
+                        metadata: {
+                            topics: {},
+                            errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/${args.system}`]
+                        }
+                    };
                 }
                 return historianService.getUnitTimeSeries(args.campus, args.building, args.system, args.metric, args.startTime, args.endTime);
             },
@@ -60,7 +69,7 @@ let HistorianQuery = class HistorianQuery {
         builder.queryField("historianUnitAggregated", (t) => t.field({
             description: "Get aggregated data for a unit metric",
             authScopes: { user: true },
-            type: [historianObject.HistorianAggregate],
+            type: historianObject.HistorianAggregateResult,
             args: {
                 campus: t.arg.string({ required: true }),
                 building: t.arg.string({ required: true }),
@@ -74,7 +83,13 @@ let HistorianQuery = class HistorianQuery {
             resolve: async (_root, args, ctx, _info) => {
                 const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, args.system);
                 if (accessControl.allowedSystems.length === 0) {
-                    return [];
+                    return {
+                        aggregates: [],
+                        metadata: {
+                            topics: {},
+                            errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/${args.system}`],
+                        },
+                    };
                 }
                 return historianService.getUnitAggregated(args.campus, args.building, args.system, args.metric, args.startTime, args.endTime, args.interval, args.aggregation);
             },
@@ -90,7 +105,7 @@ let HistorianQuery = class HistorianQuery {
                 metric: t.arg({ type: WeatherMetricEnum, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building);
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, "weather");
                 if (accessControl.allowedSystems.length === 0) {
                     return null;
                 }
@@ -109,9 +124,17 @@ let HistorianQuery = class HistorianQuery {
                 endTime: t.arg({ type: builder.DateTime, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building);
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, "weather");
                 if (accessControl.allowedSystems.length === 0) {
-                    return { system: "weather", metric: args.metric, data: [] };
+                    return {
+                        system: "weather",
+                        metric: args.metric,
+                        data: [],
+                        metadata: {
+                            topics: {},
+                            errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/weather`]
+                        }
+                    };
                 }
                 return historianService.getWeatherTimeSeries(args.campus, args.building, args.metric, args.startTime, args.endTime);
             },
@@ -119,7 +142,7 @@ let HistorianQuery = class HistorianQuery {
         builder.queryField("historianWeatherAggregated", (t) => t.field({
             description: "Get aggregated data for a weather metric",
             authScopes: { user: true },
-            type: [historianObject.HistorianAggregate],
+            type: historianObject.HistorianAggregateResult,
             args: {
                 campus: t.arg.string({ required: true }),
                 building: t.arg.string({ required: true }),
@@ -130,11 +153,89 @@ let HistorianQuery = class HistorianQuery {
                 aggregation: t.arg({ type: AggregationTypeEnum, required: true }),
             },
             resolve: async (_root, args, ctx, _info) => {
-                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building);
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, "weather");
                 if (accessControl.allowedSystems.length === 0) {
-                    return [];
+                    return {
+                        aggregates: [],
+                        metadata: {
+                            topics: {},
+                            errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/weather`],
+                        },
+                    };
                 }
                 return historianService.getWeatherAggregated(args.campus, args.building, args.metric, args.startTime, args.endTime, args.interval, args.aggregation);
+            },
+        }));
+        builder.queryField("historianMeterCurrentValue", (t) => t.field({
+            description: "Get the current (latest) value for a meter metric",
+            authScopes: { user: true },
+            type: historianObject.HistorianMetricCurrent,
+            nullable: true,
+            args: {
+                campus: t.arg.string({ required: true }),
+                building: t.arg.string({ required: true }),
+                metric: t.arg({ type: MeterMetricEnum, required: true }),
+            },
+            resolve: async (_root, args, ctx, _info) => {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, "meter");
+                if (accessControl.allowedSystems.length === 0) {
+                    return null;
+                }
+                return historianService.getMeterCurrentValue(args.campus, args.building, args.metric);
+            },
+        }));
+        builder.queryField("historianMeterTimeSeries", (t) => t.field({
+            description: "Get time series data for a meter metric",
+            authScopes: { user: true },
+            type: historianObject.HistorianTimeSeries,
+            args: {
+                campus: t.arg.string({ required: true }),
+                building: t.arg.string({ required: true }),
+                metric: t.arg({ type: MeterMetricEnum, required: true }),
+                startTime: t.arg({ type: builder.DateTime, required: true }),
+                endTime: t.arg({ type: builder.DateTime, required: true }),
+            },
+            resolve: async (_root, args, ctx, _info) => {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, "meter");
+                if (accessControl.allowedSystems.length === 0) {
+                    return {
+                        system: "meter",
+                        metric: args.metric,
+                        data: [],
+                        metadata: {
+                            topics: {},
+                            errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/meter`]
+                        }
+                    };
+                }
+                return historianService.getMeterTimeSeries(args.campus, args.building, args.metric, args.startTime, args.endTime);
+            },
+        }));
+        builder.queryField("historianMeterAggregated", (t) => t.field({
+            description: "Get aggregated data for a meter metric",
+            authScopes: { user: true },
+            type: historianObject.HistorianAggregateResult,
+            args: {
+                campus: t.arg.string({ required: true }),
+                building: t.arg.string({ required: true }),
+                metric: t.arg({ type: MeterMetricEnum, required: true }),
+                startTime: t.arg({ type: builder.DateTime, required: true }),
+                endTime: t.arg({ type: builder.DateTime, required: true }),
+                interval: t.arg.string({ required: true, description: "e.g., '1m', '5m', '1h'" }),
+                aggregation: t.arg({ type: AggregationTypeEnum, required: true }),
+            },
+            resolve: async (_root, args, ctx, _info) => {
+                const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, "meter");
+                if (accessControl.allowedSystems.length === 0) {
+                    return {
+                        aggregates: [],
+                        metadata: {
+                            topics: {},
+                            errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/meter`],
+                        },
+                    };
+                }
+                return historianService.getMeterAggregated(args.campus, args.building, args.metric, args.startTime, args.endTime, args.interval, args.aggregation);
             },
         }));
         builder.queryField("historianMultiSystemUnit", (t) => t.field({
@@ -152,21 +253,15 @@ let HistorianQuery = class HistorianQuery {
             },
             resolve: async (_root, args, ctx, _info) => {
                 const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, args.systems);
-                if (accessControl.allowedSystems.length === 0) {
-                    return [];
-                }
                 const allowedSystems = accessControl.allowedSystems.map((s) => s.system);
-                const result = await historianService.getMultiSystemUnit(args.campus, args.building, allowedSystems, args.metric, args.startTime, args.endTime, args.interval ?? undefined);
-                return Object.entries(result).map(([system, data]) => ({
-                    system,
-                    data,
-                }));
+                const deniedSystems = args.systems.filter((s) => !allowedSystems.map((a) => a.toLowerCase()).includes(s.toLowerCase()));
+                return historianService.getMultiSystemUnit(args.campus, args.building, allowedSystems, deniedSystems, args.metric, args.startTime, args.endTime, args.interval ?? undefined);
             },
         }));
         builder.queryField("historianSetpointError", (t) => t.field({
             description: "Calculate setpoint error (zone temp - setpoint) for a system",
             authScopes: { user: true },
-            type: [historianObject.HistorianDataPoint],
+            type: historianObject.HistorianTimeSeries,
             args: {
                 campus: t.arg.string({ required: true }),
                 building: t.arg.string({ required: true }),
@@ -177,7 +272,15 @@ let HistorianQuery = class HistorianQuery {
             resolve: async (_root, args, ctx, _info) => {
                 const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, args.system);
                 if (accessControl.allowedSystems.length === 0) {
-                    return [];
+                    return {
+                        system: args.system,
+                        metric: common_2.UnitMetric.ZoneTemperature,
+                        data: [],
+                        metadata: {
+                            topics: {},
+                            errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/${args.system}`],
+                        },
+                    };
                 }
                 return historianService.calculateSetpointError(args.campus, args.building, args.system, args.startTime, args.endTime);
             },

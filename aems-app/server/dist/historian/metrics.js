@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MeterMetricInfo = exports.WeatherMetricInfo = exports.UnitMetricInfo = exports.DefaultTopicTemplates = void 0;
+exports.MeterMetricInfo = exports.WeatherMetricInfo = exports.DefaultMeterMetricMappings = exports.DefaultWeatherMetricMappings = exports.UnitMetricInfo = exports.DefaultTopicTemplates = void 0;
 exports.getMetricTopicName = getMetricTopicName;
 exports.generateDefaultTopicMapConfig = generateDefaultTopicMapConfig;
 exports.buildUnitTopicPath = buildUnitTopicPath;
@@ -131,6 +131,26 @@ exports.UnitMetricInfo = {
         unit: "°F",
     },
 };
+exports.DefaultWeatherMetricMappings = {
+    [common_1.WeatherMetric.AirPressure]: "air_pressure",
+    [common_1.WeatherMetric.AirPressureAtMeanSeaLevel]: "air_pressure_at_mean_sea_level",
+    [common_1.WeatherMetric.AirTemperature]: "air_temperature",
+    [common_1.WeatherMetric.DewPointTemperature]: "dew_point_temperature",
+    [common_1.WeatherMetric.HeatIndex]: "heatIndex",
+    [common_1.WeatherMetric.HeightAboveMeanSeaLevel]: "height_above_mean_sea_level",
+    [common_1.WeatherMetric.PrecipitationLast3Hours]: "precipitationLast3Hours",
+    [common_1.WeatherMetric.PrecipitationLastHour]: "precipitationLastHour",
+    [common_1.WeatherMetric.RelativeHumidity]: "relative_humidity",
+    [common_1.WeatherMetric.VisibilityInAir]: "visibility_in_air",
+    [common_1.WeatherMetric.WindFromDirection]: "wind_from_direction",
+    [common_1.WeatherMetric.WindSpeed]: "wind_speed",
+    [common_1.WeatherMetric.WindSpeedOfGust]: "wind_speed_of_gust",
+    [common_1.WeatherMetric.WindChill]: "windChill",
+};
+exports.DefaultMeterMetricMappings = {
+    [common_1.MeterMetric.Power]: "WholeBuildingPower",
+    [common_1.MeterMetric.Demand]: "Demand",
+};
 exports.WeatherMetricInfo = {
     [common_1.WeatherMetric.AirPressure]: {
         topic: common_1.WeatherMetric.AirPressure,
@@ -248,8 +268,8 @@ function generateDefaultTopicMapConfig() {
             Meter: exports.DefaultTopicTemplates.Meter,
         },
         unitMetrics: Object.fromEntries(Object.values(common_1.UnitMetric).map((m) => [m, m])),
-        weatherMetrics: Object.fromEntries(Object.values(common_1.WeatherMetric).map((m) => [m, m])),
-        meterMetrics: Object.fromEntries(Object.values(common_1.MeterMetric).map((m) => [m, m])),
+        weatherMetrics: { ...exports.DefaultWeatherMetricMappings },
+        meterMetrics: { ...exports.DefaultMeterMetricMappings },
     };
 }
 function buildUnitTopicPath(campus, building, system, metric, topicMap) {
@@ -263,7 +283,7 @@ function buildUnitTopicPath(campus, building, system, metric, topicMap) {
 }
 function buildWeatherTopicPath(campus, building, metric, topicMap) {
     const template = topicMap?.templates?.Weather ?? exports.DefaultTopicTemplates.Weather;
-    const metricName = topicMap?.weatherMetrics?.[metric] ?? metric;
+    const metricName = topicMap?.weatherMetrics?.[metric] ?? exports.DefaultWeatherMetricMappings[metric] ?? metric;
     return template
         .replace("{campus}", campus)
         .replace("{building}", building)
@@ -271,7 +291,7 @@ function buildWeatherTopicPath(campus, building, metric, topicMap) {
 }
 function buildMeterTopicPath(campus, building, metric, topicMap) {
     const template = topicMap?.templates?.Meter ?? exports.DefaultTopicTemplates.Meter;
-    const metricName = topicMap?.meterMetrics?.[metric] ?? metric;
+    const metricName = topicMap?.meterMetrics?.[metric] ?? exports.DefaultMeterMetricMappings[metric] ?? metric;
     return template
         .replace("{campus}", campus)
         .replace("{building}", building)

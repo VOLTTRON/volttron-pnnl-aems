@@ -13,7 +13,10 @@ import {
   HistorianDataPoint,
   HistorianTimeSeries,
   HistorianAggregate,
+  HistorianAggregateResult,
   HistorianMetricCurrent,
+  HistorianQueryMetadata,
+  HistorianMultiSystemData,
   AggregationType,
   CalculationType,
   HistorianReplicationInfo,
@@ -26,15 +29,19 @@ import {
   HistorianMultiSystemRanges,
   UnitMetric,
   WeatherMetric,
+  MeterMetric,
 } from "@local/common";
-import { buildUnitTopicPath, buildWeatherTopicPath } from "./metrics";
+import { buildUnitTopicPath, buildWeatherTopicPath, buildMeterTopicPath } from "./metrics";
 
 // Re-export types for convenience
 export {
   HistorianDataPoint,
   HistorianTimeSeries,
   HistorianAggregate,
+  HistorianAggregateResult,
   HistorianMetricCurrent,
+  HistorianQueryMetadata,
+  HistorianMultiSystemData,
   AggregationType,
   CalculationType,
   HistorianReplicationInfo,
@@ -45,6 +52,7 @@ export {
   SystemPublishingStatus,
   UnitMetric,
   WeatherMetric,
+  MeterMetric,
 };
 
 export interface SystemAccess {
@@ -160,9 +168,13 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     const allowedSystems = userSystems
       .filter((s) => requestedSystemsLower.includes(s.system.toLowerCase()))
       .map((s) => ({ campus: s.campus, building: s.building, system: s.system }));
-    if ("weather" in requestedSystems) {
+    if (requestedSystems.includes("weather")) {
       allowedSystems.push({ campus: campus ?? "", building: building ?? "", system: "weather" });
     }
+    if (requestedSystems.includes("meter")) {
+      allowedSystems.push({ campus: campus ?? "", building: building ?? "", system: "meter" });
+    }
+
     return {
       allowedSystems,
     };
@@ -185,7 +197,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     system: string,
     metric: UnitMetric,
   ): Promise<HistorianMetricCurrent | null> {
+    const errors: string[] = [];
+    const topics: Record<string, string> = {};
+    
     const topicPath = buildUnitTopicPath(campus, building, system, metric, this.configService.historian.topicMap);
+    topics[metric] = topicPath;
 
     const query = `
       SELECT
@@ -205,6 +221,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       ]);
 
       if (result.rows.length === 0) {
+        errors.push(`No data found for topic: ${topicPath}`);
         return null;
       }
 
@@ -214,9 +231,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         metric,
         value: this.parseValue(row.value_string),
         timestamp: new Date(row.ts),
+        metadata: { topics, errors },
       };
     } catch (error) {
       this.logger.error("Error fetching unit current value", error);
+      errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -229,7 +248,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     building: string,
     metric: WeatherMetric,
   ): Promise<HistorianMetricCurrent | null> {
+    const errors: string[] = [];
+    const topics: Record<string, string> = {};
+    
     const topicPath = buildWeatherTopicPath(campus, building, metric, this.configService.historian.topicMap);
+    topics[metric] = topicPath;
 
     const query = `
       SELECT
@@ -249,6 +272,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       ]);
 
       if (result.rows.length === 0) {
+        errors.push(`No data found for topic: ${topicPath}`);
         return null;
       }
 
@@ -258,9 +282,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         metric,
         value: this.parseValue(row.value_string),
         timestamp: new Date(row.ts),
+        metadata: { topics, errors },
       };
     } catch (error) {
       this.logger.error("Error fetching weather current value", error);
+      errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -276,7 +302,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     startTime: Date,
     endTime: Date,
   ): Promise<HistorianTimeSeries> {
+    const errors: string[] = [];
+    const topics: Record<string, string> = {};
+    
     const topicPath = buildUnitTopicPath(campus, building, system, metric, this.configService.historian.topicMap);
+    topics[metric] = topicPath;
 
     const query = `
       SELECT
@@ -297,6 +327,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         endTime,
       ]);
 
+      if (result.rows.length === 0) {
+        errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      }
+
       const data: HistorianDataPoint[] = result.rows.map((row) => ({
         timestamp: new Date(row.ts),
         value: this.parseValue(row.value_string),
@@ -308,9 +342,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         system,
         metric,
         data,
+        metadata: { topics, errors },
       };
     } catch (error) {
       this.logger.error("Error fetching unit time series", error);
+      errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -325,7 +361,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     startTime: Date,
     endTime: Date,
   ): Promise<HistorianTimeSeries> {
+    const errors: string[] = [];
+    const topics: Record<string, string> = {};
+    
     const topicPath = buildWeatherTopicPath(campus, building, metric, this.configService.historian.topicMap);
+    topics[metric] = topicPath;
 
     const query = `
       SELECT
@@ -346,6 +386,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         endTime,
       ]);
 
+      if (result.rows.length === 0) {
+        errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      }
+
       const data: HistorianDataPoint[] = result.rows.map((row) => ({
         timestamp: new Date(row.ts),
         value: this.parseValue(row.value_string),
@@ -357,9 +401,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         system: "weather",
         metric,
         data,
+        metadata: { topics, errors },
       };
     } catch (error) {
       this.logger.error("Error fetching weather time series", error);
+      errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -376,8 +422,12 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     endTime: Date,
     interval: string,
     aggregation: AggregationType,
-  ): Promise<HistorianAggregate[]> {
+  ): Promise<HistorianAggregateResult> {
+    const errors: string[] = [];
+    const topics: Record<string, string> = {};
+
     const topicPath = buildUnitTopicPath(campus, building, system, metric, this.configService.historian.topicMap);
+    topics[metric] = topicPath;
 
     const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
     if (!intervalMatch) {
@@ -416,13 +466,21 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         endTime,
       ]);
 
-      return result.rows.map((row) => ({
-        timestamp: new Date(row.timestamp),
-        value: typeof row.value === "string" ? parseFloat(row.value) : null,
-        metric,
-      }));
+      if (result.rows.length === 0) {
+        errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      }
+
+      return {
+        aggregates: result.rows.map((row) => ({
+          timestamp: new Date(row.timestamp),
+          value: typeof row.value === "string" ? parseFloat(row.value) : null,
+          metric,
+        })),
+        metadata: { topics, errors },
+      };
     } catch (error) {
       this.logger.error("Error fetching aggregated data", error);
+      errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -438,8 +496,12 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     endTime: Date,
     interval: string,
     aggregation: AggregationType,
-  ): Promise<HistorianAggregate[]> {
+  ): Promise<HistorianAggregateResult> {
+    const errors: string[] = [];
+    const topics: Record<string, string> = {};
+
     const topicPath = buildWeatherTopicPath(campus, building, metric, this.configService.historian.topicMap);
+    topics[metric] = topicPath;
 
     const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
     if (!intervalMatch) {
@@ -478,91 +540,321 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         endTime,
       ]);
 
-      return result.rows.map((row) => ({
-        timestamp: new Date(row.timestamp),
-        value: typeof row.value === "string" ? parseFloat(row.value) : null,
-        metric,
-      }));
+      if (result.rows.length === 0) {
+        errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      }
+
+      return {
+        aggregates: result.rows.map((row) => ({
+          timestamp: new Date(row.timestamp),
+          value: typeof row.value === "string" ? parseFloat(row.value) : null,
+          metric,
+        })),
+        metadata: { topics, errors },
+      };
     } catch (error) {
       this.logger.error("Error fetching aggregated data", error);
+      errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get current value for a meter metric
+   */
+  async getMeterCurrentValue(
+    campus: string,
+    building: string,
+    metric: MeterMetric,
+  ): Promise<HistorianMetricCurrent | null> {
+    const errors: string[] = [];
+    const topics: Record<string, string> = {};
+    
+    const topicPath = buildMeterTopicPath(campus, building, metric, this.configService.historian.topicMap);
+    topics[metric] = topicPath;
+
+    const query = `
+      SELECT
+        ts,
+        value_string,
+        topic_name
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name ILIKE $1
+      ORDER BY ts DESC
+      LIMIT 1
+    `;
+
+    try {
+      const result = await this.pool.query<Pick<HistorianJoinedRow, "ts" | "value_string" | "topic_name">>(query, [
+        topicPath,
+      ]);
+
+      if (result.rows.length === 0) {
+        errors.push(`No data found for topic: ${topicPath}`);
+        return null;
+      }
+
+      const row = result.rows[0];
+      return {
+        system: "meter",
+        metric,
+        value: this.parseValue(row.value_string),
+        timestamp: new Date(row.ts),
+        metadata: { topics, errors },
+      };
+    } catch (error) {
+      this.logger.error("Error fetching meter current value", error);
+      errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get time series data for a meter metric
+   */
+  async getMeterTimeSeries(
+    campus: string,
+    building: string,
+    metric: MeterMetric,
+    startTime: Date,
+    endTime: Date,
+  ): Promise<HistorianTimeSeries> {
+    const errors: string[] = [];
+    const topics: Record<string, string> = {};
+    
+    const topicPath = buildMeterTopicPath(campus, building, metric, this.configService.historian.topicMap);
+    topics[metric] = topicPath;
+
+    const query = `
+      SELECT
+        ts,
+        value_string
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name ILIKE $1
+        AND ts >= $2
+        AND ts <= $3
+      ORDER BY ts
+    `;
+
+    try {
+      const result = await this.pool.query<Pick<HistorianJoinedRow, "ts" | "value_string">>(query, [
+        topicPath,
+        startTime,
+        endTime,
+      ]);
+
+      if (result.rows.length === 0) {
+        errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      }
+
+      const data: HistorianDataPoint[] = result.rows.map((row) => ({
+        timestamp: new Date(row.ts),
+        value: this.parseValue(row.value_string),
+        system: "meter",
+        metric,
+      }));
+
+      return {
+        system: "meter",
+        metric,
+        data,
+        metadata: { topics, errors },
+      };
+    } catch (error) {
+      this.logger.error("Error fetching meter time series", error);
+      errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get aggregated data for a meter metric
+   */
+  async getMeterAggregated(
+    campus: string,
+    building: string,
+    metric: MeterMetric,
+    startTime: Date,
+    endTime: Date,
+    interval: string,
+    aggregation: AggregationType,
+  ): Promise<HistorianAggregateResult> {
+    const errors: string[] = [];
+    const topics: Record<string, string> = {};
+
+    const topicPath = buildMeterTopicPath(campus, building, metric, this.configService.historian.topicMap);
+    topics[metric] = topicPath;
+
+    const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
+    if (!intervalMatch) {
+      throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
+    }
+
+    const [, , intervalUnit] = intervalMatch;
+    const intervalMap: Record<string, string> = {
+      s: "seconds",
+      m: "minutes",
+      h: "hours",
+      d: "days",
+    };
+
+    const aggFunction = aggregation.toLowerCase();
+    const valueExpr =
+      aggregation === AggregationType.Count ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
+
+    const query = `
+      SELECT
+        date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
+        ${aggFunction}(${valueExpr}) AS value
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name ILIKE $1
+        AND ts >= $2
+        AND ts <= $3
+      GROUP BY 1
+      ORDER BY 1
+    `;
+
+    try {
+      const result = await this.pool.query<{ timestamp: string; value: number | string | null }>(query, [
+        topicPath,
+        startTime,
+        endTime,
+      ]);
+
+      if (result.rows.length === 0) {
+        errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      }
+
+      return {
+        aggregates: result.rows.map((row) => ({
+          timestamp: new Date(row.timestamp),
+          value: typeof row.value === "string" ? parseFloat(row.value) : null,
+          metric,
+        })),
+        metadata: { topics, errors },
+      };
+    } catch (error) {
+      this.logger.error("Error fetching meter aggregated data", error);
+      errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
 
   /**
    * Get multi-system data for a unit metric
+   * Returns per-system results with metadata including constructed topic paths and any errors
    */
   async getMultiSystemUnit(
     campus: string,
     building: string,
     systems: string[],
+    deniedSystems: string[],
     metric: UnitMetric,
     startTime: Date,
     endTime: Date,
     interval?: string,
-  ): Promise<Record<string, HistorianDataPoint[]>> {
-    if (systems.length === 0) {
-      return {};
+  ): Promise<HistorianMultiSystemData[]> {
+    if (systems.length === 0 && deniedSystems.length === 0) {
+      return [];
     }
 
-    // Use Grafana approach: extract system name from topic path and compare
-    const caseStatements = systems.map((sys) => {
-      return `MAX(CASE WHEN UPPER(split_part(topic_name, '/', 3)) = UPPER('${sys}') THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS "${sys}"`;
+    // Build per-system topic paths for metadata
+    const systemTopics: Record<string, string> = {};
+    systems.forEach((sys) => {
+      systemTopics[sys] = buildUnitTopicPath(campus, building, sys, metric, this.configService.historian.topicMap);
     });
 
-    let timeGroup = "ts";
-    const params: Date[] = [startTime, endTime];
+    const queryResult: Record<string, HistorianDataPoint[]> = {};
 
-    if (interval) {
-      const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
-      if (!intervalMatch) {
-        throw new Error("Invalid interval format");
-      }
-      const [, , intervalUnit] = intervalMatch;
-      const intervalMap: Record<string, string> = {
-        s: "second",
-        m: "minute",
-        h: "hour",
-        d: "day",
-      };
-      timeGroup = `date_trunc('${intervalMap[intervalUnit]}', ts)`;
-    }
-
-    const query = `
-      SELECT
-        ${timeGroup} AS timestamp,
-        ${caseStatements.join(",\n        ")}
-      FROM data
-      NATURAL JOIN topics
-      WHERE topic_name LIKE '${campus}/${building}/%/${metric}'
-        AND ts >= $1
-        AND ts <= $2
-      GROUP BY 1
-      ORDER BY 1
-    `;
-    try {
-      const result = await this.pool.query<{ timestamp: string; [key: string]: number | string | null }>(query, params);
-      const grouped: Record<string, HistorianDataPoint[]> = {};
-      systems.forEach((sys) => {
-        grouped[sys] = [];
+    if (systems.length > 0) {
+      // Use Grafana approach: extract system name from topic path and compare
+      const caseStatements = systems.map((sys) => {
+        return `MAX(CASE WHEN UPPER(split_part(topic_name, '/', 3)) = UPPER('${sys}') THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS "${sys}"`;
       });
 
-      result.rows.forEach((row) => {
-        const timestamp = new Date(row.timestamp);
+      let timeGroup = "ts";
+      const params: Date[] = [startTime, endTime];
+
+      if (interval) {
+        const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
+        if (!intervalMatch) {
+          throw new Error("Invalid interval format");
+        }
+        const [, , intervalUnit] = intervalMatch;
+        const intervalMap: Record<string, string> = {
+          s: "second",
+          m: "minute",
+          h: "hour",
+          d: "day",
+        };
+        timeGroup = `date_trunc('${intervalMap[intervalUnit]}', ts)`;
+      }
+
+      const query = `
+        SELECT
+          ${timeGroup} AS timestamp,
+          ${caseStatements.join(",\n          ")}
+        FROM data
+        NATURAL JOIN topics
+        WHERE topic_name LIKE '${campus}/${building}/%/${metric}'
+          AND ts >= $1
+          AND ts <= $2
+        GROUP BY 1
+        ORDER BY 1
+      `;
+      try {
+        const result = await this.pool.query<{ timestamp: string; [key: string]: number | string | null }>(query, params);
         systems.forEach((sys) => {
-          grouped[sys].push({
-            timestamp,
-            value: typeof row[sys] === "string" ? parseFloat(row[sys]) : (row[sys] ?? null),
-            system: sys,
-            metric,
+          queryResult[sys] = [];
+        });
+        result.rows.forEach((row) => {
+          const timestamp = new Date(row.timestamp);
+          systems.forEach((sys) => {
+            queryResult[sys].push({
+              timestamp,
+              value: typeof row[sys] === "string" ? parseFloat(row[sys]) : (row[sys] ?? null),
+              system: sys,
+              metric,
+            });
           });
         });
-      });
-      return grouped;
-    } catch (error) {
-      this.logger.error("Error fetching multi-system data", error);
-      throw error;
+      } catch (error) {
+        this.logger.error("Error fetching multi-system data", error);
+        throw error;
+      }
     }
+
+    // Build results for allowed systems
+    const results: HistorianMultiSystemData[] = systems.map((sys) => {
+      const data = queryResult[sys] ?? [];
+      const errors: string[] = [];
+      if (data.length === 0) {
+        errors.push(`No data found for topic: ${systemTopics[sys]} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      }
+      return {
+        system: sys,
+        data,
+        metadata: { topics: { [metric]: systemTopics[sys] }, errors },
+      };
+    });
+
+    // Add denied systems with access error
+    deniedSystems.forEach((sys) => {
+      const topicPath = buildUnitTopicPath(campus, building, sys, metric, this.configService.historian.topicMap);
+      results.push({
+        system: sys,
+        data: [],
+        metadata: {
+          topics: { [metric]: topicPath },
+          errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
+        },
+      });
+    });
+
+    return results;
   }
 
   /**
@@ -573,90 +865,117 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     campus: string,
     building: string,
     systems: string[],
+    deniedSystems: string[],
     metric: UnitMetric,
     startTime: Date,
     endTime: Date,
   ): Promise<HistorianMultiSystemRanges[]> {
-    if (systems.length === 0) {
+    if (systems.length === 0 && deniedSystems.length === 0) {
       return [];
     }
 
-    const query = `
-      WITH system_data AS (
-        SELECT 
-          UPPER(split_part(topic_name, '/', 3)) as system,
-          ts,
-          CAST(NULLIF(value_string, 'null') AS double precision) as value
-        FROM data
-        NATURAL JOIN topics
-        WHERE topic_name LIKE '${campus}/${building}/%/${metric}'
-          AND ts >= $1
-          AND ts <= $2
-          AND CAST(NULLIF(value_string, 'null') AS double precision) IS NOT NULL
-        ORDER BY system, ts
-      ),
-      value_changes AS (
+    const grouped: Record<string, HistorianDataRange[]> = {};
+    systems.forEach((sys) => {
+      grouped[sys.toUpperCase()] = [];
+    });
+
+    if (systems.length > 0) {
+      const query = `
+        WITH system_data AS (
+          SELECT 
+            UPPER(split_part(topic_name, '/', 3)) as system,
+            ts,
+            CAST(NULLIF(value_string, 'null') AS double precision) as value
+          FROM data
+          NATURAL JOIN topics
+          WHERE topic_name LIKE '${campus}/${building}/%/${metric}'
+            AND ts >= $1
+            AND ts <= $2
+            AND CAST(NULLIF(value_string, 'null') AS double precision) IS NOT NULL
+          ORDER BY system, ts
+        ),
+        value_changes AS (
+          SELECT 
+            system,
+            ts,
+            value,
+            LAG(value) OVER (PARTITION BY system ORDER BY ts) as prev_value,
+            LEAD(ts) OVER (PARTITION BY system ORDER BY ts) as next_ts
+          FROM system_data
+        ),
+        range_starts AS (
+          SELECT 
+            system,
+            ts as start_time,
+            next_ts as end_time,
+            value
+          FROM value_changes
+          WHERE prev_value IS NULL OR prev_value != value
+        )
         SELECT 
           system,
-          ts,
-          value,
-          LAG(value) OVER (PARTITION BY system ORDER BY ts) as prev_value,
-          LEAD(ts) OVER (PARTITION BY system ORDER BY ts) as next_ts
-        FROM system_data
-      ),
-      range_starts AS (
-        SELECT 
-          system,
-          ts as start_time,
-          next_ts as end_time,
+          start_time,
+          COALESCE(end_time, $2) as end_time,
           value
-        FROM value_changes
-        WHERE prev_value IS NULL OR prev_value != value
-      )
-      SELECT 
-        system,
-        start_time,
-        COALESCE(end_time, $2) as end_time,
-        value
-      FROM range_starts
-      ORDER BY system, start_time
-    `;
+        FROM range_starts
+        ORDER BY system, start_time
+      `;
 
-    try {
-      const result = await this.pool.query<{
-        system: string;
-        start_time: string;
-        end_time: string;
-        value: number;
-      }>(query, [startTime, endTime]);
+      try {
+        const result = await this.pool.query<{
+          system: string;
+          start_time: string;
+          end_time: string;
+          value: number;
+        }>(query, [startTime, endTime]);
 
-      // Group by system
-      const grouped: Record<string, HistorianDataRange[]> = {};
-      systems.forEach((sys) => {
-        grouped[sys.toUpperCase()] = [];
-      });
-
-      result.rows.forEach((row) => {
-        const systemKey = row.system.toUpperCase();
-        if (grouped[systemKey]) {
-          grouped[systemKey].push({
-            startTime: new Date(row.start_time),
-            endTime: new Date(row.end_time),
-            value: row.value,
-            system: row.system,
-            metric,
-          });
-        }
-      });
-
-      return systems.map((sys) => ({
-        system: sys,
-        ranges: grouped[sys.toUpperCase()] || [],
-      }));
-    } catch (error) {
-      this.logger.error("Error fetching multi-system ranges", error);
-      throw error;
+        result.rows.forEach((row) => {
+          const systemKey = row.system.toUpperCase();
+          if (grouped[systemKey]) {
+            grouped[systemKey].push({
+              startTime: new Date(row.start_time),
+              endTime: new Date(row.end_time),
+              value: row.value,
+              system: row.system,
+              metric,
+            });
+          }
+        });
+      } catch (error) {
+        this.logger.error("Error fetching multi-system ranges", error);
+        throw error;
+      }
     }
+
+    // Build results for allowed systems
+    const results: HistorianMultiSystemRanges[] = systems.map((sys) => {
+      const ranges = grouped[sys.toUpperCase()] || [];
+      const topicPath = buildUnitTopicPath(campus, building, sys, metric, this.configService.historian.topicMap);
+      const errors: string[] = [];
+      if (ranges.length === 0) {
+        errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      }
+      return {
+        system: sys,
+        ranges,
+        metadata: { topics: { [metric]: topicPath }, errors },
+      };
+    });
+
+    // Add denied systems with access error
+    deniedSystems.forEach((sys) => {
+      const topicPath = buildUnitTopicPath(campus, building, sys, metric, this.configService.historian.topicMap);
+      results.push({
+        system: sys,
+        ranges: [],
+        metadata: {
+          topics: { [metric]: topicPath },
+          errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
+        },
+      });
+    });
+
+    return results;
   }
 
   /**
@@ -667,108 +986,143 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     campus: string,
     building: string,
     systems: string[],
+    deniedSystems: string[],
     startTime: Date,
     endTime: Date,
   ): Promise<HistorianMultiSystemRanges[]> {
-    if (systems.length === 0) {
+    if (systems.length === 0 && deniedSystems.length === 0) {
       return [];
     }
 
-    const query = `
-      WITH zone_temps AS (
-        SELECT
-          UPPER(split_part(topic_name, '/', 3)) as system,
-          ts,
-          CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
-        FROM data
-        NATURAL JOIN topics
-        WHERE topic_name LIKE '${campus}/${building}/%/ZoneTemperature'
-          AND ts >= $1
-          AND ts <= $2
-      ),
-      zone_setpoints AS (
-        SELECT
-          UPPER(split_part(topic_name, '/', 3)) as system,
-          ts,
-          CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
-        FROM data
-        NATURAL JOIN topics
-        WHERE topic_name LIKE '${campus}/${building}/%/EffectiveZoneTemperatureSetPoint'
-          AND ts >= $1
-          AND ts <= $2
-      ),
-      error_data AS (
-        SELECT 
-          t.system,
-          t.ts,
-          ROUND((t.temp_value - s.sp_value)::numeric, 1) AS error_value
-        FROM zone_temps t
-        JOIN zone_setpoints s ON t.system = s.system AND t.ts = s.ts
-        WHERE t.temp_value IS NOT NULL AND s.sp_value IS NOT NULL
-        ORDER BY t.system, t.ts
-      ),
-      value_changes AS (
+    const grouped: Record<string, HistorianDataRange[]> = {};
+    systems.forEach((sys) => {
+      grouped[sys.toUpperCase()] = [];
+    });
+
+    if (systems.length > 0) {
+      const query = `
+        WITH zone_temps AS (
+          SELECT
+            UPPER(split_part(topic_name, '/', 3)) as system,
+            ts,
+            CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
+          FROM data
+          NATURAL JOIN topics
+          WHERE topic_name LIKE '${campus}/${building}/%/ZoneTemperature'
+            AND ts >= $1
+            AND ts <= $2
+        ),
+        zone_setpoints AS (
+          SELECT
+            UPPER(split_part(topic_name, '/', 3)) as system,
+            ts,
+            CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
+          FROM data
+          NATURAL JOIN topics
+          WHERE topic_name LIKE '${campus}/${building}/%/EffectiveZoneTemperatureSetPoint'
+            AND ts >= $1
+            AND ts <= $2
+        ),
+        error_data AS (
+          SELECT 
+            t.system,
+            t.ts,
+            ROUND((t.temp_value - s.sp_value)::numeric, 1) AS error_value
+          FROM zone_temps t
+          JOIN zone_setpoints s ON t.system = s.system AND t.ts = s.ts
+          WHERE t.temp_value IS NOT NULL AND s.sp_value IS NOT NULL
+          ORDER BY t.system, t.ts
+        ),
+        value_changes AS (
+          SELECT 
+            system,
+            ts,
+            error_value,
+            LAG(error_value) OVER (PARTITION BY system ORDER BY ts) as prev_value,
+            LEAD(ts) OVER (PARTITION BY system ORDER BY ts) as next_ts
+          FROM error_data
+        ),
+        range_starts AS (
+          SELECT 
+            system,
+            ts as start_time,
+            next_ts as end_time,
+            error_value
+          FROM value_changes
+          WHERE prev_value IS NULL OR ABS(prev_value - error_value) > 0.5
+        )
         SELECT 
           system,
-          ts,
-          error_value,
-          LAG(error_value) OVER (PARTITION BY system ORDER BY ts) as prev_value,
-          LEAD(ts) OVER (PARTITION BY system ORDER BY ts) as next_ts
-        FROM error_data
-      ),
-      range_starts AS (
-        SELECT 
-          system,
-          ts as start_time,
-          next_ts as end_time,
-          error_value
-        FROM value_changes
-        WHERE prev_value IS NULL OR ABS(prev_value - error_value) > 0.5
-      )
-      SELECT 
-        system,
-        start_time,
-        COALESCE(end_time, $2) as end_time,
-        error_value as value
-      FROM range_starts
-      ORDER BY system, start_time
-    `;
+          start_time,
+          COALESCE(end_time, $2) as end_time,
+          error_value as value
+        FROM range_starts
+        ORDER BY system, start_time
+      `;
 
-    try {
-      const result = await this.pool.query<{
-        system: string;
-        start_time: string;
-        end_time: string;
-        value: number;
-      }>(query, [startTime, endTime]);
+      try {
+        const result = await this.pool.query<{
+          system: string;
+          start_time: string;
+          end_time: string;
+          value: number;
+        }>(query, [startTime, endTime]);
 
-      // Group by system
-      const grouped: Record<string, HistorianDataRange[]> = {};
-      systems.forEach((sys) => {
-        grouped[sys.toUpperCase()] = [];
-      });
-
-      result.rows.forEach((row) => {
-        const systemKey = row.system.toUpperCase();
-        if (grouped[systemKey]) {
-          grouped[systemKey].push({
-            startTime: new Date(row.start_time),
-            endTime: new Date(row.end_time),
-            value: row.value,
-            system: row.system,
-            metric: UnitMetric.ZoneTemperature,
-          });
-        }
-      });
-
-      return systems.map((sys) => ({
-        system: sys,
-        ranges: grouped[sys.toUpperCase()] || [],
-      }));
-    } catch (error) {
-      this.logger.error("Error fetching setpoint error ranges", error);
-      throw error;
+        result.rows.forEach((row) => {
+          const systemKey = row.system.toUpperCase();
+          if (grouped[systemKey]) {
+            grouped[systemKey].push({
+              startTime: new Date(row.start_time),
+              endTime: new Date(row.end_time),
+              value: row.value,
+              system: row.system,
+              metric: UnitMetric.ZoneTemperature,
+            });
+          }
+        });
+      } catch (error) {
+        this.logger.error("Error fetching setpoint error ranges", error);
+        throw error;
+      }
     }
+
+    const tempMetric = UnitMetric.ZoneTemperature;
+    const spMetric = UnitMetric.EffectiveZoneTemperatureSetPoint;
+
+    // Build results for allowed systems
+    const results: HistorianMultiSystemRanges[] = systems.map((sys) => {
+      const ranges = grouped[sys.toUpperCase()] || [];
+      const tempPath = buildUnitTopicPath(campus, building, sys, tempMetric, this.configService.historian.topicMap);
+      const spPath = buildUnitTopicPath(campus, building, sys, spMetric, this.configService.historian.topicMap);
+      const errors: string[] = [];
+      if (ranges.length === 0) {
+        errors.push(`No setpoint error data found for ${sys} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      }
+      return {
+        system: sys,
+        ranges,
+        metadata: {
+          topics: { [tempMetric]: tempPath, [spMetric]: spPath },
+          errors,
+        },
+      };
+    });
+
+    // Add denied systems with access error
+    deniedSystems.forEach((sys) => {
+      const tempPath = buildUnitTopicPath(campus, building, sys, tempMetric, this.configService.historian.topicMap);
+      const spPath = buildUnitTopicPath(campus, building, sys, spMetric, this.configService.historian.topicMap);
+      results.push({
+        system: sys,
+        ranges: [],
+        metadata: {
+          topics: { [tempMetric]: tempPath, [spMetric]: spPath },
+          errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
+        },
+      });
+    });
+
+    return results;
   }
 
   /**
@@ -780,21 +1134,18 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     system: string,
     startTime: Date,
     endTime: Date,
-  ): Promise<HistorianDataPoint[]> {
-    const tempPath = buildUnitTopicPath(
-      campus,
-      building,
-      system,
-      UnitMetric.ZoneTemperature,
-      this.configService.historian.topicMap,
-    );
-    const setpointPath = buildUnitTopicPath(
-      campus,
-      building,
-      system,
-      UnitMetric.EffectiveZoneTemperatureSetPoint,
-      this.configService.historian.topicMap,
-    );
+  ): Promise<HistorianTimeSeries> {
+    const errors: string[] = [];
+    const tempMetric = UnitMetric.ZoneTemperature;
+    const spMetric = UnitMetric.EffectiveZoneTemperatureSetPoint;
+
+    const tempPath = buildUnitTopicPath(campus, building, system, tempMetric, this.configService.historian.topicMap);
+    const setpointPath = buildUnitTopicPath(campus, building, system, spMetric, this.configService.historian.topicMap);
+
+    const topics: Record<string, string> = {
+      [tempMetric]: tempPath,
+      [spMetric]: setpointPath,
+    };
 
     const query = `
       WITH zone_temps AS (
@@ -834,14 +1185,26 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         endTime,
       ]);
 
-      return result.rows.map((row) => ({
+      if (result.rows.length === 0) {
+        errors.push(`No setpoint error data found for ${system} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      }
+
+      const data: HistorianDataPoint[] = result.rows.map((row) => ({
         timestamp: new Date(row.timestamp),
         value: typeof row.value === "string" ? parseFloat(row.value) : null,
         system,
-        metric: UnitMetric.ZoneTemperature, // Use a valid enum value as placeholder for calculated metric
+        metric: tempMetric,
       }));
+
+      return {
+        system,
+        metric: tempMetric,
+        data,
+        metadata: { topics, errors },
+      };
     } catch (error) {
       this.logger.error("Error calculating setpoint error", error);
+      errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }

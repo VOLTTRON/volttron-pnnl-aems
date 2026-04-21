@@ -7,6 +7,7 @@ import {
   HistorianDataPoint,
   HistorianTimeSeries,
   HistorianAggregate,
+  HistorianAggregateResult,
   HistorianMetricCurrent,
   HistorianMultiSystemData,
   HistorianReplicationInfo,
@@ -63,6 +64,7 @@ export type Scalars = {
   HistorianDataPoint: { Input: HistorianDataPoint; Output: HistorianDataPoint };
   HistorianTimeSeries: { Input: HistorianTimeSeries; Output: HistorianTimeSeries };
   HistorianAggregate: { Input: HistorianAggregate; Output: HistorianAggregate };
+  HistorianAggregateResult: { Input: HistorianAggregateResult; Output: HistorianAggregateResult };
   HistorianMetricCurrent: { Input: HistorianMetricCurrent; Output: HistorianMetricCurrent };
   HistorianMultiSystemData: { Input: HistorianMultiSystemData; Output: HistorianMultiSystemData };
   HistorianReplicationInfo: { Input: HistorianReplicationInfo; Output: HistorianReplicationInfo };

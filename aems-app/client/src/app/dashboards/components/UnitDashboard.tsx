@@ -16,6 +16,7 @@ import { TimeRangeSelector } from "./TimeRangeSelector";
 import styles from "./UnitDashboard.module.scss";
 import { Palettes } from "@/utils/palette";
 import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
+import { useMetricColors } from "@/utils/metricColors";
 
 interface Unit {
   name?: string | null;
@@ -81,6 +82,9 @@ export function UnitDashboard({
   const warmPalette = Palettes.getPalette(paletteWarm || "Red");
   const coolPalette = Palettes.getPalette(paletteCool || "Blue");
   const gradientPalette = Palettes.getPalette(paletteGradient || "Teal");
+
+  // Shared metric → color map and unit color pool
+  const { metricColors } = useMetricColors(primaryPalette, secondaryPalette, tertiaryPalette, warmPalette, coolPalette);
 
   // Helper function to blend two hex colors (50/50 mix)
   const blendColors = (color1: string, color2: string): string => {
@@ -787,7 +791,7 @@ export function UnitDashboard({
                     data:
                       occupancyCommandSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
-                    color: tertiaryPalette.primary.hex,
+                    color: metricColors[UnitMetric.OccupancyCommand],
                     showSymbol: false,
                   },
                 ],
@@ -835,7 +839,7 @@ export function UnitDashboard({
                     data:
                       firstStageHeatingSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
-                    color: secondaryPalette.quaternary.hex,
+                    color: metricColors[UnitMetric.FirstStageHeating],
                     showSymbol: false,
                   },
                 ],
@@ -873,7 +877,7 @@ export function UnitDashboard({
                     type: "line",
                     step: "end",
                     data: fanStatusSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    color: tertiaryPalette.secondary.hex,
+                    color: metricColors[UnitMetric.SupplyFanStatus],
                     showSymbol: false,
                   },
                 ],
@@ -911,7 +915,7 @@ export function UnitDashboard({
                     type: "line",
                     step: "end",
                     data: coolingStageSeriesData,
-                    color: secondaryPalette.secondary.hex,
+                    color: metricColors[UnitMetric.FirstStageCooling],
                     showSymbol: false,
                   },
                 ],
@@ -954,7 +958,7 @@ export function UnitDashboard({
             <ECharts
               option={{
                 animation: false,
-                title: { text: unit.system || unit.name || "" },
+                title: { text: unit.label || unit.name || "" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: {
                   trigger: "axis",
@@ -1056,7 +1060,7 @@ export function UnitDashboard({
                     data:
                       occupancyCommandSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
-                    color: tertiaryPalette.primary.hex,
+                    color: metricColors[UnitMetric.OccupancyCommand],
                   });
 
                   seriesMap.set(SeriesIndex.SupplyFanStatus, {
@@ -1066,7 +1070,7 @@ export function UnitDashboard({
                     step: "end",
                     sampling: "lttb",
                     data: fanStatusSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    color: tertiaryPalette.secondary.hex,
+                    color: metricColors[UnitMetric.SupplyFanStatus],
                   });
 
                   seriesMap.set(SeriesIndex.FirstStageHeating, {
@@ -1078,7 +1082,7 @@ export function UnitDashboard({
                     data:
                       firstStageHeatingSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
-                    color: secondaryPalette.quaternary.hex,
+                    color: metricColors[UnitMetric.FirstStageHeating],
                   });
 
                   seriesMap.set(SeriesIndex.CoolingStage, {
@@ -1088,7 +1092,7 @@ export function UnitDashboard({
                     step: "end",
                     sampling: "lttb",
                     data: coolingStageSeriesData,
-                    color: secondaryPalette.secondary.hex,
+                    color: metricColors[UnitMetric.FirstStageCooling],
                   });
 
                   seriesMap.set(SeriesIndex.ZoneTemperature, {
@@ -1098,7 +1102,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     data: zoneTempSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     lineStyle: { width: 3 },
-                    color: primaryPalette.tertiary.hex,
+                    color: metricColors[UnitMetric.ZoneTemperature],
                   });
 
                   seriesMap.set(SeriesIndex.OutdoorAirTemperature, {
@@ -1109,7 +1113,7 @@ export function UnitDashboard({
                     data:
                       outdoorTempSeries?.historianWeatherTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
-                    color: primaryPalette.quinary.hex,
+                    color: metricColors[UnitMetric.OutdoorAirTemperature],
                   });
 
                   seriesMap.set(SeriesIndex.OccupiedHeatingSetPoint, {
@@ -1120,7 +1124,7 @@ export function UnitDashboard({
                     data:
                       heatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
-                    color: secondaryPalette.quinary.hex,
+                    color: metricColors[UnitMetric.OccupiedHeatingSetPoint],
                   });
 
                   seriesMap.set(SeriesIndex.OccupiedCoolingSetPoint, {
@@ -1131,7 +1135,7 @@ export function UnitDashboard({
                     data:
                       coolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
-                    color: secondaryPalette.primary.hex,
+                    color: metricColors[UnitMetric.OccupiedCoolingSetPoint],
                   });
 
                   seriesMap.set(SeriesIndex.UnoccupiedHeatingSetPoint, {
@@ -1145,7 +1149,7 @@ export function UnitDashboard({
                         p.value,
                       ]) || [],
                     lineStyle: { type: "dashed" },
-                    color: secondaryPalette.quaternary.hex,
+                    color: metricColors[UnitMetric.UnoccupiedHeatingSetPoint],
                   });
 
                   seriesMap.set(SeriesIndex.UnoccupiedCoolingSetPoint, {
@@ -1159,7 +1163,7 @@ export function UnitDashboard({
                         p.value,
                       ]) || [],
                     lineStyle: { type: "dashed" },
-                    color: secondaryPalette.secondary.hex,
+                    color: metricColors[UnitMetric.UnoccupiedCoolingSetPoint],
                   });
 
                   seriesMap.set(SeriesIndex.ZoneHumidity, {
@@ -1169,7 +1173,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     data:
                       zoneHumiditySeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    color: primaryPalette.secondary.hex,
+                    color: metricColors[UnitMetric.ZoneHumidity],
                   });
 
                   // Extract series in enum order
