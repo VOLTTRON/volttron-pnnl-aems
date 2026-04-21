@@ -10,6 +10,10 @@
 /**
  * Metrics for unit/system data (HVAC equipment)
  * These metrics are associated with specific systems (e.g., RTUs, AHUs)
+ * 
+ * IMPORTANT: All enum values MUST equal their key names (e.g., ZoneTemperature = "ZoneTemperature").
+ * This ensures the client API receives clean enum names rather than database-specific mappings.
+ * Database format mappings are handled separately and can be customized via historian-topic-map.json.
  */
 export enum UnitMetric {
   AuxiliaryHeatCommand = "AuxiliaryHeatCommand",
@@ -38,36 +42,64 @@ export enum UnitMetric {
 /**
  * Metrics for weather data
  * These metrics apply at the campus/building level and are not system-specific
+ * 
+ * IMPORTANT: All enum values MUST equal their key names (e.g., AirTemperature = "AirTemperature").
+ * This ensures the client API receives clean enum names rather than database-specific mappings.
+ * Database format mappings (e.g., "air_temperature") are defined in DefaultWeatherMetricMappings
+ * in server/src/historian/metrics.ts and can be customized via historian-topic-map.json.
  */
 export enum WeatherMetric {
-  AirPressure = "air_pressure",
-  AirPressureAtMeanSeaLevel = "air_pressure_at_mean_sea_level",
-  AirTemperature = "air_temperature",
-  DewPointTemperature = "dew_point_temperature",
-  HeatIndex = "heatIndex",
-  HeightAboveMeanSeaLevel = "height_above_mean_sea_level",
-  PrecipitationLast3Hours = "precipitationLast3Hours",
-  PrecipitationLastHour = "precipitationLastHour",
-  RelativeHumidity = "relative_humidity",
-  VisibilityInAir = "visibility_in_air",
-  WindFromDirection = "wind_from_direction",
-  WindSpeed = "wind_speed",
-  WindSpeedOfGust = "wind_speed_of_gust",
-  WindChill = "windChill",
+  AirPressure = "AirPressure",
+  AirPressureAtMeanSeaLevel = "AirPressureAtMeanSeaLevel",
+  AirTemperature = "AirTemperature",
+  DewPointTemperature = "DewPointTemperature",
+  HeatIndex = "HeatIndex",
+  HeightAboveMeanSeaLevel = "HeightAboveMeanSeaLevel",
+  PrecipitationLast3Hours = "PrecipitationLast3Hours",
+  PrecipitationLastHour = "PrecipitationLastHour",
+  RelativeHumidity = "RelativeHumidity",
+  VisibilityInAir = "VisibilityInAir",
+  WindFromDirection = "WindFromDirection",
+  WindSpeed = "WindSpeed",
+  WindSpeedOfGust = "WindSpeedOfGust",
+  WindChill = "WindChill",
 }
 
 /**
  * Metrics for meter/power data
  * These metrics apply at the campus/building level for whole-building measurements
+ * 
+ * IMPORTANT: All enum values MUST equal their key names (e.g., Power = "Power").
+ * This ensures the client API receives clean enum names rather than database-specific mappings.
+ * Database format mappings (e.g., "WholeBuildingPower") are defined in DefaultMeterMetricMappings
+ * in server/src/historian/metrics.ts and can be customized via historian-topic-map.json.
  */
 export enum MeterMetric {
-  Power = "WholeBuildingPower",
+  Power = "Power",
   Demand = "Demand",
 }
 
 // ============================================================================
 // Data Types
 // ============================================================================
+
+/**
+ * Metadata for troubleshooting historian queries
+ * Includes constructed topic paths and any errors/warnings encountered during query execution
+ */
+export interface HistorianQueryMetadata {
+  /**
+   * Map of metrics to their constructed topic paths
+   * Helps verify topic mapping configuration is working correctly
+   */
+  topics: Record<string, string>;
+
+  /**
+   * List of errors or warnings encountered during query
+   * Includes access control denials, query errors, mapping issues, etc.
+   */
+  errors: string[];
+}
 
 export interface HistorianDataPoint {
   timestamp: Date;
@@ -80,6 +112,7 @@ export interface HistorianTimeSeries {
   system: string;
   metric: UnitMetric | WeatherMetric | MeterMetric;
   data: HistorianDataPoint[];
+  metadata: HistorianQueryMetadata;
 }
 
 export interface HistorianAggregate {
@@ -88,16 +121,24 @@ export interface HistorianAggregate {
   metric: UnitMetric | WeatherMetric | MeterMetric;
 }
 
+export interface HistorianAggregateResult {
+  aggregates: HistorianAggregate[];
+  metadata: HistorianQueryMetadata;
+}
+
+
 export interface HistorianMetricCurrent {
   system: string;
   metric: UnitMetric | WeatherMetric | MeterMetric;
   value: number | null;
   timestamp: Date;
+  metadata: HistorianQueryMetadata;
 }
 
 export interface HistorianMultiSystemData {
   system: string;
   data: HistorianDataPoint[];
+  metadata: HistorianQueryMetadata;
 }
 
 /**
@@ -119,6 +160,7 @@ export interface HistorianDataRange {
 export interface HistorianMultiSystemRanges {
   system: string;
   ranges: HistorianDataRange[];
+  metadata: HistorianQueryMetadata;
 }
 
 // ============================================================================

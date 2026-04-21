@@ -13,7 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 var HistorianService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HistorianService = exports.WeatherMetric = exports.UnitMetric = exports.CalculationType = exports.AggregationType = void 0;
+exports.HistorianService = exports.MeterMetric = exports.WeatherMetric = exports.UnitMetric = exports.CalculationType = exports.AggregationType = void 0;
 const common_1 = require("@nestjs/common");
 const pg_1 = require("pg");
 const common_2 = require("@nestjs/common");
@@ -28,6 +28,7 @@ Object.defineProperty(exports, "AggregationType", { enumerable: true, get: funct
 Object.defineProperty(exports, "CalculationType", { enumerable: true, get: function () { return common_3.CalculationType; } });
 Object.defineProperty(exports, "UnitMetric", { enumerable: true, get: function () { return common_3.UnitMetric; } });
 Object.defineProperty(exports, "WeatherMetric", { enumerable: true, get: function () { return common_3.WeatherMetric; } });
+Object.defineProperty(exports, "MeterMetric", { enumerable: true, get: function () { return common_3.MeterMetric; } });
 const metrics_1 = require("./metrics");
 let HistorianService = HistorianService_1 = class HistorianService {
     constructor(configService, prismaService) {
@@ -93,8 +94,11 @@ let HistorianService = HistorianService_1 = class HistorianService {
         const allowedSystems = userSystems
             .filter((s) => requestedSystemsLower.includes(s.system.toLowerCase()))
             .map((s) => ({ campus: s.campus, building: s.building, system: s.system }));
-        if ("weather" in requestedSystems) {
+        if (requestedSystems.includes("weather")) {
             allowedSystems.push({ campus: campus ?? "", building: building ?? "", system: "weather" });
+        }
+        if (requestedSystems.includes("meter")) {
+            allowedSystems.push({ campus: campus ?? "", building: building ?? "", system: "meter" });
         }
         return {
             allowedSystems,
@@ -108,7 +112,10 @@ let HistorianService = HistorianService_1 = class HistorianService {
         return isNaN(parsed) ? null : parsed;
     }
     async getUnitCurrentValue(campus, building, system, metric) {
+        const errors = [];
+        const topics = {};
         const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric, this.configService.historian.topicMap);
+        topics[metric] = topicPath;
         const query = `
       SELECT
         ts,
@@ -125,6 +132,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 topicPath,
             ]);
             if (result.rows.length === 0) {
+                errors.push(`No data found for topic: ${topicPath}`);
                 return null;
             }
             const row = result.rows[0];
@@ -133,15 +141,20 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 metric,
                 value: this.parseValue(row.value_string),
                 timestamp: new Date(row.ts),
+                metadata: { topics, errors },
             };
         }
         catch (error) {
             this.logger.error("Error fetching unit current value", error);
+            errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }
     async getWeatherCurrentValue(campus, building, metric) {
+        const errors = [];
+        const topics = {};
         const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric, this.configService.historian.topicMap);
+        topics[metric] = topicPath;
         const query = `
       SELECT
         ts,
@@ -158,6 +171,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 topicPath,
             ]);
             if (result.rows.length === 0) {
+                errors.push(`No data found for topic: ${topicPath}`);
                 return null;
             }
             const row = result.rows[0];
@@ -166,15 +180,20 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 metric,
                 value: this.parseValue(row.value_string),
                 timestamp: new Date(row.ts),
+                metadata: { topics, errors },
             };
         }
         catch (error) {
             this.logger.error("Error fetching weather current value", error);
+            errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }
     async getUnitTimeSeries(campus, building, system, metric, startTime, endTime) {
+        const errors = [];
+        const topics = {};
         const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric, this.configService.historian.topicMap);
+        topics[metric] = topicPath;
         const query = `
       SELECT
         ts,
@@ -192,6 +211,9 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 startTime,
                 endTime,
             ]);
+            if (result.rows.length === 0) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+            }
             const data = result.rows.map((row) => ({
                 timestamp: new Date(row.ts),
                 value: this.parseValue(row.value_string),
@@ -202,15 +224,20 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 system,
                 metric,
                 data,
+                metadata: { topics, errors },
             };
         }
         catch (error) {
             this.logger.error("Error fetching unit time series", error);
+            errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }
     async getWeatherTimeSeries(campus, building, metric, startTime, endTime) {
+        const errors = [];
+        const topics = {};
         const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric, this.configService.historian.topicMap);
+        topics[metric] = topicPath;
         const query = `
       SELECT
         ts,
@@ -228,6 +255,9 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 startTime,
                 endTime,
             ]);
+            if (result.rows.length === 0) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+            }
             const data = result.rows.map((row) => ({
                 timestamp: new Date(row.ts),
                 value: this.parseValue(row.value_string),
@@ -238,15 +268,20 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 system: "weather",
                 metric,
                 data,
+                metadata: { topics, errors },
             };
         }
         catch (error) {
             this.logger.error("Error fetching weather time series", error);
+            errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }
     async getUnitAggregated(campus, building, system, metric, startTime, endTime, interval, aggregation) {
+        const errors = [];
+        const topics = {};
         const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric, this.configService.historian.topicMap);
+        topics[metric] = topicPath;
         const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
         if (!intervalMatch) {
             throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
@@ -278,19 +313,29 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 startTime,
                 endTime,
             ]);
-            return result.rows.map((row) => ({
-                timestamp: new Date(row.timestamp),
-                value: typeof row.value === "string" ? parseFloat(row.value) : null,
-                metric,
-            }));
+            if (result.rows.length === 0) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+            }
+            return {
+                aggregates: result.rows.map((row) => ({
+                    timestamp: new Date(row.timestamp),
+                    value: typeof row.value === "string" ? parseFloat(row.value) : null,
+                    metric,
+                })),
+                metadata: { topics, errors },
+            };
         }
         catch (error) {
             this.logger.error("Error fetching aggregated data", error);
+            errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }
     async getWeatherAggregated(campus, building, metric, startTime, endTime, interval, aggregation) {
+        const errors = [];
+        const topics = {};
         const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric, this.configService.historian.topicMap);
+        topics[metric] = topicPath;
         const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
         if (!intervalMatch) {
             throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
@@ -322,242 +367,475 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 startTime,
                 endTime,
             ]);
-            return result.rows.map((row) => ({
-                timestamp: new Date(row.timestamp),
-                value: typeof row.value === "string" ? parseFloat(row.value) : null,
-                metric,
-            }));
+            if (result.rows.length === 0) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+            }
+            return {
+                aggregates: result.rows.map((row) => ({
+                    timestamp: new Date(row.timestamp),
+                    value: typeof row.value === "string" ? parseFloat(row.value) : null,
+                    metric,
+                })),
+                metadata: { topics, errors },
+            };
         }
         catch (error) {
             this.logger.error("Error fetching aggregated data", error);
+            errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }
-    async getMultiSystemUnit(campus, building, systems, metric, startTime, endTime, interval) {
-        if (systems.length === 0) {
-            return {};
-        }
-        const caseStatements = systems.map((sys) => {
-            return `MAX(CASE WHEN UPPER(split_part(topic_name, '/', 3)) = UPPER('${sys}') THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS "${sys}"`;
-        });
-        let timeGroup = "ts";
-        const params = [startTime, endTime];
-        if (interval) {
-            const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
-            if (!intervalMatch) {
-                throw new Error("Invalid interval format");
-            }
-            const [, , intervalUnit] = intervalMatch;
-            const intervalMap = {
-                s: "second",
-                m: "minute",
-                h: "hour",
-                d: "day",
-            };
-            timeGroup = `date_trunc('${intervalMap[intervalUnit]}', ts)`;
-        }
+    async getMeterCurrentValue(campus, building, metric) {
+        const errors = [];
+        const topics = {};
+        const topicPath = (0, metrics_1.buildMeterTopicPath)(campus, building, metric, this.configService.historian.topicMap);
+        topics[metric] = topicPath;
         const query = `
       SELECT
-        ${timeGroup} AS timestamp,
-        ${caseStatements.join(",\n        ")}
+        ts,
+        value_string,
+        topic_name
       FROM data
       NATURAL JOIN topics
-      WHERE topic_name LIKE '${campus}/${building}/%/${metric}'
-        AND ts >= $1
-        AND ts <= $2
+      WHERE topic_name ILIKE $1
+      ORDER BY ts DESC
+      LIMIT 1
+    `;
+        try {
+            const result = await this.pool.query(query, [
+                topicPath,
+            ]);
+            if (result.rows.length === 0) {
+                errors.push(`No data found for topic: ${topicPath}`);
+                return null;
+            }
+            const row = result.rows[0];
+            return {
+                system: "meter",
+                metric,
+                value: this.parseValue(row.value_string),
+                timestamp: new Date(row.ts),
+                metadata: { topics, errors },
+            };
+        }
+        catch (error) {
+            this.logger.error("Error fetching meter current value", error);
+            errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
+            throw error;
+        }
+    }
+    async getMeterTimeSeries(campus, building, metric, startTime, endTime) {
+        const errors = [];
+        const topics = {};
+        const topicPath = (0, metrics_1.buildMeterTopicPath)(campus, building, metric, this.configService.historian.topicMap);
+        topics[metric] = topicPath;
+        const query = `
+      SELECT
+        ts,
+        value_string
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name ILIKE $1
+        AND ts >= $2
+        AND ts <= $3
+      ORDER BY ts
+    `;
+        try {
+            const result = await this.pool.query(query, [
+                topicPath,
+                startTime,
+                endTime,
+            ]);
+            if (result.rows.length === 0) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+            }
+            const data = result.rows.map((row) => ({
+                timestamp: new Date(row.ts),
+                value: this.parseValue(row.value_string),
+                system: "meter",
+                metric,
+            }));
+            return {
+                system: "meter",
+                metric,
+                data,
+                metadata: { topics, errors },
+            };
+        }
+        catch (error) {
+            this.logger.error("Error fetching meter time series", error);
+            errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
+            throw error;
+        }
+    }
+    async getMeterAggregated(campus, building, metric, startTime, endTime, interval, aggregation) {
+        const errors = [];
+        const topics = {};
+        const topicPath = (0, metrics_1.buildMeterTopicPath)(campus, building, metric, this.configService.historian.topicMap);
+        topics[metric] = topicPath;
+        const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
+        if (!intervalMatch) {
+            throw new Error("Invalid interval format. Use format like '1m', '5m', '1h', etc.");
+        }
+        const [, , intervalUnit] = intervalMatch;
+        const intervalMap = {
+            s: "seconds",
+            m: "minutes",
+            h: "hours",
+            d: "days",
+        };
+        const aggFunction = aggregation.toLowerCase();
+        const valueExpr = aggregation === common_3.AggregationType.Count ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
+        const query = `
+      SELECT
+        date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
+        ${aggFunction}(${valueExpr}) AS value
+      FROM data
+      NATURAL JOIN topics
+      WHERE topic_name ILIKE $1
+        AND ts >= $2
+        AND ts <= $3
       GROUP BY 1
       ORDER BY 1
     `;
         try {
-            const result = await this.pool.query(query, params);
-            const grouped = {};
-            systems.forEach((sys) => {
-                grouped[sys] = [];
-            });
-            result.rows.forEach((row) => {
-                const timestamp = new Date(row.timestamp);
-                systems.forEach((sys) => {
-                    grouped[sys].push({
-                        timestamp,
-                        value: typeof row[sys] === "string" ? parseFloat(row[sys]) : (row[sys] ?? null),
-                        system: sys,
-                        metric,
-                    });
-                });
-            });
-            return grouped;
+            const result = await this.pool.query(query, [
+                topicPath,
+                startTime,
+                endTime,
+            ]);
+            if (result.rows.length === 0) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+            }
+            return {
+                aggregates: result.rows.map((row) => ({
+                    timestamp: new Date(row.timestamp),
+                    value: typeof row.value === "string" ? parseFloat(row.value) : null,
+                    metric,
+                })),
+                metadata: { topics, errors },
+            };
         }
         catch (error) {
-            this.logger.error("Error fetching multi-system data", error);
+            this.logger.error("Error fetching meter aggregated data", error);
+            errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }
-    async getMultiSystemUnitRanges(campus, building, systems, metric, startTime, endTime) {
-        if (systems.length === 0) {
+    async getMultiSystemUnit(campus, building, systems, deniedSystems, metric, startTime, endTime, interval) {
+        if (systems.length === 0 && deniedSystems.length === 0) {
             return [];
         }
-        const query = `
-      WITH system_data AS (
-        SELECT 
-          UPPER(split_part(topic_name, '/', 3)) as system,
-          ts,
-          CAST(NULLIF(value_string, 'null') AS double precision) as value
+        const systemTopics = {};
+        systems.forEach((sys) => {
+            systemTopics[sys] = (0, metrics_1.buildUnitTopicPath)(campus, building, sys, metric, this.configService.historian.topicMap);
+        });
+        const queryResult = {};
+        if (systems.length > 0) {
+            const caseStatements = systems.map((sys) => {
+                return `MAX(CASE WHEN UPPER(split_part(topic_name, '/', 3)) = UPPER('${sys}') THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS "${sys}"`;
+            });
+            let timeGroup = "ts";
+            const params = [startTime, endTime];
+            if (interval) {
+                const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
+                if (!intervalMatch) {
+                    throw new Error("Invalid interval format");
+                }
+                const [, , intervalUnit] = intervalMatch;
+                const intervalMap = {
+                    s: "second",
+                    m: "minute",
+                    h: "hour",
+                    d: "day",
+                };
+                timeGroup = `date_trunc('${intervalMap[intervalUnit]}', ts)`;
+            }
+            const query = `
+        SELECT
+          ${timeGroup} AS timestamp,
+          ${caseStatements.join(",\n          ")}
         FROM data
         NATURAL JOIN topics
         WHERE topic_name LIKE '${campus}/${building}/%/${metric}'
           AND ts >= $1
           AND ts <= $2
-          AND CAST(NULLIF(value_string, 'null') AS double precision) IS NOT NULL
-        ORDER BY system, ts
-      ),
-      value_changes AS (
-        SELECT 
-          system,
-          ts,
-          value,
-          LAG(value) OVER (PARTITION BY system ORDER BY ts) as prev_value,
-          LEAD(ts) OVER (PARTITION BY system ORDER BY ts) as next_ts
-        FROM system_data
-      ),
-      range_starts AS (
-        SELECT 
-          system,
-          ts as start_time,
-          next_ts as end_time,
-          value
-        FROM value_changes
-        WHERE prev_value IS NULL OR prev_value != value
-      )
-      SELECT 
-        system,
-        start_time,
-        COALESCE(end_time, $2) as end_time,
-        value
-      FROM range_starts
-      ORDER BY system, start_time
-    `;
-        try {
-            const result = await this.pool.query(query, [startTime, endTime]);
-            const grouped = {};
-            systems.forEach((sys) => {
-                grouped[sys.toUpperCase()] = [];
-            });
-            result.rows.forEach((row) => {
-                const systemKey = row.system.toUpperCase();
-                if (grouped[systemKey]) {
-                    grouped[systemKey].push({
-                        startTime: new Date(row.start_time),
-                        endTime: new Date(row.end_time),
-                        value: row.value,
-                        system: row.system,
-                        metric,
+        GROUP BY 1
+        ORDER BY 1
+      `;
+            try {
+                const result = await this.pool.query(query, params);
+                systems.forEach((sys) => {
+                    queryResult[sys] = [];
+                });
+                result.rows.forEach((row) => {
+                    const timestamp = new Date(row.timestamp);
+                    systems.forEach((sys) => {
+                        queryResult[sys].push({
+                            timestamp,
+                            value: typeof row[sys] === "string" ? parseFloat(row[sys]) : (row[sys] ?? null),
+                            system: sys,
+                            metric,
+                        });
                     });
-                }
-            });
-            return systems.map((sys) => ({
+                });
+            }
+            catch (error) {
+                this.logger.error("Error fetching multi-system data", error);
+                throw error;
+            }
+        }
+        const results = systems.map((sys) => {
+            const data = queryResult[sys] ?? [];
+            const errors = [];
+            if (data.length === 0) {
+                errors.push(`No data found for topic: ${systemTopics[sys]} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+            }
+            return {
                 system: sys,
-                ranges: grouped[sys.toUpperCase()] || [],
-            }));
-        }
-        catch (error) {
-            this.logger.error("Error fetching multi-system ranges", error);
-            throw error;
-        }
+                data,
+                metadata: { topics: { [metric]: systemTopics[sys] }, errors },
+            };
+        });
+        deniedSystems.forEach((sys) => {
+            const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, sys, metric, this.configService.historian.topicMap);
+            results.push({
+                system: sys,
+                data: [],
+                metadata: {
+                    topics: { [metric]: topicPath },
+                    errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
+                },
+            });
+        });
+        return results;
     }
-    async getMultiSystemSetpointErrorRanges(campus, building, systems, startTime, endTime) {
-        if (systems.length === 0) {
+    async getMultiSystemUnitRanges(campus, building, systems, deniedSystems, metric, startTime, endTime) {
+        if (systems.length === 0 && deniedSystems.length === 0) {
             return [];
         }
-        const query = `
-      WITH zone_temps AS (
-        SELECT
-          UPPER(split_part(topic_name, '/', 3)) as system,
-          ts,
-          CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
-        FROM data
-        NATURAL JOIN topics
-        WHERE topic_name LIKE '${campus}/${building}/%/ZoneTemperature'
-          AND ts >= $1
-          AND ts <= $2
-      ),
-      zone_setpoints AS (
-        SELECT
-          UPPER(split_part(topic_name, '/', 3)) as system,
-          ts,
-          CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
-        FROM data
-        NATURAL JOIN topics
-        WHERE topic_name LIKE '${campus}/${building}/%/EffectiveZoneTemperatureSetPoint'
-          AND ts >= $1
-          AND ts <= $2
-      ),
-      error_data AS (
-        SELECT 
-          t.system,
-          t.ts,
-          ROUND((t.temp_value - s.sp_value)::numeric, 1) AS error_value
-        FROM zone_temps t
-        JOIN zone_setpoints s ON t.system = s.system AND t.ts = s.ts
-        WHERE t.temp_value IS NOT NULL AND s.sp_value IS NOT NULL
-        ORDER BY t.system, t.ts
-      ),
-      value_changes AS (
-        SELECT 
-          system,
-          ts,
-          error_value,
-          LAG(error_value) OVER (PARTITION BY system ORDER BY ts) as prev_value,
-          LEAD(ts) OVER (PARTITION BY system ORDER BY ts) as next_ts
-        FROM error_data
-      ),
-      range_starts AS (
+        const grouped = {};
+        systems.forEach((sys) => {
+            grouped[sys.toUpperCase()] = [];
+        });
+        if (systems.length > 0) {
+            const query = `
+        WITH system_data AS (
+          SELECT 
+            UPPER(split_part(topic_name, '/', 3)) as system,
+            ts,
+            CAST(NULLIF(value_string, 'null') AS double precision) as value
+          FROM data
+          NATURAL JOIN topics
+          WHERE topic_name LIKE '${campus}/${building}/%/${metric}'
+            AND ts >= $1
+            AND ts <= $2
+            AND CAST(NULLIF(value_string, 'null') AS double precision) IS NOT NULL
+          ORDER BY system, ts
+        ),
+        value_changes AS (
+          SELECT 
+            system,
+            ts,
+            value,
+            LAG(value) OVER (PARTITION BY system ORDER BY ts) as prev_value,
+            LEAD(ts) OVER (PARTITION BY system ORDER BY ts) as next_ts
+          FROM system_data
+        ),
+        range_starts AS (
+          SELECT 
+            system,
+            ts as start_time,
+            next_ts as end_time,
+            value
+          FROM value_changes
+          WHERE prev_value IS NULL OR prev_value != value
+        )
         SELECT 
           system,
-          ts as start_time,
-          next_ts as end_time,
-          error_value
-        FROM value_changes
-        WHERE prev_value IS NULL OR ABS(prev_value - error_value) > 0.5
-      )
-      SELECT 
-        system,
-        start_time,
-        COALESCE(end_time, $2) as end_time,
-        error_value as value
-      FROM range_starts
-      ORDER BY system, start_time
-    `;
-        try {
-            const result = await this.pool.query(query, [startTime, endTime]);
-            const grouped = {};
-            systems.forEach((sys) => {
-                grouped[sys.toUpperCase()] = [];
-            });
-            result.rows.forEach((row) => {
-                const systemKey = row.system.toUpperCase();
-                if (grouped[systemKey]) {
-                    grouped[systemKey].push({
-                        startTime: new Date(row.start_time),
-                        endTime: new Date(row.end_time),
-                        value: row.value,
-                        system: row.system,
-                        metric: common_3.UnitMetric.ZoneTemperature,
-                    });
-                }
-            });
-            return systems.map((sys) => ({
+          start_time,
+          COALESCE(end_time, $2) as end_time,
+          value
+        FROM range_starts
+        ORDER BY system, start_time
+      `;
+            try {
+                const result = await this.pool.query(query, [startTime, endTime]);
+                result.rows.forEach((row) => {
+                    const systemKey = row.system.toUpperCase();
+                    if (grouped[systemKey]) {
+                        grouped[systemKey].push({
+                            startTime: new Date(row.start_time),
+                            endTime: new Date(row.end_time),
+                            value: row.value,
+                            system: row.system,
+                            metric,
+                        });
+                    }
+                });
+            }
+            catch (error) {
+                this.logger.error("Error fetching multi-system ranges", error);
+                throw error;
+            }
+        }
+        const results = systems.map((sys) => {
+            const ranges = grouped[sys.toUpperCase()] || [];
+            const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, sys, metric, this.configService.historian.topicMap);
+            const errors = [];
+            if (ranges.length === 0) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+            }
+            return {
                 system: sys,
-                ranges: grouped[sys.toUpperCase()] || [],
-            }));
+                ranges,
+                metadata: { topics: { [metric]: topicPath }, errors },
+            };
+        });
+        deniedSystems.forEach((sys) => {
+            const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, sys, metric, this.configService.historian.topicMap);
+            results.push({
+                system: sys,
+                ranges: [],
+                metadata: {
+                    topics: { [metric]: topicPath },
+                    errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
+                },
+            });
+        });
+        return results;
+    }
+    async getMultiSystemSetpointErrorRanges(campus, building, systems, deniedSystems, startTime, endTime) {
+        if (systems.length === 0 && deniedSystems.length === 0) {
+            return [];
         }
-        catch (error) {
-            this.logger.error("Error fetching setpoint error ranges", error);
-            throw error;
+        const grouped = {};
+        systems.forEach((sys) => {
+            grouped[sys.toUpperCase()] = [];
+        });
+        if (systems.length > 0) {
+            const query = `
+        WITH zone_temps AS (
+          SELECT
+            UPPER(split_part(topic_name, '/', 3)) as system,
+            ts,
+            CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
+          FROM data
+          NATURAL JOIN topics
+          WHERE topic_name LIKE '${campus}/${building}/%/ZoneTemperature'
+            AND ts >= $1
+            AND ts <= $2
+        ),
+        zone_setpoints AS (
+          SELECT
+            UPPER(split_part(topic_name, '/', 3)) as system,
+            ts,
+            CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
+          FROM data
+          NATURAL JOIN topics
+          WHERE topic_name LIKE '${campus}/${building}/%/EffectiveZoneTemperatureSetPoint'
+            AND ts >= $1
+            AND ts <= $2
+        ),
+        error_data AS (
+          SELECT 
+            t.system,
+            t.ts,
+            ROUND((t.temp_value - s.sp_value)::numeric, 1) AS error_value
+          FROM zone_temps t
+          JOIN zone_setpoints s ON t.system = s.system AND t.ts = s.ts
+          WHERE t.temp_value IS NOT NULL AND s.sp_value IS NOT NULL
+          ORDER BY t.system, t.ts
+        ),
+        value_changes AS (
+          SELECT 
+            system,
+            ts,
+            error_value,
+            LAG(error_value) OVER (PARTITION BY system ORDER BY ts) as prev_value,
+            LEAD(ts) OVER (PARTITION BY system ORDER BY ts) as next_ts
+          FROM error_data
+        ),
+        range_starts AS (
+          SELECT 
+            system,
+            ts as start_time,
+            next_ts as end_time,
+            error_value
+          FROM value_changes
+          WHERE prev_value IS NULL OR ABS(prev_value - error_value) > 0.5
+        )
+        SELECT 
+          system,
+          start_time,
+          COALESCE(end_time, $2) as end_time,
+          error_value as value
+        FROM range_starts
+        ORDER BY system, start_time
+      `;
+            try {
+                const result = await this.pool.query(query, [startTime, endTime]);
+                result.rows.forEach((row) => {
+                    const systemKey = row.system.toUpperCase();
+                    if (grouped[systemKey]) {
+                        grouped[systemKey].push({
+                            startTime: new Date(row.start_time),
+                            endTime: new Date(row.end_time),
+                            value: row.value,
+                            system: row.system,
+                            metric: common_3.UnitMetric.ZoneTemperature,
+                        });
+                    }
+                });
+            }
+            catch (error) {
+                this.logger.error("Error fetching setpoint error ranges", error);
+                throw error;
+            }
         }
+        const tempMetric = common_3.UnitMetric.ZoneTemperature;
+        const spMetric = common_3.UnitMetric.EffectiveZoneTemperatureSetPoint;
+        const results = systems.map((sys) => {
+            const ranges = grouped[sys.toUpperCase()] || [];
+            const tempPath = (0, metrics_1.buildUnitTopicPath)(campus, building, sys, tempMetric, this.configService.historian.topicMap);
+            const spPath = (0, metrics_1.buildUnitTopicPath)(campus, building, sys, spMetric, this.configService.historian.topicMap);
+            const errors = [];
+            if (ranges.length === 0) {
+                errors.push(`No setpoint error data found for ${sys} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+            }
+            return {
+                system: sys,
+                ranges,
+                metadata: {
+                    topics: { [tempMetric]: tempPath, [spMetric]: spPath },
+                    errors,
+                },
+            };
+        });
+        deniedSystems.forEach((sys) => {
+            const tempPath = (0, metrics_1.buildUnitTopicPath)(campus, building, sys, tempMetric, this.configService.historian.topicMap);
+            const spPath = (0, metrics_1.buildUnitTopicPath)(campus, building, sys, spMetric, this.configService.historian.topicMap);
+            results.push({
+                system: sys,
+                ranges: [],
+                metadata: {
+                    topics: { [tempMetric]: tempPath, [spMetric]: spPath },
+                    errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
+                },
+            });
+        });
+        return results;
     }
     async calculateSetpointError(campus, building, system, startTime, endTime) {
-        const tempPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, common_3.UnitMetric.ZoneTemperature, this.configService.historian.topicMap);
-        const setpointPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, common_3.UnitMetric.EffectiveZoneTemperatureSetPoint, this.configService.historian.topicMap);
+        const errors = [];
+        const tempMetric = common_3.UnitMetric.ZoneTemperature;
+        const spMetric = common_3.UnitMetric.EffectiveZoneTemperatureSetPoint;
+        const tempPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, tempMetric, this.configService.historian.topicMap);
+        const setpointPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, spMetric, this.configService.historian.topicMap);
+        const topics = {
+            [tempMetric]: tempPath,
+            [spMetric]: setpointPath,
+        };
         const query = `
       WITH zone_temps AS (
         SELECT
@@ -594,15 +872,25 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 startTime,
                 endTime,
             ]);
-            return result.rows.map((row) => ({
+            if (result.rows.length === 0) {
+                errors.push(`No setpoint error data found for ${system} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+            }
+            const data = result.rows.map((row) => ({
                 timestamp: new Date(row.timestamp),
                 value: typeof row.value === "string" ? parseFloat(row.value) : null,
                 system,
-                metric: common_3.UnitMetric.ZoneTemperature,
+                metric: tempMetric,
             }));
+            return {
+                system,
+                metric: tempMetric,
+                data,
+                metadata: { topics, errors },
+            };
         }
         catch (error) {
             this.logger.error("Error calculating setpoint error", error);
+            errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }

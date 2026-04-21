@@ -7,6 +7,7 @@ import {
   HistorianDataPoint,
   HistorianTimeSeries,
   HistorianAggregate,
+  HistorianAggregateResult,
   HistorianMetricCurrent,
   HistorianMultiSystemData,
   HistorianReplicationInfo,
@@ -26,6 +27,7 @@ export class HistorianObject {
   readonly HistorianDataPoint;
   readonly HistorianTimeSeries;
   readonly HistorianAggregate;
+  readonly HistorianAggregateResult;
   readonly HistorianMetricCurrent;
   readonly HistorianMultiSystemData;
   readonly HistorianReplicationInfo;
@@ -86,6 +88,11 @@ export class HistorianObject {
     this.HistorianMetricCurrent = builder.addScalarType(
       "HistorianMetricCurrent",
       new GraphQLScalarType<HistorianMetricCurrent, unknown>({ name: "HistorianMetricCurrent" }),
+    );
+
+    this.HistorianAggregateResult = builder.addScalarType(
+      "HistorianAggregateResult",
+      new GraphQLScalarType<HistorianAggregateResult, unknown>({ name: "HistorianAggregateResult" }),
     );
 
     this.HistorianMultiSystemData = builder.addScalarType(

@@ -1555,7 +1555,7 @@ __metadata:
 
 "@local/common@file:../common::locator=server%40workspace%3A.":
   version: 2.0.4
-  resolution: "@local/common@file:../common#../common::hash=54aa07&locator=server%40workspace%3A."
+  resolution: "@local/common@file:../common#../common::hash=bc2f91&locator=server%40workspace%3A."
   dependencies:
     "@local/prisma": "file:../prisma"
     "@prisma/client": "npm:^6.9.0"
@@ -1564,25 +1564,25 @@ __metadata:
   peerDependencies:
     "@local/prisma": "*"
     "@prisma/client": ^6.6.0
-  checksum: 10/85a85abbc7f5a6f03ae78ae48e22890f1f0aa073234e14da061d28993a6f68139bd86b21c49960ea78a6673ef12991f03f4235108f82a0f56430e6dfce5eb859
+  checksum: 10/7011bfeecb9c0d74427213deda050c34ff9feed9410362c6e1fef113a96026caafc2f1d4b18a3422bab5c70de5c9aa2f61774847f54469e2e5c59ae06e7ee0b4
   languageName: node
   linkType: hard
 
-"@local/prisma@file:../prisma::locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3D54aa07%26locator%3Dserver%2540workspace%253A.":
+"@local/prisma@file:../prisma::locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3Dbc2f91%26locator%3Dserver%2540workspace%253A.":
   version: 2.0.4
-  resolution: "@local/prisma@file:../prisma#../prisma::hash=e8b49f&locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3D54aa07%26locator%3Dserver%2540workspace%253A."
+  resolution: "@local/prisma@file:../prisma#../prisma::hash=8b89c3&locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3Dbc2f91%26locator%3Dserver%2540workspace%253A."
   peerDependencies:
     "@prisma/client": ^6.6.0
-  checksum: 10/4f6ff61acd71e0d268b27dc96b202ccd0b1e709f3a07af911f96ca08013c61b6e8ae01ea484df9fd829f2c4b60ed196384f89545ebddc5396afb7b28fd2b651c
+  checksum: 10/85bcce8c038c7cff8d50604c21dfa611af0b0e4733ecd0c535592adc2e2867be6e31da82f5270ed2b5c9d1f5c87e0d05c13c4b7eedb0558d21a70bf08f4c2def
   languageName: node
   linkType: hard
 
 "@local/prisma@file:../prisma::locator=server%40workspace%3A.":
   version: 2.0.4
-  resolution: "@local/prisma@file:../prisma#../prisma::hash=e8b49f&locator=server%40workspace%3A."
+  resolution: "@local/prisma@file:../prisma#../prisma::hash=8b89c3&locator=server%40workspace%3A."
   peerDependencies:
     "@prisma/client": ^6.6.0
-  checksum: 10/4f6ff61acd71e0d268b27dc96b202ccd0b1e709f3a07af911f96ca08013c61b6e8ae01ea484df9fd829f2c4b60ed196384f89545ebddc5396afb7b28fd2b651c
+  checksum: 10/85bcce8c038c7cff8d50604c21dfa611af0b0e4733ecd0c535592adc2e2867be6e31da82f5270ed2b5c9d1f5c87e0d05c13c4b7eedb0558d21a70bf08f4c2def
   languageName: node
   linkType: hard
 

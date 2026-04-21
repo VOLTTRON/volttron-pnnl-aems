@@ -154,6 +154,36 @@ export const UnitMetricInfo: Record<UnitMetric, MetricInfo> = {
 };
 
 /**
+ * Default database mappings for weather metrics
+ * These map the enum values to their database/topic representations
+ */
+export const DefaultWeatherMetricMappings: Record<WeatherMetric, string> = {
+  [WeatherMetric.AirPressure]: "air_pressure",
+  [WeatherMetric.AirPressureAtMeanSeaLevel]: "air_pressure_at_mean_sea_level",
+  [WeatherMetric.AirTemperature]: "air_temperature",
+  [WeatherMetric.DewPointTemperature]: "dew_point_temperature",
+  [WeatherMetric.HeatIndex]: "heatIndex",
+  [WeatherMetric.HeightAboveMeanSeaLevel]: "height_above_mean_sea_level",
+  [WeatherMetric.PrecipitationLast3Hours]: "precipitationLast3Hours",
+  [WeatherMetric.PrecipitationLastHour]: "precipitationLastHour",
+  [WeatherMetric.RelativeHumidity]: "relative_humidity",
+  [WeatherMetric.VisibilityInAir]: "visibility_in_air",
+  [WeatherMetric.WindFromDirection]: "wind_from_direction",
+  [WeatherMetric.WindSpeed]: "wind_speed",
+  [WeatherMetric.WindSpeedOfGust]: "wind_speed_of_gust",
+  [WeatherMetric.WindChill]: "windChill",
+};
+
+/**
+ * Default database mappings for meter metrics
+ * These map the enum values to their database/topic representations
+ */
+export const DefaultMeterMetricMappings: Record<MeterMetric, string> = {
+  [MeterMetric.Power]: "WholeBuildingPower",
+  [MeterMetric.Demand]: "Demand",
+};
+
+/**
  * Metadata for weather metrics
  */
 export const WeatherMetricInfo: Record<WeatherMetric, MetricInfo> = {
@@ -289,12 +319,8 @@ export function generateDefaultTopicMapConfig(): HistorianTopicMapConfig {
     unitMetrics: Object.fromEntries(
       Object.values(UnitMetric).map((m) => [m, m]),
     ) as Record<UnitMetric, string>,
-    weatherMetrics: Object.fromEntries(
-      Object.values(WeatherMetric).map((m) => [m, m]),
-    ) as Record<WeatherMetric, string>,
-    meterMetrics: Object.fromEntries(
-      Object.values(MeterMetric).map((m) => [m, m]),
-    ) as Record<MeterMetric, string>,
+    weatherMetrics: { ...DefaultWeatherMetricMappings },
+    meterMetrics: { ...DefaultMeterMetricMappings },
   };
 }
 
@@ -328,7 +354,7 @@ export function buildWeatherTopicPath(
   topicMap?: Partial<HistorianTopicMapConfig>,
 ): string {
   const template = topicMap?.templates?.Weather ?? DefaultTopicTemplates.Weather;
-  const metricName = topicMap?.weatherMetrics?.[metric] ?? metric;
+  const metricName = topicMap?.weatherMetrics?.[metric] ?? DefaultWeatherMetricMappings[metric] ?? metric;
 
   return template
     .replace("{campus}", campus)
@@ -346,7 +372,7 @@ export function buildMeterTopicPath(
   topicMap?: Partial<HistorianTopicMapConfig>,
 ): string {
   const template = topicMap?.templates?.Meter ?? DefaultTopicTemplates.Meter;
-  const metricName = topicMap?.meterMetrics?.[metric] ?? metric;
+  const metricName = topicMap?.meterMetrics?.[metric] ?? DefaultMeterMetricMappings[metric] ?? metric;
 
   return template
     .replace("{campus}", campus)

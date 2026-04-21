@@ -12,6 +12,8 @@ export interface MetricInfo {
     unit?: string;
 }
 export declare const UnitMetricInfo: Record<UnitMetric, MetricInfo>;
+export declare const DefaultWeatherMetricMappings: Record<WeatherMetric, string>;
+export declare const DefaultMeterMetricMappings: Record<MeterMetric, string>;
 export declare const WeatherMetricInfo: Record<WeatherMetric, MetricInfo>;
 export declare const MeterMetricInfo: Record<MeterMetric, MetricInfo>;
 export declare function getMetricTopicName(metric: UnitMetric | WeatherMetric | MeterMetric): string;

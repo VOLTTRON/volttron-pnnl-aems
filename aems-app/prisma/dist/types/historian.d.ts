@@ -22,24 +22,28 @@ export declare enum UnitMetric {
     ZoneTemperature = "ZoneTemperature"
 }
 export declare enum WeatherMetric {
-    AirPressure = "air_pressure",
-    AirPressureAtMeanSeaLevel = "air_pressure_at_mean_sea_level",
-    AirTemperature = "air_temperature",
-    DewPointTemperature = "dew_point_temperature",
-    HeatIndex = "heatIndex",
-    HeightAboveMeanSeaLevel = "height_above_mean_sea_level",
-    PrecipitationLast3Hours = "precipitationLast3Hours",
-    PrecipitationLastHour = "precipitationLastHour",
-    RelativeHumidity = "relative_humidity",
-    VisibilityInAir = "visibility_in_air",
-    WindFromDirection = "wind_from_direction",
-    WindSpeed = "wind_speed",
-    WindSpeedOfGust = "wind_speed_of_gust",
-    WindChill = "windChill"
+    AirPressure = "AirPressure",
+    AirPressureAtMeanSeaLevel = "AirPressureAtMeanSeaLevel",
+    AirTemperature = "AirTemperature",
+    DewPointTemperature = "DewPointTemperature",
+    HeatIndex = "HeatIndex",
+    HeightAboveMeanSeaLevel = "HeightAboveMeanSeaLevel",
+    PrecipitationLast3Hours = "PrecipitationLast3Hours",
+    PrecipitationLastHour = "PrecipitationLastHour",
+    RelativeHumidity = "RelativeHumidity",
+    VisibilityInAir = "VisibilityInAir",
+    WindFromDirection = "WindFromDirection",
+    WindSpeed = "WindSpeed",
+    WindSpeedOfGust = "WindSpeedOfGust",
+    WindChill = "WindChill"
 }
 export declare enum MeterMetric {
-    Power = "WholeBuildingPower",
+    Power = "Power",
     Demand = "Demand"
+}
+export interface HistorianQueryMetadata {
+    topics: Record<string, string>;
+    errors: string[];
 }
 export interface HistorianDataPoint {
     timestamp: Date;
@@ -51,21 +55,28 @@ export interface HistorianTimeSeries {
     system: string;
     metric: UnitMetric | WeatherMetric | MeterMetric;
     data: HistorianDataPoint[];
+    metadata: HistorianQueryMetadata;
 }
 export interface HistorianAggregate {
     timestamp: Date;
     value: number | null;
     metric: UnitMetric | WeatherMetric | MeterMetric;
 }
+export interface HistorianAggregateResult {
+    aggregates: HistorianAggregate[];
+    metadata: HistorianQueryMetadata;
+}
 export interface HistorianMetricCurrent {
     system: string;
     metric: UnitMetric | WeatherMetric | MeterMetric;
     value: number | null;
     timestamp: Date;
+    metadata: HistorianQueryMetadata;
 }
 export interface HistorianMultiSystemData {
     system: string;
     data: HistorianDataPoint[];
+    metadata: HistorianQueryMetadata;
 }
 export interface HistorianDataRange {
     startTime: Date;
@@ -77,6 +88,7 @@ export interface HistorianDataRange {
 export interface HistorianMultiSystemRanges {
     system: string;
     ranges: HistorianDataRange[];
+    metadata: HistorianQueryMetadata;
 }
 export declare enum AggregationType {
     Sum = "Sum",

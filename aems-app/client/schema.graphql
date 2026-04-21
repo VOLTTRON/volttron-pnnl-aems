@@ -912,6 +912,8 @@ input GeographyUniqueFilter {
 
 scalar HistorianAggregate
 
+scalar HistorianAggregateResult
+
 scalar HistorianDataPoint
 
 scalar HistorianMetricCurrent
@@ -1195,6 +1197,12 @@ input LogUniqueFilter {
 input LogUpdateInput {
   message: String
   type: LogType
+}
+
+"""Available metrics for meter data (building-level power/demand)"""
+enum MeterMetric {
+  Demand
+  Power
 }
 
 enum ModeType {
@@ -1611,6 +1619,25 @@ type Query {
   """Group a list of user."""
   groupUsers(aggregate: UserAggregate, by: [UserFields!]!, where: UserFilter): [UserGroupBy!]
 
+  """Get aggregated data for a meter metric"""
+  historianMeterAggregated(
+    aggregation: AggregationType!
+    building: String!
+    campus: String!
+    endTime: DateTime!
+
+    """e.g., '1m', '5m', '1h'"""
+    interval: String!
+    metric: MeterMetric!
+    startTime: DateTime!
+  ): HistorianAggregateResult
+
+  """Get the current (latest) value for a meter metric"""
+  historianMeterCurrentValue(building: String!, campus: String!, metric: MeterMetric!): HistorianMetricCurrent
+
+  """Get time series data for a meter metric"""
+  historianMeterTimeSeries(building: String!, campus: String!, endTime: DateTime!, metric: MeterMetric!, startTime: DateTime!): HistorianTimeSeries
+
   """
   Get data for multiple systems with the same unit metric (for comparison charts)
   """
@@ -1632,7 +1659,7 @@ type Query {
   historianReplicationInfo: HistorianReplicationInfo
 
   """Calculate setpoint error (zone temp - setpoint) for a system"""
-  historianSetpointError(building: String!, campus: String!, endTime: DateTime!, startTime: DateTime!, system: String!): [HistorianDataPoint!]
+  historianSetpointError(building: String!, campus: String!, endTime: DateTime!, startTime: DateTime!, system: String!): HistorianTimeSeries
 
   """Get aggregated data for a unit metric"""
   historianUnitAggregated(
@@ -1646,7 +1673,7 @@ type Query {
     metric: UnitMetric!
     startTime: DateTime!
     system: String!
-  ): [HistorianAggregate!]
+  ): HistorianAggregateResult
 
   """Get the current (latest) value for a unit metric"""
   historianUnitCurrentValue(building: String!, campus: String!, metric: UnitMetric!, system: String!): HistorianMetricCurrent
@@ -1665,7 +1692,7 @@ type Query {
     interval: String!
     metric: WeatherMetric!
     startTime: DateTime!
-  ): [HistorianAggregate!]
+  ): HistorianAggregateResult
 
   """Get the current (latest) value for a weather metric"""
   historianWeatherCurrentValue(building: String!, campus: String!, metric: WeatherMetric!): HistorianMetricCurrent

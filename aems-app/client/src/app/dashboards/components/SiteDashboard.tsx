@@ -20,6 +20,7 @@ import { typeofString } from "@local/common";
 import { Palettes } from "@/utils/palette";
 import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
 import { optimizeSystemNames } from "@/utils/systemNameOptimizer";
+import { useMetricColors } from "@/utils/metricColors";
 
 interface SiteDashboardProps {
   campus: string;
@@ -47,12 +48,17 @@ export function SiteDashboard({
   // Get user palette preferences
   const { preferences } = React.useContext(PreferencesContext);
   const { current } = React.useContext(CurrentContext);
-  const { palette1, palette2, palette3 } = compilePreferences(preferences, current?.preferences);
+  const { palette1, palette2, palette3, paletteWarm, paletteCool } = compilePreferences(preferences, current?.preferences);
 
   // Load palettes: primary for temps, secondary for demands, tertiary for status
   const primaryPalette = Palettes.getPalette(palette1 || "Radiant Harmony");
   const secondaryPalette = Palettes.getPalette(palette2 || "Desert Oasis");
   const tertiaryPalette = Palettes.getPalette(palette3 || "Pastel Dreams");
+  const warmPalette = Palettes.getPalette(paletteWarm || "Red");
+  const coolPalette = Palettes.getPalette(paletteCool || "Blue");
+
+  // Shared metric → color map and unit color pool
+  const { metricColors, getUnitColor } = useMetricColors(primaryPalette, secondaryPalette, tertiaryPalette, warmPalette, coolPalette);
 
   // Extract system names for queries and unit names for display
   const unitSystems = units
@@ -116,13 +122,25 @@ export function SiteDashboard({
   const setpointErrorData = React.useMemo(() => {
     const results = [
       unitSystems[0] && setpointErrorData1?.historianSetpointError
-        ? { system: unitSystems[0], data: setpointErrorData1.historianSetpointError }
+        ? {
+            system: unitSystems[0],
+            data: setpointErrorData1.historianSetpointError.data,
+            metadata: { topics: {}, errors: [] },
+          }
         : null,
       unitSystems[1] && setpointErrorData2?.historianSetpointError
-        ? { system: unitSystems[1], data: setpointErrorData2.historianSetpointError }
+        ? {
+            system: unitSystems[1],
+            data: setpointErrorData2.historianSetpointError.data,
+            metadata: { topics: {}, errors: [] },
+          }
         : null,
       unitSystems[2] && setpointErrorData3?.historianSetpointError
-        ? { system: unitSystems[2], data: setpointErrorData3.historianSetpointError }
+        ? {
+            system: unitSystems[2],
+            data: setpointErrorData3.historianSetpointError.data,
+            metadata: { topics: {}, errors: [] },
+          }
         : null,
     ].filter((r) => r !== null);
 
@@ -542,8 +560,8 @@ export function SiteDashboard({
                           type: "line" as const,
                           smooth: true,
                           sampling: "lttb" as const,
-                          itemStyle: { color: secondaryPalette.primary.hex },
-                          lineStyle: { color: secondaryPalette.primary.hex, width: 2 },
+                          itemStyle: { color: metricColors[WeatherMetric.AirTemperature] },
+                          lineStyle: { color: metricColors[WeatherMetric.AirTemperature], width: 2 },
                           data:
                             weatherData.historianWeatherTimeSeries.data?.map((point: any) => [
                               point.timestamp,
@@ -552,14 +570,14 @@ export function SiteDashboard({
                         },
                       ]
                     : []),
-                  // Unit sensor outdoor temperatures
-                  ...(outdoorTempData?.historianMultiSystemUnit?.map((systemData: any, index: number) => ({
+                  // Unit sensor outdoor temperatures — each system gets a unique pool color
+                  ...(outdoorTempData?.historianMultiSystemUnit?.map((systemData: any) => ({
                     name: `${systemData.system} Sensor`,
                     type: "line" as const,
                     smooth: true,
                     sampling: "lttb" as const,
-                    itemStyle: { color: primaryPalette.getColor(index % 5).hex },
-                    lineStyle: { color: primaryPalette.getColor(index % 5).hex },
+                    itemStyle: { color: getUnitColor(systemData.system) },
+                    lineStyle: { color: getUnitColor(systemData.system) },
                     data: systemData.data?.map((point: any) => [point.timestamp, point.value]) || [],
                   })) || []),
                 ],

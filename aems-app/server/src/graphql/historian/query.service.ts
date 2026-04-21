@@ -3,6 +3,7 @@ import { SchemaBuilderService } from "../builder.service";
 import { PothosQuery } from "../pothos.decorator";
 import { HistorianService } from "@/historian/historian.service";
 import { HistorianObject } from "./object.service";
+import { UnitMetric } from "@local/common";
 
 @Injectable()
 @PothosQuery()
@@ -72,7 +73,15 @@ export class HistorianQuery {
           );
 
           if (accessControl.allowedSystems.length === 0) {
-            return { system: args.system, metric: args.metric, data: [] };
+            return { 
+              system: args.system, 
+              metric: args.metric, 
+              data: [],
+              metadata: {
+                topics: {},
+                errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/${args.system}`]
+              }
+            };
           }
 
           return historianService.getUnitTimeSeries(
@@ -92,7 +101,7 @@ export class HistorianQuery {
       t.field({
         description: "Get aggregated data for a unit metric",
         authScopes: { user: true },
-        type: [historianObject.HistorianAggregate],
+        type: historianObject.HistorianAggregateResult,
         args: {
           campus: t.arg.string({ required: true }),
           building: t.arg.string({ required: true }),
@@ -112,9 +121,16 @@ export class HistorianQuery {
           );
 
           if (accessControl.allowedSystems.length === 0) {
-            return [];
+            return {
+              aggregates: [],
+              metadata: {
+                topics: {},
+                errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/${args.system}`],
+              },
+            };
           }
 
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return historianService.getUnitAggregated(
             args.campus,
             args.building,
@@ -184,7 +200,15 @@ export class HistorianQuery {
           );
 
           if (accessControl.allowedSystems.length === 0) {
-            return { system: "weather", metric: args.metric, data: [] };
+            return { 
+              system: "weather", 
+              metric: args.metric, 
+              data: [],
+              metadata: {
+                topics: {},
+                errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/weather`]
+              }
+            };
           }
 
           return historianService.getWeatherTimeSeries(
@@ -203,7 +227,7 @@ export class HistorianQuery {
       t.field({
         description: "Get aggregated data for a weather metric",
         authScopes: { user: true },
-        type: [historianObject.HistorianAggregate],
+        type: historianObject.HistorianAggregateResult,
         args: {
           campus: t.arg.string({ required: true }),
           building: t.arg.string({ required: true }),
@@ -222,9 +246,16 @@ export class HistorianQuery {
           );
 
           if (accessControl.allowedSystems.length === 0) {
-            return [];
+            return {
+              aggregates: [],
+              metadata: {
+                topics: {},
+                errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/weather`],
+              },
+            };
           }
 
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return historianService.getWeatherAggregated(
             args.campus,
             args.building,
@@ -293,7 +324,15 @@ export class HistorianQuery {
           );
 
           if (accessControl.allowedSystems.length === 0) {
-            return { system: "meter", metric: args.metric, data: [] };
+            return { 
+              system: "meter", 
+              metric: args.metric, 
+              data: [],
+              metadata: {
+                topics: {},
+                errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/meter`]
+              }
+            };
           }
 
           return historianService.getMeterTimeSeries(
@@ -312,7 +351,7 @@ export class HistorianQuery {
       t.field({
         description: "Get aggregated data for a meter metric",
         authScopes: { user: true },
-        type: [historianObject.HistorianAggregate],
+        type: historianObject.HistorianAggregateResult,
         args: {
           campus: t.arg.string({ required: true }),
           building: t.arg.string({ required: true }),
@@ -331,9 +370,16 @@ export class HistorianQuery {
           );
 
           if (accessControl.allowedSystems.length === 0) {
-            return [];
+            return {
+              aggregates: [],
+              metadata: {
+                topics: {},
+                errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/meter`],
+              },
+            };
           }
 
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return historianService.getMeterAggregated(
             args.campus,
             args.building,
@@ -374,25 +420,21 @@ export class HistorianQuery {
             args.systems,
           );
 
-          if (accessControl.allowedSystems.length === 0) {
-            return [];
-          }
-
           const allowedSystems = accessControl.allowedSystems.map((s) => s.system);
+          const deniedSystems = args.systems.filter(
+            (s) => !allowedSystems.map((a) => a.toLowerCase()).includes(s.toLowerCase()),
+          );
 
-          const result = await historianService.getMultiSystemUnit(
+          return historianService.getMultiSystemUnit(
             args.campus,
             args.building,
             allowedSystems,
+            deniedSystems,
             args.metric,
             args.startTime,
             args.endTime,
             args.interval ?? undefined,
           );
-          return Object.entries(result).map(([system, data]) => ({
-            system,
-            data,
-          }));
         },
       }),
     );
@@ -406,7 +448,7 @@ export class HistorianQuery {
       t.field({
         description: "Calculate setpoint error (zone temp - setpoint) for a system",
         authScopes: { user: true },
-        type: [historianObject.HistorianDataPoint],
+        type: historianObject.HistorianTimeSeries,
         args: {
           campus: t.arg.string({ required: true }),
           building: t.arg.string({ required: true }),
@@ -423,7 +465,15 @@ export class HistorianQuery {
           );
 
           if (accessControl.allowedSystems.length === 0) {
-            return [];
+            return {
+              system: args.system,
+              metric: UnitMetric.ZoneTemperature,
+              data: [],
+              metadata: {
+                topics: {},
+                errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}/${args.system}`],
+              },
+            };
           }
 
           return historianService.calculateSetpointError(
