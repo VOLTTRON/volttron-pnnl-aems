@@ -958,7 +958,7 @@ export function UnitDashboard({
             <ECharts
               option={{
                 animation: false,
-                title: { text: unit.system || unit.name || "" },
+                title: { text: unit.label || unit.name || "" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: {
                   trigger: "axis",

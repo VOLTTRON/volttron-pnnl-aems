@@ -70,7 +70,7 @@ export default function DashboardsPage() {
                   href={`/dashboards/${encodeURIComponent(campus).toLocaleLowerCase()}/${encodeURIComponent(building).toLocaleLowerCase()}/${encodeURIComponent(unit.system || unit.name || unit.id || "").toLocaleLowerCase()}`}
                 >
                   <Card interactive className={styles.card}>
-                    <h4>Unit {unit.system || unit.name}</h4>
+                    <h4>Unit {unit.label || unit.system || unit.name}</h4>
                     <p>View detailed unit metrics and controls</p>
                   </Card>
                 </Link>
