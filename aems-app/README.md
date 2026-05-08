@@ -3142,54 +3142,7 @@ This project utilizes a Gitflow workflow. While this method works well for small
 
 ## License
 
-This project is developed by Pacific Northwest National Laboratory (PNNL) and is operated by Battelle for the United States Department of Energy under Contract DE-AC05-76RL01830.
-
-### Copyright Notice
-
-```
-**************************************************************************************************************************
-This computer software was prepared by Battelle Memorial Institute, hereinafter the Contractor, under Contract No.
-DE-AC05-76RL01830 with the Department of Energy (DOE). All rights in the computer software are reserved by
-DOE on behalf of the United States Government and the Contractor as provided in the Contract. You are authorized
-to use this computer software for Governmental purposes but it is not to be released or distributed to the public.
-
-This material was prepared as an account of work sponsored by an agency of the United States Government. Neither
-the United States Government nor the United States Department of Energy, nor the Contractor, nor any of their
-employees, nor any jurisdiction or organization that has cooperated in the development of these materials, makes
-any warranty, express or implied, or assumes any legal liability or responsibility for the accuracy, completeness,
-or usefulness of any information, apparatus, product, software, or process disclosed, or represents that its use
-would not infringe privately owned rights.
-
-                                     PACIFIC NORTHWEST NATIONAL LABORATORY
-                                                  operated by
-                                                   BATTELLE
-                                                    for the
-                                       UNITED STATES DEPARTMENT OF ENERGY
-                                        under Contract DE-AC05-76RL01830
-**************************************************************************************************************************
-```
-
-### Usage Rights
-
-- **Governmental Use**: Authorized for use by government agencies and contractors
-- **Internal Development**: Permitted for PNNL internal projects and research
-- **Educational Use**: Allowed for academic and research purposes within authorized institutions
-- **Commercial Use**: Requires explicit permission and licensing agreements
-
-### Restrictions
-
-- **Public Distribution**: Not authorized for public release or distribution
-- **Third-party Sharing**: Requires prior approval from PNNL and DOE
-- **Modification**: Changes must be documented and approved through proper channels
-- **Export Control**: Subject to U.S. export control regulations
-
-### Contact Information
-
-For licensing inquiries, permissions, or questions about usage rights:
-
-- **Technical Contact**: [Amelia Bleeker](mailto:amelia.bleeker@pnnl.gov)
-- **Legal/Licensing**: PNNL Technology Transfer Office
-- **Repository**: [https://tanuki.pnnl.gov/amelia.bleeker/skeleton](https://tanuki.pnnl.gov/amelia.bleeker/skeleton)
+See top level repository directory.
 
 ### Third-party Dependencies
 
