@@ -15,7 +15,7 @@ export declare class ConfigurationMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.ConfigurationCreateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.ConfigurationCreateInput, {
         stage: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
@@ -39,20 +39,20 @@ export declare class ConfigurationMutation {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.OccupancyCreateNestedManyWithoutConfigurationInput>;
+        }>, import("@prisma/client").Prisma.OccupancyCreateNestedManyWithoutConfigurationInput>;
         holidays: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.HolidayCreateNestedManyWithoutConfigurationsInput>;
+        }>, import("@prisma/client").Prisma.HolidayCreateNestedManyWithoutConfigurationsInput>;
     }>>;
     readonly ConfigurationUpdate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.ConfigurationUpdateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.ConfigurationUpdateInput, {
         stage: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
@@ -68,75 +68,75 @@ export declare class ConfigurationMutation {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.SetpointUpdateOneWithoutConfigurationsNestedInput>;
+        }>, import("@prisma/client").Prisma.SetpointUpdateOneWithoutConfigurationsNestedInput>;
         mondayScheduleId: "String";
         mondaySchedule: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ScheduleUpdateOneWithoutMondayConfigurationsNestedInput>;
+        }>, import("@prisma/client").Prisma.ScheduleUpdateOneWithoutMondayConfigurationsNestedInput>;
         tuesdayScheduleId: "String";
         tuesdaySchedule: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ScheduleUpdateOneWithoutTuesdayConfigurationsNestedInput>;
+        }>, import("@prisma/client").Prisma.ScheduleUpdateOneWithoutTuesdayConfigurationsNestedInput>;
         wednesdayScheduleId: "String";
         wednesdaySchedule: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ScheduleUpdateOneWithoutWednesdayConfigurationsNestedInput>;
+        }>, import("@prisma/client").Prisma.ScheduleUpdateOneWithoutWednesdayConfigurationsNestedInput>;
         thursdayScheduleId: "String";
         thursdaySchedule: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ScheduleUpdateOneWithoutThursdayConfigurationsNestedInput>;
+        }>, import("@prisma/client").Prisma.ScheduleUpdateOneWithoutThursdayConfigurationsNestedInput>;
         fridayScheduleId: "String";
         fridaySchedule: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ScheduleUpdateOneWithoutFridayConfigurationsNestedInput>;
+        }>, import("@prisma/client").Prisma.ScheduleUpdateOneWithoutFridayConfigurationsNestedInput>;
         saturdayScheduleId: "String";
         saturdaySchedule: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ScheduleUpdateOneWithoutSaturdayConfigurationsNestedInput>;
+        }>, import("@prisma/client").Prisma.ScheduleUpdateOneWithoutSaturdayConfigurationsNestedInput>;
         sundayScheduleId: "String";
         sundaySchedule: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ScheduleUpdateOneWithoutSundayConfigurationsNestedInput>;
+        }>, import("@prisma/client").Prisma.ScheduleUpdateOneWithoutSundayConfigurationsNestedInput>;
         holidayScheduleId: "String";
         holidaySchedule: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ScheduleUpdateOneWithoutHolidayConfigurationsNestedInput>;
+        }>, import("@prisma/client").Prisma.ScheduleUpdateOneWithoutHolidayConfigurationsNestedInput>;
         occupancies: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.OccupancyUpdateManyWithoutConfigurationNestedInput>;
+        }>, import("@prisma/client").Prisma.OccupancyUpdateManyWithoutConfigurationNestedInput>;
         holidays: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.HolidayUpdateManyWithoutConfigurationsNestedInput>;
+        }>, import("@prisma/client").Prisma.HolidayUpdateManyWithoutConfigurationsNestedInput>;
     }>>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, configurationQuery: ConfigurationQuery, setpointMutation: SetpointMutation, scheduleMutation: ScheduleMutation, occupancyQuery: OccupancyQuery, occupancyMutation: OccupancyMutation, holidayQuery: HolidayQuery, holidayMutation: HolidayMutation, changeService: ChangeService);
 }

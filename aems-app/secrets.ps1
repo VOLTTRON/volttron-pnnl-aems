@@ -51,18 +51,28 @@ Get-Content $SECRETS_FILE | ForEach-Object {
     
     # Write value to secret file
     Set-Content -Path $secret_file -Value $value -NoNewline
-    
-    # Set file permissions (Windows equivalent of chmod 600)
-    $acl = Get-Acl $secret_file
-    $acl.SetAccessRuleProtection($true, $false)
-    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-        [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
-        "FullControl",
-        "Allow"
-    )
-    $acl.SetAccessRule($rule)
-    Set-Acl $secret_file $acl
-    
+
+    # Try to tighten ACLs to chmod-600-equivalent. Disabling inheritance
+    # requires SeSecurityPrivilege which non-elevated shells don't hold, so
+    # warn and move on if it fails — the user's home directory is already
+    # scoped to their account and the secrets dir is gitignored.
+    try {
+        $acl = Get-Acl $secret_file
+        $acl.SetAccessRuleProtection($true, $false)
+        $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+            [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+            "FullControl",
+            "Allow"
+        )
+        $acl.SetAccessRule($rule)
+        Set-Acl $secret_file $acl
+    } catch [System.Security.AccessControl.PrivilegeNotHeldException] {
+        if (-not $script:AclWarnShown) {
+            Write-Host "  (note: skipping ACL tightening - run from an elevated PowerShell to disable inheritance)"
+            $script:AclWarnShown = $true
+        }
+    }
+
     Write-Host "  Created: $secret_file"
 }
 
@@ -98,16 +108,20 @@ MYSQL_PASSWORD_FILE=/run/secrets/bookstack_database_password
 
 Set-Content -Path $SECRETS_ENV_FILE -Value $envContent
 
-# Set file permissions
-$acl = Get-Acl $SECRETS_ENV_FILE
-$acl.SetAccessRuleProtection($true, $false)
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-    [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
-    "FullControl",
-    "Allow"
-)
-$acl.SetAccessRule($rule)
-Set-Acl $SECRETS_ENV_FILE $acl
+# Tighten ACLs; skip gracefully if the shell isn't elevated (see note above).
+try {
+    $acl = Get-Acl $SECRETS_ENV_FILE
+    $acl.SetAccessRuleProtection($true, $false)
+    $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+        [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+        "FullControl",
+        "Allow"
+    )
+    $acl.SetAccessRule($rule)
+    Set-Acl $SECRETS_ENV_FILE $acl
+} catch [System.Security.AccessControl.PrivilegeNotHeldException] {
+    # Already warned in the per-secret loop above.
+}
 
 Write-Host "  Created: $SECRETS_ENV_FILE"
 

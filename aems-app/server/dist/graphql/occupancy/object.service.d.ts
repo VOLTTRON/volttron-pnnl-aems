@@ -8,7 +8,7 @@ export declare class OccupancyObject {
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Occupancy";
-        Shape: import(".prisma/client").Occupancy;
+        Shape: import("@prisma/client").Occupancy;
         Include: Prisma.OccupancyInclude;
         Select: Prisma.OccupancySelect;
         OrderBy: Prisma.OccupancyOrderByWithRelationInput;
@@ -20,12 +20,12 @@ export declare class OccupancyObject {
         ListRelations: never;
         Relations: {
             schedule: {
-                Shape: import(".prisma/client").Schedule | null;
+                Shape: import("@prisma/client").Schedule | null;
                 Name: "Schedule";
                 Nullable: true;
             };
             configuration: {
-                Shape: import(".prisma/client").Configuration | null;
+                Shape: import("@prisma/client").Configuration | null;
                 Name: "Configuration";
                 Nullable: true;
             };
@@ -35,7 +35,7 @@ export declare class OccupancyObject {
         createdAt: Date;
         updatedAt: Date;
         message: string | null;
-        stage: import(".prisma/client").$Enums.ModelStage;
+        stage: import("@prisma/client").$Enums.ModelStage;
         correlation: string | null;
         label: string;
         configurationId: string | null;

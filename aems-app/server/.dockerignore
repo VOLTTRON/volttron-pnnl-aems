@@ -12,3 +12,6 @@ LICENSE
 *.log*
 .env*.local
 coverage
+dist
+.yarn/cache
+.yarn/install-state.gz

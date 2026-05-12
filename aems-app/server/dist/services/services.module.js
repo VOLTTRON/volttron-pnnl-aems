@@ -11,6 +11,10 @@ const common_1 = require("@nestjs/common");
 const log_service_1 = require("./log/log.service");
 const seed_service_1 = require("./seed/seed.service");
 const event_service_1 = require("./event/event.service");
+const backup_service_1 = require("./backup/backup.service");
+const backup_discovery_service_1 = require("./backup/backup-discovery.service");
+const backup_publisher_service_1 = require("./backup/backup-publisher.service");
+const backup_archive_service_1 = require("./backup/backup-archive.service");
 const schedule_1 = require("@nestjs/schedule");
 const prisma_module_1 = require("../prisma/prisma.module");
 const volttron_service_1 = require("./volttron.service");
@@ -25,7 +29,20 @@ exports.ServicesModule = ServicesModule = __decorate([
     (0, common_1.Module)({
         imports: [schedule_1.ScheduleModule.forRoot(), prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule],
         controllers: [],
-        providers: [log_service_1.LogService, seed_service_1.SeedService, event_service_1.EventService, volttron_service_1.VolttronService, config_service_1.ConfigService, control_service_1.ControlService, setup_service_1.SetupService],
+        providers: [
+            log_service_1.LogService,
+            seed_service_1.SeedService,
+            event_service_1.EventService,
+            volttron_service_1.VolttronService,
+            config_service_1.ConfigService,
+            control_service_1.ControlService,
+            setup_service_1.SetupService,
+            backup_service_1.BackupService,
+            backup_discovery_service_1.BackupDiscoveryService,
+            backup_publisher_service_1.BackupSubscriptionPublisher,
+            backup_archive_service_1.BackupArchiveService,
+        ],
+        exports: [backup_discovery_service_1.BackupDiscoveryService, backup_publisher_service_1.BackupSubscriptionPublisher, backup_archive_service_1.BackupArchiveService],
     })
 ], ServicesModule);
 //# sourceMappingURL=services.module.js.map

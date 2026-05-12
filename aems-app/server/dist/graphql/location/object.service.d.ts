@@ -8,7 +8,7 @@ export declare class LocationObject {
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Location";
-        Shape: import(".prisma/client").Location;
+        Shape: import("@prisma/client").Location;
         Include: Prisma.LocationInclude;
         Select: Prisma.LocationSelect;
         OrderBy: Prisma.LocationOrderByWithRelationInput;
@@ -20,7 +20,7 @@ export declare class LocationObject {
         ListRelations: "units";
         Relations: {
             units: {
-                Shape: import(".prisma/client").Unit[];
+                Shape: import("@prisma/client").Unit[];
                 Name: "Unit";
                 Nullable: false;
             };

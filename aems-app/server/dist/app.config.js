@@ -244,6 +244,14 @@ class AppConfigService {
                     unit: toDurationUnit(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_EVENT_AGE ?? "")?.[0] ?? "milliseconds"),
                 },
             },
+            backup: {
+                workspace: process.env.BACKUP_WORKSPACE ?? "",
+                workerToken: (0, readSecret_1.readSecret)("WORKER_TOKEN", ""),
+                composeProfiles: (process.env.COMPOSE_PROFILES ?? "")
+                    .split(/[\s,]+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+            },
             config: {
                 timeout: parseInt(process.env.SERVICE_CONFIG_TIMEOUT ?? "5000"),
                 authUrl: process.env.SERVICE_CONFIG_AUTH_URL ?? "",
@@ -282,6 +290,14 @@ class AppConfigService {
             configPath: process.env.GRAFANA_CONFIG_PATH ?? "",
             username: process.env.GRAFANA_USERNAME ?? "",
             password: process.env.GRAFANA_PASSWORD ?? "",
+            backup: {
+                workspace: process.env.BACKUP_WORKSPACE ?? "",
+                workerToken: (0, readSecret_1.readSecret)("WORKER_TOKEN", ""),
+                composeProfiles: (process.env.COMPOSE_PROFILES ?? "")
+                    .split(/[\s,]+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+            },
         };
         this.cors = {
             origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,

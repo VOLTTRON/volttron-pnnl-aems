@@ -1,0 +1,15 @@
+{
+  "name": "@local/backup-worker",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sidecar worker: polls the server's internal /worker/backup API for queued runs, executes backup.sh, streams NDJSON progress back via HTTP.",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {}
+}

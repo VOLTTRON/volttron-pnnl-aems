@@ -9,7 +9,7 @@ export declare class AuthController {
     private logger;
     constructor(prismaService: PrismaService, authService: AuthService, configService: AppConfigService);
     root(): {};
-    current(user: Express.User): import(".prisma/client").Prisma.Prisma__UserClient<{
+    current(user: Express.User): import("@prisma/client").Prisma.Prisma__UserClient<{
         name: string | null;
         role: string | null;
         id: string;
@@ -19,6 +19,6 @@ export declare class AuthController {
         preferences: PrismaJson.UserPreferences | null;
         createdAt: Date;
         updatedAt: Date;
-    }, never, import("@prisma/client/runtime/library").DefaultArgs, import(".prisma/client").Prisma.PrismaClientOptions> | null;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs, import("@prisma/client").Prisma.PrismaClientOptions> | null;
     logout(req: Request, res: Response, user: Express.User): Promise<void | Response<any, Record<string, any>>>;
 }

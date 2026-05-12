@@ -19,42 +19,84 @@ RUN apk add --no-cache curl
 
 # setup yarn
 RUN corepack enable
-RUN corepack prepare yarn@4.1.0 --activate
+RUN yarn config set proxy $HTTP_PROXY
+RUN yarn config set https-proxy $HTTPS_PROXY
+RUN yarn config set no-proxy $NO_PROXY
+RUN yarn config set "strict-ssl" false
 
-# Install client dependencies
-FROM base AS deps
+# Build the client (and its workspace dependencies) from source.
+#
+# Portal-symlink layout (created by `yarn install` in each workspace):
+#   client/node_modules/@local/prisma       -> /app/prisma
+#   client/node_modules/@local/common       -> /app/common
+#   client/node_modules/@prisma/client      -> /app/prisma/node_modules/@prisma/client
+#   common/node_modules/@prisma/client      -> /app/prisma/node_modules/@prisma/client
+#   common/node_modules/@local/prisma       -> /app/prisma
+#
+# For these yarn-portal symlinks to resolve at compile time, every portal
+# target must be in its final on-disk location BEFORE the consuming
+# workspace runs `yarn install`. We therefore copy all three workspace
+# source trees up front, then install/build in dependency order.
+#
+# The root-level .dockerignore excludes **/node_modules from the build
+# context, which is essential on Windows hosts: without it, host NTFS
+# junctions in common/node_modules and client/node_modules get copied
+# into the image as Linux symlinks pointing at Windows paths (e.g.
+# C:/Users/.../prisma), and yarn refuses to overwrite the broken links
+# during `yarn install`.
+FROM base AS builder
 RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
-# Copy pre-built prisma library (dist + prisma directory + package files)
-COPY prisma/package.json prisma/yarn.lock prisma/.yarnrc.yml ./prisma/
-COPY prisma/dist/ ./prisma/dist/
-COPY prisma/prisma/ ./prisma/prisma/
+# Copy all workspace sources up front so portal targets are in their
+# final locations when any `yarn install` runs.
+COPY prisma/ ./prisma/
+COPY common/ ./common/
+COPY client/ ./client/
 
-# Copy pre-built common library (dist + package files)
-COPY common/package.json common/yarn.lock common/.yarnrc.yml ./common/
-COPY common/dist/ ./common/dist/
-
-# Install client dependencies
-WORKDIR /app/client
-COPY client/package.json client/yarn.lock client/.yarnrc.yml ./
+# Build prisma from source. Its postinstall runs `prisma generate`,
+# populating /app/prisma/node_modules/@prisma/client; then tsc emits
+# /app/prisma/dist.
+WORKDIR /app/prisma
 RUN yarn install
+RUN yarn build
 
-# Build the client application
-FROM base AS builder
+# Build common from source. Its portal dep on @prisma/client resolves
+# to /app/prisma/node_modules/@prisma/client (populated above); tsc
+# emits /app/common/dist.
+WORKDIR /app/common
+RUN yarn install
+RUN yarn build
+
+# Install client dependencies and build. Portal deps on @local/prisma,
+# @local/common, and @prisma/client all resolve because the targets are
+# already present on disk from the steps above. Next.js's standalone
+# output traces these symlinks and inlines the referenced files into
+# .next/standalone, so the runner stage doesn't need /app/prisma or
+# /app/common.
 WORKDIR /app/client
-COPY --from=deps /app/client/node_modules/ ./node_modules/
-COPY --from=deps /app/prisma/ /app/prisma/
-COPY --from=deps /app/common/ /app/common/
-COPY client/ ./
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build the application
+RUN yarn install
+
+# Expose Prisma's generated client (`.prisma/client/`) inside the client's
+# own node_modules. `@prisma/client/default.js` does
+# `require('.prisma/client/default')`, which Node resolves by walking up
+# `node_modules/` from the requiring file. During `next build`'s page-data
+# collection, @prisma/client is externalized and loaded from
+# /app/client/node_modules/@prisma/client (the portal symlink). Next's
+# require-hook reports the symlink path, not the portal-target realpath,
+# so the walk-up searches /app/client/node_modules/ — which does not
+# contain `.prisma/` unless we put it there. The generated client itself
+# lives at /app/prisma/node_modules/.prisma/ (populated by prisma's
+# postinstall); symlinking to it avoids duplicating the binary artefacts.
+RUN ln -s /app/prisma/node_modules/.prisma /app/client/node_modules/.prisma
+
 RUN yarn build
 
 # Production image, copy all the files and run next

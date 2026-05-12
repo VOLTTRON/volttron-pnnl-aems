@@ -8,7 +8,7 @@ export declare class CommentObject {
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Comment";
-        Shape: import(".prisma/client").Comment;
+        Shape: import("@prisma/client").Comment;
         Include: Prisma.CommentInclude;
         Select: Prisma.CommentSelect;
         OrderBy: Prisma.CommentOrderByWithRelationInput;
@@ -20,7 +20,7 @@ export declare class CommentObject {
         ListRelations: never;
         Relations: {
             user: {
-                Shape: import(".prisma/client").User | null;
+                Shape: import("@prisma/client").User | null;
                 Name: "User";
                 Nullable: true;
             };

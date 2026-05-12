@@ -32,6 +32,7 @@ const object_service_15 = require("./setpoint/object.service");
 const object_service_16 = require("./unit/object.service");
 const object_service_17 = require("./user/object.service");
 const object_service_18 = require("./historian/object.service");
+const object_service_19 = require("./backup/object.service");
 const query_service_1 = require("./account/query.service");
 const query_service_2 = require("./banner/query.service");
 const query_service_3 = require("./change/query.service");
@@ -51,6 +52,7 @@ const query_service_16 = require("./setpoint/query.service");
 const query_service_17 = require("./unit/query.service");
 const query_service_18 = require("./user/query.service");
 const query_service_19 = require("./historian/query.service");
+const query_service_20 = require("./backup/query.service");
 const mutate_service_1 = require("./account/mutate.service");
 const mutate_service_2 = require("./banner/mutate.service");
 const mutate_service_3 = require("./change/mutate.service");
@@ -70,6 +72,10 @@ const mutate_service_16 = require("./unit/mutate.service");
 const mutate_service_17 = require("./user/mutate.service");
 const change_module_1 = require("../change/change.module");
 const historian_module_1 = require("../historian/historian.module");
+const mutate_service_18 = require("./backup/mutate.service");
+const backup_discovery_service_1 = require("../services/backup/backup-discovery.service");
+const backup_publisher_service_1 = require("../services/backup/backup-publisher.service");
+const backup_archive_service_1 = require("../services/backup/backup-archive.service");
 let SchemaModule = SchemaModule_1 = class SchemaModule {
     static register() {
         return {
@@ -77,6 +83,9 @@ let SchemaModule = SchemaModule_1 = class SchemaModule {
             imports: [core_1.DiscoveryModule, prisma_module_1.PrismaModule, subscription_module_1.SubscriptionModule, change_module_1.ChangeModule, historian_module_1.HistorianModule],
             providers: [
                 builder_service_1.SchemaBuilderService,
+                backup_discovery_service_1.BackupDiscoveryService,
+                backup_publisher_service_1.BackupSubscriptionPublisher,
+                backup_archive_service_1.BackupArchiveService,
                 {
                     provide: `${pothos_decorator_1.PothosObjectKey.toString()}s`,
                     inject: [core_1.DiscoveryService],
@@ -110,6 +119,9 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
         exports: [builder_service_1.SchemaBuilderService],
         providers: [
             builder_service_1.SchemaBuilderService,
+            backup_discovery_service_1.BackupDiscoveryService,
+            backup_publisher_service_1.BackupSubscriptionPublisher,
+            backup_archive_service_1.BackupArchiveService,
             object_service_1.AccountObject,
             object_service_2.BannerObject,
             object_service_3.ChangeObject,
@@ -129,6 +141,7 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             object_service_3.ChangeObject,
             object_service_16.UnitObject,
             object_service_18.HistorianObject,
+            object_service_19.BackupObject,
             query_service_1.AccountQuery,
             query_service_2.BannerQuery,
             query_service_3.ChangeQuery,
@@ -149,6 +162,7 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             query_service_3.ChangeQuery,
             query_service_17.UnitQuery,
             query_service_19.HistorianQuery,
+            query_service_20.BackupQuery,
             mutate_service_1.AccountMutation,
             mutate_service_2.BannerMutation,
             mutate_service_3.ChangeMutation,
@@ -167,6 +181,7 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             mutate_service_17.UserMutation,
             mutate_service_3.ChangeMutation,
             mutate_service_16.UnitMutation,
+            mutate_service_18.BackupMutation,
         ],
     })
 ], SchemaModule);
