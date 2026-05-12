@@ -9,6 +9,7 @@ import {
   HistorianWeatherTimeSeriesDocument,
   UnitMetric,
   WeatherMetric,
+  HistorianMeterTimeSeriesDocument,
 } from "@/graphql-codegen/graphql";
 import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
@@ -17,6 +18,7 @@ import styles from "./UnitDashboard.module.scss";
 import { Palettes } from "@/utils/palette";
 import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
 import { useMetricColors } from "@/utils/metricColors";
+import { MeterMetric } from "@local/prisma";
 
 interface Unit {
   name?: string | null;
@@ -379,6 +381,17 @@ export function UnitDashboard({
       building: unitBuilding,
       system: unitSystem,
       metric: UnitMetric.ReversingValve,
+      startTime,
+      endTime,
+    },
+  });
+
+  // Power data - using meter data
+  const { data: powerData, loading: powerLoading } = useQuery(HistorianMeterTimeSeriesDocument, {
+    variables: {
+      campus: unitCampus,
+      building: unitBuilding,
+      metric: MeterMetric.Power,
       startTime,
       endTime,
     },
@@ -1183,6 +1196,77 @@ export function UnitDashboard({
                 })(),
               }}
               style={{ height: "580px" }}
+              theme={mode}
+            />
+          )}
+        </Card>
+      </div>
+
+      <div className={styles.grid}>
+        <Card className={styles.chartCard} style={{ height: "400px" }}>
+          {powerLoading ? (
+            <div className={styles.chartLoading} style={{ height: "400px" }}>
+              <Spinner />
+            </div>
+          ) : (
+            <ECharts
+              option={{
+                animation: false,
+                title: { text: "Building Power" },
+                backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+                tooltip: {
+                  trigger: "axis",
+                  renderMode: "richText",
+                  appendToBody: true,
+                  axisPointer: {
+                    animation: false,
+                  },
+                  valueFormatter: (value: any) => {
+                    if (value == null) return "N/A";
+                    if (typeof value !== "number") return String(value);
+                    return `${value.toFixed(2)} W`;
+                  },
+                },
+                legend: { bottom: 0, show: true },
+                dataZoom: [
+                  {
+                    type: "slider",
+                    realtime: false,
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                    bottom: 60,
+                    height: 20,
+                  },
+                  {
+                    type: "inside",
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                  },
+                ],
+                grid: { top: 60, right: 60, bottom: 110, left: 60 },
+                xAxis: { type: "time", min: startTime, max: endTime },
+                yAxis: { type: "value", name: "Power (W)", position: "left", nameTextStyle: { align: "left" } },
+                series: powerData?.historianMeterTimeSeries
+                  ? [
+                      {
+                        name: "Building Power",
+                        type: "line",
+                        smooth: true,
+                        sampling: "lttb" as const,
+                        itemStyle: { color: secondaryPalette.secondary.hex }, // Use secondary palette for power/demand
+                        lineStyle: { color: secondaryPalette.secondary.hex },
+                        data:
+                          powerData.historianMeterTimeSeries.data?.map((point: any) => [
+                            point.timestamp,
+                            point.value,
+                          ]) || [],
+                      },
+                    ]
+                  : [],
+              }}
+              style={{ height: "380px" }}
               theme={mode}
             />
           )}

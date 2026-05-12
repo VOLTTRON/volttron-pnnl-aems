@@ -11,12 +11,13 @@ import {
   ReadUnitsQuery,
   UnitMetric,
   WeatherMetric,
+  HistorianMeterTimeSeriesDocument,
 } from "@/graphql-codegen/graphql";
 import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
 import styles from "./SiteDashboard.module.scss";
-import { typeofString } from "@local/common";
+import { MeterMetric, typeofString } from "@local/common";
 import { Palettes } from "@/utils/palette";
 import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
 import { optimizeSystemNames } from "@/utils/systemNameOptimizer";
@@ -48,7 +49,10 @@ export function SiteDashboard({
   // Get user palette preferences
   const { preferences } = React.useContext(PreferencesContext);
   const { current } = React.useContext(CurrentContext);
-  const { palette1, palette2, palette3, paletteWarm, paletteCool } = compilePreferences(preferences, current?.preferences);
+  const { palette1, palette2, palette3, paletteWarm, paletteCool } = compilePreferences(
+    preferences,
+    current?.preferences,
+  );
 
   // Load palettes: primary for temps, secondary for demands, tertiary for status
   const primaryPalette = Palettes.getPalette(palette1 || "Radiant Harmony");
@@ -58,7 +62,13 @@ export function SiteDashboard({
   const coolPalette = Palettes.getPalette(paletteCool || "Blue");
 
   // Shared metric → color map and unit color pool
-  const { metricColors, getUnitColor } = useMetricColors(primaryPalette, secondaryPalette, tertiaryPalette, warmPalette, coolPalette);
+  const { metricColors, getUnitColor } = useMetricColors(
+    primaryPalette,
+    secondaryPalette,
+    tertiaryPalette,
+    warmPalette,
+    coolPalette,
+  );
 
   // Extract system names for queries and unit names for display
   const unitSystems = units
@@ -173,13 +183,11 @@ export function SiteDashboard({
   });
 
   // Power data - using meter data
-  // Note: The actual metric name for power may need to be verified in the schema
-  const { data: powerData, loading: powerLoading } = useQuery(HistorianUnitTimeSeriesDocument, {
+  const { data: powerData, loading: powerLoading } = useQuery(HistorianMeterTimeSeriesDocument, {
     variables: {
       campus: campus,
       building: building,
-      system: "meter",
-      metric: UnitMetric.HeartBeat, // Placeholder - actual power metric may need to be added to schema
+      metric: MeterMetric.Power, // Placeholder - actual power metric may need to be added to schema
       startTime,
       endTime,
     },
@@ -633,7 +641,7 @@ export function SiteDashboard({
                 grid: { top: 60, right: 60, bottom: 110, left: 60 },
                 xAxis: { type: "time", min: startTime, max: endTime },
                 yAxis: { type: "value", name: "Power (W)", position: "left", nameTextStyle: { align: "left" } },
-                series: powerData?.historianUnitTimeSeries
+                series: powerData?.historianMeterTimeSeries
                   ? [
                       {
                         name: "Building Power",
@@ -643,8 +651,10 @@ export function SiteDashboard({
                         itemStyle: { color: secondaryPalette.secondary.hex }, // Use secondary palette for power/demand
                         lineStyle: { color: secondaryPalette.secondary.hex },
                         data:
-                          powerData.historianUnitTimeSeries.data?.map((point: any) => [point.timestamp, point.value]) ||
-                          [],
+                          powerData.historianMeterTimeSeries.data?.map((point: any) => [
+                            point.timestamp,
+                            point.value,
+                          ]) || [],
                       },
                     ]
                   : [],
