@@ -11,6 +11,7 @@ import {
 import { BackupComponentStatus, BackupComponentType, BackupKeyAlgorithm, BackupRunStatus } from "@prisma/client";
 import { BackupWorkerService, ClaimResult } from "./backup.service";
 import { WorkerTokenGuard } from "./token.guard";
+import { Public } from "@/auth/public.decorator";
 
 /**
  * Internal REST API for the backup sidecar.
@@ -24,6 +25,7 @@ import { WorkerTokenGuard } from "./token.guard";
  * rejects any request missing the shared X-Worker-Token header.
  */
 @Controller("worker/backup")
+@Public()
 @UseGuards(WorkerTokenGuard)
 export class BackupWorkerController {
   private readonly logger = new Logger(BackupWorkerController.name);
