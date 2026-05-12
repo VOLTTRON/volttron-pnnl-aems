@@ -1,5 +1,5 @@
 /* eslint-disable */
-import type { Prisma, Account, Banner, Comment, Event, Feedback, File, Geography, Log, Seed, Session, User, VerificationToken } from "@prisma/client";
+import type { Prisma, Account, BackupPolicy, BackupDestination, BackupRun, BackupComponent, BackupRunDestination, BackupKey, Banner, Comment, Event, Feedback, File, Geography, Log, Seed, Session, User, VerificationToken } from "@prisma/client";
 export default interface PrismaTypes {
     Account: {
         Name: "Account";
@@ -18,6 +18,156 @@ export default interface PrismaTypes {
                 Shape: User;
                 Name: "User";
                 Nullable: false;
+            };
+        };
+    };
+    BackupPolicy: {
+        Name: "BackupPolicy";
+        Shape: BackupPolicy;
+        Include: Prisma.BackupPolicyInclude;
+        Select: Prisma.BackupPolicySelect;
+        OrderBy: Prisma.BackupPolicyOrderByWithRelationInput;
+        WhereUnique: Prisma.BackupPolicyWhereUniqueInput;
+        Where: Prisma.BackupPolicyWhereInput;
+        Create: Prisma.BackupPolicyCreateInput;
+        Update: Prisma.BackupPolicyUpdateInput;
+        RelationName: "destinations" | "runs";
+        ListRelations: "destinations" | "runs";
+        Relations: {
+            destinations: {
+                Shape: BackupDestination[];
+                Name: "BackupDestination";
+                Nullable: false;
+            };
+            runs: {
+                Shape: BackupRun[];
+                Name: "BackupRun";
+                Nullable: false;
+            };
+        };
+    };
+    BackupDestination: {
+        Name: "BackupDestination";
+        Shape: BackupDestination;
+        Include: Prisma.BackupDestinationInclude;
+        Select: Prisma.BackupDestinationSelect;
+        OrderBy: Prisma.BackupDestinationOrderByWithRelationInput;
+        WhereUnique: Prisma.BackupDestinationWhereUniqueInput;
+        Where: Prisma.BackupDestinationWhereInput;
+        Create: Prisma.BackupDestinationCreateInput;
+        Update: Prisma.BackupDestinationUpdateInput;
+        RelationName: "policy" | "runs";
+        ListRelations: "runs";
+        Relations: {
+            policy: {
+                Shape: BackupPolicy;
+                Name: "BackupPolicy";
+                Nullable: false;
+            };
+            runs: {
+                Shape: BackupRunDestination[];
+                Name: "BackupRunDestination";
+                Nullable: false;
+            };
+        };
+    };
+    BackupRun: {
+        Name: "BackupRun";
+        Shape: BackupRun;
+        Include: Prisma.BackupRunInclude;
+        Select: Prisma.BackupRunSelect;
+        OrderBy: Prisma.BackupRunOrderByWithRelationInput;
+        WhereUnique: Prisma.BackupRunWhereUniqueInput;
+        Where: Prisma.BackupRunWhereInput;
+        Create: Prisma.BackupRunCreateInput;
+        Update: Prisma.BackupRunUpdateInput;
+        RelationName: "policy" | "requestedBy" | "components" | "destinations";
+        ListRelations: "components" | "destinations";
+        Relations: {
+            policy: {
+                Shape: BackupPolicy;
+                Name: "BackupPolicy";
+                Nullable: false;
+            };
+            requestedBy: {
+                Shape: User | null;
+                Name: "User";
+                Nullable: true;
+            };
+            components: {
+                Shape: BackupComponent[];
+                Name: "BackupComponent";
+                Nullable: false;
+            };
+            destinations: {
+                Shape: BackupRunDestination[];
+                Name: "BackupRunDestination";
+                Nullable: false;
+            };
+        };
+    };
+    BackupComponent: {
+        Name: "BackupComponent";
+        Shape: BackupComponent;
+        Include: Prisma.BackupComponentInclude;
+        Select: Prisma.BackupComponentSelect;
+        OrderBy: Prisma.BackupComponentOrderByWithRelationInput;
+        WhereUnique: Prisma.BackupComponentWhereUniqueInput;
+        Where: Prisma.BackupComponentWhereInput;
+        Create: Prisma.BackupComponentCreateInput;
+        Update: Prisma.BackupComponentUpdateInput;
+        RelationName: "run";
+        ListRelations: never;
+        Relations: {
+            run: {
+                Shape: BackupRun;
+                Name: "BackupRun";
+                Nullable: false;
+            };
+        };
+    };
+    BackupRunDestination: {
+        Name: "BackupRunDestination";
+        Shape: BackupRunDestination;
+        Include: Prisma.BackupRunDestinationInclude;
+        Select: Prisma.BackupRunDestinationSelect;
+        OrderBy: Prisma.BackupRunDestinationOrderByWithRelationInput;
+        WhereUnique: Prisma.BackupRunDestinationWhereUniqueInput;
+        Where: Prisma.BackupRunDestinationWhereInput;
+        Create: Prisma.BackupRunDestinationCreateInput;
+        Update: Prisma.BackupRunDestinationUpdateInput;
+        RelationName: "run" | "destination";
+        ListRelations: never;
+        Relations: {
+            run: {
+                Shape: BackupRun;
+                Name: "BackupRun";
+                Nullable: false;
+            };
+            destination: {
+                Shape: BackupDestination;
+                Name: "BackupDestination";
+                Nullable: false;
+            };
+        };
+    };
+    BackupKey: {
+        Name: "BackupKey";
+        Shape: BackupKey;
+        Include: Prisma.BackupKeyInclude;
+        Select: Prisma.BackupKeySelect;
+        OrderBy: Prisma.BackupKeyOrderByWithRelationInput;
+        WhereUnique: Prisma.BackupKeyWhereUniqueInput;
+        Where: Prisma.BackupKeyWhereInput;
+        Create: Prisma.BackupKeyCreateInput;
+        Update: Prisma.BackupKeyUpdateInput;
+        RelationName: "acknowledgedBy";
+        ListRelations: never;
+        Relations: {
+            acknowledgedBy: {
+                Shape: User | null;
+                Name: "User";
+                Nullable: true;
             };
         };
     };
@@ -175,16 +325,22 @@ export default interface PrismaTypes {
     Session: {
         Name: "Session";
         Shape: Session;
-        Include: never;
+        Include: Prisma.SessionInclude;
         Select: Prisma.SessionSelect;
         OrderBy: Prisma.SessionOrderByWithRelationInput;
         WhereUnique: Prisma.SessionWhereUniqueInput;
         Where: Prisma.SessionWhereInput;
         Create: Prisma.SessionCreateInput;
         Update: Prisma.SessionUpdateInput;
-        RelationName: never;
+        RelationName: "user";
         ListRelations: never;
-        Relations: {};
+        Relations: {
+            user: {
+                Shape: User;
+                Name: "User";
+                Nullable: false;
+            };
+        };
     };
     User: {
         Name: "User";
@@ -196,12 +352,22 @@ export default interface PrismaTypes {
         Where: Prisma.UserWhereInput;
         Create: Prisma.UserCreateInput;
         Update: Prisma.UserUpdateInput;
-        RelationName: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files";
-        ListRelations: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files";
+        RelationName: "accounts" | "verificationTokens" | "sessions" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "requestedBackupRuns" | "acknowledgedBackupKeys";
+        ListRelations: "accounts" | "verificationTokens" | "sessions" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "requestedBackupRuns" | "acknowledgedBackupKeys";
         Relations: {
             accounts: {
                 Shape: Account[];
                 Name: "Account";
+                Nullable: false;
+            };
+            verificationTokens: {
+                Shape: VerificationToken[];
+                Name: "VerificationToken";
+                Nullable: false;
+            };
+            sessions: {
+                Shape: Session[];
+                Name: "Session";
                 Nullable: false;
             };
             comments: {
@@ -229,20 +395,36 @@ export default interface PrismaTypes {
                 Name: "File";
                 Nullable: false;
             };
+            requestedBackupRuns: {
+                Shape: BackupRun[];
+                Name: "BackupRun";
+                Nullable: false;
+            };
+            acknowledgedBackupKeys: {
+                Shape: BackupKey[];
+                Name: "BackupKey";
+                Nullable: false;
+            };
         };
     };
     VerificationToken: {
         Name: "VerificationToken";
         Shape: VerificationToken;
-        Include: never;
+        Include: Prisma.VerificationTokenInclude;
         Select: Prisma.VerificationTokenSelect;
         OrderBy: Prisma.VerificationTokenOrderByWithRelationInput;
         WhereUnique: Prisma.VerificationTokenWhereUniqueInput;
         Where: Prisma.VerificationTokenWhereInput;
         Create: Prisma.VerificationTokenCreateInput;
         Update: Prisma.VerificationTokenUpdateInput;
-        RelationName: never;
+        RelationName: "user";
         ListRelations: never;
-        Relations: {};
+        Relations: {
+            user: {
+                Shape: User;
+                Name: "User";
+                Nullable: false;
+            };
+        };
     };
 }

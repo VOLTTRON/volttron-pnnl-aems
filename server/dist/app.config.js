@@ -201,6 +201,14 @@ class AppConfigService {
                     unit: toDurationUnit(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_EVENT_AGE ?? "")?.[0] ?? "milliseconds"),
                 },
             },
+            backup: {
+                workspace: process.env.BACKUP_WORKSPACE ?? "",
+                workerToken: (0, readSecret_1.readSecret)("WORKER_TOKEN", ""),
+                composeProfiles: (process.env.COMPOSE_PROFILES ?? "")
+                    .split(/[\s,]+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+            },
         };
         this.cors = {
             origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,

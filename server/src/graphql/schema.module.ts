@@ -12,6 +12,7 @@ import { FileObject } from "./file/object.service";
 import { LogObject } from "./log/object.service";
 import { UserObject } from "./user/object.service";
 import { GeographyObject } from "./geography/object.service";
+import { BackupObject } from "./backup/object.service";
 import { AccountQuery } from "./account/query.service";
 import { BannerQuery } from "./banner/query.service";
 import { CommentQuery } from "./comment/query.service";
@@ -21,6 +22,7 @@ import { FileQuery } from "./file/query.service";
 import { LogQuery } from "./log/query.service";
 import { UserQuery } from "./user/query.service";
 import { GeographyQuery } from "./geography/query.service";
+import { BackupQuery } from "./backup/query.service";
 import { AccountMutation } from "./account/mutate.service";
 import { BannerMutation } from "./banner/mutate.service";
 import { CommentMutation } from "./comment/mutate.service";
@@ -29,12 +31,19 @@ import { FeedbackMutation } from "./feedback/mutate.service";
 import { FileMutation } from "./file/mutate.service";
 import { LogMutation } from "./log/mutate.service";
 import { UserMutation } from "./user/mutate.service";
+import { BackupMutation } from "./backup/mutate.service";
+import { BackupDiscoveryService } from "@/services/backup/backup-discovery.service";
+import { BackupSubscriptionPublisher } from "@/services/backup/backup-publisher.service";
+import { BackupArchiveService } from "@/services/backup/backup-archive.service";
 
 @Module({
   imports: [PrismaModule, SubscriptionModule],
   exports: [SchemaBuilderService],
   providers: [
     SchemaBuilderService,
+    BackupDiscoveryService,
+    BackupSubscriptionPublisher,
+    BackupArchiveService,
     AccountObject,
     BannerObject,
     CommentObject,
@@ -43,6 +52,7 @@ import { UserMutation } from "./user/mutate.service";
     LogObject,
     UserObject,
     GeographyObject,
+    BackupObject,
     AccountQuery,
     BannerQuery,
     CommentQuery,
@@ -52,6 +62,7 @@ import { UserMutation } from "./user/mutate.service";
     LogQuery,
     UserQuery,
     GeographyQuery,
+    BackupQuery,
     AccountMutation,
     BannerMutation,
     CommentMutation,
@@ -60,6 +71,7 @@ import { UserMutation } from "./user/mutate.service";
     FileMutation,
     LogMutation,
     UserMutation,
+    BackupMutation,
   ],
 })
 export class SchemaModule implements ModuleMetadata {
@@ -69,6 +81,9 @@ export class SchemaModule implements ModuleMetadata {
       imports: [DiscoveryModule, PrismaModule, SubscriptionModule],
       providers: [
         SchemaBuilderService,
+        BackupDiscoveryService,
+        BackupSubscriptionPublisher,
+        BackupArchiveService,
         {
           provide: `${PothosObjectKey.toString()}s`,
           inject: [DiscoveryService],

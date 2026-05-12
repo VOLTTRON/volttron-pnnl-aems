@@ -65,6 +65,7 @@
   - [Setup Keycloak](#setup-keycloak)
   - [Administration](#administration)
   - [Utilities](#utilities)
+  - [Backups](#backups)
 - [Development](#development)
   - [Node.js](#nodejs)
   - [Project Structure](#project-structure)
@@ -84,12 +85,7 @@
 - [Developing Towards the Skeleton Project](#developing-towards-the-skeleton-project)
   - [Branches](#branches)
   - [Workflow](#workflow)
-- [License](#license)
-  - [Copyright Notice](#copyright-notice)
-  - [Usage Rights](#usage-rights)
-  - [Restrictions](#restrictions)
-  - [Contact Information](#contact-information)
-  - [Third-party Dependencies](#third-party-dependencies)
+- [Contact Information](#contact-information)
 
 ---
 
@@ -170,6 +166,7 @@ graph TB
     subgraph DataTier["Data Tier"]
         Database[(PostgreSQL<br/>+ PostGIS)]
         Redis[(Redis<br/>Cache & Pub/Sub)]
+        KeycloakDB[(Keycloak DB<br/>PostgreSQL)]
     end
     
     subgraph Optional["Optional Services<br/>(Role-Based Access)"]
@@ -186,6 +183,7 @@ graph TB
     Client <-->|GraphQL/REST| Server
     Server --> AuthJS
     Server -.->|OAuth| Keycloak
+    Keycloak --> KeycloakDB
     AuthJS --> Redis
     
     Server -->|Check Roles<br/>Proxy Request| Maps
@@ -204,7 +202,7 @@ graph TB
     class Proxy edge
     class Client,Server app
     class Keycloak,AuthJS auth
-    class Database,Redis data
+    class Database,Redis,KeycloakDB data
     class Maps,Geocode,Wiki optional
 ```
 
@@ -301,6 +299,7 @@ graph TB
     subgraph Storage["Session Storage"]
         Redis[(Redis<br/>Session Store)]
         Database[(PostgreSQL<br/>User Data & Roles)]
+        KeycloakDB[(Keycloak DB<br/>PostgreSQL)]
     end
     
     subgraph ExtServices["External Services<br/>(Role-Protected)"]
@@ -332,7 +331,7 @@ graph TB
     Guards --> Database
     
     LocalAuth --> Database
-    Keycloak --> Database
+    Keycloak --> KeycloakDB
     SessionMgr --> Database
     
     classDef client fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
@@ -344,7 +343,7 @@ graph TB
     class NextAuth,SessionClient client
     class Guards,SessionMgr,TokenVerify,ExtProxy server
     class LocalAuth,Keycloak,OAuth providers
-    class Redis,Database storage
+    class Redis,Database,KeycloakDB storage
     class Maps,Geocode,Wiki external
 ```
 
@@ -1681,6 +1680,81 @@ Database user role management scripts for updating or removing user roles direct
 - Provides clear feedback on operation success/failure
 - Logs number of affected rows for verification
 
+### Backups
+
+Automated, encrypted backups of the full Docker Compose deployment are configured and driven entirely through the **Backups admin UI** (`/backups`). Policy, destinations, encryption keys, schedule, and the history of every run live in the database; implementation details are under [docker/backup/](./docker/backup/README.md).
+
+Admin UI tabs:
+
+- **Policy** — enable backups, set the cron schedule and retention in days, and choose what to back up. Services, volumes, bind paths, and env files are discovered from the live workspace and backed up by default; remove anything you want to skip (`excludeServices`, `excludeVolumes`, `excludePaths`, `excludeEnvFiles`). Type a path into the env-files picker to add files that aren't yet on disk (`extraEnvFiles`).
+- **Destinations** — add one or more `local` / `share` / `s3` targets. S3 destinations accept optional SSE-KMS settings. Each destination has retention applied independently.
+- **Keys** — the sidecar auto-generates an `age` keypair on first boot and registers it as the active `BackupKey`. Rotate, acknowledge, and **download the private key for offline safekeeping** from this tab — that download is required to restore archives.
+- **Runs** — trigger on-demand runs, cancel in-flight runs, and inspect per-component and per-destination results. Every scheduled and manual run produces a `BackupRun` row with status, duration, archive size, SHA-256, and manifest.
+
+Architecture:
+
+- **Scheduling**: the NestJS `BackupService` (`server/src/services/backup/backup.service.ts`) reads `BackupPolicy.cron` and registers a CronJob that inserts a `Queued` `BackupRun` row at each fire time. There is no host cron or Task Scheduler to manage.
+- **Execution**: the backup sidecar (`docker/backup/`) claims queued runs, spawns an internal `backup.sh` executor with DB-derived CLI flags, streams NDJSON progress events back into `BackupComponent` and `BackupRunDestination` rows, and flips the final `BackupRun` status.
+- **Discovery**: the executor derives its plan from the resolved `docker compose config`. New services added to `docker-compose.yml` are backed up automatically.
+- **Encryption (mandatory)**: backups refuse to run if no active `BackupKey` exists. The sidecar generates one on first boot and exports it to the executor; operators only interact with keys through the Keys tab.
+
+Restore (break-glass CLI):
+
+`backup-restore.sh` / `backup-restore.ps1` at the repo root are kept as a recovery tool because the UI and database may be unavailable when you need them most. The script decrypts the archive, verifies every file against `manifest.json`, prompts for confirmation, then restores databases (via `docker compose exec`), named volumes (via a throwaway `alpine:3` container), bind-mount paths, and included files (`.env`, etc.) back to the repo root.
+
+**Host prerequisites:** `docker`, `python3`, `tar`, `gzip`, and either `age` or `gpg` on `PATH`. The `aws` CLI is additionally required to pull an `s3://` archive. On Windows the PowerShell wrapper shells out to `bash.exe` from Git for Windows or Docker Desktop.
+
+**Restore steps, in order:**
+
+1. **Locate the encrypted archive.** Pick the `<project>-<timestamp>.tar.gz.age` (or `.gpg`) to restore from any configured destination — the local `./backups/` directory, a mounted network share, or an `s3://bucket/prefix/...` URL. The Runs tab in the admin UI lists every archive's path, size, and SHA-256 if the UI is still reachable.
+
+2. **Locate the matching private key.** An archive can only be decrypted with the key that was active when it was written. The current key lives at [docker/secrets/backup/age.key](./docker/secrets/backup/) on the host (bind-mounted into the sidecar at `/host-secrets/age.key`) and is also downloadable from the admin UI's Keys tab. If the archive predates a key rotation, use the offline copy of the older key instead.
+
+3. **Put the app in maintenance mode.** Restore overwrites live data. Stop user traffic at the proxy, or scale the client/server down — do not leave users writing to the database while the dump is replaying.
+
+4. **Start the services that will be restored into.** Database restores stream the dump back through `docker compose exec <service> psql|mariadb`, so the target DB container must be running and healthy. Volume and path restores don't require the owning service to be up, but the volume is recreated under the current `COMPOSE_PROJECT_NAME` prefix — make sure you're running the restore from the same repo checkout (same `.env`) that the target deployment uses.
+
+   ```bash
+   docker compose up -d database   # or whichever services you'll restore into
+   ```
+
+5. **Dry-run the restore** to download/decrypt the archive and verify every file against `manifest.json` without touching any live data:
+
+   ```bash
+   ./backup-restore.sh \
+       --archive ./backups/<project>-<ts>.tar.gz.age \
+       --identity ./docker/secrets/backup/age.key \
+       --dry-run
+   ```
+
+   Fix any checksum failures (typically a corrupted download) before continuing.
+
+6. **Run the real restore.** Drop `--dry-run` and answer `yes` at the confirmation prompt (or pass `--force` for unattended runs):
+
+   ```bash
+   ./backup-restore.sh \
+       --archive ./backups/<project>-<ts>.tar.gz.age \
+       --identity ./docker/secrets/backup/age.key
+   ```
+
+   Narrow the scope when you only need part of the archive:
+
+   - `--components databases,volumes,paths,includes` — restore one or more categories (default: `all`).
+   - `--only service1,service2` — restore specific databases/volumes/paths by name (overrides `--components`).
+
+   For `.gpg` archives, use `--gpg-key-file` in place of `--identity`. When run from inside the backup sidecar container, `BACKUP_AGE_IDENTITY` is already exported and the key flag can be omitted entirely.
+
+7. **Restart the stack** so services pick up any restored `.env` files, volumes, and database state:
+
+   ```bash
+   docker compose down
+   docker compose up -d
+   ```
+
+8. **Verify.** Log in, spot-check restored records, and confirm the Runs tab in the admin UI is reachable again. If a previously captured `.env` was restored on top of a newer one, reconcile any variables that have changed since the archive was written.
+
+See [docker/backup/README.md](./docker/backup/README.md) for the full pipeline description, architecture diagram, and per-component restore details.
+
 ## Development
 
 ### Node.js
@@ -2023,6 +2097,7 @@ INSTANCE_TYPE=^seed
 **Service Types:**
 - `seed` - Database seeding service
 - `log` - Log management and pruning service
+- `event` - Subscription event management and pruning service
 
 **Configuration Examples:**
 
@@ -2188,69 +2263,11 @@ This project utilizes a Gitflow workflow. While this method works well for small
   git push origin develop
   ```
 
-## License
-
-This project is developed by Pacific Northwest National Laboratory (PNNL) and is operated by Battelle for the United States Department of Energy under Contract DE-AC05-76RL01830.
-
-### Copyright Notice
-
-```
-**************************************************************************************************************************
-This computer software was prepared by Battelle Memorial Institute, hereinafter the Contractor, under Contract No.
-DE-AC05-76RL01830 with the Department of Energy (DOE). All rights in the computer software are reserved by
-DOE on behalf of the United States Government and the Contractor as provided in the Contract. You are authorized
-to use this computer software for Governmental purposes but it is not to be released or distributed to the public.
-
-This material was prepared as an account of work sponsored by an agency of the United States Government. Neither
-the United States Government nor the United States Department of Energy, nor the Contractor, nor any of their
-employees, nor any jurisdiction or organization that has cooperated in the development of these materials, makes
-any warranty, express or implied, or assumes any legal liability or responsibility for the accuracy, completeness,
-or usefulness of any information, apparatus, product, software, or process disclosed, or represents that its use
-would not infringe privately owned rights.
-
-                                     PACIFIC NORTHWEST NATIONAL LABORATORY
-                                                  operated by
-                                                   BATTELLE
-                                                    for the
-                                       UNITED STATES DEPARTMENT OF ENERGY
-                                        under Contract DE-AC05-76RL01830
-**************************************************************************************************************************
-```
-
-### Usage Rights
-
-- **Governmental Use**: Authorized for use by government agencies and contractors
-- **Internal Development**: Permitted for PNNL internal projects and research
-- **Educational Use**: Allowed for academic and research purposes within authorized institutions
-- **Commercial Use**: Requires explicit permission and licensing agreements
-
-### Restrictions
-
-- **Public Distribution**: Not authorized for public release or distribution
-- **Third-party Sharing**: Requires prior approval from PNNL and DOE
-- **Modification**: Changes must be documented and approved through proper channels
-- **Export Control**: Subject to U.S. export control regulations
-
-### Contact Information
-
-For licensing inquiries, permissions, or questions about usage rights:
+## Contact Information
 
 - **Technical Contact**: [Amelia Bleeker](mailto:amelia.bleeker@pnnl.gov)
 - **Legal/Licensing**: PNNL Technology Transfer Office
 - **Repository**: [https://tanuki.pnnl.gov/amelia.bleeker/skeleton](https://tanuki.pnnl.gov/amelia.bleeker/skeleton)
-
-### Third-party Dependencies
-
-This project includes various open-source dependencies with their own licenses. See individual package.json files and node_modules directories for complete license information. Key dependencies include:
-
-- **Next.js**: MIT License
-- **NestJS**: MIT License
-- **Prisma**: Apache 2.0 License
-- **Apollo GraphQL**: MIT License
-- **PostgreSQL**: PostgreSQL License
-- **Docker**: Apache 2.0 License
-
-All third-party dependencies are used in compliance with their respective licenses and terms of use.
 
 ---
 

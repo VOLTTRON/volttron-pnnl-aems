@@ -27,9 +27,10 @@
     "@apollo/server": "^4.11.3",
     "@auth/express": "^0.12.1",
     "@auth/prisma-adapter": "^2.11.1",
+    "@aws-sdk/client-s3": "^3.693.0",
     "@envelop/core": "^5.0.3",
-    "@local/common": "file:../common",
-    "@local/prisma": "file:../prisma",
+    "@local/common": "portal:../common",
+    "@local/prisma": "portal:../prisma",
     "@nestjs/apollo": "^13.0.2",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.0",
@@ -53,7 +54,7 @@
     "@pothos/plugin-relay": "^4.3.0",
     "@pothos/plugin-scope-auth": "^4.1.1",
     "@pothos/plugin-smart-subscriptions": "^4.1.1",
-    "@prisma/client": "^6.9.0",
+    "@prisma/client": "portal:../prisma/node_modules/@prisma/client",
     "@zxcvbn-ts/core": "^3.0.4",
     "@zxcvbn-ts/language-common": "^3.0.4",
     "@zxcvbn-ts/language-en": "^3.0.2",
@@ -72,7 +73,8 @@
     "pg": "^8.13.1",
     "pg-hstore": "^2.3.4",
     "rxjs": "^7.8.1",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "yaml": "^2.8.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

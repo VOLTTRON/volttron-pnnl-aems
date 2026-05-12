@@ -17,5 +17,5 @@ generator pothos {
   provider     = "prisma-pothos-types"
   prismaUtils  = true
   clientOutput = "@prisma/client"
-  output       = "../../src/pothos.ts"
+  output       = "../src/pothos.ts"
 }

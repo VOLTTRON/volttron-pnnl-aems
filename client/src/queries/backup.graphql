@@ -1,0 +1,408 @@
+query ReadBackupPolicy {
+  readBackupPolicies(paging: { skip: 0, take: 1 }) {
+    id
+    enabled
+    cron
+    retentionDays
+    excludeVolumes
+    excludePaths
+    excludeServices
+    excludeEnvFiles
+    extraEnvFiles
+    createdAt
+    updatedAt
+  }
+}
+
+query DiscoverBackupSources {
+  discoverBackupSources {
+    services {
+      name
+      hasVolume
+      image
+      engine
+      imageFamily
+      backupStrategy
+      autoExclude
+      autoExcludeReason
+    }
+    volumes {
+      name
+      services
+      autoExclude
+      autoExcludeReason
+    }
+    paths {
+      path
+      type
+      services
+      autoExclude
+      autoExcludeReason
+    }
+    envFiles {
+      path
+      exists
+      source
+      autoExclude
+      autoExcludeReason
+    }
+  }
+}
+
+query ReadBackupDestinations {
+  readBackupDestinations {
+    id
+    policyId
+    name
+    type
+    output
+    enabled
+    sseMode
+    sseKmsKeyId
+    order
+    createdAt
+    updatedAt
+  }
+}
+
+query ReadBackupRuns($skip: Int! = 0, $take: Int! = 50) {
+  readBackupRuns(paging: { skip: $skip, take: $take }) {
+    id
+    policyId
+    status
+    trigger
+    keyFingerprint
+    startedAt
+    finishedAt
+    heartbeatAt
+    archivePath
+    archiveBytes
+    archiveAvailability
+    cancelRequested
+    createdAt
+    updatedAt
+  }
+}
+
+query ReadBackupRun($id: String!) {
+  readBackupRun(where: { id: $id }) {
+    id
+    policyId
+    status
+    trigger
+    requestedById
+    keyFingerprint
+    startedAt
+    finishedAt
+    heartbeatAt
+    archivePath
+    archiveBytes
+    archiveSha256
+    manifest
+    errorMessage
+    cancelRequested
+    createdAt
+    updatedAt
+    requestedBy {
+      id
+      name
+      email
+    }
+    components {
+      id
+      runId
+      type
+      name
+      status
+      bytes
+      durationMs
+      error
+      startedAt
+      finishedAt
+      createdAt
+      updatedAt
+    }
+    archiveAvailability
+    destinations {
+      id
+      runId
+      destinationId
+      status
+      uploadedBytes
+      finalPath
+      archiveDeletedAt
+      availability
+      error
+      startedAt
+      finishedAt
+      createdAt
+      updatedAt
+      destination {
+        id
+        name
+        type
+        output
+      }
+    }
+  }
+}
+
+query ReadBackupKeys {
+  readBackupKeys {
+    id
+    algorithm
+    publicKey
+    fingerprint
+    active
+    acknowledged
+    acknowledgedAt
+    acknowledgedById
+    rotatedAt
+    createdAt
+    updatedAt
+    acknowledgedBy {
+      id
+      name
+      email
+    }
+  }
+}
+
+query ReadActiveBackupKey {
+  readBackupKeys(where: { active: { equals: true } }, paging: { skip: 0, take: 1 }) {
+    id
+    algorithm
+    publicKey
+    fingerprint
+    active
+    acknowledged
+    acknowledgedAt
+    acknowledgedById
+    rotatedAt
+    createdAt
+    updatedAt
+    acknowledgedBy {
+      id
+      name
+      email
+    }
+  }
+}
+
+mutation UpdateBackupPolicy(
+  $enabled: Boolean
+  $cron: String
+  $retentionDays: Int
+  $excludeVolumes: [String!]
+  $excludePaths: [String!]
+  $excludeServices: [String!]
+  $excludeEnvFiles: [String!]
+  $extraEnvFiles: [String!]
+) {
+  updateBackupPolicy(
+    enabled: $enabled
+    cron: $cron
+    retentionDays: $retentionDays
+    excludeVolumes: $excludeVolumes
+    excludePaths: $excludePaths
+    excludeServices: $excludeServices
+    excludeEnvFiles: $excludeEnvFiles
+    extraEnvFiles: $extraEnvFiles
+  ) {
+    id
+    enabled
+    cron
+    retentionDays
+    excludeVolumes
+    excludePaths
+    excludeServices
+    excludeEnvFiles
+    extraEnvFiles
+    updatedAt
+  }
+}
+
+mutation CreateBackupDestination(
+  $name: String!
+  $type: BackupDestinationType!
+  $output: String
+  $enabled: Boolean
+  $order: Int
+  $sseMode: String
+  $sseKmsKeyId: String
+) {
+  createBackupDestination(
+    name: $name
+    type: $type
+    output: $output
+    enabled: $enabled
+    order: $order
+    sseMode: $sseMode
+    sseKmsKeyId: $sseKmsKeyId
+  ) {
+    id
+    name
+    type
+    output
+    enabled
+    order
+    sseMode
+    sseKmsKeyId
+  }
+}
+
+mutation UpdateBackupDestination(
+  $id: String!
+  $name: String
+  $type: BackupDestinationType
+  $output: String
+  $enabled: Boolean
+  $order: Int
+  $sseMode: String
+  $sseKmsKeyId: String
+) {
+  updateBackupDestination(
+    id: $id
+    name: $name
+    type: $type
+    output: $output
+    enabled: $enabled
+    order: $order
+    sseMode: $sseMode
+    sseKmsKeyId: $sseKmsKeyId
+  ) {
+    id
+    name
+    type
+    output
+    enabled
+    order
+    sseMode
+    sseKmsKeyId
+  }
+}
+
+mutation DeleteBackupDestination($id: String!) {
+  deleteBackupDestination(id: $id) {
+    id
+  }
+}
+
+mutation TriggerBackupRun {
+  triggerBackupRun {
+    id
+    status
+    trigger
+  }
+}
+
+mutation CancelBackupRun($id: String!) {
+  cancelBackupRun(id: $id) {
+    id
+    status
+    cancelRequested
+  }
+}
+
+mutation DeleteBackupArchive($runDestinationId: String!) {
+  deleteBackupArchive(runDestinationId: $runDestinationId) {
+    id
+    runId
+    finalPath
+    archiveDeletedAt
+    availability
+  }
+}
+
+mutation RotateBackupKey {
+  rotateBackupKey {
+    id
+    fingerprint
+    active
+    acknowledged
+    publicKey
+  }
+}
+
+mutation AcknowledgeBackupKey($id: String!) {
+  acknowledgeBackupKey(id: $id) {
+    id
+    acknowledged
+    acknowledgedAt
+    acknowledgedById
+  }
+}
+
+mutation DownloadBackupPrivateKey($id: String!) {
+  downloadBackupPrivateKey(id: $id)
+}
+
+subscription SubscribeBackupPolicy {
+  readBackupPolicies(paging: { skip: 0, take: 1 }) {
+    id
+    enabled
+    cron
+    retentionDays
+    excludeVolumes
+    excludePaths
+    excludeServices
+    excludeEnvFiles
+    extraEnvFiles
+    updatedAt
+  }
+}
+
+subscription SubscribeBackupDestinations {
+  readBackupDestinations {
+    id
+    policyId
+    name
+    type
+    output
+    enabled
+    sseMode
+    sseKmsKeyId
+    order
+    updatedAt
+  }
+}
+
+subscription SubscribeBackupRuns($skip: Int! = 0, $take: Int! = 50) {
+  readBackupRuns(paging: { skip: $skip, take: $take }) {
+    id
+    policyId
+    status
+    trigger
+    keyFingerprint
+    startedAt
+    finishedAt
+    heartbeatAt
+    archivePath
+    archiveBytes
+    archiveAvailability
+    cancelRequested
+    createdAt
+    updatedAt
+  }
+}
+
+subscription SubscribeBackupKeys {
+  readBackupKeys {
+    id
+    algorithm
+    publicKey
+    fingerprint
+    active
+    acknowledged
+    acknowledgedAt
+    acknowledgedById
+    rotatedAt
+    createdAt
+    updatedAt
+    acknowledgedBy {
+      id
+      name
+      email
+    }
+  }
+}

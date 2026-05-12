@@ -18,6 +18,8 @@ model User {
     feedbacks          Feedback[]
     assignedFeedbacks  Feedback[]          @relation("assignee")
     files              File[]
+    requestedBackupRuns      BackupRun[] @relation("backupRunRequestedBy")
+    acknowledgedBackupKeys   BackupKey[] @relation("backupKeyAcknowledgedBy")
 
     @@index([name], map: "users_name")
     @@index([email], map: "users_email")

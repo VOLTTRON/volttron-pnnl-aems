@@ -1,0 +1,18 @@
+{
+  "table": "backupPolicy",
+  "type": "upsert",
+  "id": "id",
+  "data": [
+    {
+      "id": "default",
+      "enabled": false,
+      "cron": "0 2 * * *",
+      "retentionDays": 30,
+      "excludeVolumes": [],
+      "excludePaths": [],
+      "excludeServices": [],
+      "excludeEnvFiles": [],
+      "extraEnvFiles": []
+    }
+  ]
+}

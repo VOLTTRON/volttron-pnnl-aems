@@ -182,6 +182,18 @@ export class AppConfigService {
         unit: ReturnType<typeof toDurationUnit>;
       };
     };
+    backup: {
+      workspace: string;
+      workerToken: string;
+      /**
+       * Profiles active in the compose stack. Discovery uses this to
+       * classify services gated behind inactive profiles as auto-
+       * excluded from the default backup set. Sourced from
+       * COMPOSE_PROFILES (comma- or space-separated) which docker compose
+       * reads for the same purpose.
+       */
+      composeProfiles: string[];
+    };
   };
   cors: {
     origin?: string;
@@ -344,6 +356,14 @@ export class AppConfigService {
           value: parseInt(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_EVENT_AGE ?? "")?.[1] ?? "0"),
           unit: toDurationUnit(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_EVENT_AGE ?? "")?.[0] ?? "milliseconds"),
         },
+      },
+      backup: {
+        workspace: process.env.BACKUP_WORKSPACE ?? "",
+        workerToken: readSecret("WORKER_TOKEN", ""),
+        composeProfiles: (process.env.COMPOSE_PROFILES ?? "")
+          .split(/[\s,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean),
       },
     };
     this.cors = {

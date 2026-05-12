@@ -107,6 +107,441 @@ input AccountUpdateUserRelationInput {
   disconnect: Boolean
 }
 
+enum BackupArchiveAvailability {
+  Available
+  Missing
+  Removed
+}
+
+type BackupComponent {
+  bytes: String
+  createdAt: DateTime
+  durationMs: Int
+  error: String
+  finishedAt: DateTime
+  id: String
+  name: String
+  run: BackupRun
+  runId: String
+  startedAt: DateTime
+  status: BackupComponentStatus
+  type: BackupComponentType
+  updatedAt: DateTime
+}
+
+enum BackupComponentFields {
+  bytes
+  createdAt
+  durationMs
+  error
+  finishedAt
+  id
+  name
+  runId
+  startedAt
+  status
+  type
+  updatedAt
+}
+
+enum BackupComponentStatus {
+  Failed
+  Pending
+  Running
+  Skipped
+  Success
+}
+
+enum BackupComponentType {
+  File
+  MariaDB
+  Path
+  Postgres
+  Volume
+}
+
+type BackupDestination {
+  createdAt: DateTime
+  enabled: Boolean
+  id: String
+  name: String
+  order: Int
+  output: String
+  policy: BackupPolicy
+  policyId: String
+  runs: [BackupRunDestination!]
+  sseKmsKeyId: String
+  sseMode: String
+  type: BackupDestinationType
+  updatedAt: DateTime
+}
+
+input BackupDestinationAggregate {
+  average: [BackupDestinationFields!]
+  count: [BackupDestinationFields!]
+  maximum: [BackupDestinationFields!]
+  minimum: [BackupDestinationFields!]
+  sum: [BackupDestinationFields!]
+}
+
+enum BackupDestinationFields {
+  createdAt
+  enabled
+  id
+  name
+  order
+  output
+  policyId
+  sseKmsKeyId
+  sseMode
+  type
+  updatedAt
+}
+
+input BackupDestinationFilter {
+  AND: [BackupDestinationFilter!]
+  NOT: BackupDestinationFilter
+  OR: [BackupDestinationFilter!]
+  createdAt: DateTimeFilter
+  enabled: BooleanFilter
+  id: StringFilter
+  name: StringFilter
+  output: StringFilter
+  policyId: StringFilter
+  updatedAt: DateTimeFilter
+}
+
+scalar BackupDestinationGroupBy
+
+input BackupDestinationOrderBy {
+  createdAt: OrderBy
+  enabled: OrderBy
+  id: OrderBy
+  name: OrderBy
+  order: OrderBy
+  output: OrderBy
+  updatedAt: OrderBy
+}
+
+enum BackupDestinationType {
+  Local
+  S3
+}
+
+input BackupDestinationUniqueFilter {
+  id: String
+}
+
+type BackupDiscoveredEnvFile {
+  autoExclude: Boolean
+  autoExcludeReason: String
+  exists: Boolean
+  path: String
+  source: String
+}
+
+type BackupDiscoveredPath {
+  autoExclude: Boolean
+  autoExcludeReason: String
+  path: String
+  services: [String!]
+  type: String
+}
+
+type BackupDiscoveredService {
+  autoExclude: Boolean
+  autoExcludeReason: String
+  backupStrategy: String
+  engine: BackupComponentType
+  hasVolume: Boolean
+  image: String
+  imageFamily: String
+  name: String
+}
+
+type BackupDiscoveredVolume {
+  autoExclude: Boolean
+  autoExcludeReason: String
+  name: String
+  services: [String!]
+}
+
+type BackupDiscovery {
+  envFiles: [BackupDiscoveredEnvFile!]
+  paths: [BackupDiscoveredPath!]
+  services: [BackupDiscoveredService!]
+  volumes: [BackupDiscoveredVolume!]
+}
+
+type BackupKey {
+  acknowledged: Boolean
+  acknowledgedAt: DateTime
+  acknowledgedBy: User
+  acknowledgedById: String
+  active: Boolean
+  algorithm: BackupKeyAlgorithm
+  createdAt: DateTime
+  fingerprint: String
+  id: String
+  publicKey: String
+  rotatedAt: DateTime
+  updatedAt: DateTime
+}
+
+input BackupKeyAggregate {
+  average: [BackupKeyFields!]
+  count: [BackupKeyFields!]
+  maximum: [BackupKeyFields!]
+  minimum: [BackupKeyFields!]
+  sum: [BackupKeyFields!]
+}
+
+enum BackupKeyAlgorithm {
+  Age
+  Gpg
+}
+
+enum BackupKeyFields {
+  acknowledged
+  acknowledgedAt
+  acknowledgedById
+  active
+  algorithm
+  createdAt
+  fingerprint
+  id
+  privateKeyPath
+  publicKey
+  rotatedAt
+  updatedAt
+}
+
+input BackupKeyFilter {
+  AND: [BackupKeyFilter!]
+  NOT: BackupKeyFilter
+  OR: [BackupKeyFilter!]
+  acknowledged: BooleanFilter
+  active: BooleanFilter
+  createdAt: DateTimeFilter
+  fingerprint: StringFilter
+  id: StringFilter
+  updatedAt: DateTimeFilter
+}
+
+scalar BackupKeyGroupBy
+
+input BackupKeyOrderBy {
+  acknowledged: OrderBy
+  acknowledgedAt: OrderBy
+  active: OrderBy
+  createdAt: OrderBy
+  id: OrderBy
+  rotatedAt: OrderBy
+  updatedAt: OrderBy
+}
+
+input BackupKeyUniqueFilter {
+  id: String
+}
+
+type BackupPolicy {
+  createdAt: DateTime
+  cron: String
+  destinations: [BackupDestination!]
+  enabled: Boolean
+  excludeEnvFiles: [String!]
+  excludePaths: [String!]
+  excludeServices: [String!]
+  excludeVolumes: [String!]
+  extraEnvFiles: [String!]
+  id: String
+  retentionDays: Int
+  runs: [BackupRun!]
+  updatedAt: DateTime
+}
+
+input BackupPolicyAggregate {
+  average: [BackupPolicyFields!]
+  count: [BackupPolicyFields!]
+  maximum: [BackupPolicyFields!]
+  minimum: [BackupPolicyFields!]
+  sum: [BackupPolicyFields!]
+}
+
+enum BackupPolicyFields {
+  createdAt
+  cron
+  enabled
+  excludeEnvFiles
+  excludePaths
+  excludeServices
+  excludeVolumes
+  extraEnvFiles
+  id
+  retentionDays
+  updatedAt
+}
+
+input BackupPolicyFilter {
+  AND: [BackupPolicyFilter!]
+  NOT: BackupPolicyFilter
+  OR: [BackupPolicyFilter!]
+  createdAt: DateTimeFilter
+  cron: StringFilter
+  enabled: BooleanFilter
+  id: StringFilter
+  retentionDays: IntFilter
+  updatedAt: DateTimeFilter
+}
+
+scalar BackupPolicyGroupBy
+
+input BackupPolicyOrderBy {
+  createdAt: OrderBy
+  cron: OrderBy
+  enabled: OrderBy
+  id: OrderBy
+  retentionDays: OrderBy
+  updatedAt: OrderBy
+}
+
+input BackupPolicyUniqueFilter {
+  id: String
+}
+
+type BackupRun {
+  archiveAvailability: BackupArchiveAvailability!
+  archiveBytes: String
+  archivePath: String
+  archiveSha256: String
+  cancelRequested: Boolean
+  components: [BackupComponent!]
+  createdAt: DateTime
+  destinations: [BackupRunDestination!]
+  errorMessage: String
+  finishedAt: DateTime
+  heartbeatAt: DateTime
+  id: String
+  keyFingerprint: String
+
+  """[BackupManifest]"""
+  manifest: Json
+  policy: BackupPolicy
+  policyId: String
+  requestedBy: User
+  requestedById: String
+  startedAt: DateTime
+  status: BackupRunStatus
+  trigger: BackupRunTrigger
+  updatedAt: DateTime
+}
+
+input BackupRunAggregate {
+  average: [BackupRunFields!]
+  count: [BackupRunFields!]
+  maximum: [BackupRunFields!]
+  minimum: [BackupRunFields!]
+  sum: [BackupRunFields!]
+}
+
+type BackupRunDestination {
+  archiveDeletedAt: DateTime
+  availability: BackupArchiveAvailability!
+  createdAt: DateTime
+  destination: BackupDestination
+  destinationId: String
+  error: String
+  finalPath: String
+  finishedAt: DateTime
+  id: String
+  run: BackupRun
+  runId: String
+  startedAt: DateTime
+  status: BackupComponentStatus
+  updatedAt: DateTime
+  uploadedBytes: String
+}
+
+enum BackupRunDestinationFields {
+  archiveDeletedAt
+  createdAt
+  destinationId
+  error
+  finalPath
+  finishedAt
+  id
+  runId
+  startedAt
+  status
+  updatedAt
+  uploadedBytes
+}
+
+enum BackupRunFields {
+  archiveBytes
+  archivePath
+  archiveSha256
+  cancelRequested
+  createdAt
+  errorMessage
+  finishedAt
+  heartbeatAt
+  id
+  keyFingerprint
+  manifest
+  policyId
+  requestedById
+  startedAt
+  status
+  trigger
+  updatedAt
+}
+
+input BackupRunFilter {
+  AND: [BackupRunFilter!]
+  NOT: BackupRunFilter
+  OR: [BackupRunFilter!]
+  cancelRequested: BooleanFilter
+  createdAt: DateTimeFilter
+  finishedAt: DateTimeFilter
+  id: StringFilter
+  keyFingerprint: StringFilter
+  policyId: StringFilter
+  requestedBy: UserUniqueFilter
+  requestedById: StringFilter
+  startedAt: DateTimeFilter
+  updatedAt: DateTimeFilter
+}
+
+scalar BackupRunGroupBy
+
+input BackupRunOrderBy {
+  createdAt: OrderBy
+  finishedAt: OrderBy
+  id: OrderBy
+  startedAt: OrderBy
+  updatedAt: OrderBy
+}
+
+enum BackupRunStatus {
+  Cancelled
+  Failed
+  Queued
+  Running
+  Success
+}
+
+enum BackupRunTrigger {
+  Manual
+  Retry
+  Scheduled
+  Test
+}
+
+input BackupRunUniqueFilter {
+  id: String
+}
+
 type Banner {
   createdAt: DateTime
   expiration: DateTime
@@ -598,8 +1033,19 @@ enum ModeType {
 }
 
 type Mutation {
+  """
+  Acknowledge that the backup encryption key has been securely stored offline.
+  """
+  acknowledgeBackupKey(id: String!): BackupKey
+
+  """Request cancellation of an in-flight backup run."""
+  cancelBackupRun(id: String!): BackupRun
+
   """Create a new account."""
   createAccount(create: AccountCreateInput!): Account
+
+  """Create a new backup destination."""
+  createBackupDestination(enabled: Boolean, name: String!, order: Int, output: String, sseKmsKeyId: String, sseMode: String, type: BackupDestinationType!): BackupDestination
 
   """Create a new banner."""
   createBanner(create: BannerCreateInput!): Banner
@@ -625,6 +1071,14 @@ type Mutation {
   """Delete the specified account."""
   deleteAccount(where: AccountUniqueFilter!): Account
 
+  """
+  Delete the archive file for a specific backup run destination. The DB record is retained so the run remains visible as an audit trail; only the archive file itself is removed.
+  """
+  deleteBackupArchive(runDestinationId: String!): BackupRunDestination
+
+  """Delete a backup destination."""
+  deleteBackupDestination(id: String!): BackupDestination
+
   """Delete the specified banner."""
   deleteBanner(where: BannerUniqueFilter!): Banner
 
@@ -646,8 +1100,29 @@ type Mutation {
   """Delete the specified user."""
   deleteUser(where: UserUniqueFilter!): User
 
+  """
+  Return the private key material for an acknowledged BackupKey. Rate limited to one call per minute per user and audited via the Log service.
+  """
+  downloadBackupPrivateKey(id: String!): String
+
+  """
+  Rotate the active backup encryption key. Retires the current key (sets active=false, rotatedAt=now) and lets the sidecar worker generate a fresh keypair on its next poll. The old key row is retained so historical archives remain decryptable.
+  """
+  rotateBackupKey: BackupKey
+
+  """
+  Enqueue a manual backup run for immediate execution by the sidecar worker.
+  """
+  triggerBackupRun: BackupRun
+
   """Update the specified account."""
   updateAccount(update: AccountUpdateInput!, where: AccountUniqueFilter!): Account
+
+  """Update a backup destination."""
+  updateBackupDestination(enabled: Boolean, id: String!, name: String, order: Int, output: String, sseKmsKeyId: String, sseMode: String, type: BackupDestinationType): BackupDestination
+
+  """Upsert the single BackupPolicy."""
+  updateBackupPolicy(cron: String, enabled: Boolean, excludeEnvFiles: [String!], excludePaths: [String!], excludeServices: [String!], excludeVolumes: [String!], extraEnvFiles: [String!], retentionDays: Int): BackupPolicy
 
   """Update the specified banner."""
   updateBanner(update: BannerUpdateInput!, where: BannerUniqueFilter!): Banner
@@ -701,6 +1176,18 @@ type Query {
   """Count the number of accounts."""
   countAccounts(where: AccountFilter): Int
 
+  """Count the number of backup destinations."""
+  countBackupDestinations(where: BackupDestinationFilter): Int
+
+  """Count the number of backup keys."""
+  countBackupKeys(where: BackupKeyFilter): Int
+
+  """Count the number of backup policies."""
+  countBackupPolicies(where: BackupPolicyFilter): Int
+
+  """Count the number of backup runs."""
+  countBackupRuns(where: BackupRunFilter): Int
+
   """Count the number of banners."""
   countBanners(where: BannerFilter): Int
 
@@ -722,8 +1209,25 @@ type Query {
   """Count the number of user."""
   countUsers(where: UserFilter): Int
 
+  """
+  Enumerate backup-capable services, volumes, bind paths, and env files from the live workspace.
+  """
+  discoverBackupSources: BackupDiscovery
+
   """Group a list of accounts."""
   groupAccounts(aggregate: AccountAggregate, by: [AccountFields!]!, where: AccountFilter): [AccountGroupBy!]
+
+  """Group a list of backup destinations."""
+  groupBackupDestinations(aggregate: BackupDestinationAggregate, by: [BackupDestinationFields!]!, where: BackupDestinationFilter): [BackupDestinationGroupBy!]
+
+  """Group a list of backup keys."""
+  groupBackupKeys(aggregate: BackupKeyAggregate, by: [BackupKeyFields!]!, where: BackupKeyFilter): [BackupKeyGroupBy!]
+
+  """Group a list of backup policies."""
+  groupBackupPolicies(aggregate: BackupPolicyAggregate, by: [BackupPolicyFields!]!, where: BackupPolicyFilter): [BackupPolicyGroupBy!]
+
+  """Group a list of backup runs."""
+  groupBackupRuns(aggregate: BackupRunAggregate, by: [BackupRunFields!]!, where: BackupRunFilter): [BackupRunGroupBy!]
 
   """Group a list of banners."""
   groupBanners(aggregate: BannerAggregate, by: [BannerFields!]!, where: BannerFilter): [BannerGroupBy!]
@@ -748,6 +1252,18 @@ type Query {
 
   """Paginate through multiple accounts."""
   pageAccount(after: String, before: String, first: Int, last: Int, where: AccountFilter): QueryPageAccountConnection
+
+  """Paginate through backup destinations."""
+  pageBackupDestination(after: String, before: String, first: Int, last: Int, where: BackupDestinationFilter): QueryPageBackupDestinationConnection
+
+  """Paginate through backup keys."""
+  pageBackupKey(after: String, before: String, first: Int, last: Int, where: BackupKeyFilter): QueryPageBackupKeyConnection
+
+  """Paginate through backup policies."""
+  pageBackupPolicy(after: String, before: String, first: Int, last: Int, where: BackupPolicyFilter): QueryPageBackupPolicyConnection
+
+  """Paginate through backup runs."""
+  pageBackupRun(after: String, before: String, first: Int, last: Int, where: BackupRunFilter): QueryPageBackupRunConnection
 
   """Paginate through multiple banners."""
   pageBanner(after: String, before: String, first: Int, last: Int, where: BannerFilter): QueryPageBannerConnection
@@ -775,6 +1291,30 @@ type Query {
 
   """Read a list of accounts."""
   readAccounts(distinct: [AccountFields!], orderBy: [AccountOrderBy!], paging: PagingInput, where: AccountFilter): [Account!]
+
+  """Read a unique backup destination."""
+  readBackupDestination(where: BackupDestinationUniqueFilter!): BackupDestination
+
+  """Read a list of backup destinations."""
+  readBackupDestinations(distinct: [BackupDestinationFields!], orderBy: [BackupDestinationOrderBy!], paging: PagingInput, where: BackupDestinationFilter): [BackupDestination!]
+
+  """Read a unique backup key."""
+  readBackupKey(where: BackupKeyUniqueFilter!): BackupKey
+
+  """Read a list of backup keys (active and historical)."""
+  readBackupKeys(distinct: [BackupKeyFields!], orderBy: [BackupKeyOrderBy!], paging: PagingInput, where: BackupKeyFilter): [BackupKey!]
+
+  """Read a list of backup policies."""
+  readBackupPolicies(distinct: [BackupPolicyFields!], orderBy: [BackupPolicyOrderBy!], paging: PagingInput, where: BackupPolicyFilter): [BackupPolicy!]
+
+  """Read a unique backup policy."""
+  readBackupPolicy(where: BackupPolicyUniqueFilter!): BackupPolicy
+
+  """Read a unique backup run."""
+  readBackupRun(where: BackupRunUniqueFilter!): BackupRun
+
+  """Read a list of backup runs."""
+  readBackupRuns(distinct: [BackupRunFields!], orderBy: [BackupRunOrderBy!], paging: PagingInput, where: BackupRunFilter): [BackupRun!]
 
   """Read a unique banner."""
   readBanner(where: BannerUniqueFilter!): Banner
@@ -830,6 +1370,46 @@ type QueryPageAccountConnection {
 type QueryPageAccountConnectionEdge {
   cursor: String!
   node: Account
+}
+
+type QueryPageBackupDestinationConnection {
+  edges: [QueryPageBackupDestinationConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageBackupDestinationConnectionEdge {
+  cursor: String!
+  node: BackupDestination
+}
+
+type QueryPageBackupKeyConnection {
+  edges: [QueryPageBackupKeyConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageBackupKeyConnectionEdge {
+  cursor: String!
+  node: BackupKey
+}
+
+type QueryPageBackupPolicyConnection {
+  edges: [QueryPageBackupPolicyConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageBackupPolicyConnectionEdge {
+  cursor: String!
+  node: BackupPolicy
+}
+
+type QueryPageBackupRunConnection {
+  edges: [QueryPageBackupRunConnectionEdge]
+  pageInfo: PageInfo!
+}
+
+type QueryPageBackupRunConnectionEdge {
+  cursor: String!
+  node: BackupRun
 }
 
 type QueryPageBannerConnection {
@@ -924,6 +1504,18 @@ type Subscription {
   """Count the number of accounts."""
   countAccounts(where: AccountFilter): Int
 
+  """Count the number of backup destinations."""
+  countBackupDestinations(where: BackupDestinationFilter): Int
+
+  """Count the number of backup keys."""
+  countBackupKeys(where: BackupKeyFilter): Int
+
+  """Count the number of backup policies."""
+  countBackupPolicies(where: BackupPolicyFilter): Int
+
+  """Count the number of backup runs."""
+  countBackupRuns(where: BackupRunFilter): Int
+
   """Count the number of banners."""
   countBanners(where: BannerFilter): Int
 
@@ -947,6 +1539,18 @@ type Subscription {
 
   """Group a list of accounts."""
   groupAccounts(aggregate: AccountAggregate, by: [AccountFields!]!, where: AccountFilter): [AccountGroupBy!]
+
+  """Group a list of backup destinations."""
+  groupBackupDestinations(aggregate: BackupDestinationAggregate, by: [BackupDestinationFields!]!, where: BackupDestinationFilter): [BackupDestinationGroupBy!]
+
+  """Group a list of backup keys."""
+  groupBackupKeys(aggregate: BackupKeyAggregate, by: [BackupKeyFields!]!, where: BackupKeyFilter): [BackupKeyGroupBy!]
+
+  """Group a list of backup policies."""
+  groupBackupPolicies(aggregate: BackupPolicyAggregate, by: [BackupPolicyFields!]!, where: BackupPolicyFilter): [BackupPolicyGroupBy!]
+
+  """Group a list of backup runs."""
+  groupBackupRuns(aggregate: BackupRunAggregate, by: [BackupRunFields!]!, where: BackupRunFilter): [BackupRunGroupBy!]
 
   """Group a list of banners."""
   groupBanners(aggregate: BannerAggregate, by: [BannerFields!]!, where: BannerFilter): [BannerGroupBy!]
@@ -974,6 +1578,30 @@ type Subscription {
 
   """Read a list of accounts."""
   readAccounts(distinct: [AccountFields!], orderBy: [AccountOrderBy!], paging: PagingInput, where: AccountFilter): [Account!]
+
+  """Read a unique backup destination."""
+  readBackupDestination(where: BackupDestinationUniqueFilter!): BackupDestination
+
+  """Read a list of backup destinations."""
+  readBackupDestinations(distinct: [BackupDestinationFields!], orderBy: [BackupDestinationOrderBy!], paging: PagingInput, where: BackupDestinationFilter): [BackupDestination!]
+
+  """Read a unique backup key."""
+  readBackupKey(where: BackupKeyUniqueFilter!): BackupKey
+
+  """Read a list of backup keys (active and historical)."""
+  readBackupKeys(distinct: [BackupKeyFields!], orderBy: [BackupKeyOrderBy!], paging: PagingInput, where: BackupKeyFilter): [BackupKey!]
+
+  """Read a list of backup policies."""
+  readBackupPolicies(distinct: [BackupPolicyFields!], orderBy: [BackupPolicyOrderBy!], paging: PagingInput, where: BackupPolicyFilter): [BackupPolicy!]
+
+  """Read a unique backup policy."""
+  readBackupPolicy(where: BackupPolicyUniqueFilter!): BackupPolicy
+
+  """Read a unique backup run."""
+  readBackupRun(where: BackupRunUniqueFilter!): BackupRun
+
+  """Read a list of backup runs."""
+  readBackupRuns(distinct: [BackupRunFields!], orderBy: [BackupRunOrderBy!], paging: PagingInput, where: BackupRunFilter): [BackupRun!]
 
   """Read a unique banner."""
   readBanner(where: BannerUniqueFilter!): Banner

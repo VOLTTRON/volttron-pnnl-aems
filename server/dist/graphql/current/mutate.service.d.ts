@@ -8,7 +8,7 @@ export declare class CurrentMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.UserCreateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.UserCreateInput, {
         name: "String";
         email: "String";
         image: "String";
@@ -25,7 +25,7 @@ export declare class CurrentMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.UserUpdateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.UserUpdateInput, {
         name: "String";
         email: "String";
         image: "String";

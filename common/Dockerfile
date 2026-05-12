@@ -21,13 +21,15 @@ RUN yarn config set "strict-ssl" false
 # Install dependencies only when needed
 FROM base AS deps
 
-# Copy and build prisma
+# Copy and build prisma. This produces /app/prisma/node_modules/@prisma/client,
+# which common references via a `portal:` symlink (see common/package.json).
 WORKDIR /app/prisma
 COPY /prisma ./
 RUN yarn install
 RUN yarn build
 
-# Copy and build common
+# Copy and build common. No sync step is needed because common resolves
+# `@prisma/client` through a `portal:` symlink to /app/prisma/node_modules.
 WORKDIR /app/common
 COPY /common ./
 RUN yarn install

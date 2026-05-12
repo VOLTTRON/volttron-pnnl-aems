@@ -15,7 +15,7 @@ export declare class UserObject {
         Scalars: Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "User";
-        Shape: import(".prisma/client").User;
+        Shape: import("@prisma/client").User;
         Include: Prisma.UserInclude;
         Select: Prisma.UserSelect;
         OrderBy: Prisma.UserOrderByWithRelationInput;
@@ -23,37 +23,57 @@ export declare class UserObject {
         Where: Prisma.UserWhereInput;
         Create: Prisma.UserCreateInput;
         Update: Prisma.UserUpdateInput;
-        RelationName: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files";
-        ListRelations: "accounts" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files";
+        RelationName: "accounts" | "verificationTokens" | "sessions" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "requestedBackupRuns" | "acknowledgedBackupKeys";
+        ListRelations: "accounts" | "verificationTokens" | "sessions" | "comments" | "banners" | "feedbacks" | "assignedFeedbacks" | "files" | "requestedBackupRuns" | "acknowledgedBackupKeys";
         Relations: {
             accounts: {
-                Shape: import(".prisma/client").Account[];
+                Shape: import("@prisma/client").Account[];
                 Name: "Account";
                 Nullable: false;
             };
+            verificationTokens: {
+                Shape: import("@prisma/client").VerificationToken[];
+                Name: "VerificationToken";
+                Nullable: false;
+            };
+            sessions: {
+                Shape: import("@prisma/client").Session[];
+                Name: "Session";
+                Nullable: false;
+            };
             comments: {
-                Shape: import(".prisma/client").Comment[];
+                Shape: import("@prisma/client").Comment[];
                 Name: "Comment";
                 Nullable: false;
             };
             banners: {
-                Shape: import(".prisma/client").Banner[];
+                Shape: import("@prisma/client").Banner[];
                 Name: "Banner";
                 Nullable: false;
             };
             feedbacks: {
-                Shape: import(".prisma/client").Feedback[];
+                Shape: import("@prisma/client").Feedback[];
                 Name: "Feedback";
                 Nullable: false;
             };
             assignedFeedbacks: {
-                Shape: import(".prisma/client").Feedback[];
+                Shape: import("@prisma/client").Feedback[];
                 Name: "Feedback";
                 Nullable: false;
             };
             files: {
-                Shape: import(".prisma/client").File[];
+                Shape: import("@prisma/client").File[];
                 Name: "File";
+                Nullable: false;
+            };
+            requestedBackupRuns: {
+                Shape: import("@prisma/client").BackupRun[];
+                Name: "BackupRun";
+                Nullable: false;
+            };
+            acknowledgedBackupKeys: {
+                Shape: import("@prisma/client").BackupKey[];
+                Name: "BackupKey";
                 Nullable: false;
             };
         };

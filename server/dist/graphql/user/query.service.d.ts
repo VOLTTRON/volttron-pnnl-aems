@@ -20,13 +20,13 @@ export declare class UserQuery {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
-    }>, import(".prisma/client").Prisma.UserWhereUniqueInput>;
+    }>, import("@prisma/client").Prisma.UserWhereUniqueInput>;
     readonly UserWhere: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.UserWhereInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.UserWhereInput, {
         OR: true;
         AND: true;
         NOT: true;
@@ -35,55 +35,55 @@ export declare class UserQuery {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "in" | "equals" | "contains" | "mode">>;
         name: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "in" | "equals" | "contains" | "mode">>;
         email: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "in" | "equals" | "contains" | "mode">>;
         image: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "in" | "equals" | "contains" | "mode">>;
         role: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "in" | "equals" | "contains" | "mode">>;
         emailVerified: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "in" | "gte" | "equals" | "lte" | "gt" | "contains" | "mode">>;
         createdAt: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "in" | "gte" | "equals" | "lte" | "gt" | "contains" | "mode">>;
         updatedAt: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
-        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt" | "contains" | "mode">>;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "in" | "gte" | "equals" | "lte" | "gt" | "contains" | "mode">>;
     }>>;
     readonly UserOrderBy: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
-    }>, import(".prisma/client").Prisma.UserOrderByWithRelationInput>;
+    }>, import("@prisma/client").Prisma.UserOrderByWithRelationInput>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, userObject: UserObject);
 }

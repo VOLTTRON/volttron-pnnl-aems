@@ -15,7 +15,7 @@ export declare class UserMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.UserCreateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.UserCreateInput, {
         name: "String";
         email: "String";
         image: "String";
@@ -39,7 +39,7 @@ export declare class UserMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.UserUpdateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.UserUpdateInput, {
         name: "String";
         email: "String";
         image: "String";
@@ -63,18 +63,18 @@ export declare class UserMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import(".prisma/client").Prisma.AccountUpdateManyWithoutUserNestedInput>;
+    }>, import("@prisma/client").Prisma.AccountUpdateManyWithoutUserNestedInput>;
     readonly UserUpdateComments: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import(".prisma/client").Prisma.CommentUpdateManyWithoutUserNestedInput>;
+    }>, import("@prisma/client").Prisma.CommentUpdateManyWithoutUserNestedInput>;
     readonly UserUpdateBanners: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import(".prisma/client").Prisma.BannerUpdateManyWithoutUsersNestedInput>;
+    }>, import("@prisma/client").Prisma.BannerUpdateManyWithoutUsersNestedInput>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, userObject: UserObject, userQuery: UserQuery, accountQuery: AccountQuery, commentQuery: CommentQuery, bannerQuery: BannerQuery, accountMutation: AccountMutation, commentMutation: CommentMutation, bannerMutation: BannerMutation);
 }

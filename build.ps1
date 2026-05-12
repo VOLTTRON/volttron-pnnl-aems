@@ -31,6 +31,19 @@ $SkipMigrations = $false
 if ($args -contains "-m" -or $args -contains "--skip-migrations" -or $env:SKIP_MIGRATIONS -eq "true") {
     $SkipMigrations = $true
 }
+# Remove portal: symlinks before `yarn install` in the current working directory.
+# Yarn 4 fails with EEXIST when re-linking a portal dep whose symlink already
+# exists (e.g. after a CI cache restore). Deleting them lets yarn recreate them
+# cleanly. Safe to run when node_modules doesn't exist yet.
+function Clear-PortalLinks {
+    if (Test-Path -Path ./node_modules/@local) {
+        Remove-Item -Recurse -Force ./node_modules/@local
+    }
+    if (Test-Path -Path ./node_modules/@prisma/client) {
+        Remove-Item -Recurse -Force ./node_modules/@prisma/client
+    }
+}
+
 Write-Host "Updating dependencies and building all modules in the monorepo..." -ForegroundColor Blue
 
 try {
@@ -80,6 +93,7 @@ try {
     }
     if (!$SkipDependencies) {
         Write-Host "Common: Installing dependencies..." -ForegroundColor Cyan
+        Clear-PortalLinks
         yarn install
     }
     Write-Host "Common: Building module..." -ForegroundColor Cyan
@@ -98,6 +112,7 @@ try {
     }
     if (!$SkipDependencies) {
         Write-Host "Server: Installing dependencies..." -ForegroundColor Cyan
+        Clear-PortalLinks
         yarn install
     }
     Write-Host "Server: Building module..." -ForegroundColor Cyan
@@ -116,6 +131,7 @@ try {
     }
     if (!$SkipDependencies) {
         Write-Host "Client: Installing dependencies..." -ForegroundColor Cyan
+        Clear-PortalLinks
         yarn install
     }
     Write-Host "Client: Building module..." -ForegroundColor Cyan

@@ -122,6 +122,11 @@ export declare class AppConfigService {
                 unit: ReturnType<typeof toDurationUnit>;
             };
         };
+        backup: {
+            workspace: string;
+            workerToken: string;
+            composeProfiles: string[];
+        };
     };
     cors: {
         origin?: string;

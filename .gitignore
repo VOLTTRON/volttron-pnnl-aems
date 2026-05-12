@@ -11,11 +11,17 @@ docker-images.**
 .idea
 # .vscode
 .DS_Store
+# claude
+.claude
 
 # secrets
 .env.secrets
 docker/secrets/
 docker/.env.secrets.docker
 
+# backups
+docker/backups/
+
 # other
 *.bat
+*.log

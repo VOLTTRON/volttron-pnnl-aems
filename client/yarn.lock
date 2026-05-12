@@ -2361,38 +2361,35 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@local/common@file:../common::locator=client%40workspace%3A.":
-  version: 2.0.4
-  resolution: "@local/common@file:../common#../common::hash=1d3abf&locator=client%40workspace%3A."
+"@local/common@portal:../common::locator=client%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@local/common@portal:../common::locator=client%40workspace%3A."
   dependencies:
-    "@local/prisma": "file:../prisma"
-    "@prisma/client": "npm:^6.9.0"
+    "@local/prisma": "portal:../prisma"
+    "@prisma/client": "portal:../prisma/node_modules/@prisma/client"
     lodash: "npm:^4.17.21"
     regex: "npm:^6.0.1"
   peerDependencies:
     "@local/prisma": "*"
     "@prisma/client": ^6.6.0
-  checksum: 10/87cab1257c095d9bb56e6b6521a800615fd2ed9ca582bc43fa3d516e3f4501ac504f380de4a99a5df81363a65aef34f865d6ffd17c8c0cf958df4387af807535
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@local/prisma@file:../prisma::locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3D1d3abf%26locator%3Dclient%2540workspace%253A.":
-  version: 2.0.4
-  resolution: "@local/prisma@file:../prisma#../prisma::hash=55a90d&locator=%40local%2Fcommon%40file%3A..%2Fcommon%23..%2Fcommon%3A%3Ahash%3D1d3abf%26locator%3Dclient%2540workspace%253A."
+"@local/prisma@portal:../prisma::locator=%40local%2Fcommon%40portal%3A..%2Fcommon%3A%3Alocator%3Dclient%2540workspace%253A.":
+  version: 0.0.0-use.local
+  resolution: "@local/prisma@portal:../prisma::locator=%40local%2Fcommon%40portal%3A..%2Fcommon%3A%3Alocator%3Dclient%2540workspace%253A."
   peerDependencies:
     "@prisma/client": ^6.6.0
-  checksum: 10/29bdf41a1cb8b81dcf817c2c4b80fb7260fc9e8ebdb902d5a13c1a68500e2bd929c2efc615552704a1677b53b7f275e962a6826dcdbc1180e62bb0ab66ac9e64
   languageName: node
-  linkType: hard
+  linkType: soft
 
-"@local/prisma@file:../prisma::locator=client%40workspace%3A.":
-  version: 2.0.4
-  resolution: "@local/prisma@file:../prisma#../prisma::hash=55a90d&locator=client%40workspace%3A."
+"@local/prisma@portal:../prisma::locator=client%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@local/prisma@portal:../prisma::locator=client%40workspace%3A."
   peerDependencies:
     "@prisma/client": ^6.6.0
-  checksum: 10/29bdf41a1cb8b81dcf817c2c4b80fb7260fc9e8ebdb902d5a13c1a68500e2bd929c2efc615552704a1677b53b7f275e962a6826dcdbc1180e62bb0ab66ac9e64
   languageName: node
-  linkType: hard
+  linkType: soft
 
 "@luma.gl/constants@npm:9.2.2, @luma.gl/constants@npm:^9.2.2":
   version: 9.2.2
@@ -2972,9 +2969,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@prisma/client@npm:^6.9.0":
-  version: 6.9.0
-  resolution: "@prisma/client@npm:6.9.0"
+"@prisma/client@portal:../prisma/node_modules/@prisma/client::locator=%40local%2Fcommon%40portal%3A..%2Fcommon%3A%3Alocator%3Dclient%2540workspace%253A.":
+  version: 0.0.0-use.local
+  resolution: "@prisma/client@portal:../prisma/node_modules/@prisma/client::locator=%40local%2Fcommon%40portal%3A..%2Fcommon%3A%3Alocator%3Dclient%2540workspace%253A."
   peerDependencies:
     prisma: "*"
     typescript: ">=5.1.0"
@@ -2983,9 +2980,22 @@ __metadata:
       optional: true
     typescript:
       optional: true
-  checksum: 10/282ffe1fbd06303b5322f6e7a930a6f7c9aa16a275fe228da9851c8c10802d4c62fcf4973fb75cb07794bfeb6689bca70e2a39b62f14e739821e53ba68af108e
   languageName: node
-  linkType: hard
+  linkType: soft
+
+"@prisma/client@portal:../prisma/node_modules/@prisma/client::locator=client%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@prisma/client@portal:../prisma/node_modules/@prisma/client::locator=client%40workspace%3A."
+  peerDependencies:
+    prisma: "*"
+    typescript: ">=5.1.0"
+  peerDependenciesMeta:
+    prisma:
+      optional: true
+    typescript:
+      optional: true
+  languageName: node
+  linkType: soft
 
 "@prisma/config@npm:6.9.0":
   version: 6.9.0
@@ -4902,12 +4912,12 @@ __metadata:
     "@blueprintjs/table": "npm:^5.1.5"
     "@builder.io/partytown": "npm:^0.10.1"
     "@graphql-codegen/cli": "npm:^5.0.5"
-    "@local/common": "file:../common"
-    "@local/prisma": "file:../prisma"
+    "@local/common": "portal:../common"
+    "@local/prisma": "portal:../prisma"
     "@pothos/core": "npm:^4.3.0"
     "@pothos/plugin-prisma": "npm:^4.4.0"
     "@pothos/plugin-prisma-utils": "npm:^1.2.0"
-    "@prisma/client": "npm:^6.9.0"
+    "@prisma/client": "portal:../prisma/node_modules/@prisma/client"
     "@testing-library/jest-dom": "npm:^6.4.2"
     "@testing-library/react": "npm:^14.2.2"
     "@types/http-errors": "npm:^2.0.4"

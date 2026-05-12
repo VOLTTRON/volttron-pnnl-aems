@@ -8,7 +8,7 @@ export declare class BannerObject {
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Banner";
-        Shape: import(".prisma/client").Banner;
+        Shape: import("@prisma/client").Banner;
         Include: Prisma.BannerInclude;
         Select: Prisma.BannerSelect;
         OrderBy: Prisma.BannerOrderByWithRelationInput;
@@ -20,7 +20,7 @@ export declare class BannerObject {
         ListRelations: "users";
         Relations: {
             users: {
-                Shape: import(".prisma/client").User[];
+                Shape: import("@prisma/client").User[];
                 Name: "User";
                 Nullable: false;
             };
