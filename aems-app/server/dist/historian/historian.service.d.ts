@@ -37,6 +37,8 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     getMultiSystemUnitRanges(campus: string, building: string, systems: string[], deniedSystems: string[], metric: UnitMetric, startTime: Date, endTime: Date): Promise<HistorianMultiSystemRanges[]>;
     getMultiSystemSetpointErrorRanges(campus: string, building: string, systems: string[], deniedSystems: string[], startTime: Date, endTime: Date): Promise<HistorianMultiSystemRanges[]>;
     private static deriveBucketInterval;
+    private static readonly CATEGORICAL_UNIT_METRICS;
+    private static parseClientInterval;
     private static toNumber;
     calculateSetpointError(campus: string, building: string, system: string, startTime: Date, endTime: Date): Promise<HistorianTimeSeries>;
     private isProxyCertificateSelfSigned;

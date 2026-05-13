@@ -811,29 +811,24 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (topicIds.length > 0) {
-        let timeGroup = "ts";
-        const params: (Date | number[])[] = [startTime, endTime, topicIds];
+        // Auto-derive bucket interval if the caller didn't pass one. Without
+        // this, long ranges (months–years) return raw sample data —
+        // millions of rows per topic — which crushes both the wire payload
+        // and the client-side timeline render.
+        const bucketInterval = interval
+          ? HistorianService.parseClientInterval(interval)
+          : HistorianService.deriveBucketInterval(startTime, endTime);
 
-        if (interval) {
-          const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
-          if (!intervalMatch) {
-            throw new Error("Invalid interval format");
-          }
-          const [, , intervalUnit] = intervalMatch;
-          const intervalMap: Record<string, string> = {
-            s: "second",
-            m: "minute",
-            h: "hour",
-            d: "day",
-          };
-          timeGroup = `date_trunc('${intervalMap[intervalUnit]}', ts)`;
-        }
+        // Categorical state metrics (e.g. OccupancyCommand = 1/2/3) can't
+        // be averaged meaningfully — MAX picks a real state code and
+        // matches the deprecated Grafana dashboard's behavior.
+        const aggFn = HistorianService.CATEGORICAL_UNIT_METRICS.has(metric) ? "MAX" : "AVG";
 
         const query = `
           SELECT
-            ${timeGroup} AS timestamp,
+            date_bin($4::interval, ts, $1::timestamptz) AS timestamp,
             topic_id,
-            AVG(CAST(NULLIF(value_string, 'null') AS double precision)) AS value
+            ${aggFn}(CAST(NULLIF(value_string, 'null') AS double precision)) AS value
           FROM data
           WHERE topic_id = ANY($3::int[])
             AND ts >= $1
@@ -843,15 +838,15 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         `;
         try {
           const result = await this.pool.query<{
-            timestamp: string;
+            timestamp: Date | string;
             topic_id: number;
             value: number | string | null;
-          }>(query, params);
+          }>(query, [startTime, endTime, topicIds, bucketInterval.sql]);
           result.rows.forEach((row) => {
             const sys = topicIdToSystem.get(row.topic_id);
             if (!sys) return;
             queryResult[sys].push({
-              timestamp: new Date(row.timestamp),
+              timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
               value: typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null),
               system: sys,
               metric,
@@ -1255,6 +1250,38 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     ];
     const chosen = niceSeconds.find((s) => s >= targetSec) ?? niceSeconds[niceSeconds.length - 1];
     return { sql: `${chosen} seconds`, ms: chosen * 1000 };
+  }
+
+  /**
+   * UnitMetrics whose values are categorical state codes (not continuous
+   * measurements). Bucketed aggregation for these uses MAX/mode semantics
+   * rather than AVG, which would produce meaningless non-integer states.
+   * Extend this set as other state metrics are added.
+   */
+  private static readonly CATEGORICAL_UNIT_METRICS: ReadonlySet<UnitMetric> = new Set<UnitMetric>([
+    UnitMetric.OccupancyCommand,
+  ]);
+
+  /**
+   * Parse a client-supplied interval string like "5m" / "1h" into the same
+   * { sql, ms } shape that `deriveBucketInterval` produces, so every
+   * bucketed query can use a single `date_bin` call site.
+   */
+  private static parseClientInterval(interval: string): { sql: string; ms: number } {
+    const match = interval.match(/^(\d+)([smhd])$/);
+    if (!match) {
+      throw new Error(`Invalid interval format: "${interval}". Use e.g. "5m", "1h", "30s".`);
+    }
+    const n = parseInt(match[1], 10);
+    const unit = match[2];
+    const unitMap: Record<string, { name: string; ms: number }> = {
+      s: { name: "seconds", ms: 1000 },
+      m: { name: "minutes", ms: 60_000 },
+      h: { name: "hours", ms: 3_600_000 },
+      d: { name: "days", ms: 86_400_000 },
+    };
+    const u = unitMap[unit];
+    return { sql: `${n} ${u.name}`, ms: n * u.ms };
   }
 
   private static toNumber(v: string | number | null | undefined): number | null {

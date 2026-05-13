@@ -540,27 +540,15 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 }
             }
             if (topicIds.length > 0) {
-                let timeGroup = "ts";
-                const params = [startTime, endTime, topicIds];
-                if (interval) {
-                    const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
-                    if (!intervalMatch) {
-                        throw new Error("Invalid interval format");
-                    }
-                    const [, , intervalUnit] = intervalMatch;
-                    const intervalMap = {
-                        s: "second",
-                        m: "minute",
-                        h: "hour",
-                        d: "day",
-                    };
-                    timeGroup = `date_trunc('${intervalMap[intervalUnit]}', ts)`;
-                }
+                const bucketInterval = interval
+                    ? HistorianService_1.parseClientInterval(interval)
+                    : HistorianService_1.deriveBucketInterval(startTime, endTime);
+                const aggFn = HistorianService_1.CATEGORICAL_UNIT_METRICS.has(metric) ? "MAX" : "AVG";
                 const query = `
           SELECT
-            ${timeGroup} AS timestamp,
+            date_bin($4::interval, ts, $1::timestamptz) AS timestamp,
             topic_id,
-            AVG(CAST(NULLIF(value_string, 'null') AS double precision)) AS value
+            ${aggFn}(CAST(NULLIF(value_string, 'null') AS double precision)) AS value
           FROM data
           WHERE topic_id = ANY($3::int[])
             AND ts >= $1
@@ -569,13 +557,13 @@ let HistorianService = HistorianService_1 = class HistorianService {
           ORDER BY 1, 2
         `;
                 try {
-                    const result = await this.pool.query(query, params);
+                    const result = await this.pool.query(query, [startTime, endTime, topicIds, bucketInterval.sql]);
                     result.rows.forEach((row) => {
                         const sys = topicIdToSystem.get(row.topic_id);
                         if (!sys)
                             return;
                         queryResult[sys].push({
-                            timestamp: new Date(row.timestamp),
+                            timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
                             value: typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null),
                             system: sys,
                             metric,
@@ -896,6 +884,22 @@ let HistorianService = HistorianService_1 = class HistorianService {
         ];
         const chosen = niceSeconds.find((s) => s >= targetSec) ?? niceSeconds[niceSeconds.length - 1];
         return { sql: `${chosen} seconds`, ms: chosen * 1000 };
+    }
+    static parseClientInterval(interval) {
+        const match = interval.match(/^(\d+)([smhd])$/);
+        if (!match) {
+            throw new Error(`Invalid interval format: "${interval}". Use e.g. "5m", "1h", "30s".`);
+        }
+        const n = parseInt(match[1], 10);
+        const unit = match[2];
+        const unitMap = {
+            s: { name: "seconds", ms: 1000 },
+            m: { name: "minutes", ms: 60_000 },
+            h: { name: "hours", ms: 3_600_000 },
+            d: { name: "days", ms: 86_400_000 },
+        };
+        const u = unitMap[unit];
+        return { sql: `${n} ${u.name}`, ms: n * u.ms };
     }
     static toNumber(v) {
         if (typeof v === "number")
@@ -1540,6 +1544,9 @@ WHERE subname = 'historian_sub';`;
     }
 };
 exports.HistorianService = HistorianService;
+HistorianService.CATEGORICAL_UNIT_METRICS = new Set([
+    common_3.UnitMetric.OccupancyCommand,
+]);
 exports.HistorianService = HistorianService = HistorianService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_2.Inject)(app_config_1.AppConfigService.Key)),
