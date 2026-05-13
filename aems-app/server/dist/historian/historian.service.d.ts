@@ -21,6 +21,9 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     onModuleDestroy(): Promise<void>;
     filterHistorianAccess(user: Express.User, campus?: string, building?: string, system?: string | string[]): Promise<HistorianAccessControl>;
     private parseValue;
+    private topicIdCache;
+    private resolveTopicId;
+    private resolveTopicIds;
     getUnitCurrentValue(campus: string, building: string, system: string, metric: UnitMetric): Promise<HistorianMetricCurrent | null>;
     getWeatherCurrentValue(campus: string, building: string, metric: WeatherMetric): Promise<HistorianMetricCurrent | null>;
     getUnitTimeSeries(campus: string, building: string, system: string, metric: UnitMetric, startTime: Date, endTime: Date): Promise<HistorianTimeSeries>;
@@ -33,6 +36,8 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     getMultiSystemUnit(campus: string, building: string, systems: string[], deniedSystems: string[], metric: UnitMetric, startTime: Date, endTime: Date, interval?: string): Promise<HistorianMultiSystemData[]>;
     getMultiSystemUnitRanges(campus: string, building: string, systems: string[], deniedSystems: string[], metric: UnitMetric, startTime: Date, endTime: Date): Promise<HistorianMultiSystemRanges[]>;
     getMultiSystemSetpointErrorRanges(campus: string, building: string, systems: string[], deniedSystems: string[], startTime: Date, endTime: Date): Promise<HistorianMultiSystemRanges[]>;
+    private static deriveBucketInterval;
+    private static toNumber;
     calculateSetpointError(campus: string, building: string, system: string, startTime: Date, endTime: Date): Promise<HistorianTimeSeries>;
     private isProxyCertificateSelfSigned;
     private ensureTablesInPublication;

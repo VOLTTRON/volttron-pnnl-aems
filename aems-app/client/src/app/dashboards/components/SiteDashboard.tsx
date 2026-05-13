@@ -23,6 +23,36 @@ import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/co
 import { optimizeSystemNames } from "@/utils/systemNameOptimizer";
 import { useMetricColors } from "@/utils/metricColors";
 
+interface SystemSetpointErrorQueryProps {
+  campus: string;
+  building: string;
+  system: string;
+  startTime: string;
+  endTime: string;
+  onResult: (system: string, data: { data: any[] } | null, loading: boolean) => void;
+}
+
+// Fires one HistorianSetpointError query per system and bubbles the result
+// up to the parent. Rendering one of these per RTU lets us support any number
+// of systems while staying within the rules of hooks.
+function SystemSetpointErrorQuery({
+  campus,
+  building,
+  system,
+  startTime,
+  endTime,
+  onResult,
+}: SystemSetpointErrorQueryProps) {
+  const { data, loading } = useQuery(HistorianSetpointErrorDocument, {
+    variables: { campus, building, system, startTime, endTime },
+    skip: !system,
+  });
+  React.useEffect(() => {
+    onResult(system, data?.historianSetpointError ?? null, loading);
+  }, [data, loading, system, onResult]);
+  return null;
+}
+
 interface SiteDashboardProps {
   campus: string;
   building: string;
@@ -96,66 +126,38 @@ export function SiteDashboard({
     skip: unitSystems.length === 0,
   });
 
-  // Setpoint error data - using multi-system query with each system
-  const { data: setpointErrorData1, loading: setpointErrorLoading1 } = useQuery(HistorianSetpointErrorDocument, {
-    variables: {
-      campus,
-      building,
-      system: unitSystems[0] || "",
-      startTime,
-      endTime,
+  // Setpoint error data - one query per system via a child component per RTU,
+  // so every system in the building is covered (not just the first few).
+  const [setpointErrorResults, setSetpointErrorResults] = React.useState<
+    Record<string, { data: { data: any[] } | null; loading: boolean }>
+  >({});
+  const handleSetpointErrorResult = React.useCallback(
+    (system: string, data: { data: any[] } | null, loading: boolean) => {
+      setSetpointErrorResults((prev) => {
+        const existing = prev[system];
+        if (existing && existing.data === data && existing.loading === loading) return prev;
+        return { ...prev, [system]: { data, loading } };
+      });
     },
-    skip: unitSystems.length === 0,
-  });
-  const { data: setpointErrorData2, loading: setpointErrorLoading2 } = useQuery(HistorianSetpointErrorDocument, {
-    variables: {
-      campus,
-      building,
-      system: unitSystems[1] || "",
-      startTime,
-      endTime,
-    },
-    skip: unitSystems.length < 2,
-  });
-  const { data: setpointErrorData3, loading: setpointErrorLoading3 } = useQuery(HistorianSetpointErrorDocument, {
-    variables: {
-      campus,
-      building,
-      system: unitSystems[2] || "",
-      startTime,
-      endTime,
-    },
-    skip: unitSystems.length < 3,
-  });
-
-  const setpointErrorLoading = setpointErrorLoading1 || setpointErrorLoading2 || setpointErrorLoading3;
+    [],
+  );
+  const setpointErrorLoading = unitSystems.some(
+    (sys) => !setpointErrorResults[sys] || setpointErrorResults[sys].loading,
+  );
   const setpointErrorData = React.useMemo(() => {
-    const results = [
-      unitSystems[0] && setpointErrorData1?.historianSetpointError
-        ? {
-            system: unitSystems[0],
-            data: setpointErrorData1.historianSetpointError.data,
-            metadata: { topics: {}, errors: [] },
-          }
-        : null,
-      unitSystems[1] && setpointErrorData2?.historianSetpointError
-        ? {
-            system: unitSystems[1],
-            data: setpointErrorData2.historianSetpointError.data,
-            metadata: { topics: {}, errors: [] },
-          }
-        : null,
-      unitSystems[2] && setpointErrorData3?.historianSetpointError
-        ? {
-            system: unitSystems[2],
-            data: setpointErrorData3.historianSetpointError.data,
-            metadata: { topics: {}, errors: [] },
-          }
-        : null,
-    ].filter((r) => r !== null);
-
+    const results = unitSystems
+      .map((sys) => {
+        const result = setpointErrorResults[sys];
+        if (!result?.data) return null;
+        return {
+          system: sys,
+          data: result.data.data,
+          metadata: { topics: {}, errors: [] },
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
     return results.length > 0 ? { historianMultiSystemUnit: results } : null;
-  }, [setpointErrorData1, setpointErrorData2, setpointErrorData3, unitSystems]);
+  }, [setpointErrorResults, unitSystems]);
 
   // Weather data using new weather query
   const { data: weatherData, loading: weatherLoading } = useQuery(HistorianWeatherTimeSeriesDocument, {
@@ -201,14 +203,26 @@ export function SiteDashboard({
     return { label: "Unknown", color: tertiaryPalette.secondary.hex };
   };
 
-  // Helper function to get setpoint error state with color coding
-  // Using diverging scale: blue (cold) -> green (optimal) -> yellow/red (warm)
+  // Helper function to get setpoint error state with color coding.
+  // Mirrors the deprecated Grafana site dashboard's BlYlRd threshold stops
+  // at -3 / -2 / -1 / 1 / 2 / 3 °F.
+  const setpointErrorBins: Array<{ label: string; color: string }> = [
+    { label: "Very Cold (< -3°F)", color: primaryPalette.primary.hex },
+    { label: "Cold (-3 to -2°F)", color: primaryPalette.secondary.hex },
+    { label: "Slightly Cold (-2 to -1°F)", color: primaryPalette.tertiary.hex },
+    { label: "Optimal (-1 to 1°F)", color: tertiaryPalette.tertiary.hex },
+    { label: "Slightly Warm (1 to 2°F)", color: secondaryPalette.quaternary.hex },
+    { label: "Warm (2 to 3°F)", color: secondaryPalette.secondary.hex },
+    { label: "Very Warm (> 3°F)", color: secondaryPalette.primary.hex },
+  ];
   const getSetpointErrorState = (errorValue: number) => {
-    if (errorValue < -2) return { label: "Very Cold (< -2°F)", color: primaryPalette.primary.hex }; // Deep Navy
-    if (errorValue < -1) return { label: "Slightly Cold (-2 to -1°F)", color: primaryPalette.tertiary.hex }; // Sky Blue
-    if (errorValue <= 1) return { label: "Optimal (-1 to 1°F)", color: tertiaryPalette.tertiary.hex }; // Spring Green
-    if (errorValue <= 2) return { label: "Slightly Warm (1 to 2°F)", color: secondaryPalette.quaternary.hex }; // Earth Amber
-    return { label: "Very Warm (> 2°F)", color: secondaryPalette.primary.hex }; // Fire Red
+    if (errorValue < -3) return setpointErrorBins[0];
+    if (errorValue < -2) return setpointErrorBins[1];
+    if (errorValue < -1) return setpointErrorBins[2];
+    if (errorValue <= 1) return setpointErrorBins[3];
+    if (errorValue <= 2) return setpointErrorBins[4];
+    if (errorValue <= 3) return setpointErrorBins[5];
+    return setpointErrorBins[6];
   };
 
   // Helper function to prepare timeline data for ECharts
@@ -220,9 +234,9 @@ export function SiteDashboard({
     endTime: string,
     systems: string[],
     displayNames: string[],
+    preSeededStates?: Array<{ label: string; color: string }>,
+    unknownStateOverride?: { label: string; color: string },
   ) => {
-    if (!data?.historianMultiSystemUnit) return [];
-
     const series: any[] = [];
 
     // Create mapping from original system names to display names
@@ -231,8 +245,10 @@ export function SiteDashboard({
       systemToDisplayName.set(sys, displayNames[idx] || sys);
     });
 
-    // Create "Unknown" background series first (renders behind everything)
-    const unknownState = getStateInfo(0); // Get "Unknown" state info
+    // "Unknown" background series (rendered behind everything). Callers can
+    // pass `unknownStateOverride` when 0 is a valid value in their state
+    // space (e.g. setpoint error, where 0 falls in the Optimal bin).
+    const unknownState = unknownStateOverride ?? getStateInfo(0);
     const unknownData = displayNames.map((displayName) => ({
       value: [displayName, startTime, endTime, unknownState.label, unknownState.color],
       itemStyle: { color: unknownState.color },
@@ -276,11 +292,18 @@ export function SiteDashboard({
       data: unknownData,
     });
 
-    // Collect valid states (excluding "Unknown")
+    // Collect valid states (excluding "Unknown"). Pre-seed with the full
+    // bin list (when provided) so every bin shows in the legend even if no
+    // data point currently falls in it, and so legend order matches the
+    // caller-supplied order.
     const stateMap = new Map<string, { label: string; color: string; data: any[] }>();
+    preSeededStates?.forEach((state) => {
+      if (state.label === unknownState.label) return;
+      stateMap.set(state.label, { label: state.label, color: state.color, data: [] });
+    });
 
     // Process each system's data
-    data.historianMultiSystemUnit.forEach((systemData: any) => {
+    (data?.historianMultiSystemUnit ?? []).forEach((systemData: any) => {
       const points = systemData.data || [];
       const systemName = systemData.system;
 
@@ -440,6 +463,17 @@ export function SiteDashboard({
           )}
         </Card>
 
+        {unitSystems.map((sys) => (
+          <SystemSetpointErrorQuery
+            key={sys}
+            campus={campus}
+            building={building}
+            system={sys}
+            startTime={startTime}
+            endTime={endTime}
+            onResult={handleSetpointErrorResult}
+          />
+        ))}
         <Card className={styles.timelineCard}>
           {setpointErrorLoading ? (
             <div className={styles.chartLoading}>
@@ -464,14 +498,7 @@ export function SiteDashboard({
                 legend: {
                   bottom: 0,
                   show: true,
-                  data: [
-                    "Unknown",
-                    "Very Cold (< -2°F)",
-                    "Slightly Cold (-2 to -1°F)",
-                    "Optimal (-1 to 1°F)",
-                    "Slightly Warm (1 to 2°F)",
-                    "Very Warm (> 2°F)",
-                  ],
+                  data: ["Unknown", ...setpointErrorBins.map((b) => b.label)],
                 },
                 dataZoom: [
                   {
@@ -504,6 +531,8 @@ export function SiteDashboard({
                   endTime,
                   unitSystems,
                   optimizedSystemNames,
+                  setpointErrorBins,
+                  { label: "Unknown", color: tertiaryPalette.secondary.hex },
                 ),
               }}
               style={{ height: "480px" }}

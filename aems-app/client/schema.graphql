@@ -1105,6 +1105,7 @@ input CurrentUpdateInput {
   preferences: UserPreferences
 }
 
+"""ISO-8601 date-time string. Parsed into a native Date for resolvers."""
 scalar DateTime
 
 input DateTimeFilter {

@@ -402,6 +402,10 @@ CREATE TABLE IF NOT EXISTS data (
 CREATE INDEX IF NOT EXISTS idx_data_ts ON data(ts);
 CREATE INDEX IF NOT EXISTS idx_data_topic_id ON data(topic_id);
 CREATE INDEX IF NOT EXISTS idx_topics_name ON topics(topic_name);
+-- Functional index so case-insensitive topic_name lookups (the server's
+-- resolveTopicId path) can use an index instead of falling back to a
+-- seq scan on topics. Keeps the hot path fast at scale.
+CREATE INDEX IF NOT EXISTS idx_topics_name_lower ON topics(lower(topic_name));
 EOF
 
 if [ $? -ne 0 ]; then
