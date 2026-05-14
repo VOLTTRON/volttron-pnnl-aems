@@ -487,6 +487,7 @@ export function SiteDashboard({
               style={{ height: "480px" }}
               theme={mode}
               showLegendToggle
+              showDataZoomTools
             />
           )}
         </Card>
@@ -568,6 +569,7 @@ export function SiteDashboard({
               style={{ height: "480px" }}
               theme={mode}
               showLegendToggle
+              showDataZoomTools
             />
           )}
         </Card>
@@ -655,6 +657,7 @@ export function SiteDashboard({
               style={{ height: "380px" }}
               theme={mode}
               showLegendToggle
+              showDataZoomTools
             />
           )}
         </Card>
@@ -726,6 +729,7 @@ export function SiteDashboard({
               style={{ height: "380px" }}
               theme={mode}
               showLegendToggle
+              showDataZoomTools
             />
           )}
         </Card>

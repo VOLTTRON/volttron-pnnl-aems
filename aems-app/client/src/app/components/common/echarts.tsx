@@ -66,13 +66,31 @@ function buildToggleFeature(state: LegendState, chartRef: React.RefObject<HTMLDi
   };
 }
 
+function buildFeatureMap(
+  baseFeature: any,
+  showLegendToggle: boolean | undefined,
+  showDataZoomTools: boolean | undefined,
+  state: LegendState,
+  chartRef: React.RefObject<HTMLDivElement>,
+) {
+  const feature: Record<string, any> = { ...(baseFeature || {}) };
+  if (showDataZoomTools) {
+    feature.dataZoom = { ...(baseFeature?.dataZoom || {}) };
+  }
+  if (showLegendToggle) {
+    feature.myToggleAll = buildToggleFeature(state, chartRef);
+  }
+  return feature;
+}
+
 function mergeToolbox(
   option: EChartsOption,
   state: LegendState,
+  showLegendToggle: boolean | undefined,
+  showDataZoomTools: boolean | undefined,
   chartRef: React.RefObject<HTMLDivElement>,
 ): EChartsOption {
   const existing = (option as any).toolbox;
-  const feature = buildToggleFeature(state, chartRef);
   const base = Array.isArray(existing) ? existing[0] : existing;
   return {
     ...option,
@@ -81,10 +99,7 @@ function mergeToolbox(
       show: base?.show ?? true,
       top: base?.top ?? 0,
       right: base?.right ?? 10,
-      feature: {
-        ...(base?.feature || {}),
-        myToggleAll: feature,
-      },
+      feature: buildFeatureMap(base?.feature, showLegendToggle, showDataZoomTools, state, chartRef),
     },
   } as EChartsOption;
 }
@@ -96,6 +111,7 @@ export interface ReactEChartsProps {
   loading?: boolean;
   theme?: "light" | "dark" | Mode;
   showLegendToggle?: boolean;
+  showDataZoomTools?: boolean;
 }
 
 export function ECharts({
@@ -105,6 +121,7 @@ export function ECharts({
   loading,
   theme,
   showLegendToggle,
+  showDataZoomTools,
 }: ReactEChartsProps): React.ReactNode {
   const chartRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<LegendState>("all");
@@ -127,20 +144,40 @@ export function ECharts({
         const { state: newState } = readLiveLegendState(c);
         if (newState !== stateRef.current) {
           stateRef.current = newState;
+          const currentOption: any = c.getOption?.();
+          const currentToolboxRaw = currentOption?.toolbox;
+          const currentToolbox = Array.isArray(currentToolboxRaw) ? currentToolboxRaw[0] : currentToolboxRaw;
           c.setOption(
             {
               toolbox: {
-                feature: {
-                  myToggleAll: buildToggleFeature(newState, chartRef),
-                },
+                ...(currentToolbox || {}),
+                show: currentToolbox?.show ?? true,
+                top: currentToolbox?.top ?? 0,
+                right: currentToolbox?.right ?? 10,
+                feature: buildFeatureMap(
+                  currentToolbox?.feature,
+                  showLegendToggle,
+                  showDataZoomTools,
+                  newState,
+                  chartRef,
+                ),
               },
             } as any,
-            { lazyUpdate: true },
+            { replaceMerge: ["toolbox"], lazyUpdate: true },
           );
         }
       };
-      chart.on("legendselectchanged", handler);
-      detachLegendListener = () => chart?.off("legendselectchanged", handler);
+      const legendEvents = [
+        "legendselectchanged",
+        "legendselected",
+        "legendunselected",
+        "legendselectall",
+        "legendinverseselect",
+      ];
+      for (const ev of legendEvents) chart.on(ev, handler);
+      detachLegendListener = () => {
+        for (const ev of legendEvents) chart?.off(ev, handler);
+      };
     }
     if (typeof window !== "undefined") {
       window.addEventListener("resize", resizeChart);
@@ -150,22 +187,22 @@ export function ECharts({
         window.removeEventListener("resize", resizeChart);
       };
     }
-  }, [theme, showLegendToggle]);
+  }, [theme, showLegendToggle, showDataZoomTools]);
 
   useEffect(() => {
     if (chartRef.current !== null) {
       const chart = getInstanceByDom(chartRef.current);
       let finalOption = option;
-      if (showLegendToggle && chart) {
+      if ((showLegendToggle || showDataZoomTools) && chart) {
         const { state } = readLiveLegendState(chart);
         stateRef.current = state;
-        finalOption = mergeToolbox(option, state, chartRef);
+        finalOption = mergeToolbox(option, state, showLegendToggle, showDataZoomTools, chartRef);
       }
       // Use notMerge: false for better performance on updates
       // Use lazyUpdate: true to batch rendering updates
       chart!.setOption(finalOption, { notMerge: false, lazyUpdate: true, ...settings });
     }
-  }, [option, settings, theme, showLegendToggle]);
+  }, [option, settings, theme, showLegendToggle, showDataZoomTools]);
 
   useEffect(() => {
     if (chartRef.current !== null) {
