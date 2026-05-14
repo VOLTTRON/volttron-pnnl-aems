@@ -352,9 +352,30 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         return { system, metric, data: [], metadata: { topics, errors } };
       }
 
-      const result = await this.pool.query<Pick<HistorianDataRow, "ts" | "value_string">>(
-        `SELECT ts, value_string FROM data WHERE topic_id = $1 AND ts >= $2 AND ts <= $3 ORDER BY ts`,
-        [topicId, startTime, endTime],
+      // Auto-bucket so a year-long range returns ~500 points instead of
+      // hundreds of thousands. MAX for state metrics, AVG for continuous.
+      const bucketInterval = HistorianService.deriveBucketInterval(startTime, endTime);
+      const aggFn = HistorianService.CATEGORICAL_UNIT_METRICS.has(metric) ? "MAX" : "AVG";
+
+      const result = await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
+        `
+          SELECT
+            date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
+            ${aggFn}(
+              CASE
+                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                  THEN value_string::double precision
+                ELSE NULL
+              END
+            ) AS value
+          FROM data
+          WHERE topic_id = $1
+            AND ts >= $2
+            AND ts <= $3
+          GROUP BY 1
+          ORDER BY 1
+        `,
+        [topicId, startTime, endTime, bucketInterval.sql],
       );
 
       if (result.rows.length === 0) {
@@ -362,8 +383,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
 
       const data: HistorianDataPoint[] = result.rows.map((row) => ({
-        timestamp: new Date(row.ts),
-        value: this.parseValue(row.value_string),
+        timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+        value: HistorianService.toNumber(row.value),
         system,
         metric,
       }));
@@ -404,9 +425,27 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         return { system: "weather", metric, data: [], metadata: { topics, errors } };
       }
 
-      const result = await this.pool.query<Pick<HistorianDataRow, "ts" | "value_string">>(
-        `SELECT ts, value_string FROM data WHERE topic_id = $1 AND ts >= $2 AND ts <= $3 ORDER BY ts`,
-        [topicId, startTime, endTime],
+      const bucketInterval = HistorianService.deriveBucketInterval(startTime, endTime);
+
+      const result = await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
+        `
+          SELECT
+            date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
+            AVG(
+              CASE
+                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                  THEN value_string::double precision
+                ELSE NULL
+              END
+            ) AS value
+          FROM data
+          WHERE topic_id = $1
+            AND ts >= $2
+            AND ts <= $3
+          GROUP BY 1
+          ORDER BY 1
+        `,
+        [topicId, startTime, endTime, bucketInterval.sql],
       );
 
       if (result.rows.length === 0) {
@@ -414,8 +453,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
 
       const data: HistorianDataPoint[] = result.rows.map((row) => ({
-        timestamp: new Date(row.ts),
-        value: this.parseValue(row.value_string),
+        timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+        value: HistorianService.toNumber(row.value),
         system: "weather",
         metric,
       }));
@@ -659,9 +698,27 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         return { system: "meter", metric, data: [], metadata: { topics, errors } };
       }
 
-      const result = await this.pool.query<Pick<HistorianDataRow, "ts" | "value_string">>(
-        `SELECT ts, value_string FROM data WHERE topic_id = $1 AND ts >= $2 AND ts <= $3 ORDER BY ts`,
-        [topicId, startTime, endTime],
+      const bucketInterval = HistorianService.deriveBucketInterval(startTime, endTime);
+
+      const result = await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
+        `
+          SELECT
+            date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
+            AVG(
+              CASE
+                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                  THEN value_string::double precision
+                ELSE NULL
+              END
+            ) AS value
+          FROM data
+          WHERE topic_id = $1
+            AND ts >= $2
+            AND ts <= $3
+          GROUP BY 1
+          ORDER BY 1
+        `,
+        [topicId, startTime, endTime, bucketInterval.sql],
       );
 
       if (result.rows.length === 0) {
@@ -669,8 +726,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
 
       const data: HistorianDataPoint[] = result.rows.map((row) => ({
-        timestamp: new Date(row.ts),
-        value: this.parseValue(row.value_string),
+        timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+        value: HistorianService.toNumber(row.value),
         system: "meter",
         metric,
       }));

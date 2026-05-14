@@ -220,13 +220,31 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
                 return { system, metric, data: [], metadata: { topics, errors } };
             }
-            const result = await this.pool.query(`SELECT ts, value_string FROM data WHERE topic_id = $1 AND ts >= $2 AND ts <= $3 ORDER BY ts`, [topicId, startTime, endTime]);
+            const bucketInterval = HistorianService_1.deriveBucketInterval(startTime, endTime);
+            const aggFn = HistorianService_1.CATEGORICAL_UNIT_METRICS.has(metric) ? "MAX" : "AVG";
+            const result = await this.pool.query(`
+          SELECT
+            date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
+            ${aggFn}(
+              CASE
+                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                  THEN value_string::double precision
+                ELSE NULL
+              END
+            ) AS value
+          FROM data
+          WHERE topic_id = $1
+            AND ts >= $2
+            AND ts <= $3
+          GROUP BY 1
+          ORDER BY 1
+        `, [topicId, startTime, endTime, bucketInterval.sql]);
             if (result.rows.length === 0) {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
             }
             const data = result.rows.map((row) => ({
-                timestamp: new Date(row.ts),
-                value: this.parseValue(row.value_string),
+                timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+                value: HistorianService_1.toNumber(row.value),
                 system,
                 metric,
             }));
@@ -254,13 +272,30 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
                 return { system: "weather", metric, data: [], metadata: { topics, errors } };
             }
-            const result = await this.pool.query(`SELECT ts, value_string FROM data WHERE topic_id = $1 AND ts >= $2 AND ts <= $3 ORDER BY ts`, [topicId, startTime, endTime]);
+            const bucketInterval = HistorianService_1.deriveBucketInterval(startTime, endTime);
+            const result = await this.pool.query(`
+          SELECT
+            date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
+            AVG(
+              CASE
+                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                  THEN value_string::double precision
+                ELSE NULL
+              END
+            ) AS value
+          FROM data
+          WHERE topic_id = $1
+            AND ts >= $2
+            AND ts <= $3
+          GROUP BY 1
+          ORDER BY 1
+        `, [topicId, startTime, endTime, bucketInterval.sql]);
             if (result.rows.length === 0) {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
             }
             const data = result.rows.map((row) => ({
-                timestamp: new Date(row.ts),
-                value: this.parseValue(row.value_string),
+                timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+                value: HistorianService_1.toNumber(row.value),
                 system: "weather",
                 metric,
             }));
@@ -435,13 +470,30 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
                 return { system: "meter", metric, data: [], metadata: { topics, errors } };
             }
-            const result = await this.pool.query(`SELECT ts, value_string FROM data WHERE topic_id = $1 AND ts >= $2 AND ts <= $3 ORDER BY ts`, [topicId, startTime, endTime]);
+            const bucketInterval = HistorianService_1.deriveBucketInterval(startTime, endTime);
+            const result = await this.pool.query(`
+          SELECT
+            date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
+            AVG(
+              CASE
+                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                  THEN value_string::double precision
+                ELSE NULL
+              END
+            ) AS value
+          FROM data
+          WHERE topic_id = $1
+            AND ts >= $2
+            AND ts <= $3
+          GROUP BY 1
+          ORDER BY 1
+        `, [topicId, startTime, endTime, bucketInterval.sql]);
             if (result.rows.length === 0) {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
             }
             const data = result.rows.map((row) => ({
-                timestamp: new Date(row.ts),
-                value: this.parseValue(row.value_string),
+                timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+                value: HistorianService_1.toNumber(row.value),
                 system: "meter",
                 metric,
             }));

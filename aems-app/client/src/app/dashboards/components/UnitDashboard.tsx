@@ -1070,6 +1070,8 @@ export function UnitDashboard({
                     yAxisIndex: YAxisIndex.Status,
                     step: "end",
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data:
                       occupancyCommandSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1082,6 +1084,8 @@ export function UnitDashboard({
                     yAxisIndex: YAxisIndex.Status,
                     step: "end",
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data: fanStatusSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     color: metricColors[UnitMetric.SupplyFanStatus],
                   });
@@ -1092,6 +1096,8 @@ export function UnitDashboard({
                     yAxisIndex: YAxisIndex.Status,
                     step: "end",
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data:
                       firstStageHeatingSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1104,6 +1110,8 @@ export function UnitDashboard({
                     yAxisIndex: YAxisIndex.Status,
                     step: "end",
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data: coolingStageSeriesData,
                     color: metricColors[UnitMetric.FirstStageCooling],
                   });
@@ -1113,8 +1121,9 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
                     data: zoneTempSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    lineStyle: { width: 3 },
+                    lineStyle: { width: 1.5 },
                     color: metricColors[UnitMetric.ZoneTemperature],
                   });
 
@@ -1123,6 +1132,8 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data:
                       outdoorTempSeries?.historianWeatherTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1134,6 +1145,8 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data:
                       heatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1145,6 +1158,8 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data:
                       coolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1156,12 +1171,13 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
                     data:
                       unoccupiedHeatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [
                         p.timestamp,
                         p.value,
                       ]) || [],
-                    lineStyle: { type: "dashed" },
+                    lineStyle: { type: "dashed", width: 1.5 },
                     color: metricColors[UnitMetric.UnoccupiedHeatingSetPoint],
                   });
 
@@ -1170,12 +1186,13 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
                     data:
                       unoccupiedCoolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [
                         p.timestamp,
                         p.value,
                       ]) || [],
-                    lineStyle: { type: "dashed" },
+                    lineStyle: { type: "dashed", width: 1.5 },
                     color: metricColors[UnitMetric.UnoccupiedCoolingSetPoint],
                   });
 
@@ -1184,9 +1201,11 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data:
                       zoneHumiditySeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    color: metricColors[UnitMetric.ZoneHumidity],
+                    color: gradientPalette.primary.hex,
                   });
 
                   // Extract series in enum order
@@ -1255,8 +1274,9 @@ export function UnitDashboard({
                         type: "line",
                         smooth: true,
                         sampling: "lttb" as const,
+                        showSymbol: false,
                         itemStyle: { color: secondaryPalette.secondary.hex }, // Use secondary palette for power/demand
-                        lineStyle: { color: secondaryPalette.secondary.hex },
+                        lineStyle: { color: secondaryPalette.secondary.hex, width: 1.5 },
                         data:
                           powerData.historianMeterTimeSeries.data?.map((point: any) => [
                             point.timestamp,

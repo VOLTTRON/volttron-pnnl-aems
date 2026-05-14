@@ -14,6 +14,7 @@ import {
   HistorianMeterTimeSeriesDocument,
 } from "@/graphql-codegen/graphql";
 import { ECharts } from "@/app/components/common/echarts";
+import { graphic } from "echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
 import styles from "./SiteDashboard.module.scss";
@@ -270,20 +271,32 @@ export function SiteDashboard({
         const height = api.size([0, 1])[1] * 0.6;
         const color = api.value(4);
 
-        return {
-          type: "rect" as const,
-          shape: {
+        const rectShape = graphic.clipRectByRect(
+          {
             x: start[0],
             y: start[1] - height / 2,
             width: Math.max(end[0] - start[0], 1),
             height: height,
           },
-          style: {
-            fill: color,
-            opacity: 0.7,
-            stroke: null,
+          {
+            x: params.coordSys.x,
+            y: params.coordSys.y,
+            width: params.coordSys.width,
+            height: params.coordSys.height,
           },
-        };
+        );
+
+        return (
+          rectShape && {
+            type: "rect" as const,
+            shape: rectShape,
+            style: {
+              fill: color,
+              opacity: 0.7,
+              stroke: null,
+            },
+          }
+        );
       },
       encode: {
         x: [1, 2],
@@ -363,19 +376,31 @@ export function SiteDashboard({
           const height = api.size([0, 1])[1] * 0.6;
           const color = api.value(4);
 
-          return {
-            type: "rect" as const,
-            shape: {
+          const rectShape = graphic.clipRectByRect(
+            {
               x: start[0],
               y: start[1] - height / 2,
               width: Math.max(end[0] - start[0], 1),
               height: height,
             },
-            style: {
-              fill: color,
-              stroke: null,
+            {
+              x: params.coordSys.x,
+              y: params.coordSys.y,
+              width: params.coordSys.width,
+              height: params.coordSys.height,
             },
-          };
+          );
+
+          return (
+            rectShape && {
+              type: "rect" as const,
+              shape: rectShape,
+              style: {
+                fill: color,
+                stroke: null,
+              },
+            }
+          );
         },
         encode: {
           x: [1, 2],
@@ -429,6 +454,7 @@ export function SiteDashboard({
                     type: "slider",
                     realtime: false,
                     xAxisIndex: 0,
+                    filterMode: "none",
                     start: 0,
                     end: 100,
                     bottom: 60,
@@ -437,6 +463,7 @@ export function SiteDashboard({
                   {
                     type: "inside",
                     xAxisIndex: 0,
+                    filterMode: "none",
                     start: 0,
                     end: 100,
                   },
@@ -505,6 +532,7 @@ export function SiteDashboard({
                     type: "slider",
                     realtime: false,
                     xAxisIndex: 0,
+                    filterMode: "none",
                     start: 0,
                     end: 100,
                     bottom: 60,
@@ -513,6 +541,7 @@ export function SiteDashboard({
                   {
                     type: "inside",
                     xAxisIndex: 0,
+                    filterMode: "none",
                     start: 0,
                     end: 100,
                   },
@@ -597,8 +626,9 @@ export function SiteDashboard({
                           type: "line" as const,
                           smooth: true,
                           sampling: "lttb" as const,
+                          showSymbol: false,
                           itemStyle: { color: metricColors[WeatherMetric.AirTemperature] },
-                          lineStyle: { color: metricColors[WeatherMetric.AirTemperature], width: 2 },
+                          lineStyle: { color: metricColors[WeatherMetric.AirTemperature], width: 1.5 },
                           data:
                             weatherData.historianWeatherTimeSeries.data?.map((point: any) => [
                               point.timestamp,
@@ -613,8 +643,9 @@ export function SiteDashboard({
                     type: "line" as const,
                     smooth: true,
                     sampling: "lttb" as const,
+                    showSymbol: false,
                     itemStyle: { color: getUnitColor(systemData.system) },
-                    lineStyle: { color: getUnitColor(systemData.system) },
+                    lineStyle: { color: getUnitColor(systemData.system), width: 1.5 },
                     data: systemData.data?.map((point: any) => [point.timestamp, point.value]) || [],
                   })) || []),
                 ],
@@ -677,8 +708,9 @@ export function SiteDashboard({
                         type: "line",
                         smooth: true,
                         sampling: "lttb" as const,
+                        showSymbol: false,
                         itemStyle: { color: secondaryPalette.secondary.hex }, // Use secondary palette for power/demand
-                        lineStyle: { color: secondaryPalette.secondary.hex },
+                        lineStyle: { color: secondaryPalette.secondary.hex, width: 1.5 },
                         data:
                           powerData.historianMeterTimeSeries.data?.map((point: any) => [
                             point.timestamp,
