@@ -1216,6 +1216,7 @@ export function UnitDashboard({
               }}
               style={{ height: "580px" }}
               theme={mode}
+              showLegendToggle
             />
           )}
         </Card>
@@ -1288,6 +1289,7 @@ export function UnitDashboard({
               }}
               style={{ height: "380px" }}
               theme={mode}
+              showLegendToggle
             />
           )}
         </Card>
