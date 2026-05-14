@@ -1,0 +1,66 @@
+# Root-level .dockerignore used by builds whose build context is the
+# repository root (client, server). Per-workspace .dockerignore files
+# (client/.dockerignore, server/.dockerignore, prisma/.dockerignore,
+# common/.dockerignore) are NOT consulted when the context is higher up,
+# so all exclusions for multi-module builds must live here.
+#
+# Exclude every workspace's installed dependency tree. This is critical:
+# on Windows the host's node_modules contains junction points whose
+# resolved target is a Windows path (e.g. C:/Users/.../prisma). BuildKit
+# preserves these as Linux symlinks pointing at the same absolute Windows
+# path, which does not exist inside the Linux container. Yarn then
+# refuses to overwrite the already-present (broken) symlinks during
+# `yarn install`, leaving `node_modules/@local/prisma` and
+# `node_modules/@prisma/client` pointing nowhere - which causes TSC to
+# fail with `Cannot find module '@prisma/client'`.
+**/node_modules
+
+# Build outputs
+**/dist
+**/.next
+**/.turbo
+
+# Yarn local state (keep yarn.lock; exclude cache + ephemeral state)
+**/.yarn/cache
+**/.yarn/install-state.gz
+**/.yarn/build-state.yml
+
+# Logs and coverage
+**/*.log
+**/coverage
+**/.nyc_output
+**/tsc.log
+
+# Editor / VCS
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+*.swp
+
+# Docs and misc repo-level artifacts not needed at build time
+docs
+README.md
+LICENSE.txt
+*.md
+!server/README.md
+!client/README.md
+!common/README.md
+!prisma/README.md
+
+# Local env files that should never leak into images. The Dockerfiles
+# explicitly COPY the .env files they need.
+.env
+.env.secrets
+.env.secrets.example
+
+# Docker-related files not consumed by app builds
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile
+**/Dockerfile
+!client/Dockerfile
+!server/Dockerfile
+!prisma/Dockerfile
+!common/Dockerfile

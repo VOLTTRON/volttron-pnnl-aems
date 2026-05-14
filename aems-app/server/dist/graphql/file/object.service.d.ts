@@ -8,7 +8,7 @@ export declare class FileObject {
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "File";
-        Shape: import(".prisma/client").File;
+        Shape: import("@prisma/client").File;
         Include: Prisma.FileInclude;
         Select: Prisma.FileSelect;
         OrderBy: Prisma.FileOrderByWithRelationInput;
@@ -20,12 +20,12 @@ export declare class FileObject {
         ListRelations: never;
         Relations: {
             user: {
-                Shape: import(".prisma/client").User | null;
+                Shape: import("@prisma/client").User | null;
                 Name: "User";
                 Nullable: true;
             };
             feedback: {
-                Shape: import(".prisma/client").Feedback | null;
+                Shape: import("@prisma/client").Feedback | null;
                 Name: "Feedback";
                 Nullable: true;
             };

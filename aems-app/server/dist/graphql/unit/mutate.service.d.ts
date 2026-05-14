@@ -12,7 +12,7 @@ export declare class UnitMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.UnitCreateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.UnitCreateInput, {
         stage: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
@@ -56,7 +56,7 @@ export declare class UnitMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.UnitUpdateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.UnitUpdateInput, {
         stage: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
@@ -97,21 +97,21 @@ export declare class UnitMutation {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ConfigurationUpdateOneWithoutUnitsNestedInput>;
+        }>, import("@prisma/client").Prisma.ConfigurationUpdateOneWithoutUnitsNestedInput>;
         controlId: "String";
         control: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ControlUpdateOneWithoutUnitsNestedInput>;
+        }>, import("@prisma/client").Prisma.ControlUpdateOneWithoutUnitsNestedInput>;
         locationId: "String";
         location: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.LocationUpdateOneWithoutUnitsNestedInput>;
+        }>, import("@prisma/client").Prisma.LocationUpdateOneWithoutUnitsNestedInput>;
     }>>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, unitQuery: UnitQuery, configurationMutation: ConfigurationMutation, controlMutation: ControlMutation, locationMutation: LocationMutation, changeService: ChangeService);
 }

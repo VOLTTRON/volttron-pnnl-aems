@@ -134,6 +134,11 @@ export declare class AppConfigService {
                 unit: ReturnType<typeof toDurationUnit>;
             };
         };
+        backup: {
+            workspace: string;
+            workerToken: string;
+            composeProfiles: string[];
+        };
         config: {
             timeout: number;
             authUrl: string;
@@ -163,6 +168,11 @@ export declare class AppConfigService {
         configPath: string;
         username: string;
         password: string;
+        backup: {
+            workspace: string;
+            workerToken: string;
+            composeProfiles: string[];
+        };
     };
     cors: {
         origin?: string;

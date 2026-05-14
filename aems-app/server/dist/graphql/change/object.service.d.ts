@@ -15,7 +15,7 @@ export declare class ChangeObject {
         Scalars: Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Change";
-        Shape: import(".prisma/client").Change;
+        Shape: import("@prisma/client").Change;
         Include: Prisma.ChangeInclude;
         Select: Prisma.ChangeSelect;
         OrderBy: Prisma.ChangeOrderByWithRelationInput;
@@ -27,7 +27,7 @@ export declare class ChangeObject {
         ListRelations: never;
         Relations: {
             user: {
-                Shape: import(".prisma/client").User | null;
+                Shape: import("@prisma/client").User | null;
                 Name: "User";
                 Nullable: true;
             };
@@ -40,7 +40,7 @@ export declare class ChangeObject {
         userId: string | null;
         data: PrismaJson.ChangeData | null;
         table: string;
-        mutation: import(".prisma/client").$Enums.ChangeMutation;
+        mutation: import("@prisma/client").$Enums.ChangeMutation;
     }>;
     readonly ChangeFields: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;

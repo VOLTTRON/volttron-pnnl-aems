@@ -11,7 +11,7 @@ export declare class LocationMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.LocationCreateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.LocationCreateInput, {
         name: "String";
         latitude: "Float";
         longitude: "Float";
@@ -20,14 +20,14 @@ export declare class LocationMutation {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.UnitCreateNestedManyWithoutLocationInput>;
+        }>, import("@prisma/client").Prisma.UnitCreateNestedManyWithoutLocationInput>;
     }>>;
     readonly LocationUpdate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.LocationUpdateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.LocationUpdateInput, {
         name: "String";
         latitude: "Float";
         longitude: "Float";
@@ -36,7 +36,7 @@ export declare class LocationMutation {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.UnitUpdateManyWithoutLocationNestedInput>;
+        }>, import("@prisma/client").Prisma.UnitUpdateManyWithoutLocationNestedInput>;
     }>>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, locationQuery: LocationQuery, _locationObject: LocationObject, unitQuery: UnitQuery, changeService: ChangeService);
 }

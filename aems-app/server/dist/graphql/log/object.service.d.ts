@@ -14,7 +14,7 @@ export declare class LogObject {
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Log";
-        Shape: import(".prisma/client").Log;
+        Shape: import("@prisma/client").Log;
         Include: never;
         Select: Prisma.LogSelect;
         OrderBy: Prisma.LogOrderByWithRelationInput;
@@ -29,7 +29,7 @@ export declare class LogObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        type: import(".prisma/client").$Enums.LogType | null;
+        type: import("@prisma/client").$Enums.LogType | null;
         message: string | null;
     }>;
     readonly LogFields: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{

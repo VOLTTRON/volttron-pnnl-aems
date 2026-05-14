@@ -20,6 +20,10 @@ export type Scalars = {
   Int: { input: number; output: number; }
   Float: { input: number; output: number; }
   AccountGroupBy: { input: PrismaJson.AccountGroupBy; output: PrismaJson.AccountGroupBy; }
+  BackupDestinationGroupBy: { input: PrismaJson.BackupDestinationGroupBy; output: PrismaJson.BackupDestinationGroupBy; }
+  BackupKeyGroupBy: { input: PrismaJson.BackupKeyGroupBy; output: PrismaJson.BackupKeyGroupBy; }
+  BackupPolicyGroupBy: { input: PrismaJson.BackupPolicyGroupBy; output: PrismaJson.BackupPolicyGroupBy; }
+  BackupRunGroupBy: { input: PrismaJson.BackupRunGroupBy; output: PrismaJson.BackupRunGroupBy; }
   BannerGroupBy: { input: PrismaJson.BannerGroupBy; output: PrismaJson.BannerGroupBy; }
   ChangeData: { input: PrismaJson.ChangeData; output: PrismaJson.ChangeData; }
   ChangeGroupBy: { input: PrismaJson.ChangeGroupBy; output: PrismaJson.ChangeGroupBy; }
@@ -170,6 +174,443 @@ export enum AggregationType {
   Min = 'Min',
   Sum = 'Sum'
 }
+
+export enum BackupArchiveAvailability {
+  Available = 'Available',
+  Missing = 'Missing',
+  Removed = 'Removed'
+}
+
+export type BackupComponent = {
+  __typename?: 'BackupComponent';
+  bytes?: Maybe<Scalars['String']['output']>;
+  createdAt?: Maybe<Scalars['DateTime']['output']>;
+  durationMs?: Maybe<Scalars['Int']['output']>;
+  error?: Maybe<Scalars['String']['output']>;
+  finishedAt?: Maybe<Scalars['DateTime']['output']>;
+  id?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  run?: Maybe<BackupRun>;
+  runId?: Maybe<Scalars['String']['output']>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
+  status?: Maybe<BackupComponentStatus>;
+  type?: Maybe<BackupComponentType>;
+  updatedAt?: Maybe<Scalars['DateTime']['output']>;
+};
+
+export enum BackupComponentFields {
+  Bytes = 'bytes',
+  CreatedAt = 'createdAt',
+  DurationMs = 'durationMs',
+  Error = 'error',
+  FinishedAt = 'finishedAt',
+  Id = 'id',
+  Name = 'name',
+  RunId = 'runId',
+  StartedAt = 'startedAt',
+  Status = 'status',
+  Type = 'type',
+  UpdatedAt = 'updatedAt'
+}
+
+export enum BackupComponentStatus {
+  Failed = 'Failed',
+  Pending = 'Pending',
+  Running = 'Running',
+  Skipped = 'Skipped',
+  Success = 'Success'
+}
+
+export enum BackupComponentType {
+  File = 'File',
+  MariaDb = 'MariaDB',
+  Path = 'Path',
+  Postgres = 'Postgres',
+  Volume = 'Volume'
+}
+
+export type BackupDestination = {
+  __typename?: 'BackupDestination';
+  createdAt?: Maybe<Scalars['DateTime']['output']>;
+  enabled?: Maybe<Scalars['Boolean']['output']>;
+  id?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  order?: Maybe<Scalars['Int']['output']>;
+  output?: Maybe<Scalars['String']['output']>;
+  policy?: Maybe<BackupPolicy>;
+  policyId?: Maybe<Scalars['String']['output']>;
+  runs?: Maybe<Array<BackupRunDestination>>;
+  sseKmsKeyId?: Maybe<Scalars['String']['output']>;
+  sseMode?: Maybe<Scalars['String']['output']>;
+  type?: Maybe<BackupDestinationType>;
+  updatedAt?: Maybe<Scalars['DateTime']['output']>;
+};
+
+export type BackupDestinationAggregate = {
+  average?: InputMaybe<Array<BackupDestinationFields>>;
+  count?: InputMaybe<Array<BackupDestinationFields>>;
+  maximum?: InputMaybe<Array<BackupDestinationFields>>;
+  minimum?: InputMaybe<Array<BackupDestinationFields>>;
+  sum?: InputMaybe<Array<BackupDestinationFields>>;
+};
+
+export enum BackupDestinationFields {
+  CreatedAt = 'createdAt',
+  Enabled = 'enabled',
+  Id = 'id',
+  Name = 'name',
+  Order = 'order',
+  Output = 'output',
+  PolicyId = 'policyId',
+  SseKmsKeyId = 'sseKmsKeyId',
+  SseMode = 'sseMode',
+  Type = 'type',
+  UpdatedAt = 'updatedAt'
+}
+
+export type BackupDestinationFilter = {
+  AND?: InputMaybe<Array<BackupDestinationFilter>>;
+  NOT?: InputMaybe<BackupDestinationFilter>;
+  OR?: InputMaybe<Array<BackupDestinationFilter>>;
+  createdAt?: InputMaybe<DateTimeFilter>;
+  enabled?: InputMaybe<BooleanFilter>;
+  id?: InputMaybe<StringFilter>;
+  name?: InputMaybe<StringFilter>;
+  output?: InputMaybe<StringFilter>;
+  policyId?: InputMaybe<StringFilter>;
+  updatedAt?: InputMaybe<DateTimeFilter>;
+};
+
+export type BackupDestinationOrderBy = {
+  createdAt?: InputMaybe<OrderBy>;
+  enabled?: InputMaybe<OrderBy>;
+  id?: InputMaybe<OrderBy>;
+  name?: InputMaybe<OrderBy>;
+  order?: InputMaybe<OrderBy>;
+  output?: InputMaybe<OrderBy>;
+  updatedAt?: InputMaybe<OrderBy>;
+};
+
+export enum BackupDestinationType {
+  Local = 'Local',
+  S3 = 'S3'
+}
+
+export type BackupDestinationUniqueFilter = {
+  id?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type BackupDiscoveredEnvFile = {
+  __typename?: 'BackupDiscoveredEnvFile';
+  autoExclude?: Maybe<Scalars['Boolean']['output']>;
+  autoExcludeReason?: Maybe<Scalars['String']['output']>;
+  exists?: Maybe<Scalars['Boolean']['output']>;
+  path?: Maybe<Scalars['String']['output']>;
+  source?: Maybe<Scalars['String']['output']>;
+};
+
+export type BackupDiscoveredPath = {
+  __typename?: 'BackupDiscoveredPath';
+  autoExclude?: Maybe<Scalars['Boolean']['output']>;
+  autoExcludeReason?: Maybe<Scalars['String']['output']>;
+  path?: Maybe<Scalars['String']['output']>;
+  services?: Maybe<Array<Scalars['String']['output']>>;
+  type?: Maybe<Scalars['String']['output']>;
+};
+
+export type BackupDiscoveredService = {
+  __typename?: 'BackupDiscoveredService';
+  autoExclude?: Maybe<Scalars['Boolean']['output']>;
+  autoExcludeReason?: Maybe<Scalars['String']['output']>;
+  backupStrategy?: Maybe<Scalars['String']['output']>;
+  engine?: Maybe<BackupComponentType>;
+  hasVolume?: Maybe<Scalars['Boolean']['output']>;
+  image?: Maybe<Scalars['String']['output']>;
+  imageFamily?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+};
+
+export type BackupDiscoveredVolume = {
+  __typename?: 'BackupDiscoveredVolume';
+  autoExclude?: Maybe<Scalars['Boolean']['output']>;
+  autoExcludeReason?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  services?: Maybe<Array<Scalars['String']['output']>>;
+};
+
+export type BackupDiscovery = {
+  __typename?: 'BackupDiscovery';
+  envFiles?: Maybe<Array<BackupDiscoveredEnvFile>>;
+  paths?: Maybe<Array<BackupDiscoveredPath>>;
+  services?: Maybe<Array<BackupDiscoveredService>>;
+  volumes?: Maybe<Array<BackupDiscoveredVolume>>;
+};
+
+export type BackupKey = {
+  __typename?: 'BackupKey';
+  acknowledged?: Maybe<Scalars['Boolean']['output']>;
+  acknowledgedAt?: Maybe<Scalars['DateTime']['output']>;
+  acknowledgedBy?: Maybe<User>;
+  acknowledgedById?: Maybe<Scalars['String']['output']>;
+  active?: Maybe<Scalars['Boolean']['output']>;
+  algorithm?: Maybe<BackupKeyAlgorithm>;
+  createdAt?: Maybe<Scalars['DateTime']['output']>;
+  fingerprint?: Maybe<Scalars['String']['output']>;
+  id?: Maybe<Scalars['String']['output']>;
+  publicKey?: Maybe<Scalars['String']['output']>;
+  rotatedAt?: Maybe<Scalars['DateTime']['output']>;
+  updatedAt?: Maybe<Scalars['DateTime']['output']>;
+};
+
+export type BackupKeyAggregate = {
+  average?: InputMaybe<Array<BackupKeyFields>>;
+  count?: InputMaybe<Array<BackupKeyFields>>;
+  maximum?: InputMaybe<Array<BackupKeyFields>>;
+  minimum?: InputMaybe<Array<BackupKeyFields>>;
+  sum?: InputMaybe<Array<BackupKeyFields>>;
+};
+
+export enum BackupKeyAlgorithm {
+  Age = 'Age',
+  Gpg = 'Gpg'
+}
+
+export enum BackupKeyFields {
+  Acknowledged = 'acknowledged',
+  AcknowledgedAt = 'acknowledgedAt',
+  AcknowledgedById = 'acknowledgedById',
+  Active = 'active',
+  Algorithm = 'algorithm',
+  CreatedAt = 'createdAt',
+  Fingerprint = 'fingerprint',
+  Id = 'id',
+  PrivateKeyPath = 'privateKeyPath',
+  PublicKey = 'publicKey',
+  RotatedAt = 'rotatedAt',
+  UpdatedAt = 'updatedAt'
+}
+
+export type BackupKeyFilter = {
+  AND?: InputMaybe<Array<BackupKeyFilter>>;
+  NOT?: InputMaybe<BackupKeyFilter>;
+  OR?: InputMaybe<Array<BackupKeyFilter>>;
+  acknowledged?: InputMaybe<BooleanFilter>;
+  active?: InputMaybe<BooleanFilter>;
+  createdAt?: InputMaybe<DateTimeFilter>;
+  fingerprint?: InputMaybe<StringFilter>;
+  id?: InputMaybe<StringFilter>;
+  updatedAt?: InputMaybe<DateTimeFilter>;
+};
+
+export type BackupKeyOrderBy = {
+  acknowledged?: InputMaybe<OrderBy>;
+  acknowledgedAt?: InputMaybe<OrderBy>;
+  active?: InputMaybe<OrderBy>;
+  createdAt?: InputMaybe<OrderBy>;
+  id?: InputMaybe<OrderBy>;
+  rotatedAt?: InputMaybe<OrderBy>;
+  updatedAt?: InputMaybe<OrderBy>;
+};
+
+export type BackupKeyUniqueFilter = {
+  id?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type BackupPolicy = {
+  __typename?: 'BackupPolicy';
+  createdAt?: Maybe<Scalars['DateTime']['output']>;
+  cron?: Maybe<Scalars['String']['output']>;
+  destinations?: Maybe<Array<BackupDestination>>;
+  enabled?: Maybe<Scalars['Boolean']['output']>;
+  excludeEnvFiles?: Maybe<Array<Scalars['String']['output']>>;
+  excludePaths?: Maybe<Array<Scalars['String']['output']>>;
+  excludeServices?: Maybe<Array<Scalars['String']['output']>>;
+  excludeVolumes?: Maybe<Array<Scalars['String']['output']>>;
+  extraEnvFiles?: Maybe<Array<Scalars['String']['output']>>;
+  id?: Maybe<Scalars['String']['output']>;
+  retentionDays?: Maybe<Scalars['Int']['output']>;
+  runs?: Maybe<Array<BackupRun>>;
+  updatedAt?: Maybe<Scalars['DateTime']['output']>;
+};
+
+export type BackupPolicyAggregate = {
+  average?: InputMaybe<Array<BackupPolicyFields>>;
+  count?: InputMaybe<Array<BackupPolicyFields>>;
+  maximum?: InputMaybe<Array<BackupPolicyFields>>;
+  minimum?: InputMaybe<Array<BackupPolicyFields>>;
+  sum?: InputMaybe<Array<BackupPolicyFields>>;
+};
+
+export enum BackupPolicyFields {
+  CreatedAt = 'createdAt',
+  Cron = 'cron',
+  Enabled = 'enabled',
+  ExcludeEnvFiles = 'excludeEnvFiles',
+  ExcludePaths = 'excludePaths',
+  ExcludeServices = 'excludeServices',
+  ExcludeVolumes = 'excludeVolumes',
+  ExtraEnvFiles = 'extraEnvFiles',
+  Id = 'id',
+  RetentionDays = 'retentionDays',
+  UpdatedAt = 'updatedAt'
+}
+
+export type BackupPolicyFilter = {
+  AND?: InputMaybe<Array<BackupPolicyFilter>>;
+  NOT?: InputMaybe<BackupPolicyFilter>;
+  OR?: InputMaybe<Array<BackupPolicyFilter>>;
+  createdAt?: InputMaybe<DateTimeFilter>;
+  cron?: InputMaybe<StringFilter>;
+  enabled?: InputMaybe<BooleanFilter>;
+  id?: InputMaybe<StringFilter>;
+  retentionDays?: InputMaybe<IntFilter>;
+  updatedAt?: InputMaybe<DateTimeFilter>;
+};
+
+export type BackupPolicyOrderBy = {
+  createdAt?: InputMaybe<OrderBy>;
+  cron?: InputMaybe<OrderBy>;
+  enabled?: InputMaybe<OrderBy>;
+  id?: InputMaybe<OrderBy>;
+  retentionDays?: InputMaybe<OrderBy>;
+  updatedAt?: InputMaybe<OrderBy>;
+};
+
+export type BackupPolicyUniqueFilter = {
+  id?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type BackupRun = {
+  __typename?: 'BackupRun';
+  archiveAvailability: BackupArchiveAvailability;
+  archiveBytes?: Maybe<Scalars['String']['output']>;
+  archivePath?: Maybe<Scalars['String']['output']>;
+  archiveSha256?: Maybe<Scalars['String']['output']>;
+  cancelRequested?: Maybe<Scalars['Boolean']['output']>;
+  components?: Maybe<Array<BackupComponent>>;
+  createdAt?: Maybe<Scalars['DateTime']['output']>;
+  destinations?: Maybe<Array<BackupRunDestination>>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  finishedAt?: Maybe<Scalars['DateTime']['output']>;
+  heartbeatAt?: Maybe<Scalars['DateTime']['output']>;
+  id?: Maybe<Scalars['String']['output']>;
+  keyFingerprint?: Maybe<Scalars['String']['output']>;
+  /** [BackupManifest] */
+  manifest?: Maybe<Scalars['Json']['output']>;
+  policy?: Maybe<BackupPolicy>;
+  policyId?: Maybe<Scalars['String']['output']>;
+  requestedBy?: Maybe<User>;
+  requestedById?: Maybe<Scalars['String']['output']>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
+  status?: Maybe<BackupRunStatus>;
+  trigger?: Maybe<BackupRunTrigger>;
+  updatedAt?: Maybe<Scalars['DateTime']['output']>;
+};
+
+export type BackupRunAggregate = {
+  average?: InputMaybe<Array<BackupRunFields>>;
+  count?: InputMaybe<Array<BackupRunFields>>;
+  maximum?: InputMaybe<Array<BackupRunFields>>;
+  minimum?: InputMaybe<Array<BackupRunFields>>;
+  sum?: InputMaybe<Array<BackupRunFields>>;
+};
+
+export type BackupRunDestination = {
+  __typename?: 'BackupRunDestination';
+  archiveDeletedAt?: Maybe<Scalars['DateTime']['output']>;
+  availability: BackupArchiveAvailability;
+  createdAt?: Maybe<Scalars['DateTime']['output']>;
+  destination?: Maybe<BackupDestination>;
+  destinationId?: Maybe<Scalars['String']['output']>;
+  error?: Maybe<Scalars['String']['output']>;
+  finalPath?: Maybe<Scalars['String']['output']>;
+  finishedAt?: Maybe<Scalars['DateTime']['output']>;
+  id?: Maybe<Scalars['String']['output']>;
+  run?: Maybe<BackupRun>;
+  runId?: Maybe<Scalars['String']['output']>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
+  status?: Maybe<BackupComponentStatus>;
+  updatedAt?: Maybe<Scalars['DateTime']['output']>;
+  uploadedBytes?: Maybe<Scalars['String']['output']>;
+};
+
+export enum BackupRunDestinationFields {
+  ArchiveDeletedAt = 'archiveDeletedAt',
+  CreatedAt = 'createdAt',
+  DestinationId = 'destinationId',
+  Error = 'error',
+  FinalPath = 'finalPath',
+  FinishedAt = 'finishedAt',
+  Id = 'id',
+  RunId = 'runId',
+  StartedAt = 'startedAt',
+  Status = 'status',
+  UpdatedAt = 'updatedAt',
+  UploadedBytes = 'uploadedBytes'
+}
+
+export enum BackupRunFields {
+  ArchiveBytes = 'archiveBytes',
+  ArchivePath = 'archivePath',
+  ArchiveSha256 = 'archiveSha256',
+  CancelRequested = 'cancelRequested',
+  CreatedAt = 'createdAt',
+  ErrorMessage = 'errorMessage',
+  FinishedAt = 'finishedAt',
+  HeartbeatAt = 'heartbeatAt',
+  Id = 'id',
+  KeyFingerprint = 'keyFingerprint',
+  Manifest = 'manifest',
+  PolicyId = 'policyId',
+  RequestedById = 'requestedById',
+  StartedAt = 'startedAt',
+  Status = 'status',
+  Trigger = 'trigger',
+  UpdatedAt = 'updatedAt'
+}
+
+export type BackupRunFilter = {
+  AND?: InputMaybe<Array<BackupRunFilter>>;
+  NOT?: InputMaybe<BackupRunFilter>;
+  OR?: InputMaybe<Array<BackupRunFilter>>;
+  cancelRequested?: InputMaybe<BooleanFilter>;
+  createdAt?: InputMaybe<DateTimeFilter>;
+  finishedAt?: InputMaybe<DateTimeFilter>;
+  id?: InputMaybe<StringFilter>;
+  keyFingerprint?: InputMaybe<StringFilter>;
+  policyId?: InputMaybe<StringFilter>;
+  requestedBy?: InputMaybe<UserUniqueFilter>;
+  requestedById?: InputMaybe<StringFilter>;
+  startedAt?: InputMaybe<DateTimeFilter>;
+  updatedAt?: InputMaybe<DateTimeFilter>;
+};
+
+export type BackupRunOrderBy = {
+  createdAt?: InputMaybe<OrderBy>;
+  finishedAt?: InputMaybe<OrderBy>;
+  id?: InputMaybe<OrderBy>;
+  startedAt?: InputMaybe<OrderBy>;
+  updatedAt?: InputMaybe<OrderBy>;
+};
+
+export enum BackupRunStatus {
+  Cancelled = 'Cancelled',
+  Failed = 'Failed',
+  Queued = 'Queued',
+  Running = 'Running',
+  Success = 'Success'
+}
+
+export enum BackupRunTrigger {
+  Manual = 'Manual',
+  Retry = 'Retry',
+  Scheduled = 'Scheduled',
+  Test = 'Test'
+}
+
+export type BackupRunUniqueFilter = {
+  id?: InputMaybe<Scalars['String']['input']>;
+};
 
 export type Banner = {
   __typename?: 'Banner';
@@ -1242,8 +1683,14 @@ export enum ModelStage {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  /** Acknowledge that the backup encryption key has been securely stored offline. */
+  acknowledgeBackupKey?: Maybe<BackupKey>;
+  /** Request cancellation of an in-flight backup run. */
+  cancelBackupRun?: Maybe<BackupRun>;
   /** Create a new account. */
   createAccount?: Maybe<Account>;
+  /** Create a new backup destination. */
+  createBackupDestination?: Maybe<BackupDestination>;
   /** Create a new banner. */
   createBanner?: Maybe<Banner>;
   /** Create a new change. */
@@ -1278,6 +1725,10 @@ export type Mutation = {
   createUser?: Maybe<User>;
   /** Delete the specified account. */
   deleteAccount?: Maybe<Account>;
+  /** Delete the archive file for a specific backup run destination. The DB record is retained so the run remains visible as an audit trail; only the archive file itself is removed. */
+  deleteBackupArchive?: Maybe<BackupRunDestination>;
+  /** Delete a backup destination. */
+  deleteBackupDestination?: Maybe<BackupDestination>;
   /** Delete the specified banner. */
   deleteBanner?: Maybe<Banner>;
   /** Delete the specified change. */
@@ -1310,8 +1761,18 @@ export type Mutation = {
   deleteUnit?: Maybe<Unit>;
   /** Delete the specified user. */
   deleteUser?: Maybe<User>;
+  /** Return the private key material for an acknowledged BackupKey. Rate limited to one call per minute per user and audited via the Log service. */
+  downloadBackupPrivateKey?: Maybe<Scalars['String']['output']>;
+  /** Rotate the active backup encryption key. Retires the current key (sets active=false, rotatedAt=now) and lets the sidecar worker generate a fresh keypair on its next poll. The old key row is retained so historical archives remain decryptable. */
+  rotateBackupKey?: Maybe<BackupKey>;
+  /** Enqueue a manual backup run for immediate execution by the sidecar worker. */
+  triggerBackupRun?: Maybe<BackupRun>;
   /** Update the specified account. */
   updateAccount?: Maybe<Account>;
+  /** Update a backup destination. */
+  updateBackupDestination?: Maybe<BackupDestination>;
+  /** Upsert the single BackupPolicy. */
+  updateBackupPolicy?: Maybe<BackupPolicy>;
   /** Update the specified banner. */
   updateBanner?: Maybe<Banner>;
   /** Update the specified change. */
@@ -1347,8 +1808,29 @@ export type Mutation = {
 };
 
 
+export type MutationAcknowledgeBackupKeyArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type MutationCancelBackupRunArgs = {
+  id: Scalars['String']['input'];
+};
+
+
 export type MutationCreateAccountArgs = {
   create: AccountCreateInput;
+};
+
+
+export type MutationCreateBackupDestinationArgs = {
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  name: Scalars['String']['input'];
+  order?: InputMaybe<Scalars['Int']['input']>;
+  output?: InputMaybe<Scalars['String']['input']>;
+  sseKmsKeyId?: InputMaybe<Scalars['String']['input']>;
+  sseMode?: InputMaybe<Scalars['String']['input']>;
+  type: BackupDestinationType;
 };
 
 
@@ -1437,6 +1919,16 @@ export type MutationDeleteAccountArgs = {
 };
 
 
+export type MutationDeleteBackupArchiveArgs = {
+  runDestinationId: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteBackupDestinationArgs = {
+  id: Scalars['String']['input'];
+};
+
+
 export type MutationDeleteBannerArgs = {
   where: BannerUniqueFilter;
 };
@@ -1512,9 +2004,38 @@ export type MutationDeleteUserArgs = {
 };
 
 
+export type MutationDownloadBackupPrivateKeyArgs = {
+  id: Scalars['String']['input'];
+};
+
+
 export type MutationUpdateAccountArgs = {
   update: AccountUpdateInput;
   where: AccountUniqueFilter;
+};
+
+
+export type MutationUpdateBackupDestinationArgs = {
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  id: Scalars['String']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  order?: InputMaybe<Scalars['Int']['input']>;
+  output?: InputMaybe<Scalars['String']['input']>;
+  sseKmsKeyId?: InputMaybe<Scalars['String']['input']>;
+  sseMode?: InputMaybe<Scalars['String']['input']>;
+  type?: InputMaybe<BackupDestinationType>;
+};
+
+
+export type MutationUpdateBackupPolicyArgs = {
+  cron?: InputMaybe<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  excludeEnvFiles?: InputMaybe<Array<Scalars['String']['input']>>;
+  excludePaths?: InputMaybe<Array<Scalars['String']['input']>>;
+  excludeServices?: InputMaybe<Array<Scalars['String']['input']>>;
+  excludeVolumes?: InputMaybe<Array<Scalars['String']['input']>>;
+  extraEnvFiles?: InputMaybe<Array<Scalars['String']['input']>>;
+  retentionDays?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
@@ -1752,6 +2273,14 @@ export type Query = {
   areaGeographies?: Maybe<Array<Geography>>;
   /** Count the number of accounts. */
   countAccounts?: Maybe<Scalars['Int']['output']>;
+  /** Count the number of backup destinations. */
+  countBackupDestinations?: Maybe<Scalars['Int']['output']>;
+  /** Count the number of backup keys. */
+  countBackupKeys?: Maybe<Scalars['Int']['output']>;
+  /** Count the number of backup policies. */
+  countBackupPolicies?: Maybe<Scalars['Int']['output']>;
+  /** Count the number of backup runs. */
+  countBackupRuns?: Maybe<Scalars['Int']['output']>;
   /** Count the number of banners. */
   countBanners?: Maybe<Scalars['Int']['output']>;
   /** Count the number of changes. */
@@ -1784,8 +2313,18 @@ export type Query = {
   countUnits?: Maybe<Scalars['Int']['output']>;
   /** Count the number of user. */
   countUsers?: Maybe<Scalars['Int']['output']>;
+  /** Enumerate backup-capable services, volumes, bind paths, and env files from the live workspace. */
+  discoverBackupSources?: Maybe<BackupDiscovery>;
   /** Group a list of accounts. */
   groupAccounts?: Maybe<Array<Scalars['AccountGroupBy']['output']>>;
+  /** Group a list of backup destinations. */
+  groupBackupDestinations?: Maybe<Array<Scalars['BackupDestinationGroupBy']['output']>>;
+  /** Group a list of backup keys. */
+  groupBackupKeys?: Maybe<Array<Scalars['BackupKeyGroupBy']['output']>>;
+  /** Group a list of backup policies. */
+  groupBackupPolicies?: Maybe<Array<Scalars['BackupPolicyGroupBy']['output']>>;
+  /** Group a list of backup runs. */
+  groupBackupRuns?: Maybe<Array<Scalars['BackupRunGroupBy']['output']>>;
   /** Group a list of banners. */
   groupBanners?: Maybe<Array<Scalars['BannerGroupBy']['output']>>;
   /** Group a list of changes. */
@@ -1844,6 +2383,14 @@ export type Query = {
   historianWeatherTimeSeries?: Maybe<Scalars['HistorianTimeSeries']['output']>;
   /** Paginate through multiple accounts. */
   pageAccount?: Maybe<QueryPageAccountConnection>;
+  /** Paginate through backup destinations. */
+  pageBackupDestination?: Maybe<QueryPageBackupDestinationConnection>;
+  /** Paginate through backup keys. */
+  pageBackupKey?: Maybe<QueryPageBackupKeyConnection>;
+  /** Paginate through backup policies. */
+  pageBackupPolicy?: Maybe<QueryPageBackupPolicyConnection>;
+  /** Paginate through backup runs. */
+  pageBackupRun?: Maybe<QueryPageBackupRunConnection>;
   /** Paginate through multiple banners. */
   pageBanner?: Maybe<QueryPageBannerConnection>;
   /** Paginate through multiple changes. */
@@ -1880,6 +2427,22 @@ export type Query = {
   readAccount?: Maybe<Account>;
   /** Read a list of accounts. */
   readAccounts?: Maybe<Array<Account>>;
+  /** Read a unique backup destination. */
+  readBackupDestination?: Maybe<BackupDestination>;
+  /** Read a list of backup destinations. */
+  readBackupDestinations?: Maybe<Array<BackupDestination>>;
+  /** Read a unique backup key. */
+  readBackupKey?: Maybe<BackupKey>;
+  /** Read a list of backup keys (active and historical). */
+  readBackupKeys?: Maybe<Array<BackupKey>>;
+  /** Read a list of backup policies. */
+  readBackupPolicies?: Maybe<Array<BackupPolicy>>;
+  /** Read a unique backup policy. */
+  readBackupPolicy?: Maybe<BackupPolicy>;
+  /** Read a unique backup run. */
+  readBackupRun?: Maybe<BackupRun>;
+  /** Read a list of backup runs. */
+  readBackupRuns?: Maybe<Array<BackupRun>>;
   /** Read a unique banner. */
   readBanner?: Maybe<Banner>;
   /** Read a list of banners. */
@@ -1956,6 +2519,26 @@ export type QueryAreaGeographiesArgs = {
 
 export type QueryCountAccountsArgs = {
   where?: InputMaybe<AccountFilter>;
+};
+
+
+export type QueryCountBackupDestinationsArgs = {
+  where?: InputMaybe<BackupDestinationFilter>;
+};
+
+
+export type QueryCountBackupKeysArgs = {
+  where?: InputMaybe<BackupKeyFilter>;
+};
+
+
+export type QueryCountBackupPoliciesArgs = {
+  where?: InputMaybe<BackupPolicyFilter>;
+};
+
+
+export type QueryCountBackupRunsArgs = {
+  where?: InputMaybe<BackupRunFilter>;
 };
 
 
@@ -2043,6 +2626,34 @@ export type QueryGroupAccountsArgs = {
   aggregate?: InputMaybe<AccountAggregate>;
   by: Array<AccountFields>;
   where?: InputMaybe<AccountFilter>;
+};
+
+
+export type QueryGroupBackupDestinationsArgs = {
+  aggregate?: InputMaybe<BackupDestinationAggregate>;
+  by: Array<BackupDestinationFields>;
+  where?: InputMaybe<BackupDestinationFilter>;
+};
+
+
+export type QueryGroupBackupKeysArgs = {
+  aggregate?: InputMaybe<BackupKeyAggregate>;
+  by: Array<BackupKeyFields>;
+  where?: InputMaybe<BackupKeyFilter>;
+};
+
+
+export type QueryGroupBackupPoliciesArgs = {
+  aggregate?: InputMaybe<BackupPolicyAggregate>;
+  by: Array<BackupPolicyFields>;
+  where?: InputMaybe<BackupPolicyFilter>;
+};
+
+
+export type QueryGroupBackupRunsArgs = {
+  aggregate?: InputMaybe<BackupRunAggregate>;
+  by: Array<BackupRunFields>;
+  where?: InputMaybe<BackupRunFilter>;
 };
 
 
@@ -2271,6 +2882,42 @@ export type QueryPageAccountArgs = {
 };
 
 
+export type QueryPageBackupDestinationArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
+  where?: InputMaybe<BackupDestinationFilter>;
+};
+
+
+export type QueryPageBackupKeyArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
+  where?: InputMaybe<BackupKeyFilter>;
+};
+
+
+export type QueryPageBackupPolicyArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
+  where?: InputMaybe<BackupPolicyFilter>;
+};
+
+
+export type QueryPageBackupRunArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
+  where?: InputMaybe<BackupRunFilter>;
+};
+
+
 export type QueryPageBannerArgs = {
   after?: InputMaybe<Scalars['String']['input']>;
   before?: InputMaybe<Scalars['String']['input']>;
@@ -2425,6 +3072,58 @@ export type QueryReadAccountsArgs = {
   orderBy?: InputMaybe<Array<AccountOrderBy>>;
   paging?: InputMaybe<PagingInput>;
   where?: InputMaybe<AccountFilter>;
+};
+
+
+export type QueryReadBackupDestinationArgs = {
+  where: BackupDestinationUniqueFilter;
+};
+
+
+export type QueryReadBackupDestinationsArgs = {
+  distinct?: InputMaybe<Array<BackupDestinationFields>>;
+  orderBy?: InputMaybe<Array<BackupDestinationOrderBy>>;
+  paging?: InputMaybe<PagingInput>;
+  where?: InputMaybe<BackupDestinationFilter>;
+};
+
+
+export type QueryReadBackupKeyArgs = {
+  where: BackupKeyUniqueFilter;
+};
+
+
+export type QueryReadBackupKeysArgs = {
+  distinct?: InputMaybe<Array<BackupKeyFields>>;
+  orderBy?: InputMaybe<Array<BackupKeyOrderBy>>;
+  paging?: InputMaybe<PagingInput>;
+  where?: InputMaybe<BackupKeyFilter>;
+};
+
+
+export type QueryReadBackupPoliciesArgs = {
+  distinct?: InputMaybe<Array<BackupPolicyFields>>;
+  orderBy?: InputMaybe<Array<BackupPolicyOrderBy>>;
+  paging?: InputMaybe<PagingInput>;
+  where?: InputMaybe<BackupPolicyFilter>;
+};
+
+
+export type QueryReadBackupPolicyArgs = {
+  where: BackupPolicyUniqueFilter;
+};
+
+
+export type QueryReadBackupRunArgs = {
+  where: BackupRunUniqueFilter;
+};
+
+
+export type QueryReadBackupRunsArgs = {
+  distinct?: InputMaybe<Array<BackupRunFields>>;
+  orderBy?: InputMaybe<Array<BackupRunOrderBy>>;
+  paging?: InputMaybe<PagingInput>;
+  where?: InputMaybe<BackupRunFilter>;
 };
 
 
@@ -2645,6 +3344,54 @@ export type QueryPageAccountConnectionEdge = {
   __typename?: 'QueryPageAccountConnectionEdge';
   cursor: Scalars['String']['output'];
   node?: Maybe<Account>;
+};
+
+export type QueryPageBackupDestinationConnection = {
+  __typename?: 'QueryPageBackupDestinationConnection';
+  edges?: Maybe<Array<Maybe<QueryPageBackupDestinationConnectionEdge>>>;
+  pageInfo: PageInfo;
+};
+
+export type QueryPageBackupDestinationConnectionEdge = {
+  __typename?: 'QueryPageBackupDestinationConnectionEdge';
+  cursor: Scalars['String']['output'];
+  node?: Maybe<BackupDestination>;
+};
+
+export type QueryPageBackupKeyConnection = {
+  __typename?: 'QueryPageBackupKeyConnection';
+  edges?: Maybe<Array<Maybe<QueryPageBackupKeyConnectionEdge>>>;
+  pageInfo: PageInfo;
+};
+
+export type QueryPageBackupKeyConnectionEdge = {
+  __typename?: 'QueryPageBackupKeyConnectionEdge';
+  cursor: Scalars['String']['output'];
+  node?: Maybe<BackupKey>;
+};
+
+export type QueryPageBackupPolicyConnection = {
+  __typename?: 'QueryPageBackupPolicyConnection';
+  edges?: Maybe<Array<Maybe<QueryPageBackupPolicyConnectionEdge>>>;
+  pageInfo: PageInfo;
+};
+
+export type QueryPageBackupPolicyConnectionEdge = {
+  __typename?: 'QueryPageBackupPolicyConnectionEdge';
+  cursor: Scalars['String']['output'];
+  node?: Maybe<BackupPolicy>;
+};
+
+export type QueryPageBackupRunConnection = {
+  __typename?: 'QueryPageBackupRunConnection';
+  edges?: Maybe<Array<Maybe<QueryPageBackupRunConnectionEdge>>>;
+  pageInfo: PageInfo;
+};
+
+export type QueryPageBackupRunConnectionEdge = {
+  __typename?: 'QueryPageBackupRunConnectionEdge';
+  cursor: Scalars['String']['output'];
+  node?: Maybe<BackupRun>;
 };
 
 export type QueryPageBannerConnection = {
@@ -3082,6 +3829,14 @@ export type Subscription = {
   areaGeographies?: Maybe<Array<Geography>>;
   /** Count the number of accounts. */
   countAccounts?: Maybe<Scalars['Int']['output']>;
+  /** Count the number of backup destinations. */
+  countBackupDestinations?: Maybe<Scalars['Int']['output']>;
+  /** Count the number of backup keys. */
+  countBackupKeys?: Maybe<Scalars['Int']['output']>;
+  /** Count the number of backup policies. */
+  countBackupPolicies?: Maybe<Scalars['Int']['output']>;
+  /** Count the number of backup runs. */
+  countBackupRuns?: Maybe<Scalars['Int']['output']>;
   /** Count the number of banners. */
   countBanners?: Maybe<Scalars['Int']['output']>;
   /** Count the number of changes. */
@@ -3116,6 +3871,14 @@ export type Subscription = {
   countUsers?: Maybe<Scalars['Int']['output']>;
   /** Group a list of accounts. */
   groupAccounts?: Maybe<Array<Scalars['AccountGroupBy']['output']>>;
+  /** Group a list of backup destinations. */
+  groupBackupDestinations?: Maybe<Array<Scalars['BackupDestinationGroupBy']['output']>>;
+  /** Group a list of backup keys. */
+  groupBackupKeys?: Maybe<Array<Scalars['BackupKeyGroupBy']['output']>>;
+  /** Group a list of backup policies. */
+  groupBackupPolicies?: Maybe<Array<Scalars['BackupPolicyGroupBy']['output']>>;
+  /** Group a list of backup runs. */
+  groupBackupRuns?: Maybe<Array<Scalars['BackupRunGroupBy']['output']>>;
   /** Group a list of banners. */
   groupBanners?: Maybe<Array<Scalars['BannerGroupBy']['output']>>;
   /** Group a list of changes. */
@@ -3152,6 +3915,22 @@ export type Subscription = {
   readAccount?: Maybe<Account>;
   /** Read a list of accounts. */
   readAccounts?: Maybe<Array<Account>>;
+  /** Read a unique backup destination. */
+  readBackupDestination?: Maybe<BackupDestination>;
+  /** Read a list of backup destinations. */
+  readBackupDestinations?: Maybe<Array<BackupDestination>>;
+  /** Read a unique backup key. */
+  readBackupKey?: Maybe<BackupKey>;
+  /** Read a list of backup keys (active and historical). */
+  readBackupKeys?: Maybe<Array<BackupKey>>;
+  /** Read a list of backup policies. */
+  readBackupPolicies?: Maybe<Array<BackupPolicy>>;
+  /** Read a unique backup policy. */
+  readBackupPolicy?: Maybe<BackupPolicy>;
+  /** Read a unique backup run. */
+  readBackupRun?: Maybe<BackupRun>;
+  /** Read a list of backup runs. */
+  readBackupRuns?: Maybe<Array<BackupRun>>;
   /** Read a unique banner. */
   readBanner?: Maybe<Banner>;
   /** Read a list of banners. */
@@ -3228,6 +4007,26 @@ export type SubscriptionAreaGeographiesArgs = {
 
 export type SubscriptionCountAccountsArgs = {
   where?: InputMaybe<AccountFilter>;
+};
+
+
+export type SubscriptionCountBackupDestinationsArgs = {
+  where?: InputMaybe<BackupDestinationFilter>;
+};
+
+
+export type SubscriptionCountBackupKeysArgs = {
+  where?: InputMaybe<BackupKeyFilter>;
+};
+
+
+export type SubscriptionCountBackupPoliciesArgs = {
+  where?: InputMaybe<BackupPolicyFilter>;
+};
+
+
+export type SubscriptionCountBackupRunsArgs = {
+  where?: InputMaybe<BackupRunFilter>;
 };
 
 
@@ -3315,6 +4114,34 @@ export type SubscriptionGroupAccountsArgs = {
   aggregate?: InputMaybe<AccountAggregate>;
   by: Array<AccountFields>;
   where?: InputMaybe<AccountFilter>;
+};
+
+
+export type SubscriptionGroupBackupDestinationsArgs = {
+  aggregate?: InputMaybe<BackupDestinationAggregate>;
+  by: Array<BackupDestinationFields>;
+  where?: InputMaybe<BackupDestinationFilter>;
+};
+
+
+export type SubscriptionGroupBackupKeysArgs = {
+  aggregate?: InputMaybe<BackupKeyAggregate>;
+  by: Array<BackupKeyFields>;
+  where?: InputMaybe<BackupKeyFilter>;
+};
+
+
+export type SubscriptionGroupBackupPoliciesArgs = {
+  aggregate?: InputMaybe<BackupPolicyAggregate>;
+  by: Array<BackupPolicyFields>;
+  where?: InputMaybe<BackupPolicyFilter>;
+};
+
+
+export type SubscriptionGroupBackupRunsArgs = {
+  aggregate?: InputMaybe<BackupRunAggregate>;
+  by: Array<BackupRunFields>;
+  where?: InputMaybe<BackupRunFilter>;
 };
 
 
@@ -3440,6 +4267,58 @@ export type SubscriptionReadAccountsArgs = {
   orderBy?: InputMaybe<Array<AccountOrderBy>>;
   paging?: InputMaybe<PagingInput>;
   where?: InputMaybe<AccountFilter>;
+};
+
+
+export type SubscriptionReadBackupDestinationArgs = {
+  where: BackupDestinationUniqueFilter;
+};
+
+
+export type SubscriptionReadBackupDestinationsArgs = {
+  distinct?: InputMaybe<Array<BackupDestinationFields>>;
+  orderBy?: InputMaybe<Array<BackupDestinationOrderBy>>;
+  paging?: InputMaybe<PagingInput>;
+  where?: InputMaybe<BackupDestinationFilter>;
+};
+
+
+export type SubscriptionReadBackupKeyArgs = {
+  where: BackupKeyUniqueFilter;
+};
+
+
+export type SubscriptionReadBackupKeysArgs = {
+  distinct?: InputMaybe<Array<BackupKeyFields>>;
+  orderBy?: InputMaybe<Array<BackupKeyOrderBy>>;
+  paging?: InputMaybe<PagingInput>;
+  where?: InputMaybe<BackupKeyFilter>;
+};
+
+
+export type SubscriptionReadBackupPoliciesArgs = {
+  distinct?: InputMaybe<Array<BackupPolicyFields>>;
+  orderBy?: InputMaybe<Array<BackupPolicyOrderBy>>;
+  paging?: InputMaybe<PagingInput>;
+  where?: InputMaybe<BackupPolicyFilter>;
+};
+
+
+export type SubscriptionReadBackupPolicyArgs = {
+  where: BackupPolicyUniqueFilter;
+};
+
+
+export type SubscriptionReadBackupRunArgs = {
+  where: BackupRunUniqueFilter;
+};
+
+
+export type SubscriptionReadBackupRunsArgs = {
+  distinct?: InputMaybe<Array<BackupRunFields>>;
+  orderBy?: InputMaybe<Array<BackupRunOrderBy>>;
+  paging?: InputMaybe<PagingInput>;
+  where?: InputMaybe<BackupRunFilter>;
 };
 
 
@@ -4064,6 +4943,155 @@ export enum WeatherMetric {
   WindSpeed = 'WindSpeed',
   WindSpeedOfGust = 'WindSpeedOfGust'
 }
+
+export type ReadBackupPolicyQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ReadBackupPolicyQuery = { __typename?: 'Query', readBackupPolicies?: Array<{ __typename?: 'BackupPolicy', id?: string | null, enabled?: boolean | null, cron?: string | null, retentionDays?: number | null, excludeVolumes?: Array<string> | null, excludePaths?: Array<string> | null, excludeServices?: Array<string> | null, excludeEnvFiles?: Array<string> | null, extraEnvFiles?: Array<string> | null, createdAt?: string | null, updatedAt?: string | null }> | null };
+
+export type DiscoverBackupSourcesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type DiscoverBackupSourcesQuery = { __typename?: 'Query', discoverBackupSources?: { __typename?: 'BackupDiscovery', services?: Array<{ __typename?: 'BackupDiscoveredService', name?: string | null, hasVolume?: boolean | null, image?: string | null, engine?: BackupComponentType | null, imageFamily?: string | null, backupStrategy?: string | null, autoExclude?: boolean | null, autoExcludeReason?: string | null }> | null, volumes?: Array<{ __typename?: 'BackupDiscoveredVolume', name?: string | null, services?: Array<string> | null, autoExclude?: boolean | null, autoExcludeReason?: string | null }> | null, paths?: Array<{ __typename?: 'BackupDiscoveredPath', path?: string | null, type?: string | null, services?: Array<string> | null, autoExclude?: boolean | null, autoExcludeReason?: string | null }> | null, envFiles?: Array<{ __typename?: 'BackupDiscoveredEnvFile', path?: string | null, exists?: boolean | null, source?: string | null, autoExclude?: boolean | null, autoExcludeReason?: string | null }> | null } | null };
+
+export type ReadBackupDestinationsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ReadBackupDestinationsQuery = { __typename?: 'Query', readBackupDestinations?: Array<{ __typename?: 'BackupDestination', id?: string | null, policyId?: string | null, name?: string | null, type?: BackupDestinationType | null, output?: string | null, enabled?: boolean | null, sseMode?: string | null, sseKmsKeyId?: string | null, order?: number | null, createdAt?: string | null, updatedAt?: string | null }> | null };
+
+export type ReadBackupRunsQueryVariables = Exact<{
+  skip?: Scalars['Int']['input'];
+  take?: Scalars['Int']['input'];
+}>;
+
+
+export type ReadBackupRunsQuery = { __typename?: 'Query', readBackupRuns?: Array<{ __typename?: 'BackupRun', id?: string | null, policyId?: string | null, status?: BackupRunStatus | null, trigger?: BackupRunTrigger | null, keyFingerprint?: string | null, startedAt?: string | null, finishedAt?: string | null, heartbeatAt?: string | null, archivePath?: string | null, archiveBytes?: string | null, archiveAvailability: BackupArchiveAvailability, cancelRequested?: boolean | null, createdAt?: string | null, updatedAt?: string | null }> | null };
+
+export type ReadBackupRunQueryVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type ReadBackupRunQuery = { __typename?: 'Query', readBackupRun?: { __typename?: 'BackupRun', id?: string | null, policyId?: string | null, status?: BackupRunStatus | null, trigger?: BackupRunTrigger | null, requestedById?: string | null, keyFingerprint?: string | null, startedAt?: string | null, finishedAt?: string | null, heartbeatAt?: string | null, archivePath?: string | null, archiveBytes?: string | null, archiveSha256?: string | null, manifest?: any | null, errorMessage?: string | null, cancelRequested?: boolean | null, createdAt?: string | null, updatedAt?: string | null, archiveAvailability: BackupArchiveAvailability, requestedBy?: { __typename?: 'User', id?: string | null, name?: string | null, email?: string | null } | null, components?: Array<{ __typename?: 'BackupComponent', id?: string | null, runId?: string | null, type?: BackupComponentType | null, name?: string | null, status?: BackupComponentStatus | null, bytes?: string | null, durationMs?: number | null, error?: string | null, startedAt?: string | null, finishedAt?: string | null, createdAt?: string | null, updatedAt?: string | null }> | null, destinations?: Array<{ __typename?: 'BackupRunDestination', id?: string | null, runId?: string | null, destinationId?: string | null, status?: BackupComponentStatus | null, uploadedBytes?: string | null, finalPath?: string | null, archiveDeletedAt?: string | null, availability: BackupArchiveAvailability, error?: string | null, startedAt?: string | null, finishedAt?: string | null, createdAt?: string | null, updatedAt?: string | null, destination?: { __typename?: 'BackupDestination', id?: string | null, name?: string | null, type?: BackupDestinationType | null, output?: string | null } | null }> | null } | null };
+
+export type ReadBackupKeysQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ReadBackupKeysQuery = { __typename?: 'Query', readBackupKeys?: Array<{ __typename?: 'BackupKey', id?: string | null, algorithm?: BackupKeyAlgorithm | null, publicKey?: string | null, fingerprint?: string | null, active?: boolean | null, acknowledged?: boolean | null, acknowledgedAt?: string | null, acknowledgedById?: string | null, rotatedAt?: string | null, createdAt?: string | null, updatedAt?: string | null, acknowledgedBy?: { __typename?: 'User', id?: string | null, name?: string | null, email?: string | null } | null }> | null };
+
+export type ReadActiveBackupKeyQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ReadActiveBackupKeyQuery = { __typename?: 'Query', readBackupKeys?: Array<{ __typename?: 'BackupKey', id?: string | null, algorithm?: BackupKeyAlgorithm | null, publicKey?: string | null, fingerprint?: string | null, active?: boolean | null, acknowledged?: boolean | null, acknowledgedAt?: string | null, acknowledgedById?: string | null, rotatedAt?: string | null, createdAt?: string | null, updatedAt?: string | null, acknowledgedBy?: { __typename?: 'User', id?: string | null, name?: string | null, email?: string | null } | null }> | null };
+
+export type UpdateBackupPolicyMutationVariables = Exact<{
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  cron?: InputMaybe<Scalars['String']['input']>;
+  retentionDays?: InputMaybe<Scalars['Int']['input']>;
+  excludeVolumes?: InputMaybe<Array<Scalars['String']['input']> | Scalars['String']['input']>;
+  excludePaths?: InputMaybe<Array<Scalars['String']['input']> | Scalars['String']['input']>;
+  excludeServices?: InputMaybe<Array<Scalars['String']['input']> | Scalars['String']['input']>;
+  excludeEnvFiles?: InputMaybe<Array<Scalars['String']['input']> | Scalars['String']['input']>;
+  extraEnvFiles?: InputMaybe<Array<Scalars['String']['input']> | Scalars['String']['input']>;
+}>;
+
+
+export type UpdateBackupPolicyMutation = { __typename?: 'Mutation', updateBackupPolicy?: { __typename?: 'BackupPolicy', id?: string | null, enabled?: boolean | null, cron?: string | null, retentionDays?: number | null, excludeVolumes?: Array<string> | null, excludePaths?: Array<string> | null, excludeServices?: Array<string> | null, excludeEnvFiles?: Array<string> | null, extraEnvFiles?: Array<string> | null, updatedAt?: string | null } | null };
+
+export type CreateBackupDestinationMutationVariables = Exact<{
+  name: Scalars['String']['input'];
+  type: BackupDestinationType;
+  output?: InputMaybe<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  order?: InputMaybe<Scalars['Int']['input']>;
+  sseMode?: InputMaybe<Scalars['String']['input']>;
+  sseKmsKeyId?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type CreateBackupDestinationMutation = { __typename?: 'Mutation', createBackupDestination?: { __typename?: 'BackupDestination', id?: string | null, name?: string | null, type?: BackupDestinationType | null, output?: string | null, enabled?: boolean | null, order?: number | null, sseMode?: string | null, sseKmsKeyId?: string | null } | null };
+
+export type UpdateBackupDestinationMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  type?: InputMaybe<BackupDestinationType>;
+  output?: InputMaybe<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  order?: InputMaybe<Scalars['Int']['input']>;
+  sseMode?: InputMaybe<Scalars['String']['input']>;
+  sseKmsKeyId?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type UpdateBackupDestinationMutation = { __typename?: 'Mutation', updateBackupDestination?: { __typename?: 'BackupDestination', id?: string | null, name?: string | null, type?: BackupDestinationType | null, output?: string | null, enabled?: boolean | null, order?: number | null, sseMode?: string | null, sseKmsKeyId?: string | null } | null };
+
+export type DeleteBackupDestinationMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type DeleteBackupDestinationMutation = { __typename?: 'Mutation', deleteBackupDestination?: { __typename?: 'BackupDestination', id?: string | null } | null };
+
+export type TriggerBackupRunMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TriggerBackupRunMutation = { __typename?: 'Mutation', triggerBackupRun?: { __typename?: 'BackupRun', id?: string | null, status?: BackupRunStatus | null, trigger?: BackupRunTrigger | null } | null };
+
+export type CancelBackupRunMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type CancelBackupRunMutation = { __typename?: 'Mutation', cancelBackupRun?: { __typename?: 'BackupRun', id?: string | null, status?: BackupRunStatus | null, cancelRequested?: boolean | null } | null };
+
+export type DeleteBackupArchiveMutationVariables = Exact<{
+  runDestinationId: Scalars['String']['input'];
+}>;
+
+
+export type DeleteBackupArchiveMutation = { __typename?: 'Mutation', deleteBackupArchive?: { __typename?: 'BackupRunDestination', id?: string | null, runId?: string | null, finalPath?: string | null, archiveDeletedAt?: string | null, availability: BackupArchiveAvailability } | null };
+
+export type RotateBackupKeyMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type RotateBackupKeyMutation = { __typename?: 'Mutation', rotateBackupKey?: { __typename?: 'BackupKey', id?: string | null, fingerprint?: string | null, active?: boolean | null, acknowledged?: boolean | null, publicKey?: string | null } | null };
+
+export type AcknowledgeBackupKeyMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type AcknowledgeBackupKeyMutation = { __typename?: 'Mutation', acknowledgeBackupKey?: { __typename?: 'BackupKey', id?: string | null, acknowledged?: boolean | null, acknowledgedAt?: string | null, acknowledgedById?: string | null } | null };
+
+export type DownloadBackupPrivateKeyMutationVariables = Exact<{
+  id: Scalars['String']['input'];
+}>;
+
+
+export type DownloadBackupPrivateKeyMutation = { __typename?: 'Mutation', downloadBackupPrivateKey?: string | null };
+
+export type SubscribeBackupPolicySubscriptionVariables = Exact<{ [key: string]: never; }>;
+
+
+export type SubscribeBackupPolicySubscription = { __typename?: 'Subscription', readBackupPolicies?: Array<{ __typename?: 'BackupPolicy', id?: string | null, enabled?: boolean | null, cron?: string | null, retentionDays?: number | null, excludeVolumes?: Array<string> | null, excludePaths?: Array<string> | null, excludeServices?: Array<string> | null, excludeEnvFiles?: Array<string> | null, extraEnvFiles?: Array<string> | null, updatedAt?: string | null }> | null };
+
+export type SubscribeBackupDestinationsSubscriptionVariables = Exact<{ [key: string]: never; }>;
+
+
+export type SubscribeBackupDestinationsSubscription = { __typename?: 'Subscription', readBackupDestinations?: Array<{ __typename?: 'BackupDestination', id?: string | null, policyId?: string | null, name?: string | null, type?: BackupDestinationType | null, output?: string | null, enabled?: boolean | null, sseMode?: string | null, sseKmsKeyId?: string | null, order?: number | null, updatedAt?: string | null }> | null };
+
+export type SubscribeBackupRunsSubscriptionVariables = Exact<{
+  skip?: Scalars['Int']['input'];
+  take?: Scalars['Int']['input'];
+}>;
+
+
+export type SubscribeBackupRunsSubscription = { __typename?: 'Subscription', readBackupRuns?: Array<{ __typename?: 'BackupRun', id?: string | null, policyId?: string | null, status?: BackupRunStatus | null, trigger?: BackupRunTrigger | null, keyFingerprint?: string | null, startedAt?: string | null, finishedAt?: string | null, heartbeatAt?: string | null, archivePath?: string | null, archiveBytes?: string | null, archiveAvailability: BackupArchiveAvailability, cancelRequested?: boolean | null, createdAt?: string | null, updatedAt?: string | null }> | null };
+
+export type SubscribeBackupKeysSubscriptionVariables = Exact<{ [key: string]: never; }>;
+
+
+export type SubscribeBackupKeysSubscription = { __typename?: 'Subscription', readBackupKeys?: Array<{ __typename?: 'BackupKey', id?: string | null, algorithm?: BackupKeyAlgorithm | null, publicKey?: string | null, fingerprint?: string | null, active?: boolean | null, acknowledged?: boolean | null, acknowledgedAt?: string | null, acknowledgedById?: string | null, rotatedAt?: string | null, createdAt?: string | null, updatedAt?: string | null, acknowledgedBy?: { __typename?: 'User', id?: string | null, name?: string | null, email?: string | null } | null }> | null };
 
 export type BannerFieldsFragment = { __typename?: 'Banner', id?: string | null, message?: string | null, expiration?: string | null, createdAt?: string | null, updatedAt?: string | null } & { ' $fragmentName'?: 'BannerFieldsFragment' };
 
@@ -4845,6 +5873,27 @@ export const CurrentFragmentFragmentDoc = {"kind":"Document","definitions":[{"ki
 export const GeographyFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"GeographyFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Geography"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"group"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"geojson"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode<GeographyFieldsFragment, unknown>;
 export const LogFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LogFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Log"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]} as unknown as DocumentNode<LogFieldsFragment, unknown>;
 export const UserFieldsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UserFields"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"User"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"emailVerified"}},{"kind":"Field","name":{"kind":"Name","value":"preferences"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"units"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<UserFieldsFragment, unknown>;
+export const ReadBackupPolicyDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadBackupPolicy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readBackupPolicies"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"paging"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"skip"},"value":{"kind":"IntValue","value":"0"}},{"kind":"ObjectField","name":{"kind":"Name","value":"take"},"value":{"kind":"IntValue","value":"1"}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"cron"}},{"kind":"Field","name":{"kind":"Name","value":"retentionDays"}},{"kind":"Field","name":{"kind":"Name","value":"excludeVolumes"}},{"kind":"Field","name":{"kind":"Name","value":"excludePaths"}},{"kind":"Field","name":{"kind":"Name","value":"excludeServices"}},{"kind":"Field","name":{"kind":"Name","value":"excludeEnvFiles"}},{"kind":"Field","name":{"kind":"Name","value":"extraEnvFiles"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<ReadBackupPolicyQuery, ReadBackupPolicyQueryVariables>;
+export const DiscoverBackupSourcesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"DiscoverBackupSources"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"discoverBackupSources"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"services"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"hasVolume"}},{"kind":"Field","name":{"kind":"Name","value":"image"}},{"kind":"Field","name":{"kind":"Name","value":"engine"}},{"kind":"Field","name":{"kind":"Name","value":"imageFamily"}},{"kind":"Field","name":{"kind":"Name","value":"backupStrategy"}},{"kind":"Field","name":{"kind":"Name","value":"autoExclude"}},{"kind":"Field","name":{"kind":"Name","value":"autoExcludeReason"}}]}},{"kind":"Field","name":{"kind":"Name","value":"volumes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"services"}},{"kind":"Field","name":{"kind":"Name","value":"autoExclude"}},{"kind":"Field","name":{"kind":"Name","value":"autoExcludeReason"}}]}},{"kind":"Field","name":{"kind":"Name","value":"paths"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"path"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"services"}},{"kind":"Field","name":{"kind":"Name","value":"autoExclude"}},{"kind":"Field","name":{"kind":"Name","value":"autoExcludeReason"}}]}},{"kind":"Field","name":{"kind":"Name","value":"envFiles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"path"}},{"kind":"Field","name":{"kind":"Name","value":"exists"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"autoExclude"}},{"kind":"Field","name":{"kind":"Name","value":"autoExcludeReason"}}]}}]}}]}}]} as unknown as DocumentNode<DiscoverBackupSourcesQuery, DiscoverBackupSourcesQueryVariables>;
+export const ReadBackupDestinationsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadBackupDestinations"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readBackupDestinations"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"policyId"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"sseMode"}},{"kind":"Field","name":{"kind":"Name","value":"sseKmsKeyId"}},{"kind":"Field","name":{"kind":"Name","value":"order"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<ReadBackupDestinationsQuery, ReadBackupDestinationsQueryVariables>;
+export const ReadBackupRunsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadBackupRuns"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"skip"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},"defaultValue":{"kind":"IntValue","value":"0"}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"take"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},"defaultValue":{"kind":"IntValue","value":"50"}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readBackupRuns"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"paging"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"skip"},"value":{"kind":"Variable","name":{"kind":"Name","value":"skip"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"take"},"value":{"kind":"Variable","name":{"kind":"Name","value":"take"}}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"policyId"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"trigger"}},{"kind":"Field","name":{"kind":"Name","value":"keyFingerprint"}},{"kind":"Field","name":{"kind":"Name","value":"startedAt"}},{"kind":"Field","name":{"kind":"Name","value":"finishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"heartbeatAt"}},{"kind":"Field","name":{"kind":"Name","value":"archivePath"}},{"kind":"Field","name":{"kind":"Name","value":"archiveBytes"}},{"kind":"Field","name":{"kind":"Name","value":"archiveAvailability"}},{"kind":"Field","name":{"kind":"Name","value":"cancelRequested"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<ReadBackupRunsQuery, ReadBackupRunsQueryVariables>;
+export const ReadBackupRunDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadBackupRun"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readBackupRun"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"policyId"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"trigger"}},{"kind":"Field","name":{"kind":"Name","value":"requestedById"}},{"kind":"Field","name":{"kind":"Name","value":"keyFingerprint"}},{"kind":"Field","name":{"kind":"Name","value":"startedAt"}},{"kind":"Field","name":{"kind":"Name","value":"finishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"heartbeatAt"}},{"kind":"Field","name":{"kind":"Name","value":"archivePath"}},{"kind":"Field","name":{"kind":"Name","value":"archiveBytes"}},{"kind":"Field","name":{"kind":"Name","value":"archiveSha256"}},{"kind":"Field","name":{"kind":"Name","value":"manifest"}},{"kind":"Field","name":{"kind":"Name","value":"errorMessage"}},{"kind":"Field","name":{"kind":"Name","value":"cancelRequested"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"requestedBy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"email"}}]}},{"kind":"Field","name":{"kind":"Name","value":"components"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"runId"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"bytes"}},{"kind":"Field","name":{"kind":"Name","value":"durationMs"}},{"kind":"Field","name":{"kind":"Name","value":"error"}},{"kind":"Field","name":{"kind":"Name","value":"startedAt"}},{"kind":"Field","name":{"kind":"Name","value":"finishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"archiveAvailability"}},{"kind":"Field","name":{"kind":"Name","value":"destinations"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"runId"}},{"kind":"Field","name":{"kind":"Name","value":"destinationId"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"uploadedBytes"}},{"kind":"Field","name":{"kind":"Name","value":"finalPath"}},{"kind":"Field","name":{"kind":"Name","value":"archiveDeletedAt"}},{"kind":"Field","name":{"kind":"Name","value":"availability"}},{"kind":"Field","name":{"kind":"Name","value":"error"}},{"kind":"Field","name":{"kind":"Name","value":"startedAt"}},{"kind":"Field","name":{"kind":"Name","value":"finishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"destination"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"output"}}]}}]}}]}}]}}]} as unknown as DocumentNode<ReadBackupRunQuery, ReadBackupRunQueryVariables>;
+export const ReadBackupKeysDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadBackupKeys"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readBackupKeys"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"algorithm"}},{"kind":"Field","name":{"kind":"Name","value":"publicKey"}},{"kind":"Field","name":{"kind":"Name","value":"fingerprint"}},{"kind":"Field","name":{"kind":"Name","value":"active"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledged"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgedAt"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgedById"}},{"kind":"Field","name":{"kind":"Name","value":"rotatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgedBy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"email"}}]}}]}}]}}]} as unknown as DocumentNode<ReadBackupKeysQuery, ReadBackupKeysQueryVariables>;
+export const ReadActiveBackupKeyDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadActiveBackupKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readBackupKeys"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"active"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"equals"},"value":{"kind":"BooleanValue","value":true}}]}}]}},{"kind":"Argument","name":{"kind":"Name","value":"paging"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"skip"},"value":{"kind":"IntValue","value":"0"}},{"kind":"ObjectField","name":{"kind":"Name","value":"take"},"value":{"kind":"IntValue","value":"1"}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"algorithm"}},{"kind":"Field","name":{"kind":"Name","value":"publicKey"}},{"kind":"Field","name":{"kind":"Name","value":"fingerprint"}},{"kind":"Field","name":{"kind":"Name","value":"active"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledged"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgedAt"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgedById"}},{"kind":"Field","name":{"kind":"Name","value":"rotatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgedBy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"email"}}]}}]}}]}}]} as unknown as DocumentNode<ReadActiveBackupKeyQuery, ReadActiveBackupKeyQueryVariables>;
+export const UpdateBackupPolicyDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateBackupPolicy"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"enabled"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"cron"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"retentionDays"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"excludeVolumes"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"excludePaths"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"excludeServices"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"excludeEnvFiles"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"extraEnvFiles"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateBackupPolicy"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"enabled"},"value":{"kind":"Variable","name":{"kind":"Name","value":"enabled"}}},{"kind":"Argument","name":{"kind":"Name","value":"cron"},"value":{"kind":"Variable","name":{"kind":"Name","value":"cron"}}},{"kind":"Argument","name":{"kind":"Name","value":"retentionDays"},"value":{"kind":"Variable","name":{"kind":"Name","value":"retentionDays"}}},{"kind":"Argument","name":{"kind":"Name","value":"excludeVolumes"},"value":{"kind":"Variable","name":{"kind":"Name","value":"excludeVolumes"}}},{"kind":"Argument","name":{"kind":"Name","value":"excludePaths"},"value":{"kind":"Variable","name":{"kind":"Name","value":"excludePaths"}}},{"kind":"Argument","name":{"kind":"Name","value":"excludeServices"},"value":{"kind":"Variable","name":{"kind":"Name","value":"excludeServices"}}},{"kind":"Argument","name":{"kind":"Name","value":"excludeEnvFiles"},"value":{"kind":"Variable","name":{"kind":"Name","value":"excludeEnvFiles"}}},{"kind":"Argument","name":{"kind":"Name","value":"extraEnvFiles"},"value":{"kind":"Variable","name":{"kind":"Name","value":"extraEnvFiles"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"cron"}},{"kind":"Field","name":{"kind":"Name","value":"retentionDays"}},{"kind":"Field","name":{"kind":"Name","value":"excludeVolumes"}},{"kind":"Field","name":{"kind":"Name","value":"excludePaths"}},{"kind":"Field","name":{"kind":"Name","value":"excludeServices"}},{"kind":"Field","name":{"kind":"Name","value":"excludeEnvFiles"}},{"kind":"Field","name":{"kind":"Name","value":"extraEnvFiles"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<UpdateBackupPolicyMutation, UpdateBackupPolicyMutationVariables>;
+export const CreateBackupDestinationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateBackupDestination"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"type"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"BackupDestinationType"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"output"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"enabled"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"order"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sseMode"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sseKmsKeyId"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createBackupDestination"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}},{"kind":"Argument","name":{"kind":"Name","value":"type"},"value":{"kind":"Variable","name":{"kind":"Name","value":"type"}}},{"kind":"Argument","name":{"kind":"Name","value":"output"},"value":{"kind":"Variable","name":{"kind":"Name","value":"output"}}},{"kind":"Argument","name":{"kind":"Name","value":"enabled"},"value":{"kind":"Variable","name":{"kind":"Name","value":"enabled"}}},{"kind":"Argument","name":{"kind":"Name","value":"order"},"value":{"kind":"Variable","name":{"kind":"Name","value":"order"}}},{"kind":"Argument","name":{"kind":"Name","value":"sseMode"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sseMode"}}},{"kind":"Argument","name":{"kind":"Name","value":"sseKmsKeyId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sseKmsKeyId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"order"}},{"kind":"Field","name":{"kind":"Name","value":"sseMode"}},{"kind":"Field","name":{"kind":"Name","value":"sseKmsKeyId"}}]}}]}}]} as unknown as DocumentNode<CreateBackupDestinationMutation, CreateBackupDestinationMutationVariables>;
+export const UpdateBackupDestinationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateBackupDestination"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"type"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"BackupDestinationType"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"output"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"enabled"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"order"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sseMode"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sseKmsKeyId"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateBackupDestination"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}},{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}},{"kind":"Argument","name":{"kind":"Name","value":"type"},"value":{"kind":"Variable","name":{"kind":"Name","value":"type"}}},{"kind":"Argument","name":{"kind":"Name","value":"output"},"value":{"kind":"Variable","name":{"kind":"Name","value":"output"}}},{"kind":"Argument","name":{"kind":"Name","value":"enabled"},"value":{"kind":"Variable","name":{"kind":"Name","value":"enabled"}}},{"kind":"Argument","name":{"kind":"Name","value":"order"},"value":{"kind":"Variable","name":{"kind":"Name","value":"order"}}},{"kind":"Argument","name":{"kind":"Name","value":"sseMode"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sseMode"}}},{"kind":"Argument","name":{"kind":"Name","value":"sseKmsKeyId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sseKmsKeyId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"order"}},{"kind":"Field","name":{"kind":"Name","value":"sseMode"}},{"kind":"Field","name":{"kind":"Name","value":"sseKmsKeyId"}}]}}]}}]} as unknown as DocumentNode<UpdateBackupDestinationMutation, UpdateBackupDestinationMutationVariables>;
+export const DeleteBackupDestinationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteBackupDestination"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteBackupDestination"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<DeleteBackupDestinationMutation, DeleteBackupDestinationMutationVariables>;
+export const TriggerBackupRunDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TriggerBackupRun"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"triggerBackupRun"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"trigger"}}]}}]}}]} as unknown as DocumentNode<TriggerBackupRunMutation, TriggerBackupRunMutationVariables>;
+export const CancelBackupRunDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CancelBackupRun"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cancelBackupRun"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"cancelRequested"}}]}}]}}]} as unknown as DocumentNode<CancelBackupRunMutation, CancelBackupRunMutationVariables>;
+export const DeleteBackupArchiveDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteBackupArchive"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"runDestinationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteBackupArchive"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"runDestinationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"runDestinationId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"runId"}},{"kind":"Field","name":{"kind":"Name","value":"finalPath"}},{"kind":"Field","name":{"kind":"Name","value":"archiveDeletedAt"}},{"kind":"Field","name":{"kind":"Name","value":"availability"}}]}}]}}]} as unknown as DocumentNode<DeleteBackupArchiveMutation, DeleteBackupArchiveMutationVariables>;
+export const RotateBackupKeyDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RotateBackupKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"rotateBackupKey"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"fingerprint"}},{"kind":"Field","name":{"kind":"Name","value":"active"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledged"}},{"kind":"Field","name":{"kind":"Name","value":"publicKey"}}]}}]}}]} as unknown as DocumentNode<RotateBackupKeyMutation, RotateBackupKeyMutationVariables>;
+export const AcknowledgeBackupKeyDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AcknowledgeBackupKey"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"acknowledgeBackupKey"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledged"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgedAt"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgedById"}}]}}]}}]} as unknown as DocumentNode<AcknowledgeBackupKeyMutation, AcknowledgeBackupKeyMutationVariables>;
+export const DownloadBackupPrivateKeyDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DownloadBackupPrivateKey"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"downloadBackupPrivateKey"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode<DownloadBackupPrivateKeyMutation, DownloadBackupPrivateKeyMutationVariables>;
+export const SubscribeBackupPolicyDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"SubscribeBackupPolicy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readBackupPolicies"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"paging"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"skip"},"value":{"kind":"IntValue","value":"0"}},{"kind":"ObjectField","name":{"kind":"Name","value":"take"},"value":{"kind":"IntValue","value":"1"}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"cron"}},{"kind":"Field","name":{"kind":"Name","value":"retentionDays"}},{"kind":"Field","name":{"kind":"Name","value":"excludeVolumes"}},{"kind":"Field","name":{"kind":"Name","value":"excludePaths"}},{"kind":"Field","name":{"kind":"Name","value":"excludeServices"}},{"kind":"Field","name":{"kind":"Name","value":"excludeEnvFiles"}},{"kind":"Field","name":{"kind":"Name","value":"extraEnvFiles"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<SubscribeBackupPolicySubscription, SubscribeBackupPolicySubscriptionVariables>;
+export const SubscribeBackupDestinationsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"SubscribeBackupDestinations"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readBackupDestinations"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"policyId"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"output"}},{"kind":"Field","name":{"kind":"Name","value":"enabled"}},{"kind":"Field","name":{"kind":"Name","value":"sseMode"}},{"kind":"Field","name":{"kind":"Name","value":"sseKmsKeyId"}},{"kind":"Field","name":{"kind":"Name","value":"order"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<SubscribeBackupDestinationsSubscription, SubscribeBackupDestinationsSubscriptionVariables>;
+export const SubscribeBackupRunsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"SubscribeBackupRuns"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"skip"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},"defaultValue":{"kind":"IntValue","value":"0"}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"take"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},"defaultValue":{"kind":"IntValue","value":"50"}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readBackupRuns"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"paging"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"skip"},"value":{"kind":"Variable","name":{"kind":"Name","value":"skip"}}},{"kind":"ObjectField","name":{"kind":"Name","value":"take"},"value":{"kind":"Variable","name":{"kind":"Name","value":"take"}}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"policyId"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"trigger"}},{"kind":"Field","name":{"kind":"Name","value":"keyFingerprint"}},{"kind":"Field","name":{"kind":"Name","value":"startedAt"}},{"kind":"Field","name":{"kind":"Name","value":"finishedAt"}},{"kind":"Field","name":{"kind":"Name","value":"heartbeatAt"}},{"kind":"Field","name":{"kind":"Name","value":"archivePath"}},{"kind":"Field","name":{"kind":"Name","value":"archiveBytes"}},{"kind":"Field","name":{"kind":"Name","value":"archiveAvailability"}},{"kind":"Field","name":{"kind":"Name","value":"cancelRequested"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<SubscribeBackupRunsSubscription, SubscribeBackupRunsSubscriptionVariables>;
+export const SubscribeBackupKeysDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"subscription","name":{"kind":"Name","value":"SubscribeBackupKeys"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readBackupKeys"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"algorithm"}},{"kind":"Field","name":{"kind":"Name","value":"publicKey"}},{"kind":"Field","name":{"kind":"Name","value":"fingerprint"}},{"kind":"Field","name":{"kind":"Name","value":"active"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledged"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgedAt"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgedById"}},{"kind":"Field","name":{"kind":"Name","value":"rotatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"acknowledgedBy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"email"}}]}}]}}]}}]} as unknown as DocumentNode<SubscribeBackupKeysSubscription, SubscribeBackupKeysSubscriptionVariables>;
 export const ReadBannerDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadBanner"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"where"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"BannerUniqueFilter"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readBanner"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"expiration"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<ReadBannerQuery, ReadBannerQueryVariables>;
 export const ReadBannersDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadBanners"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"where"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"BannerFilter"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"paging"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PagingInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"orderBy"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"BannerOrderBy"}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"distinct"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"BannerFields"}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readBanners"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}},{"kind":"Argument","name":{"kind":"Name","value":"paging"},"value":{"kind":"Variable","name":{"kind":"Name","value":"paging"}}},{"kind":"Argument","name":{"kind":"Name","value":"orderBy"},"value":{"kind":"Variable","name":{"kind":"Name","value":"orderBy"}}},{"kind":"Argument","name":{"kind":"Name","value":"distinct"},"value":{"kind":"Variable","name":{"kind":"Name","value":"distinct"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"expiration"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<ReadBannersQuery, ReadBannersQueryVariables>;
 export const CreateBannerDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateBanner"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"create"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"BannerCreateInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createBanner"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"create"},"value":{"kind":"Variable","name":{"kind":"Name","value":"create"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"expiration"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<CreateBannerMutation, CreateBannerMutationVariables>;

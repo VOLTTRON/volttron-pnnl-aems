@@ -8,7 +8,7 @@ export declare class AccountObject {
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Account";
-        Shape: import(".prisma/client").Account;
+        Shape: import("@prisma/client").Account;
         Include: Prisma.AccountInclude;
         Select: Prisma.AccountSelect;
         OrderBy: Prisma.AccountOrderByWithRelationInput;
@@ -20,7 +20,7 @@ export declare class AccountObject {
         ListRelations: never;
         Relations: {
             user: {
-                Shape: import(".prisma/client").User;
+                Shape: import("@prisma/client").User;
                 Name: "User";
                 Nullable: false;
             };

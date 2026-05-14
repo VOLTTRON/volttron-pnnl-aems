@@ -130,7 +130,7 @@ export class HistorianQuery {
             };
           }
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+           
           return historianService.getUnitAggregated(
             args.campus,
             args.building,
@@ -255,7 +255,7 @@ export class HistorianQuery {
             };
           }
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+           
           return historianService.getWeatherAggregated(
             args.campus,
             args.building,
@@ -379,7 +379,7 @@ export class HistorianQuery {
             };
           }
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+           
           return historianService.getMeterAggregated(
             args.campus,
             args.building,

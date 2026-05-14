@@ -9,13 +9,13 @@ export declare class AccountMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import(".prisma/client").Prisma.UserCreateNestedOneWithoutAccountsInput>;
+    }>, import("@prisma/client").Prisma.UserCreateNestedOneWithoutAccountsInput>;
     readonly AccountCreate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.AccountCreateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.AccountCreateInput, {
         type: "String";
         provider: "String";
         providerAccountId: "String";
@@ -31,20 +31,20 @@ export declare class AccountMutation {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.UserCreateNestedOneWithoutAccountsInput>;
+        }>, import("@prisma/client").Prisma.UserCreateNestedOneWithoutAccountsInput>;
     }>>;
     readonly AccountUpdateUser: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import(".prisma/client").Prisma.UserUpdateOneRequiredWithoutAccountsNestedInput>;
+    }>, import("@prisma/client").Prisma.UserUpdateOneRequiredWithoutAccountsNestedInput>;
     readonly AccountUpdate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.AccountUpdateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.AccountUpdateInput, {
         type: "String";
         provider: "String";
         providerAccountId: "String";
@@ -60,7 +60,7 @@ export declare class AccountMutation {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.UserUpdateOneRequiredWithoutAccountsNestedInput>;
+        }>, import("@prisma/client").Prisma.UserUpdateOneRequiredWithoutAccountsNestedInput>;
     }>>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, accountQuery: AccountQuery, userQuery: UserQuery);
 }

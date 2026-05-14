@@ -8,7 +8,7 @@ export declare class SetpointObject {
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Setpoint";
-        Shape: import(".prisma/client").Setpoint;
+        Shape: import("@prisma/client").Setpoint;
         Include: Prisma.SetpointInclude;
         Select: Prisma.SetpointSelect;
         OrderBy: Prisma.SetpointOrderByWithRelationInput;
@@ -20,12 +20,12 @@ export declare class SetpointObject {
         ListRelations: "configurations" | "schedules";
         Relations: {
             configurations: {
-                Shape: import(".prisma/client").Configuration[];
+                Shape: import("@prisma/client").Configuration[];
                 Name: "Configuration";
                 Nullable: false;
             };
             schedules: {
-                Shape: import(".prisma/client").Schedule[];
+                Shape: import("@prisma/client").Schedule[];
                 Name: "Schedule";
                 Nullable: false;
             };
@@ -36,7 +36,7 @@ export declare class SetpointObject {
         updatedAt: Date;
         setpoint: number;
         message: string | null;
-        stage: import(".prisma/client").$Enums.ModelStage;
+        stage: import("@prisma/client").$Enums.ModelStage;
         correlation: string | null;
         label: string;
         deadband: number;

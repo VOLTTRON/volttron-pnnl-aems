@@ -35,6 +35,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
         this.configService = configService;
         this.prismaService = prismaService;
         this.logger = new common_1.Logger(HistorianService_1.name);
+        this.topicIdCache = new Map();
         const { historian } = configService;
         if (historian.url) {
             this.pool = new pg_1.Pool({
@@ -111,26 +112,53 @@ let HistorianService = HistorianService_1 = class HistorianService {
         const parsed = parseFloat(valueString);
         return isNaN(parsed) ? null : parsed;
     }
+    async resolveTopicId(topicPath) {
+        const key = topicPath.toLowerCase();
+        const cached = this.topicIdCache.get(key);
+        if (cached !== undefined)
+            return cached;
+        const { rows } = await this.pool.query(`SELECT topic_id FROM topics WHERE lower(topic_name) = $1 LIMIT 1`, [key]);
+        if (rows.length === 0)
+            return null;
+        this.topicIdCache.set(key, rows[0].topic_id);
+        return rows[0].topic_id;
+    }
+    async resolveTopicIds(topicPaths) {
+        const result = new Map();
+        const toFetch = [];
+        for (const p of topicPaths) {
+            const cached = this.topicIdCache.get(p.toLowerCase());
+            if (cached !== undefined)
+                result.set(p, cached);
+            else
+                toFetch.push(p);
+        }
+        if (toFetch.length > 0) {
+            const lowered = toFetch.map((p) => p.toLowerCase());
+            const { rows } = await this.pool.query(`SELECT topic_id, topic_name FROM topics WHERE lower(topic_name) = ANY($1)`, [lowered]);
+            for (const row of rows) {
+                this.topicIdCache.set(row.topic_name.toLowerCase(), row.topic_id);
+            }
+            for (const p of toFetch) {
+                const id = this.topicIdCache.get(p.toLowerCase());
+                if (id !== undefined)
+                    result.set(p, id);
+            }
+        }
+        return result;
+    }
     async getUnitCurrentValue(campus, building, system, metric) {
         const errors = [];
         const topics = {};
         const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
-        const query = `
-      SELECT
-        ts,
-        value_string,
-        topic_name
-      FROM data
-      NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
-      ORDER BY ts DESC
-      LIMIT 1
-    `;
         try {
-            const result = await this.pool.query(query, [
-                topicPath,
-            ]);
+            const topicId = await this.resolveTopicId(topicPath);
+            if (topicId === null) {
+                errors.push(`No data found for topic: ${topicPath}`);
+                return null;
+            }
+            const result = await this.pool.query(`SELECT ts, value_string FROM data WHERE topic_id = $1 ORDER BY ts DESC LIMIT 1`, [topicId]);
             if (result.rows.length === 0) {
                 errors.push(`No data found for topic: ${topicPath}`);
                 return null;
@@ -155,21 +183,13 @@ let HistorianService = HistorianService_1 = class HistorianService {
         const topics = {};
         const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
-        const query = `
-      SELECT
-        ts,
-        value_string,
-        topic_name
-      FROM data
-      NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
-      ORDER BY ts DESC
-      LIMIT 1
-    `;
         try {
-            const result = await this.pool.query(query, [
-                topicPath,
-            ]);
+            const topicId = await this.resolveTopicId(topicPath);
+            if (topicId === null) {
+                errors.push(`No data found for topic: ${topicPath}`);
+                return null;
+            }
+            const result = await this.pool.query(`SELECT ts, value_string FROM data WHERE topic_id = $1 ORDER BY ts DESC LIMIT 1`, [topicId]);
             if (result.rows.length === 0) {
                 errors.push(`No data found for topic: ${topicPath}`);
                 return null;
@@ -194,29 +214,37 @@ let HistorianService = HistorianService_1 = class HistorianService {
         const topics = {};
         const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
-        const query = `
-      SELECT
-        ts,
-        value_string
-      FROM data
-      NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
-        AND ts >= $2
-        AND ts <= $3
-      ORDER BY ts
-    `;
         try {
-            const result = await this.pool.query(query, [
-                topicPath,
-                startTime,
-                endTime,
-            ]);
+            const topicId = await this.resolveTopicId(topicPath);
+            if (topicId === null) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+                return { system, metric, data: [], metadata: { topics, errors } };
+            }
+            const bucketInterval = HistorianService_1.deriveBucketInterval(startTime, endTime);
+            const aggFn = HistorianService_1.CATEGORICAL_UNIT_METRICS.has(metric) ? "MAX" : "AVG";
+            const result = await this.pool.query(`
+          SELECT
+            date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
+            ${aggFn}(
+              CASE
+                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                  THEN value_string::double precision
+                ELSE NULL
+              END
+            ) AS value
+          FROM data
+          WHERE topic_id = $1
+            AND ts >= $2
+            AND ts <= $3
+          GROUP BY 1
+          ORDER BY 1
+        `, [topicId, startTime, endTime, bucketInterval.sql]);
             if (result.rows.length === 0) {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
             }
             const data = result.rows.map((row) => ({
-                timestamp: new Date(row.ts),
-                value: this.parseValue(row.value_string),
+                timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+                value: HistorianService_1.toNumber(row.value),
                 system,
                 metric,
             }));
@@ -238,29 +266,36 @@ let HistorianService = HistorianService_1 = class HistorianService {
         const topics = {};
         const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
-        const query = `
-      SELECT
-        ts,
-        value_string
-      FROM data
-      NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
-        AND ts >= $2
-        AND ts <= $3
-      ORDER BY ts
-    `;
         try {
-            const result = await this.pool.query(query, [
-                topicPath,
-                startTime,
-                endTime,
-            ]);
+            const topicId = await this.resolveTopicId(topicPath);
+            if (topicId === null) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+                return { system: "weather", metric, data: [], metadata: { topics, errors } };
+            }
+            const bucketInterval = HistorianService_1.deriveBucketInterval(startTime, endTime);
+            const result = await this.pool.query(`
+          SELECT
+            date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
+            AVG(
+              CASE
+                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                  THEN value_string::double precision
+                ELSE NULL
+              END
+            ) AS value
+          FROM data
+          WHERE topic_id = $1
+            AND ts >= $2
+            AND ts <= $3
+          GROUP BY 1
+          ORDER BY 1
+        `, [topicId, startTime, endTime, bucketInterval.sql]);
             if (result.rows.length === 0) {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
             }
             const data = result.rows.map((row) => ({
-                timestamp: new Date(row.ts),
-                value: this.parseValue(row.value_string),
+                timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+                value: HistorianService_1.toNumber(row.value),
                 system: "weather",
                 metric,
             }));
@@ -295,21 +330,25 @@ let HistorianService = HistorianService_1 = class HistorianService {
         };
         const aggFunction = aggregation.toLowerCase();
         const valueExpr = aggregation === common_3.AggregationType.Count ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
-        const query = `
-      SELECT
-        date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
-        ${aggFunction}(${valueExpr}) AS value
-      FROM data
-      NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
-        AND ts >= $2
-        AND ts <= $3
-      GROUP BY 1
-      ORDER BY 1
-    `;
         try {
+            const topicId = await this.resolveTopicId(topicPath);
+            if (topicId === null) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+                return { aggregates: [], metadata: { topics, errors } };
+            }
+            const query = `
+        SELECT
+          date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
+          ${aggFunction}(${valueExpr}) AS value
+        FROM data
+        WHERE topic_id = $1
+          AND ts >= $2
+          AND ts <= $3
+        GROUP BY 1
+        ORDER BY 1
+      `;
             const result = await this.pool.query(query, [
-                topicPath,
+                topicId,
                 startTime,
                 endTime,
             ]);
@@ -349,21 +388,25 @@ let HistorianService = HistorianService_1 = class HistorianService {
         };
         const aggFunction = aggregation.toLowerCase();
         const valueExpr = aggregation === common_3.AggregationType.Count ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
-        const query = `
-      SELECT
-        date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
-        ${aggFunction}(${valueExpr}) AS value
-      FROM data
-      NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
-        AND ts >= $2
-        AND ts <= $3
-      GROUP BY 1
-      ORDER BY 1
-    `;
         try {
+            const topicId = await this.resolveTopicId(topicPath);
+            if (topicId === null) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+                return { aggregates: [], metadata: { topics, errors } };
+            }
+            const query = `
+        SELECT
+          date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
+          ${aggFunction}(${valueExpr}) AS value
+        FROM data
+        WHERE topic_id = $1
+          AND ts >= $2
+          AND ts <= $3
+        GROUP BY 1
+        ORDER BY 1
+      `;
             const result = await this.pool.query(query, [
-                topicPath,
+                topicId,
                 startTime,
                 endTime,
             ]);
@@ -390,21 +433,13 @@ let HistorianService = HistorianService_1 = class HistorianService {
         const topics = {};
         const topicPath = (0, metrics_1.buildMeterTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
-        const query = `
-      SELECT
-        ts,
-        value_string,
-        topic_name
-      FROM data
-      NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
-      ORDER BY ts DESC
-      LIMIT 1
-    `;
         try {
-            const result = await this.pool.query(query, [
-                topicPath,
-            ]);
+            const topicId = await this.resolveTopicId(topicPath);
+            if (topicId === null) {
+                errors.push(`No data found for topic: ${topicPath}`);
+                return null;
+            }
+            const result = await this.pool.query(`SELECT ts, value_string FROM data WHERE topic_id = $1 ORDER BY ts DESC LIMIT 1`, [topicId]);
             if (result.rows.length === 0) {
                 errors.push(`No data found for topic: ${topicPath}`);
                 return null;
@@ -429,29 +464,36 @@ let HistorianService = HistorianService_1 = class HistorianService {
         const topics = {};
         const topicPath = (0, metrics_1.buildMeterTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
-        const query = `
-      SELECT
-        ts,
-        value_string
-      FROM data
-      NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
-        AND ts >= $2
-        AND ts <= $3
-      ORDER BY ts
-    `;
         try {
-            const result = await this.pool.query(query, [
-                topicPath,
-                startTime,
-                endTime,
-            ]);
+            const topicId = await this.resolveTopicId(topicPath);
+            if (topicId === null) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+                return { system: "meter", metric, data: [], metadata: { topics, errors } };
+            }
+            const bucketInterval = HistorianService_1.deriveBucketInterval(startTime, endTime);
+            const result = await this.pool.query(`
+          SELECT
+            date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
+            AVG(
+              CASE
+                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                  THEN value_string::double precision
+                ELSE NULL
+              END
+            ) AS value
+          FROM data
+          WHERE topic_id = $1
+            AND ts >= $2
+            AND ts <= $3
+          GROUP BY 1
+          ORDER BY 1
+        `, [topicId, startTime, endTime, bucketInterval.sql]);
             if (result.rows.length === 0) {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
             }
             const data = result.rows.map((row) => ({
-                timestamp: new Date(row.ts),
-                value: this.parseValue(row.value_string),
+                timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+                value: HistorianService_1.toNumber(row.value),
                 system: "meter",
                 metric,
             }));
@@ -486,21 +528,25 @@ let HistorianService = HistorianService_1 = class HistorianService {
         };
         const aggFunction = aggregation.toLowerCase();
         const valueExpr = aggregation === common_3.AggregationType.Count ? "*" : "CAST(NULLIF(value_string, 'null') AS double precision)";
-        const query = `
-      SELECT
-        date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
-        ${aggFunction}(${valueExpr}) AS value
-      FROM data
-      NATURAL JOIN topics
-      WHERE topic_name ILIKE $1
-        AND ts >= $2
-        AND ts <= $3
-      GROUP BY 1
-      ORDER BY 1
-    `;
         try {
+            const topicId = await this.resolveTopicId(topicPath);
+            if (topicId === null) {
+                errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+                return { aggregates: [], metadata: { topics, errors } };
+            }
+            const query = `
+        SELECT
+          date_trunc('${intervalMap[intervalUnit]}', ts) AS timestamp,
+          ${aggFunction}(${valueExpr}) AS value
+        FROM data
+        WHERE topic_id = $1
+          AND ts >= $2
+          AND ts <= $3
+        GROUP BY 1
+        ORDER BY 1
+      `;
             const result = await this.pool.query(query, [
-                topicPath,
+                topicId,
                 startTime,
                 endTime,
             ]);
@@ -531,58 +577,55 @@ let HistorianService = HistorianService_1 = class HistorianService {
             systemTopics[sys] = (0, metrics_1.buildUnitTopicPath)(campus, building, sys, metric, this.configService.historian.topicMap);
         });
         const queryResult = {};
+        systems.forEach((sys) => {
+            queryResult[sys] = [];
+        });
         if (systems.length > 0) {
-            const caseStatements = systems.map((sys) => {
-                return `MAX(CASE WHEN UPPER(split_part(topic_name, '/', 3)) = UPPER('${sys}') THEN CAST(NULLIF(value_string, 'null') AS double precision) END) AS "${sys}"`;
-            });
-            let timeGroup = "ts";
-            const params = [startTime, endTime];
-            if (interval) {
-                const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
-                if (!intervalMatch) {
-                    throw new Error("Invalid interval format");
+            const pathToId = await this.resolveTopicIds(Object.values(systemTopics));
+            const topicIdToSystem = new Map();
+            const topicIds = [];
+            for (const sys of systems) {
+                const id = pathToId.get(systemTopics[sys]);
+                if (id !== undefined) {
+                    topicIdToSystem.set(id, sys);
+                    topicIds.push(id);
                 }
-                const [, , intervalUnit] = intervalMatch;
-                const intervalMap = {
-                    s: "second",
-                    m: "minute",
-                    h: "hour",
-                    d: "day",
-                };
-                timeGroup = `date_trunc('${intervalMap[intervalUnit]}', ts)`;
             }
-            const query = `
-        SELECT
-          ${timeGroup} AS timestamp,
-          ${caseStatements.join(",\n          ")}
-        FROM data
-        NATURAL JOIN topics
-        WHERE topic_name LIKE '${campus}/${building}/%/${metric}'
-          AND ts >= $1
-          AND ts <= $2
-        GROUP BY 1
-        ORDER BY 1
-      `;
-            try {
-                const result = await this.pool.query(query, params);
-                systems.forEach((sys) => {
-                    queryResult[sys] = [];
-                });
-                result.rows.forEach((row) => {
-                    const timestamp = new Date(row.timestamp);
-                    systems.forEach((sys) => {
+            if (topicIds.length > 0) {
+                const bucketInterval = interval
+                    ? HistorianService_1.parseClientInterval(interval)
+                    : HistorianService_1.deriveBucketInterval(startTime, endTime);
+                const aggFn = HistorianService_1.CATEGORICAL_UNIT_METRICS.has(metric) ? "MAX" : "AVG";
+                const query = `
+          SELECT
+            date_bin($4::interval, ts, $1::timestamptz) AS timestamp,
+            topic_id,
+            ${aggFn}(CAST(NULLIF(value_string, 'null') AS double precision)) AS value
+          FROM data
+          WHERE topic_id = ANY($3::int[])
+            AND ts >= $1
+            AND ts <= $2
+          GROUP BY 1, 2
+          ORDER BY 1, 2
+        `;
+                try {
+                    const result = await this.pool.query(query, [startTime, endTime, topicIds, bucketInterval.sql]);
+                    result.rows.forEach((row) => {
+                        const sys = topicIdToSystem.get(row.topic_id);
+                        if (!sys)
+                            return;
                         queryResult[sys].push({
-                            timestamp,
-                            value: typeof row[sys] === "string" ? parseFloat(row[sys]) : (row[sys] ?? null),
+                            timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+                            value: typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null),
                             system: sys,
                             metric,
                         });
                     });
-                });
-            }
-            catch (error) {
-                this.logger.error("Error fetching multi-system data", error);
-                throw error;
+                }
+                catch (error) {
+                    this.logger.error("Error fetching multi-system data", error);
+                    throw error;
+                }
             }
         }
         const results = systems.map((sys) => {
@@ -619,64 +662,79 @@ let HistorianService = HistorianService_1 = class HistorianService {
             grouped[sys.toUpperCase()] = [];
         });
         if (systems.length > 0) {
-            const query = `
-        WITH system_data AS (
-          SELECT 
-            UPPER(split_part(topic_name, '/', 3)) as system,
-            ts,
-            CAST(NULLIF(value_string, 'null') AS double precision) as value
-          FROM data
-          NATURAL JOIN topics
-          WHERE topic_name LIKE '${campus}/${building}/%/${metric}'
-            AND ts >= $1
-            AND ts <= $2
-            AND CAST(NULLIF(value_string, 'null') AS double precision) IS NOT NULL
-          ORDER BY system, ts
-        ),
-        value_changes AS (
-          SELECT 
-            system,
-            ts,
-            value,
-            LAG(value) OVER (PARTITION BY system ORDER BY ts) as prev_value,
-            LEAD(ts) OVER (PARTITION BY system ORDER BY ts) as next_ts
-          FROM system_data
-        ),
-        range_starts AS (
-          SELECT 
-            system,
-            ts as start_time,
-            next_ts as end_time,
-            value
-          FROM value_changes
-          WHERE prev_value IS NULL OR prev_value != value
-        )
-        SELECT 
-          system,
-          start_time,
-          COALESCE(end_time, $2) as end_time,
-          value
-        FROM range_starts
-        ORDER BY system, start_time
-      `;
-            try {
-                const result = await this.pool.query(query, [startTime, endTime]);
-                result.rows.forEach((row) => {
-                    const systemKey = row.system.toUpperCase();
-                    if (grouped[systemKey]) {
-                        grouped[systemKey].push({
-                            startTime: new Date(row.start_time),
-                            endTime: new Date(row.end_time),
-                            value: row.value,
-                            system: row.system,
-                            metric,
-                        });
-                    }
-                });
+            const systemTopics = new Map(systems.map((sys) => [sys, (0, metrics_1.buildUnitTopicPath)(campus, building, sys, metric, this.configService.historian.topicMap)]));
+            const pathToId = await this.resolveTopicIds([...systemTopics.values()]);
+            const topicIdToSystem = new Map();
+            const topicIds = [];
+            for (const [sys, path] of systemTopics) {
+                const id = pathToId.get(path);
+                if (id !== undefined) {
+                    topicIdToSystem.set(id, sys);
+                    topicIds.push(id);
+                }
             }
-            catch (error) {
-                this.logger.error("Error fetching multi-system ranges", error);
-                throw error;
+            if (topicIds.length > 0) {
+                const query = `
+          WITH system_data AS (
+            SELECT
+              topic_id,
+              ts,
+              CAST(NULLIF(value_string, 'null') AS double precision) as value
+            FROM data
+            WHERE topic_id = ANY($3::int[])
+              AND ts >= $1
+              AND ts <= $2
+              AND CAST(NULLIF(value_string, 'null') AS double precision) IS NOT NULL
+            ORDER BY topic_id, ts
+          ),
+          value_changes AS (
+            SELECT
+              topic_id,
+              ts,
+              value,
+              LAG(value) OVER (PARTITION BY topic_id ORDER BY ts) as prev_value,
+              LEAD(ts) OVER (PARTITION BY topic_id ORDER BY ts) as next_ts
+            FROM system_data
+          ),
+          range_starts AS (
+            SELECT
+              topic_id,
+              ts as start_time,
+              next_ts as end_time,
+              value
+            FROM value_changes
+            WHERE prev_value IS NULL OR prev_value != value
+          )
+          SELECT
+            topic_id,
+            start_time,
+            COALESCE(end_time, $2) as end_time,
+            value
+          FROM range_starts
+          ORDER BY topic_id, start_time
+        `;
+                try {
+                    const result = await this.pool.query(query, [startTime, endTime, topicIds]);
+                    result.rows.forEach((row) => {
+                        const sys = topicIdToSystem.get(row.topic_id);
+                        if (!sys)
+                            return;
+                        const key = sys.toUpperCase();
+                        if (grouped[key]) {
+                            grouped[key].push({
+                                startTime: new Date(row.start_time),
+                                endTime: new Date(row.end_time),
+                                value: row.value,
+                                system: sys,
+                                metric,
+                            });
+                        }
+                    });
+                }
+                catch (error) {
+                    this.logger.error("Error fetching multi-system ranges", error);
+                    throw error;
+                }
             }
         }
         const results = systems.map((sys) => {
@@ -714,83 +772,123 @@ let HistorianService = HistorianService_1 = class HistorianService {
             grouped[sys.toUpperCase()] = [];
         });
         if (systems.length > 0) {
-            const query = `
-        WITH zone_temps AS (
-          SELECT
-            UPPER(split_part(topic_name, '/', 3)) as system,
-            ts,
-            CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
-          FROM data
-          NATURAL JOIN topics
-          WHERE topic_name LIKE '${campus}/${building}/%/ZoneTemperature'
-            AND ts >= $1
-            AND ts <= $2
-        ),
-        zone_setpoints AS (
-          SELECT
-            UPPER(split_part(topic_name, '/', 3)) as system,
-            ts,
-            CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
-          FROM data
-          NATURAL JOIN topics
-          WHERE topic_name LIKE '${campus}/${building}/%/EffectiveZoneTemperatureSetPoint'
-            AND ts >= $1
-            AND ts <= $2
-        ),
-        error_data AS (
-          SELECT 
-            t.system,
-            t.ts,
-            ROUND((t.temp_value - s.sp_value)::numeric, 1) AS error_value
-          FROM zone_temps t
-          JOIN zone_setpoints s ON t.system = s.system AND t.ts = s.ts
-          WHERE t.temp_value IS NOT NULL AND s.sp_value IS NOT NULL
-          ORDER BY t.system, t.ts
-        ),
-        value_changes AS (
-          SELECT 
-            system,
-            ts,
-            error_value,
-            LAG(error_value) OVER (PARTITION BY system ORDER BY ts) as prev_value,
-            LEAD(ts) OVER (PARTITION BY system ORDER BY ts) as next_ts
-          FROM error_data
-        ),
-        range_starts AS (
-          SELECT 
-            system,
-            ts as start_time,
-            next_ts as end_time,
-            error_value
-          FROM value_changes
-          WHERE prev_value IS NULL OR ABS(prev_value - error_value) > 0.5
-        )
-        SELECT 
-          system,
-          start_time,
-          COALESCE(end_time, $2) as end_time,
-          error_value as value
-        FROM range_starts
-        ORDER BY system, start_time
-      `;
-            try {
-                const result = await this.pool.query(query, [startTime, endTime]);
-                result.rows.forEach((row) => {
-                    const systemKey = row.system.toUpperCase();
-                    if (grouped[systemKey]) {
-                        grouped[systemKey].push({
-                            startTime: new Date(row.start_time),
-                            endTime: new Date(row.end_time),
-                            value: row.value,
-                            system: row.system,
-                            metric: common_3.UnitMetric.ZoneTemperature,
-                        });
-                    }
-                });
+            const tempPaths = new Map(systems.map((sys) => [
+                sys,
+                (0, metrics_1.buildUnitTopicPath)(campus, building, sys, common_3.UnitMetric.ZoneTemperature, this.configService.historian.topicMap),
+            ]));
+            const spPaths = new Map(systems.map((sys) => [
+                sys,
+                (0, metrics_1.buildUnitTopicPath)(campus, building, sys, common_3.UnitMetric.EffectiveZoneTemperatureSetPoint, this.configService.historian.topicMap),
+            ]));
+            const allPaths = [...tempPaths.values(), ...spPaths.values()];
+            const pathToId = await this.resolveTopicIds(allPaths);
+            const tempIdToSystem = new Map();
+            const spSystemToId = new Map();
+            for (const [sys, path] of tempPaths) {
+                const id = pathToId.get(path);
+                if (id !== undefined)
+                    tempIdToSystem.set(id, sys);
             }
-            catch (error) {
-                this.logger.error("Error fetching setpoint error ranges", error);
-                throw error;
+            for (const [sys, path] of spPaths) {
+                const id = pathToId.get(path);
+                if (id !== undefined)
+                    spSystemToId.set(sys, id);
+            }
+            const tempIds = [];
+            const spIds = [];
+            const tempIdToSpId = new Map();
+            for (const [id, sys] of tempIdToSystem) {
+                const spId = spSystemToId.get(sys);
+                if (spId !== undefined) {
+                    tempIds.push(id);
+                    spIds.push(spId);
+                    tempIdToSpId.set(id, spId);
+                }
+            }
+            if (tempIds.length > 0) {
+                const query = `
+          WITH sys_map AS (
+            SELECT * FROM unnest($3::int[], $4::int[]) AS m(temp_id, sp_id)
+          ),
+          zone_temps AS (
+            SELECT
+              topic_id AS temp_id,
+              ts,
+              CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
+            FROM data
+            WHERE topic_id = ANY($3::int[])
+              AND ts >= $1
+              AND ts <= $2
+          ),
+          zone_setpoints AS (
+            SELECT
+              topic_id AS sp_id,
+              ts,
+              CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
+            FROM data
+            WHERE topic_id = ANY($4::int[])
+              AND ts >= $1
+              AND ts <= $2
+          ),
+          error_data AS (
+            SELECT
+              t.temp_id,
+              t.ts,
+              ROUND((t.temp_value - s.sp_value)::numeric, 1) AS error_value
+            FROM zone_temps t
+            JOIN sys_map m ON m.temp_id = t.temp_id
+            JOIN zone_setpoints s ON s.sp_id = m.sp_id AND s.ts = t.ts
+            WHERE t.temp_value IS NOT NULL AND s.sp_value IS NOT NULL
+            ORDER BY t.temp_id, t.ts
+          ),
+          value_changes AS (
+            SELECT
+              temp_id,
+              ts,
+              error_value,
+              LAG(error_value) OVER (PARTITION BY temp_id ORDER BY ts) as prev_value,
+              LEAD(ts) OVER (PARTITION BY temp_id ORDER BY ts) as next_ts
+            FROM error_data
+          ),
+          range_starts AS (
+            SELECT
+              temp_id,
+              ts as start_time,
+              next_ts as end_time,
+              error_value
+            FROM value_changes
+            WHERE prev_value IS NULL OR ABS(prev_value - error_value) > 0.5
+          )
+          SELECT
+            temp_id,
+            start_time,
+            COALESCE(end_time, $2) as end_time,
+            error_value as value
+          FROM range_starts
+          ORDER BY temp_id, start_time
+        `;
+                try {
+                    const result = await this.pool.query(query, [startTime, endTime, tempIds, spIds]);
+                    result.rows.forEach((row) => {
+                        const sys = tempIdToSystem.get(row.temp_id);
+                        if (!sys)
+                            return;
+                        const key = sys.toUpperCase();
+                        if (grouped[key]) {
+                            grouped[key].push({
+                                startTime: new Date(row.start_time),
+                                endTime: new Date(row.end_time),
+                                value: row.value,
+                                system: sys,
+                                metric: common_3.UnitMetric.ZoneTemperature,
+                            });
+                        }
+                    });
+                }
+                catch (error) {
+                    this.logger.error("Error fetching setpoint error ranges", error);
+                    throw error;
+                }
             }
         }
         const tempMetric = common_3.UnitMetric.ZoneTemperature;
@@ -826,61 +924,207 @@ let HistorianService = HistorianService_1 = class HistorianService {
         });
         return results;
     }
+    static deriveBucketInterval(startTime, endTime) {
+        const rangeMs = Math.max(1, endTime.getTime() - startTime.getTime());
+        const targetBuckets = 500;
+        const targetSec = Math.max(1, Math.ceil(rangeMs / 1000 / targetBuckets));
+        const niceSeconds = [
+            10, 30,
+            60, 120, 300, 600, 900, 1800,
+            3600, 7200, 10800, 21600, 43200,
+            86400, 604800,
+        ];
+        const chosen = niceSeconds.find((s) => s >= targetSec) ?? niceSeconds[niceSeconds.length - 1];
+        return { sql: `${chosen} seconds`, ms: chosen * 1000 };
+    }
+    static parseClientInterval(interval) {
+        const match = interval.match(/^(\d+)([smhd])$/);
+        if (!match) {
+            throw new Error(`Invalid interval format: "${interval}". Use e.g. "5m", "1h", "30s".`);
+        }
+        const n = parseInt(match[1], 10);
+        const unit = match[2];
+        const unitMap = {
+            s: { name: "seconds", ms: 1000 },
+            m: { name: "minutes", ms: 60_000 },
+            h: { name: "hours", ms: 3_600_000 },
+            d: { name: "days", ms: 86_400_000 },
+        };
+        const u = unitMap[unit];
+        return { sql: `${n} ${u.name}`, ms: n * u.ms };
+    }
+    static toNumber(v) {
+        if (typeof v === "number")
+            return isFinite(v) ? v : null;
+        if (typeof v === "string") {
+            const n = parseFloat(v);
+            return isFinite(n) ? n : null;
+        }
+        return null;
+    }
     async calculateSetpointError(campus, building, system, startTime, endTime) {
         const errors = [];
         const tempMetric = common_3.UnitMetric.ZoneTemperature;
         const spMetric = common_3.UnitMetric.EffectiveZoneTemperatureSetPoint;
+        const occMetric = common_3.UnitMetric.OccupancyCommand;
         const tempPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, tempMetric, this.configService.historian.topicMap);
         const setpointPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, spMetric, this.configService.historian.topicMap);
+        const occupancyPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, occMetric, this.configService.historian.topicMap);
         const topics = {
             [tempMetric]: tempPath,
             [spMetric]: setpointPath,
+            [occMetric]: occupancyPath,
         };
-        const query = `
-      WITH zone_temps AS (
-        SELECT
-          ts,
-          CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
-        FROM data
-        NATURAL JOIN topics
-        WHERE topic_name ILIKE $1
-          AND ts >= $3
-          AND ts <= $4
-      ),
-      zone_setpoints AS (
-        SELECT
-          ts,
-          CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
-        FROM data
-        NATURAL JOIN topics
-        WHERE topic_name ILIKE $2
-          AND ts >= $3
-          AND ts <= $4
-      )
-      SELECT
-        t.ts AS timestamp,
-        t.temp_value - s.sp_value AS value
-      FROM zone_temps t
-      JOIN zone_setpoints s ON t.ts = s.ts
-      WHERE t.temp_value IS NOT NULL AND s.sp_value IS NOT NULL
-      ORDER BY t.ts
-    `;
+        const bucketInterval = HistorianService_1.deriveBucketInterval(startTime, endTime);
         try {
-            const result = await this.pool.query(query, [
-                tempPath,
-                setpointPath,
-                startTime,
-                endTime,
+            const pathToId = await this.resolveTopicIds([tempPath, setpointPath, occupancyPath]);
+            const tempId = pathToId.get(tempPath);
+            const setpointId = pathToId.get(setpointPath);
+            const occupancyId = pathToId.get(occupancyPath);
+            if (tempId === undefined) {
+                errors.push(`Topic not found: ${tempPath}`);
+                return { system, metric: tempMetric, data: [], metadata: { topics, errors } };
+            }
+            const tempQuery = `
+        SELECT
+          date_bin($3::interval, ts, $1::timestamptz) AS bucket,
+          AVG(
+            CASE
+              WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                THEN value_string::double precision
+              ELSE NULL
+            END
+          ) AS temp_value
+        FROM data
+        WHERE topic_id = $4
+          AND ts >= $1
+          AND ts <= $2
+        GROUP BY 1
+        ORDER BY 1
+      `;
+            const setpointQuery = `
+        SELECT
+          ts,
+          CASE
+            WHEN value_string LIKE '{%}'
+              THEN (value_string::jsonb ->> 'OccupiedSetPoint')::double precision
+            WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+              THEN value_string::double precision
+            ELSE NULL
+          END AS occupied_sp,
+          CASE
+            WHEN value_string LIKE '{%}'
+              THEN (value_string::jsonb ->> 'UnoccupiedHeatingSetPoint')::double precision
+            ELSE NULL
+          END AS unocc_heat_sp,
+          CASE
+            WHEN value_string LIKE '{%}'
+              THEN (value_string::jsonb ->> 'UnoccupiedCoolingSetPoint')::double precision
+            ELSE NULL
+          END AS unocc_cool_sp
+        FROM data
+        WHERE topic_id = $3
+          AND ts >= $1::timestamptz - interval '30 days'
+          AND ts <= $2
+          AND value_string IS NOT NULL
+          AND value_string <> 'null'
+        ORDER BY ts
+      `;
+            const occupancyQuery = `
+        SELECT
+          ts,
+          CASE
+            WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?$'
+              THEN value_string::double precision
+            ELSE NULL
+          END AS occ_value
+        FROM data
+        WHERE topic_id = $3
+          AND ts >= $1::timestamptz - interval '30 days'
+          AND ts <= $2
+          AND value_string IS NOT NULL
+          AND value_string <> 'null'
+        ORDER BY ts
+      `;
+            const tempPromise = this.pool.query(tempQuery, [startTime, endTime, bucketInterval.sql, tempId]);
+            const setpointPromise = setpointId !== undefined
+                ? this.pool.query(setpointQuery, [startTime, endTime, setpointId])
+                : Promise.resolve({ rows: [] });
+            const occupancyPromise = occupancyId !== undefined
+                ? this.pool.query(occupancyQuery, [
+                    startTime,
+                    endTime,
+                    occupancyId,
+                ])
+                : Promise.resolve({ rows: [] });
+            const [tempResult, setpointResult, occupancyResult] = await Promise.all([
+                tempPromise,
+                setpointPromise,
+                occupancyPromise,
             ]);
-            if (result.rows.length === 0) {
+            const tempByBucket = new Map();
+            for (const row of tempResult.rows) {
+                const bucketMs = row.bucket instanceof Date ? row.bucket.getTime() : new Date(row.bucket).getTime();
+                const v = HistorianService_1.toNumber(row.temp_value);
+                if (v != null)
+                    tempByBucket.set(bucketMs, v);
+            }
+            const setpoints = setpointResult.rows
+                .map((r) => ({
+                t: r.ts instanceof Date ? r.ts.getTime() : new Date(r.ts).getTime(),
+                occupied: HistorianService_1.toNumber(r.occupied_sp),
+                unoccHeat: HistorianService_1.toNumber(r.unocc_heat_sp),
+                unoccCool: HistorianService_1.toNumber(r.unocc_cool_sp),
+            }))
+                .filter((s) => s.occupied != null || s.unoccHeat != null || s.unoccCool != null);
+            const occupancies = occupancyResult.rows
+                .map((r) => ({
+                t: r.ts instanceof Date ? r.ts.getTime() : new Date(r.ts).getTime(),
+                v: HistorianService_1.toNumber(r.occ_value),
+            }))
+                .filter((o) => o.v != null);
+            const data = [];
+            const startMs = startTime.getTime();
+            const endMs = endTime.getTime();
+            const stepMs = bucketInterval.ms;
+            let spIdx = -1;
+            let occIdx = -1;
+            for (let bucketMs = startMs; bucketMs <= endMs; bucketMs += stepMs) {
+                const bucketEndMs = bucketMs + stepMs;
+                while (spIdx + 1 < setpoints.length && setpoints[spIdx + 1].t <= bucketEndMs)
+                    spIdx++;
+                while (occIdx + 1 < occupancies.length && occupancies[occIdx + 1].t <= bucketEndMs)
+                    occIdx++;
+                const temp = tempByBucket.get(bucketMs);
+                const sp = spIdx >= 0 ? setpoints[spIdx] : null;
+                const occ = occIdx >= 0 ? occupancies[occIdx] : null;
+                let value = null;
+                if (temp != null) {
+                    if (occ?.v === 2 && sp?.occupied != null) {
+                        value = temp - sp.occupied;
+                    }
+                    else if (occ?.v === 3 && sp?.unoccHeat != null && sp?.unoccCool != null) {
+                        value =
+                            temp < sp.unoccHeat
+                                ? temp - sp.unoccHeat
+                                : temp > sp.unoccCool
+                                    ? temp - sp.unoccCool
+                                    : 0;
+                    }
+                    else if (sp?.occupied != null) {
+                        value = temp - sp.occupied;
+                    }
+                }
+                data.push({
+                    timestamp: new Date(bucketMs),
+                    value,
+                    system,
+                    metric: tempMetric,
+                });
+            }
+            if (data.every((d) => d.value == null)) {
                 errors.push(`No setpoint error data found for ${system} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
             }
-            const data = result.rows.map((row) => ({
-                timestamp: new Date(row.timestamp),
-                value: typeof row.value === "string" ? parseFloat(row.value) : null,
-                system,
-                metric: tempMetric,
-            }));
             return {
                 system,
                 metric: tempMetric,
@@ -1352,6 +1596,9 @@ WHERE subname = 'historian_sub';`;
     }
 };
 exports.HistorianService = HistorianService;
+HistorianService.CATEGORICAL_UNIT_METRICS = new Set([
+    common_3.UnitMetric.OccupancyCommand,
+]);
 exports.HistorianService = HistorianService = HistorianService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_2.Inject)(app_config_1.AppConfigService.Key)),

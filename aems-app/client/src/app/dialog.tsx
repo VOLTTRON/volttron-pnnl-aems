@@ -324,16 +324,18 @@ export function ViewDialog({
   setOpen,
   title,
   icon,
+  style,
   children,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
   title: string;
   icon?: IconName;
+  style?: React.CSSProperties;
   children?: React.ReactNode;
 }) {
   return (
-    <Dialog title={title} icon={icon} isOpen={open} onClose={() => setOpen(false)}>
+    <Dialog title={title} icon={icon} isOpen={open} onClose={() => setOpen(false)} style={style}>
       <DialogBody>{children}</DialogBody>
       <DialogFooter>
         <Button icon={IconNames.CROSS} intent={Intent.NONE} onClick={() => setOpen(false)}>

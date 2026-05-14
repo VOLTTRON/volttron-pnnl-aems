@@ -9,6 +9,7 @@ import {
   HistorianWeatherTimeSeriesDocument,
   UnitMetric,
   WeatherMetric,
+  HistorianMeterTimeSeriesDocument,
 } from "@/graphql-codegen/graphql";
 import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
@@ -17,6 +18,7 @@ import styles from "./UnitDashboard.module.scss";
 import { Palettes } from "@/utils/palette";
 import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
 import { useMetricColors } from "@/utils/metricColors";
+import { MeterMetric } from "@local/prisma";
 
 interface Unit {
   name?: string | null;
@@ -379,6 +381,17 @@ export function UnitDashboard({
       building: unitBuilding,
       system: unitSystem,
       metric: UnitMetric.ReversingValve,
+      startTime,
+      endTime,
+    },
+  });
+
+  // Power data - using meter data
+  const { data: powerData, loading: powerLoading } = useQuery(HistorianMeterTimeSeriesDocument, {
+    variables: {
+      campus: unitCampus,
+      building: unitBuilding,
+      metric: MeterMetric.Power,
       startTime,
       endTime,
     },
@@ -1057,6 +1070,8 @@ export function UnitDashboard({
                     yAxisIndex: YAxisIndex.Status,
                     step: "end",
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data:
                       occupancyCommandSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1069,6 +1084,8 @@ export function UnitDashboard({
                     yAxisIndex: YAxisIndex.Status,
                     step: "end",
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data: fanStatusSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     color: metricColors[UnitMetric.SupplyFanStatus],
                   });
@@ -1079,6 +1096,8 @@ export function UnitDashboard({
                     yAxisIndex: YAxisIndex.Status,
                     step: "end",
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data:
                       firstStageHeatingSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1091,6 +1110,8 @@ export function UnitDashboard({
                     yAxisIndex: YAxisIndex.Status,
                     step: "end",
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data: coolingStageSeriesData,
                     color: metricColors[UnitMetric.FirstStageCooling],
                   });
@@ -1100,8 +1121,9 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
                     data: zoneTempSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    lineStyle: { width: 3 },
+                    lineStyle: { width: 1.5 },
                     color: metricColors[UnitMetric.ZoneTemperature],
                   });
 
@@ -1110,6 +1132,8 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data:
                       outdoorTempSeries?.historianWeatherTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1121,6 +1145,8 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data:
                       heatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1132,6 +1158,8 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data:
                       coolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1143,12 +1171,13 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
                     data:
                       unoccupiedHeatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [
                         p.timestamp,
                         p.value,
                       ]) || [],
-                    lineStyle: { type: "dashed" },
+                    lineStyle: { type: "dashed", width: 1.5 },
                     color: metricColors[UnitMetric.UnoccupiedHeatingSetPoint],
                   });
 
@@ -1157,12 +1186,13 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
                     data:
                       unoccupiedCoolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [
                         p.timestamp,
                         p.value,
                       ]) || [],
-                    lineStyle: { type: "dashed" },
+                    lineStyle: { type: "dashed", width: 1.5 },
                     color: metricColors[UnitMetric.UnoccupiedCoolingSetPoint],
                   });
 
@@ -1171,9 +1201,11 @@ export function UnitDashboard({
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
+                    showSymbol: false,
+                    lineStyle: { width: 1.5 },
                     data:
                       zoneHumiditySeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
-                    color: metricColors[UnitMetric.ZoneHumidity],
+                    color: gradientPalette.primary.hex,
                   });
 
                   // Extract series in enum order
@@ -1184,6 +1216,82 @@ export function UnitDashboard({
               }}
               style={{ height: "580px" }}
               theme={mode}
+              showLegendToggle
+              showDataZoomTools
+            />
+          )}
+        </Card>
+      </div>
+
+      <div className={styles.grid}>
+        <Card className={styles.chartCard} style={{ height: "400px" }}>
+          {powerLoading ? (
+            <div className={styles.chartLoading} style={{ height: "400px" }}>
+              <Spinner />
+            </div>
+          ) : (
+            <ECharts
+              option={{
+                animation: false,
+                title: { text: "Building Power" },
+                backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+                tooltip: {
+                  trigger: "axis",
+                  renderMode: "richText",
+                  appendToBody: true,
+                  axisPointer: {
+                    animation: false,
+                  },
+                  valueFormatter: (value: any) => {
+                    if (value == null) return "N/A";
+                    if (typeof value !== "number") return String(value);
+                    return `${value.toFixed(2)} W`;
+                  },
+                },
+                legend: { bottom: 0, show: true },
+                dataZoom: [
+                  {
+                    type: "slider",
+                    realtime: false,
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                    bottom: 60,
+                    height: 20,
+                  },
+                  {
+                    type: "inside",
+                    xAxisIndex: 0,
+                    start: 0,
+                    end: 100,
+                  },
+                ],
+                grid: { top: 60, right: 60, bottom: 110, left: 60 },
+                xAxis: { type: "time", min: startTime, max: endTime },
+                yAxis: { type: "value", name: "Power (W)", position: "left", nameTextStyle: { align: "left" } },
+                series: powerData?.historianMeterTimeSeries
+                  ? [
+                      {
+                        name: "Building Power",
+                        type: "line",
+                        smooth: true,
+                        sampling: "lttb" as const,
+                        showSymbol: false,
+                        itemStyle: { color: secondaryPalette.secondary.hex }, // Use secondary palette for power/demand
+                        lineStyle: { color: secondaryPalette.secondary.hex, width: 1.5 },
+                        data:
+                          powerData.historianMeterTimeSeries.data?.map((point: any) => [
+                            point.timestamp,
+                            point.value,
+                          ]) || [],
+                      },
+                    ]
+                  : [],
+              }}
+              style={{ height: "380px" }}
+              theme={mode}
+              showLegendToggle
+              showDataZoomTools
             />
           )}
         </Card>

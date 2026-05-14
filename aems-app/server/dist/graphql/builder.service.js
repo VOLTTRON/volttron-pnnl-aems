@@ -67,6 +67,35 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
         this.ModelStage = this.enumType("ModelStage", { values: Object.values(client_1.ModelStage) });
         this.DateTime = this.addScalarType("DateTime", new graphql_1.GraphQLScalarType({
             name: "DateTime",
+            description: "ISO-8601 date-time string. Parsed into a native Date for resolvers.",
+            serialize: (value) => {
+                if (value instanceof Date)
+                    return value.toISOString();
+                if (typeof value === "string" || typeof value === "number") {
+                    const d = new Date(value);
+                    if (!isNaN(d.getTime()))
+                        return d.toISOString();
+                }
+                throw new graphql_1.GraphQLError(`DateTime cannot serialize value: ${String(value)}`);
+            },
+            parseValue: (value) => {
+                if (value instanceof Date)
+                    return value;
+                if (typeof value === "string" || typeof value === "number") {
+                    const d = new Date(value);
+                    if (!isNaN(d.getTime()))
+                        return d;
+                }
+                throw new graphql_1.GraphQLError(`DateTime cannot parse value: ${String(value)}`);
+            },
+            parseLiteral: (ast) => {
+                if (ast.kind === graphql_1.Kind.STRING || ast.kind === graphql_1.Kind.INT) {
+                    const d = new Date(ast.kind === graphql_1.Kind.INT ? parseInt(ast.value, 10) : ast.value);
+                    if (!isNaN(d.getTime()))
+                        return d;
+                }
+                throw new graphql_1.GraphQLError(`DateTime cannot parse literal: ${ast.kind}`);
+            },
         }));
         this.Json = this.addScalarType("Json", new graphql_1.GraphQLScalarType({
             name: "Json",

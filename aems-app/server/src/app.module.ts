@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { ApiModule } from "@/api/api.module";
+import { WorkerModule } from "@/worker/worker.module";
 import { RouterModule } from "@nestjs/core";
 import { PothosGraphQLModule } from "@/graphql/pothos.module";
 import { PrismaModule } from "@/prisma/prisma.module";
@@ -19,6 +20,7 @@ import { HistorianModule } from "./historian/historian.module";
 @Module({
   imports: [
     ApiModule,
+    WorkerModule,
     AuthModule,
     HistorianModule,
     ConfigModule.forRoot({
