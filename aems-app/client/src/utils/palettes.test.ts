@@ -10,7 +10,7 @@ describe("Palettes JSON Validation", () => {
   });
 
   it("should contain expected number of custom palettes", () => {
-    expect(palettesData.palettes.length).toBe(8);
+    expect(palettesData.palettes.length).toBe(17);
   });
 
   it("should have all required palette properties", () => {
