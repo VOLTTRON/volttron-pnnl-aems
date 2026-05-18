@@ -1101,148 +1101,250 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return [];
     }
 
+    const tempMetric = UnitMetric.ZoneTemperature;
+    const occMetric = UnitMetric.OccupancyCommand;
+    const occHeatMetric = UnitMetric.OccupiedHeatingSetPoint;
+    const occCoolMetric = UnitMetric.OccupiedCoolingSetPoint;
+    const unoccHeatMetric = UnitMetric.UnoccupiedHeatingSetPoint;
+    const unoccCoolMetric = UnitMetric.UnoccupiedCoolingSetPoint;
+    const topicMap = this.configService.historian.topicMap;
+
+    const buildTopics = (sys: string): Record<string, string> => ({
+      [tempMetric]: buildUnitTopicPath(campus, building, sys, tempMetric, topicMap),
+      [occMetric]: buildUnitTopicPath(campus, building, sys, occMetric, topicMap),
+      [occHeatMetric]: buildUnitTopicPath(campus, building, sys, occHeatMetric, topicMap),
+      [occCoolMetric]: buildUnitTopicPath(campus, building, sys, occCoolMetric, topicMap),
+      [unoccHeatMetric]: buildUnitTopicPath(campus, building, sys, unoccHeatMetric, topicMap),
+      [unoccCoolMetric]: buildUnitTopicPath(campus, building, sys, unoccCoolMetric, topicMap),
+    });
+
     const grouped: Record<string, HistorianDataRange[]> = {};
     systems.forEach((sys) => {
       grouped[sys.toUpperCase()] = [];
     });
 
     if (systems.length > 0) {
-      // Resolve temp + setpoint topic_ids for each system. We keep two
-      // separate id→system maps and pass only topic_ids into the query.
-      const tempPaths = new Map<string, string>(
-        systems.map((sys) => [
-          sys,
-          buildUnitTopicPath(campus, building, sys, UnitMetric.ZoneTemperature, this.configService.historian.topicMap),
-        ]),
-      );
-      const spPaths = new Map<string, string>(
-        systems.map((sys) => [
-          sys,
-          buildUnitTopicPath(
-            campus,
-            building,
-            sys,
-            UnitMetric.EffectiveZoneTemperatureSetPoint,
-            this.configService.historian.topicMap,
-          ),
-        ]),
-      );
-      const allPaths = [...tempPaths.values(), ...spPaths.values()];
+      const sysTopics = new Map<string, ReturnType<typeof buildTopics>>(systems.map((sys) => [sys, buildTopics(sys)]));
+      const allPaths: string[] = [];
+      for (const t of sysTopics.values()) allPaths.push(...Object.values(t));
       const pathToId = await this.resolveTopicIds(allPaths);
 
-      const tempIdToSystem = new Map<number, string>();
-      const spSystemToId = new Map<string, number>();
-      for (const [sys, path] of tempPaths) {
-        const id = pathToId.get(path);
-        if (id !== undefined) tempIdToSystem.set(id, sys);
-      }
-      for (const [sys, path] of spPaths) {
-        const id = pathToId.get(path);
-        if (id !== undefined) spSystemToId.set(sys, id);
-      }
-
-      // Only include systems where we found BOTH temp and setpoint topics.
-      const tempIds: number[] = [];
-      const spIds: number[] = [];
-      const tempIdToSpId = new Map<number, number>();
-      for (const [id, sys] of tempIdToSystem) {
-        const spId = spSystemToId.get(sys);
-        if (spId !== undefined) {
-          tempIds.push(id);
-          spIds.push(spId);
-          tempIdToSpId.set(id, spId);
+      // For each topic kind, build a topic_id -> system map, and collect the
+      // set of ids to query.
+      type Kind = "temp" | "occ" | "occHeat" | "occCool" | "unoccHeat" | "unoccCool";
+      const kindMetric: Record<Kind, UnitMetric> = {
+        temp: tempMetric,
+        occ: occMetric,
+        occHeat: occHeatMetric,
+        occCool: occCoolMetric,
+        unoccHeat: unoccHeatMetric,
+        unoccCool: unoccCoolMetric,
+      };
+      const idToSystemByKind: Record<Kind, Map<number, string>> = {
+        temp: new Map(),
+        occ: new Map(),
+        occHeat: new Map(),
+        occCool: new Map(),
+        unoccHeat: new Map(),
+        unoccCool: new Map(),
+      };
+      const allTempIds: number[] = [];
+      const allOccIds: number[] = [];
+      const allSetpointIds: number[] = [];
+      for (const [sys, t] of sysTopics) {
+        for (const kind of Object.keys(kindMetric) as Kind[]) {
+          const id = pathToId.get(t[kindMetric[kind]]);
+          if (id === undefined) continue;
+          idToSystemByKind[kind].set(id, sys);
+          if (kind === "temp") allTempIds.push(id);
+          else if (kind === "occ") allOccIds.push(id);
+          else allSetpointIds.push(id);
         }
       }
 
-      if (tempIds.length > 0) {
-        // Join temp rows to matching setpoint rows by system (via mapping
-        // table constructed from arrays). The JOIN on ts stays, same as
-        // before — setpoint error SQL still assumes coincident timestamps
-        // for this range-reduction variant.
-        const query = `
-          WITH sys_map AS (
-            SELECT * FROM unnest($3::int[], $4::int[]) AS m(temp_id, sp_id)
-          ),
-          zone_temps AS (
-            SELECT
-              topic_id AS temp_id,
-              ts,
-              CAST(NULLIF(value_string, 'null') AS double precision) AS temp_value
-            FROM data
-            WHERE topic_id = ANY($3::int[])
-              AND ts >= $1
-              AND ts <= $2
-          ),
-          zone_setpoints AS (
-            SELECT
-              topic_id AS sp_id,
-              ts,
-              CAST(NULLIF(value_string, 'null') AS double precision) AS sp_value
-            FROM data
-            WHERE topic_id = ANY($4::int[])
-              AND ts >= $1
-              AND ts <= $2
-          ),
-          error_data AS (
-            SELECT
-              t.temp_id,
-              t.ts,
-              ROUND((t.temp_value - s.sp_value)::numeric, 1) AS error_value
-            FROM zone_temps t
-            JOIN sys_map m ON m.temp_id = t.temp_id
-            JOIN zone_setpoints s ON s.sp_id = m.sp_id AND s.ts = t.ts
-            WHERE t.temp_value IS NOT NULL AND s.sp_value IS NOT NULL
-            ORDER BY t.temp_id, t.ts
-          ),
-          value_changes AS (
-            SELECT
-              temp_id,
-              ts,
-              error_value,
-              LAG(error_value) OVER (PARTITION BY temp_id ORDER BY ts) as prev_value,
-              LEAD(ts) OVER (PARTITION BY temp_id ORDER BY ts) as next_ts
-            FROM error_data
-          ),
-          range_starts AS (
-            SELECT
-              temp_id,
-              ts as start_time,
-              next_ts as end_time,
-              error_value
-            FROM value_changes
-            WHERE prev_value IS NULL OR ABS(prev_value - error_value) > 0.5
-          )
+      if (allTempIds.length > 0) {
+        const bucketInterval = HistorianService.deriveBucketInterval(startTime, endTime);
+
+        const tempQuery = `
           SELECT
-            temp_id,
-            start_time,
-            COALESCE(end_time, $2) as end_time,
-            error_value as value
-          FROM range_starts
-          ORDER BY temp_id, start_time
+            topic_id,
+            date_bin($4::interval, ts, $1::timestamptz) AS bucket,
+            AVG(
+              CASE
+                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                  THEN value_string::double precision
+                ELSE NULL
+              END
+            ) AS temp_value
+          FROM data
+          WHERE topic_id = ANY($3::int[])
+            AND ts >= $1
+            AND ts <= $2
+          GROUP BY 1, 2
+          ORDER BY 1, 2
+        `;
+
+        const setpointQuery = `
+          SELECT
+            topic_id,
+            ts,
+            CASE
+              WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                THEN value_string::double precision
+              ELSE NULL
+            END AS sp_value
+          FROM data
+          WHERE topic_id = ANY($3::int[])
+            AND ts >= $1::timestamptz - interval '30 days'
+            AND ts <= $2
+            AND value_string IS NOT NULL
+            AND value_string <> 'null'
+          ORDER BY topic_id, ts
+        `;
+
+        const occupancyQuery = `
+          SELECT
+            topic_id,
+            ts,
+            CASE
+              WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                THEN value_string::double precision
+              ELSE NULL
+            END AS occ_value
+          FROM data
+          WHERE topic_id = ANY($3::int[])
+            AND ts >= $1::timestamptz - interval '30 days'
+            AND ts <= $2
+            AND value_string IS NOT NULL
+            AND value_string <> 'null'
+          ORDER BY topic_id, ts
         `;
 
         try {
-          const result = await this.pool.query<{
-            temp_id: number;
-            start_time: string;
-            end_time: string;
-            value: number;
-          }>(query, [startTime, endTime, tempIds, spIds]);
+          const tempPromise = this.pool.query<{
+            topic_id: number;
+            bucket: Date | string;
+            temp_value: number | string | null;
+          }>(tempQuery, [startTime, endTime, allTempIds, bucketInterval.sql]);
+          const setpointPromise =
+            allSetpointIds.length > 0
+              ? this.pool.query<{ topic_id: number; ts: Date | string; sp_value: number | string | null }>(
+                  setpointQuery,
+                  [startTime, endTime, allSetpointIds],
+                )
+              : Promise.resolve({
+                  rows: [] as Array<{ topic_id: number; ts: Date | string; sp_value: number | string | null }>,
+                });
+          const occupancyPromise =
+            allOccIds.length > 0
+              ? this.pool.query<{ topic_id: number; ts: Date | string; occ_value: number | string | null }>(
+                  occupancyQuery,
+                  [startTime, endTime, allOccIds],
+                )
+              : Promise.resolve({
+                  rows: [] as Array<{ topic_id: number; ts: Date | string; occ_value: number | string | null }>,
+                });
 
-          result.rows.forEach((row) => {
-            const sys = tempIdToSystem.get(row.temp_id);
-            if (!sys) return;
-            const key = sys.toUpperCase();
-            if (grouped[key]) {
-              grouped[key].push({
-                startTime: new Date(row.start_time),
-                endTime: new Date(row.end_time),
-                value: row.value,
-                system: sys,
-                metric: UnitMetric.ZoneTemperature,
-              });
+          const [tempResult, setpointResult, occupancyResult] = await Promise.all([
+            tempPromise,
+            setpointPromise,
+            occupancyPromise,
+          ]);
+
+          // Bucket per system.
+          const tempByBucketBySys = new Map<string, Map<number, number>>();
+          for (const row of tempResult.rows) {
+            const sys = idToSystemByKind.temp.get(row.topic_id);
+            if (!sys) continue;
+            const v = HistorianService.toNumber(row.temp_value);
+            if (v == null) continue;
+            const bucketMs = row.bucket instanceof Date ? row.bucket.getTime() : new Date(row.bucket).getTime();
+            let m = tempByBucketBySys.get(sys);
+            if (!m) {
+              m = new Map();
+              tempByBucketBySys.set(sys, m);
             }
-          });
+            m.set(bucketMs, v);
+          }
+
+          // Setpoints partitioned by (system, kind).
+          type Sample = { t: number; v: number };
+          const setpointsBySys = new Map<
+            string,
+            { occHeat: Sample[]; occCool: Sample[]; unoccHeat: Sample[]; unoccCool: Sample[] }
+          >();
+          const ensureSetpoints = (sys: string) => {
+            let entry = setpointsBySys.get(sys);
+            if (!entry) {
+              entry = { occHeat: [], occCool: [], unoccHeat: [], unoccCool: [] };
+              setpointsBySys.set(sys, entry);
+            }
+            return entry;
+          };
+          for (const row of setpointResult.rows) {
+            const v = HistorianService.toNumber(row.sp_value);
+            if (v == null) continue;
+            const t = row.ts instanceof Date ? row.ts.getTime() : new Date(row.ts).getTime();
+            const sample: Sample = { t, v };
+            const occHeatSys = idToSystemByKind.occHeat.get(row.topic_id);
+            if (occHeatSys) {
+              ensureSetpoints(occHeatSys).occHeat.push(sample);
+              continue;
+            }
+            const occCoolSys = idToSystemByKind.occCool.get(row.topic_id);
+            if (occCoolSys) {
+              ensureSetpoints(occCoolSys).occCool.push(sample);
+              continue;
+            }
+            const unoccHeatSys = idToSystemByKind.unoccHeat.get(row.topic_id);
+            if (unoccHeatSys) {
+              ensureSetpoints(unoccHeatSys).unoccHeat.push(sample);
+              continue;
+            }
+            const unoccCoolSys = idToSystemByKind.unoccCool.get(row.topic_id);
+            if (unoccCoolSys) {
+              ensureSetpoints(unoccCoolSys).unoccCool.push(sample);
+            }
+          }
+
+          // Occupancy per system.
+          const occupanciesBySys = new Map<string, Sample[]>();
+          for (const row of occupancyResult.rows) {
+            const sys = idToSystemByKind.occ.get(row.topic_id);
+            if (!sys) continue;
+            const v = HistorianService.toNumber(row.occ_value);
+            if (v == null) continue;
+            const t = row.ts instanceof Date ? row.ts.getTime() : new Date(row.ts).getTime();
+            let arr = occupanciesBySys.get(sys);
+            if (!arr) {
+              arr = [];
+              occupanciesBySys.set(sys, arr);
+            }
+            arr.push({ t, v });
+          }
+
+          // Run the same bucket walk + range collapse per system.
+          const startMs = startTime.getTime();
+          const endMs = endTime.getTime();
+          for (const sys of idToSystemByKind.temp.values()) {
+            const tempByBucket = tempByBucketBySys.get(sys) ?? new Map<number, number>();
+            const sp = setpointsBySys.get(sys) ?? { occHeat: [], occCool: [], unoccHeat: [], unoccCool: [] };
+            const occupancies = occupanciesBySys.get(sys) ?? [];
+            const series = HistorianService.computeBucketErrorSeries({
+              startMs,
+              endMs,
+              stepMs: bucketInterval.ms,
+              tempByBucket,
+              occupancies,
+              occHeat: sp.occHeat,
+              occCool: sp.occCool,
+              unoccHeat: sp.unoccHeat,
+              unoccCool: sp.unoccCool,
+            });
+            const ranges = HistorianService.collapseErrorSeriesToRanges(series, endMs, sys, tempMetric);
+            const key = sys.toUpperCase();
+            if (grouped[key]) grouped[key].push(...ranges);
+          }
         } catch (error) {
           this.logger.error("Error fetching setpoint error ranges", error);
           throw error;
@@ -1250,37 +1352,30 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    const tempMetric = UnitMetric.ZoneTemperature;
-    const spMetric = UnitMetric.EffectiveZoneTemperatureSetPoint;
-
-    // Build results for allowed systems
     const results: HistorianMultiSystemRanges[] = systems.map((sys) => {
       const ranges = grouped[sys.toUpperCase()] || [];
-      const tempPath = buildUnitTopicPath(campus, building, sys, tempMetric, this.configService.historian.topicMap);
-      const spPath = buildUnitTopicPath(campus, building, sys, spMetric, this.configService.historian.topicMap);
       const errors: string[] = [];
       if (ranges.length === 0) {
-        errors.push(`No setpoint error data found for ${sys} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+        errors.push(
+          `No setpoint error data found for ${sys} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`,
+        );
       }
       return {
         system: sys,
         ranges,
         metadata: {
-          topics: { [tempMetric]: tempPath, [spMetric]: spPath },
+          topics: buildTopics(sys),
           errors,
         },
       };
     });
 
-    // Add denied systems with access error
     deniedSystems.forEach((sys) => {
-      const tempPath = buildUnitTopicPath(campus, building, sys, tempMetric, this.configService.historian.topicMap);
-      const spPath = buildUnitTopicPath(campus, building, sys, spMetric, this.configService.historian.topicMap);
       results.push({
         system: sys,
         ranges: [],
         metadata: {
-          topics: { [tempMetric]: tempPath, [spMetric]: spPath },
+          topics: buildTopics(sys),
           errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
         },
       });
@@ -1351,23 +1446,132 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Calculate setpoint error for a system.
+   * Walk a regular bucket grid and emit the occupancy-aware setpoint error per
+   * bucket. Inside the active deadband (occupied or unoccupied based on the
+   * occupancy state) the error is 0; below heat or above cool it is the
+   * signed distance to that edge. Occupancy state 1 (unknown) is treated as
+   * occupied — matches the dashboard's behavior.
    *
-   * All three input series (zone temp, effective setpoint, occupancy command)
-   * are bucketed into a common time grid whose width is derived from the
-   * query range. Temperatures within a bucket are averaged. Setpoints and
-   * occupancy use LOCF — the most recent value at-or-before each bucket is
-   * carried forward — with a 30-day pre-window lookback so values that
-   * rarely change still cover the whole range.
+   * All sample arrays must be sorted ascending by `t`. The walk is O(N + M)
+   * via per-stream LOCF index pointers.
+   */
+  private static computeBucketErrorSeries(args: {
+    startMs: number;
+    endMs: number;
+    stepMs: number;
+    tempByBucket: Map<number, number>;
+    occupancies: Array<{ t: number; v: number }>;
+    occHeat: Array<{ t: number; v: number }>;
+    occCool: Array<{ t: number; v: number }>;
+    unoccHeat: Array<{ t: number; v: number }>;
+    unoccCool: Array<{ t: number; v: number }>;
+  }): Array<{ bucketMs: number; value: number | null }> {
+    const { startMs, endMs, stepMs, tempByBucket, occupancies, occHeat, occCool, unoccHeat, unoccCool } = args;
+    const out: Array<{ bucketMs: number; value: number | null }> = [];
+    let occIdx = -1;
+    let ohIdx = -1;
+    let ocIdx = -1;
+    let uhIdx = -1;
+    let ucIdx = -1;
+
+    for (let bucketMs = startMs; bucketMs <= endMs; bucketMs += stepMs) {
+      const bucketEndMs = bucketMs + stepMs;
+      while (occIdx + 1 < occupancies.length && occupancies[occIdx + 1].t <= bucketEndMs) occIdx++;
+      while (ohIdx + 1 < occHeat.length && occHeat[ohIdx + 1].t <= bucketEndMs) ohIdx++;
+      while (ocIdx + 1 < occCool.length && occCool[ocIdx + 1].t <= bucketEndMs) ocIdx++;
+      while (uhIdx + 1 < unoccHeat.length && unoccHeat[uhIdx + 1].t <= bucketEndMs) uhIdx++;
+      while (ucIdx + 1 < unoccCool.length && unoccCool[ucIdx + 1].t <= bucketEndMs) ucIdx++;
+
+      const temp = tempByBucket.get(bucketMs);
+      let value: number | null = null;
+      if (temp != null && occIdx >= 0) {
+        const occupiedMode = occupancies[occIdx].v === 2 || occupancies[occIdx].v === 1;
+        const heat = occupiedMode
+          ? ohIdx >= 0
+            ? occHeat[ohIdx].v
+            : null
+          : uhIdx >= 0
+            ? unoccHeat[uhIdx].v
+            : null;
+        const cool = occupiedMode
+          ? ocIdx >= 0
+            ? occCool[ocIdx].v
+            : null
+          : ucIdx >= 0
+            ? unoccCool[ucIdx].v
+            : null;
+        if (heat != null && cool != null) {
+          value = temp < heat ? temp - heat : temp > cool ? temp - cool : 0;
+        }
+      }
+      out.push({ bucketMs, value });
+    }
+    return out;
+  }
+
+  /**
+   * Collapse a per-bucket error series into ranges, opening a new range when
+   * the value moves more than 0.5° from the open range's value (matches the
+   * threshold used by the previous SQL-side implementation). Null buckets
+   * close any open range without starting a new one.
+   */
+  private static collapseErrorSeriesToRanges(
+    series: Array<{ bucketMs: number; value: number | null }>,
+    endMs: number,
+    system: string,
+    metric: UnitMetric,
+  ): HistorianDataRange[] {
+    const ranges: HistorianDataRange[] = [];
+    let cur: { startMs: number; value: number } | null = null;
+    for (const pt of series) {
+      if (pt.value == null) {
+        if (cur) {
+          ranges.push({
+            startTime: new Date(cur.startMs),
+            endTime: new Date(pt.bucketMs),
+            value: Math.round(cur.value * 10) / 10,
+            system,
+            metric,
+          });
+          cur = null;
+        }
+        continue;
+      }
+      if (!cur) {
+        cur = { startMs: pt.bucketMs, value: pt.value };
+      } else if (Math.abs(pt.value - cur.value) > 0.5) {
+        ranges.push({
+          startTime: new Date(cur.startMs),
+          endTime: new Date(pt.bucketMs),
+          value: Math.round(cur.value * 10) / 10,
+          system,
+          metric,
+        });
+        cur = { startMs: pt.bucketMs, value: pt.value };
+      }
+    }
+    if (cur) {
+      ranges.push({
+        startTime: new Date(cur.startMs),
+        endTime: new Date(endMs),
+        value: Math.round(cur.value * 10) / 10,
+        system,
+        metric,
+      });
+    }
+    return ranges;
+  }
+
+  /**
+   * Calculate occupancy-aware setpoint error for a system.
    *
-   * `EffectiveZoneTemperatureSetPoint` may be stored as either a scalar (old
-   * format) or a JSON blob with `OccupiedSetPoint`, `UnoccupiedHeatingSetPoint`,
-   * `UnoccupiedCoolingSetPoint`, and `DeadBand`. Both are accepted.
+   * Zone temp is bucketed (AVG) onto the auto-derived grid; occupancy and the
+   * four heating/cooling setpoints use LOCF with a 30-day pre-window so
+   * sparsely-published values still cover the whole range.
    *
-   * Error formula (occupancy-aware):
-   *   Occupied    -> temp - OccupiedSetPoint
-   *   Unoccupied  -> signed distance from [UnoccHeat, UnoccCool], 0 inside
-   *   Unknown/old -> temp - OccupiedSetPoint (or scalar setpoint)
+   * Error formula:
+   *   Occupied (or Unknown) -> 0 inside [OccHeat, OccCool], signed distance otherwise
+   *   Unoccupied            -> 0 inside [UnoccHeat, UnoccCool], signed distance otherwise
    */
   async calculateSetpointError(
     campus: string,
@@ -1378,27 +1582,49 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianTimeSeries> {
     const errors: string[] = [];
     const tempMetric = UnitMetric.ZoneTemperature;
-    const spMetric = UnitMetric.EffectiveZoneTemperatureSetPoint;
     const occMetric = UnitMetric.OccupancyCommand;
+    const occHeatMetric = UnitMetric.OccupiedHeatingSetPoint;
+    const occCoolMetric = UnitMetric.OccupiedCoolingSetPoint;
+    const unoccHeatMetric = UnitMetric.UnoccupiedHeatingSetPoint;
+    const unoccCoolMetric = UnitMetric.UnoccupiedCoolingSetPoint;
 
-    const tempPath = buildUnitTopicPath(campus, building, system, tempMetric, this.configService.historian.topicMap);
-    const setpointPath = buildUnitTopicPath(campus, building, system, spMetric, this.configService.historian.topicMap);
-    const occupancyPath = buildUnitTopicPath(campus, building, system, occMetric, this.configService.historian.topicMap);
+    const topicMap = this.configService.historian.topicMap;
+    const tempPath = buildUnitTopicPath(campus, building, system, tempMetric, topicMap);
+    const occupancyPath = buildUnitTopicPath(campus, building, system, occMetric, topicMap);
+    const occHeatPath = buildUnitTopicPath(campus, building, system, occHeatMetric, topicMap);
+    const occCoolPath = buildUnitTopicPath(campus, building, system, occCoolMetric, topicMap);
+    const unoccHeatPath = buildUnitTopicPath(campus, building, system, unoccHeatMetric, topicMap);
+    const unoccCoolPath = buildUnitTopicPath(campus, building, system, unoccCoolMetric, topicMap);
 
     const topics: Record<string, string> = {
       [tempMetric]: tempPath,
-      [spMetric]: setpointPath,
       [occMetric]: occupancyPath,
+      [occHeatMetric]: occHeatPath,
+      [occCoolMetric]: occCoolPath,
+      [unoccHeatMetric]: unoccHeatPath,
+      [unoccCoolMetric]: unoccCoolPath,
     };
 
     const bucketInterval = HistorianService.deriveBucketInterval(startTime, endTime);
 
     try {
-      // Resolve all three topic_ids in one round-trip, then hit `data` by PK.
-      const pathToId = await this.resolveTopicIds([tempPath, setpointPath, occupancyPath]);
+      const pathToId = await this.resolveTopicIds([
+        tempPath,
+        occupancyPath,
+        occHeatPath,
+        occCoolPath,
+        unoccHeatPath,
+        unoccCoolPath,
+      ]);
       const tempId = pathToId.get(tempPath);
-      const setpointId = pathToId.get(setpointPath);
       const occupancyId = pathToId.get(occupancyPath);
+      const setpointIds: number[] = [
+        pathToId.get(occHeatPath),
+        pathToId.get(occCoolPath),
+        pathToId.get(unoccHeatPath),
+        pathToId.get(unoccCoolPath),
+      ].filter((id): id is number => id !== undefined);
+
       if (tempId === undefined) {
         errors.push(`Topic not found: ${tempPath}`);
         return { system, metric: tempMetric, data: [], metadata: { topics, errors } };
@@ -1426,31 +1652,20 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       const setpointQuery = `
         SELECT
+          topic_id,
           ts,
           CASE
-            WHEN value_string LIKE '{%}'
-              THEN (value_string::jsonb ->> 'OccupiedSetPoint')::double precision
             WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
               THEN value_string::double precision
             ELSE NULL
-          END AS occupied_sp,
-          CASE
-            WHEN value_string LIKE '{%}'
-              THEN (value_string::jsonb ->> 'UnoccupiedHeatingSetPoint')::double precision
-            ELSE NULL
-          END AS unocc_heat_sp,
-          CASE
-            WHEN value_string LIKE '{%}'
-              THEN (value_string::jsonb ->> 'UnoccupiedCoolingSetPoint')::double precision
-            ELSE NULL
-          END AS unocc_cool_sp
+          END AS sp_value
         FROM data
-        WHERE topic_id = $3
+        WHERE topic_id = ANY($3::int[])
           AND ts >= $1::timestamptz - interval '30 days'
           AND ts <= $2
           AND value_string IS NOT NULL
           AND value_string <> 'null'
-        ORDER BY ts
+        ORDER BY topic_id, ts
       `;
 
       const occupancyQuery = `
@@ -1470,24 +1685,22 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         ORDER BY ts
       `;
 
-      const tempPromise = this.pool.query<{ bucket: Date | string; temp_value: number | string | null }>(
-        tempQuery,
-        [startTime, endTime, bucketInterval.sql, tempId],
-      );
+      const tempPromise = this.pool.query<{ bucket: Date | string; temp_value: number | string | null }>(tempQuery, [
+        startTime,
+        endTime,
+        bucketInterval.sql,
+        tempId,
+      ]);
       const setpointPromise =
-        setpointId !== undefined
-          ? this.pool.query<{
-              ts: Date | string;
-              occupied_sp: number | string | null;
-              unocc_heat_sp: number | string | null;
-              unocc_cool_sp: number | string | null;
-            }>(setpointQuery, [startTime, endTime, setpointId])
-          : Promise.resolve({ rows: [] as Array<{
-              ts: Date | string;
-              occupied_sp: number | string | null;
-              unocc_heat_sp: number | string | null;
-              unocc_cool_sp: number | string | null;
-            }> });
+        setpointIds.length > 0
+          ? this.pool.query<{ topic_id: number; ts: Date | string; sp_value: number | string | null }>(setpointQuery, [
+              startTime,
+              endTime,
+              setpointIds,
+            ])
+          : Promise.resolve({
+              rows: [] as Array<{ topic_id: number; ts: Date | string; sp_value: number | string | null }>,
+            });
       const occupancyPromise =
         occupancyId !== undefined
           ? this.pool.query<{ ts: Date | string; occ_value: number | string | null }>(occupancyQuery, [
@@ -1503,8 +1716,6 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         occupancyPromise,
       ]);
 
-      // Build a bucket → temp map keyed by ms since epoch so we can match
-      // JS-generated bucket timestamps exactly.
       const tempByBucket = new Map<number, number>();
       for (const row of tempResult.rows) {
         const bucketMs = row.bucket instanceof Date ? row.bucket.getTime() : new Date(row.bucket).getTime();
@@ -1512,66 +1723,52 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         if (v != null) tempByBucket.set(bucketMs, v);
       }
 
-      // Setpoint + occupancy samples, sorted ascending by ts (already ORDER BY ts).
-      const setpoints = setpointResult.rows
-        .map((r) => ({
-          t: r.ts instanceof Date ? r.ts.getTime() : new Date(r.ts).getTime(),
-          occupied: HistorianService.toNumber(r.occupied_sp),
-          unoccHeat: HistorianService.toNumber(r.unocc_heat_sp),
-          unoccCool: HistorianService.toNumber(r.unocc_cool_sp),
-        }))
-        .filter((s) => s.occupied != null || s.unoccHeat != null || s.unoccCool != null);
+      const occHeatId = pathToId.get(occHeatPath);
+      const occCoolId = pathToId.get(occCoolPath);
+      const unoccHeatId = pathToId.get(unoccHeatPath);
+      const unoccCoolId = pathToId.get(unoccCoolPath);
+      const occHeat: Array<{ t: number; v: number }> = [];
+      const occCool: Array<{ t: number; v: number }> = [];
+      const unoccHeat: Array<{ t: number; v: number }> = [];
+      const unoccCool: Array<{ t: number; v: number }> = [];
+      for (const row of setpointResult.rows) {
+        const v = HistorianService.toNumber(row.sp_value);
+        if (v == null) continue;
+        const t = row.ts instanceof Date ? row.ts.getTime() : new Date(row.ts).getTime();
+        const sample = { t, v };
+        if (row.topic_id === occHeatId) occHeat.push(sample);
+        else if (row.topic_id === occCoolId) occCool.push(sample);
+        else if (row.topic_id === unoccHeatId) unoccHeat.push(sample);
+        else if (row.topic_id === unoccCoolId) unoccCool.push(sample);
+      }
 
       const occupancies = occupancyResult.rows
         .map((r) => ({
           t: r.ts instanceof Date ? r.ts.getTime() : new Date(r.ts).getTime(),
           v: HistorianService.toNumber(r.occ_value),
         }))
-        .filter((o) => o.v != null) as Array<{ t: number; v: number }>;
+        .filter((o): o is { t: number; v: number } => o.v != null);
 
-      // Walk the bucket grid, advancing LOCF pointers as we go — O(N + M).
-      const data: HistorianDataPoint[] = [];
       const startMs = startTime.getTime();
       const endMs = endTime.getTime();
-      const stepMs = bucketInterval.ms;
-      let spIdx = -1;
-      let occIdx = -1;
+      const series = HistorianService.computeBucketErrorSeries({
+        startMs,
+        endMs,
+        stepMs: bucketInterval.ms,
+        tempByBucket,
+        occupancies,
+        occHeat,
+        occCool,
+        unoccHeat,
+        unoccCool,
+      });
 
-      for (let bucketMs = startMs; bucketMs <= endMs; bucketMs += stepMs) {
-        const bucketEndMs = bucketMs + stepMs;
-        while (spIdx + 1 < setpoints.length && setpoints[spIdx + 1].t <= bucketEndMs) spIdx++;
-        while (occIdx + 1 < occupancies.length && occupancies[occIdx + 1].t <= bucketEndMs) occIdx++;
-
-        const temp = tempByBucket.get(bucketMs);
-        const sp = spIdx >= 0 ? setpoints[spIdx] : null;
-        const occ = occIdx >= 0 ? occupancies[occIdx] : null;
-
-        let value: number | null = null;
-        if (temp != null) {
-          if (occ?.v === 2 && sp?.occupied != null) {
-            // Occupied: error = temp − occupied setpoint
-            value = temp - sp.occupied;
-          } else if (occ?.v === 3 && sp?.unoccHeat != null && sp?.unoccCool != null) {
-            // Unoccupied: 0 inside dead band, signed distance from closest edge outside
-            value =
-              temp < sp.unoccHeat
-                ? temp - sp.unoccHeat
-                : temp > sp.unoccCool
-                  ? temp - sp.unoccCool
-                  : 0;
-          } else if (sp?.occupied != null) {
-            // Fallback (unknown occupancy or legacy scalar setpoint)
-            value = temp - sp.occupied;
-          }
-        }
-
-        data.push({
-          timestamp: new Date(bucketMs),
-          value,
-          system,
-          metric: tempMetric,
-        });
-      }
+      const data: HistorianDataPoint[] = series.map((pt) => ({
+        timestamp: new Date(pt.bucketMs),
+        value: pt.value,
+        system,
+        metric: tempMetric,
+      }));
 
       if (data.every((d) => d.value == null)) {
         errors.push(
