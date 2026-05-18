@@ -40,6 +40,8 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     private static readonly CATEGORICAL_UNIT_METRICS;
     private static parseClientInterval;
     private static toNumber;
+    private static computeBucketErrorSeries;
+    private static collapseErrorSeriesToRanges;
     calculateSetpointError(campus: string, building: string, system: string, startTime: Date, endTime: Date): Promise<HistorianTimeSeries>;
     private isProxyCertificateSelfSigned;
     private ensureTablesInPublication;

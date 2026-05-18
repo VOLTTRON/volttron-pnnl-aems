@@ -30,6 +30,7 @@ export type Scalars = {
   CommentGroupBy: { input: PrismaJson.CommentGroupBy; output: PrismaJson.CommentGroupBy; }
   ConfigurationGroupBy: { input: PrismaJson.ConfigurationGroupBy; output: PrismaJson.ConfigurationGroupBy; }
   ControlGroupBy: { input: PrismaJson.ControlGroupBy; output: PrismaJson.ControlGroupBy; }
+  /** ISO-8601 date-time string. Parsed into a native Date for resolvers. */
   DateTime: { input: string; output: string; }
   FeedbackGroupBy: { input: PrismaJson.FeedbackGroupBy; output: PrismaJson.FeedbackGroupBy; }
   FileGroupBy: { input: PrismaJson.FileGroupBy; output: PrismaJson.FileGroupBy; }
