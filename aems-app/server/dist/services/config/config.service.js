@@ -107,12 +107,12 @@ let ConfigService = ConfigService_1 = class ConfigService extends __1.BaseServic
                         await this.volttronService.makeApiCall(`manager.${unit.system.toLowerCase()}`, "set_temperature_setpoints", token, set_temperature_setpoints);
                         this.logger.debug(`[${unit.label}] Temperature setpoints updated successfully`);
                         this.logger.debug(`[${unit.label}] Setting occupancy overrides...`);
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
+                        const now = new Date();
+                        const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
                         const set_occupancy_override = unit.configuration?.occupancies
-                            .filter((v) => v.date.getTime() >= today.getTime())
+                            .filter((v) => v.date.getTime() >= todayUtc)
                             .reduce((p, c) => {
-                            const k = `${c.date.getFullYear().toString()}-${(c.date.getMonth() + 1).toString().padStart(2, "0")}-${c.date.getDate().toString().padStart(2, "0")}`;
+                            const k = `${c.date.getUTCFullYear().toString()}-${(c.date.getUTCMonth() + 1).toString().padStart(2, "0")}-${c.date.getUTCDate().toString().padStart(2, "0")}`;
                             const v = this.buildOccupancyPayload(c.schedule);
                             if (k in p) {
                                 p[k].push(v);
