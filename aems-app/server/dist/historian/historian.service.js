@@ -1210,7 +1210,6 @@ let HistorianService = HistorianService_1 = class HistorianService {
             ].filter((id) => id !== undefined);
             if (tempId === undefined) {
                 errors.push(`Topic not found: ${tempPath}`);
-                return { system, metric: tempMetric, data: [], metadata: { topics, errors } };
             }
             const tempQuery = `
         SELECT
@@ -1262,12 +1261,14 @@ let HistorianService = HistorianService_1 = class HistorianService {
           AND value_string <> 'null'
         ORDER BY ts
       `;
-            const tempPromise = this.pool.query(tempQuery, [
-                startTime,
-                endTime,
-                bucketInterval.sql,
-                tempId,
-            ]);
+            const tempPromise = tempId !== undefined
+                ? this.pool.query(tempQuery, [
+                    startTime,
+                    endTime,
+                    bucketInterval.sql,
+                    tempId,
+                ])
+                : Promise.resolve({ rows: [] });
             const setpointPromise = setpointIds.length > 0
                 ? this.pool.query(setpointQuery, [
                     startTime,

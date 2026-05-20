@@ -1653,7 +1653,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       if (tempId === undefined) {
         errors.push(`Topic not found: ${tempPath}`);
-        return { system, metric: tempMetric, data: [], metadata: { topics, errors } };
+        // Don't bail out — fall through with no temp samples so the bucket
+        // grid still gets emitted (all-null), and the client renders the
+        // system as a continuous "Unknown" row instead of an empty y-axis
+        // category.
       }
 
       // Three small, index-friendly queries run in parallel — each a pure
@@ -1711,12 +1714,15 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         ORDER BY ts
       `;
 
-      const tempPromise = this.pool.query<{ bucket: Date | string; temp_value: number | string | null }>(tempQuery, [
-        startTime,
-        endTime,
-        bucketInterval.sql,
-        tempId,
-      ]);
+      const tempPromise =
+        tempId !== undefined
+          ? this.pool.query<{ bucket: Date | string; temp_value: number | string | null }>(tempQuery, [
+              startTime,
+              endTime,
+              bucketInterval.sql,
+              tempId,
+            ])
+          : Promise.resolve({ rows: [] as Array<{ bucket: Date | string; temp_value: number | string | null }> });
       const setpointPromise =
         setpointIds.length > 0
           ? this.pool.query<{ topic_id: number; ts: Date | string; sp_value: number | string | null }>(setpointQuery, [

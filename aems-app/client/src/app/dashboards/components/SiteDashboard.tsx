@@ -114,6 +114,11 @@ export function SiteDashboard({
     [unitSystems],
   );
 
+  // Per-chart toggle: false = discrete (one segment per bucket), true =
+  // rolled up (consecutive same-state buckets merged into a single segment).
+  const [occupancyRolledUp, setOccupancyRolledUp] = React.useState(true);
+  const [setpointRolledUp, setSetpointRolledUp] = React.useState(true);
+
   // Occupancy Status data using new multi-system query
   const { data: occupancyData, loading: occupancyLoading } = useQuery(HistorianMultiSystemUnitDocument, {
     variables: {
@@ -251,6 +256,20 @@ export function SiteDashboard({
     return remHr ? `${days}d ${remHr}h` : `${days}d`;
   };
 
+  // Toolbox icons for the rollup toggle. The icon hints at the action the
+  // click will perform (single bar = "roll up", multi-bar = "show discrete").
+  const ROLLUP_ICON = "path://M3,8H21V16H3V8Z";
+  const DISCRETE_ICON = "path://M3,8H7V16H3V8M10,8H14V16H10V8M17,8H21V16H17V8Z";
+
+  const buildRollupToolboxFeature = (rolledUp: boolean, toggle: () => void) => ({
+    myRollup: {
+      show: true,
+      title: rolledUp ? "Show discrete bins" : "Roll up bins",
+      icon: rolledUp ? DISCRETE_ICON : ROLLUP_ICON,
+      onclick: toggle,
+    },
+  });
+
   // Custom tooltip body for the timeline charts. We build the HTML ourselves
   // so we can drop the default `seriesName: value` line (always a duplicate
   // of the bin label) and add start/end/duration on their own lines.
@@ -292,6 +311,7 @@ export function SiteDashboard({
     systems: string[],
     displayNames: string[],
     preSeededStates?: Array<{ label: string; color: string }>,
+    rolledUp?: boolean,
   ) => {
     const series: any[] = [];
 
@@ -312,6 +332,10 @@ export function SiteDashboard({
       }
     });
 
+    // In rolled-up mode, consecutive buckets with the same state are merged
+    // into a single segment by mutating the previous segment's end time.
+    const lastSegmentBySystem = new Map<string, any[]>();
+
     // Process each system's data
     (data?.historianMultiSystemUnit ?? []).forEach((systemData: any) => {
       const points = systemData.data || [];
@@ -329,6 +353,17 @@ export function SiteDashboard({
             ? points[i + 1].timestamp
             : new Date(new Date(segmentStart).getTime() + 5 * 60 * 1000).toISOString();
 
+        if (rolledUp) {
+          const last = lastSegmentBySystem.get(systemName);
+          // last value tuple: [displayName, start, end, label, color, raw]
+          if (last && last[3] === state.label && last[2] === segmentStart) {
+            last[2] = segmentEnd;
+            // The raw value no longer represents a single bucket once merged.
+            last[5] = null;
+            return;
+          }
+        }
+
         // Get or create state entry
         if (!stateMap.has(state.label)) {
           stateMap.set(state.label, {
@@ -340,10 +375,14 @@ export function SiteDashboard({
 
         // Add data point to this state's series - use display name for Y-axis
         const displayName = systemToDisplayName.get(systemName) || systemName;
+        const valueTuple: any[] = [displayName, segmentStart, segmentEnd, state.label, state.color, rawValue];
         stateMap.get(state.label)!.data.push({
-          value: [displayName, segmentStart, segmentEnd, state.label, state.color, rawValue],
+          value: valueTuple,
           itemStyle: { color: state.color },
         });
+        if (rolledUp) {
+          lastSegmentBySystem.set(systemName, valueTuple);
+        }
       });
     });
 
@@ -365,13 +404,11 @@ export function SiteDashboard({
           const height = api.size([0, 1])[1] * 0.6;
           const color = api.value(4);
 
-          // Extend width by 1px so adjacent bin rectangles overlap and the
-          // anti-aliased seam between them is hidden.
           const rectShape = graphic.clipRectByRect(
             {
               x: start[0],
               y: start[1] - height / 2,
-              width: Math.max(end[0] - start[0] + 1, 1),
+              width: Math.max(end[0] - start[0], 1),
               height: height,
             },
             {
@@ -425,6 +462,11 @@ export function SiteDashboard({
                 animation: false,
                 title: { text: "Occupancy Status" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+                toolbox: {
+                  feature: buildRollupToolboxFeature(occupancyRolledUp, () =>
+                    setOccupancyRolledUp((prev) => !prev),
+                  ),
+                },
                 tooltip: {
                   trigger: "item",
                   formatter: (params: any) => formatTimelineTooltip(params, (label) => label),
@@ -468,6 +510,7 @@ export function SiteDashboard({
                   unitSystems,
                   optimizedSystemNames,
                   occupancyStates,
+                  occupancyRolledUp,
                 ),
               }}
               style={{ height: "480px" }}
@@ -500,6 +543,11 @@ export function SiteDashboard({
                 animation: false,
                 title: { text: "Occupancy Setpoint Error" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+                toolbox: {
+                  feature: buildRollupToolboxFeature(setpointRolledUp, () =>
+                    setSetpointRolledUp((prev) => !prev),
+                  ),
+                },
                 tooltip: {
                   trigger: "item",
                   formatter: (params: any) =>
@@ -548,6 +596,7 @@ export function SiteDashboard({
                   unitSystems,
                   optimizedSystemNames,
                   setpointErrorBins,
+                  setpointRolledUp,
                 ),
               }}
               style={{ height: "480px" }}

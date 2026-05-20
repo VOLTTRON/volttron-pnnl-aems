@@ -13,7 +13,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!("dashboard-unit" in resolvers) && addResolver !== undefined) {
       addResolver("dashboard-unit", async (system, ...[building, campus]) => {
-        console.log("Resolving system ID:", { system, campus, building });
         if (system?.toLocaleLowerCase() === "site") {
           return "Site Overview";
         }
