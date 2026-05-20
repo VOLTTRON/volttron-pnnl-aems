@@ -916,11 +916,37 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // Bucket grid used to fill gaps with explicit null points so the client
+    // can render "Unknown" as discrete segments aligned with real data
+    // points, instead of relying on a separate full-width background bar.
+    // The grid matches Postgres `date_bin($interval, ts, $startTime)`, which
+    // anchors buckets at `startTime + N*stepMs`.
+    const fillStepMs = interval
+      ? HistorianService.parseClientInterval(interval).ms
+      : HistorianService.deriveBucketInterval(startTime, endTime).ms;
+    const fillStartMs = startTime.getTime();
+    const fillEndMs = endTime.getTime();
+    const fillBuckets = (existing: HistorianDataPoint[], sys: string): HistorianDataPoint[] => {
+      const byBucket = new Map<number, HistorianDataPoint>();
+      for (const pt of existing) byBucket.set(pt.timestamp.getTime(), pt);
+      const filled: HistorianDataPoint[] = [];
+      for (let bucketMs = fillStartMs; bucketMs <= fillEndMs; bucketMs += fillStepMs) {
+        const pt = byBucket.get(bucketMs);
+        if (pt) {
+          filled.push(pt);
+        } else {
+          filled.push({ timestamp: new Date(bucketMs), value: null, system: sys, metric });
+        }
+      }
+      return filled;
+    };
+
     // Build results for allowed systems
     const results: HistorianMultiSystemData[] = systems.map((sys) => {
-      const data = queryResult[sys] ?? [];
+      const raw = queryResult[sys] ?? [];
+      const data = fillBuckets(raw, sys);
       const errors: string[] = [];
-      if (data.length === 0) {
+      if (raw.length === 0) {
         errors.push(`No data found for topic: ${systemTopics[sys]} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
       }
       return {

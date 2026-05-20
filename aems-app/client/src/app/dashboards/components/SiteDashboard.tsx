@@ -196,47 +196,102 @@ export function SiteDashboard({
     },
   });
 
+  const unknownState = { label: "Unknown", color: tertiaryPalette.secondary.hex };
+
   // Helper function to get state label and color using tertiary palette (status/states)
-  const getOccupancyState = (value: number) => {
-    if (value === 1) return { label: "Local Control", color: tertiaryPalette.primary.hex }; // High alert
-    if (value === 2) return { label: "Occupied", color: tertiaryPalette.tertiary.hex }; // Neutral/middle
-    if (value === 3) return { label: "Unoccupied", color: tertiaryPalette.quinary.hex }; // Low/passive
-    return { label: "Unknown", color: tertiaryPalette.secondary.hex };
+  const occupancyStates: Array<{ label: string; color: string }> = [
+    { label: "Local Control", color: tertiaryPalette.primary.hex },
+    { label: "Occupied", color: tertiaryPalette.tertiary.hex },
+    { label: "Unoccupied", color: tertiaryPalette.quinary.hex },
+  ];
+  const getOccupancyState = (value: number | null | undefined) => {
+    if (value == null || !Number.isFinite(value)) return unknownState;
+    if (value === 1) return occupancyStates[0];
+    if (value === 2) return occupancyStates[1];
+    if (value === 3) return occupancyStates[2];
+    return unknownState;
   };
 
-  // Helper function to get setpoint error state with color coding.
-  // Mirrors the deprecated Grafana site dashboard's BlYlRd threshold stops
-  // at -3 / -2 / -1 / 1 / 2 / 3 °F.
+  // Setpoint error bins. Optimal is the deadband (±0.5°F); remaining bins
+  // each span 1°F outward from there.
   const setpointErrorBins: Array<{ label: string; color: string }> = [
-    { label: "Very Cold (< -3°F)", color: primaryPalette.primary.hex },
-    { label: "Cold (-3 to -2°F)", color: primaryPalette.secondary.hex },
-    { label: "Slightly Cold (-2 to -1°F)", color: primaryPalette.tertiary.hex },
-    { label: "Optimal (-1 to 1°F)", color: tertiaryPalette.tertiary.hex },
-    { label: "Slightly Warm (1 to 2°F)", color: secondaryPalette.quaternary.hex },
-    { label: "Warm (2 to 3°F)", color: secondaryPalette.secondary.hex },
-    { label: "Very Warm (> 3°F)", color: secondaryPalette.primary.hex },
+    { label: "Very Cold", color: primaryPalette.primary.hex },
+    { label: "Cold", color: primaryPalette.secondary.hex },
+    { label: "Slightly Cold", color: primaryPalette.tertiary.hex },
+    { label: "Optimal", color: tertiaryPalette.tertiary.hex },
+    { label: "Slightly Warm", color: secondaryPalette.quaternary.hex },
+    { label: "Warm", color: secondaryPalette.secondary.hex },
+    { label: "Very Warm", color: secondaryPalette.primary.hex },
   ];
-  const getSetpointErrorState = (errorValue: number) => {
-    if (errorValue < -3) return setpointErrorBins[0];
-    if (errorValue < -2) return setpointErrorBins[1];
-    if (errorValue < -1) return setpointErrorBins[2];
-    if (errorValue <= 1) return setpointErrorBins[3];
-    if (errorValue <= 2) return setpointErrorBins[4];
-    if (errorValue <= 3) return setpointErrorBins[5];
+  const getSetpointErrorState = (errorValue: number | null | undefined) => {
+    if (errorValue == null || !Number.isFinite(errorValue)) return unknownState;
+    if (errorValue < -2.5) return setpointErrorBins[0];
+    if (errorValue < -1.5) return setpointErrorBins[1];
+    if (errorValue < -0.5) return setpointErrorBins[2];
+    if (errorValue <= 0.5) return setpointErrorBins[3];
+    if (errorValue <= 1.5) return setpointErrorBins[4];
+    if (errorValue <= 2.5) return setpointErrorBins[5];
     return setpointErrorBins[6];
   };
 
+  // Format a duration in ms using the highest-level unit (and the next one
+  // down when non-zero) so the tooltip stays compact: "2d 5h", "45m", "30s".
+  const formatDuration = (ms: number) => {
+    if (!Number.isFinite(ms) || ms <= 0) return "0s";
+    const seconds = Math.round(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remSec = seconds % 60;
+    if (minutes < 60) return remSec ? `${minutes}m ${remSec}s` : `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const remMin = minutes % 60;
+    if (hours < 24) return remMin ? `${hours}h ${remMin}m` : `${hours}h`;
+    const days = Math.floor(hours / 24);
+    const remHr = hours % 24;
+    return remHr ? `${days}d ${remHr}h` : `${days}d`;
+  };
+
+  // Custom tooltip body for the timeline charts. We build the HTML ourselves
+  // so we can drop the default `seriesName: value` line (always a duplicate
+  // of the bin label) and add start/end/duration on their own lines.
+  const formatTimelineTooltip = (params: any, formatLabel: (label: string, raw: number | null) => string) => {
+    const value = params?.value;
+    if (!Array.isArray(value)) return "";
+    const [systemName, segmentStart, segmentEnd, label, , rawValue] = value as [
+      string,
+      string,
+      string,
+      string,
+      string,
+      number | null | undefined,
+    ];
+    const raw = typeof rawValue === "number" && Number.isFinite(rawValue) ? rawValue : null;
+    const start = new Date(segmentStart);
+    const end = new Date(segmentEnd);
+    const validRange = !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime());
+    const fmt = (d: Date) => d.toLocaleString();
+    const marker = typeof params?.marker === "string" ? params.marker : "";
+    const lines = [`${marker}<strong>${systemName}</strong> — ${formatLabel(label, raw)}`];
+    if (validRange) {
+      lines.push(`Start: ${fmt(start)}`);
+      lines.push(`End: ${fmt(end)}`);
+      lines.push(`Duration: ${formatDuration(end.getTime() - start.getTime())}`);
+    }
+    return lines.join("<br/>");
+  };
+
   // Helper function to prepare timeline data for ECharts
-  // Groups data by state/range so legend items match series names
+  // Groups data by state/range so legend items match series names. The server
+  // fills missing buckets with null values; here those collapse into discrete
+  // "Unknown" segments instead of a single full-width background bar.
   const prepareTimelineData = (
     data: typeof occupancyData,
-    getStateInfo: (value: number) => { label: string; color: string },
+    getStateInfo: (value: number | null | undefined) => { label: string; color: string },
     startTime: string,
     endTime: string,
     systems: string[],
     displayNames: string[],
     preSeededStates?: Array<{ label: string; color: string }>,
-    unknownStateOverride?: { label: string; color: string },
   ) => {
     const series: any[] = [];
 
@@ -246,73 +301,15 @@ export function SiteDashboard({
       systemToDisplayName.set(sys, displayNames[idx] || sys);
     });
 
-    // "Unknown" background series (rendered behind everything). Callers can
-    // pass `unknownStateOverride` when 0 is a valid value in their state
-    // space (e.g. setpoint error, where 0 falls in the Optimal bin).
-    const unknownState = unknownStateOverride ?? getStateInfo(0);
-    const unknownData = displayNames.map((displayName) => ({
-      value: [displayName, startTime, endTime, unknownState.label, unknownState.color],
-      itemStyle: { color: unknownState.color },
-    }));
-
-    series.push({
-      name: unknownState.label,
-      type: "custom" as const,
-      itemStyle: {
-        color: unknownState.color,
-      },
-      emphasis: {
-        disabled: true,
-      },
-      renderItem: (params: any, api: any) => {
-        const systemName = api.value(0);
-        const start = api.coord([api.value(1), systemName]);
-        const end = api.coord([api.value(2), systemName]);
-        const height = api.size([0, 1])[1] * 0.6;
-        const color = api.value(4);
-
-        const rectShape = graphic.clipRectByRect(
-          {
-            x: start[0],
-            y: start[1] - height / 2,
-            width: Math.max(end[0] - start[0], 1),
-            height: height,
-          },
-          {
-            x: params.coordSys.x,
-            y: params.coordSys.y,
-            width: params.coordSys.width,
-            height: params.coordSys.height,
-          },
-        );
-
-        return (
-          rectShape && {
-            type: "rect" as const,
-            shape: rectShape,
-            style: {
-              fill: color,
-              opacity: 0.7,
-              stroke: null,
-            },
-          }
-        );
-      },
-      encode: {
-        x: [1, 2],
-        y: 0,
-      },
-      data: unknownData,
-    });
-
-    // Collect valid states (excluding "Unknown"). Pre-seed with the full
-    // bin list (when provided) so every bin shows in the legend even if no
-    // data point currently falls in it, and so legend order matches the
-    // caller-supplied order.
+    // Pre-seed with Unknown plus any caller-supplied states so the legend
+    // includes every state in a stable order, even when no data lands in
+    // some of them.
     const stateMap = new Map<string, { label: string; color: string; data: any[] }>();
+    stateMap.set(unknownState.label, { label: unknownState.label, color: unknownState.color, data: [] });
     preSeededStates?.forEach((state) => {
-      if (state.label === unknownState.label) return;
-      stateMap.set(state.label, { label: state.label, color: state.color, data: [] });
+      if (!stateMap.has(state.label)) {
+        stateMap.set(state.label, { label: state.label, color: state.color, data: [] });
+      }
     });
 
     // Process each system's data
@@ -321,24 +318,16 @@ export function SiteDashboard({
       const systemName = systemData.system;
 
       points.forEach((point: any, i: number) => {
-        // Skip invalid data points
-        if (point.value == null || typeof point.value !== "number") {
-          return;
-        }
+        const rawValue: number | null =
+          typeof point.value === "number" && Number.isFinite(point.value) ? point.value : null;
+        const state = getStateInfo(rawValue);
 
-        const state = getStateInfo(point.value);
-
-        // Skip "Unknown" states - they're already rendered as background
-        if (state.label === "Unknown") {
-          return;
-        }
-
-        const startTime = point.timestamp;
+        const segmentStart = point.timestamp;
         // End time is either the next point's timestamp, or add a default duration (e.g., 5 minutes)
-        const endTime =
+        const segmentEnd =
           i < points.length - 1
             ? points[i + 1].timestamp
-            : new Date(new Date(startTime).getTime() + 5 * 60 * 1000).toISOString();
+            : new Date(new Date(segmentStart).getTime() + 5 * 60 * 1000).toISOString();
 
         // Get or create state entry
         if (!stateMap.has(state.label)) {
@@ -352,13 +341,13 @@ export function SiteDashboard({
         // Add data point to this state's series - use display name for Y-axis
         const displayName = systemToDisplayName.get(systemName) || systemName;
         stateMap.get(state.label)!.data.push({
-          value: [displayName, startTime, endTime, state.label, state.color],
+          value: [displayName, segmentStart, segmentEnd, state.label, state.color, rawValue],
           itemStyle: { color: state.color },
         });
       });
     });
 
-    // Add valid state series (these render on top of "Unknown" background)
+    // Emit one custom series per state.
     stateMap.forEach((stateData) => {
       series.push({
         name: stateData.label,
@@ -376,11 +365,13 @@ export function SiteDashboard({
           const height = api.size([0, 1])[1] * 0.6;
           const color = api.value(4);
 
+          // Extend width by 1px so adjacent bin rectangles overlap and the
+          // anti-aliased seam between them is hidden.
           const rectShape = graphic.clipRectByRect(
             {
               x: start[0],
               y: start[1] - height / 2,
-              width: Math.max(end[0] - start[0], 1),
+              width: Math.max(end[0] - start[0] + 1, 1),
               height: height,
             },
             {
@@ -436,18 +427,12 @@ export function SiteDashboard({
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: {
                   trigger: "item",
-                  valueFormatter: (value: any) => {
-                    // For timeline custom series, value is an array: [systemName, startTime, endTime, label, color]
-                    if (Array.isArray(value)) {
-                      return value[3]; // Return just the occupancy label
-                    }
-                    return String(value);
-                  },
+                  formatter: (params: any) => formatTimelineTooltip(params, (label) => label),
                 },
                 legend: {
                   bottom: 0,
                   show: true,
-                  data: ["Unknown", "Local Control", "Occupied", "Unoccupied"],
+                  data: ["Unknown", ...occupancyStates.map((s) => s.label)],
                 },
                 dataZoom: [
                   {
@@ -482,6 +467,7 @@ export function SiteDashboard({
                   endTime,
                   unitSystems,
                   optimizedSystemNames,
+                  occupancyStates,
                 ),
               }}
               style={{ height: "480px" }}
@@ -516,13 +502,12 @@ export function SiteDashboard({
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 tooltip: {
                   trigger: "item",
-                  valueFormatter: (value: any) => {
-                    // For timeline custom series, value is an array: [systemName, startTime, endTime, label, color]
-                    if (Array.isArray(value)) {
-                      return value[3]; // Return just the error range label
-                    }
-                    return String(value);
-                  },
+                  formatter: (params: any) =>
+                    formatTimelineTooltip(params, (label, raw) => {
+                      if (raw == null) return label;
+                      const sign = raw > 0 ? "+" : "";
+                      return `${label} (${sign}${raw.toFixed(1)}°F)`;
+                    }),
                 },
                 legend: {
                   bottom: 0,
@@ -563,7 +548,6 @@ export function SiteDashboard({
                   unitSystems,
                   optimizedSystemNames,
                   setpointErrorBins,
-                  { label: "Unknown", color: tertiaryPalette.secondary.hex },
                 ),
               }}
               style={{ height: "480px" }}

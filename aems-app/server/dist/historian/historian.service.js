@@ -628,10 +628,32 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 }
             }
         }
+        const fillStepMs = interval
+            ? HistorianService_1.parseClientInterval(interval).ms
+            : HistorianService_1.deriveBucketInterval(startTime, endTime).ms;
+        const fillStartMs = startTime.getTime();
+        const fillEndMs = endTime.getTime();
+        const fillBuckets = (existing, sys) => {
+            const byBucket = new Map();
+            for (const pt of existing)
+                byBucket.set(pt.timestamp.getTime(), pt);
+            const filled = [];
+            for (let bucketMs = fillStartMs; bucketMs <= fillEndMs; bucketMs += fillStepMs) {
+                const pt = byBucket.get(bucketMs);
+                if (pt) {
+                    filled.push(pt);
+                }
+                else {
+                    filled.push({ timestamp: new Date(bucketMs), value: null, system: sys, metric });
+                }
+            }
+            return filled;
+        };
         const results = systems.map((sys) => {
-            const data = queryResult[sys] ?? [];
+            const raw = queryResult[sys] ?? [];
+            const data = fillBuckets(raw, sys);
             const errors = [];
-            if (data.length === 0) {
+            if (raw.length === 0) {
                 errors.push(`No data found for topic: ${systemTopics[sys]} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
             }
             return {
