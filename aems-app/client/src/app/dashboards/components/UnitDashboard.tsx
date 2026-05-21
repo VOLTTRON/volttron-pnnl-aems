@@ -1057,40 +1057,6 @@ export function UnitDashboard({
                   axisPointer: {
                     animation: false,
                   },
-                  valueFormatter: (value: any, dataIndex?: number) => {
-                    if (value == null) return "N/A";
-                    if (typeof value !== "number") return String(value);
-
-                    // Status series - no units needed
-                    if (
-                      dataIndex === SeriesIndex.OccupancyCommand ||
-                      dataIndex === SeriesIndex.SupplyFanStatus ||
-                      dataIndex === SeriesIndex.FirstStageHeating ||
-                      dataIndex === SeriesIndex.CoolingStage
-                    ) {
-                      return value.toFixed(2);
-                    }
-
-                    // Humidity - percentage
-                    if (dataIndex === SeriesIndex.ZoneHumidity) {
-                      return `${value.toFixed(2)}%`;
-                    }
-
-                    // Temperature series - Fahrenheit
-                    if (
-                      dataIndex === SeriesIndex.ZoneTemperature ||
-                      dataIndex === SeriesIndex.OutdoorAirTemperature ||
-                      dataIndex === SeriesIndex.OccupiedHeatingSetPoint ||
-                      dataIndex === SeriesIndex.OccupiedCoolingSetPoint ||
-                      dataIndex === SeriesIndex.UnoccupiedHeatingSetPoint ||
-                      dataIndex === SeriesIndex.UnoccupiedCoolingSetPoint
-                    ) {
-                      return `${value.toFixed(2)}°F`;
-                    }
-
-                    // Fallback
-                    return value.toFixed(2);
-                  },
                 },
                 legend: { bottom: 0, show: true },
                 dataZoom: [
@@ -1138,6 +1104,24 @@ export function UnitDashboard({
                   },
                 ],
                 series: (() => {
+                  // Per-series tooltip formatters. ECharts' top-level
+                  // tooltip.valueFormatter doesn't receive the series index
+                  // (the second arg is the data-point index), so attaching
+                  // formatters per series is the only way to get reliable
+                  // per-series units.
+                  const formatStatus = (value: any) => {
+                    if (value == null) return "N/A";
+                    return typeof value === "number" ? value.toFixed(2) : String(value);
+                  };
+                  const formatTemp = (value: any) => {
+                    if (value == null) return "N/A";
+                    return typeof value === "number" ? `${value.toFixed(2)}°F` : String(value);
+                  };
+                  const formatHumidity = (value: any) => {
+                    if (value == null) return "N/A";
+                    return typeof value === "number" ? `${value.toFixed(2)}%` : String(value);
+                  };
+
                   // Create series with explicit indices to ensure enum and array order match
                   const seriesMap = new Map<SeriesIndex, any>();
 
@@ -1149,6 +1133,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
+                    tooltip: { valueFormatter: formatStatus },
                     data:
                       occupancyCommandSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1163,6 +1148,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
+                    tooltip: { valueFormatter: formatStatus },
                     data: fanStatusSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     color: metricColors[UnitMetric.SupplyFanStatus],
                   });
@@ -1175,6 +1161,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
+                    tooltip: { valueFormatter: formatStatus },
                     data:
                       firstStageHeatingSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1189,6 +1176,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
+                    tooltip: { valueFormatter: formatStatus },
                     data: coolingStageSeriesData,
                     color: metricColors[UnitMetric.FirstStageCooling],
                   });
@@ -1201,6 +1189,7 @@ export function UnitDashboard({
                     showSymbol: false,
                     data: zoneTempSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     lineStyle: { width: 1.5 },
+                    tooltip: { valueFormatter: formatTemp },
                     color: metricColors[UnitMetric.ZoneTemperature],
                   });
 
@@ -1211,6 +1200,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
+                    tooltip: { valueFormatter: formatTemp },
                     data:
                       outdoorTempSeries?.historianWeatherTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1224,6 +1214,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
+                    tooltip: { valueFormatter: formatTemp },
                     data:
                       heatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1237,6 +1228,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
+                    tooltip: { valueFormatter: formatTemp },
                     data:
                       coolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1249,6 +1241,7 @@ export function UnitDashboard({
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
                     showSymbol: false,
+                    tooltip: { valueFormatter: formatTemp },
                     data:
                       unoccupiedHeatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [
                         p.timestamp,
@@ -1264,6 +1257,7 @@ export function UnitDashboard({
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
                     showSymbol: false,
+                    tooltip: { valueFormatter: formatTemp },
                     data:
                       unoccupiedCoolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [
                         p.timestamp,
@@ -1280,6 +1274,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
+                    tooltip: { valueFormatter: formatHumidity },
                     data:
                       zoneHumiditySeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     color: gradientPalette.primary.hex,
