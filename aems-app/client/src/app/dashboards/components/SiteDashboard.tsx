@@ -217,8 +217,10 @@ export function SiteDashboard({
     return unknownState;
   };
 
-  // Setpoint error bins. Optimal is the deadband (±0.5°F); remaining bins
-  // each span 1°F outward from there.
+  // Setpoint error bins. The server forces any zone temp inside the
+  // deadband [heat, cool] to a raw error of exactly 0, so Optimal is the
+  // single value 0. Remaining bins span 1°F outward from the deadband
+  // boundary in each direction.
   const setpointErrorBins: Array<{ label: string; color: string }> = [
     { label: "Very Cold", color: primaryPalette.primary.hex },
     { label: "Cold", color: primaryPalette.secondary.hex },
@@ -230,12 +232,12 @@ export function SiteDashboard({
   ];
   const getSetpointErrorState = (errorValue: number | null | undefined) => {
     if (errorValue == null || !Number.isFinite(errorValue)) return unknownState;
-    if (errorValue < -2.5) return setpointErrorBins[0];
-    if (errorValue < -1.5) return setpointErrorBins[1];
-    if (errorValue < -0.5) return setpointErrorBins[2];
-    if (errorValue <= 0.5) return setpointErrorBins[3];
-    if (errorValue <= 1.5) return setpointErrorBins[4];
-    if (errorValue <= 2.5) return setpointErrorBins[5];
+    if (errorValue === 0) return setpointErrorBins[3];
+    if (errorValue < -2) return setpointErrorBins[0];
+    if (errorValue < -1) return setpointErrorBins[1];
+    if (errorValue < 0) return setpointErrorBins[2];
+    if (errorValue <= 1) return setpointErrorBins[4];
+    if (errorValue <= 2) return setpointErrorBins[5];
     return setpointErrorBins[6];
   };
 
