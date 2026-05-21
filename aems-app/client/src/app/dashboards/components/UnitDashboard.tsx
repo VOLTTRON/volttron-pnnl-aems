@@ -108,82 +108,128 @@ export function UnitDashboard({
     return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
   };
 
-  // Build smooth temperature gradient with blended intermediate colors
-  const buildTemperatureGradient = React.useMemo(() => {
-    const gradient: [number, string][] = [];
+  // Extrapolate one step past `extreme` along the vector from `neighbor` →
+  // `extreme`. Channels are clamped to 0-255 so the result stays a valid color.
+  const extrapolateColor = (extreme: string, neighbor: string): string => {
+    const parse = (hex: string) => {
+      const h = hex.replace("#", "");
+      return [
+        parseInt(h.substring(0, 2), 16),
+        parseInt(h.substring(2, 4), 16),
+        parseInt(h.substring(4, 6), 16),
+      ];
+    };
+    const [er, eg, eb] = parse(extreme);
+    const [nr, ng, nb] = parse(neighbor);
+    const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+    const r = clamp(er + (er - nr));
+    const g = clamp(eg + (eg - ng));
+    const b = clamp(eb + (eb - nb));
+    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+  };
 
-    // Cool palette section (0-60°F = 0-0.5 of range)
-    const coolColors = [];
-    for (let i = 0; i < 5; i++) {
-      coolColors.push(coolPalette.getColor(i).hex);
-    }
+  // Auto-pick a symmetric min/max around `center` so the value sits comfortably
+  // inside one of the bands with at least one band of headroom on each side.
+  // `minBandsPerSide` reserves space so the saturated end-cap band is always
+  // visible even when the value is near the center.
+  const computeGaugeRange = (
+    value: number | null,
+    center: number,
+    bandSize: number,
+    minBandsPerSide: number,
+  ) => {
+    const v = value ?? center;
+    const distance = Math.abs(v - center);
+    const roundedDistance = Math.ceil(distance / bandSize) * bandSize;
+    const halfRange = Math.max(minBandsPerSide * bandSize, roundedDistance + bandSize);
+    return {
+      min: center - halfRange,
+      max: center + halfRange,
+      bandsPerSide: halfRange / bandSize,
+    };
+  };
 
-    // Add cool colors with blends
-    for (let i = 0; i < coolColors.length; i++) {
-      const position = (i / (coolColors.length - 1)) * 0.5; // Map to 0-0.5
-      gradient.push([position, coolColors[i]]);
-
-      // Add blend between this and next color
-      if (i < coolColors.length - 1) {
-        const blendPosition = ((i + 0.5) / (coolColors.length - 1)) * 0.5;
-        gradient.push([blendPosition, blendColors(coolColors[i], coolColors[i + 1])]);
+  // Build a banded axisLine.color array. Each band fills bandsPerSide colors per
+  // side from the cool/warm palettes; bands beyond the palette saturate to the
+  // end color (darkest cool / darkest warm). Because we always reserve at least
+  // one extra band beyond the palette length, the saturated end-cap is always
+  // present at each end of the arc.
+  const buildBandedTempGradient = React.useCallback(
+    (bandsPerSide: number): [number, string][] => {
+      const coolColors: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        coolColors.push(coolPalette.getColor(i).hex);
       }
-    }
-
-    // Warm palette section (60-120°F = 0.5-1.0 of range) - reversed
-    const warmColors = [];
-    for (let i = 4; i >= 0; i--) {
-      // Reverse order
-      warmColors.push(warmPalette.getColor(i).hex);
-    }
-
-    // Add transition blend between cool and warm
-    const transitionBlend = blendColors(coolColors[coolColors.length - 1], warmColors[0]);
-    gradient.push([0.5, transitionBlend]);
-
-    // Add warm colors with blends
-    for (let i = 0; i < warmColors.length; i++) {
-      const position = 0.5 + (i / (warmColors.length - 1)) * 0.5; // Map to 0.5-1.0
-      if (i > 0) {
-        // Skip first as we already added transition blend at 0.5
-        gradient.push([position, warmColors[i]]);
+      const warmColors: string[] = [];
+      for (let i = 4; i >= 0; i--) {
+        warmColors.push(warmPalette.getColor(i).hex);
       }
+      // End-cap colors: one step further along each palette's gradient.
+      const coolEndCap = extrapolateColor(coolColors[0], coolColors[1]);
+      const warmEndCap = extrapolateColor(warmColors[warmColors.length - 1], warmColors[warmColors.length - 2]);
 
-      // Add blend between this and next color
-      if (i < warmColors.length - 1) {
-        const blendPosition = 0.5 + ((i + 0.5) / (warmColors.length - 1)) * 0.5;
-        gradient.push([blendPosition, blendColors(warmColors[i], warmColors[i + 1])]);
+      const totalBands = bandsPerSide * 2;
+      const gradient: [number, string][] = [];
+      for (let i = 0; i < totalBands; i++) {
+        const bandEnd = (i + 1) / totalBands;
+        let color: string;
+        if (i < bandsPerSide) {
+          // Cool side: i=0 farthest from center, i=bandsPerSide-1 closest
+          const distFromCenter = bandsPerSide - i;
+          if (distFromCenter > coolColors.length) {
+            color = coolEndCap;
+          } else {
+            color = coolColors[coolColors.length - distFromCenter];
+          }
+        } else {
+          // Warm side: closest to center → lightest, farthest → darkest
+          const distFromCenter = i - bandsPerSide + 1;
+          if (distFromCenter > warmColors.length) {
+            color = warmEndCap;
+          } else {
+            color = warmColors[distFromCenter - 1];
+          }
+        }
+        gradient.push([bandEnd, color]);
       }
-    }
+      return gradient;
+    },
+    [coolPalette, warmPalette],
+  );
 
-    // Sort by position to ensure correct order
-    return gradient.sort((a, b) => a[0] - b[0]);
-  }, [coolPalette, warmPalette]);
-
-  // Build smooth humidity gradient with blended intermediate colors
+  // Smooth humidity gradient with a 10% saturated end-cap on each side. The
+  // five palette colors are compressed into the middle 80% with intermediate
+  // blends for smoothness.
   const buildHumidityGradient = React.useMemo(() => {
     const gradient: [number, string][] = [];
 
-    // Get gradient palette colors in reverse order
-    const colors = [];
+    const colors: string[] = [];
     for (let i = 4; i >= 0; i--) {
-      // Reverse order
       colors.push(gradientPalette.getColor(i).hex);
     }
 
-    // Add colors with blends
-    for (let i = 0; i < colors.length; i++) {
-      const position = i / (colors.length - 1); // Map evenly across 0-1
-      gradient.push([position, colors[i]]);
+    const start = 0.1;
+    const end = 0.9;
+    const span = end - start;
 
-      // Add blend between this and next color
-      if (i < colors.length - 1) {
-        const blendPosition = (i + 0.5) / (colors.length - 1);
-        gradient.push([blendPosition, blendColors(colors[i], colors[i + 1])]);
-      }
+    // End-cap colors: one step beyond each end of the palette.
+    const startCap = extrapolateColor(colors[0], colors[1]);
+    const endCap = extrapolateColor(colors[colors.length - 1], colors[colors.length - 2]);
+
+    // Start cap: 0 → 0.1
+    gradient.push([start, startCap]);
+
+    // Middle gradient compressed into 0.1 → 0.9 with blended intermediates
+    for (let i = 1; i < colors.length; i++) {
+      const blendPosition = start + ((i - 0.5) / (colors.length - 1)) * span;
+      gradient.push([blendPosition, blendColors(colors[i - 1], colors[i])]);
+      const position = start + (i / (colors.length - 1)) * span;
+      gradient.push([position, colors[i]]);
     }
 
-    // Sort by position to ensure correct order
+    // End cap: 0.9 → 1.0
+    gradient.push([1.0, endCap]);
+
     return gradient.sort((a, b) => a[0] - b[0]);
   }, [gradientPalette]);
 
@@ -469,6 +515,19 @@ export function UnitDashboard({
   const currentLoading = false; // All queries are separate now
   const timeSeriesLoading = zoneTempLoading; // Use one as indicator
 
+  // Per-gauge dynamic configs: symmetric around 60°F, 2°F bands. Reserve at
+  // least 6 bands per side so the saturated end-cap (beyond the 5 palette
+  // colors) is always visible.
+  const outdoorTempGauge = React.useMemo(() => {
+    const { min, max, bandsPerSide } = computeGaugeRange(outdoorTempValue, 60, 2, 6);
+    return { min, max, bandsPerSide, gradient: buildBandedTempGradient(bandsPerSide) };
+  }, [outdoorTempValue, buildBandedTempGradient]);
+
+  const zoneTempGauge = React.useMemo(() => {
+    const { min, max, bandsPerSide } = computeGaugeRange(zoneTempValue, 60, 2, 6);
+    return { min, max, bandsPerSide, gradient: buildBandedTempGradient(bandsPerSide) };
+  }, [zoneTempValue, buildBandedTempGradient]);
+
   // Calculate 24-hour range for sparkline charts
   const sparklineStartTime = React.useMemo(() => {
     const end = new Date(endTime);
@@ -512,9 +571,9 @@ export function UnitDashboard({
                     radius: "95%",
                     startAngle: 200,
                     endAngle: -20,
-                    min: 0,
-                    max: 120,
-                    splitNumber: 12,
+                    min: outdoorTempGauge.min,
+                    max: outdoorTempGauge.max,
+                    splitNumber: outdoorTempGauge.bandsPerSide * 2,
                     itemStyle: {
                       color: mode === "dark" ? "#ffffff" : "#333333",
                     },
@@ -531,7 +590,7 @@ export function UnitDashboard({
                     axisLine: {
                       lineStyle: {
                         width: 22,
-                        color: buildTemperatureGradient,
+                        color: outdoorTempGauge.gradient,
                       },
                     },
                     axisTick: {
@@ -573,6 +632,12 @@ export function UnitDashboard({
               style={{ height: "160px", overflow: "hidden" }}
               theme={mode}
             />
+          )}
+          {outdoorTempValue !== null && (
+            <div className={styles.gaugeRangeLabels}>
+              <span>{Math.round(outdoorTempGauge.min)}°F</span>
+              <span>{Math.round(outdoorTempGauge.max)}°F</span>
+            </div>
           )}
         </Card>
         <Card className={styles.gauge}>
@@ -665,6 +730,12 @@ export function UnitDashboard({
               theme={mode}
             />
           )}
+          {zoneHumidityValue !== null && (
+            <div className={styles.gaugeRangeLabels}>
+              <span>0%</span>
+              <span>100%</span>
+            </div>
+          )}
         </Card>
         <Card className={styles.gauge}>
           <h4>Zone Temperature</h4>
@@ -694,9 +765,9 @@ export function UnitDashboard({
                     radius: "95%",
                     startAngle: 200,
                     endAngle: -20,
-                    min: 0,
-                    max: 120,
-                    splitNumber: 12,
+                    min: zoneTempGauge.min,
+                    max: zoneTempGauge.max,
+                    splitNumber: zoneTempGauge.bandsPerSide * 2,
                     itemStyle: {
                       color: mode === "dark" ? "#ffffff" : "#333333",
                     },
@@ -713,7 +784,7 @@ export function UnitDashboard({
                     axisLine: {
                       lineStyle: {
                         width: 22,
-                        color: buildTemperatureGradient,
+                        color: zoneTempGauge.gradient,
                       },
                     },
                     axisTick: {
@@ -755,6 +826,12 @@ export function UnitDashboard({
               style={{ height: "160px", overflow: "hidden" }}
               theme={mode}
             />
+          )}
+          {zoneTempValue !== null && (
+            <div className={styles.gaugeRangeLabels}>
+              <span>{Math.round(zoneTempGauge.min)}°F</span>
+              <span>{Math.round(zoneTempGauge.max)}°F</span>
+            </div>
           )}
         </Card>
         <Card className={styles.gauge}>

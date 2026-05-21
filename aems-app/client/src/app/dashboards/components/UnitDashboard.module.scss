@@ -87,6 +87,18 @@
     margin: 0;
   }
 
+  .gaugeRangeLabels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: -28px;
+    padding: 0 16px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    pointer-events: none;
+    position: relative;
+    z-index: 1;
+  }
+
   .setpointGrid {
     display: grid;
     grid-template-columns: 1fr 1fr;
