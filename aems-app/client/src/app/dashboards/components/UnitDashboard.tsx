@@ -14,6 +14,7 @@ import {
 import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
+import { paddedRange } from "../utils/chartAxis";
 import styles from "./UnitDashboard.module.scss";
 import { Palettes } from "@/utils/palette";
 import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
@@ -1086,7 +1087,8 @@ export function UnitDashboard({
                     nameTextStyle: {
                       align: "left",
                     },
-                    max: 3,
+                    scale: true,
+                    ...paddedRange(),
                   },
                   {
                     type: "value",
@@ -1101,6 +1103,8 @@ export function UnitDashboard({
                         return `${value}`;
                       },
                     },
+                    scale: true,
+                    ...paddedRange(),
                   },
                 ],
                 series: (() => {
@@ -1340,7 +1344,14 @@ export function UnitDashboard({
                 ],
                 grid: { top: 60, right: 60, bottom: 110, left: 60 },
                 xAxis: { type: "time", min: startTime, max: endTime },
-                yAxis: { type: "value", name: "Power (W)", position: "left", nameTextStyle: { align: "left" } },
+                yAxis: {
+                  type: "value",
+                  name: "Power (W)",
+                  position: "left",
+                  nameTextStyle: { align: "left" },
+                  scale: true,
+                  ...paddedRange(),
+                },
                 series: powerData?.historianMeterTimeSeries
                   ? [
                       {

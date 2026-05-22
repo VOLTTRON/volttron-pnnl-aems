@@ -17,6 +17,7 @@ import { ECharts } from "@/app/components/common/echarts";
 import { graphic } from "echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
+import { paddedRange } from "../utils/chartAxis";
 import styles from "./SiteDashboard.module.scss";
 import { MeterMetric, typeofString } from "@local/common";
 import { Palettes } from "@/utils/palette";
@@ -201,7 +202,10 @@ export function SiteDashboard({
     },
   });
 
-  const unknownState = { label: "Unknown", color: tertiaryPalette.secondary.hex };
+  const unknownState = {
+    label: "Missing Data",
+    color: mode === "dark" ? Colors.DARK_GRAY4 : Colors.LIGHT_GRAY3,
+  };
 
   // Helper function to get state label and color using tertiary palette (status/states)
   const occupancyStates: Array<{ label: string; color: string }> = [
@@ -304,7 +308,7 @@ export function SiteDashboard({
   // Helper function to prepare timeline data for ECharts
   // Groups data by state/range so legend items match series names. The server
   // fills missing buckets with null values; here those collapse into discrete
-  // "Unknown" segments instead of a single full-width background bar.
+  // "Missing Data" segments instead of a single full-width background bar.
   const prepareTimelineData = (
     data: typeof occupancyData,
     getStateInfo: (value: number | null | undefined) => { label: string; color: string },
@@ -476,7 +480,7 @@ export function SiteDashboard({
                 legend: {
                   bottom: 0,
                   show: true,
-                  data: ["Unknown", ...occupancyStates.map((s) => s.label)],
+                  data: [unknownState.label, ...occupancyStates.map((s) => s.label)],
                 },
                 dataZoom: [
                   {
@@ -562,7 +566,7 @@ export function SiteDashboard({
                 legend: {
                   bottom: 0,
                   show: true,
-                  data: ["Unknown", ...setpointErrorBins.map((b) => b.label)],
+                  data: [unknownState.label, ...setpointErrorBins.map((b) => b.label)],
                 },
                 dataZoom: [
                   {
@@ -655,7 +659,14 @@ export function SiteDashboard({
                 ],
                 grid: { top: 60, right: 40, bottom: 110, left: 40 },
                 xAxis: { type: "time", min: startTime, max: endTime },
-                yAxis: { type: "value", name: "Temperature (°F)", position: "left", nameTextStyle: { align: "left" } },
+                yAxis: {
+                  type: "value",
+                  name: "Temperature (°F)",
+                  position: "left",
+                  nameTextStyle: { align: "left" },
+                  scale: true,
+                  ...paddedRange(),
+                },
                 series: [
                   // Weather station outdoor temperature
                   ...(weatherData?.historianWeatherTimeSeries
@@ -741,7 +752,14 @@ export function SiteDashboard({
                 ],
                 grid: { top: 60, right: 60, bottom: 110, left: 60 },
                 xAxis: { type: "time", min: startTime, max: endTime },
-                yAxis: { type: "value", name: "Power (W)", position: "left", nameTextStyle: { align: "left" } },
+                yAxis: {
+                  type: "value",
+                  name: "Power (W)",
+                  position: "left",
+                  nameTextStyle: { align: "left" },
+                  scale: true,
+                  ...paddedRange(),
+                },
                 series: powerData?.historianMeterTimeSeries
                   ? [
                       {
