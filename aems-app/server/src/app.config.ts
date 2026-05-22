@@ -173,6 +173,11 @@ export class AppConfigService {
     replicationPort: number;
     configMappingPath?: string;
     topicMap?: Partial<HistorianTopicMapConfig>;
+    binning: {
+      count: number;
+      start: number;
+      unit: ReturnType<typeof toDurationUnit>;
+    };
   };
   ext: Record<string, ExtConfig>;
   proxy: {
@@ -391,6 +396,11 @@ export class AppConfigService {
       replicationPort: parseInt(process.env.HISTORIAN_REPLICATION_PORT ?? "5543"),
       configMappingPath: process.env.HISTORIAN_CONFIG_MAPPING_PATH || undefined,
       topicMap: this.loadHistorianTopicMap(process.env.HISTORIAN_CONFIG_MAPPING_PATH),
+      binning: {
+        count: parseInt(process.env.HISTORIAN_BINNING_COUNT ?? "500"),
+        start: parseInt(process.env.HISTORIAN_BINNING_START ?? "48"),
+        unit: toDurationUnit(process.env.HISTORIAN_BINNING_UNIT ?? "hours"),
+      },
     };
     this.ext = Object.entries(process.env)
       .filter(

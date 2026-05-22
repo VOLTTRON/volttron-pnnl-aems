@@ -7,7 +7,6 @@ import {
   HistorianMultiSystemUnitDocument,
   HistorianSetpointErrorDocument,
   HistorianWeatherTimeSeriesDocument,
-  HistorianUnitTimeSeriesDocument,
   ReadUnitsQuery,
   UnitMetric,
   WeatherMetric,
