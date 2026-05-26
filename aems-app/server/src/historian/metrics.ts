@@ -3,8 +3,8 @@
  * Core metric enums are exported from @local/prisma
  */
 
-import { UnitMetric, WeatherMetric, MeterMetric } from "@local/common";
-import { HistorianTopicMapConfig } from "./types";
+import { UnitMetric, WeatherMetric, MeterMetric, MetricAggregation } from "@local/common";
+import { HistorianTopicMapConfig, MetricMappingEntry } from "./types";
 
 // ============================================================================
 // Default Topic Templates
@@ -183,6 +183,67 @@ export const DefaultMeterMetricMappings: Record<MeterMetric, string> = {
   [MeterMetric.Demand]: "Demand",
 };
 
+// ============================================================================
+// Default per-metric binning aggregations
+// ============================================================================
+
+/**
+ * Continuous numeric metrics that don't have an explicit override fall back
+ * to this aggregation when the topic map doesn't pin one.
+ */
+export const DefaultMetricAggregation = MetricAggregation.Mean;
+
+/**
+ * Default binning aggregation per unit metric. State / command codes use
+ * Max so a bucket reports a real state value; continuous measurements use
+ * Mean.
+ */
+export const DefaultUnitMetricAggregations: Record<UnitMetric, MetricAggregation> = {
+  [UnitMetric.AuxiliaryHeatCommand]: MetricAggregation.Max,
+  [UnitMetric.CoolingDemand]: MetricAggregation.Mean,
+  [UnitMetric.DeadBand]: MetricAggregation.Mean,
+  [UnitMetric.DemandResponseFlag]: MetricAggregation.Max,
+  [UnitMetric.EffectiveZoneTemperatureSetPoint]: MetricAggregation.Mean,
+  [UnitMetric.FirstStageCooling]: MetricAggregation.Max,
+  [UnitMetric.FirstStageHeating]: MetricAggregation.Max,
+  [UnitMetric.HeartBeat]: MetricAggregation.Last,
+  [UnitMetric.HeatingDemand]: MetricAggregation.Mean,
+  [UnitMetric.OccupancyCommand]: MetricAggregation.Max,
+  [UnitMetric.OccupiedCoolingSetPoint]: MetricAggregation.Mean,
+  [UnitMetric.OccupiedHeatingSetPoint]: MetricAggregation.Mean,
+  [UnitMetric.OccupiedSetPoint]: MetricAggregation.Mean,
+  [UnitMetric.OutdoorAirTemperature]: MetricAggregation.Mean,
+  [UnitMetric.ReversingValve]: MetricAggregation.Max,
+  [UnitMetric.SecondStageCooling]: MetricAggregation.Max,
+  [UnitMetric.SupplyFanStatus]: MetricAggregation.Max,
+  [UnitMetric.UnoccupiedCoolingSetPoint]: MetricAggregation.Mean,
+  [UnitMetric.UnoccupiedHeatingSetPoint]: MetricAggregation.Mean,
+  [UnitMetric.ZoneHumidity]: MetricAggregation.Mean,
+  [UnitMetric.ZoneTemperature]: MetricAggregation.Mean,
+};
+
+export const DefaultWeatherMetricAggregations: Record<WeatherMetric, MetricAggregation> = {
+  [WeatherMetric.AirPressure]: MetricAggregation.Mean,
+  [WeatherMetric.AirPressureAtMeanSeaLevel]: MetricAggregation.Mean,
+  [WeatherMetric.AirTemperature]: MetricAggregation.Mean,
+  [WeatherMetric.DewPointTemperature]: MetricAggregation.Mean,
+  [WeatherMetric.HeatIndex]: MetricAggregation.Mean,
+  [WeatherMetric.HeightAboveMeanSeaLevel]: MetricAggregation.Mean,
+  [WeatherMetric.PrecipitationLast3Hours]: MetricAggregation.Last,
+  [WeatherMetric.PrecipitationLastHour]: MetricAggregation.Last,
+  [WeatherMetric.RelativeHumidity]: MetricAggregation.Mean,
+  [WeatherMetric.VisibilityInAir]: MetricAggregation.Mean,
+  [WeatherMetric.WindFromDirection]: MetricAggregation.Mean,
+  [WeatherMetric.WindSpeed]: MetricAggregation.Mean,
+  [WeatherMetric.WindSpeedOfGust]: MetricAggregation.Max,
+  [WeatherMetric.WindChill]: MetricAggregation.Mean,
+};
+
+export const DefaultMeterMetricAggregations: Record<MeterMetric, MetricAggregation> = {
+  [MeterMetric.Power]: MetricAggregation.Mean,
+  [MeterMetric.Demand]: MetricAggregation.Max,
+};
+
 /**
  * Metadata for weather metrics
  */
@@ -304,6 +365,62 @@ export function getMetricTopicName(metric: UnitMetric | WeatherMetric | MeterMet
   return MeterMetricInfo[metric as MeterMetric].topic;
 }
 
+// ============================================================================
+// Topic-map entry resolution
+// ============================================================================
+
+/**
+ * Normalize a `MetricMappingEntry` into a fully resolved `{ topic, aggregation }`
+ * pair. Entries can be either a bare string (legacy form, just the topic name)
+ * or an object with optional `topic` / `aggregation` fields. Missing fields
+ * fall back to the supplied defaults.
+ */
+function resolveEntry(
+  entry: MetricMappingEntry | undefined,
+  defaultTopic: string,
+  defaultAggregation: MetricAggregation,
+): { topic: string; aggregation: MetricAggregation } {
+  if (entry == null) {
+    return { topic: defaultTopic, aggregation: defaultAggregation };
+  }
+  if (typeof entry === "string") {
+    return { topic: entry, aggregation: defaultAggregation };
+  }
+  return {
+    topic: entry.topic ?? defaultTopic,
+    aggregation: entry.aggregation ?? defaultAggregation,
+  };
+}
+
+export function resolveUnitMetricEntry(
+  metric: UnitMetric,
+  topicMap?: Partial<HistorianTopicMapConfig>,
+): { topic: string; aggregation: MetricAggregation } {
+  return resolveEntry(topicMap?.unitMetrics?.[metric], metric, DefaultUnitMetricAggregations[metric]);
+}
+
+export function resolveWeatherMetricEntry(
+  metric: WeatherMetric,
+  topicMap?: Partial<HistorianTopicMapConfig>,
+): { topic: string; aggregation: MetricAggregation } {
+  return resolveEntry(
+    topicMap?.weatherMetrics?.[metric],
+    DefaultWeatherMetricMappings[metric] ?? metric,
+    DefaultWeatherMetricAggregations[metric],
+  );
+}
+
+export function resolveMeterMetricEntry(
+  metric: MeterMetric,
+  topicMap?: Partial<HistorianTopicMapConfig>,
+): { topic: string; aggregation: MetricAggregation } {
+  return resolveEntry(
+    topicMap?.meterMetrics?.[metric],
+    DefaultMeterMetricMappings[metric] ?? metric,
+    DefaultMeterMetricAggregations[metric],
+  );
+}
+
 /**
  * Generate complete default topic map configuration
  * This creates a configuration object with all default values that can be
@@ -317,10 +434,20 @@ export function generateDefaultTopicMapConfig(): HistorianTopicMapConfig {
       Meter: DefaultTopicTemplates.Meter,
     },
     unitMetrics: Object.fromEntries(
-      Object.values(UnitMetric).map((m) => [m, m]),
-    ) as Record<UnitMetric, string>,
-    weatherMetrics: { ...DefaultWeatherMetricMappings },
-    meterMetrics: { ...DefaultMeterMetricMappings },
+      Object.values(UnitMetric).map((m) => [m, { topic: m, aggregation: DefaultUnitMetricAggregations[m] }]),
+    ) as Record<UnitMetric, MetricMappingEntry>,
+    weatherMetrics: Object.fromEntries(
+      Object.values(WeatherMetric).map((m) => [
+        m,
+        { topic: DefaultWeatherMetricMappings[m], aggregation: DefaultWeatherMetricAggregations[m] },
+      ]),
+    ) as Record<WeatherMetric, MetricMappingEntry>,
+    meterMetrics: Object.fromEntries(
+      Object.values(MeterMetric).map((m) => [
+        m,
+        { topic: DefaultMeterMetricMappings[m], aggregation: DefaultMeterMetricAggregations[m] },
+      ]),
+    ) as Record<MeterMetric, MetricMappingEntry>,
   };
 }
 
@@ -335,13 +462,13 @@ export function buildUnitTopicPath(
   topicMap?: Partial<HistorianTopicMapConfig>,
 ): string {
   const template = topicMap?.templates?.Unit ?? DefaultTopicTemplates.Unit;
-  const metricName = topicMap?.unitMetrics?.[metric] ?? metric;
+  const { topic } = resolveUnitMetricEntry(metric, topicMap);
 
   return template
     .replace("{campus}", campus)
     .replace("{building}", building)
     .replace("{system}", system)
-    .replace("{metric}", metricName);
+    .replace("{metric}", topic);
 }
 
 /**
@@ -354,12 +481,12 @@ export function buildWeatherTopicPath(
   topicMap?: Partial<HistorianTopicMapConfig>,
 ): string {
   const template = topicMap?.templates?.Weather ?? DefaultTopicTemplates.Weather;
-  const metricName = topicMap?.weatherMetrics?.[metric] ?? DefaultWeatherMetricMappings[metric] ?? metric;
+  const { topic } = resolveWeatherMetricEntry(metric, topicMap);
 
   return template
     .replace("{campus}", campus)
     .replace("{building}", building)
-    .replace("{metric}", metricName);
+    .replace("{metric}", topic);
 }
 
 /**
@@ -372,10 +499,47 @@ export function buildMeterTopicPath(
   topicMap?: Partial<HistorianTopicMapConfig>,
 ): string {
   const template = topicMap?.templates?.Meter ?? DefaultTopicTemplates.Meter;
-  const metricName = topicMap?.meterMetrics?.[metric] ?? DefaultMeterMetricMappings[metric] ?? metric;
+  const { topic } = resolveMeterMetricEntry(metric, topicMap);
 
   return template
     .replace("{campus}", campus)
     .replace("{building}", building)
-    .replace("{metric}", metricName);
+    .replace("{metric}", topic);
+}
+
+// ============================================================================
+// SQL aggregation builder
+// ============================================================================
+
+/**
+ * Build the SQL fragment that collapses many `valueExpr` rows into one
+ * value per bucket using the given aggregation. `tsExpr` names the row's
+ * timestamp column (only used by First/Last). All inputs are caller-controlled
+ * literal SQL — never interpolate user input.
+ */
+export function aggregationSql(
+  aggregation: MetricAggregation,
+  valueExpr: string,
+  tsExpr: string = "ts",
+): string {
+  switch (aggregation) {
+    case MetricAggregation.Min:
+      return `MIN(${valueExpr})`;
+    case MetricAggregation.Max:
+      return `MAX(${valueExpr})`;
+    case MetricAggregation.Mean:
+      return `AVG(${valueExpr})`;
+    case MetricAggregation.Sum:
+      return `SUM(${valueExpr})`;
+    case MetricAggregation.Count:
+      return `COUNT(${valueExpr})`;
+    case MetricAggregation.Mode:
+      return `mode() WITHIN GROUP (ORDER BY ${valueExpr})`;
+    case MetricAggregation.Median:
+      return `percentile_cont(0.5) WITHIN GROUP (ORDER BY ${valueExpr})`;
+    case MetricAggregation.First:
+      return `(array_agg(${valueExpr} ORDER BY ${tsExpr} ASC) FILTER (WHERE ${valueExpr} IS NOT NULL))[1]`;
+    case MetricAggregation.Last:
+      return `(array_agg(${valueExpr} ORDER BY ${tsExpr} DESC) FILTER (WHERE ${valueExpr} IS NOT NULL))[1]`;
+  }
 }

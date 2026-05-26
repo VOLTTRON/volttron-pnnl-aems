@@ -31,7 +31,15 @@ import {
   WeatherMetric,
   MeterMetric,
 } from "@local/common";
-import { buildUnitTopicPath, buildWeatherTopicPath, buildMeterTopicPath } from "./metrics";
+import {
+  buildUnitTopicPath,
+  buildWeatherTopicPath,
+  buildMeterTopicPath,
+  resolveUnitMetricEntry,
+  resolveWeatherMetricEntry,
+  resolveMeterMetricEntry,
+  aggregationSql,
+} from "./metrics";
 
 // Re-export types for convenience
 export {
@@ -353,9 +361,15 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
 
       // Bin only when the range exceeds the configured threshold; otherwise
-      // emit raw historian samples. MAX for state metrics, AVG for continuous.
+      // emit raw historian samples. The aggregation is whatever the topic map
+      // declares for this metric (configurable per-metric).
       const bucketing = this.resolveBucketing(startTime, endTime);
-      const aggFn = HistorianService.CATEGORICAL_UNIT_METRICS.has(metric) ? "MAX" : "AVG";
+      const { aggregation } = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+      const numericValueExpr = `CASE
+        WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+          THEN value_string::double precision
+        ELSE NULL
+      END`;
 
       const result =
         bucketing.mode === "binned"
@@ -363,13 +377,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
               `
           SELECT
             date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
-            ${aggFn}(
-              CASE
-                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
-                  THEN value_string::double precision
-                ELSE NULL
-              END
-            ) AS value
+            ${aggregationSql(aggregation, numericValueExpr)} AS value
           FROM data
           WHERE topic_id = $1
             AND ts >= $2
@@ -445,6 +453,12 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
 
       const bucketing = this.resolveBucketing(startTime, endTime);
+      const { aggregation } = resolveWeatherMetricEntry(metric, this.configService.historian.topicMap);
+      const numericValueExpr = `CASE
+        WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+          THEN value_string::double precision
+        ELSE NULL
+      END`;
 
       const result =
         bucketing.mode === "binned"
@@ -452,13 +466,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
               `
           SELECT
             date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
-            AVG(
-              CASE
-                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
-                  THEN value_string::double precision
-                ELSE NULL
-              END
-            ) AS value
+            ${aggregationSql(aggregation, numericValueExpr)} AS value
           FROM data
           WHERE topic_id = $1
             AND ts >= $2
@@ -472,11 +480,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
               `
           SELECT
             ts AS timestamp,
-            CASE
-              WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
-                THEN value_string::double precision
-              ELSE NULL
-            END AS value
+            ${numericValueExpr} AS value
           FROM data
           WHERE topic_id = $1
             AND ts >= $2
@@ -737,6 +741,12 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
 
       const bucketing = this.resolveBucketing(startTime, endTime);
+      const { aggregation } = resolveMeterMetricEntry(metric, this.configService.historian.topicMap);
+      const numericValueExpr = `CASE
+        WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+          THEN value_string::double precision
+        ELSE NULL
+      END`;
 
       const result =
         bucketing.mode === "binned"
@@ -744,13 +754,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
               `
           SELECT
             date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
-            AVG(
-              CASE
-                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
-                  THEN value_string::double precision
-                ELSE NULL
-              END
-            ) AS value
+            ${aggregationSql(aggregation, numericValueExpr)} AS value
           FROM data
           WHERE topic_id = $1
             AND ts >= $2
@@ -764,11 +768,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
               `
           SELECT
             ts AS timestamp,
-            CASE
-              WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
-                THEN value_string::double precision
-              ELSE NULL
-            END AS value
+            ${numericValueExpr} AS value
           FROM data
           WHERE topic_id = $1
             AND ts >= $2
@@ -927,10 +927,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (topicIds.length > 0) {
-        // Categorical state metrics (e.g. OccupancyCommand = 1/2/3) can't
-        // be averaged meaningfully — MAX picks a real state code and
-        // matches the deprecated Grafana dashboard's behavior.
-        const aggFn = HistorianService.CATEGORICAL_UNIT_METRICS.has(metric) ? "MAX" : "AVG";
+        // Aggregation comes from the topic map — no more guessing per metric.
+        const { aggregation } = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+        const valueExpr = `CAST(NULLIF(value_string, 'null') AS double precision)`;
 
         try {
           if (bucketing.mode === "binned") {
@@ -938,7 +937,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
               SELECT
                 date_bin($4::interval, ts, $1::timestamptz) AS timestamp,
                 topic_id,
-                ${aggFn}(CAST(NULLIF(value_string, 'null') AS double precision)) AS value
+                ${aggregationSql(aggregation, valueExpr)} AS value
               FROM data
               WHERE topic_id = ANY($3::int[])
                 AND ts >= $1
@@ -1090,11 +1089,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (topicIds.length > 0) {
-        // For ranges, categorical metrics (e.g. OccupancyCommand) want MAX
-        // so a bucket reports a real state code; the prior implementation
-        // depended on raw ts values, which left timeline boundaries
-        // unaligned with the rest of the binned dashboard grid.
-        const aggFn = HistorianService.CATEGORICAL_UNIT_METRICS.has(metric) ? "MAX" : "AVG";
+        // Aggregation comes from the topic map. The prior raw-ts path stayed
+        // unaligned with the binned dashboard grid; binning + the configured
+        // aggregation keeps timelines consistent with the rest of the view.
+        const { aggregation } = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+        const valueExpr = `CAST(NULLIF(value_string, 'null') AS double precision)`;
         const bucketing = this.resolveBucketing(startTime, endTime);
 
         try {
@@ -1103,7 +1102,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
               SELECT
                 topic_id,
                 date_bin($4::interval, ts, $1::timestamptz) AS bucket,
-                ${aggFn}(CAST(NULLIF(value_string, 'null') AS double precision)) AS value
+                ${aggregationSql(aggregation, valueExpr)} AS value
               FROM data
               WHERE topic_id = ANY($3::int[])
                 AND ts >= $1
@@ -1649,16 +1648,6 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       case "years": return 365 * 86_400_000;
     }
   }
-
-  /**
-   * UnitMetrics whose values are categorical state codes (not continuous
-   * measurements). Bucketed aggregation for these uses MAX/mode semantics
-   * rather than AVG, which would produce meaningless non-integer states.
-   * Extend this set as other state metrics are added.
-   */
-  private static readonly CATEGORICAL_UNIT_METRICS: ReadonlySet<UnitMetric> = new Set<UnitMetric>([
-    UnitMetric.OccupancyCommand,
-  ]);
 
   /**
    * Parse a client-supplied interval string like "5m" / "1h" into the same

@@ -175,6 +175,28 @@ export enum AggregationType {
   Count = "Count",
 }
 
+/**
+ * Per-metric binning algorithm. Selected when collapsing raw historian
+ * samples into a single value per bucket. Values map to PostgreSQL
+ * aggregate / ordered-set aggregate functions:
+ *
+ *   Min/Max/Mean/Sum/Count -> MIN/MAX/AVG/SUM/COUNT
+ *   Mode                   -> mode() WITHIN GROUP (ORDER BY value)
+ *   Median                 -> percentile_cont(0.5) WITHIN GROUP (ORDER BY value)
+ *   First/Last             -> earliest/latest non-null sample in the bucket
+ */
+export enum MetricAggregation {
+  Min = "min",
+  Max = "max",
+  Mean = "mean",
+  Mode = "mode",
+  Median = "median",
+  Sum = "sum",
+  Count = "count",
+  First = "first",
+  Last = "last",
+}
+
 export enum CalculationType {
   SetpointError = "SetpointError",
   RollingAverage = "RollingAverage",

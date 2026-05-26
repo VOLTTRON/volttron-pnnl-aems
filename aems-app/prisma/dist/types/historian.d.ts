@@ -97,6 +97,17 @@ export declare enum AggregationType {
     Min = "Min",
     Count = "Count"
 }
+export declare enum MetricAggregation {
+    Min = "min",
+    Max = "max",
+    Mean = "mean",
+    Mode = "mode",
+    Median = "median",
+    Sum = "sum",
+    Count = "count",
+    First = "first",
+    Last = "last"
+}
 export declare enum CalculationType {
     SetpointError = "SetpointError",
     RollingAverage = "RollingAverage"

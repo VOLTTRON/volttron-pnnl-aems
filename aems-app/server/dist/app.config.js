@@ -184,6 +184,11 @@ class AppConfigService {
             replicationPort: parseInt(process.env.HISTORIAN_REPLICATION_PORT ?? "5543"),
             configMappingPath: process.env.HISTORIAN_CONFIG_MAPPING_PATH || undefined,
             topicMap: this.loadHistorianTopicMap(process.env.HISTORIAN_CONFIG_MAPPING_PATH),
+            binning: {
+                count: parseInt(process.env.HISTORIAN_BINNING_COUNT ?? "500"),
+                start: parseInt(process.env.HISTORIAN_BINNING_START ?? "48"),
+                unit: toDurationUnit(process.env.HISTORIAN_BINNING_UNIT ?? "hours"),
+            },
         };
         this.ext = Object.entries(process.env)
             .filter(([key]) => key.startsWith("EXT_") && ["_PATH", "_ROLE", "_AUTHORIZED", "_UNAUTHORIZED"].find((k) => key.endsWith(k)))

@@ -1,11 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MeterMetricInfo = exports.WeatherMetricInfo = exports.DefaultMeterMetricMappings = exports.DefaultWeatherMetricMappings = exports.UnitMetricInfo = exports.DefaultTopicTemplates = void 0;
+exports.MeterMetricInfo = exports.WeatherMetricInfo = exports.DefaultMeterMetricAggregations = exports.DefaultWeatherMetricAggregations = exports.DefaultUnitMetricAggregations = exports.DefaultMetricAggregation = exports.DefaultMeterMetricMappings = exports.DefaultWeatherMetricMappings = exports.UnitMetricInfo = exports.DefaultTopicTemplates = void 0;
 exports.getMetricTopicName = getMetricTopicName;
+exports.resolveUnitMetricEntry = resolveUnitMetricEntry;
+exports.resolveWeatherMetricEntry = resolveWeatherMetricEntry;
+exports.resolveMeterMetricEntry = resolveMeterMetricEntry;
 exports.generateDefaultTopicMapConfig = generateDefaultTopicMapConfig;
 exports.buildUnitTopicPath = buildUnitTopicPath;
 exports.buildWeatherTopicPath = buildWeatherTopicPath;
 exports.buildMeterTopicPath = buildMeterTopicPath;
+exports.aggregationSql = aggregationSql;
 const common_1 = require("@local/common");
 exports.DefaultTopicTemplates = {
     Unit: "{campus}/{building}/{system}/{metric}",
@@ -151,6 +155,50 @@ exports.DefaultMeterMetricMappings = {
     [common_1.MeterMetric.Power]: "WholeBuildingPower",
     [common_1.MeterMetric.Demand]: "Demand",
 };
+exports.DefaultMetricAggregation = common_1.MetricAggregation.Mean;
+exports.DefaultUnitMetricAggregations = {
+    [common_1.UnitMetric.AuxiliaryHeatCommand]: common_1.MetricAggregation.Max,
+    [common_1.UnitMetric.CoolingDemand]: common_1.MetricAggregation.Mean,
+    [common_1.UnitMetric.DeadBand]: common_1.MetricAggregation.Mean,
+    [common_1.UnitMetric.DemandResponseFlag]: common_1.MetricAggregation.Max,
+    [common_1.UnitMetric.EffectiveZoneTemperatureSetPoint]: common_1.MetricAggregation.Mean,
+    [common_1.UnitMetric.FirstStageCooling]: common_1.MetricAggregation.Max,
+    [common_1.UnitMetric.FirstStageHeating]: common_1.MetricAggregation.Max,
+    [common_1.UnitMetric.HeartBeat]: common_1.MetricAggregation.Last,
+    [common_1.UnitMetric.HeatingDemand]: common_1.MetricAggregation.Mean,
+    [common_1.UnitMetric.OccupancyCommand]: common_1.MetricAggregation.Max,
+    [common_1.UnitMetric.OccupiedCoolingSetPoint]: common_1.MetricAggregation.Mean,
+    [common_1.UnitMetric.OccupiedHeatingSetPoint]: common_1.MetricAggregation.Mean,
+    [common_1.UnitMetric.OccupiedSetPoint]: common_1.MetricAggregation.Mean,
+    [common_1.UnitMetric.OutdoorAirTemperature]: common_1.MetricAggregation.Mean,
+    [common_1.UnitMetric.ReversingValve]: common_1.MetricAggregation.Max,
+    [common_1.UnitMetric.SecondStageCooling]: common_1.MetricAggregation.Max,
+    [common_1.UnitMetric.SupplyFanStatus]: common_1.MetricAggregation.Max,
+    [common_1.UnitMetric.UnoccupiedCoolingSetPoint]: common_1.MetricAggregation.Mean,
+    [common_1.UnitMetric.UnoccupiedHeatingSetPoint]: common_1.MetricAggregation.Mean,
+    [common_1.UnitMetric.ZoneHumidity]: common_1.MetricAggregation.Mean,
+    [common_1.UnitMetric.ZoneTemperature]: common_1.MetricAggregation.Mean,
+};
+exports.DefaultWeatherMetricAggregations = {
+    [common_1.WeatherMetric.AirPressure]: common_1.MetricAggregation.Mean,
+    [common_1.WeatherMetric.AirPressureAtMeanSeaLevel]: common_1.MetricAggregation.Mean,
+    [common_1.WeatherMetric.AirTemperature]: common_1.MetricAggregation.Mean,
+    [common_1.WeatherMetric.DewPointTemperature]: common_1.MetricAggregation.Mean,
+    [common_1.WeatherMetric.HeatIndex]: common_1.MetricAggregation.Mean,
+    [common_1.WeatherMetric.HeightAboveMeanSeaLevel]: common_1.MetricAggregation.Mean,
+    [common_1.WeatherMetric.PrecipitationLast3Hours]: common_1.MetricAggregation.Last,
+    [common_1.WeatherMetric.PrecipitationLastHour]: common_1.MetricAggregation.Last,
+    [common_1.WeatherMetric.RelativeHumidity]: common_1.MetricAggregation.Mean,
+    [common_1.WeatherMetric.VisibilityInAir]: common_1.MetricAggregation.Mean,
+    [common_1.WeatherMetric.WindFromDirection]: common_1.MetricAggregation.Mean,
+    [common_1.WeatherMetric.WindSpeed]: common_1.MetricAggregation.Mean,
+    [common_1.WeatherMetric.WindSpeedOfGust]: common_1.MetricAggregation.Max,
+    [common_1.WeatherMetric.WindChill]: common_1.MetricAggregation.Mean,
+};
+exports.DefaultMeterMetricAggregations = {
+    [common_1.MeterMetric.Power]: common_1.MetricAggregation.Mean,
+    [common_1.MeterMetric.Demand]: common_1.MetricAggregation.Max,
+};
 exports.WeatherMetricInfo = {
     [common_1.WeatherMetric.AirPressure]: {
         topic: common_1.WeatherMetric.AirPressure,
@@ -260,6 +308,27 @@ function getMetricTopicName(metric) {
     }
     return exports.MeterMetricInfo[metric].topic;
 }
+function resolveEntry(entry, defaultTopic, defaultAggregation) {
+    if (entry == null) {
+        return { topic: defaultTopic, aggregation: defaultAggregation };
+    }
+    if (typeof entry === "string") {
+        return { topic: entry, aggregation: defaultAggregation };
+    }
+    return {
+        topic: entry.topic ?? defaultTopic,
+        aggregation: entry.aggregation ?? defaultAggregation,
+    };
+}
+function resolveUnitMetricEntry(metric, topicMap) {
+    return resolveEntry(topicMap?.unitMetrics?.[metric], metric, exports.DefaultUnitMetricAggregations[metric]);
+}
+function resolveWeatherMetricEntry(metric, topicMap) {
+    return resolveEntry(topicMap?.weatherMetrics?.[metric], exports.DefaultWeatherMetricMappings[metric] ?? metric, exports.DefaultWeatherMetricAggregations[metric]);
+}
+function resolveMeterMetricEntry(metric, topicMap) {
+    return resolveEntry(topicMap?.meterMetrics?.[metric], exports.DefaultMeterMetricMappings[metric] ?? metric, exports.DefaultMeterMetricAggregations[metric]);
+}
 function generateDefaultTopicMapConfig() {
     return {
         templates: {
@@ -267,34 +336,62 @@ function generateDefaultTopicMapConfig() {
             Weather: exports.DefaultTopicTemplates.Weather,
             Meter: exports.DefaultTopicTemplates.Meter,
         },
-        unitMetrics: Object.fromEntries(Object.values(common_1.UnitMetric).map((m) => [m, m])),
-        weatherMetrics: { ...exports.DefaultWeatherMetricMappings },
-        meterMetrics: { ...exports.DefaultMeterMetricMappings },
+        unitMetrics: Object.fromEntries(Object.values(common_1.UnitMetric).map((m) => [m, { topic: m, aggregation: exports.DefaultUnitMetricAggregations[m] }])),
+        weatherMetrics: Object.fromEntries(Object.values(common_1.WeatherMetric).map((m) => [
+            m,
+            { topic: exports.DefaultWeatherMetricMappings[m], aggregation: exports.DefaultWeatherMetricAggregations[m] },
+        ])),
+        meterMetrics: Object.fromEntries(Object.values(common_1.MeterMetric).map((m) => [
+            m,
+            { topic: exports.DefaultMeterMetricMappings[m], aggregation: exports.DefaultMeterMetricAggregations[m] },
+        ])),
     };
 }
 function buildUnitTopicPath(campus, building, system, metric, topicMap) {
     const template = topicMap?.templates?.Unit ?? exports.DefaultTopicTemplates.Unit;
-    const metricName = topicMap?.unitMetrics?.[metric] ?? metric;
+    const { topic } = resolveUnitMetricEntry(metric, topicMap);
     return template
         .replace("{campus}", campus)
         .replace("{building}", building)
         .replace("{system}", system)
-        .replace("{metric}", metricName);
+        .replace("{metric}", topic);
 }
 function buildWeatherTopicPath(campus, building, metric, topicMap) {
     const template = topicMap?.templates?.Weather ?? exports.DefaultTopicTemplates.Weather;
-    const metricName = topicMap?.weatherMetrics?.[metric] ?? exports.DefaultWeatherMetricMappings[metric] ?? metric;
+    const { topic } = resolveWeatherMetricEntry(metric, topicMap);
     return template
         .replace("{campus}", campus)
         .replace("{building}", building)
-        .replace("{metric}", metricName);
+        .replace("{metric}", topic);
 }
 function buildMeterTopicPath(campus, building, metric, topicMap) {
     const template = topicMap?.templates?.Meter ?? exports.DefaultTopicTemplates.Meter;
-    const metricName = topicMap?.meterMetrics?.[metric] ?? exports.DefaultMeterMetricMappings[metric] ?? metric;
+    const { topic } = resolveMeterMetricEntry(metric, topicMap);
     return template
         .replace("{campus}", campus)
         .replace("{building}", building)
-        .replace("{metric}", metricName);
+        .replace("{metric}", topic);
+}
+function aggregationSql(aggregation, valueExpr, tsExpr = "ts") {
+    switch (aggregation) {
+        case common_1.MetricAggregation.Min:
+            return `MIN(${valueExpr})`;
+        case common_1.MetricAggregation.Max:
+            return `MAX(${valueExpr})`;
+        case common_1.MetricAggregation.Mean:
+            return `AVG(${valueExpr})`;
+        case common_1.MetricAggregation.Sum:
+            return `SUM(${valueExpr})`;
+        case common_1.MetricAggregation.Count:
+            return `COUNT(${valueExpr})`;
+        case common_1.MetricAggregation.Mode:
+            return `mode() WITHIN GROUP (ORDER BY ${valueExpr})`;
+        case common_1.MetricAggregation.Median:
+            return `percentile_cont(0.5) WITHIN GROUP (ORDER BY ${valueExpr})`;
+        case common_1.MetricAggregation.First:
+            return `(array_agg(${valueExpr} ORDER BY ${tsExpr} ASC) FILTER (WHERE ${valueExpr} IS NOT NULL))[1]`;
+        case common_1.MetricAggregation.Last:
+            return `(array_agg(${valueExpr} ORDER BY ${tsExpr} DESC) FILTER (WHERE ${valueExpr} IS NOT NULL))[1]`;
+    }
 }
 //# sourceMappingURL=metrics.js.map

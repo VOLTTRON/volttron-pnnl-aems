@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CalculationType = exports.AggregationType = exports.MeterMetric = exports.WeatherMetric = exports.UnitMetric = void 0;
+exports.CalculationType = exports.MetricAggregation = exports.AggregationType = exports.MeterMetric = exports.WeatherMetric = exports.UnitMetric = void 0;
 var UnitMetric;
 (function (UnitMetric) {
     UnitMetric["AuxiliaryHeatCommand"] = "AuxiliaryHeatCommand";
@@ -55,6 +55,18 @@ var AggregationType;
     AggregationType["Min"] = "Min";
     AggregationType["Count"] = "Count";
 })(AggregationType || (exports.AggregationType = AggregationType = {}));
+var MetricAggregation;
+(function (MetricAggregation) {
+    MetricAggregation["Min"] = "min";
+    MetricAggregation["Max"] = "max";
+    MetricAggregation["Mean"] = "mean";
+    MetricAggregation["Mode"] = "mode";
+    MetricAggregation["Median"] = "median";
+    MetricAggregation["Sum"] = "sum";
+    MetricAggregation["Count"] = "count";
+    MetricAggregation["First"] = "first";
+    MetricAggregation["Last"] = "last";
+})(MetricAggregation || (exports.MetricAggregation = MetricAggregation = {}));
 var CalculationType;
 (function (CalculationType) {
     CalculationType["SetpointError"] = "SetpointError";
