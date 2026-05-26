@@ -1,8 +1,9 @@
 Historian Topic Mapping Configuration
 ========================================
 
-This file defines the default topic path templates and metric name mappings
-for the historian database queries.
+This file defines the default topic path templates, per-metric topic name
+mappings, and per-metric binning aggregations used by the historian
+database queries.
 
 Usage:
 ------
@@ -15,10 +16,49 @@ Configuration Structure:
 ------------------------
 - templates: Define topic path structure for Unit/Weather/Meter metrics
   - Template variables: {campus}, {building}, {system}, {metric}
-- unitMetrics: Map UnitMetric enum values to database metric strings
-- weatherMetrics: Map WeatherMetric enum values to database metric strings
-- meterMetrics: Map MeterMetric enum values to database metric strings
+- unitMetrics:    Map UnitMetric    enum values to a topic name + aggregation
+- weatherMetrics: Map WeatherMetric enum values to a topic name + aggregation
+- meterMetrics:   Map MeterMetric   enum values to a topic name + aggregation
 
-Partial configurations are supported - unmapped values use defaults.
+Each metric entry accepts two equivalent forms:
 
-See type definition in: server/src/historian/types.ts
+  Object form (recommended):
+    "ZoneTemperature": { "topic": "ZoneTemperature", "aggregation": "mean" }
+
+  Bare-string form (legacy, just the topic name; aggregation falls back
+  to the per-metric default):
+    "ZoneTemperature": "ZoneTemperature"
+
+Either field of the object form is optional and falls back to the default
+for that metric.
+
+Aggregations:
+-------------
+The aggregation controls how raw historian samples are collapsed into one
+value per bucket when binning is active. Supported values:
+
+  min     - smallest sample in the bucket            (SQL: MIN)
+  max     - largest sample in the bucket             (SQL: MAX)
+  mean    - arithmetic mean of samples (default)     (SQL: AVG)
+  mode    - most frequent value; for state codes     (SQL: mode() WITHIN GROUP)
+  median  - 50th-percentile value                    (SQL: percentile_cont(0.5))
+  sum     - sum of samples; for accumulators         (SQL: SUM)
+  count   - number of samples                        (SQL: COUNT)
+  first   - earliest non-null sample in the bucket
+  last    - latest non-null sample in the bucket
+
+Pick by metric semantics:
+  - Continuous measurements (temperature, humidity, demand %) -> mean
+  - State / command / stage / flag codes                      -> max (or mode)
+  - Counters / heartbeat / running totals                     -> last
+  - Peak-of-interest signals (gusts, demand kW)               -> max
+  - Period-accumulated values (precipitation per hour)        -> last
+
+Partial configurations are supported - any unmapped metric or unspecified
+field uses its built-in default. The default aggregation when none is
+configured is "mean".
+
+See type definitions in:
+  - server/src/historian/types.ts        (HistorianTopicMapConfig, MetricMappingEntry)
+  - prisma/src/types/historian.ts        (MetricAggregation enum)
+  - server/src/historian/metrics.ts      (Default*MetricAggregations)
