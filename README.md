@@ -105,9 +105,9 @@ cp .env.secrets.example .env.secrets
 # 4. Bring the stack up (build images, generate certs, run DB migrations)
 ./start-services.sh    # wraps: docker compose build && docker compose up -d
 
-# 5. Confirm everything is healthy
+# 5. Confirm everything is healthy (curl will return the http status code with 200 meaning okay)
 docker compose ps
-curl -k https://<HOSTNAME>/api/health
+curl -k -o /dev/null -s --max-time 10 -w "%{http_code}" https://<HOSTNAME>
 ```
 
 The web UI is now reachable at `https://<HOSTNAME>`. **The local users in [aems-app/docker/seed/](./aems-app/docker/seed/) are not usable from the UI** — Keycloak is the default auth provider, so logins go through SSO. The first administrator account must be created in Keycloak and then granted an application role with [aems-app/update-user-role.sh](./aems-app/update-user-role.sh); see [Initial Configuration](#initial-configuration) below.
@@ -127,7 +127,7 @@ Beyond those, several files contain configuration that an admin may need to touc
 |------------------|------------------|
 | [aems-app/docker/.env.server](./aems-app/docker/), `.env.client`, `.env.services`, `.env.seeders`, `.env.init`, `.env.certs`, `.env.database`, `.env.redis`, `.env.historian`, `.env.keycloak`, `.env.grafana`, `.env.volttron`, `.env.aems-fastapi`, `.env.nominatim`, `.env.wiki` | Per-service environment overrides. Most settings flow through from the root `.env` via interpolation; edit these only when you need a value that differs from the root default. |
 | [aems-app/server/config/site.json](./aems-app/server/config/) | Default site definition shipped with the server image (campus / building defaults that the seeders use). |
-| [aems-app/server/config/historian-topic-map.default.json](./aems-app/server/config/) | Default VOLTTRON-topic → historian-column mapping. The deployed copy is at [aems-app/docker/historian/historian-topic-map.json](./aems-app/docker/historian/) and is mounted into the server; edit that file to customize topic naming for your site. |
+| [aems-app/server/config/historian-topic-map.default.json](./aems-app/server/config/) | Default VOLTTRON-topic → historian-column mapping. The deployed copy is at [aems-app/docker/historian/historian-topic-map.json](./aems-app/docker/historian/) and is mounted into the server; edit that file to customize topic naming and dashboard bin aggregation for your site. |
 | [aems-app/docker/seed/](./aems-app/docker/seed/) | First-boot DB seed data: default admin user (`20211103151730-system-user.json`), default backup policy (`20260427080000-backup-policy.json`), geographies. |
 | [aems-app/docker/historian/pg_hba.conf](./aems-app/docker/historian/), `postgresql.conf`, `setup-replication.sh`, `setup-subscriber.sh` | Historian DB host-based auth, tuning, and replication setup. Edit `pg_hba.conf` to restrict replication subscribers by IP. |
 | [aems-app/docker/keycloak/default-realm.json](./aems-app/docker/keycloak/) | Realm imported on first Keycloak boot. |
@@ -141,16 +141,15 @@ Beyond those, several files contain configuration that an admin may need to touc
 
 After the stack is healthy:
 
-1. **Set the Keycloak client secret** — Keycloak runs by default. Sign into the Keycloak admin console at `https://<HOSTNAME>/auth/sso/` using `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` from `.env.secrets`, generate a fresh client secret for the application client, copy it into `.env.secrets` as `KEYCLOAK_CLIENT_SECRET`, then re-run `./secrets.sh` and `./start-services.sh`. Full walkthrough: [aems-app/README.md → Setup Keycloak](./aems-app/README.md#setup-keycloak). Enable MFA in the realm settings for production accounts.
-2. **Create the first admin user** — in the Keycloak admin console, create a user under the application realm (set email, password, and mark email verified). Then grant that user the application admin role from a host shell:
+1. **Harden Keycloak for production** — confirm `KEYCLOAK_CLIENT_SECRET` and `KEYCLOAK_GRAFANA_CLIENT_SECRET` in `.env.secrets` are strong, unique values; the Keycloak init container pushes them into the realm automatically on first boot, so no UI copy step is required. Then sign into the Keycloak admin console at `https://<HOSTNAME>/auth/sso/admin/` with `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` from `.env.secrets`, enable MFA on the realm, and rotate the admin password. Full Keycloak reference: [aems-app/README.md → Setup Keycloak](./aems-app/README.md#setup-keycloak).
+2. **Create the first admin user** — open the web UI at `https://<HOSTNAME>`. The top-right user menu shows **Guest**; open it and choose **Login**, which redirects to Keycloak. Use the registration flow to create a new account (this provisions the user in both Keycloak and the application database in a single step). After the new user lands back in the UI, grant them the admin role from a host shell:
    ```bash
    ./update-user-role.sh admin@example.com admin
    ```
-   The user must have signed into the web UI **at least once** before running this — first login provisions the user row in the application database that the script updates. After running, the user has full admin access on next page load.
-3. **Run the Grafana mapper script** if you use the `grafana` profile — `./update-keycloak-grafana-mapper.sh` adds the client-roles mapper to the `grafana-oauth` Keycloak client so RTU-specific roles flow into Grafana's JWT. One-shot; re-run if the realm is reimported.
-4. **Customize VOLTTRON device configs** if running the `volttron` profile — edit files under [aems-app/docker/volttron/setup/configs/](./aems-app/docker/volttron/setup/) and restart the `volttron` service (`docker compose restart volttron`)
-5. **Customize historian topic mappings** if site naming differs from the defaults — edit [aems-app/docker/historian/historian-topic-map.json](./aems-app/docker/historian/) and restart the `server` and `historian` services
-6. **Configure backups** in the `/backups` admin UI: set the cron schedule and retention, add at least one off-host destination, and **download the age private key for offline safekeeping** — you cannot decrypt archives without it
+   The role takes effect on the next page load.
+3. **Customize VOLTTRON device configs** if running the `volttron` profile — edit files under [aems-app/docker/volttron/setup/configs/](./aems-app/docker/volttron/setup/) and restart the `volttron` service (`docker compose restart volttron`)
+4. **Customize historian topic mappings** if site naming differs from the defaults — edit [aems-app/docker/historian/historian-topic-map.json](./aems-app/docker/historian/) and restart the `server` and `historian` services
+5. **Configure backups** in the `/backups` admin UI: set the cron schedule and retention, add at least one off-host destination, and **download the age private key for offline safekeeping** — you cannot decrypt archives without it
 
 ### Managing the Stack
 
@@ -162,7 +161,7 @@ Day-to-day operations are driven by a set of helper scripts at the root of `aems
 | [reset-service.sh](./aems-app/reset-service.sh) | **Destructive.** Stops the stack, deletes one or more services' persistent volumes, then brings everything back up. Run with no arguments to list eligible services. Common targets: `certs` (after a hostname change), `keycloak-db` (to reset the realm), `database` (full app reset — wipes all application data). Add `--dry-run` to preview, `--force` to skip the prompt. |
 | [secrets.sh](./aems-app/secrets.sh) | Reads `.env.secrets` and writes per-secret files under [aems-app/docker/secrets/](./aems-app/docker/secrets/) plus a generated `.env.secrets.docker`. Re-run any time `.env.secrets` changes, then `./start-services.sh` to roll the affected containers. |
 | [update-user-role.sh](./aems-app/update-user-role.sh) | Sets or clears an application role on a user looked up by email. Usage: `./update-user-role.sh <email> <role>` (pass `""` to remove the role). The user must have signed into the UI at least once so the row exists in the application database. |
-| [update-keycloak-grafana-mapper.sh](./aems-app/update-keycloak-grafana-mapper.sh) | Adds the client-roles mapper to the `grafana-oauth` Keycloak client so RTU-specific roles propagate into Grafana's JWT. Re-run only if the Keycloak realm is reimported. Reads admin credentials from `docker/.env.keycloak`. |
+| [update-keycloak-grafana-mapper.sh](./aems-app/update-keycloak-grafana-mapper.sh) | Recovery tool: re-installs the client-roles mapper on the `grafana-oauth` Keycloak client. The mapper is shipped in [aems-app/docker/keycloak/default-realm.json](./aems-app/docker/keycloak/default-realm.json) and applied automatically on first boot, so this script is only needed if someone has removed the mapper manually. Reads admin credentials from `docker/.env.keycloak`. |
 | [migrate-historian-data.sh](./aems-app/migrate-historian-data.sh) | One-shot migration of legacy time-series data from `grafana-db` into the `historian` database. Requires both `grafana` and `historian` profiles running. Only relevant when upgrading from an older deployment that stored telemetry in `grafana-db`. |
 | [backup-restore.sh](./aems-app/backup-restore.sh) | Break-glass restore from an encrypted backup archive. See [Restoring from a Backup](#restoring-from-a-backup). |
 | [backup.sh](./aems-app/backup.sh) | **Internal — do not invoke directly.** Executed by the backup sidecar in response to BackupRun rows. Operators trigger backups through the `/backups` admin UI. |
@@ -186,7 +185,9 @@ Day-to-day operations are driven by a set of helper scripts at the root of `aems
 
 ```bash
 cd aems-app
+git stash
 git pull
+git stash pop
 docker compose pull          # if you deploy from prebuilt images
 ./start-services.sh          # rebuilds, brings stack up, runs DB migrations via the init container
 ```
