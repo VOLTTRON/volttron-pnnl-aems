@@ -179,7 +179,7 @@ Day-to-day operations are driven by a set of helper scripts at the root of `aems
 | Reset a single service | `./reset-service.sh <service>` (e.g. `certs` after a hostname change) |
 | Rotate secrets | Edit `.env.secrets`, re-run `./secrets.sh`, then `./start-services.sh` |
 | Restart a single service after config edits | `docker compose restart <service>` from `aems-app/` |
-| Inspect off-site replication (if configured) | See [aems-app/README.md → Historian Database Replication](./aems-app/README.md#historian-database-replication) |
+| Inspect off-site replication (if configured) | See the historian replication guide at `https://<HOSTNAME>/historian` |
 
 ### Updates
 
@@ -209,34 +209,32 @@ The full procedure with all flags is in [aems-app/README.md → Backups](./aems-
 
 ### Off-Site Historian Replication (Optional)
 
-If you want a read replica or DR copy of the historian at another site, the historian publisher is configured automatically when the `historian` profile is up; you set up the subscriber host yourself per [aems-app/README.md → Historian Database Replication](./aems-app/README.md#historian-database-replication). This is **not** how building edge agents talk to the historian — those are services in this same compose project — it is purely an off-site / DR feature.
+If you want a read replica or data replication (DR) copy of the historian at another site, the historian publisher is configured automatically when the `historian` profile is up; the full subscriber-host setup guide and scripts are published at `https://<HOSTNAME>/historian`. This is **not** how building edge agents talk to the historian — those are services in this same compose project — it is purely an off-site / DR feature.
+
+**Restrict the publisher to your subscriber IP.** Out of the box, [aems-app/docker/historian/pg_hba.conf](./aems-app/docker/historian/pg_hba.conf) accepts replication from any address (`0.0.0.0/0`) over TLS. Before exposing `HISTORIAN_REPLICATION_PORT` (default `6543`) to the network, narrow those rules to your subscriber's address. Edit the two `hostssl` lines that match `0.0.0.0/0` and replace the wildcard with the subscriber's CIDR:
+
+```
+# Replace 0.0.0.0/0 with your subscriber's IP, e.g. 203.0.113.42/32
+hostssl replication     replicator      203.0.113.42/32         scram-sha-256
+hostssl historian       replicator      203.0.113.42/32         scram-sha-256
+```
+
+`pg_hba.conf` is baked into the historian image at build time (see [aems-app/docker/historian/Dockerfile](./aems-app/docker/historian/Dockerfile)), so `docker compose restart` will not pick up the change. After editing, rebuild and restart from `aems-app/` with `./start-services.sh` — it runs `docker compose build` followed by `docker compose up -d`, which rebuilds the historian image and rolls the container with the new file. Repeat the edit + rebuild whenever you add or remove a subscriber.
 
 ### Hardening Checklist
 
 - [ ] `HOSTNAME` set to a real DNS name (never `localhost` in production)
 - [ ] Every value in `.env.secrets` is unique and strong; deployed via `./secrets.sh`
 - [ ] `CERT_RESOLVER=letsencrypt` (with a real `ADMIN_EMAIL`) or a third-party cert is in use
-- [ ] Keycloak realm has a freshly generated client secret (do **not** ship the default), and MFA is enabled for production accounts
 - [ ] If off-site replication is configured, subscribers are restricted by IP in [aems-app/docker/historian/pg_hba.conf](./aems-app/docker/historian/)
 - [ ] Backups have an off-host destination configured and the active age key has an offline copy
-- [ ] Firewall exposes only `443/tcp` publicly; `HISTORIAN_REPLICATION_PORT` (default `6543`) is allowed only from known subscriber IPs; BACnet `47808/udp` is internal-only
+- [ ] Firewall exposes only `80/tcp` and `443/tcp` publicly; `HISTORIAN_REPLICATION_PORT` (default `6543`) is allowed only from known subscriber IPs; BACnet `47808/udp` is internal-only
 - [ ] Default seeded admin password has been changed
-
-### Common Issues
-
-| Symptom | Where to look first |
-|---------|---------------------|
-| Web UI not reachable | `docker compose ps`, then `docker logs aems-proxy` |
-| Login redirects fail / cookie not set | Hostname or cert SAN mismatch — re-check `HOSTNAME` and run `./reset-service.sh certs` |
-| TLS errors after hostname change | Certs were issued for the old name — `./reset-service.sh certs` regenerates them |
-| VOLTTRON agents not publishing | `docker logs aems-volttron`; verify configs under [aems-app/docker/volttron/setup/configs/](./aems-app/docker/volttron/setup/) |
-| Devices not polling | Driver config + BACnet `47808/udp` reachability — see [docs/SETUP_GUIDE.md](./docs/SETUP_GUIDE.md#troubleshooting) |
-| Off-site subscriber not syncing | Replication slot, publication, or TLS — [aems-app/README.md → Troubleshooting](./aems-app/README.md#troubleshooting) under Historian Replication |
-| Backup runs fail | `/backups` → Runs tab for the per-component error, then `docker logs aems-backup` |
 
 ### Detailed References
 
-- **Full configuration reference (env vars, profiles, secrets, replication, backups, Keycloak):** [aems-app/README.md](./aems-app/README.md)
+- **Full configuration reference (env vars, profiles, secrets, backups, Keycloak):** [aems-app/README.md](./aems-app/README.md)
+- **Historian off-site replication guide and scripts:** `https://<HOSTNAME>/historian` (served by the running deployment)
 - **Backup pipeline internals and per-component restore details:** [aems-app/docker/backup/README.md](./aems-app/docker/backup/)
 - **VOLTTRON edge agent reference:** [aems-edge/README.rst](./aems-edge/README.rst)
 - **FastAPI edge runtime walkthrough (driver modes, device wiring):** [docs/SETUP_GUIDE.md](./docs/SETUP_GUIDE.md)
