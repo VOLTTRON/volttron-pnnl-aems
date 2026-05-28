@@ -353,10 +353,30 @@ export function SiteDashboard({
     // into a single segment by mutating the previous segment's end time.
     const lastSegmentBySystem = new Map<string, any[]>();
 
-    // Process each system's data
+    // Index the response by system so we can iterate over the requested
+    // systems list — that way any system the server omitted (or returned
+    // empty data for) still gets a row instead of disappearing entirely.
+    const systemDataByName = new Map<string, any>();
     (data?.historianMultiSystemUnit ?? []).forEach((systemData: any) => {
-      const points = systemData.data || [];
-      const systemName = systemData.system;
+      systemDataByName.set(systemData.system, systemData);
+    });
+
+    systems.forEach((systemName) => {
+      const systemData = systemDataByName.get(systemName);
+      const points = systemData?.data ?? [];
+      const displayName = systemToDisplayName.get(systemName) || systemName;
+
+      // When a system has no samples in the requested range, render a
+      // single Missing Data segment spanning the full range so the row
+      // is not blank.
+      if (points.length === 0) {
+        const valueTuple: any[] = [displayName, startTime, endTime, unknownState.label, unknownState.color, null];
+        stateMap.get(unknownState.label)!.data.push({
+          value: valueTuple,
+          itemStyle: { color: unknownState.color },
+        });
+        return;
+      }
 
       points.forEach((point: any, i: number) => {
         const rawValue: number | null =
@@ -391,7 +411,6 @@ export function SiteDashboard({
         }
 
         // Add data point to this state's series - use display name for Y-axis
-        const displayName = systemToDisplayName.get(systemName) || systemName;
         const valueTuple: any[] = [displayName, segmentStart, segmentEnd, state.label, state.color, rawValue];
         stateMap.get(state.label)!.data.push({
           value: valueTuple,
