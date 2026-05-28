@@ -24,6 +24,7 @@ import { Palettes } from "@/utils/palette";
 import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
 import { optimizeSystemNames } from "@/utils/systemNameOptimizer";
 import { useMetricColors } from "@/utils/metricColors";
+import { makeValueFormatter } from "@/utils/historianFormat";
 
 interface SystemSetpointErrorQueryProps {
   campus: string;
@@ -700,15 +701,11 @@ export function SiteDashboard({
                 },
                 series: (() => {
                   // Per-series tooltip formatters carry each series's
-                  // aggregation in a closure so binned views read
-                  // "72.40°F (mean)" while raw views read "72.40°F".
-                  const formatTempWith = (agg?: string | null) => (value: any) => {
-                    if (value == null) return "N/A";
-                    const text = typeof value === "number" ? `${value.toFixed(2)}°F` : String(value);
-                    return agg ? `${text} (${agg})` : text;
-                  };
-                  const weatherAgg = weatherData?.historianWeatherTimeSeries?.metadata?.aggregation;
-                  const outdoorAgg = outdoorTempData?.historianMultiSystemUnit?.[0]?.metadata?.aggregation;
+                  // metadata (prefix/suffix/format/aggregation) so units
+                  // and binning labels are driven by the historian
+                  // topic-map config rather than hard-coded constants.
+                  const fmt = (metadata: any) => makeValueFormatter(metadata, { includeAggregation: true });
+                  const outdoorMetadata = outdoorTempData?.historianMultiSystemUnit?.[0]?.metadata;
                   return [
                     // Weather station outdoor temperature
                     ...(weatherData?.historianWeatherTimeSeries
@@ -721,7 +718,7 @@ export function SiteDashboard({
                             showSymbol: false,
                             itemStyle: { color: metricColors[WeatherMetric.AirTemperature] },
                             lineStyle: { color: metricColors[WeatherMetric.AirTemperature], width: 1.5 },
-                            tooltip: { valueFormatter: formatTempWith(weatherAgg) },
+                            tooltip: { valueFormatter: fmt(weatherData.historianWeatherTimeSeries.metadata) },
                             data:
                               weatherData.historianWeatherTimeSeries.data?.map((point: any) => [
                                 point.timestamp,
@@ -739,7 +736,7 @@ export function SiteDashboard({
                       showSymbol: false,
                       itemStyle: { color: getUnitColor(systemData.system) },
                       lineStyle: { color: getUnitColor(systemData.system), width: 1.5 },
-                      tooltip: { valueFormatter: formatTempWith(outdoorAgg) },
+                      tooltip: { valueFormatter: fmt(systemData.metadata ?? outdoorMetadata) },
                       data: systemData.data?.map((point: any) => [point.timestamp, point.value]) || [],
                     })) || []),
                   ];
@@ -802,12 +799,9 @@ export function SiteDashboard({
                 },
                 series: powerData?.historianMeterTimeSeries
                   ? (() => {
-                      const powerAgg = powerData.historianMeterTimeSeries.metadata?.aggregation;
-                      const formatPower = (value: any) => {
-                        if (value == null) return "N/A";
-                        const text = typeof value === "number" ? `${value.toFixed(2)} W` : String(value);
-                        return powerAgg ? `${text} (${powerAgg})` : text;
-                      };
+                      const formatPower = makeValueFormatter(powerData.historianMeterTimeSeries.metadata, {
+                        includeAggregation: true,
+                      });
                       return [
                         {
                           name: "Building Power",

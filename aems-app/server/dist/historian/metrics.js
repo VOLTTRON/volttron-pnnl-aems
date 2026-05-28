@@ -1,10 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MeterMetricInfo = exports.WeatherMetricInfo = exports.DefaultMeterMetricAggregations = exports.DefaultWeatherMetricAggregations = exports.DefaultUnitMetricAggregations = exports.DefaultMetricAggregation = exports.DefaultMeterMetricMappings = exports.DefaultWeatherMetricMappings = exports.UnitMetricInfo = exports.DefaultTopicTemplates = void 0;
+exports.MeterMetricInfo = exports.WeatherMetricInfo = exports.DefaultMeterMetricPrefixes = exports.DefaultWeatherMetricPrefixes = exports.DefaultUnitMetricPrefixes = exports.DefaultMeterMetricSuffixes = exports.DefaultWeatherMetricSuffixes = exports.DefaultUnitMetricSuffixes = exports.DefaultMeterMetricFormats = exports.DefaultWeatherMetricFormats = exports.DefaultUnitMetricFormats = exports.DefaultMeterMetricTransforms = exports.DefaultWeatherMetricTransforms = exports.DefaultUnitMetricTransforms = exports.DefaultMetricFormat = exports.DefaultMetricTransform = exports.DefaultMeterMetricAggregations = exports.DefaultWeatherMetricAggregations = exports.DefaultUnitMetricAggregations = exports.DefaultMetricAggregation = exports.DefaultMeterMetricMappings = exports.DefaultWeatherMetricMappings = exports.UnitMetricInfo = exports.DefaultTopicTemplates = void 0;
 exports.getMetricTopicName = getMetricTopicName;
 exports.resolveUnitMetricEntry = resolveUnitMetricEntry;
 exports.resolveWeatherMetricEntry = resolveWeatherMetricEntry;
 exports.resolveMeterMetricEntry = resolveMeterMetricEntry;
+exports.applyTransform = applyTransform;
 exports.generateDefaultTopicMapConfig = generateDefaultTopicMapConfig;
 exports.buildUnitTopicPath = buildUnitTopicPath;
 exports.buildWeatherTopicPath = buildWeatherTopicPath;
@@ -199,6 +200,103 @@ exports.DefaultMeterMetricAggregations = {
     [common_1.MeterMetric.Power]: common_1.MetricAggregation.Mean,
     [common_1.MeterMetric.Demand]: common_1.MetricAggregation.Max,
 };
+exports.DefaultMetricTransform = common_1.MetricTransform.None;
+exports.DefaultMetricFormat = common_1.MetricFormat.None;
+exports.DefaultUnitMetricTransforms = {
+    [common_1.UnitMetric.AuxiliaryHeatCommand]: common_1.MetricTransform.Integer,
+    [common_1.UnitMetric.CoolingDemand]: common_1.MetricTransform.Decimal1,
+    [common_1.UnitMetric.DeadBand]: common_1.MetricTransform.Decimal1,
+    [common_1.UnitMetric.DemandResponseFlag]: common_1.MetricTransform.Integer,
+    [common_1.UnitMetric.EffectiveZoneTemperatureSetPoint]: common_1.MetricTransform.Decimal1,
+    [common_1.UnitMetric.FirstStageCooling]: common_1.MetricTransform.Integer,
+    [common_1.UnitMetric.FirstStageHeating]: common_1.MetricTransform.Integer,
+    [common_1.UnitMetric.HeartBeat]: common_1.MetricTransform.Integer,
+    [common_1.UnitMetric.HeatingDemand]: common_1.MetricTransform.Decimal1,
+    [common_1.UnitMetric.OccupancyCommand]: common_1.MetricTransform.Integer,
+    [common_1.UnitMetric.OccupiedCoolingSetPoint]: common_1.MetricTransform.Decimal1,
+    [common_1.UnitMetric.OccupiedHeatingSetPoint]: common_1.MetricTransform.Decimal1,
+    [common_1.UnitMetric.OccupiedSetPoint]: common_1.MetricTransform.Decimal1,
+    [common_1.UnitMetric.OutdoorAirTemperature]: common_1.MetricTransform.Decimal1,
+    [common_1.UnitMetric.ReversingValve]: common_1.MetricTransform.Integer,
+    [common_1.UnitMetric.SecondStageCooling]: common_1.MetricTransform.Integer,
+    [common_1.UnitMetric.SupplyFanStatus]: common_1.MetricTransform.Integer,
+    [common_1.UnitMetric.UnoccupiedCoolingSetPoint]: common_1.MetricTransform.Decimal1,
+    [common_1.UnitMetric.UnoccupiedHeatingSetPoint]: common_1.MetricTransform.Decimal1,
+    [common_1.UnitMetric.ZoneHumidity]: common_1.MetricTransform.Decimal1,
+    [common_1.UnitMetric.ZoneTemperature]: common_1.MetricTransform.Decimal1,
+};
+exports.DefaultWeatherMetricTransforms = {
+    [common_1.WeatherMetric.AirPressure]: common_1.MetricTransform.Decimal1,
+    [common_1.WeatherMetric.AirPressureAtMeanSeaLevel]: common_1.MetricTransform.Decimal1,
+    [common_1.WeatherMetric.AirTemperature]: common_1.MetricTransform.Decimal1,
+    [common_1.WeatherMetric.DewPointTemperature]: common_1.MetricTransform.Decimal1,
+    [common_1.WeatherMetric.HeatIndex]: common_1.MetricTransform.Decimal1,
+    [common_1.WeatherMetric.HeightAboveMeanSeaLevel]: common_1.MetricTransform.Decimal1,
+    [common_1.WeatherMetric.PrecipitationLast3Hours]: common_1.MetricTransform.Decimal2,
+    [common_1.WeatherMetric.PrecipitationLastHour]: common_1.MetricTransform.Decimal2,
+    [common_1.WeatherMetric.RelativeHumidity]: common_1.MetricTransform.Decimal1,
+    [common_1.WeatherMetric.VisibilityInAir]: common_1.MetricTransform.Decimal1,
+    [common_1.WeatherMetric.WindFromDirection]: common_1.MetricTransform.Integer,
+    [common_1.WeatherMetric.WindSpeed]: common_1.MetricTransform.Decimal1,
+    [common_1.WeatherMetric.WindSpeedOfGust]: common_1.MetricTransform.Decimal1,
+    [common_1.WeatherMetric.WindChill]: common_1.MetricTransform.Decimal1,
+};
+exports.DefaultMeterMetricTransforms = {
+    [common_1.MeterMetric.Power]: common_1.MetricTransform.Decimal2,
+    [common_1.MeterMetric.Demand]: common_1.MetricTransform.Decimal2,
+};
+exports.DefaultUnitMetricFormats = Object.fromEntries(Object.values(common_1.UnitMetric).map((m) => [m, common_1.MetricFormat.None]));
+exports.DefaultWeatherMetricFormats = Object.fromEntries(Object.values(common_1.WeatherMetric).map((m) => [m, common_1.MetricFormat.None]));
+exports.DefaultMeterMetricFormats = {
+    [common_1.MeterMetric.Power]: common_1.MetricFormat.Thousands,
+    [common_1.MeterMetric.Demand]: common_1.MetricFormat.Thousands,
+};
+exports.DefaultUnitMetricSuffixes = {
+    [common_1.UnitMetric.AuxiliaryHeatCommand]: "",
+    [common_1.UnitMetric.CoolingDemand]: "%",
+    [common_1.UnitMetric.DeadBand]: "°F",
+    [common_1.UnitMetric.DemandResponseFlag]: "",
+    [common_1.UnitMetric.EffectiveZoneTemperatureSetPoint]: "°F",
+    [common_1.UnitMetric.FirstStageCooling]: "",
+    [common_1.UnitMetric.FirstStageHeating]: "",
+    [common_1.UnitMetric.HeartBeat]: "",
+    [common_1.UnitMetric.HeatingDemand]: "%",
+    [common_1.UnitMetric.OccupancyCommand]: "",
+    [common_1.UnitMetric.OccupiedCoolingSetPoint]: "°F",
+    [common_1.UnitMetric.OccupiedHeatingSetPoint]: "°F",
+    [common_1.UnitMetric.OccupiedSetPoint]: "°F",
+    [common_1.UnitMetric.OutdoorAirTemperature]: "°F",
+    [common_1.UnitMetric.ReversingValve]: "",
+    [common_1.UnitMetric.SecondStageCooling]: "",
+    [common_1.UnitMetric.SupplyFanStatus]: "",
+    [common_1.UnitMetric.UnoccupiedCoolingSetPoint]: "°F",
+    [common_1.UnitMetric.UnoccupiedHeatingSetPoint]: "°F",
+    [common_1.UnitMetric.ZoneHumidity]: "%",
+    [common_1.UnitMetric.ZoneTemperature]: "°F",
+};
+exports.DefaultWeatherMetricSuffixes = {
+    [common_1.WeatherMetric.AirPressure]: " Pa",
+    [common_1.WeatherMetric.AirPressureAtMeanSeaLevel]: " Pa",
+    [common_1.WeatherMetric.AirTemperature]: "°F",
+    [common_1.WeatherMetric.DewPointTemperature]: "°F",
+    [common_1.WeatherMetric.HeatIndex]: "°F",
+    [common_1.WeatherMetric.HeightAboveMeanSeaLevel]: " m",
+    [common_1.WeatherMetric.PrecipitationLast3Hours]: " in",
+    [common_1.WeatherMetric.PrecipitationLastHour]: " in",
+    [common_1.WeatherMetric.RelativeHumidity]: "%",
+    [common_1.WeatherMetric.VisibilityInAir]: " m",
+    [common_1.WeatherMetric.WindFromDirection]: "°",
+    [common_1.WeatherMetric.WindSpeed]: " mph",
+    [common_1.WeatherMetric.WindSpeedOfGust]: " mph",
+    [common_1.WeatherMetric.WindChill]: "°F",
+};
+exports.DefaultMeterMetricSuffixes = {
+    [common_1.MeterMetric.Power]: " W",
+    [common_1.MeterMetric.Demand]: " W",
+};
+exports.DefaultUnitMetricPrefixes = Object.fromEntries(Object.values(common_1.UnitMetric).map((m) => [m, ""]));
+exports.DefaultWeatherMetricPrefixes = Object.fromEntries(Object.values(common_1.WeatherMetric).map((m) => [m, ""]));
+exports.DefaultMeterMetricPrefixes = Object.fromEntries(Object.values(common_1.MeterMetric).map((m) => [m, ""]));
 exports.WeatherMetricInfo = {
     [common_1.WeatherMetric.AirPressure]: {
         topic: common_1.WeatherMetric.AirPressure,
@@ -308,42 +406,102 @@ function getMetricTopicName(metric) {
     }
     return exports.MeterMetricInfo[metric].topic;
 }
-function resolveEntry(entry, defaultTopic, defaultAggregation) {
+function resolveEntry(entry, defaults) {
     if (entry == null) {
-        return { topic: defaultTopic, aggregation: defaultAggregation };
+        return { ...defaults };
     }
     if (typeof entry === "string") {
-        return { topic: entry, aggregation: defaultAggregation };
+        return { ...defaults, topic: entry };
     }
     return {
-        topic: entry.topic ?? defaultTopic,
-        aggregation: entry.aggregation ?? defaultAggregation,
+        topic: entry.topic ?? defaults.topic,
+        aggregation: entry.aggregation ?? defaults.aggregation,
+        transform: entry.transform ?? defaults.transform,
+        format: entry.format ?? defaults.format,
+        prefix: entry.prefix ?? defaults.prefix,
+        suffix: entry.suffix ?? defaults.suffix,
     };
 }
 function resolveUnitMetricEntry(metric, topicMap) {
-    return resolveEntry(topicMap?.unitMetrics?.[metric], metric, exports.DefaultUnitMetricAggregations[metric]);
+    return resolveEntry(topicMap?.unitMetrics?.[metric], {
+        topic: metric,
+        aggregation: exports.DefaultUnitMetricAggregations[metric],
+        transform: exports.DefaultUnitMetricTransforms[metric] ?? exports.DefaultMetricTransform,
+        format: exports.DefaultUnitMetricFormats[metric] ?? exports.DefaultMetricFormat,
+        prefix: exports.DefaultUnitMetricPrefixes[metric] ?? "",
+        suffix: exports.DefaultUnitMetricSuffixes[metric] ?? "",
+    });
 }
 function resolveWeatherMetricEntry(metric, topicMap) {
-    return resolveEntry(topicMap?.weatherMetrics?.[metric], exports.DefaultWeatherMetricMappings[metric] ?? metric, exports.DefaultWeatherMetricAggregations[metric]);
+    return resolveEntry(topicMap?.weatherMetrics?.[metric], {
+        topic: exports.DefaultWeatherMetricMappings[metric] ?? metric,
+        aggregation: exports.DefaultWeatherMetricAggregations[metric],
+        transform: exports.DefaultWeatherMetricTransforms[metric] ?? exports.DefaultMetricTransform,
+        format: exports.DefaultWeatherMetricFormats[metric] ?? exports.DefaultMetricFormat,
+        prefix: exports.DefaultWeatherMetricPrefixes[metric] ?? "",
+        suffix: exports.DefaultWeatherMetricSuffixes[metric] ?? "",
+    });
 }
 function resolveMeterMetricEntry(metric, topicMap) {
-    return resolveEntry(topicMap?.meterMetrics?.[metric], exports.DefaultMeterMetricMappings[metric] ?? metric, exports.DefaultMeterMetricAggregations[metric]);
+    return resolveEntry(topicMap?.meterMetrics?.[metric], {
+        topic: exports.DefaultMeterMetricMappings[metric] ?? metric,
+        aggregation: exports.DefaultMeterMetricAggregations[metric],
+        transform: exports.DefaultMeterMetricTransforms[metric] ?? exports.DefaultMetricTransform,
+        format: exports.DefaultMeterMetricFormats[metric] ?? exports.DefaultMetricFormat,
+        prefix: exports.DefaultMeterMetricPrefixes[metric] ?? "",
+        suffix: exports.DefaultMeterMetricSuffixes[metric] ?? "",
+    });
+}
+function applyTransform(value, transform) {
+    if (value == null || !Number.isFinite(value))
+        return value;
+    switch (transform) {
+        case common_1.MetricTransform.None:
+            return value;
+        case common_1.MetricTransform.Integer:
+            return Math.round(value);
+        case common_1.MetricTransform.Decimal1:
+            return Math.round(value * 10) / 10;
+        case common_1.MetricTransform.Decimal2:
+            return Math.round(value * 100) / 100;
+        case common_1.MetricTransform.Decimal3:
+            return Math.round(value * 1000) / 1000;
+        case common_1.MetricTransform.Floor:
+            return Math.floor(value);
+        case common_1.MetricTransform.Ceiling:
+            return Math.ceil(value);
+    }
 }
 function generateDefaultTopicMapConfig() {
+    const buildEntry = (topic, aggregation, transform, format, prefix, suffix) => {
+        const entry = { topic, aggregation };
+        if (transform !== exports.DefaultMetricTransform)
+            entry.transform = transform;
+        if (format !== exports.DefaultMetricFormat)
+            entry.format = format;
+        if (prefix !== "")
+            entry.prefix = prefix;
+        if (suffix !== "")
+            entry.suffix = suffix;
+        return entry;
+    };
     return {
         templates: {
             Unit: exports.DefaultTopicTemplates.Unit,
             Weather: exports.DefaultTopicTemplates.Weather,
             Meter: exports.DefaultTopicTemplates.Meter,
         },
-        unitMetrics: Object.fromEntries(Object.values(common_1.UnitMetric).map((m) => [m, { topic: m, aggregation: exports.DefaultUnitMetricAggregations[m] }])),
+        unitMetrics: Object.fromEntries(Object.values(common_1.UnitMetric).map((m) => [
+            m,
+            buildEntry(m, exports.DefaultUnitMetricAggregations[m], exports.DefaultUnitMetricTransforms[m] ?? exports.DefaultMetricTransform, exports.DefaultUnitMetricFormats[m] ?? exports.DefaultMetricFormat, exports.DefaultUnitMetricPrefixes[m] ?? "", exports.DefaultUnitMetricSuffixes[m] ?? ""),
+        ])),
         weatherMetrics: Object.fromEntries(Object.values(common_1.WeatherMetric).map((m) => [
             m,
-            { topic: exports.DefaultWeatherMetricMappings[m], aggregation: exports.DefaultWeatherMetricAggregations[m] },
+            buildEntry(exports.DefaultWeatherMetricMappings[m], exports.DefaultWeatherMetricAggregations[m], exports.DefaultWeatherMetricTransforms[m] ?? exports.DefaultMetricTransform, exports.DefaultWeatherMetricFormats[m] ?? exports.DefaultMetricFormat, exports.DefaultWeatherMetricPrefixes[m] ?? "", exports.DefaultWeatherMetricSuffixes[m] ?? ""),
         ])),
         meterMetrics: Object.fromEntries(Object.values(common_1.MeterMetric).map((m) => [
             m,
-            { topic: exports.DefaultMeterMetricMappings[m], aggregation: exports.DefaultMeterMetricAggregations[m] },
+            buildEntry(exports.DefaultMeterMetricMappings[m], exports.DefaultMeterMetricAggregations[m], exports.DefaultMeterMetricTransforms[m] ?? exports.DefaultMetricTransform, exports.DefaultMeterMetricFormats[m] ?? exports.DefaultMetricFormat, exports.DefaultMeterMetricPrefixes[m] ?? "", exports.DefaultMeterMetricSuffixes[m] ?? ""),
         ])),
     };
 }

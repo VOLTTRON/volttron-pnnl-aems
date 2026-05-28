@@ -51,6 +51,9 @@ export interface HistorianQueryMetadata {
     errors: string[];
     binning?: HistorianBinningInfo;
     aggregation?: string;
+    format?: MetricFormat;
+    prefix?: string;
+    suffix?: string;
 }
 export interface HistorianDataPoint {
     timestamp: Date;
@@ -118,4 +121,19 @@ export declare enum MetricAggregation {
 export declare enum CalculationType {
     SetpointError = "SetpointError",
     RollingAverage = "RollingAverage"
+}
+export declare enum MetricTransform {
+    None = "none",
+    Integer = "integer",
+    Decimal1 = "decimal1",
+    Decimal2 = "decimal2",
+    Decimal3 = "decimal3",
+    Floor = "floor",
+    Ceiling = "ceiling"
+}
+export declare enum MetricFormat {
+    None = "none",
+    Thousands = "thousands",
+    Compact = "compact",
+    Scientific = "scientific"
 }

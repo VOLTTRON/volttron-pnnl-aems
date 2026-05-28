@@ -43,6 +43,7 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     private static formatIntervalLabel;
     private static buildBinningInfo;
     private static toNumber;
+    private static displayMetadata;
     private static computeBucketErrorSeries;
     private static collapseErrorSeriesToRanges;
     calculateSetpointError(campus: string, building: string, system: string, startTime: Date, endTime: Date): Promise<HistorianTimeSeries>;

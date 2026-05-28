@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CalculationType = exports.MetricAggregation = exports.AggregationType = exports.MeterMetric = exports.WeatherMetric = exports.UnitMetric = void 0;
+exports.MetricFormat = exports.MetricTransform = exports.CalculationType = exports.MetricAggregation = exports.AggregationType = exports.MeterMetric = exports.WeatherMetric = exports.UnitMetric = void 0;
 var UnitMetric;
 (function (UnitMetric) {
     UnitMetric["AuxiliaryHeatCommand"] = "AuxiliaryHeatCommand";
@@ -72,4 +72,21 @@ var CalculationType;
     CalculationType["SetpointError"] = "SetpointError";
     CalculationType["RollingAverage"] = "RollingAverage";
 })(CalculationType || (exports.CalculationType = CalculationType = {}));
+var MetricTransform;
+(function (MetricTransform) {
+    MetricTransform["None"] = "none";
+    MetricTransform["Integer"] = "integer";
+    MetricTransform["Decimal1"] = "decimal1";
+    MetricTransform["Decimal2"] = "decimal2";
+    MetricTransform["Decimal3"] = "decimal3";
+    MetricTransform["Floor"] = "floor";
+    MetricTransform["Ceiling"] = "ceiling";
+})(MetricTransform || (exports.MetricTransform = MetricTransform = {}));
+var MetricFormat;
+(function (MetricFormat) {
+    MetricFormat["None"] = "none";
+    MetricFormat["Thousands"] = "thousands";
+    MetricFormat["Compact"] = "compact";
+    MetricFormat["Scientific"] = "scientific";
+})(MetricFormat || (exports.MetricFormat = MetricFormat = {}));
 //# sourceMappingURL=historian.js.map

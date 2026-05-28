@@ -128,6 +128,19 @@ export interface HistorianQueryMetadata {
    * tooltip so users can see which aggregation drove each bucket value.
    */
   aggregation?: string;
+
+  /**
+   * Client-side display format for numeric values. Resolved per metric from
+   * topic-map config / built-in defaults. The transform field is intentionally
+   * omitted: values returned in this payload are already transformed.
+   */
+  format?: MetricFormat;
+
+  /** Free-text inserted verbatim before the displayed value (no auto-spacing). */
+  prefix?: string;
+
+  /** Free-text inserted verbatim after the displayed value (no auto-spacing). */
+  suffix?: string;
 }
 
 export interface HistorianDataPoint {
@@ -229,4 +242,43 @@ export enum MetricAggregation {
 export enum CalculationType {
   SetpointError = "SetpointError",
   RollingAverage = "RollingAverage",
+}
+
+/**
+ * Server-side number-to-number reduction applied to every value before it
+ * leaves the API. Charts, KPI cards, and tooltips all see the same already
+ * quantized number, so visualization layers stay simple.
+ *
+ *   None     -> value passes through unchanged
+ *   Integer  -> Math.round(value)
+ *   Decimal1 -> rounded to 1 decimal place
+ *   Decimal2 -> rounded to 2 decimal places
+ *   Decimal3 -> rounded to 3 decimal places
+ *   Floor    -> Math.floor(value)
+ *   Ceiling  -> Math.ceil(value)
+ */
+export enum MetricTransform {
+  None = "none",
+  Integer = "integer",
+  Decimal1 = "decimal1",
+  Decimal2 = "decimal2",
+  Decimal3 = "decimal3",
+  Floor = "floor",
+  Ceiling = "ceiling",
+}
+
+/**
+ * Client-side number-to-string display style. Affects only rendered text
+ * (tooltips today; gauges/axes opt-in via the shared formatter utility).
+ *
+ *   None       -> String(value)
+ *   Thousands  -> Intl.NumberFormat with grouping (e.g. "12,345.67")
+ *   Compact    -> Intl.NumberFormat compact notation (e.g. "12.3K")
+ *   Scientific -> value.toExponential(2) (e.g. "1.23e+4")
+ */
+export enum MetricFormat {
+  None = "none",
+  Thousands = "thousands",
+  Compact = "compact",
+  Scientific = "scientific",
 }

@@ -41,6 +41,8 @@ import {
   resolveWeatherMetricEntry,
   resolveMeterMetricEntry,
   aggregationSql,
+  applyTransform,
+  ResolvedMetricEntry,
 } from "./metrics";
 
 // Re-export types for convenience
@@ -256,7 +258,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianMetricCurrent | null> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
-    
+
+    const entry = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildUnitTopicPath(campus, building, system, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -281,9 +284,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         system,
         metric,
-        value: this.parseValue(row.value_string),
+        value: applyTransform(this.parseValue(row.value_string), entry.transform),
         timestamp: new Date(row.ts),
-        metadata: { topics, errors },
+        metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
       };
     } catch (error) {
       this.logger.error("Error fetching unit current value", error);
@@ -302,7 +305,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianMetricCurrent | null> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
-    
+
+    const entry = resolveWeatherMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildWeatherTopicPath(campus, building, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -327,9 +331,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         system: "weather",
         metric,
-        value: this.parseValue(row.value_string),
+        value: applyTransform(this.parseValue(row.value_string), entry.transform),
         timestamp: new Date(row.ts),
-        metadata: { topics, errors },
+        metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
       };
     } catch (error) {
       this.logger.error("Error fetching weather current value", error);
@@ -351,7 +355,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianTimeSeries> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
-    
+
+    const entry = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildUnitTopicPath(campus, building, system, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -359,14 +364,19 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const topicId = await this.resolveTopicId(topicPath);
       if (topicId === null) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-        return { system, metric, data: [], metadata: { topics, errors } };
+        return {
+          system,
+          metric,
+          data: [],
+          metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
+        };
       }
 
       // Bin only when the range exceeds the configured threshold; otherwise
       // emit raw historian samples. The aggregation is whatever the topic map
       // declares for this metric (configurable per-metric).
       const bucketing = this.resolveBucketing(startTime, endTime);
-      const { aggregation } = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+      const { aggregation } = entry;
       const numericValueExpr = `CASE
         WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
           THEN value_string::double precision
@@ -413,7 +423,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       const data: HistorianDataPoint[] = result.rows.map((row) => ({
         timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-        value: HistorianService.toNumber(row.value),
+        value: applyTransform(HistorianService.toNumber(row.value), entry.transform),
         system,
         metric,
       }));
@@ -427,6 +437,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           errors,
           binning: HistorianService.buildBinningInfo(bucketing),
           aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+          ...HistorianService.displayMetadata(entry),
         },
       };
     } catch (error) {
@@ -448,7 +459,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianTimeSeries> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
-    
+
+    const entry = resolveWeatherMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildWeatherTopicPath(campus, building, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -456,11 +468,16 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const topicId = await this.resolveTopicId(topicPath);
       if (topicId === null) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-        return { system: "weather", metric, data: [], metadata: { topics, errors } };
+        return {
+          system: "weather",
+          metric,
+          data: [],
+          metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
+        };
       }
 
       const bucketing = this.resolveBucketing(startTime, endTime);
-      const { aggregation } = resolveWeatherMetricEntry(metric, this.configService.historian.topicMap);
+      const { aggregation } = entry;
       const numericValueExpr = `CASE
         WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
           THEN value_string::double precision
@@ -503,7 +520,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       const data: HistorianDataPoint[] = result.rows.map((row) => ({
         timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-        value: HistorianService.toNumber(row.value),
+        value: applyTransform(HistorianService.toNumber(row.value), entry.transform),
         system: "weather",
         metric,
       }));
@@ -517,6 +534,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           errors,
           binning: HistorianService.buildBinningInfo(bucketing),
           aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+          ...HistorianService.displayMetadata(entry),
         },
       };
     } catch (error) {
@@ -542,6 +560,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
 
+    const entry = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildUnitTopicPath(campus, building, system, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -566,7 +585,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const topicId = await this.resolveTopicId(topicPath);
       if (topicId === null) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-        return { aggregates: [], metadata: { topics, errors } };
+        return { aggregates: [], metadata: { topics, errors, ...HistorianService.displayMetadata(entry) } };
       }
 
       const query = `
@@ -593,10 +612,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         aggregates: result.rows.map((row) => ({
           timestamp: new Date(row.timestamp),
-          value: typeof row.value === "string" ? parseFloat(row.value) : null,
+          value: applyTransform(typeof row.value === "string" ? parseFloat(row.value) : null, entry.transform),
           metric,
         })),
-        metadata: { topics, errors },
+        metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
       };
     } catch (error) {
       this.logger.error("Error fetching aggregated data", error);
@@ -620,6 +639,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
 
+    const entry = resolveWeatherMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildWeatherTopicPath(campus, building, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -644,7 +664,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const topicId = await this.resolveTopicId(topicPath);
       if (topicId === null) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-        return { aggregates: [], metadata: { topics, errors } };
+        return { aggregates: [], metadata: { topics, errors, ...HistorianService.displayMetadata(entry) } };
       }
 
       const query = `
@@ -671,10 +691,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         aggregates: result.rows.map((row) => ({
           timestamp: new Date(row.timestamp),
-          value: typeof row.value === "string" ? parseFloat(row.value) : null,
+          value: applyTransform(typeof row.value === "string" ? parseFloat(row.value) : null, entry.transform),
           metric,
         })),
-        metadata: { topics, errors },
+        metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
       };
     } catch (error) {
       this.logger.error("Error fetching aggregated data", error);
@@ -693,7 +713,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianMetricCurrent | null> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
-    
+
+    const entry = resolveMeterMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildMeterTopicPath(campus, building, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -718,9 +739,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         system: "meter",
         metric,
-        value: this.parseValue(row.value_string),
+        value: applyTransform(this.parseValue(row.value_string), entry.transform),
         timestamp: new Date(row.ts),
-        metadata: { topics, errors },
+        metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
       };
     } catch (error) {
       this.logger.error("Error fetching meter current value", error);
@@ -741,7 +762,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianTimeSeries> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
-    
+
+    const entry = resolveMeterMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildMeterTopicPath(campus, building, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -749,11 +771,16 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const topicId = await this.resolveTopicId(topicPath);
       if (topicId === null) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-        return { system: "meter", metric, data: [], metadata: { topics, errors } };
+        return {
+          system: "meter",
+          metric,
+          data: [],
+          metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
+        };
       }
 
       const bucketing = this.resolveBucketing(startTime, endTime);
-      const { aggregation } = resolveMeterMetricEntry(metric, this.configService.historian.topicMap);
+      const { aggregation } = entry;
       const numericValueExpr = `CASE
         WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
           THEN value_string::double precision
@@ -796,7 +823,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       const data: HistorianDataPoint[] = result.rows.map((row) => ({
         timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-        value: HistorianService.toNumber(row.value),
+        value: applyTransform(HistorianService.toNumber(row.value), entry.transform),
         system: "meter",
         metric,
       }));
@@ -810,6 +837,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           errors,
           binning: HistorianService.buildBinningInfo(bucketing),
           aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+          ...HistorianService.displayMetadata(entry),
         },
       };
     } catch (error) {
@@ -834,6 +862,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
 
+    const entry = resolveMeterMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildMeterTopicPath(campus, building, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -858,7 +887,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const topicId = await this.resolveTopicId(topicPath);
       if (topicId === null) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-        return { aggregates: [], metadata: { topics, errors } };
+        return { aggregates: [], metadata: { topics, errors, ...HistorianService.displayMetadata(entry) } };
       }
 
       const query = `
@@ -885,10 +914,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         aggregates: result.rows.map((row) => ({
           timestamp: new Date(row.timestamp),
-          value: typeof row.value === "string" ? parseFloat(row.value) : null,
+          value: applyTransform(typeof row.value === "string" ? parseFloat(row.value) : null, entry.transform),
           metric,
         })),
-        metadata: { topics, errors },
+        metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
       };
     } catch (error) {
       this.logger.error("Error fetching meter aggregated data", error);
@@ -927,9 +956,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     });
 
     const bucketing = this.resolveBucketing(startTime, endTime, interval ?? undefined);
-    const { aggregation: msuAggregation } = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+    const msuEntry = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+    const { aggregation: msuAggregation } = msuEntry;
     const binning = HistorianService.buildBinningInfo(bucketing);
     const aggregationLabel = bucketing.mode === "binned" ? msuAggregation : undefined;
+    const displayMeta = HistorianService.displayMetadata(msuEntry);
 
     if (systems.length > 0) {
       // Resolve every system's topic_id up front so the data query is a
@@ -975,7 +1006,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
               if (!sys) return;
               queryResult[sys].push({
                 timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-                value: typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null),
+                value: applyTransform(
+                  typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null),
+                  msuEntry.transform,
+                ),
                 system: sys,
                 metric,
               });
@@ -1002,7 +1036,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
               if (!sys) return;
               queryResult[sys].push({
                 timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-                value: typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null),
+                value: applyTransform(
+                  typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null),
+                  msuEntry.transform,
+                ),
                 system: sys,
                 metric,
               });
@@ -1050,7 +1087,13 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         system: sys,
         data,
-        metadata: { topics: { [metric]: systemTopics[sys] }, errors, binning, aggregation: aggregationLabel },
+        metadata: {
+          topics: { [metric]: systemTopics[sys] },
+          errors,
+          binning,
+          aggregation: aggregationLabel,
+          ...displayMeta,
+        },
       };
     });
 
@@ -1065,6 +1108,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
           binning,
           aggregation: aggregationLabel,
+          ...displayMeta,
         },
       });
     });
@@ -1094,6 +1138,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       grouped[sys.toUpperCase()] = [];
     });
 
+    const rangesEntry = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+    const rangesDisplayMeta = HistorianService.displayMetadata(rangesEntry);
+
     if (systems.length > 0) {
       // Pre-resolve each system's topic_id so the data scan is pure PK.
       const systemTopics = new Map<string, string>(
@@ -1114,7 +1161,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         // Aggregation comes from the topic map. The prior raw-ts path stayed
         // unaligned with the binned dashboard grid; binning + the configured
         // aggregation keeps timelines consistent with the rest of the view.
-        const { aggregation } = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+        const { aggregation } = rangesEntry;
         const valueExpr = `CAST(NULLIF(value_string, 'null') AS double precision)`;
         const bucketing = this.resolveBucketing(startTime, endTime);
 
@@ -1149,7 +1196,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
                 seriesByTopic.set(row.topic_id, arr);
               }
               const bucketMs = row.bucket instanceof Date ? row.bucket.getTime() : new Date(row.bucket).getTime();
-              const value = HistorianService.toNumber(row.value);
+              const value = applyTransform(HistorianService.toNumber(row.value), rangesEntry.transform);
               arr.push({ bucketMs, value });
             }
 
@@ -1257,7 +1304,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
                 grouped[key].push({
                   startTime: new Date(row.start_time),
                   endTime: new Date(row.end_time),
-                  value: row.value,
+                  value: applyTransform(row.value, rangesEntry.transform),
                   system: sys,
                   metric,
                 });
@@ -1282,7 +1329,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         system: sys,
         ranges,
-        metadata: { topics: { [metric]: topicPath }, errors },
+        metadata: { topics: { [metric]: topicPath }, errors, ...rangesDisplayMeta },
       };
     });
 
@@ -1295,6 +1342,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         metadata: {
           topics: { [metric]: topicPath },
           errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
+          ...rangesDisplayMeta,
         },
       });
     });
@@ -1736,6 +1784,22 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return isFinite(n) ? n : null;
     }
     return null;
+  }
+
+  /**
+   * Extract the display-only fields (format / prefix / suffix) from a
+   * resolved metric entry into a partial `HistorianQueryMetadata` so callers
+   * can spread them onto their response metadata. Empty strings are dropped
+   * so they don't bloat serialized payloads.
+   */
+  private static displayMetadata(
+    entry: ResolvedMetricEntry,
+  ): Pick<HistorianQueryMetadata, "format" | "prefix" | "suffix"> {
+    return {
+      format: entry.format,
+      prefix: entry.prefix === "" ? undefined : entry.prefix,
+      suffix: entry.suffix === "" ? undefined : entry.suffix,
+    };
   }
 
   /**

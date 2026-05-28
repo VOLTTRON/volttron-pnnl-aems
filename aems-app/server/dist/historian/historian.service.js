@@ -150,6 +150,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
     async getUnitCurrentValue(campus, building, system, metric) {
         const errors = [];
         const topics = {};
+        const entry = (0, metrics_1.resolveUnitMetricEntry)(metric, this.configService.historian.topicMap);
         const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
         try {
@@ -167,9 +168,9 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return {
                 system,
                 metric,
-                value: this.parseValue(row.value_string),
+                value: (0, metrics_1.applyTransform)(this.parseValue(row.value_string), entry.transform),
                 timestamp: new Date(row.ts),
-                metadata: { topics, errors },
+                metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) },
             };
         }
         catch (error) {
@@ -181,6 +182,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
     async getWeatherCurrentValue(campus, building, metric) {
         const errors = [];
         const topics = {};
+        const entry = (0, metrics_1.resolveWeatherMetricEntry)(metric, this.configService.historian.topicMap);
         const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
         try {
@@ -198,9 +200,9 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return {
                 system: "weather",
                 metric,
-                value: this.parseValue(row.value_string),
+                value: (0, metrics_1.applyTransform)(this.parseValue(row.value_string), entry.transform),
                 timestamp: new Date(row.ts),
-                metadata: { topics, errors },
+                metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) },
             };
         }
         catch (error) {
@@ -212,16 +214,22 @@ let HistorianService = HistorianService_1 = class HistorianService {
     async getUnitTimeSeries(campus, building, system, metric, startTime, endTime) {
         const errors = [];
         const topics = {};
+        const entry = (0, metrics_1.resolveUnitMetricEntry)(metric, this.configService.historian.topicMap);
         const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
         try {
             const topicId = await this.resolveTopicId(topicPath);
             if (topicId === null) {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-                return { system, metric, data: [], metadata: { topics, errors } };
+                return {
+                    system,
+                    metric,
+                    data: [],
+                    metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) },
+                };
             }
             const bucketing = this.resolveBucketing(startTime, endTime);
-            const { aggregation } = (0, metrics_1.resolveUnitMetricEntry)(metric, this.configService.historian.topicMap);
+            const { aggregation } = entry;
             const numericValueExpr = `CASE
         WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
           THEN value_string::double precision
@@ -258,7 +266,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             }
             const data = result.rows.map((row) => ({
                 timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-                value: HistorianService_1.toNumber(row.value),
+                value: (0, metrics_1.applyTransform)(HistorianService_1.toNumber(row.value), entry.transform),
                 system,
                 metric,
             }));
@@ -271,6 +279,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                     errors,
                     binning: HistorianService_1.buildBinningInfo(bucketing),
                     aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+                    ...HistorianService_1.displayMetadata(entry),
                 },
             };
         }
@@ -283,16 +292,22 @@ let HistorianService = HistorianService_1 = class HistorianService {
     async getWeatherTimeSeries(campus, building, metric, startTime, endTime) {
         const errors = [];
         const topics = {};
+        const entry = (0, metrics_1.resolveWeatherMetricEntry)(metric, this.configService.historian.topicMap);
         const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
         try {
             const topicId = await this.resolveTopicId(topicPath);
             if (topicId === null) {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-                return { system: "weather", metric, data: [], metadata: { topics, errors } };
+                return {
+                    system: "weather",
+                    metric,
+                    data: [],
+                    metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) },
+                };
             }
             const bucketing = this.resolveBucketing(startTime, endTime);
-            const { aggregation } = (0, metrics_1.resolveWeatherMetricEntry)(metric, this.configService.historian.topicMap);
+            const { aggregation } = entry;
             const numericValueExpr = `CASE
         WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
           THEN value_string::double precision
@@ -325,7 +340,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             }
             const data = result.rows.map((row) => ({
                 timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-                value: HistorianService_1.toNumber(row.value),
+                value: (0, metrics_1.applyTransform)(HistorianService_1.toNumber(row.value), entry.transform),
                 system: "weather",
                 metric,
             }));
@@ -338,6 +353,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                     errors,
                     binning: HistorianService_1.buildBinningInfo(bucketing),
                     aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+                    ...HistorianService_1.displayMetadata(entry),
                 },
             };
         }
@@ -350,6 +366,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
     async getUnitAggregated(campus, building, system, metric, startTime, endTime, interval, aggregation) {
         const errors = [];
         const topics = {};
+        const entry = (0, metrics_1.resolveUnitMetricEntry)(metric, this.configService.historian.topicMap);
         const topicPath = (0, metrics_1.buildUnitTopicPath)(campus, building, system, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
         const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
@@ -369,7 +386,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             const topicId = await this.resolveTopicId(topicPath);
             if (topicId === null) {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-                return { aggregates: [], metadata: { topics, errors } };
+                return { aggregates: [], metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) } };
             }
             const query = `
         SELECT
@@ -393,10 +410,10 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return {
                 aggregates: result.rows.map((row) => ({
                     timestamp: new Date(row.timestamp),
-                    value: typeof row.value === "string" ? parseFloat(row.value) : null,
+                    value: (0, metrics_1.applyTransform)(typeof row.value === "string" ? parseFloat(row.value) : null, entry.transform),
                     metric,
                 })),
-                metadata: { topics, errors },
+                metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) },
             };
         }
         catch (error) {
@@ -408,6 +425,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
     async getWeatherAggregated(campus, building, metric, startTime, endTime, interval, aggregation) {
         const errors = [];
         const topics = {};
+        const entry = (0, metrics_1.resolveWeatherMetricEntry)(metric, this.configService.historian.topicMap);
         const topicPath = (0, metrics_1.buildWeatherTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
         const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
@@ -427,7 +445,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             const topicId = await this.resolveTopicId(topicPath);
             if (topicId === null) {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-                return { aggregates: [], metadata: { topics, errors } };
+                return { aggregates: [], metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) } };
             }
             const query = `
         SELECT
@@ -451,10 +469,10 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return {
                 aggregates: result.rows.map((row) => ({
                     timestamp: new Date(row.timestamp),
-                    value: typeof row.value === "string" ? parseFloat(row.value) : null,
+                    value: (0, metrics_1.applyTransform)(typeof row.value === "string" ? parseFloat(row.value) : null, entry.transform),
                     metric,
                 })),
-                metadata: { topics, errors },
+                metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) },
             };
         }
         catch (error) {
@@ -466,6 +484,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
     async getMeterCurrentValue(campus, building, metric) {
         const errors = [];
         const topics = {};
+        const entry = (0, metrics_1.resolveMeterMetricEntry)(metric, this.configService.historian.topicMap);
         const topicPath = (0, metrics_1.buildMeterTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
         try {
@@ -483,9 +502,9 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return {
                 system: "meter",
                 metric,
-                value: this.parseValue(row.value_string),
+                value: (0, metrics_1.applyTransform)(this.parseValue(row.value_string), entry.transform),
                 timestamp: new Date(row.ts),
-                metadata: { topics, errors },
+                metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) },
             };
         }
         catch (error) {
@@ -497,16 +516,22 @@ let HistorianService = HistorianService_1 = class HistorianService {
     async getMeterTimeSeries(campus, building, metric, startTime, endTime) {
         const errors = [];
         const topics = {};
+        const entry = (0, metrics_1.resolveMeterMetricEntry)(metric, this.configService.historian.topicMap);
         const topicPath = (0, metrics_1.buildMeterTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
         try {
             const topicId = await this.resolveTopicId(topicPath);
             if (topicId === null) {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-                return { system: "meter", metric, data: [], metadata: { topics, errors } };
+                return {
+                    system: "meter",
+                    metric,
+                    data: [],
+                    metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) },
+                };
             }
             const bucketing = this.resolveBucketing(startTime, endTime);
-            const { aggregation } = (0, metrics_1.resolveMeterMetricEntry)(metric, this.configService.historian.topicMap);
+            const { aggregation } = entry;
             const numericValueExpr = `CASE
         WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
           THEN value_string::double precision
@@ -539,7 +564,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             }
             const data = result.rows.map((row) => ({
                 timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-                value: HistorianService_1.toNumber(row.value),
+                value: (0, metrics_1.applyTransform)(HistorianService_1.toNumber(row.value), entry.transform),
                 system: "meter",
                 metric,
             }));
@@ -552,6 +577,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                     errors,
                     binning: HistorianService_1.buildBinningInfo(bucketing),
                     aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+                    ...HistorianService_1.displayMetadata(entry),
                 },
             };
         }
@@ -564,6 +590,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
     async getMeterAggregated(campus, building, metric, startTime, endTime, interval, aggregation) {
         const errors = [];
         const topics = {};
+        const entry = (0, metrics_1.resolveMeterMetricEntry)(metric, this.configService.historian.topicMap);
         const topicPath = (0, metrics_1.buildMeterTopicPath)(campus, building, metric, this.configService.historian.topicMap);
         topics[metric] = topicPath;
         const intervalMatch = interval.match(/^(\d+)(s|m|h|d)$/);
@@ -583,7 +610,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             const topicId = await this.resolveTopicId(topicPath);
             if (topicId === null) {
                 errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-                return { aggregates: [], metadata: { topics, errors } };
+                return { aggregates: [], metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) } };
             }
             const query = `
         SELECT
@@ -607,10 +634,10 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return {
                 aggregates: result.rows.map((row) => ({
                     timestamp: new Date(row.timestamp),
-                    value: typeof row.value === "string" ? parseFloat(row.value) : null,
+                    value: (0, metrics_1.applyTransform)(typeof row.value === "string" ? parseFloat(row.value) : null, entry.transform),
                     metric,
                 })),
-                metadata: { topics, errors },
+                metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) },
             };
         }
         catch (error) {
@@ -632,9 +659,11 @@ let HistorianService = HistorianService_1 = class HistorianService {
             queryResult[sys] = [];
         });
         const bucketing = this.resolveBucketing(startTime, endTime, interval ?? undefined);
-        const { aggregation: msuAggregation } = (0, metrics_1.resolveUnitMetricEntry)(metric, this.configService.historian.topicMap);
+        const msuEntry = (0, metrics_1.resolveUnitMetricEntry)(metric, this.configService.historian.topicMap);
+        const { aggregation: msuAggregation } = msuEntry;
         const binning = HistorianService_1.buildBinningInfo(bucketing);
         const aggregationLabel = bucketing.mode === "binned" ? msuAggregation : undefined;
+        const displayMeta = HistorianService_1.displayMetadata(msuEntry);
         if (systems.length > 0) {
             const pathToId = await this.resolveTopicIds(Object.values(systemTopics));
             const topicIdToSystem = new Map();
@@ -670,7 +699,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                                 return;
                             queryResult[sys].push({
                                 timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-                                value: typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null),
+                                value: (0, metrics_1.applyTransform)(typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null), msuEntry.transform),
                                 system: sys,
                                 metric,
                             });
@@ -695,7 +724,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                                 return;
                             queryResult[sys].push({
                                 timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-                                value: typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null),
+                                value: (0, metrics_1.applyTransform)(typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null), msuEntry.transform),
                                 system: sys,
                                 metric,
                             });
@@ -738,7 +767,13 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return {
                 system: sys,
                 data,
-                metadata: { topics: { [metric]: systemTopics[sys] }, errors, binning, aggregation: aggregationLabel },
+                metadata: {
+                    topics: { [metric]: systemTopics[sys] },
+                    errors,
+                    binning,
+                    aggregation: aggregationLabel,
+                    ...displayMeta,
+                },
             };
         });
         deniedSystems.forEach((sys) => {
@@ -751,6 +786,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                     errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
                     binning,
                     aggregation: aggregationLabel,
+                    ...displayMeta,
                 },
             });
         });
@@ -764,6 +800,8 @@ let HistorianService = HistorianService_1 = class HistorianService {
         systems.forEach((sys) => {
             grouped[sys.toUpperCase()] = [];
         });
+        const rangesEntry = (0, metrics_1.resolveUnitMetricEntry)(metric, this.configService.historian.topicMap);
+        const rangesDisplayMeta = HistorianService_1.displayMetadata(rangesEntry);
         if (systems.length > 0) {
             const systemTopics = new Map(systems.map((sys) => [sys, (0, metrics_1.buildUnitTopicPath)(campus, building, sys, metric, this.configService.historian.topicMap)]));
             const pathToId = await this.resolveTopicIds([...systemTopics.values()]);
@@ -777,7 +815,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 }
             }
             if (topicIds.length > 0) {
-                const { aggregation } = (0, metrics_1.resolveUnitMetricEntry)(metric, this.configService.historian.topicMap);
+                const { aggregation } = rangesEntry;
                 const valueExpr = `CAST(NULLIF(value_string, 'null') AS double precision)`;
                 const bucketing = this.resolveBucketing(startTime, endTime);
                 try {
@@ -803,7 +841,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                                 seriesByTopic.set(row.topic_id, arr);
                             }
                             const bucketMs = row.bucket instanceof Date ? row.bucket.getTime() : new Date(row.bucket).getTime();
-                            const value = HistorianService_1.toNumber(row.value);
+                            const value = (0, metrics_1.applyTransform)(HistorianService_1.toNumber(row.value), rangesEntry.transform);
                             arr.push({ bucketMs, value });
                         }
                         const stepMs = bucketing.ms;
@@ -906,7 +944,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                                 grouped[key].push({
                                     startTime: new Date(row.start_time),
                                     endTime: new Date(row.end_time),
-                                    value: row.value,
+                                    value: (0, metrics_1.applyTransform)(row.value, rangesEntry.transform),
                                     system: sys,
                                     metric,
                                 });
@@ -930,7 +968,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return {
                 system: sys,
                 ranges,
-                metadata: { topics: { [metric]: topicPath }, errors },
+                metadata: { topics: { [metric]: topicPath }, errors, ...rangesDisplayMeta },
             };
         });
         deniedSystems.forEach((sys) => {
@@ -941,6 +979,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 metadata: {
                     topics: { [metric]: topicPath },
                     errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
+                    ...rangesDisplayMeta,
                 },
             });
         });
@@ -1290,6 +1329,13 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return isFinite(n) ? n : null;
         }
         return null;
+    }
+    static displayMetadata(entry) {
+        return {
+            format: entry.format,
+            prefix: entry.prefix === "" ? undefined : entry.prefix,
+            suffix: entry.suffix === "" ? undefined : entry.suffix,
+        };
     }
     static computeBucketErrorSeries(args) {
         const { startMs, endMs, stepMs, tempByBucket, occupancies, occHeat, occCool, unoccHeat, unoccCool } = args;

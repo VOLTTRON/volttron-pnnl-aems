@@ -1,7 +1,11 @@
-import { UnitMetric, WeatherMetric, MeterMetric, MetricAggregation } from "@local/common";
+import { UnitMetric, WeatherMetric, MeterMetric, MetricAggregation, MetricTransform, MetricFormat } from "@local/common";
 export type MetricMappingEntry = string | {
     topic?: string;
     aggregation?: MetricAggregation;
+    transform?: MetricTransform;
+    format?: MetricFormat;
+    prefix?: string;
+    suffix?: string;
 };
 export interface HistorianTopicMapConfig {
     templates: {

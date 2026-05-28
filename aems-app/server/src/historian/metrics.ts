@@ -3,7 +3,14 @@
  * Core metric enums are exported from @local/prisma
  */
 
-import { UnitMetric, WeatherMetric, MeterMetric, MetricAggregation } from "@local/common";
+import {
+  UnitMetric,
+  WeatherMetric,
+  MeterMetric,
+  MetricAggregation,
+  MetricTransform,
+  MetricFormat,
+} from "@local/common";
 import { HistorianTopicMapConfig, MetricMappingEntry } from "./types";
 
 // ============================================================================
@@ -244,6 +251,152 @@ export const DefaultMeterMetricAggregations: Record<MeterMetric, MetricAggregati
   [MeterMetric.Demand]: MetricAggregation.Max,
 };
 
+// ============================================================================
+// Default per-metric display configuration
+// ============================================================================
+
+/**
+ * Universal fallback when neither the topic map nor the per-metric default
+ * specifies a value.
+ */
+export const DefaultMetricTransform = MetricTransform.None;
+export const DefaultMetricFormat = MetricFormat.None;
+
+/**
+ * Default server-side numeric transform per unit metric.
+ * - Boolean / state codes -> Integer so dashboards never display "1.0".
+ * - Continuous setpoints / temperatures -> Decimal1 (one decimal place).
+ * - Demand percentages -> Decimal1.
+ */
+export const DefaultUnitMetricTransforms: Record<UnitMetric, MetricTransform> = {
+  [UnitMetric.AuxiliaryHeatCommand]: MetricTransform.Integer,
+  [UnitMetric.CoolingDemand]: MetricTransform.Decimal1,
+  [UnitMetric.DeadBand]: MetricTransform.Decimal1,
+  [UnitMetric.DemandResponseFlag]: MetricTransform.Integer,
+  [UnitMetric.EffectiveZoneTemperatureSetPoint]: MetricTransform.Decimal1,
+  [UnitMetric.FirstStageCooling]: MetricTransform.Integer,
+  [UnitMetric.FirstStageHeating]: MetricTransform.Integer,
+  [UnitMetric.HeartBeat]: MetricTransform.Integer,
+  [UnitMetric.HeatingDemand]: MetricTransform.Decimal1,
+  [UnitMetric.OccupancyCommand]: MetricTransform.Integer,
+  [UnitMetric.OccupiedCoolingSetPoint]: MetricTransform.Decimal1,
+  [UnitMetric.OccupiedHeatingSetPoint]: MetricTransform.Decimal1,
+  [UnitMetric.OccupiedSetPoint]: MetricTransform.Decimal1,
+  [UnitMetric.OutdoorAirTemperature]: MetricTransform.Decimal1,
+  [UnitMetric.ReversingValve]: MetricTransform.Integer,
+  [UnitMetric.SecondStageCooling]: MetricTransform.Integer,
+  [UnitMetric.SupplyFanStatus]: MetricTransform.Integer,
+  [UnitMetric.UnoccupiedCoolingSetPoint]: MetricTransform.Decimal1,
+  [UnitMetric.UnoccupiedHeatingSetPoint]: MetricTransform.Decimal1,
+  [UnitMetric.ZoneHumidity]: MetricTransform.Decimal1,
+  [UnitMetric.ZoneTemperature]: MetricTransform.Decimal1,
+};
+
+export const DefaultWeatherMetricTransforms: Record<WeatherMetric, MetricTransform> = {
+  [WeatherMetric.AirPressure]: MetricTransform.Decimal1,
+  [WeatherMetric.AirPressureAtMeanSeaLevel]: MetricTransform.Decimal1,
+  [WeatherMetric.AirTemperature]: MetricTransform.Decimal1,
+  [WeatherMetric.DewPointTemperature]: MetricTransform.Decimal1,
+  [WeatherMetric.HeatIndex]: MetricTransform.Decimal1,
+  [WeatherMetric.HeightAboveMeanSeaLevel]: MetricTransform.Decimal1,
+  [WeatherMetric.PrecipitationLast3Hours]: MetricTransform.Decimal2,
+  [WeatherMetric.PrecipitationLastHour]: MetricTransform.Decimal2,
+  [WeatherMetric.RelativeHumidity]: MetricTransform.Decimal1,
+  [WeatherMetric.VisibilityInAir]: MetricTransform.Decimal1,
+  [WeatherMetric.WindFromDirection]: MetricTransform.Integer,
+  [WeatherMetric.WindSpeed]: MetricTransform.Decimal1,
+  [WeatherMetric.WindSpeedOfGust]: MetricTransform.Decimal1,
+  [WeatherMetric.WindChill]: MetricTransform.Decimal1,
+};
+
+export const DefaultMeterMetricTransforms: Record<MeterMetric, MetricTransform> = {
+  [MeterMetric.Power]: MetricTransform.Decimal2,
+  [MeterMetric.Demand]: MetricTransform.Decimal2,
+};
+
+/**
+ * Default client-side display format per metric. Most metrics use no special
+ * formatting; large meter readings benefit from thousands grouping.
+ */
+export const DefaultUnitMetricFormats: Record<UnitMetric, MetricFormat> = Object.fromEntries(
+  Object.values(UnitMetric).map((m) => [m, MetricFormat.None]),
+) as Record<UnitMetric, MetricFormat>;
+
+export const DefaultWeatherMetricFormats: Record<WeatherMetric, MetricFormat> = Object.fromEntries(
+  Object.values(WeatherMetric).map((m) => [m, MetricFormat.None]),
+) as Record<WeatherMetric, MetricFormat>;
+
+export const DefaultMeterMetricFormats: Record<MeterMetric, MetricFormat> = {
+  [MeterMetric.Power]: MetricFormat.Thousands,
+  [MeterMetric.Demand]: MetricFormat.Thousands,
+};
+
+/**
+ * Default text suffix per metric (no auto-spacing — the suffix is appended
+ * verbatim, so include leading whitespace where needed).
+ */
+export const DefaultUnitMetricSuffixes: Record<UnitMetric, string> = {
+  [UnitMetric.AuxiliaryHeatCommand]: "",
+  [UnitMetric.CoolingDemand]: "%",
+  [UnitMetric.DeadBand]: "°F",
+  [UnitMetric.DemandResponseFlag]: "",
+  [UnitMetric.EffectiveZoneTemperatureSetPoint]: "°F",
+  [UnitMetric.FirstStageCooling]: "",
+  [UnitMetric.FirstStageHeating]: "",
+  [UnitMetric.HeartBeat]: "",
+  [UnitMetric.HeatingDemand]: "%",
+  [UnitMetric.OccupancyCommand]: "",
+  [UnitMetric.OccupiedCoolingSetPoint]: "°F",
+  [UnitMetric.OccupiedHeatingSetPoint]: "°F",
+  [UnitMetric.OccupiedSetPoint]: "°F",
+  [UnitMetric.OutdoorAirTemperature]: "°F",
+  [UnitMetric.ReversingValve]: "",
+  [UnitMetric.SecondStageCooling]: "",
+  [UnitMetric.SupplyFanStatus]: "",
+  [UnitMetric.UnoccupiedCoolingSetPoint]: "°F",
+  [UnitMetric.UnoccupiedHeatingSetPoint]: "°F",
+  [UnitMetric.ZoneHumidity]: "%",
+  [UnitMetric.ZoneTemperature]: "°F",
+};
+
+export const DefaultWeatherMetricSuffixes: Record<WeatherMetric, string> = {
+  [WeatherMetric.AirPressure]: " Pa",
+  [WeatherMetric.AirPressureAtMeanSeaLevel]: " Pa",
+  [WeatherMetric.AirTemperature]: "°F",
+  [WeatherMetric.DewPointTemperature]: "°F",
+  [WeatherMetric.HeatIndex]: "°F",
+  [WeatherMetric.HeightAboveMeanSeaLevel]: " m",
+  [WeatherMetric.PrecipitationLast3Hours]: " in",
+  [WeatherMetric.PrecipitationLastHour]: " in",
+  [WeatherMetric.RelativeHumidity]: "%",
+  [WeatherMetric.VisibilityInAir]: " m",
+  [WeatherMetric.WindFromDirection]: "°",
+  [WeatherMetric.WindSpeed]: " mph",
+  [WeatherMetric.WindSpeedOfGust]: " mph",
+  [WeatherMetric.WindChill]: "°F",
+};
+
+export const DefaultMeterMetricSuffixes: Record<MeterMetric, string> = {
+  [MeterMetric.Power]: " W",
+  [MeterMetric.Demand]: " W",
+};
+
+/**
+ * Default text prefix per metric. Empty for all metrics by default; deployments
+ * that need a currency-style prefix can override via the topic map.
+ */
+export const DefaultUnitMetricPrefixes: Record<UnitMetric, string> = Object.fromEntries(
+  Object.values(UnitMetric).map((m) => [m, ""]),
+) as Record<UnitMetric, string>;
+
+export const DefaultWeatherMetricPrefixes: Record<WeatherMetric, string> = Object.fromEntries(
+  Object.values(WeatherMetric).map((m) => [m, ""]),
+) as Record<WeatherMetric, string>;
+
+export const DefaultMeterMetricPrefixes: Record<MeterMetric, string> = Object.fromEntries(
+  Object.values(MeterMetric).map((m) => [m, ""]),
+) as Record<MeterMetric, string>;
+
 /**
  * Metadata for weather metrics
  */
@@ -370,55 +523,114 @@ export function getMetricTopicName(metric: UnitMetric | WeatherMetric | MeterMet
 // ============================================================================
 
 /**
- * Normalize a `MetricMappingEntry` into a fully resolved `{ topic, aggregation }`
- * pair. Entries can be either a bare string (legacy form, just the topic name)
- * or an object with optional `topic` / `aggregation` fields. Missing fields
- * fall back to the supplied defaults.
+ * Fully resolved per-metric entry. Used internally so every part of the
+ * server (path builders, SQL builders, response metadata population) reads
+ * from a single shape instead of poking the topic map repeatedly.
  */
-function resolveEntry(
-  entry: MetricMappingEntry | undefined,
-  defaultTopic: string,
-  defaultAggregation: MetricAggregation,
-): { topic: string; aggregation: MetricAggregation } {
+export interface ResolvedMetricEntry {
+  topic: string;
+  aggregation: MetricAggregation;
+  transform: MetricTransform;
+  format: MetricFormat;
+  prefix: string;
+  suffix: string;
+}
+
+interface EntryDefaults {
+  topic: string;
+  aggregation: MetricAggregation;
+  transform: MetricTransform;
+  format: MetricFormat;
+  prefix: string;
+  suffix: string;
+}
+
+/**
+ * Normalize a `MetricMappingEntry` into a fully resolved entry. Entries can be
+ * either a bare string (legacy form, just the topic name) or an object with
+ * any subset of fields. Missing fields fall back to the supplied defaults.
+ */
+function resolveEntry(entry: MetricMappingEntry | undefined, defaults: EntryDefaults): ResolvedMetricEntry {
   if (entry == null) {
-    return { topic: defaultTopic, aggregation: defaultAggregation };
+    return { ...defaults };
   }
   if (typeof entry === "string") {
-    return { topic: entry, aggregation: defaultAggregation };
+    return { ...defaults, topic: entry };
   }
   return {
-    topic: entry.topic ?? defaultTopic,
-    aggregation: entry.aggregation ?? defaultAggregation,
+    topic: entry.topic ?? defaults.topic,
+    aggregation: entry.aggregation ?? defaults.aggregation,
+    transform: entry.transform ?? defaults.transform,
+    format: entry.format ?? defaults.format,
+    prefix: entry.prefix ?? defaults.prefix,
+    suffix: entry.suffix ?? defaults.suffix,
   };
 }
 
 export function resolveUnitMetricEntry(
   metric: UnitMetric,
   topicMap?: Partial<HistorianTopicMapConfig>,
-): { topic: string; aggregation: MetricAggregation } {
-  return resolveEntry(topicMap?.unitMetrics?.[metric], metric, DefaultUnitMetricAggregations[metric]);
+): ResolvedMetricEntry {
+  return resolveEntry(topicMap?.unitMetrics?.[metric], {
+    topic: metric,
+    aggregation: DefaultUnitMetricAggregations[metric],
+    transform: DefaultUnitMetricTransforms[metric] ?? DefaultMetricTransform,
+    format: DefaultUnitMetricFormats[metric] ?? DefaultMetricFormat,
+    prefix: DefaultUnitMetricPrefixes[metric] ?? "",
+    suffix: DefaultUnitMetricSuffixes[metric] ?? "",
+  });
 }
 
 export function resolveWeatherMetricEntry(
   metric: WeatherMetric,
   topicMap?: Partial<HistorianTopicMapConfig>,
-): { topic: string; aggregation: MetricAggregation } {
-  return resolveEntry(
-    topicMap?.weatherMetrics?.[metric],
-    DefaultWeatherMetricMappings[metric] ?? metric,
-    DefaultWeatherMetricAggregations[metric],
-  );
+): ResolvedMetricEntry {
+  return resolveEntry(topicMap?.weatherMetrics?.[metric], {
+    topic: DefaultWeatherMetricMappings[metric] ?? metric,
+    aggregation: DefaultWeatherMetricAggregations[metric],
+    transform: DefaultWeatherMetricTransforms[metric] ?? DefaultMetricTransform,
+    format: DefaultWeatherMetricFormats[metric] ?? DefaultMetricFormat,
+    prefix: DefaultWeatherMetricPrefixes[metric] ?? "",
+    suffix: DefaultWeatherMetricSuffixes[metric] ?? "",
+  });
 }
 
 export function resolveMeterMetricEntry(
   metric: MeterMetric,
   topicMap?: Partial<HistorianTopicMapConfig>,
-): { topic: string; aggregation: MetricAggregation } {
-  return resolveEntry(
-    topicMap?.meterMetrics?.[metric],
-    DefaultMeterMetricMappings[metric] ?? metric,
-    DefaultMeterMetricAggregations[metric],
-  );
+): ResolvedMetricEntry {
+  return resolveEntry(topicMap?.meterMetrics?.[metric], {
+    topic: DefaultMeterMetricMappings[metric] ?? metric,
+    aggregation: DefaultMeterMetricAggregations[metric],
+    transform: DefaultMeterMetricTransforms[metric] ?? DefaultMetricTransform,
+    format: DefaultMeterMetricFormats[metric] ?? DefaultMetricFormat,
+    prefix: DefaultMeterMetricPrefixes[metric] ?? "",
+    suffix: DefaultMeterMetricSuffixes[metric] ?? "",
+  });
+}
+
+/**
+ * Apply the configured numeric transform. Null passes through. Used by
+ * historian.service so every wire payload carries already-quantized values.
+ */
+export function applyTransform(value: number | null, transform: MetricTransform): number | null {
+  if (value == null || !Number.isFinite(value)) return value;
+  switch (transform) {
+    case MetricTransform.None:
+      return value;
+    case MetricTransform.Integer:
+      return Math.round(value);
+    case MetricTransform.Decimal1:
+      return Math.round(value * 10) / 10;
+    case MetricTransform.Decimal2:
+      return Math.round(value * 100) / 100;
+    case MetricTransform.Decimal3:
+      return Math.round(value * 1000) / 1000;
+    case MetricTransform.Floor:
+      return Math.floor(value);
+    case MetricTransform.Ceiling:
+      return Math.ceil(value);
+  }
 }
 
 /**
@@ -427,6 +639,28 @@ export function resolveMeterMetricEntry(
  * written to a JSON file and customized by users
  */
 export function generateDefaultTopicMapConfig(): HistorianTopicMapConfig {
+  const buildEntry = (
+    topic: string,
+    aggregation: MetricAggregation,
+    transform: MetricTransform,
+    format: MetricFormat,
+    prefix: string,
+    suffix: string,
+  ): MetricMappingEntry => {
+    // Only include non-default display fields so the serialized config stays compact.
+    const entry: { topic: string; aggregation: MetricAggregation } & Partial<{
+      transform: MetricTransform;
+      format: MetricFormat;
+      prefix: string;
+      suffix: string;
+    }> = { topic, aggregation };
+    if (transform !== DefaultMetricTransform) entry.transform = transform;
+    if (format !== DefaultMetricFormat) entry.format = format;
+    if (prefix !== "") entry.prefix = prefix;
+    if (suffix !== "") entry.suffix = suffix;
+    return entry;
+  };
+
   return {
     templates: {
       Unit: DefaultTopicTemplates.Unit,
@@ -434,18 +668,42 @@ export function generateDefaultTopicMapConfig(): HistorianTopicMapConfig {
       Meter: DefaultTopicTemplates.Meter,
     },
     unitMetrics: Object.fromEntries(
-      Object.values(UnitMetric).map((m) => [m, { topic: m, aggregation: DefaultUnitMetricAggregations[m] }]),
+      Object.values(UnitMetric).map((m) => [
+        m,
+        buildEntry(
+          m,
+          DefaultUnitMetricAggregations[m],
+          DefaultUnitMetricTransforms[m] ?? DefaultMetricTransform,
+          DefaultUnitMetricFormats[m] ?? DefaultMetricFormat,
+          DefaultUnitMetricPrefixes[m] ?? "",
+          DefaultUnitMetricSuffixes[m] ?? "",
+        ),
+      ]),
     ) as Record<UnitMetric, MetricMappingEntry>,
     weatherMetrics: Object.fromEntries(
       Object.values(WeatherMetric).map((m) => [
         m,
-        { topic: DefaultWeatherMetricMappings[m], aggregation: DefaultWeatherMetricAggregations[m] },
+        buildEntry(
+          DefaultWeatherMetricMappings[m],
+          DefaultWeatherMetricAggregations[m],
+          DefaultWeatherMetricTransforms[m] ?? DefaultMetricTransform,
+          DefaultWeatherMetricFormats[m] ?? DefaultMetricFormat,
+          DefaultWeatherMetricPrefixes[m] ?? "",
+          DefaultWeatherMetricSuffixes[m] ?? "",
+        ),
       ]),
     ) as Record<WeatherMetric, MetricMappingEntry>,
     meterMetrics: Object.fromEntries(
       Object.values(MeterMetric).map((m) => [
         m,
-        { topic: DefaultMeterMetricMappings[m], aggregation: DefaultMeterMetricAggregations[m] },
+        buildEntry(
+          DefaultMeterMetricMappings[m],
+          DefaultMeterMetricAggregations[m],
+          DefaultMeterMetricTransforms[m] ?? DefaultMetricTransform,
+          DefaultMeterMetricFormats[m] ?? DefaultMetricFormat,
+          DefaultMeterMetricPrefixes[m] ?? "",
+          DefaultMeterMetricSuffixes[m] ?? "",
+        ),
       ]),
     ) as Record<MeterMetric, MetricMappingEntry>,
   };
