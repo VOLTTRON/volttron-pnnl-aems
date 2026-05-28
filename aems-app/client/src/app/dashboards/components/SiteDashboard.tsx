@@ -16,6 +16,7 @@ import { ECharts } from "@/app/components/common/echarts";
 import { graphic } from "echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
+import { BinningCallout, pickBinningInfo } from "./BinningCallout";
 import { paddedRange } from "../utils/chartAxis";
 import styles from "./SiteDashboard.module.scss";
 import { MeterMetric, typeofString } from "@local/common";
@@ -155,10 +156,11 @@ export function SiteDashboard({
       .map((sys) => {
         const result = setpointErrorResults[sys];
         if (!result?.data) return null;
+        const sourceMetadata = (result.data as { metadata?: any }).metadata;
         return {
           system: sys,
           data: result.data.data,
-          metadata: { topics: {}, errors: [] },
+          metadata: sourceMetadata ?? { topics: {}, errors: [] },
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
@@ -277,8 +279,14 @@ export function SiteDashboard({
 
   // Custom tooltip body for the timeline charts. We build the HTML ourselves
   // so we can drop the default `seriesName: value` line (always a duplicate
-  // of the bin label) and add start/end/duration on their own lines.
-  const formatTimelineTooltip = (params: any, formatLabel: (label: string, raw: number | null) => string) => {
+  // of the bin label) and add start/end/duration on their own lines. When the
+  // backing data is binned, the aggregation that produced each bucket value
+  // is appended to the duration line.
+  const formatTimelineTooltip = (
+    params: any,
+    formatLabel: (label: string, raw: number | null) => string,
+    aggregation?: string | null,
+  ) => {
     const value = params?.value;
     if (!Array.isArray(value)) return "";
     const [systemName, segmentStart, segmentEnd, label, , rawValue] = value as [
@@ -300,6 +308,9 @@ export function SiteDashboard({
       lines.push(`Start: ${fmt(start)}`);
       lines.push(`End: ${fmt(end)}`);
       lines.push(`Duration: ${formatDuration(end.getTime() - start.getTime())}`);
+    }
+    if (aggregation) {
+      lines.push(`Aggregation: ${aggregation}`);
     }
     return lines.join("<br/>");
   };
@@ -446,13 +457,30 @@ export function SiteDashboard({
     return series;
   };
 
+  // All charts in this dashboard share the same time range, so the binning
+  // mode/interval is the same across queries. Pick the first one we find.
+  const binningInfo = React.useMemo(
+    () =>
+      pickBinningInfo(
+        occupancyData?.historianMultiSystemUnit,
+        outdoorTempData?.historianMultiSystemUnit,
+        weatherData?.historianWeatherTimeSeries,
+        powerData?.historianMeterTimeSeries,
+        setpointErrorData?.historianMultiSystemUnit,
+      ),
+    [occupancyData, outdoorTempData, weatherData, powerData, setpointErrorData],
+  );
+
   return (
     <div className={styles.dashboard}>
       <div className={styles.header}>
         <h1>
           {campus} {building} - Site Overview
         </h1>
-        <TimeRangeSelector onApply={onApplyTimeRange} />
+        <div className={styles.controls}>
+          <BinningCallout binning={binningInfo} />
+          <TimeRangeSelector onApply={onApplyTimeRange} />
+        </div>
       </div>
 
       <div className={styles.timelineGrid}>
@@ -474,7 +502,12 @@ export function SiteDashboard({
                 },
                 tooltip: {
                   trigger: "item",
-                  formatter: (params: any) => formatTimelineTooltip(params, (label) => label),
+                  formatter: (params: any) =>
+                    formatTimelineTooltip(
+                      params,
+                      (label) => label,
+                      occupancyData?.historianMultiSystemUnit?.[0]?.metadata?.aggregation,
+                    ),
                 },
                 legend: {
                   bottom: 0,
@@ -556,11 +589,15 @@ export function SiteDashboard({
                 tooltip: {
                   trigger: "item",
                   formatter: (params: any) =>
-                    formatTimelineTooltip(params, (label, raw) => {
-                      if (raw == null) return label;
-                      const sign = raw > 0 ? "+" : "";
-                      return `${label} (${sign}${raw.toFixed(1)}°F)`;
-                    }),
+                    formatTimelineTooltip(
+                      params,
+                      (label, raw) => {
+                        if (raw == null) return label;
+                        const sign = raw > 0 ? "+" : "";
+                        return `${label} (${sign}${raw.toFixed(1)}°F)`;
+                      },
+                      setpointErrorData?.historianMultiSystemUnit?.[0]?.metadata?.aggregation,
+                    ),
                 },
                 legend: {
                   bottom: 0,
@@ -632,11 +669,6 @@ export function SiteDashboard({
                   axisPointer: {
                     animation: false,
                   },
-                  valueFormatter: (value: any) => {
-                    if (value == null) return "N/A";
-                    if (typeof value !== "number") return String(value);
-                    return `${value.toFixed(2)}°F`;
-                  },
                 },
                 legend: { bottom: 0, show: true },
                 dataZoom: [
@@ -666,38 +698,52 @@ export function SiteDashboard({
                   scale: true,
                   ...paddedRange(),
                 },
-                series: [
-                  // Weather station outdoor temperature
-                  ...(weatherData?.historianWeatherTimeSeries
-                    ? [
-                        {
-                          name: "Weather Station",
-                          type: "line" as const,
-                          smooth: true,
-                          sampling: "lttb" as const,
-                          showSymbol: false,
-                          itemStyle: { color: metricColors[WeatherMetric.AirTemperature] },
-                          lineStyle: { color: metricColors[WeatherMetric.AirTemperature], width: 1.5 },
-                          data:
-                            weatherData.historianWeatherTimeSeries.data?.map((point: any) => [
-                              point.timestamp,
-                              point.value,
-                            ]) || [],
-                        },
-                      ]
-                    : []),
-                  // Unit sensor outdoor temperatures — each system gets a unique pool color
-                  ...(outdoorTempData?.historianMultiSystemUnit?.map((systemData: any) => ({
-                    name: `${systemData.system} Sensor`,
-                    type: "line" as const,
-                    smooth: true,
-                    sampling: "lttb" as const,
-                    showSymbol: false,
-                    itemStyle: { color: getUnitColor(systemData.system) },
-                    lineStyle: { color: getUnitColor(systemData.system), width: 1.5 },
-                    data: systemData.data?.map((point: any) => [point.timestamp, point.value]) || [],
-                  })) || []),
-                ],
+                series: (() => {
+                  // Per-series tooltip formatters carry each series's
+                  // aggregation in a closure so binned views read
+                  // "72.40°F (mean)" while raw views read "72.40°F".
+                  const formatTempWith = (agg?: string | null) => (value: any) => {
+                    if (value == null) return "N/A";
+                    const text = typeof value === "number" ? `${value.toFixed(2)}°F` : String(value);
+                    return agg ? `${text} (${agg})` : text;
+                  };
+                  const weatherAgg = weatherData?.historianWeatherTimeSeries?.metadata?.aggregation;
+                  const outdoorAgg = outdoorTempData?.historianMultiSystemUnit?.[0]?.metadata?.aggregation;
+                  return [
+                    // Weather station outdoor temperature
+                    ...(weatherData?.historianWeatherTimeSeries
+                      ? [
+                          {
+                            name: "Weather Station",
+                            type: "line" as const,
+                            smooth: true,
+                            sampling: "lttb" as const,
+                            showSymbol: false,
+                            itemStyle: { color: metricColors[WeatherMetric.AirTemperature] },
+                            lineStyle: { color: metricColors[WeatherMetric.AirTemperature], width: 1.5 },
+                            tooltip: { valueFormatter: formatTempWith(weatherAgg) },
+                            data:
+                              weatherData.historianWeatherTimeSeries.data?.map((point: any) => [
+                                point.timestamp,
+                                point.value,
+                              ]) || [],
+                          },
+                        ]
+                      : []),
+                    // Unit sensor outdoor temperatures — each system gets a unique pool color
+                    ...(outdoorTempData?.historianMultiSystemUnit?.map((systemData: any) => ({
+                      name: `${systemData.system} Sensor`,
+                      type: "line" as const,
+                      smooth: true,
+                      sampling: "lttb" as const,
+                      showSymbol: false,
+                      itemStyle: { color: getUnitColor(systemData.system) },
+                      lineStyle: { color: getUnitColor(systemData.system), width: 1.5 },
+                      tooltip: { valueFormatter: formatTempWith(outdoorAgg) },
+                      data: systemData.data?.map((point: any) => [point.timestamp, point.value]) || [],
+                    })) || []),
+                  ];
+                })(),
               }}
               style={{ height: "380px" }}
               theme={mode}
@@ -724,11 +770,6 @@ export function SiteDashboard({
                   appendToBody: true,
                   axisPointer: {
                     animation: false,
-                  },
-                  valueFormatter: (value: any) => {
-                    if (value == null) return "N/A";
-                    if (typeof value !== "number") return String(value);
-                    return `${value.toFixed(2)} W`;
                   },
                 },
                 legend: { bottom: 0, show: true },
@@ -760,22 +801,31 @@ export function SiteDashboard({
                   ...paddedRange(),
                 },
                 series: powerData?.historianMeterTimeSeries
-                  ? [
-                      {
-                        name: "Building Power",
-                        type: "line",
-                        smooth: true,
-                        sampling: "lttb" as const,
-                        showSymbol: false,
-                        itemStyle: { color: secondaryPalette.secondary.hex }, // Use secondary palette for power/demand
-                        lineStyle: { color: secondaryPalette.secondary.hex, width: 1.5 },
-                        data:
-                          powerData.historianMeterTimeSeries.data?.map((point: any) => [
-                            point.timestamp,
-                            point.value,
-                          ]) || [],
-                      },
-                    ]
+                  ? (() => {
+                      const powerAgg = powerData.historianMeterTimeSeries.metadata?.aggregation;
+                      const formatPower = (value: any) => {
+                        if (value == null) return "N/A";
+                        const text = typeof value === "number" ? `${value.toFixed(2)} W` : String(value);
+                        return powerAgg ? `${text} (${powerAgg})` : text;
+                      };
+                      return [
+                        {
+                          name: "Building Power",
+                          type: "line",
+                          smooth: true,
+                          sampling: "lttb" as const,
+                          showSymbol: false,
+                          itemStyle: { color: secondaryPalette.secondary.hex },
+                          lineStyle: { color: secondaryPalette.secondary.hex, width: 1.5 },
+                          tooltip: { valueFormatter: formatPower },
+                          data:
+                            powerData.historianMeterTimeSeries.data?.map((point: any) => [
+                              point.timestamp,
+                              point.value,
+                            ]) || [],
+                        },
+                      ];
+                    })()
                   : [],
               }}
               style={{ height: "380px" }}

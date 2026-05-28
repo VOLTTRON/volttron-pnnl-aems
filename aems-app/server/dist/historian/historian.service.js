@@ -266,7 +266,12 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 system,
                 metric,
                 data,
-                metadata: { topics, errors },
+                metadata: {
+                    topics,
+                    errors,
+                    binning: HistorianService_1.buildBinningInfo(bucketing),
+                    aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+                },
             };
         }
         catch (error) {
@@ -328,7 +333,12 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 system: "weather",
                 metric,
                 data,
-                metadata: { topics, errors },
+                metadata: {
+                    topics,
+                    errors,
+                    binning: HistorianService_1.buildBinningInfo(bucketing),
+                    aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+                },
             };
         }
         catch (error) {
@@ -537,7 +547,12 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 system: "meter",
                 metric,
                 data,
-                metadata: { topics, errors },
+                metadata: {
+                    topics,
+                    errors,
+                    binning: HistorianService_1.buildBinningInfo(bucketing),
+                    aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+                },
             };
         }
         catch (error) {
@@ -617,6 +632,9 @@ let HistorianService = HistorianService_1 = class HistorianService {
             queryResult[sys] = [];
         });
         const bucketing = this.resolveBucketing(startTime, endTime, interval ?? undefined);
+        const { aggregation: msuAggregation } = (0, metrics_1.resolveUnitMetricEntry)(metric, this.configService.historian.topicMap);
+        const binning = HistorianService_1.buildBinningInfo(bucketing);
+        const aggregationLabel = bucketing.mode === "binned" ? msuAggregation : undefined;
         if (systems.length > 0) {
             const pathToId = await this.resolveTopicIds(Object.values(systemTopics));
             const topicIdToSystem = new Map();
@@ -629,7 +647,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 }
             }
             if (topicIds.length > 0) {
-                const { aggregation } = (0, metrics_1.resolveUnitMetricEntry)(metric, this.configService.historian.topicMap);
+                const aggregation = msuAggregation;
                 const valueExpr = `CAST(NULLIF(value_string, 'null') AS double precision)`;
                 try {
                     if (bucketing.mode === "binned") {
@@ -720,7 +738,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return {
                 system: sys,
                 data,
-                metadata: { topics: { [metric]: systemTopics[sys] }, errors },
+                metadata: { topics: { [metric]: systemTopics[sys] }, errors, binning, aggregation: aggregationLabel },
             };
         });
         deniedSystems.forEach((sys) => {
@@ -731,6 +749,8 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 metadata: {
                     topics: { [metric]: topicPath },
                     errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
+                    binning,
+                    aggregation: aggregationLabel,
                 },
             });
         });
@@ -1237,6 +1257,31 @@ let HistorianService = HistorianService_1 = class HistorianService {
         const u = unitMap[unit];
         return { sql: `${n} ${u.name}`, ms: n * u.ms };
     }
+    static formatIntervalLabel(ms) {
+        if (!Number.isFinite(ms) || ms <= 0)
+            return `${Math.max(0, Math.round(ms))}ms`;
+        const day = 86_400_000;
+        const hour = 3_600_000;
+        const minute = 60_000;
+        const second = 1000;
+        if (ms % day === 0)
+            return `${ms / day}d`;
+        if (ms % hour === 0)
+            return `${ms / hour}h`;
+        if (ms % minute === 0)
+            return `${ms / minute}m`;
+        return `${Math.round(ms / second)}s`;
+    }
+    static buildBinningInfo(bucketing) {
+        if (bucketing.mode === "raw") {
+            return { mode: "raw" };
+        }
+        return {
+            mode: "binned",
+            intervalMs: bucketing.ms,
+            intervalLabel: HistorianService_1.formatIntervalLabel(bucketing.ms),
+        };
+    }
     static toNumber(v) {
         if (typeof v === "number")
             return isFinite(v) ? v : null;
@@ -1519,7 +1564,16 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 system,
                 metric: tempMetric,
                 data,
-                metadata: { topics, errors },
+                metadata: {
+                    topics,
+                    errors,
+                    binning: HistorianService_1.buildBinningInfo({
+                        mode: "binned",
+                        sql: bucketInterval.sql,
+                        ms: bucketInterval.ms,
+                    }),
+                    aggregation: common_3.MetricAggregation.Mean,
+                },
             };
         }
         catch (error) {

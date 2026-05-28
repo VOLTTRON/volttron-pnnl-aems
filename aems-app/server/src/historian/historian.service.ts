@@ -16,6 +16,7 @@ import {
   HistorianAggregateResult,
   HistorianMetricCurrent,
   HistorianQueryMetadata,
+  HistorianBinningInfo,
   HistorianMultiSystemData,
   AggregationType,
   CalculationType,
@@ -30,6 +31,7 @@ import {
   UnitMetric,
   WeatherMetric,
   MeterMetric,
+  MetricAggregation,
 } from "@local/common";
 import {
   buildUnitTopicPath,
@@ -420,7 +422,12 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         system,
         metric,
         data,
-        metadata: { topics, errors },
+        metadata: {
+          topics,
+          errors,
+          binning: HistorianService.buildBinningInfo(bucketing),
+          aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+        },
       };
     } catch (error) {
       this.logger.error("Error fetching unit time series", error);
@@ -505,7 +512,12 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         system: "weather",
         metric,
         data,
-        metadata: { topics, errors },
+        metadata: {
+          topics,
+          errors,
+          binning: HistorianService.buildBinningInfo(bucketing),
+          aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+        },
       };
     } catch (error) {
       this.logger.error("Error fetching weather time series", error);
@@ -793,7 +805,12 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         system: "meter",
         metric,
         data,
-        metadata: { topics, errors },
+        metadata: {
+          topics,
+          errors,
+          binning: HistorianService.buildBinningInfo(bucketing),
+          aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+        },
       };
     } catch (error) {
       this.logger.error("Error fetching meter time series", error);
@@ -910,6 +927,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     });
 
     const bucketing = this.resolveBucketing(startTime, endTime, interval ?? undefined);
+    const { aggregation: msuAggregation } = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+    const binning = HistorianService.buildBinningInfo(bucketing);
+    const aggregationLabel = bucketing.mode === "binned" ? msuAggregation : undefined;
 
     if (systems.length > 0) {
       // Resolve every system's topic_id up front so the data query is a
@@ -928,7 +948,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       if (topicIds.length > 0) {
         // Aggregation comes from the topic map — no more guessing per metric.
-        const { aggregation } = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+        const aggregation = msuAggregation;
         const valueExpr = `CAST(NULLIF(value_string, 'null') AS double precision)`;
 
         try {
@@ -1030,7 +1050,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         system: sys,
         data,
-        metadata: { topics: { [metric]: systemTopics[sys] }, errors },
+        metadata: { topics: { [metric]: systemTopics[sys] }, errors, binning, aggregation: aggregationLabel },
       };
     });
 
@@ -1043,6 +1063,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         metadata: {
           topics: { [metric]: topicPath },
           errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
+          binning,
+          aggregation: aggregationLabel,
         },
       });
     });
@@ -1671,6 +1693,42 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     return { sql: `${n} ${u.name}`, ms: n * u.ms };
   }
 
+  /**
+   * Format a millisecond bucket width as a short human label like "5m" or
+   * "1h", choosing the largest whole unit that divides cleanly. Falls back
+   * to seconds for sub-minute or non-divisible widths so the label always
+   * round-trips to a valid client-interval string.
+   */
+  private static formatIntervalLabel(ms: number): string {
+    if (!Number.isFinite(ms) || ms <= 0) return `${Math.max(0, Math.round(ms))}ms`;
+    const day = 86_400_000;
+    const hour = 3_600_000;
+    const minute = 60_000;
+    const second = 1000;
+    if (ms % day === 0) return `${ms / day}d`;
+    if (ms % hour === 0) return `${ms / hour}h`;
+    if (ms % minute === 0) return `${ms / minute}m`;
+    return `${Math.round(ms / second)}s`;
+  }
+
+  /**
+   * Build the binning metadata that gets attached to historian results so
+   * the dashboard can show whether the values it received are raw historian
+   * samples or fixed-width buckets, and what bucket width was used.
+   */
+  private static buildBinningInfo(
+    bucketing: { mode: "binned"; sql: string; ms: number } | { mode: "raw" },
+  ): HistorianBinningInfo {
+    if (bucketing.mode === "raw") {
+      return { mode: "raw" };
+    }
+    return {
+      mode: "binned",
+      intervalMs: bucketing.ms,
+      intervalLabel: HistorianService.formatIntervalLabel(bucketing.ms),
+    };
+  }
+
   private static toNumber(v: string | number | null | undefined): number | null {
     if (typeof v === "number") return isFinite(v) ? v : null;
     if (typeof v === "string") {
@@ -2023,7 +2081,16 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         system,
         metric: tempMetric,
         data,
-        metadata: { topics, errors },
+        metadata: {
+          topics,
+          errors,
+          binning: HistorianService.buildBinningInfo({
+            mode: "binned",
+            sql: bucketInterval.sql,
+            ms: bucketInterval.ms,
+          }),
+          aggregation: MetricAggregation.Mean,
+        },
       };
     } catch (error) {
       this.logger.error("Error calculating setpoint error", error);

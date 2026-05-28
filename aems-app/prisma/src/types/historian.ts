@@ -84,6 +84,21 @@ export enum MeterMetric {
 // ============================================================================
 
 /**
+ * Describes how query results were bucketed in time. When `mode` is "raw",
+ * samples are returned at native historian resolution; when "binned", samples
+ * were collapsed into fixed-width buckets via Postgres `date_bin`. The
+ * per-metric aggregation lives on `HistorianQueryMetadata.aggregation` since
+ * it is metric-scoped, not time-scoped.
+ */
+export interface HistorianBinningInfo {
+  mode: "raw" | "binned";
+  /** Bucket width in milliseconds. Only present when mode === "binned". */
+  intervalMs?: number;
+  /** Short human label (e.g. "5m", "1h") suitable for UI callouts. */
+  intervalLabel?: string;
+}
+
+/**
  * Metadata for troubleshooting historian queries
  * Includes constructed topic paths and any errors/warnings encountered during query execution
  */
@@ -99,6 +114,20 @@ export interface HistorianQueryMetadata {
    * Includes access control denials, query errors, mapping issues, etc.
    */
   errors: string[];
+
+  /**
+   * How the result was bucketed. Optional so older callers/serialized payloads
+   * remain compatible; the dashboard reads it to surface a "binned vs. raw"
+   * callout.
+   */
+  binning?: HistorianBinningInfo;
+
+  /**
+   * The per-metric aggregation that produced this result (e.g. "mean", "max").
+   * Populated when `binning.mode === "binned"`; charts surface it in their
+   * tooltip so users can see which aggregation drove each bucket value.
+   */
+  aggregation?: string;
 }
 
 export interface HistorianDataPoint {

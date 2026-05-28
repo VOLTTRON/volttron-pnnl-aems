@@ -41,9 +41,16 @@ export declare enum MeterMetric {
     Power = "Power",
     Demand = "Demand"
 }
+export interface HistorianBinningInfo {
+    mode: "raw" | "binned";
+    intervalMs?: number;
+    intervalLabel?: string;
+}
 export interface HistorianQueryMetadata {
     topics: Record<string, string>;
     errors: string[];
+    binning?: HistorianBinningInfo;
+    aggregation?: string;
 }
 export interface HistorianDataPoint {
     timestamp: Date;

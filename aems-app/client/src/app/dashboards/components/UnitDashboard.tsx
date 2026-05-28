@@ -14,6 +14,7 @@ import {
 import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
+import { BinningCallout, pickBinningInfo } from "./BinningCallout";
 import { paddedRange } from "../utils/chartAxis";
 import styles from "./UnitDashboard.module.scss";
 import { Palettes } from "@/utils/palette";
@@ -529,11 +530,29 @@ export function UnitDashboard({
     return { min, max, bandsPerSide, gradient: buildBandedTempGradient(bandsPerSide) };
   }, [zoneTempValue, buildBandedTempGradient]);
 
+  // Each chart issues its own historian query, but they share the same
+  // start/end time so the bin mode/width is consistent. Pull the first
+  // binning record we can find off any of the time-series results.
+  const binningInfo = React.useMemo(
+    () =>
+      pickBinningInfo(
+        zoneTempSeries?.historianUnitTimeSeries,
+        outdoorTempSeries?.historianWeatherTimeSeries,
+        occupancyCommandSeries?.historianUnitTimeSeries,
+        powerData?.historianMeterTimeSeries,
+        heatingSetpointSeries?.historianUnitTimeSeries,
+      ),
+    [zoneTempSeries, outdoorTempSeries, occupancyCommandSeries, powerData, heatingSetpointSeries],
+  );
+
   return (
     <div className={styles.dashboard}>
       <div className={styles.header}>
         <h1>{unit.label || unit.name}</h1>
-        <TimeRangeSelector onApply={onApplyTimeRange} />
+        <div className={styles.controls}>
+          <BinningCallout binning={binningInfo} />
+          <TimeRangeSelector onApply={onApplyTimeRange} />
+        </div>
       </div>
 
       <div className={styles.gauges}>
@@ -1105,19 +1124,44 @@ export function UnitDashboard({
                   // tooltip.valueFormatter doesn't receive the series index
                   // (the second arg is the data-point index), so attaching
                   // formatters per series is the only way to get reliable
-                  // per-series units.
-                  const formatStatus = (value: any) => {
+                  // per-series units. Each series also closes over its
+                  // own aggregation label, so binned views show e.g.
+                  // "72.4°F (mean)" while raw views stay unchanged.
+                  const aggSuffix = (agg?: string | null) => (agg ? ` (${agg})` : "");
+                  const formatStatus = (agg?: string | null) => (value: any) => {
                     if (value == null) return "N/A";
-                    return typeof value === "number" ? value.toFixed(2) : String(value);
+                    const text = typeof value === "number" ? value.toFixed(2) : String(value);
+                    return `${text}${aggSuffix(agg)}`;
                   };
-                  const formatTemp = (value: any) => {
+                  const formatTemp = (agg?: string | null) => (value: any) => {
                     if (value == null) return "N/A";
-                    return typeof value === "number" ? `${value.toFixed(2)}°F` : String(value);
+                    const text = typeof value === "number" ? `${value.toFixed(2)}°F` : String(value);
+                    return `${text}${aggSuffix(agg)}`;
                   };
-                  const formatHumidity = (value: any) => {
+                  const formatHumidity = (agg?: string | null) => (value: any) => {
                     if (value == null) return "N/A";
-                    return typeof value === "number" ? `${value.toFixed(2)}%` : String(value);
+                    const text = typeof value === "number" ? `${value.toFixed(2)}%` : String(value);
+                    return `${text}${aggSuffix(agg)}`;
                   };
+
+                  const occupancyAgg = occupancyCommandSeries?.historianUnitTimeSeries?.metadata?.aggregation;
+                  const fanAgg = fanStatusSeries?.historianUnitTimeSeries?.metadata?.aggregation;
+                  const firstHeatAgg = firstStageHeatingSeries?.historianUnitTimeSeries?.metadata?.aggregation;
+                  // Cooling stage is a client-side sum of two series; if either
+                  // is binned, surface that fact using the first stage's
+                  // aggregation as a representative label.
+                  const coolingStageAgg =
+                    firstStageCoolingSeries?.historianUnitTimeSeries?.metadata?.aggregation ??
+                    secondStageCoolingSeries?.historianUnitTimeSeries?.metadata?.aggregation;
+                  const zoneTempAgg = zoneTempSeries?.historianUnitTimeSeries?.metadata?.aggregation;
+                  const outdoorTempAgg = outdoorTempSeries?.historianWeatherTimeSeries?.metadata?.aggregation;
+                  const heatSetpointAgg = heatingSetpointSeries?.historianUnitTimeSeries?.metadata?.aggregation;
+                  const coolSetpointAgg = coolingSetpointSeries?.historianUnitTimeSeries?.metadata?.aggregation;
+                  const unoccHeatAgg =
+                    unoccupiedHeatingSetpointSeries?.historianUnitTimeSeries?.metadata?.aggregation;
+                  const unoccCoolAgg =
+                    unoccupiedCoolingSetpointSeries?.historianUnitTimeSeries?.metadata?.aggregation;
+                  const humidityAgg = zoneHumiditySeries?.historianUnitTimeSeries?.metadata?.aggregation;
 
                   // Create series with explicit indices to ensure enum and array order match
                   const seriesMap = new Map<SeriesIndex, any>();
@@ -1130,7 +1174,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
-                    tooltip: { valueFormatter: formatStatus },
+                    tooltip: { valueFormatter: formatStatus(occupancyAgg) },
                     data:
                       occupancyCommandSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1145,7 +1189,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
-                    tooltip: { valueFormatter: formatStatus },
+                    tooltip: { valueFormatter: formatStatus(fanAgg) },
                     data: fanStatusSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     color: metricColors[UnitMetric.SupplyFanStatus],
                   });
@@ -1158,7 +1202,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
-                    tooltip: { valueFormatter: formatStatus },
+                    tooltip: { valueFormatter: formatStatus(firstHeatAgg) },
                     data:
                       firstStageHeatingSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1173,7 +1217,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
-                    tooltip: { valueFormatter: formatStatus },
+                    tooltip: { valueFormatter: formatStatus(coolingStageAgg) },
                     data: coolingStageSeriesData,
                     color: metricColors[UnitMetric.FirstStageCooling],
                   });
@@ -1186,7 +1230,7 @@ export function UnitDashboard({
                     showSymbol: false,
                     data: zoneTempSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     lineStyle: { width: 1.5 },
-                    tooltip: { valueFormatter: formatTemp },
+                    tooltip: { valueFormatter: formatTemp(zoneTempAgg) },
                     color: metricColors[UnitMetric.ZoneTemperature],
                   });
 
@@ -1197,7 +1241,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
-                    tooltip: { valueFormatter: formatTemp },
+                    tooltip: { valueFormatter: formatTemp(outdoorTempAgg) },
                     data:
                       outdoorTempSeries?.historianWeatherTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1211,7 +1255,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
-                    tooltip: { valueFormatter: formatTemp },
+                    tooltip: { valueFormatter: formatTemp(heatSetpointAgg) },
                     data:
                       heatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1225,7 +1269,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
-                    tooltip: { valueFormatter: formatTemp },
+                    tooltip: { valueFormatter: formatTemp(coolSetpointAgg) },
                     data:
                       coolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
                       [],
@@ -1238,7 +1282,7 @@ export function UnitDashboard({
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
                     showSymbol: false,
-                    tooltip: { valueFormatter: formatTemp },
+                    tooltip: { valueFormatter: formatTemp(unoccHeatAgg) },
                     data:
                       unoccupiedHeatingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [
                         p.timestamp,
@@ -1254,7 +1298,7 @@ export function UnitDashboard({
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
                     showSymbol: false,
-                    tooltip: { valueFormatter: formatTemp },
+                    tooltip: { valueFormatter: formatTemp(unoccCoolAgg) },
                     data:
                       unoccupiedCoolingSetpointSeries?.historianUnitTimeSeries?.data?.map((p: any) => [
                         p.timestamp,
@@ -1271,7 +1315,7 @@ export function UnitDashboard({
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
-                    tooltip: { valueFormatter: formatHumidity },
+                    tooltip: { valueFormatter: formatHumidity(humidityAgg) },
                     data:
                       zoneHumiditySeries?.historianUnitTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) || [],
                     color: gradientPalette.primary.hex,
@@ -1311,11 +1355,6 @@ export function UnitDashboard({
                   axisPointer: {
                     animation: false,
                   },
-                  valueFormatter: (value: any) => {
-                    if (value == null) return "N/A";
-                    if (typeof value !== "number") return String(value);
-                    return `${value.toFixed(2)} W`;
-                  },
                 },
                 legend: { bottom: 0, show: true },
                 dataZoom: [
@@ -1346,22 +1385,31 @@ export function UnitDashboard({
                   ...paddedRange(),
                 },
                 series: powerData?.historianMeterTimeSeries
-                  ? [
-                      {
-                        name: "Building Power",
-                        type: "line",
-                        smooth: true,
-                        sampling: "lttb" as const,
-                        showSymbol: false,
-                        itemStyle: { color: secondaryPalette.secondary.hex }, // Use secondary palette for power/demand
-                        lineStyle: { color: secondaryPalette.secondary.hex, width: 1.5 },
-                        data:
-                          powerData.historianMeterTimeSeries.data?.map((point: any) => [
-                            point.timestamp,
-                            point.value,
-                          ]) || [],
-                      },
-                    ]
+                  ? (() => {
+                      const powerAgg = powerData.historianMeterTimeSeries.metadata?.aggregation;
+                      const formatPower = (value: any) => {
+                        if (value == null) return "N/A";
+                        const text = typeof value === "number" ? `${value.toFixed(2)} W` : String(value);
+                        return powerAgg ? `${text} (${powerAgg})` : text;
+                      };
+                      return [
+                        {
+                          name: "Building Power",
+                          type: "line",
+                          smooth: true,
+                          sampling: "lttb" as const,
+                          showSymbol: false,
+                          itemStyle: { color: secondaryPalette.secondary.hex },
+                          lineStyle: { color: secondaryPalette.secondary.hex, width: 1.5 },
+                          tooltip: { valueFormatter: formatPower },
+                          data:
+                            powerData.historianMeterTimeSeries.data?.map((point: any) => [
+                              point.timestamp,
+                              point.value,
+                            ]) || [],
+                        },
+                      ];
+                    })()
                   : [],
               }}
               style={{ height: "380px" }}

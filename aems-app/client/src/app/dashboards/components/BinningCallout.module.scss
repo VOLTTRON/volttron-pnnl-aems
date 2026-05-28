@@ -1,0 +1,71 @@
+.callout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  border: 1px solid transparent;
+  background: var(--background-muted, rgba(138, 155, 168, 0.15));
+  color: var(--text-muted);
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .label {
+    white-space: nowrap;
+  }
+
+  .detail {
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+}
+
+.raw {
+  background: rgba(15, 153, 96, 0.12);
+  border-color: rgba(15, 153, 96, 0.25);
+  color: #0a6640;
+
+  .dot {
+    background: #0f9960;
+  }
+}
+
+.binned {
+  background: rgba(217, 130, 43, 0.12);
+  border-color: rgba(217, 130, 43, 0.25);
+  color: #a66321;
+
+  .dot {
+    background: #d9822b;
+  }
+}
+
+:global(.bp5-dark) {
+  .raw {
+    background: rgba(61, 204, 145, 0.15);
+    border-color: rgba(61, 204, 145, 0.3);
+    color: #3dcc91;
+
+    .dot {
+      background: #3dcc91;
+    }
+  }
+
+  .binned {
+    background: rgba(255, 179, 102, 0.15);
+    border-color: rgba(255, 179, 102, 0.3);
+    color: #ffb366;
+
+    .dot {
+      background: #ffb366;
+    }
+  }
+}

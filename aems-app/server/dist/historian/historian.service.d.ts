@@ -40,6 +40,8 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     private resolveBucketing;
     private static msPerDurationUnit;
     private static parseClientInterval;
+    private static formatIntervalLabel;
+    private static buildBinningInfo;
     private static toNumber;
     private static computeBucketErrorSeries;
     private static collapseErrorSeriesToRanges;
