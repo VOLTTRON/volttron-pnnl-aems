@@ -10,6 +10,7 @@ export const TIME_RANGE_PRESETS: TimeRangePreset[] = [
   { value: '6h', label: 'Last 6 Hours', placeholder: '6 hours ago' },
   { value: '12h', label: 'Last 12 Hours', placeholder: '12 hours ago' },
   { value: '24h', label: 'Last 24 Hours', placeholder: '1 day ago' },
+  { value: '48h', label: 'Last 48 Hours', placeholder: '2 days ago' },
   { value: '7d', label: 'Last 7 Days', placeholder: '7 days ago' },
   { value: '30d', label: 'Last 30 Days', placeholder: '30 days ago' },
   { value: '90d', label: 'Last 90 Days', placeholder: '90 days ago' },

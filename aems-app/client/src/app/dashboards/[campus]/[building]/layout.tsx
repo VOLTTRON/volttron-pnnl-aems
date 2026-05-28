@@ -13,7 +13,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!("dashboard-building" in resolvers) && addResolver !== undefined) {
       addResolver("dashboard-building", async (building, ...[campus]) => {
-        console.log("Resolving building ID:", { building, campus });
         return await readUnits({
           variables: {
             where: {

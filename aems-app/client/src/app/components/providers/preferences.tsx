@@ -13,6 +13,9 @@ export interface ClientPreferences {
   paletteWarm?: string; // Warm palette (heating, warm colors)
   paletteCool?: string; // Cool palette (cooling, cool colors)
   paletteGradient?: string; // Gradient palette (humidity, gradients)
+  // Last predefined dashboard time range preset chosen in this browser.
+  // Stored in localStorage only; the server has no column for it.
+  dashboardTimeRangePreset?: string;
 }
 
 export type ServerPreferences = Omit<PrismaPreferences, (typeof SensitivePreferences)[number]>;
@@ -64,6 +67,17 @@ function getLocalStorage(): Preferences | undefined {
 function setLocalStorage(preferences: Preferences) {
   const sanitized = omit(preferences, SensitivePreferences);
   localStorage.setItem(`preferences`, JSON.stringify(sanitized));
+}
+
+/**
+ * Synchronously read the merged preferences from storage. Safe to call inside
+ * a `useState` initializer in client components — falls back to defaults on
+ * the server or when nothing is stored. The provider hydrates from the same
+ * source on mount, so context catches up after first render.
+ */
+export function getStoredPreferences(): Preferences {
+  if (typeof window === "undefined") return DefaultPreferences;
+  return compilePreferences(getLocalStorage());
 }
 
 /**

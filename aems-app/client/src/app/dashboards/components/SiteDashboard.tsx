@@ -7,7 +7,6 @@ import {
   HistorianMultiSystemUnitDocument,
   HistorianSetpointErrorDocument,
   HistorianWeatherTimeSeriesDocument,
-  HistorianUnitTimeSeriesDocument,
   ReadUnitsQuery,
   UnitMetric,
   WeatherMetric,
@@ -17,12 +16,15 @@ import { ECharts } from "@/app/components/common/echarts";
 import { graphic } from "echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
+import { BinningCallout, pickBinningInfo } from "./BinningCallout";
+import { paddedRange } from "../utils/chartAxis";
 import styles from "./SiteDashboard.module.scss";
 import { MeterMetric, typeofString } from "@local/common";
 import { Palettes } from "@/utils/palette";
 import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
 import { optimizeSystemNames } from "@/utils/systemNameOptimizer";
 import { useMetricColors } from "@/utils/metricColors";
+import { makeValueFormatter } from "@/utils/historianFormat";
 
 interface SystemSetpointErrorQueryProps {
   campus: string;
@@ -114,6 +116,11 @@ export function SiteDashboard({
     [unitSystems],
   );
 
+  // Per-chart toggle: false = discrete (one segment per bucket), true =
+  // rolled up (consecutive same-state buckets merged into a single segment).
+  const [occupancyRolledUp, setOccupancyRolledUp] = React.useState(true);
+  const [setpointRolledUp, setSetpointRolledUp] = React.useState(true);
+
   // Occupancy Status data using new multi-system query
   const { data: occupancyData, loading: occupancyLoading } = useQuery(HistorianMultiSystemUnitDocument, {
     variables: {
@@ -150,10 +157,11 @@ export function SiteDashboard({
       .map((sys) => {
         const result = setpointErrorResults[sys];
         if (!result?.data) return null;
+        const sourceMetadata = (result.data as { metadata?: any }).metadata;
         return {
           system: sys,
           data: result.data.data,
-          metadata: { topics: {}, errors: [] },
+          metadata: sourceMetadata ?? { topics: {}, errors: [] },
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
@@ -196,47 +204,131 @@ export function SiteDashboard({
     },
   });
 
-  // Helper function to get state label and color using tertiary palette (status/states)
-  const getOccupancyState = (value: number) => {
-    if (value === 1) return { label: "Local Control", color: tertiaryPalette.primary.hex }; // High alert
-    if (value === 2) return { label: "Occupied", color: tertiaryPalette.tertiary.hex }; // Neutral/middle
-    if (value === 3) return { label: "Unoccupied", color: tertiaryPalette.quinary.hex }; // Low/passive
-    return { label: "Unknown", color: tertiaryPalette.secondary.hex };
+  const unknownState = {
+    label: "Missing Data",
+    color: mode === "dark" ? Colors.DARK_GRAY4 : Colors.LIGHT_GRAY3,
   };
 
-  // Helper function to get setpoint error state with color coding.
-  // Mirrors the deprecated Grafana site dashboard's BlYlRd threshold stops
-  // at -3 / -2 / -1 / 1 / 2 / 3 °F.
-  const setpointErrorBins: Array<{ label: string; color: string }> = [
-    { label: "Very Cold (< -3°F)", color: primaryPalette.primary.hex },
-    { label: "Cold (-3 to -2°F)", color: primaryPalette.secondary.hex },
-    { label: "Slightly Cold (-2 to -1°F)", color: primaryPalette.tertiary.hex },
-    { label: "Optimal (-1 to 1°F)", color: tertiaryPalette.tertiary.hex },
-    { label: "Slightly Warm (1 to 2°F)", color: secondaryPalette.quaternary.hex },
-    { label: "Warm (2 to 3°F)", color: secondaryPalette.secondary.hex },
-    { label: "Very Warm (> 3°F)", color: secondaryPalette.primary.hex },
+  // Helper function to get state label and color using tertiary palette (status/states)
+  const occupancyStates: Array<{ label: string; color: string }> = [
+    { label: "Local Control", color: tertiaryPalette.primary.hex },
+    { label: "Occupied", color: tertiaryPalette.tertiary.hex },
+    { label: "Unoccupied", color: tertiaryPalette.quinary.hex },
   ];
-  const getSetpointErrorState = (errorValue: number) => {
-    if (errorValue < -3) return setpointErrorBins[0];
-    if (errorValue < -2) return setpointErrorBins[1];
-    if (errorValue < -1) return setpointErrorBins[2];
-    if (errorValue <= 1) return setpointErrorBins[3];
-    if (errorValue <= 2) return setpointErrorBins[4];
-    if (errorValue <= 3) return setpointErrorBins[5];
+  const getOccupancyState = (value: number | null | undefined) => {
+    if (value == null || !Number.isFinite(value)) return unknownState;
+    if (value === 1) return occupancyStates[0];
+    if (value === 2) return occupancyStates[1];
+    if (value === 3) return occupancyStates[2];
+    return unknownState;
+  };
+
+  // Setpoint error bins. The server forces any zone temp inside the
+  // deadband [heat, cool] to a raw error of exactly 0, so Optimal is the
+  // single value 0. Remaining bins span 1°F outward from the deadband
+  // boundary in each direction.
+  const setpointErrorBins: Array<{ label: string; color: string }> = [
+    { label: "Very Cold", color: primaryPalette.primary.hex },
+    { label: "Cold", color: primaryPalette.secondary.hex },
+    { label: "Slightly Cold", color: primaryPalette.tertiary.hex },
+    { label: "Optimal", color: tertiaryPalette.tertiary.hex },
+    { label: "Slightly Warm", color: secondaryPalette.quaternary.hex },
+    { label: "Warm", color: secondaryPalette.secondary.hex },
+    { label: "Very Warm", color: secondaryPalette.primary.hex },
+  ];
+  const getSetpointErrorState = (errorValue: number | null | undefined) => {
+    if (errorValue == null || !Number.isFinite(errorValue)) return unknownState;
+    if (errorValue === 0) return setpointErrorBins[3];
+    if (errorValue < -2) return setpointErrorBins[0];
+    if (errorValue < -1) return setpointErrorBins[1];
+    if (errorValue < 0) return setpointErrorBins[2];
+    if (errorValue <= 1) return setpointErrorBins[4];
+    if (errorValue <= 2) return setpointErrorBins[5];
     return setpointErrorBins[6];
   };
 
+  // Format a duration in ms using the highest-level unit (and the next one
+  // down when non-zero) so the tooltip stays compact: "2d 5h", "45m", "30s".
+  const formatDuration = (ms: number) => {
+    if (!Number.isFinite(ms) || ms <= 0) return "0s";
+    const seconds = Math.round(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remSec = seconds % 60;
+    if (minutes < 60) return remSec ? `${minutes}m ${remSec}s` : `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const remMin = minutes % 60;
+    if (hours < 24) return remMin ? `${hours}h ${remMin}m` : `${hours}h`;
+    const days = Math.floor(hours / 24);
+    const remHr = hours % 24;
+    return remHr ? `${days}d ${remHr}h` : `${days}d`;
+  };
+
+  // Toolbox icons for the rollup toggle. The icon hints at the action the
+  // click will perform (single bar = "roll up", multi-bar = "show discrete").
+  const ROLLUP_ICON = "path://M3,8H21V16H3V8Z";
+  const DISCRETE_ICON = "path://M3,8H7V16H3V8M10,8H14V16H10V8M17,8H21V16H17V8Z";
+
+  const buildRollupToolboxFeature = (rolledUp: boolean, toggle: () => void) => ({
+    myRollup: {
+      show: true,
+      title: rolledUp ? "Show discrete bins" : "Roll up bins",
+      icon: rolledUp ? DISCRETE_ICON : ROLLUP_ICON,
+      onclick: toggle,
+    },
+  });
+
+  // Custom tooltip body for the timeline charts. We build the HTML ourselves
+  // so we can drop the default `seriesName: value` line (always a duplicate
+  // of the bin label) and add start/end/duration on their own lines. When the
+  // backing data is binned, the aggregation that produced each bucket value
+  // is appended to the duration line.
+  const formatTimelineTooltip = (
+    params: any,
+    formatLabel: (label: string, raw: number | null) => string,
+    aggregation?: string | null,
+  ) => {
+    const value = params?.value;
+    if (!Array.isArray(value)) return "";
+    const [systemName, segmentStart, segmentEnd, label, , rawValue] = value as [
+      string,
+      string,
+      string,
+      string,
+      string,
+      number | null | undefined,
+    ];
+    const raw = typeof rawValue === "number" && Number.isFinite(rawValue) ? rawValue : null;
+    const start = new Date(segmentStart);
+    const end = new Date(segmentEnd);
+    const validRange = !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime());
+    const fmt = (d: Date) => d.toLocaleString();
+    const marker = typeof params?.marker === "string" ? params.marker : "";
+    const lines = [`${marker}<strong>${systemName}</strong> — ${formatLabel(label, raw)}`];
+    if (validRange) {
+      lines.push(`Start: ${fmt(start)}`);
+      lines.push(`End: ${fmt(end)}`);
+      lines.push(`Duration: ${formatDuration(end.getTime() - start.getTime())}`);
+    }
+    if (aggregation) {
+      lines.push(`Aggregation: ${aggregation}`);
+    }
+    return lines.join("<br/>");
+  };
+
   // Helper function to prepare timeline data for ECharts
-  // Groups data by state/range so legend items match series names
+  // Groups data by state/range so legend items match series names. The server
+  // fills missing buckets with null values; here those collapse into discrete
+  // "Missing Data" segments instead of a single full-width background bar.
   const prepareTimelineData = (
     data: typeof occupancyData,
-    getStateInfo: (value: number) => { label: string; color: string },
+    getStateInfo: (value: number | null | undefined) => { label: string; color: string },
     startTime: string,
     endTime: string,
     systems: string[],
     displayNames: string[],
     preSeededStates?: Array<{ label: string; color: string }>,
-    unknownStateOverride?: { label: string; color: string },
+    rolledUp?: boolean,
   ) => {
     const series: any[] = [];
 
@@ -246,99 +338,68 @@ export function SiteDashboard({
       systemToDisplayName.set(sys, displayNames[idx] || sys);
     });
 
-    // "Unknown" background series (rendered behind everything). Callers can
-    // pass `unknownStateOverride` when 0 is a valid value in their state
-    // space (e.g. setpoint error, where 0 falls in the Optimal bin).
-    const unknownState = unknownStateOverride ?? getStateInfo(0);
-    const unknownData = displayNames.map((displayName) => ({
-      value: [displayName, startTime, endTime, unknownState.label, unknownState.color],
-      itemStyle: { color: unknownState.color },
-    }));
-
-    series.push({
-      name: unknownState.label,
-      type: "custom" as const,
-      itemStyle: {
-        color: unknownState.color,
-      },
-      emphasis: {
-        disabled: true,
-      },
-      renderItem: (params: any, api: any) => {
-        const systemName = api.value(0);
-        const start = api.coord([api.value(1), systemName]);
-        const end = api.coord([api.value(2), systemName]);
-        const height = api.size([0, 1])[1] * 0.6;
-        const color = api.value(4);
-
-        const rectShape = graphic.clipRectByRect(
-          {
-            x: start[0],
-            y: start[1] - height / 2,
-            width: Math.max(end[0] - start[0], 1),
-            height: height,
-          },
-          {
-            x: params.coordSys.x,
-            y: params.coordSys.y,
-            width: params.coordSys.width,
-            height: params.coordSys.height,
-          },
-        );
-
-        return (
-          rectShape && {
-            type: "rect" as const,
-            shape: rectShape,
-            style: {
-              fill: color,
-              opacity: 0.7,
-              stroke: null,
-            },
-          }
-        );
-      },
-      encode: {
-        x: [1, 2],
-        y: 0,
-      },
-      data: unknownData,
-    });
-
-    // Collect valid states (excluding "Unknown"). Pre-seed with the full
-    // bin list (when provided) so every bin shows in the legend even if no
-    // data point currently falls in it, and so legend order matches the
-    // caller-supplied order.
+    // Pre-seed with Unknown plus any caller-supplied states so the legend
+    // includes every state in a stable order, even when no data lands in
+    // some of them.
     const stateMap = new Map<string, { label: string; color: string; data: any[] }>();
+    stateMap.set(unknownState.label, { label: unknownState.label, color: unknownState.color, data: [] });
     preSeededStates?.forEach((state) => {
-      if (state.label === unknownState.label) return;
-      stateMap.set(state.label, { label: state.label, color: state.color, data: [] });
+      if (!stateMap.has(state.label)) {
+        stateMap.set(state.label, { label: state.label, color: state.color, data: [] });
+      }
     });
 
-    // Process each system's data
+    // In rolled-up mode, consecutive buckets with the same state are merged
+    // into a single segment by mutating the previous segment's end time.
+    const lastSegmentBySystem = new Map<string, any[]>();
+
+    // Index the response by system so we can iterate over the requested
+    // systems list — that way any system the server omitted (or returned
+    // empty data for) still gets a row instead of disappearing entirely.
+    const systemDataByName = new Map<string, any>();
     (data?.historianMultiSystemUnit ?? []).forEach((systemData: any) => {
-      const points = systemData.data || [];
-      const systemName = systemData.system;
+      systemDataByName.set(systemData.system, systemData);
+    });
+
+    systems.forEach((systemName) => {
+      const systemData = systemDataByName.get(systemName);
+      const points = systemData?.data ?? [];
+      const displayName = systemToDisplayName.get(systemName) || systemName;
+
+      // When a system has no samples in the requested range, render a
+      // single Missing Data segment spanning the full range so the row
+      // is not blank.
+      if (points.length === 0) {
+        const valueTuple: any[] = [displayName, startTime, endTime, unknownState.label, unknownState.color, null];
+        stateMap.get(unknownState.label)!.data.push({
+          value: valueTuple,
+          itemStyle: { color: unknownState.color },
+        });
+        return;
+      }
 
       points.forEach((point: any, i: number) => {
-        // Skip invalid data points
-        if (point.value == null || typeof point.value !== "number") {
-          return;
-        }
+        const rawValue: number | null =
+          typeof point.value === "number" && Number.isFinite(point.value) ? point.value : null;
+        const state = getStateInfo(rawValue);
 
-        const state = getStateInfo(point.value);
-
-        // Skip "Unknown" states - they're already rendered as background
-        if (state.label === "Unknown") {
-          return;
-        }
-
-        const startTime = point.timestamp;
+        const segmentStart = point.timestamp;
         // End time is either the next point's timestamp, or add a default duration (e.g., 5 minutes)
-        const endTime =
+        const segmentEnd =
           i < points.length - 1
             ? points[i + 1].timestamp
-            : new Date(new Date(startTime).getTime() + 5 * 60 * 1000).toISOString();
+            : new Date(new Date(segmentStart).getTime() + 5 * 60 * 1000).toISOString();
+
+        if (rolledUp) {
+          const last = lastSegmentBySystem.get(systemName);
+          // last value tuple: [displayName, start, end, label, color, raw]
+          if (last && last[3] === state.label && last[2] === segmentStart) {
+            last[2] = segmentEnd;
+            // The raw value no longer represents a single bucket once merged.
+            last[5] = null;
+            return;
+          }
+        }
 
         // Get or create state entry
         if (!stateMap.has(state.label)) {
@@ -350,15 +411,18 @@ export function SiteDashboard({
         }
 
         // Add data point to this state's series - use display name for Y-axis
-        const displayName = systemToDisplayName.get(systemName) || systemName;
+        const valueTuple: any[] = [displayName, segmentStart, segmentEnd, state.label, state.color, rawValue];
         stateMap.get(state.label)!.data.push({
-          value: [displayName, startTime, endTime, state.label, state.color],
+          value: valueTuple,
           itemStyle: { color: state.color },
         });
+        if (rolledUp) {
+          lastSegmentBySystem.set(systemName, valueTuple);
+        }
       });
     });
 
-    // Add valid state series (these render on top of "Unknown" background)
+    // Emit one custom series per state.
     stateMap.forEach((stateData) => {
       series.push({
         name: stateData.label,
@@ -413,13 +477,30 @@ export function SiteDashboard({
     return series;
   };
 
+  // All charts in this dashboard share the same time range, so the binning
+  // mode/interval is the same across queries. Pick the first one we find.
+  const binningInfo = React.useMemo(
+    () =>
+      pickBinningInfo(
+        occupancyData?.historianMultiSystemUnit,
+        outdoorTempData?.historianMultiSystemUnit,
+        weatherData?.historianWeatherTimeSeries,
+        powerData?.historianMeterTimeSeries,
+        setpointErrorData?.historianMultiSystemUnit,
+      ),
+    [occupancyData, outdoorTempData, weatherData, powerData, setpointErrorData],
+  );
+
   return (
     <div className={styles.dashboard}>
       <div className={styles.header}>
         <h1>
           {campus} {building} - Site Overview
         </h1>
-        <TimeRangeSelector onApply={onApplyTimeRange} />
+        <div className={styles.controls}>
+          <BinningCallout binning={binningInfo} />
+          <TimeRangeSelector onApply={onApplyTimeRange} />
+        </div>
       </div>
 
       <div className={styles.timelineGrid}>
@@ -434,20 +515,24 @@ export function SiteDashboard({
                 animation: false,
                 title: { text: "Occupancy Status" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+                toolbox: {
+                  feature: buildRollupToolboxFeature(occupancyRolledUp, () =>
+                    setOccupancyRolledUp((prev) => !prev),
+                  ),
+                },
                 tooltip: {
                   trigger: "item",
-                  valueFormatter: (value: any) => {
-                    // For timeline custom series, value is an array: [systemName, startTime, endTime, label, color]
-                    if (Array.isArray(value)) {
-                      return value[3]; // Return just the occupancy label
-                    }
-                    return String(value);
-                  },
+                  formatter: (params: any) =>
+                    formatTimelineTooltip(
+                      params,
+                      (label) => label,
+                      occupancyData?.historianMultiSystemUnit?.[0]?.metadata?.aggregation,
+                    ),
                 },
                 legend: {
                   bottom: 0,
                   show: true,
-                  data: ["Unknown", "Local Control", "Occupied", "Unoccupied"],
+                  data: [unknownState.label, ...occupancyStates.map((s) => s.label)],
                 },
                 dataZoom: [
                   {
@@ -482,6 +567,8 @@ export function SiteDashboard({
                   endTime,
                   unitSystems,
                   optimizedSystemNames,
+                  occupancyStates,
+                  occupancyRolledUp,
                 ),
               }}
               style={{ height: "480px" }}
@@ -514,20 +601,28 @@ export function SiteDashboard({
                 animation: false,
                 title: { text: "Occupancy Setpoint Error" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+                toolbox: {
+                  feature: buildRollupToolboxFeature(setpointRolledUp, () =>
+                    setSetpointRolledUp((prev) => !prev),
+                  ),
+                },
                 tooltip: {
                   trigger: "item",
-                  valueFormatter: (value: any) => {
-                    // For timeline custom series, value is an array: [systemName, startTime, endTime, label, color]
-                    if (Array.isArray(value)) {
-                      return value[3]; // Return just the error range label
-                    }
-                    return String(value);
-                  },
+                  formatter: (params: any) =>
+                    formatTimelineTooltip(
+                      params,
+                      (label, raw) => {
+                        if (raw == null) return label;
+                        const sign = raw > 0 ? "+" : "";
+                        return `${label} (${sign}${raw.toFixed(1)}°F)`;
+                      },
+                      setpointErrorData?.historianMultiSystemUnit?.[0]?.metadata?.aggregation,
+                    ),
                 },
                 legend: {
                   bottom: 0,
                   show: true,
-                  data: ["Unknown", ...setpointErrorBins.map((b) => b.label)],
+                  data: [unknownState.label, ...setpointErrorBins.map((b) => b.label)],
                 },
                 dataZoom: [
                   {
@@ -563,7 +658,7 @@ export function SiteDashboard({
                   unitSystems,
                   optimizedSystemNames,
                   setpointErrorBins,
-                  { label: "Unknown", color: tertiaryPalette.secondary.hex },
+                  setpointRolledUp,
                 ),
               }}
               style={{ height: "480px" }}
@@ -594,11 +689,6 @@ export function SiteDashboard({
                   axisPointer: {
                     animation: false,
                   },
-                  valueFormatter: (value: any) => {
-                    if (value == null) return "N/A";
-                    if (typeof value !== "number") return String(value);
-                    return `${value.toFixed(2)}°F`;
-                  },
                 },
                 legend: { bottom: 0, show: true },
                 dataZoom: [
@@ -620,39 +710,56 @@ export function SiteDashboard({
                 ],
                 grid: { top: 60, right: 40, bottom: 110, left: 40 },
                 xAxis: { type: "time", min: startTime, max: endTime },
-                yAxis: { type: "value", name: "Temperature (°F)", position: "left", nameTextStyle: { align: "left" } },
-                series: [
-                  // Weather station outdoor temperature
-                  ...(weatherData?.historianWeatherTimeSeries
-                    ? [
-                        {
-                          name: "Weather Station",
-                          type: "line" as const,
-                          smooth: true,
-                          sampling: "lttb" as const,
-                          showSymbol: false,
-                          itemStyle: { color: metricColors[WeatherMetric.AirTemperature] },
-                          lineStyle: { color: metricColors[WeatherMetric.AirTemperature], width: 1.5 },
-                          data:
-                            weatherData.historianWeatherTimeSeries.data?.map((point: any) => [
-                              point.timestamp,
-                              point.value,
-                            ]) || [],
-                        },
-                      ]
-                    : []),
-                  // Unit sensor outdoor temperatures — each system gets a unique pool color
-                  ...(outdoorTempData?.historianMultiSystemUnit?.map((systemData: any) => ({
-                    name: `${systemData.system} Sensor`,
-                    type: "line" as const,
-                    smooth: true,
-                    sampling: "lttb" as const,
-                    showSymbol: false,
-                    itemStyle: { color: getUnitColor(systemData.system) },
-                    lineStyle: { color: getUnitColor(systemData.system), width: 1.5 },
-                    data: systemData.data?.map((point: any) => [point.timestamp, point.value]) || [],
-                  })) || []),
-                ],
+                yAxis: {
+                  type: "value",
+                  name: "Temperature (°F)",
+                  position: "left",
+                  nameTextStyle: { align: "left" },
+                  scale: true,
+                  ...paddedRange(),
+                },
+                series: (() => {
+                  // Per-series tooltip formatters carry each series's
+                  // metadata (prefix/suffix/format/aggregation) so units
+                  // and binning labels are driven by the historian
+                  // topic-map config rather than hard-coded constants.
+                  const fmt = (metadata: any) => makeValueFormatter(metadata, { includeAggregation: true });
+                  const outdoorMetadata = outdoorTempData?.historianMultiSystemUnit?.[0]?.metadata;
+                  return [
+                    // Weather station outdoor temperature
+                    ...(weatherData?.historianWeatherTimeSeries
+                      ? [
+                          {
+                            name: "Weather Station",
+                            type: "line" as const,
+                            smooth: true,
+                            sampling: "lttb" as const,
+                            showSymbol: false,
+                            itemStyle: { color: metricColors[WeatherMetric.AirTemperature] },
+                            lineStyle: { color: metricColors[WeatherMetric.AirTemperature], width: 1.5 },
+                            tooltip: { valueFormatter: fmt(weatherData.historianWeatherTimeSeries.metadata) },
+                            data:
+                              weatherData.historianWeatherTimeSeries.data?.map((point: any) => [
+                                point.timestamp,
+                                point.value,
+                              ]) || [],
+                          },
+                        ]
+                      : []),
+                    // Unit sensor outdoor temperatures — each system gets a unique pool color
+                    ...(outdoorTempData?.historianMultiSystemUnit?.map((systemData: any) => ({
+                      name: `${systemData.system} Sensor`,
+                      type: "line" as const,
+                      smooth: true,
+                      sampling: "lttb" as const,
+                      showSymbol: false,
+                      itemStyle: { color: getUnitColor(systemData.system) },
+                      lineStyle: { color: getUnitColor(systemData.system), width: 1.5 },
+                      tooltip: { valueFormatter: fmt(systemData.metadata ?? outdoorMetadata) },
+                      data: systemData.data?.map((point: any) => [point.timestamp, point.value]) || [],
+                    })) || []),
+                  ];
+                })(),
               }}
               style={{ height: "380px" }}
               theme={mode}
@@ -680,11 +787,6 @@ export function SiteDashboard({
                   axisPointer: {
                     animation: false,
                   },
-                  valueFormatter: (value: any) => {
-                    if (value == null) return "N/A";
-                    if (typeof value !== "number") return String(value);
-                    return `${value.toFixed(2)} W`;
-                  },
                 },
                 legend: { bottom: 0, show: true },
                 dataZoom: [
@@ -706,24 +808,37 @@ export function SiteDashboard({
                 ],
                 grid: { top: 60, right: 60, bottom: 110, left: 60 },
                 xAxis: { type: "time", min: startTime, max: endTime },
-                yAxis: { type: "value", name: "Power (W)", position: "left", nameTextStyle: { align: "left" } },
+                yAxis: {
+                  type: "value",
+                  name: "Power (W)",
+                  position: "left",
+                  nameTextStyle: { align: "left" },
+                  scale: true,
+                  ...paddedRange(),
+                },
                 series: powerData?.historianMeterTimeSeries
-                  ? [
-                      {
-                        name: "Building Power",
-                        type: "line",
-                        smooth: true,
-                        sampling: "lttb" as const,
-                        showSymbol: false,
-                        itemStyle: { color: secondaryPalette.secondary.hex }, // Use secondary palette for power/demand
-                        lineStyle: { color: secondaryPalette.secondary.hex, width: 1.5 },
-                        data:
-                          powerData.historianMeterTimeSeries.data?.map((point: any) => [
-                            point.timestamp,
-                            point.value,
-                          ]) || [],
-                      },
-                    ]
+                  ? (() => {
+                      const formatPower = makeValueFormatter(powerData.historianMeterTimeSeries.metadata, {
+                        includeAggregation: true,
+                      });
+                      return [
+                        {
+                          name: "Building Power",
+                          type: "line",
+                          smooth: true,
+                          sampling: "lttb" as const,
+                          showSymbol: false,
+                          itemStyle: { color: secondaryPalette.secondary.hex },
+                          lineStyle: { color: secondaryPalette.secondary.hex, width: 1.5 },
+                          tooltip: { valueFormatter: formatPower },
+                          data:
+                            powerData.historianMeterTimeSeries.data?.map((point: any) => [
+                              point.timestamp,
+                              point.value,
+                            ]) || [],
+                        },
+                      ];
+                    })()
                   : [],
               }}
               style={{ height: "380px" }}

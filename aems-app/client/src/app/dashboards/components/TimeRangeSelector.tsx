@@ -1,32 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { Button, Checkbox, FormGroup, HTMLSelect } from "@blueprintjs/core";
 import { DateInput3 } from "@blueprintjs/datetime2";
 import { TIME_RANGE_PRESETS } from "../constants/timeRangePresets";
 import { calculateFromDateForPreset, validateDateRange } from "../utils/timeRange";
+import {
+  DefaultPreferences,
+  PreferencesContext,
+  getStoredPreferences,
+} from "@/app/components/providers";
 import styles from "./TimeRangeSelector.module.scss";
 
 interface TimeRangeSelectorProps {
   onApply: (startTime: string, endTime: string) => void;
 }
 
+const DEFAULT_PRESET = "24h";
+
+// A stored preset is only honored if it matches one of the known presets.
+function resolveInitialPreset(): string {
+  const stored = getStoredPreferences().dashboardTimeRangePreset;
+  if (stored && TIME_RANGE_PRESETS.some((p) => p.value === stored)) {
+    return stored;
+  }
+  return DEFAULT_PRESET;
+}
+
 export function TimeRangeSelector({ onApply }: TimeRangeSelectorProps) {
-  // Initialize with default preset (7 days)
-  const initialFromDate = calculateFromDateForPreset("7d");
+  const { preferences, setPreferences } = useContext(PreferencesContext);
+
+  const initialPreset = resolveInitialPreset();
+  const initialFromDate = calculateFromDateForPreset(initialPreset);
 
   // Local state for editing
   const [localFromDate, setLocalFromDate] = useState<Date | null>(null);
   const [localToDate, setLocalToDate] = useState<Date | null>(null);
   const [localUseCurrentTime, setLocalUseCurrentTime] = useState<boolean>(true);
-  const [localSelectedPreset, setLocalSelectedPreset] = useState<string>("7d");
+  const [localSelectedPreset, setLocalSelectedPreset] = useState<string>(initialPreset);
   const [validationError, setValidationError] = useState<string>("");
 
   // Applied state (what's currently active)
   const [appliedFromDate, setAppliedFromDate] = useState<Date>(initialFromDate);
   const [appliedToDate, setAppliedToDate] = useState<Date | null>(null);
   const [appliedUseCurrentTime, setAppliedUseCurrentTime] = useState<boolean>(true);
-  const [appliedPreset, setAppliedPreset] = useState<string>("7d");
+  const [appliedPreset, setAppliedPreset] = useState<string>(initialPreset);
 
   // Check if there are pending changes
   const hasChanges = () => {
@@ -141,6 +159,16 @@ export function TimeRangeSelector({ onApply }: TimeRangeSelectorProps) {
     setAppliedToDate(localToDate);
     setAppliedUseCurrentTime(localUseCurrentTime);
     setAppliedPreset(localSelectedPreset);
+
+    // Persist the preset choice so subsequent visits in this browser default
+    // to the same range. Custom ranges aren't persisted — absolute dates
+    // would be stale next visit, so the prior preset is left in place.
+    if (localSelectedPreset !== "custom") {
+      setPreferences?.({
+        ...(preferences ?? DefaultPreferences),
+        dashboardTimeRangePreset: localSelectedPreset,
+      });
+    }
 
     // Call parent callback with ISO strings
     onApply(actualFromDate.toISOString(), actualToDate.toISOString());

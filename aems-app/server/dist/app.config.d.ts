@@ -111,6 +111,11 @@ export declare class AppConfigService {
         replicationPort: number;
         configMappingPath?: string;
         topicMap?: Partial<HistorianTopicMapConfig>;
+        binning: {
+            count: number;
+            start: number;
+            unit: ReturnType<typeof toDurationUnit>;
+        };
     };
     ext: Record<string, ExtConfig>;
     proxy: {

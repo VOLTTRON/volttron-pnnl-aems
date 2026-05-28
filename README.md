@@ -33,28 +33,212 @@ The architecture of AEMS integrates the following elements:
 - **Web Interface**: Built using modern web technologies, it provides real-time feedback and energy management capabilities.
 - **Edge Control Stack**: Deployed on-site, the stack interfaces with HVAC equipment using VOLTTRON agents to execute energy optimization and respond to external commands.
 
-## Installation and Setup
-
-### Prerequisites
-
-- A VOLTTRON installation is required for the edge stack. Refer to [VOLTTRON setup documentation](https://volttron.readthedocs.io/en/main/) for detailed guidance.
-- The easiest way to deploy the AEMS web application is using Docker and Docker Compose.
-
-### Installation Steps
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/VOLTTRON/volttron-pnnl-aems.git
-   ```
-
-2. Refer to the README in the `aems-app` and `aems-edge` directories for installation.
-
 ## Usage
 
 - Use the web UI to configure RTUs and HPs setpoints, set schedules, enable setbacks and lockouts.
 - Deploy edge agents to communicate with HVAC systems and execute control strategies.
 - Enable grid-interaction features for demand response and participate in utility programs.
+
+## Deployment Guide
+
+This section is written for the administrator who is installing, configuring, and maintaining an AEMS deployment. It covers the deployment lifecycle end-to-end and links into the in-depth references in [aems-app/README.md](./aems-app/README.md) rather than duplicating them.
+
+### Topology
+
+The full AEMS stack — web UI, API, database, historian, VOLTTRON edge agents, Keycloak SSO, and Grafana — is deployed as a **single Docker Compose project** rooted at [aems-app/](./aems-app/). The contents of [aems-edge/](./aems-edge/) (the Manager, Normal Framework driver, and ILC agents) are built into images and run as services inside that same compose project; they are not installed separately. There is no per-building install step under normal operation.
+
+All commands below are run from the `aems-app/` directory.
+
+### Prerequisites
+
+**Host:**
+
+- Linux, macOS, or Windows with Docker Engine 24+ and Docker Compose v2 (Docker Desktop is fine)
+- 4+ vCPU and 8+ GB RAM as a baseline; size disk against your historian retention (telemetry growth dominates)
+- A real DNS hostname for production. **`localhost` does not work** — session cookies and OAuth redirects depend on a stable, resolvable name
+- Outbound internet for image pulls and (if used) Let's Encrypt ACME
+- For BACnet driver mode: UDP **47808** reachability from the host to the building's RTUs/HPs (or HTTP access to a Normal Framework gateway)
+
+**Software you install yourself:**
+
+- [Git](https://git-scm.com/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop) or Docker Engine + Compose v2
+
+### Pre-Deployment Planning
+
+Decide these before you start; they are awkward to change later.
+
+1. **Hostname / TLS** — Pick the public hostname and certificate strategy:
+   - **Let's Encrypt** (recommended for public deployments) — requires a valid DNS name and ports 80/443 reachable from the internet
+   - **Third-party CA** — drop certs in and edit [aems-app/docker/proxy/certs-traefik.yml](./aems-app/docker/proxy/certs-traefik.yml)
+   - **Self-signed** (the default when `CERT_RESOLVER` is empty) — generated automatically on first boot; the CA must be installed on operator browsers
+2. **Site inventory** — campus name, building name, per-device IP and BACnet device ID, thermostat type (`schneider` / `openstat`), meter info — drives the VOLTTRON agent configs
+3. **Backup destinations** — local disk is the default; production should add off-host S3 destination and store the active backup encryption key offline
+4. **Off-site replication (optional)** — if you want a read replica or a DR copy of the historian at another site, plan the subscriber host and firewall rules now
+
+Authentication is **Keycloak SSO with Auth.js** out of the box (`AUTH_PROVIDERS=keycloak` in [aems-app/.env](./aems-app/.env)) — no decision required up front, but you will need to set the Keycloak client secret during [Initial Configuration](#initial-configuration) below.
+
+### What runs by default
+
+The default `COMPOSE_PROFILES` value in [aems-app/.env](./aems-app/.env) brings up the full operational stack — `proxy`, `sso`, `redis`, `volttron`, `historian`, `grafana` — plus the always-on core (init, certs, database, client, server, services, seeders, backup sidecar). This is the configuration most deployments should use as-is.
+
+The compose project also defines a few rarely-used profiles that are **not** in the default set: `map` (OpenStreetMap tiles), `nom` (Nominatim geocoder), `wiki` (BookStack), and `fastapi` / `fastapi-agents` (alternative FastAPI-based edge runtime). You only need these for specific scenarios; see [aems-app/docker/docker-compose.yml](./aems-app/docker/docker-compose.yml) for the authoritative service list.
+
+### Install
+
+```bash
+git clone https://github.com/VOLTTRON/volttron-pnnl-aems.git
+cd volttron-pnnl-aems/aems-app
+
+# 1. Non-secret configuration
+#    Edit .env (already present) — at minimum set HOSTNAME, ADMIN_EMAIL,
+#    CERT_RESOLVER, and COMPOSE_PROFILES. See "Configuration" below.
+
+# 2. Secrets
+cp .env.secrets.example .env.secrets
+#    Edit .env.secrets — set every password/secret. Never commit this file.
+
+# 3. Generate Docker secret files
+./secrets.sh           # Linux/macOS
+# .\secrets.ps1        # Windows
+
+# 4. Bring the stack up (build images, generate certs, run DB migrations)
+./start-services.sh    # wraps: docker compose build && docker compose up -d
+
+# 5. Confirm everything is healthy (curl will return the http status code with 200 meaning okay)
+docker compose ps
+curl -k -o /dev/null -s --max-time 10 -w "%{http_code}" https://<HOSTNAME>
+```
+
+The web UI is now reachable at `https://<HOSTNAME>`. **The local users in [aems-app/docker/seed/](./aems-app/docker/seed/) are not usable from the UI** — Keycloak is the default auth provider, so logins go through SSO. The first administrator account must be created in Keycloak and then granted an application role with [aems-app/update-user-role.sh](./aems-app/update-user-role.sh); see [Initial Configuration](#initial-configuration) below.
+
+> **Always run `docker compose` from `aems-app/`, not from `aems-app/docker/`.** The root file [aems-app/docker-compose.yml](./aems-app/docker-compose.yml) is a shim that includes [aems-app/docker/docker-compose.yml](./aems-app/docker/docker-compose.yml), and running from `aems-app/` is what makes Compose pick up `aems-app/.env`. Invoking with `-f docker/docker-compose.yml` loads the wrong env.
+
+### Configuration
+
+The vast majority of admin-facing configuration lives in two files at the root of `aems-app/`:
+
+- **[aems-app/.env](./aems-app/.env)** — non-secret defaults (hostname, ports, profiles, feature toggles). Auto-loaded by Compose.
+- **`aems-app/.env.secrets`** — gitignored, contains every password/secret. Processed by `secrets.sh` / `secrets.ps1` into per-secret files under [aems-app/docker/secrets/](./aems-app/docker/secrets/) plus a generated `.env.secrets.docker`. Template: [aems-app/.env.secrets.example](./aems-app/.env.secrets.example).
+
+Beyond those, several files contain configuration that an admin may need to touch. None of these have to be edited for a default deployment, but you should know they exist:
+
+| File / directory | What it controls |
+|------------------|------------------|
+| [aems-app/docker/.env.server](./aems-app/docker/), `.env.client`, `.env.services`, `.env.seeders`, `.env.init`, `.env.certs`, `.env.database`, `.env.redis`, `.env.historian`, `.env.keycloak`, `.env.grafana`, `.env.volttron`, `.env.aems-fastapi`, `.env.nominatim`, `.env.wiki` | Per-service environment overrides. Most settings flow through from the root `.env` via interpolation; edit these only when you need a value that differs from the root default. |
+| [aems-app/server/config/site.json](./aems-app/server/config/) | Default site definition shipped with the server image (campus / building defaults that the seeders use). |
+| [aems-app/server/config/historian-topic-map.default.json](./aems-app/server/config/) | Default VOLTTRON-topic → historian-column mapping. The deployed copy is at [aems-app/docker/historian/historian-topic-map.json](./aems-app/docker/historian/) and is mounted into the server; edit that file to customize topic naming and dashboard bin aggregation for your site. |
+| [aems-app/docker/seed/](./aems-app/docker/seed/) | First-boot DB seed data: default admin user (`20211103151730-system-user.json`), default backup policy (`20260427080000-backup-policy.json`), geographies. |
+| [aems-app/docker/historian/pg_hba.conf](./aems-app/docker/historian/), `postgresql.conf`, `setup-replication.sh`, `setup-subscriber.sh` | Historian DB host-based auth, tuning, and replication setup. Edit `pg_hba.conf` to restrict replication subscribers by IP. |
+| [aems-app/docker/keycloak/default-realm.json](./aems-app/docker/keycloak/) | Realm imported on first Keycloak boot. |
+| [aems-app/docker/proxy/](./aems-app/docker/proxy/) (`certs-traefik.yml`, `dynamic.yml`, `historian-tcp.yml`, `volttron-transport.yml`) | Traefik dynamic config — third-party cert paths, the historian-replication TCP route, and the VOLTTRON transport route. |
+| [aems-app/docker/grafana/dashboard-site.json](./aems-app/docker/grafana/), `dashboard-unit.json` | Grafana dashboards provisioned on first boot of the `grafana` profile. |
+| [aems-app/docker/volttron/setup/configs/](./aems-app/docker/volttron/setup/) (`platform_config.yml`, `bacnet.config`, `driver.config`, `historian.config`, `weather.config`, etc.) and [templates/](./aems-app/docker/volttron/setup/templates/) | VOLTTRON agent and platform configuration mounted into the `volttron` container. **Edit these to define your devices, BACnet driver settings, weather station, and emailer.** |
+
+> **There may be additional config files I have not enumerated here.** When in doubt, search for a setting under [aems-app/docker/](./aems-app/docker/) and [aems-app/server/config/](./aems-app/server/config/), and check the per-service env files. Every host bind-mount in [aems-app/docker/docker-compose.yml](./aems-app/docker/docker-compose.yml) points at a file or directory that the container treats as configuration.
+
+### Initial Configuration
+
+After the stack is healthy:
+
+1. **Harden Keycloak for production** — confirm `KEYCLOAK_CLIENT_SECRET` and `KEYCLOAK_GRAFANA_CLIENT_SECRET` in `.env.secrets` are strong, unique values; the Keycloak init container pushes them into the realm automatically on first boot, so no UI copy step is required. Then sign into the Keycloak admin console at `https://<HOSTNAME>/auth/sso/admin/` with `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` from `.env.secrets`, enable MFA on the realm, and rotate the admin password. Full Keycloak reference: [aems-app/README.md → Setup Keycloak](./aems-app/README.md#setup-keycloak).
+2. **Create the first admin user** — open the web UI at `https://<HOSTNAME>`. The top-right user menu shows **Guest**; open it and choose **Login**, which redirects to Keycloak. Use the registration flow to create a new account (this provisions the user in both Keycloak and the application database in a single step). After the new user lands back in the UI, grant them the admin role from a host shell:
+   ```bash
+   ./update-user-role.sh admin@example.com admin
+   ```
+   The role takes effect on the next page load.
+3. **Customize VOLTTRON device configs** if running the `volttron` profile — edit files under [aems-app/docker/volttron/setup/configs/](./aems-app/docker/volttron/setup/) and restart the `volttron` service (`docker compose restart volttron`)
+4. **Customize historian topic mappings** if site naming differs from the defaults — edit [aems-app/docker/historian/historian-topic-map.json](./aems-app/docker/historian/) and restart the `server` and `historian` services
+5. **Configure backups** in the `/backups` admin UI: set the cron schedule and retention, add at least one off-host destination, and **download the age private key for offline safekeeping** — you cannot decrypt archives without it
+
+### Managing the Stack
+
+Day-to-day operations are driven by a set of helper scripts at the root of `aems-app/`. All of them must be invoked from the `aems-app/` directory so that `docker compose` resolves the right project context. Windows admins use the `.ps1` equivalents (`start-services.ps1`, `reset-service.ps1`, `secrets.ps1`, `update-user-role.ps1`, `backup-restore.ps1`, `build.ps1`, `test.ps1`).
+
+| Script | Purpose |
+|--------|---------|
+| [start-services.sh](./aems-app/start-services.sh) | Build images and bring the stack up in detached mode (`docker compose build && docker compose up -d`). Use this after pulling code, editing `.env`, or re-running `secrets.sh`. |
+| [reset-service.sh](./aems-app/reset-service.sh) | **Destructive.** Stops the stack, deletes one or more services' persistent volumes, then brings everything back up. Run with no arguments to list eligible services. Common targets: `certs` (after a hostname change), `keycloak-db` (to reset the realm), `database` (full app reset — wipes all application data). Add `--dry-run` to preview, `--force` to skip the prompt. |
+| [secrets.sh](./aems-app/secrets.sh) | Reads `.env.secrets` and writes per-secret files under [aems-app/docker/secrets/](./aems-app/docker/secrets/) plus a generated `.env.secrets.docker`. Re-run any time `.env.secrets` changes, then `./start-services.sh` to roll the affected containers. |
+| [update-user-role.sh](./aems-app/update-user-role.sh) | Sets or clears an application role on a user looked up by email. Usage: `./update-user-role.sh <email> <role>` (pass `""` to remove the role). The user must have signed into the UI at least once so the row exists in the application database. |
+| [update-keycloak-grafana-mapper.sh](./aems-app/update-keycloak-grafana-mapper.sh) | Recovery tool: re-installs the client-roles mapper on the `grafana-oauth` Keycloak client. The mapper is shipped in [aems-app/docker/keycloak/default-realm.json](./aems-app/docker/keycloak/default-realm.json) and applied automatically on first boot, so this script is only needed if someone has removed the mapper manually. Reads admin credentials from `docker/.env.keycloak`. |
+| [migrate-historian-data.sh](./aems-app/migrate-historian-data.sh) | One-shot migration of legacy time-series data from `grafana-db` into the `historian` database. Requires both `grafana` and `historian` profiles running. Only relevant when upgrading from an older deployment that stored telemetry in `grafana-db`. |
+| [backup-restore.sh](./aems-app/backup-restore.sh) | Break-glass restore from an encrypted backup archive. See [Restoring from a Backup](#restoring-from-a-backup). |
+| [backup.sh](./aems-app/backup.sh) | **Internal — do not invoke directly.** Executed by the backup sidecar in response to BackupRun rows. Operators trigger backups through the `/backups` admin UI. |
+| [build.sh](./aems-app/build.sh) | Builds the monorepo modules in dependency order (`prisma → common → server → client`). Only needed for source-tree builds; the Docker images run their own builds during `start-services.sh`. |
+| [test.sh](./aems-app/test.sh) | Runs lint, type-check, and Jest tests across all modules. Slow; intended for CI / pre-release verification. |
+
+### Routine Maintenance
+
+| Task | How |
+|------|-----|
+| Confirm last night's backup ran | `/backups` admin UI → Runs tab |
+| Health check | `curl https://<HOSTNAME>/api/health` and `docker compose ps` from `aems-app/` |
+| View container logs | `docker logs <container>` (e.g. `aems-server`, `aems-historian`, `aems-proxy`, `aems-volttron`) |
+| Add or change a user role | `./update-user-role.sh <email> <role>` (user must have logged in once first) |
+| Reset a single service | `./reset-service.sh <service>` (e.g. `certs` after a hostname change) |
+| Rotate secrets | Edit `.env.secrets`, re-run `./secrets.sh`, then `./start-services.sh` |
+| Restart a single service after config edits | `docker compose restart <service>` from `aems-app/` |
+| Inspect off-site replication (if configured) | See the historian replication guide at `https://<HOSTNAME>/historian` |
+
+### Updates
+
+```bash
+cd aems-app
+git stash
+git pull
+git stash pop
+docker compose pull          # if you deploy from prebuilt images
+./start-services.sh          # rebuilds, brings stack up, runs DB migrations via the init container
+```
+
+**Always verify a successful backup exists** in the `/backups` Runs tab immediately before applying an update. Migrations are forward-only.
+
+### Restoring from a Backup
+
+Restore is a break-glass CLI operation because the UI may be unavailable when you need it. Briefly:
+
+1. Locate the encrypted archive (local, share, or `s3://`)
+2. Locate the matching age private key (rotations create new keys — keep offline copies of every key that was active when an archive was written)
+3. Stop user traffic, ensure target service containers are up
+4. Dry-run: `./backup-restore.sh --archive <path> --identity <key> --dry-run`
+5. Real run: same command without `--dry-run`
+6. `docker compose down && docker compose up -d`
+
+The full procedure with all flags is in [aems-app/README.md → Backups](./aems-app/README.md#backups).
+
+### Off-Site Historian Replication (Optional)
+
+If you want a read replica or data replication (DR) copy of the historian at another site, the historian publisher is configured automatically when the `historian` profile is up; the full subscriber-host setup guide and scripts are published at `https://<HOSTNAME>/historian`. This is **not** how building edge agents talk to the historian — those are services in this same compose project — it is purely an off-site / DR feature.
+
+**Restrict the publisher to your subscriber IP.** Out of the box, [aems-app/docker/historian/pg_hba.conf](./aems-app/docker/historian/pg_hba.conf) accepts replication from any address (`0.0.0.0/0`) over TLS. Before exposing `HISTORIAN_REPLICATION_PORT` (default `6543`) to the network, narrow those rules to your subscriber's address. Edit the two `hostssl` lines that match `0.0.0.0/0` and replace the wildcard with the subscriber's CIDR:
+
+```
+# Replace 0.0.0.0/0 with your subscriber's IP, e.g. 203.0.113.42/32
+hostssl replication     replicator      203.0.113.42/32         scram-sha-256
+hostssl historian       replicator      203.0.113.42/32         scram-sha-256
+```
+
+`pg_hba.conf` is baked into the historian image at build time (see [aems-app/docker/historian/Dockerfile](./aems-app/docker/historian/Dockerfile)), so `docker compose restart` will not pick up the change. After editing, rebuild and restart from `aems-app/` with `./start-services.sh` — it runs `docker compose build` followed by `docker compose up -d`, which rebuilds the historian image and rolls the container with the new file. Repeat the edit + rebuild whenever you add or remove a subscriber.
+
+### Hardening Checklist
+
+- [ ] `HOSTNAME` set to a real DNS name (never `localhost` in production)
+- [ ] Every value in `.env.secrets` is unique and strong; deployed via `./secrets.sh`
+- [ ] `CERT_RESOLVER=letsencrypt` (with a real `ADMIN_EMAIL`) or a third-party cert is in use
+- [ ] If off-site replication is configured, subscribers are restricted by IP in [aems-app/docker/historian/pg_hba.conf](./aems-app/docker/historian/)
+- [ ] Backups have an off-host destination configured and the active age key has an offline copy
+- [ ] Firewall exposes only `80/tcp` and `443/tcp` publicly; `HISTORIAN_REPLICATION_PORT` (default `6543`) is allowed only from known subscriber IPs; BACnet `47808/udp` is internal-only
+- [ ] Default seeded admin password has been changed
+
+### Detailed References
+
+- **Full configuration reference (env vars, profiles, secrets, backups, Keycloak):** [aems-app/README.md](./aems-app/README.md)
+- **Historian off-site replication guide and scripts:** `https://<HOSTNAME>/historian` (served by the running deployment)
+- **Backup pipeline internals and per-component restore details:** [aems-app/docker/backup/README.md](./aems-app/docker/backup/)
+- **VOLTTRON edge agent reference:** [aems-edge/README.rst](./aems-edge/README.rst)
+- **FastAPI edge runtime walkthrough (driver modes, device wiring):** [docs/SETUP_GUIDE.md](./docs/SETUP_GUIDE.md)
+- **VOLTTRON platform documentation:** [volttron.readthedocs.io](https://volttron.readthedocs.io/en/main/)
 
 ## Generating Certificates
 

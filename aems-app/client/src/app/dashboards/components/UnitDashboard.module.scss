@@ -23,6 +23,18 @@
   }
 }
 
+// Pairs the binning callout with the time-range selector. Items wrap so the
+// callout falls onto its own line above the controls when the row is too
+// narrow to fit them side-by-side.
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  width: 100%;
+}
+
 .gauges {
   display: grid;
   justify-content: space-between;
@@ -85,6 +97,18 @@
     font-weight: 600;
     color: var(--primary);
     margin: 0;
+  }
+
+  .gaugeRangeLabels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: -28px;
+    padding: 0 16px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    pointer-events: none;
+    position: relative;
+    z-index: 1;
   }
 
   .setpointGrid {

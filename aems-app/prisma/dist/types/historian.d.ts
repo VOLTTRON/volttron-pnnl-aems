@@ -41,9 +41,19 @@ export declare enum MeterMetric {
     Power = "Power",
     Demand = "Demand"
 }
+export interface HistorianBinningInfo {
+    mode: "raw" | "binned";
+    intervalMs?: number;
+    intervalLabel?: string;
+}
 export interface HistorianQueryMetadata {
     topics: Record<string, string>;
     errors: string[];
+    binning?: HistorianBinningInfo;
+    aggregation?: string;
+    format?: MetricFormat;
+    prefix?: string;
+    suffix?: string;
 }
 export interface HistorianDataPoint {
     timestamp: Date;
@@ -97,7 +107,33 @@ export declare enum AggregationType {
     Min = "Min",
     Count = "Count"
 }
+export declare enum MetricAggregation {
+    Min = "min",
+    Max = "max",
+    Mean = "mean",
+    Mode = "mode",
+    Median = "median",
+    Sum = "sum",
+    Count = "count",
+    First = "first",
+    Last = "last"
+}
 export declare enum CalculationType {
     SetpointError = "SetpointError",
     RollingAverage = "RollingAverage"
+}
+export declare enum MetricTransform {
+    None = "none",
+    Integer = "integer",
+    Decimal1 = "decimal1",
+    Decimal2 = "decimal2",
+    Decimal3 = "decimal3",
+    Floor = "floor",
+    Ceiling = "ceiling"
+}
+export declare enum MetricFormat {
+    None = "none",
+    Thousands = "thousands",
+    Compact = "compact",
+    Scientific = "scientific"
 }

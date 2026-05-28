@@ -4,11 +4,14 @@ import { useContext, useState, useMemo } from "react";
 import { Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
 import { ReadUnitsDocument, StringFilterMode } from "@/graphql-codegen/graphql";
-import { CurrentContext, PreferencesContext, compilePreferences } from "@/app/components/providers";
+import { CurrentContext, PreferencesContext, compilePreferences, getStoredPreferences } from "@/app/components/providers";
 import { Role } from "@local/common";
 import { SiteDashboard } from "@/app/dashboards/components/SiteDashboard";
 import { UnitDashboard } from "@/app/dashboards/components/UnitDashboard";
+import { calculateFromDateForPreset } from "@/app/dashboards/utils/timeRange";
 import styles from "./page.module.scss";
+
+const DEFAULT_TIME_RANGE_PRESET = "24h";
 
 interface PageProps {
   params: { campus: string; building: string; unit: string };
@@ -24,11 +27,11 @@ export default function DashboardPage({ params }: PageProps) {
   const { preferences } = useContext(PreferencesContext);
   const { mode } = compilePreferences(preferences, current?.preferences);
 
-  // Time range state - only ISO strings needed for GraphQL queries
+  // Time range state - only ISO strings needed for GraphQL queries.
+  // Default to the last 24 hours; persisted preset overrides on subsequent visits.
   const [startTime, setStartTime] = useState<string>(() => {
-    const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return weekAgo.toISOString();
+    const preset = getStoredPreferences().dashboardTimeRangePreset ?? DEFAULT_TIME_RANGE_PRESET;
+    return calculateFromDateForPreset(preset).toISOString();
   });
   const [endTime, setEndTime] = useState<string>(() => new Date().toISOString());
 

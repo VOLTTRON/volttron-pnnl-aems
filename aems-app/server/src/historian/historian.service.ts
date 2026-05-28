@@ -16,6 +16,7 @@ import {
   HistorianAggregateResult,
   HistorianMetricCurrent,
   HistorianQueryMetadata,
+  HistorianBinningInfo,
   HistorianMultiSystemData,
   AggregationType,
   CalculationType,
@@ -30,8 +31,19 @@ import {
   UnitMetric,
   WeatherMetric,
   MeterMetric,
+  MetricAggregation,
 } from "@local/common";
-import { buildUnitTopicPath, buildWeatherTopicPath, buildMeterTopicPath } from "./metrics";
+import {
+  buildUnitTopicPath,
+  buildWeatherTopicPath,
+  buildMeterTopicPath,
+  resolveUnitMetricEntry,
+  resolveWeatherMetricEntry,
+  resolveMeterMetricEntry,
+  aggregationSql,
+  applyTransform,
+  ResolvedMetricEntry,
+} from "./metrics";
 
 // Re-export types for convenience
 export {
@@ -246,7 +258,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianMetricCurrent | null> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
-    
+
+    const entry = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildUnitTopicPath(campus, building, system, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -271,9 +284,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         system,
         metric,
-        value: this.parseValue(row.value_string),
+        value: applyTransform(this.parseValue(row.value_string), entry.transform),
         timestamp: new Date(row.ts),
-        metadata: { topics, errors },
+        metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
       };
     } catch (error) {
       this.logger.error("Error fetching unit current value", error);
@@ -292,7 +305,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianMetricCurrent | null> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
-    
+
+    const entry = resolveWeatherMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildWeatherTopicPath(campus, building, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -317,9 +331,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         system: "weather",
         metric,
-        value: this.parseValue(row.value_string),
+        value: applyTransform(this.parseValue(row.value_string), entry.transform),
         timestamp: new Date(row.ts),
-        metadata: { topics, errors },
+        metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
       };
     } catch (error) {
       this.logger.error("Error fetching weather current value", error);
@@ -341,7 +355,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianTimeSeries> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
-    
+
+    const entry = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildUnitTopicPath(campus, building, system, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -349,25 +364,32 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const topicId = await this.resolveTopicId(topicPath);
       if (topicId === null) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-        return { system, metric, data: [], metadata: { topics, errors } };
+        return {
+          system,
+          metric,
+          data: [],
+          metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
+        };
       }
 
-      // Auto-bucket so a year-long range returns ~500 points instead of
-      // hundreds of thousands. MAX for state metrics, AVG for continuous.
-      const bucketInterval = HistorianService.deriveBucketInterval(startTime, endTime);
-      const aggFn = HistorianService.CATEGORICAL_UNIT_METRICS.has(metric) ? "MAX" : "AVG";
+      // Bin only when the range exceeds the configured threshold; otherwise
+      // emit raw historian samples. The aggregation is whatever the topic map
+      // declares for this metric (configurable per-metric).
+      const bucketing = this.resolveBucketing(startTime, endTime);
+      const { aggregation } = entry;
+      const numericValueExpr = `CASE
+        WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+          THEN value_string::double precision
+        ELSE NULL
+      END`;
 
-      const result = await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
-        `
+      const result =
+        bucketing.mode === "binned"
+          ? await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
+              `
           SELECT
             date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
-            ${aggFn}(
-              CASE
-                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
-                  THEN value_string::double precision
-                ELSE NULL
-              END
-            ) AS value
+            ${aggregationSql(aggregation, numericValueExpr)} AS value
           FROM data
           WHERE topic_id = $1
             AND ts >= $2
@@ -375,8 +397,25 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           GROUP BY 1
           ORDER BY 1
         `,
-        [topicId, startTime, endTime, bucketInterval.sql],
-      );
+              [topicId, startTime, endTime, bucketing.sql],
+            )
+          : await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
+              `
+          SELECT
+            ts AS timestamp,
+            CASE
+              WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+                THEN value_string::double precision
+              ELSE NULL
+            END AS value
+          FROM data
+          WHERE topic_id = $1
+            AND ts >= $2
+            AND ts <= $3
+          ORDER BY ts
+        `,
+              [topicId, startTime, endTime],
+            );
 
       if (result.rows.length === 0) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
@@ -384,7 +423,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       const data: HistorianDataPoint[] = result.rows.map((row) => ({
         timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-        value: HistorianService.toNumber(row.value),
+        value: applyTransform(HistorianService.toNumber(row.value), entry.transform),
         system,
         metric,
       }));
@@ -393,7 +432,13 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         system,
         metric,
         data,
-        metadata: { topics, errors },
+        metadata: {
+          topics,
+          errors,
+          binning: HistorianService.buildBinningInfo(bucketing),
+          aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+          ...HistorianService.displayMetadata(entry),
+        },
       };
     } catch (error) {
       this.logger.error("Error fetching unit time series", error);
@@ -414,7 +459,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianTimeSeries> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
-    
+
+    const entry = resolveWeatherMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildWeatherTopicPath(campus, building, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -422,22 +468,29 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const topicId = await this.resolveTopicId(topicPath);
       if (topicId === null) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-        return { system: "weather", metric, data: [], metadata: { topics, errors } };
+        return {
+          system: "weather",
+          metric,
+          data: [],
+          metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
+        };
       }
 
-      const bucketInterval = HistorianService.deriveBucketInterval(startTime, endTime);
+      const bucketing = this.resolveBucketing(startTime, endTime);
+      const { aggregation } = entry;
+      const numericValueExpr = `CASE
+        WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+          THEN value_string::double precision
+        ELSE NULL
+      END`;
 
-      const result = await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
-        `
+      const result =
+        bucketing.mode === "binned"
+          ? await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
+              `
           SELECT
             date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
-            AVG(
-              CASE
-                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
-                  THEN value_string::double precision
-                ELSE NULL
-              END
-            ) AS value
+            ${aggregationSql(aggregation, numericValueExpr)} AS value
           FROM data
           WHERE topic_id = $1
             AND ts >= $2
@@ -445,8 +498,21 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           GROUP BY 1
           ORDER BY 1
         `,
-        [topicId, startTime, endTime, bucketInterval.sql],
-      );
+              [topicId, startTime, endTime, bucketing.sql],
+            )
+          : await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
+              `
+          SELECT
+            ts AS timestamp,
+            ${numericValueExpr} AS value
+          FROM data
+          WHERE topic_id = $1
+            AND ts >= $2
+            AND ts <= $3
+          ORDER BY ts
+        `,
+              [topicId, startTime, endTime],
+            );
 
       if (result.rows.length === 0) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
@@ -454,7 +520,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       const data: HistorianDataPoint[] = result.rows.map((row) => ({
         timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-        value: HistorianService.toNumber(row.value),
+        value: applyTransform(HistorianService.toNumber(row.value), entry.transform),
         system: "weather",
         metric,
       }));
@@ -463,7 +529,13 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         system: "weather",
         metric,
         data,
-        metadata: { topics, errors },
+        metadata: {
+          topics,
+          errors,
+          binning: HistorianService.buildBinningInfo(bucketing),
+          aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+          ...HistorianService.displayMetadata(entry),
+        },
       };
     } catch (error) {
       this.logger.error("Error fetching weather time series", error);
@@ -488,6 +560,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
 
+    const entry = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildUnitTopicPath(campus, building, system, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -512,7 +585,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const topicId = await this.resolveTopicId(topicPath);
       if (topicId === null) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-        return { aggregates: [], metadata: { topics, errors } };
+        return { aggregates: [], metadata: { topics, errors, ...HistorianService.displayMetadata(entry) } };
       }
 
       const query = `
@@ -539,10 +612,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         aggregates: result.rows.map((row) => ({
           timestamp: new Date(row.timestamp),
-          value: typeof row.value === "string" ? parseFloat(row.value) : null,
+          value: applyTransform(typeof row.value === "string" ? parseFloat(row.value) : null, entry.transform),
           metric,
         })),
-        metadata: { topics, errors },
+        metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
       };
     } catch (error) {
       this.logger.error("Error fetching aggregated data", error);
@@ -566,6 +639,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
 
+    const entry = resolveWeatherMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildWeatherTopicPath(campus, building, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -590,7 +664,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const topicId = await this.resolveTopicId(topicPath);
       if (topicId === null) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-        return { aggregates: [], metadata: { topics, errors } };
+        return { aggregates: [], metadata: { topics, errors, ...HistorianService.displayMetadata(entry) } };
       }
 
       const query = `
@@ -617,10 +691,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         aggregates: result.rows.map((row) => ({
           timestamp: new Date(row.timestamp),
-          value: typeof row.value === "string" ? parseFloat(row.value) : null,
+          value: applyTransform(typeof row.value === "string" ? parseFloat(row.value) : null, entry.transform),
           metric,
         })),
-        metadata: { topics, errors },
+        metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
       };
     } catch (error) {
       this.logger.error("Error fetching aggregated data", error);
@@ -639,7 +713,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianMetricCurrent | null> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
-    
+
+    const entry = resolveMeterMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildMeterTopicPath(campus, building, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -664,9 +739,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         system: "meter",
         metric,
-        value: this.parseValue(row.value_string),
+        value: applyTransform(this.parseValue(row.value_string), entry.transform),
         timestamp: new Date(row.ts),
-        metadata: { topics, errors },
+        metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
       };
     } catch (error) {
       this.logger.error("Error fetching meter current value", error);
@@ -687,7 +762,8 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   ): Promise<HistorianTimeSeries> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
-    
+
+    const entry = resolveMeterMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildMeterTopicPath(campus, building, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -695,22 +771,29 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const topicId = await this.resolveTopicId(topicPath);
       if (topicId === null) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-        return { system: "meter", metric, data: [], metadata: { topics, errors } };
+        return {
+          system: "meter",
+          metric,
+          data: [],
+          metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
+        };
       }
 
-      const bucketInterval = HistorianService.deriveBucketInterval(startTime, endTime);
+      const bucketing = this.resolveBucketing(startTime, endTime);
+      const { aggregation } = entry;
+      const numericValueExpr = `CASE
+        WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
+          THEN value_string::double precision
+        ELSE NULL
+      END`;
 
-      const result = await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
-        `
+      const result =
+        bucketing.mode === "binned"
+          ? await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
+              `
           SELECT
             date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
-            AVG(
-              CASE
-                WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
-                  THEN value_string::double precision
-                ELSE NULL
-              END
-            ) AS value
+            ${aggregationSql(aggregation, numericValueExpr)} AS value
           FROM data
           WHERE topic_id = $1
             AND ts >= $2
@@ -718,8 +801,21 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           GROUP BY 1
           ORDER BY 1
         `,
-        [topicId, startTime, endTime, bucketInterval.sql],
-      );
+              [topicId, startTime, endTime, bucketing.sql],
+            )
+          : await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
+              `
+          SELECT
+            ts AS timestamp,
+            ${numericValueExpr} AS value
+          FROM data
+          WHERE topic_id = $1
+            AND ts >= $2
+            AND ts <= $3
+          ORDER BY ts
+        `,
+              [topicId, startTime, endTime],
+            );
 
       if (result.rows.length === 0) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
@@ -727,7 +823,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       const data: HistorianDataPoint[] = result.rows.map((row) => ({
         timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-        value: HistorianService.toNumber(row.value),
+        value: applyTransform(HistorianService.toNumber(row.value), entry.transform),
         system: "meter",
         metric,
       }));
@@ -736,7 +832,13 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         system: "meter",
         metric,
         data,
-        metadata: { topics, errors },
+        metadata: {
+          topics,
+          errors,
+          binning: HistorianService.buildBinningInfo(bucketing),
+          aggregation: bucketing.mode === "binned" ? aggregation : undefined,
+          ...HistorianService.displayMetadata(entry),
+        },
       };
     } catch (error) {
       this.logger.error("Error fetching meter time series", error);
@@ -760,6 +862,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
 
+    const entry = resolveMeterMetricEntry(metric, this.configService.historian.topicMap);
     const topicPath = buildMeterTopicPath(campus, building, metric, this.configService.historian.topicMap);
     topics[metric] = topicPath;
 
@@ -784,7 +887,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const topicId = await this.resolveTopicId(topicPath);
       if (topicId === null) {
         errors.push(`No data found for topic: ${topicPath} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
-        return { aggregates: [], metadata: { topics, errors } };
+        return { aggregates: [], metadata: { topics, errors, ...HistorianService.displayMetadata(entry) } };
       }
 
       const query = `
@@ -811,10 +914,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         aggregates: result.rows.map((row) => ({
           timestamp: new Date(row.timestamp),
-          value: typeof row.value === "string" ? parseFloat(row.value) : null,
+          value: applyTransform(typeof row.value === "string" ? parseFloat(row.value) : null, entry.transform),
           metric,
         })),
-        metadata: { topics, errors },
+        metadata: { topics, errors, ...HistorianService.displayMetadata(entry) },
       };
     } catch (error) {
       this.logger.error("Error fetching meter aggregated data", error);
@@ -852,6 +955,13 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       queryResult[sys] = [];
     });
 
+    const bucketing = this.resolveBucketing(startTime, endTime, interval ?? undefined);
+    const msuEntry = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+    const { aggregation: msuAggregation } = msuEntry;
+    const binning = HistorianService.buildBinningInfo(bucketing);
+    const aggregationLabel = bucketing.mode === "binned" ? msuAggregation : undefined;
+    const displayMeta = HistorianService.displayMetadata(msuEntry);
+
     if (systems.length > 0) {
       // Resolve every system's topic_id up front so the data query is a
       // pure composite-PK scan on (topic_id, ts) — no JOIN, no ILIKE, and
@@ -868,47 +978,73 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (topicIds.length > 0) {
-        // Auto-derive bucket interval if the caller didn't pass one. Without
-        // this, long ranges (months–years) return raw sample data —
-        // millions of rows per topic — which crushes both the wire payload
-        // and the client-side timeline render.
-        const bucketInterval = interval
-          ? HistorianService.parseClientInterval(interval)
-          : HistorianService.deriveBucketInterval(startTime, endTime);
+        // Aggregation comes from the topic map — no more guessing per metric.
+        const aggregation = msuAggregation;
+        const valueExpr = `CAST(NULLIF(value_string, 'null') AS double precision)`;
 
-        // Categorical state metrics (e.g. OccupancyCommand = 1/2/3) can't
-        // be averaged meaningfully — MAX picks a real state code and
-        // matches the deprecated Grafana dashboard's behavior.
-        const aggFn = HistorianService.CATEGORICAL_UNIT_METRICS.has(metric) ? "MAX" : "AVG";
-
-        const query = `
-          SELECT
-            date_bin($4::interval, ts, $1::timestamptz) AS timestamp,
-            topic_id,
-            ${aggFn}(CAST(NULLIF(value_string, 'null') AS double precision)) AS value
-          FROM data
-          WHERE topic_id = ANY($3::int[])
-            AND ts >= $1
-            AND ts <= $2
-          GROUP BY 1, 2
-          ORDER BY 1, 2
-        `;
         try {
-          const result = await this.pool.query<{
-            timestamp: Date | string;
-            topic_id: number;
-            value: number | string | null;
-          }>(query, [startTime, endTime, topicIds, bucketInterval.sql]);
-          result.rows.forEach((row) => {
-            const sys = topicIdToSystem.get(row.topic_id);
-            if (!sys) return;
-            queryResult[sys].push({
-              timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
-              value: typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null),
-              system: sys,
-              metric,
+          if (bucketing.mode === "binned") {
+            const query = `
+              SELECT
+                date_bin($4::interval, ts, $1::timestamptz) AS timestamp,
+                topic_id,
+                ${aggregationSql(aggregation, valueExpr)} AS value
+              FROM data
+              WHERE topic_id = ANY($3::int[])
+                AND ts >= $1
+                AND ts <= $2
+              GROUP BY 1, 2
+              ORDER BY 1, 2
+            `;
+            const result = await this.pool.query<{
+              timestamp: Date | string;
+              topic_id: number;
+              value: number | string | null;
+            }>(query, [startTime, endTime, topicIds, bucketing.sql]);
+            result.rows.forEach((row) => {
+              const sys = topicIdToSystem.get(row.topic_id);
+              if (!sys) return;
+              queryResult[sys].push({
+                timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+                value: applyTransform(
+                  typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null),
+                  msuEntry.transform,
+                ),
+                system: sys,
+                metric,
+              });
             });
-          });
+          } else {
+            const query = `
+              SELECT
+                ts AS timestamp,
+                topic_id,
+                CAST(NULLIF(value_string, 'null') AS double precision) AS value
+              FROM data
+              WHERE topic_id = ANY($3::int[])
+                AND ts >= $1
+                AND ts <= $2
+              ORDER BY topic_id, ts
+            `;
+            const result = await this.pool.query<{
+              timestamp: Date | string;
+              topic_id: number;
+              value: number | string | null;
+            }>(query, [startTime, endTime, topicIds]);
+            result.rows.forEach((row) => {
+              const sys = topicIdToSystem.get(row.topic_id);
+              if (!sys) return;
+              queryResult[sys].push({
+                timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+                value: applyTransform(
+                  typeof row.value === "string" ? parseFloat(row.value) : (row.value ?? null),
+                  msuEntry.transform,
+                ),
+                system: sys,
+                metric,
+              });
+            });
+          }
         } catch (error) {
           this.logger.error("Error fetching multi-system data", error);
           throw error;
@@ -916,17 +1052,48 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // Bucket grid used to fill gaps with explicit null points so the client
+    // can render "Unknown" as discrete segments aligned with real data
+    // points, instead of relying on a separate full-width background bar.
+    // The grid matches Postgres `date_bin($interval, ts, $startTime)`, which
+    // anchors buckets at `startTime + N*stepMs`. Only meaningful when binned;
+    // raw mode preserves historian timestamps as-is.
+    const fillBuckets = (existing: HistorianDataPoint[], sys: string): HistorianDataPoint[] => {
+      if (bucketing.mode !== "binned") return existing;
+      const byBucket = new Map<number, HistorianDataPoint>();
+      for (const pt of existing) byBucket.set(pt.timestamp.getTime(), pt);
+      const filled: HistorianDataPoint[] = [];
+      const fillStartMs = startTime.getTime();
+      const fillEndMs = endTime.getTime();
+      for (let bucketMs = fillStartMs; bucketMs <= fillEndMs; bucketMs += bucketing.ms) {
+        const pt = byBucket.get(bucketMs);
+        if (pt) {
+          filled.push(pt);
+        } else {
+          filled.push({ timestamp: new Date(bucketMs), value: null, system: sys, metric });
+        }
+      }
+      return filled;
+    };
+
     // Build results for allowed systems
     const results: HistorianMultiSystemData[] = systems.map((sys) => {
-      const data = queryResult[sys] ?? [];
+      const raw = queryResult[sys] ?? [];
+      const data = fillBuckets(raw, sys);
       const errors: string[] = [];
-      if (data.length === 0) {
+      if (raw.length === 0) {
         errors.push(`No data found for topic: ${systemTopics[sys]} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
       }
       return {
         system: sys,
         data,
-        metadata: { topics: { [metric]: systemTopics[sys] }, errors },
+        metadata: {
+          topics: { [metric]: systemTopics[sys] },
+          errors,
+          binning,
+          aggregation: aggregationLabel,
+          ...displayMeta,
+        },
       };
     });
 
@@ -939,6 +1106,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         metadata: {
           topics: { [metric]: topicPath },
           errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
+          binning,
+          aggregation: aggregationLabel,
+          ...displayMeta,
         },
       });
     });
@@ -968,6 +1138,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       grouped[sys.toUpperCase()] = [];
     });
 
+    const rangesEntry = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+    const rangesDisplayMeta = HistorianService.displayMetadata(rangesEntry);
+
     if (systems.length > 0) {
       // Pre-resolve each system's topic_id so the data scan is pure PK.
       const systemTopics = new Map<string, string>(
@@ -985,68 +1158,159 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (topicIds.length > 0) {
-        const query = `
-          WITH system_data AS (
-            SELECT
-              topic_id,
-              ts,
-              CAST(NULLIF(value_string, 'null') AS double precision) as value
-            FROM data
-            WHERE topic_id = ANY($3::int[])
-              AND ts >= $1
-              AND ts <= $2
-              AND CAST(NULLIF(value_string, 'null') AS double precision) IS NOT NULL
-            ORDER BY topic_id, ts
-          ),
-          value_changes AS (
-            SELECT
-              topic_id,
-              ts,
-              value,
-              LAG(value) OVER (PARTITION BY topic_id ORDER BY ts) as prev_value,
-              LEAD(ts) OVER (PARTITION BY topic_id ORDER BY ts) as next_ts
-            FROM system_data
-          ),
-          range_starts AS (
-            SELECT
-              topic_id,
-              ts as start_time,
-              next_ts as end_time,
-              value
-            FROM value_changes
-            WHERE prev_value IS NULL OR prev_value != value
-          )
-          SELECT
-            topic_id,
-            start_time,
-            COALESCE(end_time, $2) as end_time,
-            value
-          FROM range_starts
-          ORDER BY topic_id, start_time
-        `;
+        // Aggregation comes from the topic map. The prior raw-ts path stayed
+        // unaligned with the binned dashboard grid; binning + the configured
+        // aggregation keeps timelines consistent with the rest of the view.
+        const { aggregation } = rangesEntry;
+        const valueExpr = `CAST(NULLIF(value_string, 'null') AS double precision)`;
+        const bucketing = this.resolveBucketing(startTime, endTime);
 
         try {
-          const result = await this.pool.query<{
-            topic_id: number;
-            start_time: string;
-            end_time: string;
-            value: number;
-          }>(query, [startTime, endTime, topicIds]);
+          if (bucketing.mode === "binned") {
+            const query = `
+              SELECT
+                topic_id,
+                date_bin($4::interval, ts, $1::timestamptz) AS bucket,
+                ${aggregationSql(aggregation, valueExpr)} AS value
+              FROM data
+              WHERE topic_id = ANY($3::int[])
+                AND ts >= $1
+                AND ts <= $2
+              GROUP BY 1, 2
+              ORDER BY 1, 2
+            `;
+            const result = await this.pool.query<{
+              topic_id: number;
+              bucket: Date | string;
+              value: number | string | null;
+            }>(query, [startTime, endTime, topicIds, bucketing.sql]);
 
-          result.rows.forEach((row) => {
-            const sys = topicIdToSystem.get(row.topic_id);
-            if (!sys) return;
-            const key = sys.toUpperCase();
-            if (grouped[key]) {
-              grouped[key].push({
-                startTime: new Date(row.start_time),
-                endTime: new Date(row.end_time),
-                value: row.value,
-                system: sys,
-                metric,
-              });
+            // Group bucketed samples per topic, then collapse consecutive
+            // identical buckets into ranges. Boundaries land on the same grid
+            // as `getMultiSystemUnit` so the timeline lines up.
+            const seriesByTopic = new Map<number, Array<{ bucketMs: number; value: number | null }>>();
+            for (const row of result.rows) {
+              let arr = seriesByTopic.get(row.topic_id);
+              if (!arr) {
+                arr = [];
+                seriesByTopic.set(row.topic_id, arr);
+              }
+              const bucketMs = row.bucket instanceof Date ? row.bucket.getTime() : new Date(row.bucket).getTime();
+              const value = applyTransform(HistorianService.toNumber(row.value), rangesEntry.transform);
+              arr.push({ bucketMs, value });
             }
-          });
+
+            const stepMs = bucketing.ms;
+            const endMs = endTime.getTime();
+            for (const [topicId, series] of seriesByTopic) {
+              const sys = topicIdToSystem.get(topicId);
+              if (!sys) continue;
+              const key = sys.toUpperCase();
+              if (!grouped[key]) continue;
+              let cur: { startMs: number; value: number } | null = null;
+              for (const pt of series) {
+                if (pt.value == null) {
+                  if (cur) {
+                    grouped[key].push({
+                      startTime: new Date(cur.startMs),
+                      endTime: new Date(pt.bucketMs),
+                      value: cur.value,
+                      system: sys,
+                      metric,
+                    });
+                    cur = null;
+                  }
+                  continue;
+                }
+                if (!cur) {
+                  cur = { startMs: pt.bucketMs, value: pt.value };
+                } else if (pt.value !== cur.value) {
+                  grouped[key].push({
+                    startTime: new Date(cur.startMs),
+                    endTime: new Date(pt.bucketMs),
+                    value: cur.value,
+                    system: sys,
+                    metric,
+                  });
+                  cur = { startMs: pt.bucketMs, value: pt.value };
+                }
+              }
+              if (cur) {
+                const lastBucketMs = series.length > 0 ? series[series.length - 1].bucketMs : cur.startMs;
+                grouped[key].push({
+                  startTime: new Date(cur.startMs),
+                  endTime: new Date(Math.min(lastBucketMs + stepMs, endMs)),
+                  value: cur.value,
+                  system: sys,
+                  metric,
+                });
+              }
+            }
+          } else {
+            // Below the binning threshold the dashboard renders raw historian
+            // samples, so ranges use the original CTE that emits historian
+            // `ts` values directly — alignment is moot when neither side bins.
+            const query = `
+              WITH system_data AS (
+                SELECT
+                  topic_id,
+                  ts,
+                  CAST(NULLIF(value_string, 'null') AS double precision) as value
+                FROM data
+                WHERE topic_id = ANY($3::int[])
+                  AND ts >= $1
+                  AND ts <= $2
+                  AND CAST(NULLIF(value_string, 'null') AS double precision) IS NOT NULL
+                ORDER BY topic_id, ts
+              ),
+              value_changes AS (
+                SELECT
+                  topic_id,
+                  ts,
+                  value,
+                  LAG(value) OVER (PARTITION BY topic_id ORDER BY ts) as prev_value,
+                  LEAD(ts) OVER (PARTITION BY topic_id ORDER BY ts) as next_ts
+                FROM system_data
+              ),
+              range_starts AS (
+                SELECT
+                  topic_id,
+                  ts as start_time,
+                  next_ts as end_time,
+                  value
+                FROM value_changes
+                WHERE prev_value IS NULL OR prev_value != value
+              )
+              SELECT
+                topic_id,
+                start_time,
+                COALESCE(end_time, $2) as end_time,
+                value
+              FROM range_starts
+              ORDER BY topic_id, start_time
+            `;
+            const result = await this.pool.query<{
+              topic_id: number;
+              start_time: string;
+              end_time: string;
+              value: number;
+            }>(query, [startTime, endTime, topicIds]);
+
+            result.rows.forEach((row) => {
+              const sys = topicIdToSystem.get(row.topic_id);
+              if (!sys) return;
+              const key = sys.toUpperCase();
+              if (grouped[key]) {
+                grouped[key].push({
+                  startTime: new Date(row.start_time),
+                  endTime: new Date(row.end_time),
+                  value: applyTransform(row.value, rangesEntry.transform),
+                  system: sys,
+                  metric,
+                });
+              }
+            });
+          }
         } catch (error) {
           this.logger.error("Error fetching multi-system ranges", error);
           throw error;
@@ -1065,7 +1329,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return {
         system: sys,
         ranges,
-        metadata: { topics: { [metric]: topicPath }, errors },
+        metadata: { topics: { [metric]: topicPath }, errors, ...rangesDisplayMeta },
       };
     });
 
@@ -1078,6 +1342,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         metadata: {
           topics: { [metric]: topicPath },
           errors: [`Access denied: User has no permissions for ${campus}/${building}/${sys}`],
+          ...rangesDisplayMeta,
         },
       });
     });
@@ -1163,7 +1428,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (allTempIds.length > 0) {
-        const bucketInterval = HistorianService.deriveBucketInterval(startTime, endTime);
+        // Setpoint-error always bins because the per-bucket walk in
+        // computeBucketErrorSeries needs a fixed grid; below the configured
+        // raw-data threshold we still derive a bucket width targeting `count`.
+        const bucketInterval = this.deriveBucketInterval(startTime, endTime);
 
         const tempQuery = `
           SELECT
@@ -1385,14 +1653,15 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Derive a sensible bucket interval for a query range, targeting ~500
-   * buckets per chart and snapping to a human-readable width. Returns both
-   * a Postgres interval literal (e.g. "300 seconds") and the corresponding
-   * width in milliseconds so JS and SQL see the same value.
+   * Derive a sensible bucket interval for a query range, targeting the
+   * configured `historian.binning.count` and snapping to a human-readable
+   * width. Returns both a Postgres interval literal (e.g. "300 seconds")
+   * and the corresponding width in milliseconds so JS and SQL see the same
+   * value.
    */
-  private static deriveBucketInterval(startTime: Date, endTime: Date): { sql: string; ms: number } {
+  private deriveBucketInterval(startTime: Date, endTime: Date): { sql: string; ms: number } {
     const rangeMs = Math.max(1, endTime.getTime() - startTime.getTime());
-    const targetBuckets = 500;
+    const targetBuckets = Math.max(1, this.configService.historian.binning.count);
     const targetSec = Math.max(1, Math.ceil(rangeMs / 1000 / targetBuckets));
     const niceSeconds = [
       10, 30,
@@ -1405,14 +1674,50 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * UnitMetrics whose values are categorical state codes (not continuous
-   * measurements). Bucketed aggregation for these uses MAX/mode semantics
-   * rather than AVG, which would produce meaningless non-integer states.
-   * Extend this set as other state metrics are added.
+   * Resolve how a query should be bucketed for a given range and optional
+   * client-supplied interval. When the requested range is at or below the
+   * configured `historian.binning.start * unit` threshold, returns `raw` so
+   * the caller can skip `date_bin` and emit historian `ts` values directly.
+   * An explicit `clientInterval` always forces binning.
    */
-  private static readonly CATEGORICAL_UNIT_METRICS: ReadonlySet<UnitMetric> = new Set<UnitMetric>([
-    UnitMetric.OccupancyCommand,
-  ]);
+  private resolveBucketing(
+    startTime: Date,
+    endTime: Date,
+    clientInterval?: string,
+  ): { mode: "binned"; sql: string; ms: number } | { mode: "raw" } {
+    if (clientInterval) {
+      const parsed = HistorianService.parseClientInterval(clientInterval);
+      return { mode: "binned", sql: parsed.sql, ms: parsed.ms };
+    }
+    const { start, unit } = this.configService.historian.binning;
+    const thresholdMs = Math.max(0, start) * HistorianService.msPerDurationUnit(unit);
+    const rangeMs = Math.max(0, endTime.getTime() - startTime.getTime());
+    if (thresholdMs > 0 && rangeMs <= thresholdMs) {
+      return { mode: "raw" };
+    }
+    const derived = this.deriveBucketInterval(startTime, endTime);
+    return { mode: "binned", sql: derived.sql, ms: derived.ms };
+  }
+
+  /**
+   * Convert a duration unit (as parsed by `toDurationUnit`) to milliseconds.
+   * Months and years use 30/365 day approximations — fine for a binning
+   * threshold where exact calendar arithmetic isn't required.
+   */
+  private static msPerDurationUnit(
+    unit: "milliseconds" | "seconds" | "minutes" | "hours" | "days" | "weeks" | "months" | "years",
+  ): number {
+    switch (unit) {
+      case "milliseconds": return 1;
+      case "seconds": return 1000;
+      case "minutes": return 60_000;
+      case "hours": return 3_600_000;
+      case "days": return 86_400_000;
+      case "weeks": return 604_800_000;
+      case "months": return 30 * 86_400_000;
+      case "years": return 365 * 86_400_000;
+    }
+  }
 
   /**
    * Parse a client-supplied interval string like "5m" / "1h" into the same
@@ -1436,6 +1741,42 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     return { sql: `${n} ${u.name}`, ms: n * u.ms };
   }
 
+  /**
+   * Format a millisecond bucket width as a short human label like "5m" or
+   * "1h", choosing the largest whole unit that divides cleanly. Falls back
+   * to seconds for sub-minute or non-divisible widths so the label always
+   * round-trips to a valid client-interval string.
+   */
+  private static formatIntervalLabel(ms: number): string {
+    if (!Number.isFinite(ms) || ms <= 0) return `${Math.max(0, Math.round(ms))}ms`;
+    const day = 86_400_000;
+    const hour = 3_600_000;
+    const minute = 60_000;
+    const second = 1000;
+    if (ms % day === 0) return `${ms / day}d`;
+    if (ms % hour === 0) return `${ms / hour}h`;
+    if (ms % minute === 0) return `${ms / minute}m`;
+    return `${Math.round(ms / second)}s`;
+  }
+
+  /**
+   * Build the binning metadata that gets attached to historian results so
+   * the dashboard can show whether the values it received are raw historian
+   * samples or fixed-width buckets, and what bucket width was used.
+   */
+  private static buildBinningInfo(
+    bucketing: { mode: "binned"; sql: string; ms: number } | { mode: "raw" },
+  ): HistorianBinningInfo {
+    if (bucketing.mode === "raw") {
+      return { mode: "raw" };
+    }
+    return {
+      mode: "binned",
+      intervalMs: bucketing.ms,
+      intervalLabel: HistorianService.formatIntervalLabel(bucketing.ms),
+    };
+  }
+
   private static toNumber(v: string | number | null | undefined): number | null {
     if (typeof v === "number") return isFinite(v) ? v : null;
     if (typeof v === "string") {
@@ -1443,6 +1784,22 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       return isFinite(n) ? n : null;
     }
     return null;
+  }
+
+  /**
+   * Extract the display-only fields (format / prefix / suffix) from a
+   * resolved metric entry into a partial `HistorianQueryMetadata` so callers
+   * can spread them onto their response metadata. Empty strings are dropped
+   * so they don't bloat serialized payloads.
+   */
+  private static displayMetadata(
+    entry: ResolvedMetricEntry,
+  ): Pick<HistorianQueryMetadata, "format" | "prefix" | "suffix"> {
+    return {
+      format: entry.format,
+      prefix: entry.prefix === "" ? undefined : entry.prefix,
+      suffix: entry.suffix === "" ? undefined : entry.suffix,
+    };
   }
 
   /**
@@ -1605,7 +1962,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       [unoccCoolMetric]: unoccCoolPath,
     };
 
-    const bucketInterval = HistorianService.deriveBucketInterval(startTime, endTime);
+    // Setpoint-error always bins because the per-bucket walk in
+    // computeBucketErrorSeries needs a fixed grid.
+    const bucketInterval = this.deriveBucketInterval(startTime, endTime);
 
     try {
       const pathToId = await this.resolveTopicIds([
@@ -1627,7 +1986,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       if (tempId === undefined) {
         errors.push(`Topic not found: ${tempPath}`);
-        return { system, metric: tempMetric, data: [], metadata: { topics, errors } };
+        // Don't bail out — fall through with no temp samples so the bucket
+        // grid still gets emitted (all-null), and the client renders the
+        // system as a continuous "Unknown" row instead of an empty y-axis
+        // category.
       }
 
       // Three small, index-friendly queries run in parallel — each a pure
@@ -1685,12 +2047,15 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         ORDER BY ts
       `;
 
-      const tempPromise = this.pool.query<{ bucket: Date | string; temp_value: number | string | null }>(tempQuery, [
-        startTime,
-        endTime,
-        bucketInterval.sql,
-        tempId,
-      ]);
+      const tempPromise =
+        tempId !== undefined
+          ? this.pool.query<{ bucket: Date | string; temp_value: number | string | null }>(tempQuery, [
+              startTime,
+              endTime,
+              bucketInterval.sql,
+              tempId,
+            ])
+          : Promise.resolve({ rows: [] as Array<{ bucket: Date | string; temp_value: number | string | null }> });
       const setpointPromise =
         setpointIds.length > 0
           ? this.pool.query<{ topic_id: number; ts: Date | string; sp_value: number | string | null }>(setpointQuery, [
@@ -1780,7 +2145,16 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         system,
         metric: tempMetric,
         data,
-        metadata: { topics, errors },
+        metadata: {
+          topics,
+          errors,
+          binning: HistorianService.buildBinningInfo({
+            mode: "binned",
+            sql: bucketInterval.sql,
+            ms: bucketInterval.ms,
+          }),
+          aggregation: MetricAggregation.Mean,
+        },
       };
     } catch (error) {
       this.logger.error("Error calculating setpoint error", error);
