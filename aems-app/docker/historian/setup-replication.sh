@@ -86,6 +86,71 @@ psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" 
     END
     \$\$;
 
+    -- CRITICAL: Auto-fix replica identity on tables created AFTER this init script.
+    -- This init script runs once at first DB boot, BEFORE VOLTTRON's SQLHistorian
+    -- creates the 'data' table at runtime. VOLTTRON creates 'data' with only a
+    -- UNIQUE(topic_id, ts) constraint (no PRIMARY KEY), so with historian_pub
+    -- (FOR ALL TABLES, publishes UPDATE) the historian's INSERT ... ON CONFLICT DO
+    -- UPDATE upserts are rejected: "cannot update table ... does not have a replica
+    -- identity and publishes updates". A DDL event trigger fixes any new table that
+    -- lacks a PRIMARY KEY the moment it is created, with no ordering dependency.
+    CREATE OR REPLACE FUNCTION aems_ensure_replica_identity()
+    RETURNS event_trigger
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    AS \$fn\$
+    DECLARE
+        obj record;
+        idx_name text;
+    BEGIN
+        FOR obj IN
+            SELECT * FROM pg_event_trigger_ddl_commands()
+            WHERE command_tag = 'CREATE TABLE' AND object_type = 'table'
+        LOOP
+            -- Tables with a PRIMARY KEY already have a usable default replica identity.
+            IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = obj.objid AND contype = 'p') THEN
+                CONTINUE;
+            END IF;
+
+            -- Prefer a unique, non-partial, all-NOT-NULL index (efficient: logs only key cols).
+            SELECT i.relname INTO idx_name
+            FROM pg_index x
+            JOIN pg_class i ON i.oid = x.indexrelid
+            WHERE x.indrelid = obj.objid
+              AND x.indisunique
+              AND x.indpred IS NULL
+              AND x.indexprs IS NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM unnest(x.indkey) AS k(attnum)
+                  JOIN pg_attribute a ON a.attrelid = obj.objid AND a.attnum = k.attnum
+                  WHERE NOT a.attnotnull
+              )
+            ORDER BY x.indnatts
+            LIMIT 1;
+
+            IF idx_name IS NOT NULL THEN
+                EXECUTE format('ALTER TABLE %s REPLICA IDENTITY USING INDEX %I', obj.object_identity, idx_name);
+                RAISE NOTICE 'Set REPLICA IDENTITY USING INDEX % on %', idx_name, obj.object_identity;
+            ELSE
+                -- Fallback: log the full old row so UPDATE/DELETE can replicate.
+                EXECUTE format('ALTER TABLE %s REPLICA IDENTITY FULL', obj.object_identity);
+                RAISE NOTICE 'Set REPLICA IDENTITY FULL on %', obj.object_identity;
+            END IF;
+        END LOOP;
+    END
+    \$fn\$;
+
+    DO \$\$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_event_trigger WHERE evtname = 'aems_replica_identity_trg') THEN
+            CREATE EVENT TRIGGER aems_replica_identity_trg
+                ON ddl_command_end WHEN TAG IN ('CREATE TABLE')
+                EXECUTE FUNCTION aems_ensure_replica_identity();
+            RAISE NOTICE 'Created event trigger aems_replica_identity_trg';
+        END IF;
+    END
+    \$\$;
+
     -- Create publication for all tables in the database
     DO \$\$
     BEGIN
