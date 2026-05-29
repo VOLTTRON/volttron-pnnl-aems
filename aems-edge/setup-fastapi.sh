@@ -129,7 +129,7 @@ generate_nf_driver_config() {
         if [[ -f "${device_config}" ]]; then
             device_id=$(python3 -c "import json; print(json.load(open('${device_config}')).get('driver_config',{}).get('device_id', $i))" 2>/dev/null || echo "$i")
         fi
-        local registry_file="/app/site-config/configuration_store/platform.driver/registry_configs/schneider.csv"
+        local registry_file="/app/site-config/configs/configuration_store/platform.driver/registry_configs/schneider.csv"
         if [[ $i -gt 1 ]]; then
             device_list="${device_list},"
         fi
