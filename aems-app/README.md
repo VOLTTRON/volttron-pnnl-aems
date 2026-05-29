@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://tanuki.pnnl.gov/amelia.bleeker/skeleton" target="_blank">
-    <img src="https://img.shields.io/badge/version-2.0.4-blue.svg" alt="Version" />
+    <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version" />
   </a>
   <a href="https://tanuki.pnnl.gov/amelia.bleeker/skeleton" target="_blank">
     <img src="https://img.shields.io/badge/git-main-blue" alt="Git Repo Main" />
@@ -3187,15 +3187,15 @@ This project utilizes a Gitflow workflow. While this method works well for small
   git push origin develop
   ```
 - Create a release
-  1. Increment the version number from `2.0.4` using [Semantic Versioning](https://semver.org/) or your project's preferred method.
+  1. Increment the version number from `1.0.0` using [Semantic Versioning](https://semver.org/) or your project's preferred method.
      1. In VSCode go to the `Search (Ctrl+Shift+F)` tab.
-     2. Enter `2.0.4` in the `Search` field.
+     2. Enter `1.0.0` in the `Search` field.
      3. Enter your incremented version number in the `Replace` field.
      4. Press the `...` to `Expand Search Details` and enter `.env*,*.yml,*.json,*.md` in the `files to include` field.
      5. Replace all of the relevant entries.
   2. Create a new release branch from the `develop` branch using the updated release version.
   ```bash
-  git checkout -b release/2.0.4 develop
+  git checkout -b release/1.0.0 develop
   ```
   3. Make changes to the release branch.
   ```bash
@@ -3205,13 +3205,13 @@ This project utilizes a Gitflow workflow. While this method works well for small
   4. Merge the release branch into the `main` and `develop` branches.
   ```bash
   git checkout main
-  git merge release/2.0.4
-  git tag -a 2.0.4 -m "Tagged for new version release."
+  git merge release/1.0.0
+  git tag -a 1.0.0 -m "Tagged for new version release."
   git push origin --tags
   git push origin main
   git checkout develop
-  git merge release/2.0.4
-  git branch -d release/2.0.4
+  git merge release/1.0.0
+  git branch -d release/1.0.0
   git push origin develop
   ```
 
