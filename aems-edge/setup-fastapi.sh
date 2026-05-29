@@ -162,6 +162,57 @@ EOF
     return 0
 }
 
+# Function to generate ILC (Intelligent Load Control) configuration
+generate_ilc_config() {
+    local output_dir="$1"
+    local campus="$2"
+    local building="$3"
+    local templates_dir="$4"
+
+    log_info "Generating ILC configuration"
+    log_info "  Campus: ${campus}, Building: ${building}"
+    log_info "  Templates dir: ${templates_dir}"
+
+    # Generate the main ilc.config from template
+    local ilc_config_dir="${output_dir}/configs"
+    mkdir -p "${ilc_config_dir}"
+
+    local ilc_template="${templates_dir}/config.json"
+    if [[ ! -f "${ilc_template}" ]]; then
+        log_error "ILC config template not found: ${ilc_template}"
+        return 1
+    fi
+
+    # Substitute {campus} and {building} placeholders in the main config
+    sed -e "s/{campus}/${campus}/g" -e "s/{building}/${building}/g" \
+        "${ilc_template}" > "${ilc_config_dir}/ilc.config"
+
+    log_success "ILC main config generated at: ${ilc_config_dir}/ilc.config"
+
+    # Generate config store entries for ilc.platform
+    # The ILC agent uses config:// references that resolve from the config store
+    local ilc_store_dir="${output_dir}/aems_config_store/ilc.platform"
+    mkdir -p "${ilc_store_dir}"
+
+    # control_config and criteria_config use {campus}, {building}, {system} placeholders
+    # {system} is resolved at runtime by the ILC agent using site.json and _type:reduce
+    # so we only substitute campus and building here
+    for template_file in control_config.json criteria_config.json pairwise_criteria.json; do
+        local src="${templates_dir}/${template_file}"
+        # Config store name is the filename without .json extension
+        local store_name="${template_file%.json}"
+        if [[ -f "${src}" ]]; then
+            sed -e "s/{campus}/${campus}/g" -e "s/{building}/${building}/g" \
+                "${src}" > "${ilc_store_dir}/${store_name}"
+            log_success "ILC config store entry generated: ${store_name}"
+        else
+            log_warning "ILC template not found: ${src}"
+        fi
+    done
+
+    return 0
+}
+
 # Set default values for environment variables if not provided
 VOLTTRON_CAMPUS=${VOLTTRON_CAMPUS:-"PNNL"}
 VOLTTRON_BUILDING=${VOLTTRON_BUILDING:-"ROB"}
@@ -432,6 +483,20 @@ if [[ $? -eq 0 ]]; then
 else
     log_error "Failed to generate NF driver configuration"
     exit 1
+fi
+
+# Generate ILC configuration if enabled
+if [[ "${VOLTTRON_ILC}" == "true" ]]; then
+    log_info "Generating ILC configuration for FastAPI"
+    generate_ilc_config "${OUTPUT_DIR}" "${VOLTTRON_CAMPUS}" "${VOLTTRON_BUILDING}" "${TEMPLATES_DIR}"
+    if [[ $? -eq 0 ]]; then
+        log_success "ILC configuration generated successfully"
+    else
+        log_error "Failed to generate ILC configuration"
+        exit 1
+    fi
+else
+    log_info "ILC generation skipped (VOLTTRON_ILC=${VOLTTRON_ILC})"
 fi
 
 # NOTE: FastAPI mode skips the following VOLTTRON-specific steps:

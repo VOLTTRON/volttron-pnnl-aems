@@ -904,7 +904,38 @@ services:
       - aems-agent-logs:/var/log/aems
       - ./fastapi/setup/:/app/site-config/:ro
 
-  aems-manager:
+  aems-manager-rtu01:
+    command: [
+      "python", "/app/start-legacy.py",
+      "--agent-dir", "/volttron-pnnl-aems/aems-edge/Manager",
+      "--config", "/app/site-config/configs/configuration_store/manager.rtu01/devices/PNNL/ROB/manager.rtu01.config",
+      "--identity", "manager.rtu01",
+      "--address", "ws://aems-fastapi-server:8000"
+    ]
+    container_name: ${COMPOSE_PROJECT_NAME}-aems-manager-rtu01
+    depends_on:
+      aems-fastapi-server:
+        condition: service_healthy
+    env_file:
+      - .env.aems-fastapi
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://aems-fastapi-server:8000/connections/manager.rtu01"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    hostname: aems-manager-rtu01
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
+    profiles:
+      - fastapi
+      - fastapi-agents
+    restart: unless-stopped
+    volumes:
+      - aems-volttron-home:/var/volttron
+      - aems-agent-logs:/var/log/aems
+      - ./fastapi/setup/:/app/site-config/:ro
+
+  aems-manager-rtu02:
     command: [
       "python", "/app/start-legacy.py",
       "--agent-dir", "/volttron-pnnl-aems/aems-edge/Manager",
@@ -912,7 +943,7 @@ services:
       "--identity", "manager.rtu02",
       "--address", "ws://aems-fastapi-server:8000"
     ]
-    container_name: ${COMPOSE_PROJECT_NAME}-aems-manager
+    container_name: ${COMPOSE_PROJECT_NAME}-aems-manager-rtu02
     depends_on:
       aems-fastapi-server:
         condition: service_healthy
@@ -924,7 +955,100 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    hostname: aems-manager
+    hostname: aems-manager-rtu02
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
+    profiles:
+      - fastapi
+      - fastapi-agents
+    restart: unless-stopped
+    volumes:
+      - aems-volttron-home:/var/volttron
+      - aems-agent-logs:/var/log/aems
+      - ./fastapi/setup/:/app/site-config/:ro
+
+  aems-manager-rtu03:
+    command: [
+      "python", "/app/start-legacy.py",
+      "--agent-dir", "/volttron-pnnl-aems/aems-edge/Manager",
+      "--config", "/app/site-config/configs/configuration_store/manager.rtu03/devices/PNNL/ROB/manager.rtu03.config",
+      "--identity", "manager.rtu03",
+      "--address", "ws://aems-fastapi-server:8000"
+    ]
+    container_name: ${COMPOSE_PROJECT_NAME}-aems-manager-rtu03
+    depends_on:
+      aems-fastapi-server:
+        condition: service_healthy
+    env_file:
+      - .env.aems-fastapi
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://aems-fastapi-server:8000/connections/manager.rtu03"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    hostname: aems-manager-rtu03
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
+    profiles:
+      - fastapi
+      - fastapi-agents
+    restart: unless-stopped
+    volumes:
+      - aems-volttron-home:/var/volttron
+      - aems-agent-logs:/var/log/aems
+      - ./fastapi/setup/:/app/site-config/:ro
+
+  aems-manager-rtu04:
+    command: [
+      "python", "/app/start-legacy.py",
+      "--agent-dir", "/volttron-pnnl-aems/aems-edge/Manager",
+      "--config", "/app/site-config/configs/configuration_store/manager.rtu04/devices/PNNL/ROB/manager.rtu04.config",
+      "--identity", "manager.rtu04",
+      "--address", "ws://aems-fastapi-server:8000"
+    ]
+    container_name: ${COMPOSE_PROJECT_NAME}-aems-manager-rtu04
+    depends_on:
+      aems-fastapi-server:
+        condition: service_healthy
+    env_file:
+      - .env.aems-fastapi
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://aems-fastapi-server:8000/connections/manager.rtu04"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    hostname: aems-manager-rtu04
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
+    profiles:
+      - fastapi
+      - fastapi-agents
+    restart: unless-stopped
+    volumes:
+      - aems-volttron-home:/var/volttron
+      - aems-agent-logs:/var/log/aems
+      - ./fastapi/setup/:/app/site-config/:ro
+
+  aems-manager-rtu05:
+    command: [
+      "python", "/app/start-legacy.py",
+      "--agent-dir", "/volttron-pnnl-aems/aems-edge/Manager",
+      "--config", "/app/site-config/configs/configuration_store/manager.rtu05/devices/PNNL/ROB/manager.rtu05.config",
+      "--identity", "manager.rtu05",
+      "--address", "ws://aems-fastapi-server:8000"
+    ]
+    container_name: ${COMPOSE_PROJECT_NAME}-aems-manager-rtu05
+    depends_on:
+      aems-fastapi-server:
+        condition: service_healthy
+    env_file:
+      - .env.aems-fastapi
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://aems-fastapi-server:8000/connections/manager.rtu05"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    hostname: aems-manager-rtu05
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/aems-fastapi:${TAG}
     profiles:
       - fastapi
@@ -1033,6 +1157,7 @@ services:
       - aems-volttron-home:/var/volttron
       - aems-agent-logs:/var/log/aems
       - ./fastapi/setup/:/app/site-config/:ro
+      - ./fastapi/setup/aems_config_store/ilc.platform:/var/volttron/aems_config_store/ilc.platform:ro
 
   # Simulated RTU devices for development/testing
   sim-rtu:
