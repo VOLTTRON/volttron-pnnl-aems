@@ -98,6 +98,8 @@ export class ConfigService extends BaseService {
                 UnoccupiedHeatingSetPoint: unit.configuration?.setpoint?.heating ?? 0,
                 StandbyTime: unit.configuration?.setpoint?.standbyTime ?? 0,
                 StandbyTemperatureOffset: unit.configuration?.setpoint?.standbyOffset ?? 0,
+                OverrideSetPoint: unit.configuration?.setpoint?.overrideSetpoint ?? 0,
+                OverrideDeadBand: (unit.configuration?.setpoint?.overrideDeadband ?? 0) / 2,
               };
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,

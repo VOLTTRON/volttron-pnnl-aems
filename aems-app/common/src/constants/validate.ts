@@ -27,6 +27,18 @@ class Validate extends Base<IValidate> implements IBase<IValidate> {
         options: { default: 4, min: 2, max: 6 },
       },
       {
+        name: "overrideSetpoint",
+        label: "Override Setpoint",
+        type: "setpoint" as ValidateType,
+        options: { default: 70, min: 55, max: 85 },
+      },
+      {
+        name: "overrideDeadband",
+        label: "Override Deadband",
+        type: "setpoint" as ValidateType,
+        options: { default: 4, min: 2, max: 6 },
+      },
+      {
         name: "heating",
         label: "Heating",
         type: "setpoint" as ValidateType,
@@ -156,6 +168,10 @@ class Validate extends Base<IValidate> implements IBase<IValidate> {
   SetpointType = this.parseStrict("setpoint");
   Deadband = this.parseStrict("deadband");
   DeadbandType = this.parseStrict("deadband");
+  OverrideSetpoint = this.parseStrict("overrideSetpoint");
+  OverrideSetpointType = this.parseStrict("overrideSetpoint");
+  OverrideDeadband = this.parseStrict("overrideDeadband");
+  OverrideDeadbandType = this.parseStrict("overrideDeadband");
   Heating = this.parseStrict("heating");
   HeatingType = this.parseStrict("heating");
   Cooling = this.parseStrict("cooling");

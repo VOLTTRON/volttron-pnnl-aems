@@ -103,6 +103,8 @@ let ConfigService = ConfigService_1 = class ConfigService extends __1.BaseServic
                             UnoccupiedHeatingSetPoint: unit.configuration?.setpoint?.heating ?? 0,
                             StandbyTime: unit.configuration?.setpoint?.standbyTime ?? 0,
                             StandbyTemperatureOffset: unit.configuration?.setpoint?.standbyOffset ?? 0,
+                            OverrideSetPoint: unit.configuration?.setpoint?.overrideSetpoint ?? 0,
+                            OverrideDeadBand: (unit.configuration?.setpoint?.overrideDeadband ?? 0) / 2,
                         };
                         await this.volttronService.makeApiCall(`manager.${unit.system.toLowerCase()}`, "set_temperature_setpoints", token, set_temperature_setpoints);
                         this.logger.debug(`[${unit.label}] Temperature setpoints updated successfully`);

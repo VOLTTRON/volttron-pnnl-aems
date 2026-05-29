@@ -29,7 +29,9 @@ let VolttronService = VolttronService_1 = class VolttronService {
         });
     }
     onModuleDestroy() {
-        this.agent.destroy();
+        this.agent.destroy().catch((error) => {
+            this.logger.error(`Failed to destroy VolttronService agent:`, error);
+        });
     }
     async makeAuthCall() {
         if (this.configService.volttron.mocked) {

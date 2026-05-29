@@ -22,7 +22,9 @@ export class VolttronService implements OnModuleDestroy {
 
   onModuleDestroy() {
     // Clean up the agent when the module is destroyed
-    this.agent.destroy();
+    this.agent.destroy().catch((error: Error) => {
+      this.logger.error(`Failed to destroy VolttronService agent:`, error);
+    });
   }
 
   async makeAuthCall(): Promise<string> {

@@ -1,4 +1,14 @@
-import { InputGroup, Intent, Label, RangeSlider, Switch, NumberRange } from "@blueprintjs/core";
+import {
+  InputGroup,
+  Intent,
+  Label,
+  RangeSlider,
+  Switch,
+  NumberRange,
+  MultiSlider,
+  HandleType,
+  HandleInteractionKind,
+} from "@blueprintjs/core";
 import { clamp, cloneDeep, merge } from "lodash";
 import {
   START_TIME_MIN,
@@ -89,9 +99,54 @@ function setSchedule(id: string, unit: UnitType | null, editing: DeepPartial<Uni
   }
 }
 
+type ScheduleField =
+  | "startTime"
+  | "endTime"
+  | "overridePreStartTime"
+  | "overridePreEndTime"
+  | "overridePostStartTime"
+  | "overridePostEndTime";
+
 export function Schedule({ title, id, unit, editing, setEditing, readOnly = false }: ScheduleProps) {
   const schedule = getSchedule(id, unit, editing);
-  const { label, occupied, startTime, endTime } = schedule || {};
+  const {
+    label,
+    occupied,
+    startTime,
+    endTime,
+    override,
+    overridePreStartTime,
+    overridePreEndTime,
+    overridePostStartTime,
+    overridePostEndTime,
+  } = schedule || {};
+
+  const occupiedStart = toMinutes(startTime ?? "", false);
+  const occupiedEnd = toMinutes(endTime ?? "", true);
+  const preStart = toMinutes(overridePreStartTime ?? "", false);
+  const preEnd = toMinutes(overridePreEndTime ?? "", true);
+  const postStart = toMinutes(overridePostStartTime ?? "", false);
+  const postEnd = toMinutes(overridePostEndTime ?? "", true);
+
+  const writeTime = (field: ScheduleField, minutes: number, updateLabel = false) => {
+    const clone = cloneDeep(editing ?? {});
+    let value = getSchedule(id, null, clone);
+    if (!value?.id) {
+      value = { id };
+    }
+    value[field] = toDataFormat(minutes);
+    if (updateLabel) {
+      const newStart = field === "startTime" ? minutes : occupiedStart;
+      const newEnd = field === "endTime" ? minutes : occupiedEnd;
+      value.label = createScheduleLabel("all", {
+        occupied: occupied ?? false,
+        startTime: newStart,
+        endTime: newEnd,
+      });
+    }
+    setSchedule(id, unit, clone, value);
+    setEditing?.(clone);
+  };
 
   return (
     <div className="schedule-row">
@@ -118,45 +173,94 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
       </div>
 
       <div className="schedule-slider">
-        <RangeSlider
-          min={START_TIME_MIN}
-          max={END_TIME_MAX}
-          stepSize={5}
-          labelStepSize={240}
-          intent={Intent.SUCCESS}
-          value={
-            occupied
-              ? [toMinutes(startTime ?? "", false), toMinutes(endTime ?? "", true)]
-              : [START_TIME_MIN, START_TIME_MIN]
-          }
-          labelRenderer={(v, o) =>
-            o?.isHandleTooltip || (v > START_TIME_MIN && v < END_TIME_MAX) ? toTimeFormat(v) : ""
-          }
-          disabled={readOnly || !occupied}
-          onChange={(v) => {
-            const startTime = clamp(
-              (v as NumberRange)[0],
-              START_TIME_MIN,
-              Math.min((v as NumberRange)[1], END_TIME_MAX) - TIME_PADDING,
-            );
-            const endTime = clamp(
-              (v as NumberRange)[1],
-              Math.max((v as NumberRange)[0], START_TIME_MIN) + TIME_PADDING,
-              END_TIME_MAX,
-            );
-            const label = createScheduleLabel("all", { occupied: occupied ?? false, startTime, endTime });
-            const clone = cloneDeep(editing ?? {});
-            let value = getSchedule(id, null, clone);
-            if (!value?.id) {
-              value = { id };
+        {override ? (
+          <MultiSlider
+            min={START_TIME_MIN}
+            max={END_TIME_MAX}
+            stepSize={5}
+            labelStepSize={240}
+            disabled={readOnly}
+            labelRenderer={(v, o) =>
+              o?.isHandleTooltip || (v > START_TIME_MIN && v < END_TIME_MAX) ? toTimeFormat(v) : ""
             }
-            value.label = label;
-            value.startTime = toDataFormat(startTime);
-            value.endTime = toDataFormat(endTime);
-            setSchedule(id, unit, clone, value);
-            setEditing?.(clone);
-          }}
-        />
+          >
+            <MultiSlider.Handle
+              type={HandleType.START}
+              interactionKind={HandleInteractionKind.LOCK}
+              intentAfter={Intent.WARNING}
+              value={preStart}
+              onChange={(v) => writeTime("overridePreStartTime", clamp(v, START_TIME_MIN, preEnd))}
+            />
+            <MultiSlider.Handle
+              type={HandleType.END}
+              interactionKind={HandleInteractionKind.LOCK}
+              value={preEnd}
+              onChange={(v) => writeTime("overridePreEndTime", clamp(v, preStart, occupiedStart))}
+            />
+            <MultiSlider.Handle
+              type={HandleType.START}
+              interactionKind={HandleInteractionKind.LOCK}
+              intentAfter={Intent.SUCCESS}
+              value={occupiedStart}
+              onChange={(v) => writeTime("startTime", clamp(v, preEnd, occupiedEnd - TIME_PADDING), true)}
+            />
+            <MultiSlider.Handle
+              type={HandleType.END}
+              interactionKind={HandleInteractionKind.LOCK}
+              value={occupiedEnd}
+              onChange={(v) => writeTime("endTime", clamp(v, occupiedStart + TIME_PADDING, postStart), true)}
+            />
+            <MultiSlider.Handle
+              type={HandleType.START}
+              interactionKind={HandleInteractionKind.LOCK}
+              intentAfter={Intent.WARNING}
+              value={postStart}
+              onChange={(v) => writeTime("overridePostStartTime", clamp(v, occupiedEnd, postEnd))}
+            />
+            <MultiSlider.Handle
+              type={HandleType.END}
+              interactionKind={HandleInteractionKind.LOCK}
+              value={postEnd}
+              onChange={(v) => writeTime("overridePostEndTime", clamp(v, postStart, END_TIME_MAX))}
+            />
+          </MultiSlider>
+        ) : (
+          <RangeSlider
+            min={START_TIME_MIN}
+            max={END_TIME_MAX}
+            stepSize={5}
+            labelStepSize={240}
+            intent={Intent.SUCCESS}
+            value={occupied ? [occupiedStart, occupiedEnd] : [START_TIME_MIN, START_TIME_MIN]}
+            labelRenderer={(v, o) =>
+              o?.isHandleTooltip || (v > START_TIME_MIN && v < END_TIME_MAX) ? toTimeFormat(v) : ""
+            }
+            disabled={readOnly || !occupied}
+            onChange={(v) => {
+              const startTime = clamp(
+                (v as NumberRange)[0],
+                START_TIME_MIN,
+                Math.min((v as NumberRange)[1], END_TIME_MAX) - TIME_PADDING,
+              );
+              const endTime = clamp(
+                (v as NumberRange)[1],
+                Math.max((v as NumberRange)[0], START_TIME_MIN) + TIME_PADDING,
+                END_TIME_MAX,
+              );
+              const label = createScheduleLabel("all", { occupied: occupied ?? false, startTime, endTime });
+              const clone = cloneDeep(editing ?? {});
+              let value = getSchedule(id, null, clone);
+              if (!value?.id) {
+                value = { id };
+              }
+              value.label = label;
+              value.startTime = toDataFormat(startTime);
+              value.endTime = toDataFormat(endTime);
+              setSchedule(id, unit, clone, value);
+              setEditing?.(clone);
+            }}
+          />
+        )}
       </div>
 
       <div className="schedule-switch">
@@ -164,9 +268,11 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
           label="Unoccupied"
           checked={!occupied}
           onChange={() => {
-            const st = toMinutes(startTime ?? "", false);
-            const et = toMinutes(endTime ?? "", true);
-            const label = createScheduleLabel("all", { occupied: !occupied, startTime: st, endTime: et });
+            const label = createScheduleLabel("all", {
+              occupied: !occupied,
+              startTime: occupiedStart,
+              endTime: occupiedEnd,
+            });
             const clone = cloneDeep(editing ?? {});
             let value = getSchedule(id, null, clone);
             if (!value?.id) {
@@ -174,6 +280,24 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
             }
             value.occupied = !occupied;
             value.label = label;
+            setSchedule(id, unit, clone, value);
+            setEditing?.(clone);
+          }}
+          disabled={readOnly}
+        />
+      </div>
+
+      <div className="schedule-override">
+        <Switch
+          label="Override"
+          checked={override ?? false}
+          onChange={() => {
+            const clone = cloneDeep(editing ?? {});
+            let value = getSchedule(id, null, clone);
+            if (!value?.id) {
+              value = { id };
+            }
+            value.override = !override;
             setSchedule(id, unit, clone, value);
             setEditing?.(clone);
           }}

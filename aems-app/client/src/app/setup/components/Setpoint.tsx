@@ -22,6 +22,12 @@ import {
   STANDBY_TIME_MAX,
   STANDBY_OFFSET_MIN,
   STANDBY_OFFSET_MAX,
+  OVERRIDE_SETPOINT_MIN,
+  OVERRIDE_SETPOINT_MAX,
+  OVERRIDE_SETPOINT_DEFAULT,
+  OVERRIDE_DEADBAND_MIN,
+  OVERRIDE_DEADBAND_MAX,
+  OVERRIDE_DEADBAND_DEFAULT,
   createSetpointLabel,
   getSetpointMessage,
   SETPOINT_DEFAULT,
@@ -56,6 +62,8 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
       }),
       setpoint: SETPOINT_DEFAULT,
       deadband: DEADBAND_DEFAULT,
+      overrideSetpoint: OVERRIDE_SETPOINT_DEFAULT,
+      overrideDeadband: OVERRIDE_DEADBAND_DEFAULT,
       heating: HEATING_DEFAULT,
       cooling: COOLING_DEFAULT,
       standbyTime: STANDBY_TIME_DEFAULT,
@@ -64,7 +72,8 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
     unit?.configuration?.setpoint,
     editing?.configuration?.setpoint,
   );
-  const { label, setpoint, deadband, heating, cooling, standbyTime, standbyOffset } = merged;
+  const { label, setpoint, deadband, overrideSetpoint, overrideDeadband, heating, cooling, standbyTime, standbyOffset } =
+    merged;
   const occupancyDetection = editing?.occupancyDetection ?? unit?.occupancyDetection ?? false;
   const padding = SETPOINT_PADDING + deadband / 2;
 
@@ -307,6 +316,48 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
         </FormGroup>
 
         <div style={{ color: "var(--bp5-intent-danger)", fontSize: "0.875rem", fontWeight: "bold" }}>{error}</div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem", marginBottom: "1rem" }}>
+        <FormGroup label="Override Setpoint (°F)">
+          <NumericInput
+            allowNumericCharactersOnly
+            stepSize={0.5}
+            min={OVERRIDE_SETPOINT_MIN}
+            max={OVERRIDE_SETPOINT_MAX}
+            value={overrideSetpoint}
+            onValueChange={(v) => {
+              const overrideSetpoint = clamp(v, OVERRIDE_SETPOINT_MIN, OVERRIDE_SETPOINT_MAX);
+              const clone = cloneDeep(editing ?? {});
+              clone.configuration = clone.configuration ?? {};
+              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+              clone.configuration.setpoint.overrideSetpoint = overrideSetpoint;
+              setEditing?.(clone);
+            }}
+            disabled={readOnly}
+            fill
+          />
+        </FormGroup>
+
+        <FormGroup label="Override Deadband (°F)">
+          <NumericInput
+            allowNumericCharactersOnly
+            step={1}
+            min={OVERRIDE_DEADBAND_MIN}
+            max={OVERRIDE_DEADBAND_MAX}
+            value={overrideDeadband}
+            onValueChange={(v) => {
+              const overrideDeadband = clamp(v, OVERRIDE_DEADBAND_MIN, OVERRIDE_DEADBAND_MAX);
+              const clone = cloneDeep(editing ?? {});
+              clone.configuration = clone.configuration ?? {};
+              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+              clone.configuration.setpoint.overrideDeadband = overrideDeadband;
+              setEditing?.(clone);
+            }}
+            disabled={readOnly}
+            fill
+          />
+        </FormGroup>
       </div>
 
       {renderSeparateSliders()}
