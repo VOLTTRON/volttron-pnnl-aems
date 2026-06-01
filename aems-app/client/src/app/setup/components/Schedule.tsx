@@ -123,10 +123,12 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
 
   const occupiedStart = toMinutes(startTime ?? "", false);
   const occupiedEnd = toMinutes(endTime ?? "", true);
+  // Override windows use literal parsing: "00:00" stays 0, "24:00" stays 1440.
+  // Using upper=true here would map "00:00" to 1440 and break the slider.
   const preStart = toMinutes(overridePreStartTime ?? "", false);
-  const preEnd = toMinutes(overridePreEndTime ?? "", true);
+  const preEnd = toMinutes(overridePreEndTime ?? "", false);
   const postStart = toMinutes(overridePostStartTime ?? "", false);
-  const postEnd = toMinutes(overridePostEndTime ?? "", true);
+  const postEnd = toMinutes(overridePostEndTime ?? "", false);
 
   const writeTime = (field: ScheduleField, minutes: number, updateLabel = false) => {
     const clone = cloneDeep(editing ?? {});
@@ -149,8 +151,15 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
   };
 
   return (
-    <div className="schedule-row">
-      <div className="schedule-label">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.5rem",
+        marginBottom: "1rem",
+      }}
+    >
+      <div>
         <Label>
           <b>{title}</b>
           <InputGroup
@@ -172,7 +181,7 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
         </Label>
       </div>
 
-      <div className="schedule-slider">
+      <div style={{ padding: "0 1rem" }}>
         {override ? (
           <MultiSlider
             min={START_TIME_MIN}
@@ -263,7 +272,7 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
         )}
       </div>
 
-      <div className="schedule-switch">
+      <div style={{ display: "flex", flexDirection: "row", gap: "1rem", alignItems: "center" }}>
         <Switch
           label="Unoccupied"
           checked={!occupied}
@@ -285,19 +294,33 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
           }}
           disabled={readOnly}
         />
-      </div>
-
-      <div className="schedule-override">
         <Switch
           label="Override"
           checked={override ?? false}
           onChange={() => {
+            const next = !override;
             const clone = cloneDeep(editing ?? {});
             let value = getSchedule(id, null, clone);
             if (!value?.id) {
               value = { id };
             }
-            value.override = !override;
+            value.override = next;
+            if (next) {
+              const preDefault =
+                (value.overridePreStartTime ?? overridePreStartTime ?? "00:00") === "00:00" &&
+                (value.overridePreEndTime ?? overridePreEndTime ?? "00:00") === "00:00";
+              const postDefault =
+                (value.overridePostStartTime ?? overridePostStartTime ?? "24:00") === "24:00" &&
+                (value.overridePostEndTime ?? overridePostEndTime ?? "24:00") === "24:00";
+              if (preDefault) {
+                value.overridePreStartTime = toDataFormat(occupiedStart);
+                value.overridePreEndTime = toDataFormat(occupiedStart);
+              }
+              if (postDefault) {
+                value.overridePostStartTime = toDataFormat(occupiedEnd);
+                value.overridePostEndTime = toDataFormat(occupiedEnd);
+              }
+            }
             setSchedule(id, unit, clone, value);
             setEditing?.(clone);
           }}
