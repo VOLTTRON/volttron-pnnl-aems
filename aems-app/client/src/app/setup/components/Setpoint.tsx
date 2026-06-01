@@ -72,8 +72,17 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
     unit?.configuration?.setpoint,
     editing?.configuration?.setpoint,
   );
-  const { label, setpoint, deadband, overrideSetpoint, overrideDeadband, heating, cooling, standbyTime, standbyOffset } =
-    merged;
+  const {
+    label,
+    setpoint,
+    deadband,
+    overrideSetpoint,
+    overrideDeadband,
+    heating,
+    cooling,
+    standbyTime,
+    standbyOffset,
+  } = merged;
   const occupancyDetection = editing?.occupancyDetection ?? unit?.occupancyDetection ?? false;
   const padding = SETPOINT_PADDING + deadband / 2;
 
@@ -239,6 +248,95 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
           />
         </MultiSlider>
       </Label>
+
+      <Label>
+        <b>Override Setpoint Range</b>
+        <MultiSlider
+          min={OVERRIDE_SETPOINT_MIN}
+          max={OVERRIDE_SETPOINT_MAX}
+          stepSize={0.5}
+          labelStepSize={5}
+          intent={Intent.SUCCESS}
+          labelRenderer={(v, o) => (o?.isHandleTooltip || (v > HEATING_MIN && v < COOLING_MAX) ? `${v}º\xa0F` : "")}
+        >
+          <MultiSlider.Handle
+            type={HandleType.START}
+            interactionKind={HandleInteractionKind.LOCK}
+            intentBefore={Intent.WARNING}
+            intentAfter={Intent.SUCCESS}
+            value={overrideSetpoint - overrideDeadband / 2}
+            onChange={(v) => {
+              const value = v + overrideDeadband / 2;
+              const overrideSetpoint = clamp(value, heating + padding, cooling - padding);
+              const standbyOffsetNew = clamp(
+                standbyOffset,
+                STANDBY_OFFSET_MIN,
+                Math.min(
+                  STANDBY_OFFSET_MAX,
+                  overrideSetpoint - overrideDeadband / 2 - heating,
+                  cooling - (overrideSetpoint + overrideDeadband / 2),
+                ),
+              );
+              if (standbyOffsetNew !== standbyOffset) {
+                setStandby(standbyOffsetNew.toString());
+              }
+              const label = createSetpointLabel("all", {
+                setpoint,
+                deadband,
+                heating,
+                cooling,
+                standbyTime,
+                standbyOffset: standbyOffsetNew,
+              });
+              const clone = cloneDeep(editing ?? {});
+              clone.configuration = clone.configuration ?? {};
+              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+              clone.configuration.setpoint.overrideSetpoint = overrideSetpoint;
+              clone.configuration.setpoint.standbyOffset = standbyOffsetNew;
+              clone.configuration.setpoint.label = label;
+              setEditing?.(clone);
+            }}
+          />
+          <MultiSlider.Handle
+            type={HandleType.END}
+            interactionKind={HandleInteractionKind.LOCK}
+            intentBefore={Intent.SUCCESS}
+            intentAfter={Intent.PRIMARY}
+            value={overrideSetpoint + overrideDeadband / 2}
+            onChange={(v) => {
+              const value = v - overrideDeadband / 2;
+              const overrideSetpoint = clamp(value, heating + padding, cooling - padding);
+              const standbyOffsetNew = clamp(
+                standbyOffset,
+                STANDBY_OFFSET_MIN,
+                Math.min(
+                  STANDBY_OFFSET_MAX,
+                  overrideSetpoint - overrideDeadband / 2 - heating,
+                  cooling - (overrideSetpoint + overrideDeadband / 2),
+                ),
+              );
+              if (standbyOffsetNew !== standbyOffset) {
+                setStandby(standbyOffsetNew.toString());
+              }
+              const label = createSetpointLabel("all", {
+                setpoint,
+                deadband,
+                heating,
+                cooling,
+                standbyTime,
+                standbyOffset: standbyOffsetNew,
+              });
+              const clone = cloneDeep(editing ?? {});
+              clone.configuration = clone.configuration ?? {};
+              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+              clone.configuration.setpoint.overrideSetpoint = overrideSetpoint;
+              clone.configuration.setpoint.standbyOffset = standbyOffsetNew;
+              clone.configuration.setpoint.label = label;
+              setEditing?.(clone);
+            }}
+          />
+        </MultiSlider>
+      </Label>
     </div>
   );
 
@@ -315,30 +413,6 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
           />
         </FormGroup>
 
-        <div style={{ color: "var(--bp5-intent-danger)", fontSize: "0.875rem", fontWeight: "bold" }}>{error}</div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem", marginBottom: "1rem" }}>
-        <FormGroup label="Override Setpoint (°F)">
-          <NumericInput
-            allowNumericCharactersOnly
-            stepSize={0.5}
-            min={OVERRIDE_SETPOINT_MIN}
-            max={OVERRIDE_SETPOINT_MAX}
-            value={overrideSetpoint}
-            onValueChange={(v) => {
-              const overrideSetpoint = clamp(v, OVERRIDE_SETPOINT_MIN, OVERRIDE_SETPOINT_MAX);
-              const clone = cloneDeep(editing ?? {});
-              clone.configuration = clone.configuration ?? {};
-              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
-              clone.configuration.setpoint.overrideSetpoint = overrideSetpoint;
-              setEditing?.(clone);
-            }}
-            disabled={readOnly}
-            fill
-          />
-        </FormGroup>
-
         <FormGroup label="Override Deadband (°F)">
           <NumericInput
             allowNumericCharactersOnly
@@ -358,6 +432,8 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
             fill
           />
         </FormGroup>
+
+        <div style={{ color: "var(--bp5-intent-danger)", fontSize: "0.875rem", fontWeight: "bold" }}>{error}</div>
       </div>
 
       {renderSeparateSliders()}
