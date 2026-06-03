@@ -99,14 +99,6 @@ function setSchedule(id: string, unit: UnitType | null, editing: DeepPartial<Uni
   }
 }
 
-type ScheduleField =
-  | "startTime"
-  | "endTime"
-  | "overridePreStartTime"
-  | "overridePreEndTime"
-  | "overridePostStartTime"
-  | "overridePostEndTime";
-
 export function Schedule({ title, id, unit, editing, setEditing, readOnly = false }: ScheduleProps) {
   const schedule = getSchedule(id, unit, editing);
   const {
@@ -129,26 +121,6 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
   const preEnd = toMinutes(overridePreEndTime ?? "", false);
   const postStart = toMinutes(overridePostStartTime ?? "", false);
   const postEnd = toMinutes(overridePostEndTime ?? "", false);
-
-  const writeTime = (field: ScheduleField, minutes: number, updateLabel = false) => {
-    const clone = cloneDeep(editing ?? {});
-    let value = getSchedule(id, null, clone);
-    if (!value?.id) {
-      value = { id };
-    }
-    value[field] = toDataFormat(minutes);
-    if (updateLabel) {
-      const newStart = field === "startTime" ? minutes : occupiedStart;
-      const newEnd = field === "endTime" ? minutes : occupiedEnd;
-      value.label = createScheduleLabel("all", {
-        occupied: occupied ?? false,
-        startTime: newStart,
-        endTime: newEnd,
-      });
-    }
-    setSchedule(id, unit, clone, value);
-    setEditing?.(clone);
-  };
 
   return (
     <div
@@ -192,59 +164,104 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
             labelRenderer={(v, o) =>
               o?.isHandleTooltip || (v > START_TIME_MIN && v < END_TIME_MAX) ? toTimeFormat(v) : ""
             }
+            onChange={(values) => {
+              // values are sorted in handle-order. With occupied=true: [preStart, preEnd, occStart, occEnd, postStart, postEnd].
+              // With occupied=false: [preStart, preEnd, postStart, postEnd].
+              const [
+                nextPreStart,
+                nextPreEnd,
+                nextOccStart,
+                nextOccEnd,
+                nextPostStart,
+                nextPostEnd,
+              ] = occupied
+                ? values
+                : [values[0], values[1], occupiedStart, occupiedEnd, values[2], values[3]];
+
+              // Clamp atomically against the NEW sibling values, not stale render-time ones.
+              const ps = clamp(nextPreStart, START_TIME_MIN, nextPreEnd);
+              const pe = clamp(nextPreEnd, ps, occupied ? nextOccStart : nextPostStart);
+              const os = occupied
+                ? clamp(nextOccStart, pe, nextOccEnd - TIME_PADDING)
+                : nextOccStart;
+              const oe = occupied
+                ? clamp(nextOccEnd, os + TIME_PADDING, nextPostStart)
+                : nextOccEnd;
+              const qs = clamp(nextPostStart, occupied ? oe : pe, nextPostEnd);
+              const qe = clamp(nextPostEnd, qs, END_TIME_MAX);
+
+              const clone = cloneDeep(editing ?? {});
+              let value = getSchedule(id, null, clone);
+              if (!value?.id) {
+                value = { id };
+              }
+              if (ps !== preStart) value.overridePreStartTime = toDataFormat(ps);
+              if (pe !== preEnd) value.overridePreEndTime = toDataFormat(pe);
+              if (occupied && os !== occupiedStart) value.startTime = toDataFormat(os);
+              if (occupied && oe !== occupiedEnd) value.endTime = toDataFormat(oe);
+              if (qs !== postStart) value.overridePostStartTime = toDataFormat(qs);
+              if (qe !== postEnd) value.overridePostEndTime = toDataFormat(qe);
+              if (occupied && (os !== occupiedStart || oe !== occupiedEnd)) {
+                value.label = createScheduleLabel("all", {
+                  occupied: occupied ?? false,
+                  startTime: os,
+                  endTime: oe,
+                });
+              }
+              setSchedule(id, unit, clone, value);
+              setEditing?.(clone);
+            }}
           >
             <MultiSlider.Handle
               type={HandleType.START}
-              interactionKind={HandleInteractionKind.LOCK}
+              interactionKind={HandleInteractionKind.PUSH}
               intentAfter={Intent.WARNING}
               value={preStart}
-              onChange={(v) => writeTime("overridePreStartTime", clamp(v, START_TIME_MIN, preEnd))}
             />
             <MultiSlider.Handle
               type={HandleType.END}
-              interactionKind={HandleInteractionKind.LOCK}
+              interactionKind={HandleInteractionKind.PUSH}
               value={preEnd}
-              onChange={(v) => writeTime("overridePreEndTime", clamp(v, preStart, occupiedStart))}
             />
+            {occupied && (
+              <MultiSlider.Handle
+                type={HandleType.START}
+                interactionKind={HandleInteractionKind.PUSH}
+                intentAfter={Intent.SUCCESS}
+                value={occupiedStart}
+              />
+            )}
+            {occupied && (
+              <MultiSlider.Handle
+                type={HandleType.END}
+                interactionKind={HandleInteractionKind.PUSH}
+                value={occupiedEnd}
+              />
+            )}
             <MultiSlider.Handle
               type={HandleType.START}
-              interactionKind={HandleInteractionKind.LOCK}
-              intentAfter={Intent.SUCCESS}
-              value={occupiedStart}
-              onChange={(v) => writeTime("startTime", clamp(v, preEnd, occupiedEnd - TIME_PADDING), true)}
-            />
-            <MultiSlider.Handle
-              type={HandleType.END}
-              interactionKind={HandleInteractionKind.LOCK}
-              value={occupiedEnd}
-              onChange={(v) => writeTime("endTime", clamp(v, occupiedStart + TIME_PADDING, postStart), true)}
-            />
-            <MultiSlider.Handle
-              type={HandleType.START}
-              interactionKind={HandleInteractionKind.LOCK}
+              interactionKind={HandleInteractionKind.PUSH}
               intentAfter={Intent.WARNING}
               value={postStart}
-              onChange={(v) => writeTime("overridePostStartTime", clamp(v, occupiedEnd, postEnd))}
             />
             <MultiSlider.Handle
               type={HandleType.END}
-              interactionKind={HandleInteractionKind.LOCK}
+              interactionKind={HandleInteractionKind.PUSH}
               value={postEnd}
-              onChange={(v) => writeTime("overridePostEndTime", clamp(v, postStart, END_TIME_MAX))}
             />
           </MultiSlider>
-        ) : (
+        ) : occupied ? (
           <RangeSlider
             min={START_TIME_MIN}
             max={END_TIME_MAX}
             stepSize={5}
             labelStepSize={240}
             intent={Intent.SUCCESS}
-            value={occupied ? [occupiedStart, occupiedEnd] : [START_TIME_MIN, START_TIME_MIN]}
+            value={[occupiedStart, occupiedEnd]}
             labelRenderer={(v, o) =>
               o?.isHandleTooltip || (v > START_TIME_MIN && v < END_TIME_MAX) ? toTimeFormat(v) : ""
             }
-            disabled={readOnly || !occupied}
+            disabled={readOnly}
             onChange={(v) => {
               const startTime = clamp(
                 (v as NumberRange)[0],
@@ -269,6 +286,16 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
               setEditing?.(clone);
             }}
           />
+        ) : (
+          <div
+            style={{
+              height: "6px",
+              borderRadius: "3px",
+              backgroundColor: "var(--bp5-text-color-muted)",
+              opacity: 0.3,
+              margin: "1.5rem 0",
+            }}
+          />
         )}
       </div>
 
@@ -277,8 +304,9 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
           label="Unoccupied"
           checked={!occupied}
           onChange={() => {
+            const nextOccupied = !occupied;
             const label = createScheduleLabel("all", {
-              occupied: !occupied,
+              occupied: nextOccupied,
               startTime: occupiedStart,
               endTime: occupiedEnd,
             });
@@ -287,8 +315,21 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
             if (!value?.id) {
               value = { id };
             }
-            value.occupied = !occupied;
+            value.occupied = nextOccupied;
             value.label = label;
+            // Re-enabling occupied: snap any override handles that crossed the
+            // occupied range while it was hidden so the resulting MultiSlider
+            // is in a valid (non-inverted) state.
+            if (nextOccupied && override) {
+              const newPreEnd = clamp(preEnd, START_TIME_MIN, occupiedStart);
+              const newPreStart = clamp(preStart, START_TIME_MIN, newPreEnd);
+              const newPostStart = clamp(postStart, occupiedEnd, END_TIME_MAX);
+              const newPostEnd = clamp(postEnd, newPostStart, END_TIME_MAX);
+              if (newPreEnd !== preEnd) value.overridePreEndTime = toDataFormat(newPreEnd);
+              if (newPreStart !== preStart) value.overridePreStartTime = toDataFormat(newPreStart);
+              if (newPostStart !== postStart) value.overridePostStartTime = toDataFormat(newPostStart);
+              if (newPostEnd !== postEnd) value.overridePostEndTime = toDataFormat(newPostEnd);
+            }
             setSchedule(id, unit, clone, value);
             setEditing?.(clone);
           }}
@@ -298,29 +339,12 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
           label="Override"
           checked={override ?? false}
           onChange={() => {
-            const next = !override;
             const clone = cloneDeep(editing ?? {});
             let value = getSchedule(id, null, clone);
             if (!value?.id) {
               value = { id };
             }
-            value.override = next;
-            if (next) {
-              const preDefault =
-                (value.overridePreStartTime ?? overridePreStartTime ?? "00:00") === "00:00" &&
-                (value.overridePreEndTime ?? overridePreEndTime ?? "00:00") === "00:00";
-              const postDefault =
-                (value.overridePostStartTime ?? overridePostStartTime ?? "24:00") === "24:00" &&
-                (value.overridePostEndTime ?? overridePostEndTime ?? "24:00") === "24:00";
-              if (preDefault) {
-                value.overridePreStartTime = toDataFormat(occupiedStart);
-                value.overridePreEndTime = toDataFormat(occupiedStart);
-              }
-              if (postDefault) {
-                value.overridePostStartTime = toDataFormat(occupiedEnd);
-                value.overridePostEndTime = toDataFormat(occupiedEnd);
-              }
-            }
+            value.override = !override;
             setSchedule(id, unit, clone, value);
             setEditing?.(clone);
           }}
