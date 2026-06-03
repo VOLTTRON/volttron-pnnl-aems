@@ -336,7 +336,7 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
           disabled={readOnly}
         />
         <Switch
-          label="Override"
+          label="Service Schedule"
           checked={override ?? false}
           onChange={() => {
             const clone = cloneDeep(editing ?? {});

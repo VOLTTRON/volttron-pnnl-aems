@@ -250,7 +250,7 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
       </Label>
 
       <Label>
-        <b>Override Setpoint Range</b>
+        <b>Service Setpoint Range</b>
         <MultiSlider
           min={OVERRIDE_SETPOINT_MIN}
           max={OVERRIDE_SETPOINT_MAX}
@@ -413,7 +413,7 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
           />
         </FormGroup>
 
-        <FormGroup label="Override Deadband (°F)">
+        <FormGroup label="Service Deadband (°F)">
           <NumericInput
             allowNumericCharactersOnly
             step={1}

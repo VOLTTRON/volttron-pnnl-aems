@@ -11,6 +11,7 @@ export declare class ConfigService extends BaseService {
     private logger;
     constructor(prismaService: PrismaService, subscriptionService: SubscriptionService, configService: AppConfigService, volttronService: VolttronService);
     execute(): Promise<void>;
+    private toOccupancy;
     private buildOccupancyPayload;
     task(): Promise<void>;
 }
