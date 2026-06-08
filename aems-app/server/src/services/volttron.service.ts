@@ -51,7 +51,7 @@ export class VolttronService implements OnModuleDestroy {
 
   async makeApiCall(id: string, method: string, token: string, data: any) {
     if (this.configService.volttron.mocked) {
-      this.logger.log(`Mocked Volttron API call: ${method}`);
+      this.logger.log(`Mocked Volttron API call: ${method}\nData: ${inspect(data)}`);
       return { jsonrpc: "2.0", id: id, result: {} };
     }
 

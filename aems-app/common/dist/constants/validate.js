@@ -26,7 +26,7 @@ class Validate extends base_1.default {
                 name: "overrideDeadband",
                 label: "Override Deadband",
                 type: "setpoint",
-                options: { default: 4, min: 2, max: 6 },
+                options: { default: 4, min: 2, max: 10 },
             },
             {
                 name: "heating",

@@ -36,7 +36,7 @@ class Validate extends Base<IValidate> implements IBase<IValidate> {
         name: "overrideDeadband",
         label: "Override Deadband",
         type: "setpoint" as ValidateType,
-        options: { default: 4, min: 2, max: 6 },
+        options: { default: 4, min: 2, max: 10 },
       },
       {
         name: "heating",
