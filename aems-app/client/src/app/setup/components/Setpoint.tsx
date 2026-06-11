@@ -527,7 +527,8 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
           <strong>Note:</strong> The occupied setpoint range (green) shows the comfort zone during occupied hours.
           Unoccupied limits (orange/blue) define energy-saving temperatures when the space is empty. The deadband
           prevents frequent switching between heating and cooling. Standby settings are only active if occupancy
-          detection is enabled in the unit configuration and the capability is supported by the control system.
+          detection is enabled in the unit configuration and the capability is supported by the control system. 
+          Service setpoint and deadband are used during configured service occupancy schedules.
         </small>
       </div>
     </div>

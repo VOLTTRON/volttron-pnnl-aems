@@ -8,6 +8,7 @@ import { merge } from "lodash";
 import { VolttronService } from "../volttron.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { Schedule } from "@prisma/client";
+import { toOccupiedRange, toServiceWindow } from "./config.occupancy";
 
 @Injectable()
 export class ConfigService extends BaseService {
@@ -27,33 +28,10 @@ export class ConfigService extends BaseService {
     return super.execute();
   }
 
-  private toOccupancy(
-    on?: boolean | null,
-    startTime?: string | null,
-    endTime?: string | null,
-  ): "always_on" | "always_off" | { start?: string; end?: string } {
-    return on
-      ? /(00:00)|(24:00)/.test(startTime ?? "00:00") && /(00:00)|(24:00)/.test(endTime ?? "24:00")
-        ? "always_on"
-        : {
-            start: startTime ?? "00:00",
-            end: /(00:00)|(24:00)/.test(endTime ?? "00:00") ? "23:59" : (endTime ?? "00:00"),
-          }
-      : "always_off";
-  }
-
   private buildOccupancyPayload(schedule?: Schedule | null) {
-    const occupancy = this.toOccupancy(schedule?.occupied, schedule?.startTime, schedule?.endTime);
-    const overridePre = this.toOccupancy(
-      schedule?.occupied,
-      schedule?.overridePreStartTime,
-      schedule?.overridePreEndTime,
-    );
-    const overridePost = this.toOccupancy(
-      schedule?.occupied,
-      schedule?.overridePostStartTime,
-      schedule?.overridePostEndTime,
-    );
+    const occupancy = toOccupiedRange(schedule?.occupied, schedule?.startTime, schedule?.endTime);
+    const overridePre = toServiceWindow(schedule?.overridePreStartTime, schedule?.overridePreEndTime);
+    const overridePost = toServiceWindow(schedule?.overridePostStartTime, schedule?.overridePostEndTime);
     return { occupancy, override: { pre: overridePre, post: overridePost } };
   }
 
