@@ -1,3 +1,4 @@
+export * from "./config";
 export * from "./current";
 export * from "./graphql";
 export * from "./loading";

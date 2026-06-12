@@ -8,8 +8,9 @@ import {
   HandleInteractionKind,
   Intent,
 } from "@blueprintjs/core";
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import { merge, clamp, cloneDeep } from "lodash";
+import { ConfigContext } from "@/app/components/providers";
 import {
   SETPOINT_MIN,
   SETPOINT_MAX,
@@ -50,6 +51,8 @@ interface SetpointProps {
 }
 
 export function Setpoint({ unit, editing, setEditing, readOnly = false }: SetpointProps) {
+  const { config } = useContext(ConfigContext);
+  const showServiceOverride = config?.serviceOverride ?? true;
   const merged = merge(
     {
       label: createSetpointLabel("all", {
@@ -249,6 +252,7 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
         </MultiSlider>
       </Label>
 
+      {showServiceOverride && (
       <Label>
         <b>Service Setpoint Range</b>
         <MultiSlider
@@ -337,6 +341,7 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
           />
         </MultiSlider>
       </Label>
+      )}
     </div>
   );
 
@@ -413,6 +418,7 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
           />
         </FormGroup>
 
+        {showServiceOverride && (
         <FormGroup label="Service Deadband (°F)">
           <NumericInput
             allowNumericCharactersOnly
@@ -432,6 +438,7 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
             fill
           />
         </FormGroup>
+        )}
 
         <div style={{ color: "var(--bp5-intent-danger)", fontSize: "0.875rem", fontWeight: "bold" }}>{error}</div>
       </div>

@@ -2316,6 +2316,9 @@ type Query {
   """Read a list of comments."""
   readComments(distinct: [CommentFields!], orderBy: [CommentOrderBy!], paging: PagingInput, where: CommentFilter): [Comment!]
 
+  """Read whitelisted server-side configuration flags."""
+  readConfig: ServerConfig
+
   """Read a unique configuration."""
   readConfiguration(where: ConfigurationUniqueFilter!): Configuration
 
@@ -2748,6 +2751,11 @@ input ScheduleUpdateInput {
 
 input ScheduleUpdateSetpointRelationInput {
   update: SetpointUpdateInput
+}
+
+type ServerConfig {
+  holidaySchedule: Boolean
+  serviceOverride: Boolean
 }
 
 type Setpoint {

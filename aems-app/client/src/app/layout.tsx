@@ -4,6 +4,7 @@ import "./index.css";
 
 import { Banner, GlobalLoading, Notification, Theme } from "./components/common";
 import {
+  ConfigProvider,
   CurrentProvider,
   GraphqlProvider,
   RouteProvider,
@@ -29,16 +30,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <LoadingProvider>
                       <PreferencesProvider>
                         <ScreenSizeProvider>
-                          <CurrentProvider>
-                            <Theme>
-                              <Suspense>
-                                {children}
-                                <Banner />
-                                <Notification />
-                                <GlobalLoading />
-                              </Suspense>
-                            </Theme>
-                          </CurrentProvider>
+                          <ConfigProvider>
+                            <CurrentProvider>
+                              <Theme>
+                                <Suspense>
+                                  {children}
+                                  <Banner />
+                                  <Notification />
+                                  <GlobalLoading />
+                                </Suspense>
+                              </Theme>
+                            </CurrentProvider>
+                          </ConfigProvider>
                         </ScreenSizeProvider>
                       </PreferencesProvider>
                     </LoadingProvider>

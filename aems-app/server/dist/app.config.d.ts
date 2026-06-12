@@ -152,6 +152,8 @@ export declare class AppConfigService {
             password: string;
             verbose: boolean;
             holidaySchedule: boolean;
+            serviceOverride: boolean;
+            startup: boolean;
         };
         control: {
             templatePaths: string[];

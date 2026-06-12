@@ -10,6 +10,7 @@ import {
   HandleInteractionKind,
 } from "@blueprintjs/core";
 import { clamp, cloneDeep, merge } from "lodash";
+import { useContext } from "react";
 import {
   START_TIME_MIN,
   END_TIME_MAX,
@@ -21,6 +22,7 @@ import {
 } from "@/utils/schedule";
 import { ReadUnitQuery } from "@/graphql-codegen/graphql";
 import { DeepPartial, typeofNonNullable } from "@local/common";
+import { ConfigContext } from "@/app/components/providers";
 
 type UnitType = NonNullable<ReadUnitQuery["readUnit"]>;
 type ScheduleType = NonNullable<NonNullable<UnitType["configuration"]>["mondaySchedule"]>;
@@ -100,6 +102,8 @@ function setSchedule(id: string, unit: UnitType | null, editing: DeepPartial<Uni
 }
 
 export function Schedule({ title, id, unit, editing, setEditing, readOnly = false }: ScheduleProps) {
+  const { config } = useContext(ConfigContext);
+  const showServiceOverride = config?.serviceOverride ?? true;
   const schedule = getSchedule(id, unit, editing);
   const {
     label,
@@ -154,7 +158,7 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
       </div>
 
       <div style={{ padding: "0 1rem" }}>
-        {override ? (
+        {override && showServiceOverride ? (
           <MultiSlider
             min={START_TIME_MIN}
             max={END_TIME_MAX}
@@ -335,21 +339,23 @@ export function Schedule({ title, id, unit, editing, setEditing, readOnly = fals
           }}
           disabled={readOnly}
         />
-        <Switch
-          label="Service Schedule"
-          checked={override ?? false}
-          onChange={() => {
-            const clone = cloneDeep(editing ?? {});
-            let value = getSchedule(id, null, clone);
-            if (!value?.id) {
-              value = { id };
-            }
-            value.override = !override;
-            setSchedule(id, unit, clone, value);
-            setEditing?.(clone);
-          }}
-          disabled={readOnly}
-        />
+        {showServiceOverride && (
+          <Switch
+            label="Service Schedule"
+            checked={override ?? false}
+            onChange={() => {
+              const clone = cloneDeep(editing ?? {});
+              let value = getSchedule(id, null, clone);
+              if (!value?.id) {
+                value = { id };
+              }
+              value.override = !override;
+              setSchedule(id, unit, clone, value);
+              setEditing?.(clone);
+            }}
+            disabled={readOnly}
+          />
+        )}
       </div>
     </div>
   );

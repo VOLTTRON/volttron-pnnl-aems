@@ -265,6 +265,8 @@ class AppConfigService {
                 password: process.env.SERVICE_CONFIG_PASSWORD ?? "",
                 verbose: (0, common_1.parseBoolean)(process.env.SERVICE_CONFIG_VERBOSE),
                 holidaySchedule: (0, common_1.parseBoolean)(process.env.SERVICE_CONFIG_HOLIDAY_SCHEDULE),
+                serviceOverride: (0, common_1.parseBoolean)(process.env.SERVICE_CONFIG_SERVICE_OVERRIDE ?? "true"),
+                startup: (0, common_1.parseBoolean)(process.env.SERVICE_CONFIG_STARTUP),
             },
             control: {
                 templatePaths: (process.env.SERVICE_SETUP_TEMPLATE_PATHS ?? "")

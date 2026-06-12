@@ -1,6 +1,6 @@
 import { AppConfigService } from "@/app.config";
 import { BaseService } from "..";
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger, OnApplicationBootstrap } from "@nestjs/common";
 import { PrismaService } from "@/prisma/prisma.service";
 import { Cron } from "@nestjs/schedule";
 import { Mutation, StageType, typeofObject } from "@local/common";
@@ -11,7 +11,7 @@ import { Schedule } from "@prisma/client";
 import { toOccupiedRange, toServiceWindow } from "./config.occupancy";
 
 @Injectable()
-export class ConfigService extends BaseService {
+export class ConfigService extends BaseService implements OnApplicationBootstrap {
   private logger = new Logger(ConfigService.name);
 
   constructor(
@@ -21,6 +21,14 @@ export class ConfigService extends BaseService {
     private volttronService: VolttronService,
   ) {
     super("config", configService);
+  }
+
+  async onApplicationBootstrap() {
+    if (!this.configService.service.config.startup) return;
+    this.logger.log("SERVICE_CONFIG_STARTUP=true → marking all units for repush");
+    await this.prismaService.prisma.unit.updateMany({
+      data: { stage: StageType.ProcessType.enum, message: "Repushing on startup..." },
+    });
   }
 
   @Cron(`*/10 * * * * *`)
@@ -95,8 +103,10 @@ export class ConfigService extends BaseService {
                 UnoccupiedHeatingSetPoint: unit.configuration?.setpoint?.heating ?? 0,
                 StandbyTime: unit.configuration?.setpoint?.standbyTime ?? 0,
                 StandbyTemperatureOffset: unit.configuration?.setpoint?.standbyOffset ?? 0,
-                ServiceSetPoint: unit.configuration?.setpoint?.overrideSetpoint ?? 0,
-                ServiceDeadBand: (unit.configuration?.setpoint?.overrideDeadband ?? 0) / 2,
+                ...(this.configService.service.config.serviceOverride && {
+                  ServiceSetPoint: unit.configuration?.setpoint?.overrideSetpoint ?? 0,
+                  ServiceDeadBand: (unit.configuration?.setpoint?.overrideDeadband ?? 0) / 2,
+                }),
               };
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
@@ -171,30 +181,32 @@ export class ConfigService extends BaseService {
               );
               this.logger.debug(`[${unit.label}] Weekly schedule updated successfully`);
 
-              this.logger.debug(`[${unit.label}] Setting weekly service schedule...`);
-              const set_service_schedule = {
-                Monday: this.buildOccupancyPayload(unit.configuration?.mondaySchedule).override,
-                Tuesday: this.buildOccupancyPayload(unit.configuration?.tuesdaySchedule).override,
-                Wednesday: this.buildOccupancyPayload(unit.configuration?.wednesdaySchedule).override,
-                Thursday: this.buildOccupancyPayload(unit.configuration?.thursdaySchedule).override,
-                Friday: this.buildOccupancyPayload(unit.configuration?.fridaySchedule).override,
-                Saturday: this.buildOccupancyPayload(unit.configuration?.saturdaySchedule).override,
-                Sunday: this.buildOccupancyPayload(unit.configuration?.sundaySchedule).override,
-                ...(this.configService.service.config.holidaySchedule && {
-                  Holiday: this.buildOccupancyPayload(unit.configuration?.holidaySchedule).override,
-                }),
-              };
-              await this.volttronService
-                .makeApiCall(
-                  `manager.${unit.system.toLowerCase()}`,
-                  "set_service_schedule",
-                  token,
-                  set_service_schedule,
-                )
-                .catch((err) => {
-                  this.logger.warn(err, `Failed to set weekly service schedule for: ${unit.label}`);
-                });
-              this.logger.debug(`[${unit.label}] Weekly service schedule updated successfully`);
+              if (this.configService.service.config.serviceOverride) {
+                this.logger.debug(`[${unit.label}] Setting weekly service schedule...`);
+                const set_service_schedule = {
+                  Monday: this.buildOccupancyPayload(unit.configuration?.mondaySchedule).override,
+                  Tuesday: this.buildOccupancyPayload(unit.configuration?.tuesdaySchedule).override,
+                  Wednesday: this.buildOccupancyPayload(unit.configuration?.wednesdaySchedule).override,
+                  Thursday: this.buildOccupancyPayload(unit.configuration?.thursdaySchedule).override,
+                  Friday: this.buildOccupancyPayload(unit.configuration?.fridaySchedule).override,
+                  Saturday: this.buildOccupancyPayload(unit.configuration?.saturdaySchedule).override,
+                  Sunday: this.buildOccupancyPayload(unit.configuration?.sundaySchedule).override,
+                  ...(this.configService.service.config.holidaySchedule && {
+                    Holiday: this.buildOccupancyPayload(unit.configuration?.holidaySchedule).override,
+                  }),
+                };
+                await this.volttronService
+                  .makeApiCall(
+                    `manager.${unit.system.toLowerCase()}`,
+                    "set_service_schedule",
+                    token,
+                    set_service_schedule,
+                  )
+                  .catch((err) => {
+                    this.logger.warn(err, `Failed to set weekly service schedule for: ${unit.label}`);
+                  });
+                this.logger.debug(`[${unit.label}] Weekly service schedule updated successfully`);
+              }
 
               this.logger.debug(`[${unit.label}] Setting optimal start parameters...`);
               const set_optimal_start = {
