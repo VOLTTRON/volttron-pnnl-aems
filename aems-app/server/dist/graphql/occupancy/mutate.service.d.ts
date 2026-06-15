@@ -11,7 +11,7 @@ export declare class OccupancyMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.OccupancyCreateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.OccupancyCreateInput, {
         stage: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
@@ -28,21 +28,21 @@ export declare class OccupancyMutation {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ScheduleCreateNestedOneWithoutOccupanciesInput>;
+        }>, import("@prisma/client").Prisma.ScheduleCreateNestedOneWithoutOccupanciesInput>;
         configurationId: "String";
         configuration: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ConfigurationCreateNestedOneWithoutOccupanciesInput>;
+        }>, import("@prisma/client").Prisma.ConfigurationCreateNestedOneWithoutOccupanciesInput>;
     }>>;
     readonly OccupancyUpdate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.OccupancyUpdateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.OccupancyUpdateInput, {
         stage: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
@@ -59,14 +59,14 @@ export declare class OccupancyMutation {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ScheduleUpdateOneWithoutOccupanciesNestedInput>;
+        }>, import("@prisma/client").Prisma.ScheduleUpdateOneWithoutOccupanciesNestedInput>;
         configurationId: "String";
         configuration: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.ConfigurationUpdateOneWithoutOccupanciesNestedInput>;
+        }>, import("@prisma/client").Prisma.ConfigurationUpdateOneWithoutOccupanciesNestedInput>;
     }>>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, occupancyQuery: OccupancyQuery, scheduleMutation: ScheduleMutation, configurationQuery: ConfigurationQuery, changeService: ChangeService);
 }

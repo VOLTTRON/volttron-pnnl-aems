@@ -1,4 +1,5 @@
 import { RoleType } from "@local/common";
+import { HistorianTopicMapConfig } from "./historian/types";
 export interface ExtConfig {
     path?: `/ext/${string}`;
     role?: typeof RoleType.User;
@@ -29,12 +30,24 @@ export declare class AppConfigService {
         prisma: {
             level: string;
         };
+        throttle: {
+            enabled: boolean;
+            debounce: {
+                fatal: number;
+                error: number;
+                warn: number;
+                log: number;
+                debug: number;
+                verbose: number;
+            };
+        };
     };
     session: {
         maxAge: number;
         store: string;
         secret: string;
     };
+    instanceName: string;
     instanceType: string;
     graphql: {
         editor: boolean;
@@ -88,6 +101,22 @@ export declare class AppConfigService {
         username: string;
         password: string;
     };
+    historian: {
+        url?: string;
+        host: string;
+        port: number;
+        name: string;
+        username: string;
+        password: string;
+        replicationPort: number;
+        configMappingPath?: string;
+        topicMap?: Partial<HistorianTopicMapConfig>;
+        binning: {
+            count: number;
+            start: number;
+            unit: ReturnType<typeof toDurationUnit>;
+        };
+    };
     ext: Record<string, ExtConfig>;
     proxy: {
         protocol: string;
@@ -103,11 +132,17 @@ export declare class AppConfigService {
             batchSize: number;
             geojsonContribution: string;
         };
-        cleanup: {
+        event: {
+            prune: boolean;
             age: {
                 value: number;
                 unit: ReturnType<typeof toDurationUnit>;
             };
+        };
+        backup: {
+            workspace: string;
+            workerToken: string;
+            composeProfiles: string[];
         };
         config: {
             timeout: number;
@@ -138,12 +173,18 @@ export declare class AppConfigService {
         configPath: string;
         username: string;
         password: string;
+        backup: {
+            workspace: string;
+            workerToken: string;
+            composeProfiles: string[];
+        };
     };
     cors: {
         origin?: string;
     };
     normalize: import("@local/common/dist/constants").IProcess;
     readFile(file: string): string;
+    private loadHistorianTopicMap;
     constructor();
 }
 declare const AppConfigToken: (() => AppConfigService) & import("@nestjs/config").ConfigFactoryKeyHost<AppConfigService>;

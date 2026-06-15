@@ -16,6 +16,12 @@ node_modules
 # testing
 coverage
 
+# local development certificates (copied from Docker)
+*.crt
+*.key
+mkcert-*.crt
+mkcert-*.key
+
 # next.js
 .next
 out

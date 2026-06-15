@@ -49,9 +49,10 @@ import { Schedules } from "./components/Schedules";
 import { Holidays } from "./components/Holidays";
 import { Occupancies, OccupancyCreateDelete } from "./components/Occupancies";
 import { Unit } from "./components/Unit";
-import { Role, DeepPartial, typeofNonNullable, typeofObject } from "@local/common";
+import { Role, DeepPartial, typeofNonNullable, typeofObject, parseBoolean } from "@local/common";
 import { HolidayCreateDelete } from "./components/Holiday";
 import { Location } from "./components/Location";
+import { useRouter } from "next/navigation";
 
 type UnitModel = NonNullable<ReadUnitsQuery["readUnits"]>[number];
 
@@ -96,7 +97,8 @@ export default function Page() {
   const { route } = useContext(RouteContext);
   const { createNotification } = useContext(NotificationContext);
   const { current } = useContext(CurrentContext);
-  const { hasAnyOperations, waitForAllOperations } = useOperationManager();
+  const { hasAnyOperations } = useOperationManager();
+  const router = useRouter();
 
   const { data: queried, startPolling } = useQuery(ReadUnitsDocument, {
     variables: {
@@ -716,13 +718,27 @@ export default function Page() {
                   </Label>
                 </div>
                 <div className={styles.actions}>
-                  <Tooltip content="View in Grafana" position={Position.TOP}>
+                  {parseBoolean(process.env.NEXT_PUBLIC_GRAFANA_LINKS) && (
+                    <Tooltip content="View in Grafana" position={Position.TOP}>
+                      <AnchorButton
+                        icon={IconNames.DASHBOARD}
+                        intent={Intent.PRIMARY}
+                        variant={ButtonVariant.MINIMAL}
+                        target="_blank"
+                        href={`/api/grafana/dashboard/${group.campus?.toLocaleLowerCase()}/${group.building?.toLocaleLowerCase()}/site`}
+                      />
+                    </Tooltip>
+                  )}
+                  <Tooltip content="View Dashboard" position={Position.TOP}>
                     <AnchorButton
-                      icon={IconNames.DASHBOARD}
+                      icon={IconNames.CHART}
                       intent={Intent.PRIMARY}
                       variant={ButtonVariant.MINIMAL}
-                      target="_blank"
-                      href={`/api/grafana/dashboard/${group.campus?.toLocaleLowerCase()}/${group.building?.toLocaleLowerCase()}/site`}
+                      onClick={() =>
+                        router.push(
+                          `/dashboards/${group.campus?.toLocaleLowerCase()}/${group.building?.toLocaleLowerCase()}/site`,
+                        )
+                      }
                     />
                   </Tooltip>
                 </div>
@@ -787,13 +803,27 @@ export default function Page() {
                             </Tooltip>
                           </>
                         )}
-                        <Tooltip content="View in Grafana" position={Position.TOP}>
+                        {parseBoolean(process.env.NEXT_PUBLIC_GRAFANA_LINKS) && (
+                          <Tooltip content="View in Grafana" position={Position.TOP}>
+                            <AnchorButton
+                              icon={IconNames.DASHBOARD}
+                              intent={Intent.PRIMARY}
+                              variant={ButtonVariant.MINIMAL}
+                              target="_blank"
+                              href={`/api/grafana/dashboard/${campus?.toLocaleLowerCase()}/${building?.toLocaleLowerCase()}/${system?.toLocaleLowerCase()}`}
+                            />
+                          </Tooltip>
+                        )}
+                        <Tooltip content="View Dashboard" position={Position.TOP}>
                           <AnchorButton
-                            icon={IconNames.DASHBOARD}
+                            icon={IconNames.CHART}
                             intent={Intent.PRIMARY}
                             variant={ButtonVariant.MINIMAL}
-                            target="_blank"
-                            href={`/api/grafana/dashboard/${campus?.toLocaleLowerCase()}/${building?.toLocaleLowerCase()}/${system?.toLocaleLowerCase()}`}
+                            onClick={() =>
+                              router.push(
+                                `/dashboards/${campus?.toLocaleLowerCase()}/${building?.toLocaleLowerCase()}/${system?.toLocaleLowerCase()}`,
+                              )
+                            }
                           />
                         </Tooltip>
                       </div>

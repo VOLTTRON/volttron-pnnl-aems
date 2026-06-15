@@ -45,3 +45,5 @@ export class InfoLogger extends Logger {
     super.log(message, optionalParams);
   }
 }
+
+export { ThrottledLoggerService } from "./throttled.service";

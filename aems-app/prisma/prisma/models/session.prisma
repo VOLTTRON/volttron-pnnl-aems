@@ -8,4 +8,10 @@ model Session {
     updatedAt    DateTime @updatedAt() @db.Timestamptz(6)
     userId       String
     user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([expires], map: "sessions_expires")
+    @@index([sessionToken], map: "sessions_sessionToken")
+    @@index([createdAt], map: "sessions_createdAt")
+    @@index([updatedAt], map: "sessions_updatedAt")
+    @@index([userId], map: "sessions_userId")
 }

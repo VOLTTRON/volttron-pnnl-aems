@@ -32,9 +32,9 @@ export const sessionStoreFactory = (
         client: new Redis({
           host: configService.redis.host,
           port: configService.redis.port,
-          username: configService.redis.username,
-          password: configService.redis.password,
-          db: configService.redis.db,
+          ...(configService.redis.username && { username: configService.redis.username }),
+          ...(configService.redis.password && { password: configService.redis.password }),
+          ...(configService.redis.db !== undefined && { db: configService.redis.db }),
         }),
       });
     case "memory":

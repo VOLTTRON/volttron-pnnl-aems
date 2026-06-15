@@ -82,7 +82,13 @@ export default function Page() {
         rows={occupancies}
         columns={[
           { field: "label", label: "Label", type: "term" },
-          { field: "date", label: "Date", type: "date" },
+          {
+            field: "date",
+            label: "Date",
+            type: "term",
+            renderer: (_col, _row, value) =>
+              value ? new Date(value).toLocaleDateString(undefined, { timeZone: "UTC" }) : "—",
+          },
           { field: "configuration", label: "Configuration", type: "term", renderer: (col, row, value) => value?.label || "—" },
           { field: "schedule", label: "Schedule", type: "term", renderer: (col, row, value) => value?.label || "—" },
           { field: "createdAt", label: "Created", type: "date" },

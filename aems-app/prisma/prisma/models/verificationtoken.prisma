@@ -10,4 +10,8 @@ model VerificationToken {
 
     @@id([identifier, token])
     @@unique([id])
+    @@index([expiresAt], map: "verification_tokens_expiresAt")
+    @@index([createdAt], map: "verification_tokens_createdAt")
+    @@index([updatedAt], map: "verification_tokens_updatedAt")
+    @@index([userId], map: "verification_tokens_userId")
 }

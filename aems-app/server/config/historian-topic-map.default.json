@@ -1,0 +1,50 @@
+{
+  "templates": {
+    "Unit": "{campus}/{building}/{system}/{metric}",
+    "Weather": "{campus}/{building}/weather/{metric}",
+    "Meter": "{campus}/{building}/meter/{metric}"
+  },
+  "unitMetrics": {
+    "AuxiliaryHeatCommand": { "topic": "AuxiliaryHeatCommand", "aggregation": "max", "transform": "integer" },
+    "CoolingDemand":        { "topic": "CoolingDemand",        "aggregation": "mean", "transform": "decimal1", "suffix": "%" },
+    "DeadBand":             { "topic": "DeadBand",             "aggregation": "mean", "transform": "decimal1", "suffix": "°F" },
+    "DemandResponseFlag":   { "topic": "DemandResponseFlag",   "aggregation": "max",  "transform": "integer" },
+    "EffectiveZoneTemperatureSetPoint": { "topic": "EffectiveZoneTemperatureSetPoint", "aggregation": "mean", "transform": "decimal1", "suffix": "°F" },
+    "FirstStageCooling":    { "topic": "FirstStageCooling",    "aggregation": "max",  "transform": "integer" },
+    "FirstStageHeating":    { "topic": "FirstStageHeating",    "aggregation": "max",  "transform": "integer" },
+    "HeartBeat":            { "topic": "HeartBeat",            "aggregation": "last", "transform": "integer" },
+    "HeatingDemand":        { "topic": "HeatingDemand",        "aggregation": "mean", "transform": "decimal1", "suffix": "%" },
+    "OccupancyCommand":     { "topic": "OccupancyCommand",     "aggregation": "max",  "transform": "integer" },
+    "OccupiedCoolingSetPoint":   { "topic": "OccupiedCoolingSetPoint",   "aggregation": "mean", "transform": "decimal1", "suffix": "°F" },
+    "OccupiedHeatingSetPoint":   { "topic": "OccupiedHeatingSetPoint",   "aggregation": "mean", "transform": "decimal1", "suffix": "°F" },
+    "OccupiedSetPoint":          { "topic": "OccupiedSetPoint",          "aggregation": "mean", "transform": "decimal1", "suffix": "°F" },
+    "OutdoorAirTemperature":     { "topic": "OutdoorAirTemperature",     "aggregation": "mean", "transform": "decimal1", "suffix": "°F" },
+    "ReversingValve":       { "topic": "ReversingValve",       "aggregation": "max",  "transform": "integer" },
+    "SecondStageCooling":   { "topic": "SecondStageCooling",   "aggregation": "max",  "transform": "integer" },
+    "SupplyFanStatus":      { "topic": "SupplyFanStatus",      "aggregation": "max",  "transform": "integer" },
+    "UnoccupiedCoolingSetPoint": { "topic": "UnoccupiedCoolingSetPoint", "aggregation": "mean", "transform": "decimal1", "suffix": "°F" },
+    "UnoccupiedHeatingSetPoint": { "topic": "UnoccupiedHeatingSetPoint", "aggregation": "mean", "transform": "decimal1", "suffix": "°F" },
+    "ZoneHumidity":         { "topic": "ZoneHumidity",         "aggregation": "mean", "transform": "decimal1", "suffix": "%" },
+    "ZoneTemperature":      { "topic": "ZoneTemperature",      "aggregation": "mean", "transform": "decimal1", "suffix": "°F" }
+  },
+  "weatherMetrics": {
+    "AirPressure":              { "topic": "air_pressure",                  "aggregation": "mean", "transform": "decimal1", "suffix": " Pa" },
+    "AirPressureAtMeanSeaLevel":{ "topic": "air_pressure_at_mean_sea_level","aggregation": "mean", "transform": "decimal1", "suffix": " Pa" },
+    "AirTemperature":           { "topic": "air_temperature",               "aggregation": "mean", "transform": "decimal1", "suffix": "°F" },
+    "DewPointTemperature":      { "topic": "dew_point_temperature",         "aggregation": "mean", "transform": "decimal1", "suffix": "°F" },
+    "HeatIndex":                { "topic": "heatIndex",                     "aggregation": "mean", "transform": "decimal1", "suffix": "°F" },
+    "HeightAboveMeanSeaLevel":  { "topic": "height_above_mean_sea_level",   "aggregation": "mean", "transform": "decimal1", "suffix": " m" },
+    "PrecipitationLast3Hours":  { "topic": "precipitationLast3Hours",       "aggregation": "last", "transform": "decimal2", "suffix": " in" },
+    "PrecipitationLastHour":    { "topic": "precipitationLastHour",         "aggregation": "last", "transform": "decimal2", "suffix": " in" },
+    "RelativeHumidity":         { "topic": "relative_humidity",             "aggregation": "mean", "transform": "decimal1", "suffix": "%" },
+    "VisibilityInAir":          { "topic": "visibility_in_air",             "aggregation": "mean", "transform": "decimal1", "suffix": " m" },
+    "WindFromDirection":        { "topic": "wind_from_direction",           "aggregation": "mean", "transform": "integer",  "suffix": "°" },
+    "WindSpeed":                { "topic": "wind_speed",                    "aggregation": "mean", "transform": "decimal1", "suffix": " mph" },
+    "WindSpeedOfGust":          { "topic": "wind_speed_of_gust",            "aggregation": "max",  "transform": "decimal1", "suffix": " mph" },
+    "WindChill":                { "topic": "windChill",                     "aggregation": "mean", "transform": "decimal1", "suffix": "°F" }
+  },
+  "meterMetrics": {
+    "Power":  { "topic": "WholeBuildingPower", "aggregation": "mean", "transform": "decimal2", "format": "thousands", "suffix": " W" },
+    "Demand": { "topic": "Demand",             "aggregation": "max",  "transform": "decimal2", "format": "thousands", "suffix": " W" }
+  }
+}

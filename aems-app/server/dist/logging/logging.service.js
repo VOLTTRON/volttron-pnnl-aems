@@ -20,11 +20,15 @@ let AppLoggerService = class AppLoggerService {
     constructor(configService) {
         this.loggers = [];
         if (configService.log.console.level) {
-            this.loggers.push(new common_1.ConsoleLogger({
+            const consoleLogger = new common_1.ConsoleLogger({
                 logLevels: (0, _1.getLogLevels)(configService.log.console.level),
-                prefix: "Server",
+                prefix: configService.instanceName,
                 timestamp: true,
-            }));
+            });
+            const finalLogger = configService.log.throttle.enabled
+                ? new _1.ThrottledLoggerService(consoleLogger, configService)
+                : consoleLogger;
+            this.loggers.push(finalLogger);
         }
     }
     registerLogger(logger) {

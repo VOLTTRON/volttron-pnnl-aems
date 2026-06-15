@@ -1,0 +1,145 @@
+Historian Topic Mapping Configuration
+========================================
+
+This file defines the default topic path templates, per-metric topic name
+mappings, per-metric binning aggregations, and per-metric numeric/text
+display configuration used by the historian database queries and the
+dashboards that consume them.
+
+Usage:
+------
+1. Copy this file to historian-topic-map.json
+2. Edit the templates and/or metric mappings as needed
+3. Set HISTORIAN_CONFIG_MAPPING_PATH environment variable to the file path
+4. Restart the server
+
+Configuration Structure:
+------------------------
+- templates: Define topic path structure for Unit/Weather/Meter metrics
+  - Template variables: {campus}, {building}, {system}, {metric}
+- unitMetrics:    Map UnitMetric    enum values to a metric mapping entry
+- weatherMetrics: Map WeatherMetric enum values to a metric mapping entry
+- meterMetrics:   Map MeterMetric   enum values to a metric mapping entry
+
+Each metric entry accepts two equivalent forms:
+
+  Object form (recommended):
+    "ZoneTemperature": {
+      "topic":       "ZoneTemperature",
+      "aggregation": "mean",
+      "transform":   "decimal1",
+      "format":      "none",
+      "prefix":      "",
+      "suffix":      "°F"
+    }
+
+  Bare-string form (legacy, just the topic name; every other field falls
+  back to its per-metric default):
+    "ZoneTemperature": "ZoneTemperature"
+
+Every field of the object form is optional. Missing fields fall back to
+the built-in per-metric default. Partial configurations are supported.
+
+Fields:
+-------
+  topic        - VOLTTRON topic segment for this metric
+  aggregation  - SQL aggregation when bucketing samples (see below)
+  transform    - server-side number-to-number reduction applied to every
+                 returned value (see below). Charts, KPI cards, and tooltips
+                 all see the same already-quantized number.
+  format       - client-side number-to-string display style (see below).
+                 Affects only rendered text (tooltips today; gauges/axes
+                 opt-in via the shared formatter utility).
+  prefix       - free text inserted before the rendered value. NO
+                 auto-spacing - include any leading space yourself
+                 (e.g. " " for thin-air separation, or "$" for currency).
+  suffix       - free text inserted after the rendered value. NO
+                 auto-spacing - include any leading space yourself
+                 (e.g. "%" with no space, " W" with one).
+
+Aggregations:
+-------------
+The aggregation controls how raw historian samples are collapsed into one
+value per bucket when binning is active. Supported values:
+
+  min     - smallest sample in the bucket            (SQL: MIN)
+  max     - largest sample in the bucket             (SQL: MAX)
+  mean    - arithmetic mean of samples (default)     (SQL: AVG)
+  mode    - most frequent value; for state codes     (SQL: mode() WITHIN GROUP)
+  median  - 50th-percentile value                    (SQL: percentile_cont(0.5))
+  sum     - sum of samples; for accumulators         (SQL: SUM)
+  count   - number of samples                        (SQL: COUNT)
+  first   - earliest non-null sample in the bucket
+  last    - latest non-null sample in the bucket
+
+Pick by metric semantics:
+  - Continuous measurements (temperature, humidity, demand %) -> mean
+  - State / command / stage / flag codes                      -> max (or mode)
+  - Counters / heartbeat / running totals                     -> last
+  - Peak-of-interest signals (gusts, demand kW)               -> max
+  - Period-accumulated values (precipitation per hour)        -> last
+
+The default aggregation when none is configured is "mean".
+
+Transforms:
+-----------
+The transform is a numeric reduction applied server-side after aggregation
+but before the value is sent to the client. Use it to enforce the precision
+you want every consumer (chart axes, gauges, tooltips, exports) to see.
+
+  none      - value passes through unchanged (default)
+  integer   - Math.round(value)
+  decimal1  - rounded to 1 decimal place  (e.g. 12.345 -> 12.3)
+  decimal2  - rounded to 2 decimal places (e.g. 12.345 -> 12.35)
+  decimal3  - rounded to 3 decimal places
+  floor     - Math.floor(value)
+  ceiling   - Math.ceil(value)
+
+Pick by metric semantics:
+  - Boolean / state / command codes                  -> integer
+  - Temperatures, humidity %, wind speed             -> decimal1
+  - Power / energy / monetary readings               -> decimal2
+  - Counts that should never report a fractional bin -> integer / floor
+
+Formats:
+--------
+The format controls how the (already-transformed) numeric value is rendered
+as text on the client. The server does NOT apply this; the dashboard
+formatter does. Affects tooltips today; charts opt-in elsewhere.
+
+  none        - String(value), no special formatting (default)
+  thousands   - Intl.NumberFormat with grouping (e.g. 12345.67 -> "12,345.67")
+  compact     - Intl.NumberFormat compact notation (e.g. 12345 -> "12.3K")
+  scientific  - value.toExponential(2) (e.g. 12345 -> "1.23e+4")
+
+Pick by metric semantics:
+  - Large meter readings, currency-style amounts     -> thousands
+  - Headline KPIs that should fit in a small space   -> compact
+  - Very small or very large dimensionless values    -> scientific
+  - Most everyday measurements                       -> none
+
+Prefix / Suffix:
+----------------
+Plain strings inserted verbatim before/after the rendered numeric value.
+Composable - use them together when needed. There is NO auto-spacing; if
+you want a space between value and unit, include it in the suffix
+(e.g. " W" not "W"; "%" usually has no leading space; "°F" likewise).
+
+Examples:
+  Currency:     prefix: "$",   suffix: ""           -> "$12.34"
+  Approximate:  prefix: "≈",   suffix: ""           -> "≈12.34"
+  Percent:      prefix: "",    suffix: "%"          -> "12.34%"
+  SI unit:      prefix: "",    suffix: " mph"       -> "12.3 mph"
+  Throughput:   prefix: "",    suffix: " req/sec"   -> "12.3 req/sec"
+
+Note that "Percent" is not a format because the value is NOT multiplied
+by 100. Treat percent values as already-percent numbers and add the "%"
+suffix yourself.
+
+Partial configurations are supported - any unmapped metric or unspecified
+field uses its built-in default.
+
+See type definitions in:
+  - server/src/historian/types.ts   (HistorianTopicMapConfig, MetricMappingEntry)
+  - prisma/src/types/historian.ts   (MetricAggregation, MetricTransform, MetricFormat)
+  - server/src/historian/metrics.ts (Default*Metric{Aggregations,Transforms,Formats,Suffixes,Prefixes})

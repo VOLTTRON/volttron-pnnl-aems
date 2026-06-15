@@ -15,7 +15,8 @@
     "ms-vscode.js-debug-companion",
     "ms-vscode.powershell",
     "ms-vscode.vscode-js-profile-table",
-    "prisma.prisma"
+    "prisma.prisma",
+    "MermaidChart.vscode-mermaid-chart"
   ],
   // List of extensions recommended by VS Code that should not be recommended for users of this workspace.
   "unwantedRecommendations": []

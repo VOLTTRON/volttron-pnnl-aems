@@ -35,6 +35,9 @@ let SubscriptionService = SubscriptionService_1 = class SubscriptionService {
                     connection: {
                         host: configService.redis.host,
                         port: configService.redis.port,
+                        ...(configService.redis.username && { username: configService.redis.username }),
+                        ...(configService.redis.password && { password: configService.redis.password }),
+                        ...(configService.redis.db !== undefined && { db: configService.redis.db }),
                         retryStrategy: (n) => {
                             return Math.min(n * 50, 2000);
                         },

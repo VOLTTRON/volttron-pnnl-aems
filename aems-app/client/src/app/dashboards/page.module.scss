@@ -1,0 +1,75 @@
+.dashboards {
+  padding: 14px;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0;
+
+  h1 {
+    margin-bottom: 0.5rem;
+  }
+
+  >p {
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+  }
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.campus {
+
+  h2 {
+    color: var(--primary);
+    border-bottom: 2px solid var(--divider);
+  }
+}
+
+.building {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1em;
+
+  h3 {
+    color: var(--text-primary);
+  }
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+}
+
+.card {
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 100%;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--primary);
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+}

@@ -172,7 +172,7 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
           return;
         } else if (v.id in resolvers) {
           const result = await resolvers[v.id](String(v.path), ...paths);
-          if (result !== v.path) {
+          if (result) {
             v.name = result;
             update = true;
           }

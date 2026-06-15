@@ -25,4 +25,7 @@ model Holiday {
     // indices
     @@index([label])
     @@index([stage])
+    @@index([type], map: "holidays_type")
+    @@index([createdAt], map: "holidays_createdAt")
+    @@index([updatedAt], map: "holidays_updatedAt")
 }

@@ -6,3 +6,4 @@ export declare class InfoLogger extends Logger {
     info(message: any, context?: string): void;
     info(message: any, ...optionalParams: [...any, string?]): void;
 }
+export { ThrottledLoggerService } from "./throttled.service";

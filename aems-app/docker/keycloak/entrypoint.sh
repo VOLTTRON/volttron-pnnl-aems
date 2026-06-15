@@ -5,6 +5,19 @@ set -e
 
 echo "Starting Keycloak with client secret configuration..."
 
+# Read secrets BEFORE starting Keycloak so they're available during initialization
+# Trim newlines/carriage returns from secrets to avoid authentication issues
+if [ -f "/run/secrets/keycloak_admin_password" ]; then
+    export KEYCLOAK_ADMIN_PASSWORD=$(cat /run/secrets/keycloak_admin_password | tr -d '\n\r')
+    export KC_BOOTSTRAP_ADMIN_PASSWORD=$(cat /run/secrets/keycloak_admin_password | tr -d '\n\r')
+    echo "Using admin password from Docker secret"
+fi
+
+if [ -f "/run/secrets/keycloak_client_secret" ]; then
+    export KEYCLOAK_CLIENT_SECRET=$(cat /run/secrets/keycloak_client_secret | tr -d '\n\r')
+    echo "Using client secret from Docker secret"
+fi
+
 # Start Keycloak in the background and capture output (standalone mode)
 echo "Starting Keycloak server in standalone mode..."
 KC_CACHE=local /opt/keycloak/bin/kc.sh start --import-realm > /tmp/keycloak.log 2>&1 &

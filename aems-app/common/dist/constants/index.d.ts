@@ -15,6 +15,7 @@ export interface IBase<T extends IConstant> {
 export interface IFrequency extends IConstant {
     abbr: string;
     plural: string;
+    milliseconds: number;
     pattern: {
         postgres: string;
         mysql: string;

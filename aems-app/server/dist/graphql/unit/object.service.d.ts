@@ -8,7 +8,7 @@ export declare class UnitObject {
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Unit";
-        Shape: import(".prisma/client").Unit;
+        Shape: import("@prisma/client").Unit;
         Include: Prisma.UnitInclude;
         Select: Prisma.UnitSelect;
         OrderBy: Prisma.UnitOrderByWithRelationInput;
@@ -20,22 +20,22 @@ export declare class UnitObject {
         ListRelations: "users";
         Relations: {
             configuration: {
-                Shape: import(".prisma/client").Configuration | null;
+                Shape: import("@prisma/client").Configuration | null;
                 Name: "Configuration";
                 Nullable: true;
             };
             control: {
-                Shape: import(".prisma/client").Control | null;
+                Shape: import("@prisma/client").Control | null;
                 Name: "Control";
                 Nullable: true;
             };
             location: {
-                Shape: import(".prisma/client").Location | null;
+                Shape: import("@prisma/client").Location | null;
                 Name: "Location";
                 Nullable: true;
             };
             users: {
-                Shape: import(".prisma/client").User[];
+                Shape: import("@prisma/client").User[];
                 Name: "User";
                 Nullable: false;
             };
@@ -46,7 +46,7 @@ export declare class UnitObject {
         createdAt: Date;
         updatedAt: Date;
         message: string | null;
-        stage: import(".prisma/client").$Enums.ModelStage;
+        stage: import("@prisma/client").$Enums.ModelStage;
         correlation: string | null;
         campus: string;
         building: string;

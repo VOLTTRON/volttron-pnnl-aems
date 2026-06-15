@@ -50,25 +50,25 @@ export declare class SchemaBuilderService extends SchemaBuilder<{
         AuthScopes: AuthRoles;
         PrismaTypes: PrismaTypes;
         Scalars: Scalars;
-    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<number>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt">>;
+    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<number>, "not" | "lt" | "in" | "gte" | "equals" | "lte" | "gt">>;
     readonly FloatFilter: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: Context;
         AuthScopes: AuthRoles;
         PrismaTypes: PrismaTypes;
         Scalars: Scalars;
-    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<number>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt">>;
+    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<number>, "not" | "lt" | "in" | "gte" | "equals" | "lte" | "gt">>;
     readonly StringFilter: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: Context;
         AuthScopes: AuthRoles;
         PrismaTypes: PrismaTypes;
         Scalars: Scalars;
-    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "equals" | "in" | "contains" | "mode">>;
+    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "in" | "equals" | "contains" | "mode">>;
     readonly DateTimeFilter: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: Context;
         AuthScopes: AuthRoles;
         PrismaTypes: PrismaTypes;
         Scalars: Scalars;
-    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "gte" | "equals" | "in" | "lte" | "gt" | "contains" | "mode">>;
+    }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<Date>, "not" | "lt" | "in" | "gte" | "equals" | "lte" | "gt" | "contains" | "mode">>;
     readonly PagingInput: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: Context;
         AuthScopes: AuthRoles;

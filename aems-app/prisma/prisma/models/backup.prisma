@@ -1,0 +1,168 @@
+enum BackupDestinationType {
+    Local
+    S3
+}
+
+enum BackupRunStatus {
+    Queued
+    Running
+    Success
+    Failed
+    Cancelled
+}
+
+enum BackupRunTrigger {
+    Scheduled
+    Manual
+    Retry
+    Test
+}
+
+enum BackupComponentType {
+    Postgres
+    MariaDB
+    Volume
+    Path
+    File
+}
+
+enum BackupComponentStatus {
+    Pending
+    Running
+    Success
+    Failed
+    Skipped
+}
+
+enum BackupKeyAlgorithm {
+    Age
+    Gpg
+}
+
+model BackupPolicy {
+    id              String   @id @default(cuid())
+    enabled         Boolean  @default(false)
+    cron            String   @default("0 2 * * *")
+    retentionDays   Int      @default(30)
+    excludeVolumes  String[] @default([])
+    excludePaths    String[] @default([])
+    excludeServices String[] @default([])
+    excludeEnvFiles String[] @default([])
+    extraEnvFiles   String[] @default([])
+    createdAt       DateTime @default(now()) @db.Timestamptz(6)
+    updatedAt       DateTime @updatedAt() @db.Timestamptz(6)
+    destinations    BackupDestination[]
+    runs            BackupRun[]
+}
+
+model BackupDestination {
+    id             String   @id @default(cuid())
+    policyId       String
+    policy         BackupPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+    name           String
+    type           BackupDestinationType
+    output         String?  @db.Text
+    enabled        Boolean  @default(true)
+    sseMode        String?
+    sseKmsKeyId    String?
+    order          Int      @default(0)
+    createdAt      DateTime @default(now()) @db.Timestamptz(6)
+    updatedAt      DateTime @updatedAt() @db.Timestamptz(6)
+    runs           BackupRunDestination[]
+
+    @@index([policyId])
+    @@index([type])
+}
+
+model BackupRun {
+    id             String   @id @default(cuid())
+    policyId       String
+    policy         BackupPolicy @relation(fields: [policyId], references: [id])
+    status         BackupRunStatus @default(Queued)
+    trigger        BackupRunTrigger
+    requestedById  String?
+    requestedBy    User?    @relation("backupRunRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+    keyFingerprint String?
+    startedAt      DateTime? @db.Timestamptz(6)
+    finishedAt     DateTime? @db.Timestamptz(6)
+    heartbeatAt    DateTime? @db.Timestamptz(6)
+    archivePath    String?
+    archiveBytes   BigInt?
+    archiveSha256  String?
+    /// [BackupManifest]
+    manifest       Json?
+    errorMessage   String?  @db.Text
+    cancelRequested Boolean @default(false)
+    createdAt      DateTime @default(now()) @db.Timestamptz(6)
+    updatedAt      DateTime @updatedAt() @db.Timestamptz(6)
+    components     BackupComponent[]
+    destinations   BackupRunDestination[]
+
+    @@index([status])
+    @@index([policyId])
+    @@index([createdAt])
+    @@index([finishedAt])
+}
+
+model BackupComponent {
+    id         String   @id @default(cuid())
+    runId      String
+    run        BackupRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+    type       BackupComponentType
+    name       String
+    status     BackupComponentStatus @default(Pending)
+    bytes      BigInt?
+    durationMs Int?
+    error      String?  @db.Text
+    startedAt  DateTime? @db.Timestamptz(6)
+    finishedAt DateTime? @db.Timestamptz(6)
+    createdAt  DateTime @default(now()) @db.Timestamptz(6)
+    updatedAt  DateTime @updatedAt() @db.Timestamptz(6)
+
+    @@index([runId])
+    @@index([status])
+}
+
+model BackupRunDestination {
+    id               String   @id @default(cuid())
+    runId            String
+    run              BackupRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+    destinationId    String
+    destination      BackupDestination @relation(fields: [destinationId], references: [id])
+    status           BackupComponentStatus @default(Pending)
+    uploadedBytes    BigInt?
+    finalPath        String?
+    // Set when the archive is intentionally removed via the admin UI.
+    // Distinguishes an operator-initiated cleanup ("Removed") from an
+    // archive that has aged off at the destination or otherwise gone
+    // walkabout ("Missing"). `finalPath` is preserved so the UI can show
+    // where the archive used to live.
+    archiveDeletedAt DateTime? @db.Timestamptz(6)
+    error            String?  @db.Text
+    startedAt        DateTime? @db.Timestamptz(6)
+    finishedAt       DateTime? @db.Timestamptz(6)
+    createdAt        DateTime @default(now()) @db.Timestamptz(6)
+    updatedAt        DateTime @updatedAt() @db.Timestamptz(6)
+
+    @@index([runId])
+    @@index([destinationId])
+}
+
+model BackupKey {
+    id               String   @id @default(cuid())
+    algorithm        BackupKeyAlgorithm @default(Age)
+    publicKey        String   @db.Text
+    privateKeyPath   String?
+    fingerprint      String   @unique
+    active           Boolean  @default(true)
+    acknowledged     Boolean  @default(false)
+    acknowledgedAt   DateTime? @db.Timestamptz(6)
+    acknowledgedById String?
+    acknowledgedBy   User?    @relation("backupKeyAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+    rotatedAt        DateTime? @db.Timestamptz(6)
+    createdAt        DateTime @default(now()) @db.Timestamptz(6)
+    updatedAt        DateTime @updatedAt() @db.Timestamptz(6)
+
+    @@index([active])
+    @@index([acknowledged])
+}

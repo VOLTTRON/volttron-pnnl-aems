@@ -8,7 +8,7 @@ export declare class ScheduleObject {
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Schedule";
-        Shape: import(".prisma/client").Schedule;
+        Shape: import("@prisma/client").Schedule;
         Include: Prisma.ScheduleInclude;
         Select: Prisma.ScheduleSelect;
         OrderBy: Prisma.ScheduleOrderByWithRelationInput;
@@ -20,52 +20,52 @@ export declare class ScheduleObject {
         ListRelations: "mondayConfigurations" | "tuesdayConfigurations" | "wednesdayConfigurations" | "thursdayConfigurations" | "fridayConfigurations" | "saturdayConfigurations" | "sundayConfigurations" | "holidayConfigurations" | "occupancies";
         Relations: {
             setpoint: {
-                Shape: import(".prisma/client").Setpoint | null;
+                Shape: import("@prisma/client").Setpoint | null;
                 Name: "Setpoint";
                 Nullable: true;
             };
             mondayConfigurations: {
-                Shape: import(".prisma/client").Configuration[];
+                Shape: import("@prisma/client").Configuration[];
                 Name: "Configuration";
                 Nullable: false;
             };
             tuesdayConfigurations: {
-                Shape: import(".prisma/client").Configuration[];
+                Shape: import("@prisma/client").Configuration[];
                 Name: "Configuration";
                 Nullable: false;
             };
             wednesdayConfigurations: {
-                Shape: import(".prisma/client").Configuration[];
+                Shape: import("@prisma/client").Configuration[];
                 Name: "Configuration";
                 Nullable: false;
             };
             thursdayConfigurations: {
-                Shape: import(".prisma/client").Configuration[];
+                Shape: import("@prisma/client").Configuration[];
                 Name: "Configuration";
                 Nullable: false;
             };
             fridayConfigurations: {
-                Shape: import(".prisma/client").Configuration[];
+                Shape: import("@prisma/client").Configuration[];
                 Name: "Configuration";
                 Nullable: false;
             };
             saturdayConfigurations: {
-                Shape: import(".prisma/client").Configuration[];
+                Shape: import("@prisma/client").Configuration[];
                 Name: "Configuration";
                 Nullable: false;
             };
             sundayConfigurations: {
-                Shape: import(".prisma/client").Configuration[];
+                Shape: import("@prisma/client").Configuration[];
                 Name: "Configuration";
                 Nullable: false;
             };
             holidayConfigurations: {
-                Shape: import(".prisma/client").Configuration[];
+                Shape: import("@prisma/client").Configuration[];
                 Name: "Configuration";
                 Nullable: false;
             };
             occupancies: {
-                Shape: import(".prisma/client").Occupancy[];
+                Shape: import("@prisma/client").Occupancy[];
                 Name: "Occupancy";
                 Nullable: false;
             };
@@ -75,7 +75,7 @@ export declare class ScheduleObject {
         createdAt: Date;
         updatedAt: Date;
         message: string | null;
-        stage: import(".prisma/client").$Enums.ModelStage;
+        stage: import("@prisma/client").$Enums.ModelStage;
         correlation: string | null;
         label: string;
         setpointId: string | null;

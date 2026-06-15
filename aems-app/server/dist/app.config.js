@@ -4,6 +4,7 @@ exports.AppConfigToken = exports.AppConfigService = void 0;
 const config_1 = require("@nestjs/config");
 const common_1 = require("@local/common");
 const common_2 = require("@nestjs/common");
+const readSecret_1 = require("./utils/readSecret");
 const node_path_1 = require("node:path");
 const node_fs_1 = require("node:fs");
 const typeofChecks = (value) => {
@@ -58,6 +59,27 @@ class AppConfigService {
             return "";
         }
     }
+    loadHistorianTopicMap(configPath) {
+        if (!configPath) {
+            this.logger.debug("No HISTORIAN_CONFIG_MAPPING_PATH specified, using default topic mapping");
+            return undefined;
+        }
+        try {
+            const absolutePath = (0, node_path_1.resolve)(__dirname, configPath);
+            const fileContent = this.readFile(absolutePath);
+            if (!fileContent) {
+                this.logger.warn(`Failed to read historian config from: ${configPath}`);
+                return undefined;
+            }
+            const parsed = JSON.parse(fileContent);
+            this.logger.log(`Loaded historian topic mapping from: ${configPath}`);
+            return parsed;
+        }
+        catch (error) {
+            this.logger.error(`Error loading historian topic mapping from ${configPath}`, error);
+            return undefined;
+        }
+    }
     constructor() {
         this.logger = new common_2.Logger(AppConfigService.name);
         this.normalize = common_1.Normalization.process(common_1.Normalization.Trim, common_1.Normalization.Compact, common_1.Normalization.Lowercase);
@@ -81,12 +103,24 @@ class AppConfigService {
             prisma: {
                 level: process.env.LOG_PRISMA_LEVEL ?? "",
             },
+            throttle: {
+                enabled: (0, common_1.parseBoolean)(process.env.LOG_THROTTLE_ENABLED ?? "true"),
+                debounce: {
+                    fatal: parseInt(process.env.LOG_THROTTLE_DEBOUNCE_FATAL ?? "300"),
+                    error: parseInt(process.env.LOG_THROTTLE_DEBOUNCE_ERROR ?? "300"),
+                    warn: parseInt(process.env.LOG_THROTTLE_DEBOUNCE_WARN ?? "300"),
+                    log: parseInt(process.env.LOG_THROTTLE_DEBOUNCE_INFO ?? process.env.LOG_THROTTLE_DEBOUNCE_LOG ?? "60"),
+                    debug: parseInt(process.env.LOG_THROTTLE_DEBOUNCE_DEBUG ?? "30"),
+                    verbose: parseInt(process.env.LOG_THROTTLE_DEBOUNCE_VERBOSE ?? "30"),
+                },
+            },
         };
         this.session = {
             maxAge: parseInt(process.env.SESSION_MAX_AGE ?? "86400000"),
             store: process.env.SESSION_STORE ?? "",
-            secret: process.env.SESSION_SECRET ?? "",
+            secret: (0, readSecret_1.readSecret)("SESSION_SECRET", ""),
         };
+        this.instanceName = process.env.INSTANCE_NAME ?? "";
         this.instanceType = process.env.INSTANCE_TYPE ?? "";
         this.graphql = {
             editor: (0, common_1.parseBoolean)(process.env.GRAPHQL_EDITOR),
@@ -99,7 +133,7 @@ class AppConfigService {
             host: process.env.REDIS_HOST ?? "localhost",
             port: parseInt(process.env.REDIS_PORT ?? "6379"),
             username: process.env.REDIS_USERNAME || undefined,
-            password: process.env.REDIS_PASSWORD || undefined,
+            password: (0, readSecret_1.readSecret)("REDIS_PASSWORD", "") || undefined,
             db: process.env.REDIS_DB ? parseInt(process.env.REDIS_DB) : undefined,
         };
         this.auth = {
@@ -108,7 +142,7 @@ class AppConfigService {
             debug: (0, common_1.parseBoolean)(process.env.AUTH_DEBUG),
         };
         this.jwt = {
-            secret: process.env.JWT_SECRET ?? "",
+            secret: (0, readSecret_1.readSecret)("JWT_SECRET", ""),
             expiresIn: parseInt(process.env.JWT_EXPIRES_IN ?? "86400"),
         };
         this.keycloak = {
@@ -120,7 +154,7 @@ class AppConfigService {
             logoutUrl: process.env.KEYCLOAK_LOGOUT_URL ?? "",
             scope: process.env.KEYCLOAK_SCOPE ?? "",
             clientId: process.env.KEYCLOAK_CLIENT_ID ?? "",
-            clientSecret: process.env.KEYCLOAK_CLIENT_SECRET ?? "",
+            clientSecret: (0, readSecret_1.readSecret)("KEYCLOAK_CLIENT_SECRET", ""),
             issuerUrl: process.env.KEYCLOAK_ISSUER_URL ?? "",
             wellKnownUrl: process.env.KEYCLOAK_WELL_KNOWN_URL ?? "",
             passRoles: (0, common_1.parseBoolean)(process.env.KEYCLOAK_PASS_ROLES),
@@ -138,7 +172,23 @@ class AppConfigService {
             name: process.env.DATABASE_NAME ?? "",
             schema: process.env.DATABASE_SCHEMA ?? "",
             username: process.env.DATABASE_USERNAME ?? "",
-            password: process.env.DATABASE_PASSWORD ?? "",
+            password: (0, readSecret_1.readSecret)("DATABASE_PASSWORD", ""),
+        };
+        this.historian = {
+            url: process.env.HISTORIAN_DATABASE_URL || undefined,
+            host: process.env.HISTORIAN_HOST ?? "historian",
+            port: parseInt(process.env.HISTORIAN_PORT ?? "5432"),
+            name: process.env.HISTORIAN_NAME ?? "historian",
+            username: process.env.HISTORIAN_USER ?? "historian",
+            password: process.env.HISTORIAN_PASSWORD ?? "",
+            replicationPort: parseInt(process.env.HISTORIAN_REPLICATION_PORT ?? "5543"),
+            configMappingPath: process.env.HISTORIAN_CONFIG_MAPPING_PATH || undefined,
+            topicMap: this.loadHistorianTopicMap(process.env.HISTORIAN_CONFIG_MAPPING_PATH),
+            binning: {
+                count: parseInt(process.env.HISTORIAN_BINNING_COUNT ?? "500"),
+                start: parseInt(process.env.HISTORIAN_BINNING_START ?? "48"),
+                unit: toDurationUnit(process.env.HISTORIAN_BINNING_UNIT ?? "hours"),
+            },
         };
         this.ext = Object.entries(process.env)
             .filter(([key]) => key.startsWith("EXT_") && ["_PATH", "_ROLE", "_AUTHORIZED", "_UNAUTHORIZED"].find((k) => key.endsWith(k)))
@@ -192,11 +242,20 @@ class AppConfigService {
                 batchSize: parseInt(process.env.SERVICE_SEED_BATCH_SIZE ?? "100"),
                 geojsonContribution: process.env.SERVICE_SEED_GEOJSON_CONTRIBUTION ?? "",
             },
-            cleanup: {
+            event: {
+                prune: (0, common_1.parseBoolean)(process.env.SERVICE_EVENT_PRUNE),
                 age: {
-                    value: parseInt(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_CLEANUP_AGE ?? "")?.[1] ?? "0"),
-                    unit: toDurationUnit(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_CLEANUP_AGE ?? "")?.[0] ?? "milliseconds"),
+                    value: parseInt(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_EVENT_AGE ?? "")?.[1] ?? "0"),
+                    unit: toDurationUnit(/(\d+)\s*(\w*)/i.exec(process.env.SERVICE_EVENT_AGE ?? "")?.[0] ?? "milliseconds"),
                 },
+            },
+            backup: {
+                workspace: process.env.BACKUP_WORKSPACE ?? "",
+                workerToken: (0, readSecret_1.readSecret)("WORKER_TOKEN", ""),
+                composeProfiles: (process.env.COMPOSE_PROFILES ?? "")
+                    .split(/[\s,]+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean),
             },
             config: {
                 timeout: parseInt(process.env.SERVICE_CONFIG_TIMEOUT ?? "5000"),
@@ -236,6 +295,14 @@ class AppConfigService {
             configPath: process.env.GRAFANA_CONFIG_PATH ?? "",
             username: process.env.GRAFANA_USERNAME ?? "",
             password: process.env.GRAFANA_PASSWORD ?? "",
+            backup: {
+                workspace: process.env.BACKUP_WORKSPACE ?? "",
+                workerToken: (0, readSecret_1.readSecret)("WORKER_TOKEN", ""),
+                composeProfiles: (process.env.COMPOSE_PROFILES ?? "")
+                    .split(/[\s,]+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+            },
         };
         this.cors = {
             origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN : undefined,

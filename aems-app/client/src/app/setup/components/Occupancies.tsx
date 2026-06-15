@@ -4,6 +4,12 @@ import { useState } from "react";
 import { ReadUnitQuery } from "@/graphql-codegen/graphql";
 import { DeepPartial, typeofNonNullable, typeofObject } from "@local/common";
 import { cloneDeep, merge } from "lodash";
+import { END_TIME_MAX, START_TIME_MIN, toDataFormat, toMinutes } from "@/utils/schedule";
+
+const MIN_DURATION = 1;
+
+const parseTime = (t: string) => toMinutes(t, false);
+const formatTime = (m: number) => toDataFormat(Math.max(START_TIME_MIN, Math.min(END_TIME_MAX - 1, m)));
 
 type UnitType = NonNullable<ReadUnitQuery["readUnit"]>;
 
@@ -55,13 +61,30 @@ function CreateOccupancy({
             <InputGroup
               type="time"
               value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setStartTime(next);
+                if (parseTime(endTime) <= parseTime(next)) {
+                  setEndTime(formatTime(parseTime(next) + MIN_DURATION));
+                }
+              }}
               disabled={!occupied}
             />
           </FormGroup>
 
           <FormGroup label="End Time">
-            <InputGroup type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!occupied} />
+            <InputGroup
+              type="time"
+              value={endTime}
+              onChange={(e) => {
+                const next = e.target.value;
+                setEndTime(next);
+                if (parseTime(next) <= parseTime(startTime)) {
+                  setStartTime(formatTime(parseTime(next) - MIN_DURATION));
+                }
+              }}
+              disabled={!occupied}
+            />
           </FormGroup>
         </div>
 
@@ -135,6 +158,11 @@ export function Occupancies({ unit, editing, setEditing, readOnly = false }: Occ
               .map((occupancy, index) => {
                 const { id, label, date, schedule } = occupancy;
                 const { occupied, startTime, endTime } = schedule ?? {};
+                const invalidRange =
+                  (occupied ?? false) &&
+                  !!startTime &&
+                  !!endTime &&
+                  parseTime(endTime) <= parseTime(startTime);
                 return (
                   <Card key={index} style={{ padding: "0.75rem" }}>
                     <div
@@ -178,6 +206,7 @@ export function Occupancies({ unit, editing, setEditing, readOnly = false }: Occ
                         <InputGroup
                           type="time"
                           value={startTime || "08:00"}
+                          intent={invalidRange ? Intent.DANGER : Intent.NONE}
                           onChange={(e) => {
                             const clone = cloneDeep(editing ?? {});
                             clone.configuration = clone.configuration ?? {};
@@ -203,6 +232,7 @@ export function Occupancies({ unit, editing, setEditing, readOnly = false }: Occ
                         <InputGroup
                           type="time"
                           value={endTime || "17:00"}
+                          intent={invalidRange ? Intent.DANGER : Intent.NONE}
                           onChange={(e) => {
                             const clone = cloneDeep(editing ?? {});
                             clone.configuration = clone.configuration ?? {};
@@ -223,8 +253,17 @@ export function Occupancies({ unit, editing, setEditing, readOnly = false }: Occ
                         />
                       </div>
 
-                      <div style={{ fontSize: "0.75rem", color: "var(--bp5-text-color-muted)" }}>
-                        {occupied ? `${startTime} - ${endTime}` : "Unoccupied"}
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: invalidRange ? "var(--bp5-intent-danger)" : "var(--bp5-text-color-muted)",
+                        }}
+                      >
+                        {!occupied
+                          ? "Unoccupied"
+                          : invalidRange
+                            ? "End time must be after start time"
+                            : `${startTime} - ${endTime}`}
                       </div>
 
                       {!readOnly && (

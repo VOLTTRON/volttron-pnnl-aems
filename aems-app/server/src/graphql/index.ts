@@ -1,8 +1,21 @@
 import { Mode, Mutation, SubscriptionEvent, SubscriptionTopic } from "@local/common";
 import { BaseContext } from "@apollo/server";
-import { LogType, FeedbackStatus } from "@prisma/client";
+import { LogType, FeedbackStatus, BackupDestinationType } from "@prisma/client";
 import { PubSubEngine } from "graphql-subscriptions";
 import "@local/prisma";
+import {
+  HistorianDataPoint,
+  HistorianTimeSeries,
+  HistorianAggregate,
+  HistorianAggregateResult,
+  HistorianMetricCurrent,
+  HistorianMultiSystemData,
+  HistorianReplicationInfo,
+  PublisherInfo,
+  SubscriberSetupSql,
+  MonitoringSql,
+  ReplicationSlot,
+} from "@local/common";
 
 export interface PubSubEngineExt extends PubSubEngine {
   publish<T extends SubscriptionTopic>(topic: T | `${T}/${string}`, payload: SubscriptionEvent<T>): Promise<void>;
@@ -48,6 +61,27 @@ export type Scalars = {
   ConfigurationGroupBy: { Input: PrismaJson.ConfigurationGroupBy; Output: PrismaJson.ConfigurationGroupBy };
   UnitGroupBy: { Input: PrismaJson.UnitGroupBy; Output: PrismaJson.UnitGroupBy };
   OccupancyGroupBy: { Input: PrismaJson.OccupancyGroupBy; Output: PrismaJson.OccupancyGroupBy };
+  HistorianDataPoint: { Input: HistorianDataPoint; Output: HistorianDataPoint };
+  HistorianTimeSeries: { Input: HistorianTimeSeries; Output: HistorianTimeSeries };
+  HistorianAggregate: { Input: HistorianAggregate; Output: HistorianAggregate };
+  HistorianAggregateResult: { Input: HistorianAggregateResult; Output: HistorianAggregateResult };
+  HistorianMetricCurrent: { Input: HistorianMetricCurrent; Output: HistorianMetricCurrent };
+  HistorianMultiSystemData: { Input: HistorianMultiSystemData; Output: HistorianMultiSystemData };
+  HistorianReplicationInfo: { Input: HistorianReplicationInfo; Output: HistorianReplicationInfo };
+  PublisherInfo: { Input: PublisherInfo; Output: PublisherInfo };
+  SubscriberSetupSql: { Input: SubscriberSetupSql; Output: SubscriberSetupSql };
+  MonitoringSql: { Input: MonitoringSql; Output: MonitoringSql };
+  ReplicationSlot: { Input: ReplicationSlot; Output: ReplicationSlot };
+  BackupPolicyGroupBy: { Input: PrismaJson.BackupPolicyGroupBy; Output: PrismaJson.BackupPolicyGroupBy };
+  BackupDestinationGroupBy: { Input: PrismaJson.BackupDestinationGroupBy; Output: PrismaJson.BackupDestinationGroupBy };
+  BackupRunGroupBy: { Input: PrismaJson.BackupRunGroupBy; Output: PrismaJson.BackupRunGroupBy };
+  BackupComponentGroupBy: { Input: PrismaJson.BackupComponentGroupBy; Output: PrismaJson.BackupComponentGroupBy };
+  BackupRunDestinationGroupBy: {
+    Input: PrismaJson.BackupRunDestinationGroupBy;
+    Output: PrismaJson.BackupRunDestinationGroupBy;
+  };
+  BackupKeyGroupBy: { Input: PrismaJson.BackupKeyGroupBy; Output: PrismaJson.BackupKeyGroupBy };
+  BackupDestinationType: { Input: BackupDestinationType; Output: BackupDestinationType };
 };
 
 export interface Aggregate<T extends string> {

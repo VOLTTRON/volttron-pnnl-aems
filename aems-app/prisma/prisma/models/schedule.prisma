@@ -30,4 +30,7 @@ model Schedule {
     // indices
     @@index([label])
     @@index([stage])
+    @@index([createdAt], map: "schedules_createdAt")
+    @@index([updatedAt], map: "schedules_updatedAt")
+    @@index([setpointId], map: "schedules_setpointId")
 }

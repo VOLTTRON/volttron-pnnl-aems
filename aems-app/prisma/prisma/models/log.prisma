@@ -13,4 +13,8 @@ model Log {
     message   String?  @db.Text()
     createdAt DateTime @default(now()) @db.Timestamptz(6)
     updatedAt DateTime @updatedAt() @db.Timestamptz(6)
+
+    @@index([type], map: "logs_type")
+    @@index([createdAt], map: "logs_createdAt")
+    @@index([updatedAt], map: "logs_updatedAt")
 }

@@ -8,7 +8,7 @@ export declare class ControlObject {
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Control";
-        Shape: import(".prisma/client").Control;
+        Shape: import("@prisma/client").Control;
         Include: Prisma.ControlInclude;
         Select: Prisma.ControlSelect;
         OrderBy: Prisma.ControlOrderByWithRelationInput;
@@ -20,7 +20,7 @@ export declare class ControlObject {
         ListRelations: "units";
         Relations: {
             units: {
-                Shape: import(".prisma/client").Unit[];
+                Shape: import("@prisma/client").Unit[];
                 Name: "Unit";
                 Nullable: false;
             };
@@ -31,7 +31,7 @@ export declare class ControlObject {
         createdAt: Date;
         updatedAt: Date;
         message: string | null;
-        stage: import(".prisma/client").$Enums.ModelStage;
+        stage: import("@prisma/client").$Enums.ModelStage;
         correlation: string | null;
         campus: string;
         building: string;

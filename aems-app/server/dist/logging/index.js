@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InfoLogger = exports.getLogLevels = exports.getLogLevel = exports.LogLevels = void 0;
+exports.ThrottledLoggerService = exports.InfoLogger = exports.getLogLevels = exports.getLogLevel = exports.LogLevels = void 0;
 const common_1 = require("@nestjs/common");
 exports.LogLevels = ["fatal", "error", "warn", "log", "debug", "verbose"];
 const getLogLevel = (level) => {
@@ -41,4 +41,6 @@ class InfoLogger extends common_1.Logger {
     }
 }
 exports.InfoLogger = InfoLogger;
+var throttled_service_1 = require("./throttled.service");
+Object.defineProperty(exports, "ThrottledLoggerService", { enumerable: true, get: function () { return throttled_service_1.ThrottledLoggerService; } });
 //# sourceMappingURL=index.js.map

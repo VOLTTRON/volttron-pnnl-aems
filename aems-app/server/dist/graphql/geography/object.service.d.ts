@@ -15,7 +15,7 @@ export declare class GeographyObject {
         Scalars: Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Geography";
-        Shape: import(".prisma/client").Geography;
+        Shape: import("@prisma/client").Geography;
         Include: never;
         Select: Prisma.GeographySelect;
         OrderBy: Prisma.GeographyOrderByWithRelationInput;

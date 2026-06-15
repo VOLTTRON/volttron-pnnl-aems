@@ -40,7 +40,7 @@ let PrismaLogger = class PrismaLogger extends common_1.ConsoleLogger {
     constructor(configService, prismaService, loggerService) {
         super({
             logLevels: (0, _1.getLogLevels)(configService.log.database.level),
-            prefix: "Server",
+            prefix: "Prisma",
             timestamp: true,
         });
         this.prismaService = prismaService;

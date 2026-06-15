@@ -22,4 +22,6 @@ model Setpoint {
     // indices
     @@index([label])
     @@index([stage])
+    @@index([createdAt], map: "setpoints_createdAt")
+    @@index([updatedAt], map: "setpoints_updatedAt")
 }

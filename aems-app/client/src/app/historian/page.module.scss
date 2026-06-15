@@ -1,0 +1,83 @@
+@import "@blueprintjs/core/lib/scss/variables";
+@import "@/app/global.module.scss";
+
+.pageContainer {
+    padding: 20px;
+    max-width: 1800px;
+    margin-left: 0;
+    margin-right: auto;
+}
+
+.pageDescription {
+    margin-bottom: 20px;
+    color: #5C7080;
+}
+
+.tabPanel {
+    margin-top: 20px;
+    width: 80%;
+    min-width: 1000px;
+    max-width: 1800px;
+    margin-left: 0;
+    margin-right: auto;
+}
+
+.cardSpacing {
+    margin-bottom: 20px;
+}
+
+.calloutSpacing {
+    margin-bottom: 20px;
+}
+
+.flexHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.codeBlock {
+    padding: 15px;
+    border-radius: 3px;
+    overflow: auto;
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.codeBlockWithMaxHeight {
+    padding: 15px;
+    border-radius: 3px;
+    overflow: auto;
+    font-size: 12px;
+    font-family: monospace;
+    max-height: 300px;
+}
+
+.instructionText {
+    margin-bottom: 10px;
+    font-size: 13px;
+}
+
+.legendContainer {
+    margin-top: 15px;
+    font-size: 13px;
+    color: #5C7080;
+}
+
+.legendList {
+    margin-top: 5px;
+    margin-bottom: 0;
+}
+
+.controlGroupSpacing {
+    margin-bottom: 10px;
+}
+
+.controlGroupTop {
+    margin-top: 10px;
+}
+
+.fullWidthTable {
+    width: 100%;
+}

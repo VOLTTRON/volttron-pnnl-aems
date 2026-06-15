@@ -33,7 +33,7 @@ export class PrismaLogger extends ConsoleLogger {
   ) {
     super({
       logLevels: getLogLevels(configService.log.database.level),
-      prefix: "Server",
+      prefix: "Prisma",
       timestamp: true,
     });
     loggerService.registerLogger(this);

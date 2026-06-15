@@ -37,4 +37,15 @@ model Configuration {
     // indices
     @@index([label])
     @@index([stage])
+    @@index([createdAt], map: "configurations_createdAt")
+    @@index([updatedAt], map: "configurations_updatedAt")
+    @@index([setpointId], map: "configurations_setpointId")
+    @@index([mondayScheduleId], map: "configurations_mondayScheduleId")
+    @@index([tuesdayScheduleId], map: "configurations_tuesdayScheduleId")
+    @@index([wednesdayScheduleId], map: "configurations_wednesdayScheduleId")
+    @@index([thursdayScheduleId], map: "configurations_thursdayScheduleId")
+    @@index([fridayScheduleId], map: "configurations_fridayScheduleId")
+    @@index([saturdayScheduleId], map: "configurations_saturdayScheduleId")
+    @@index([sundayScheduleId], map: "configurations_sundayScheduleId")
+    @@index([holidayScheduleId], map: "configurations_holidayScheduleId")
 }

@@ -19,4 +19,10 @@ model Control {
     // indices
     @@index([label])
     @@index([stage])
+    @@index([name], map: "controls_name")
+    @@index([campus], map: "controls_campus")
+    @@index([building], map: "controls_building")
+    @@index([campus, building], map: "controls_campus_building")
+    @@index([createdAt], map: "controls_createdAt")
+    @@index([updatedAt], map: "controls_updatedAt")
 }

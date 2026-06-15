@@ -8,6 +8,7 @@ import { getLogLevels } from "@/logging";
 async function GenerateSchema() {
   process.env.NODE_ENV = "development";
   process.env.INSTANCE_TYPE = "";
+  process.env.INSTANCE_NAME = "Schema";
   const logger = new Logger(GenerateSchema.name);
   const controller = new AbortController();
   const { signal } = controller;
@@ -34,7 +35,7 @@ async function GenerateSchema() {
   const app = await NestFactory.create(AppModule, {
     logger: new ConsoleLogger({
       logLevels: getLogLevels(process.env.LOG_CONSOLE_LEVEL ?? ""),
-      prefix: "Server",
+      prefix: process.env.INSTANCE_NAME ?? "",
       timestamp: true,
     }),
   });

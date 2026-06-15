@@ -22,7 +22,9 @@ import { ScheduleObject } from "./schedule/object.service";
 import { SetpointObject } from "./setpoint/object.service";
 import { UnitObject } from "./unit/object.service";
 import { UserObject } from "./user/object.service";
+import { HistorianObject } from "./historian/object.service";
 // graphql queries
+import { BackupObject } from "./backup/object.service";
 import { AccountQuery } from "./account/query.service";
 import { BannerQuery } from "./banner/query.service";
 import { ChangeQuery } from "./change/query.service";
@@ -41,7 +43,9 @@ import { ScheduleQuery } from "./schedule/query.service";
 import { SetpointQuery } from "./setpoint/query.service";
 import { UnitQuery } from "./unit/query.service";
 import { UserQuery } from "./user/query.service";
+import { HistorianQuery } from "./historian/query.service";
 // graphql mutations
+import { BackupQuery } from "./backup/query.service";
 import { AccountMutation } from "./account/mutate.service";
 import { BannerMutation } from "./banner/mutate.service";
 import { ChangeMutation } from "./change/mutate.service";
@@ -60,12 +64,20 @@ import { SetpointMutation } from "./setpoint/mutate.service";
 import { UnitMutation } from "./unit/mutate.service";
 import { UserMutation } from "./user/mutate.service";
 import { ChangeModule } from "@/change/change.module";
+import { HistorianModule } from "@/historian/historian.module";
+import { BackupMutation } from "./backup/mutate.service";
+import { BackupDiscoveryService } from "@/services/backup/backup-discovery.service";
+import { BackupSubscriptionPublisher } from "@/services/backup/backup-publisher.service";
+import { BackupArchiveService } from "@/services/backup/backup-archive.service";
 
 @Module({
-  imports: [PrismaModule, SubscriptionModule, ChangeModule],
+  imports: [PrismaModule, SubscriptionModule, ChangeModule, HistorianModule],
   exports: [SchemaBuilderService],
   providers: [
     SchemaBuilderService,
+    BackupDiscoveryService,
+    BackupSubscriptionPublisher,
+    BackupArchiveService,
     AccountObject,
     BannerObject,
     ChangeObject,
@@ -84,6 +96,8 @@ import { ChangeModule } from "@/change/change.module";
     GeographyObject,
     ChangeObject,
     UnitObject,
+    HistorianObject,
+    BackupObject,
     AccountQuery,
     BannerQuery,
     ChangeQuery,
@@ -103,6 +117,8 @@ import { ChangeModule } from "@/change/change.module";
     GeographyQuery,
     ChangeQuery,
     UnitQuery,
+    HistorianQuery,
+    BackupQuery,
     AccountMutation,
     BannerMutation,
     ChangeMutation,
@@ -121,15 +137,19 @@ import { ChangeModule } from "@/change/change.module";
     UserMutation,
     ChangeMutation,
     UnitMutation,
+    BackupMutation,
   ],
 })
 export class SchemaModule implements ModuleMetadata {
   static register(): DynamicModule {
     return {
       module: SchemaModule,
-      imports: [DiscoveryModule, PrismaModule, SubscriptionModule, ChangeModule],
+      imports: [DiscoveryModule, PrismaModule, SubscriptionModule, ChangeModule, HistorianModule],
       providers: [
         SchemaBuilderService,
+        BackupDiscoveryService,
+        BackupSubscriptionPublisher,
+        BackupArchiveService,
         {
           provide: `${PothosObjectKey.toString()}s`,
           inject: [DiscoveryService],

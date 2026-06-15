@@ -1,3 +1,35 @@
+query ReadUnitInfo($where: UnitUniqueFilter!) {
+  readUnit(where: $where) {
+    id
+    name
+    campus
+    building
+    system
+    timezone
+    label
+    stage
+    message
+    createdAt
+    updatedAt
+  }
+}
+
+query ReadUnitsInfo($where: UnitFilter, $paging: PagingInput, $orderBy: [UnitOrderBy!], $distinct: [UnitFields!]) {
+  readUnits(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
+    id
+    name
+    campus
+    building
+    system
+    timezone
+    label
+    stage
+    message
+    createdAt
+    updatedAt
+  }
+}
+
 query ReadUnit($where: UnitUniqueFilter!) {
   readUnit(where: $where) {
     id

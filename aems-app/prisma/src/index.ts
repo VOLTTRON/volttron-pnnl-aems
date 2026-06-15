@@ -1,5 +1,11 @@
 import { Prisma } from "@prisma/client";
+import type * as GeoJSON from "geojson";
+import * as Historian from "./types/historian";
 export * from "./pothos";
+export * from "./types/historian";
+
+// Re-export historian enums for convenience
+export { UnitMetric, WeatherMetric, AggregationType, CalculationType } from "./types/historian";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -14,6 +20,16 @@ declare global {
     type EventPayload = SubscriptionEvent<SubscriptionTopic>;
     type GeographyGeoJson = GeoJSON.GeoJSON;
     type ChangeData = Prisma.JsonValue;
+    type BackupManifest = {
+      project: string;
+      run_id: string;
+      timestamp_utc: string;
+      git_sha?: string;
+      encryption: string;
+      key_fingerprint?: string;
+      retention_days: number;
+      files: Array<{ path: string; size: number; sha256: string }>;
+    };
     type AccountGroupBy = Partial<Omit<Prisma.AccountGroupByOutputType, "_count">> & {
       _count?: Partial<Prisma.AccountGroupByOutputType["_count"]>;
     };
@@ -64,6 +80,37 @@ declare global {
     };
     type UserGroupBy = Partial<Omit<Prisma.UserGroupByOutputType, "_count">> & {
       _count?: Partial<Prisma.UserGroupByOutputType["_count"]>;
+    };
+    // Historian types - imported from types/historian.ts
+    type UnitMetric = Historian.UnitMetric;
+    type WeatherMetric = Historian.WeatherMetric;
+    type HistorianDataPoint = Historian.HistorianDataPoint;
+    type HistorianTimeSeries = Historian.HistorianTimeSeries;
+    type HistorianAggregate = Historian.HistorianAggregate;
+    type HistorianAggregateResult = Historian.HistorianAggregateResult;
+    type HistorianMetricCurrent = Historian.HistorianMetricCurrent;
+    type HistorianMultiSystemData = Historian.HistorianMultiSystemData;
+    type HistorianDataRange = Historian.HistorianDataRange;
+    type HistorianMultiSystemRanges = Historian.HistorianMultiSystemRanges;
+    type AggregationType = Historian.AggregationType;
+    type CalculationType = Historian.CalculationType;
+    type BackupPolicyGroupBy = Partial<Omit<Prisma.BackupPolicyGroupByOutputType, "_count">> & {
+      _count?: Partial<Prisma.BackupPolicyGroupByOutputType["_count"]>;
+    };
+    type BackupDestinationGroupBy = Partial<Omit<Prisma.BackupDestinationGroupByOutputType, "_count">> & {
+      _count?: Partial<Prisma.BackupDestinationGroupByOutputType["_count"]>;
+    };
+    type BackupRunGroupBy = Partial<Omit<Prisma.BackupRunGroupByOutputType, "_count">> & {
+      _count?: Partial<Prisma.BackupRunGroupByOutputType["_count"]>;
+    };
+    type BackupComponentGroupBy = Partial<Omit<Prisma.BackupComponentGroupByOutputType, "_count">> & {
+      _count?: Partial<Prisma.BackupComponentGroupByOutputType["_count"]>;
+    };
+    type BackupRunDestinationGroupBy = Partial<Omit<Prisma.BackupRunDestinationGroupByOutputType, "_count">> & {
+      _count?: Partial<Prisma.BackupRunDestinationGroupByOutputType["_count"]>;
+    };
+    type BackupKeyGroupBy = Partial<Omit<Prisma.BackupKeyGroupByOutputType, "_count">> & {
+      _count?: Partial<Prisma.BackupKeyGroupByOutputType["_count"]>;
     };
   }
 }

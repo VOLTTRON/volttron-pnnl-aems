@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Start the Manager agent and platform driver together.
+#
+# Usage:
+#   ./start-manager
+#
+# Environment variables (override defaults):
+#   VOLTTRON_HOME   - path to volttron home directory
+#   VENV_PATH       - path to the Python virtual environment
+#   MANAGER_CONFIG  - path to the manager config file
+#   MANAGER_ID      - identity for the manager agent (default: manager.rtu02)
+#   HOST            - host for the platform (default: localhost)
+#   PORT            - port for the platform (default: 8000)
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EDGE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+VOLTTRON_HOME="${VOLTTRON_HOME:-$EDGE_DIR/Manager/volttron_home}"
+VENV_PATH="${VENV_PATH:-$EDGE_DIR/.venv-edge}"
+MANAGER_CONFIG="${MANAGER_CONFIG:-$EDGE_DIR/configurations/thermostats/schneider.config}"
+MANAGER_ID="${MANAGER_ID:-manager.rtu02}"
+HOST="${HOST:-localhost}"
+PORT="${PORT:-8000}"
+
+export VOLTTRON_HOME
+export GEVENT_SUPPORT=True
+
+# Activate the virtual environment
+source "$VENV_PATH/bin/activate"
+
+# Create logs directory
+mkdir -p "$EDGE_DIR/logs"
+
+echo "Starting Manager agent (identity=$MANAGER_ID)..."
+cd "$EDGE_DIR/Manager"
+python -m manager.main_manager \
+    --config "$MANAGER_CONFIG" \
+    --host "$HOST" \
+    --port "$PORT" \
+    --identity "$MANAGER_ID" \
+    > "$EDGE_DIR/logs/${MANAGER_ID}.log" 2>&1 &
+disown
+echo "  PID: $! -> logs/${MANAGER_ID}.log"
+
+echo "Starting platform driver..."
+cd "$EDGE_DIR/Normal"
+python -m nf.driver \
+    --config "$EDGE_DIR/Normal/config" \
+    --host "$HOST" \
+    --port "$PORT" \
+    --identity platform.driver \
+    > "$EDGE_DIR/logs/driver.log" 2>&1 &
+disown
+echo "  PID: $! -> logs/driver.log"
+
+cd "$EDGE_DIR"
+echo "Done. Agents started in background."

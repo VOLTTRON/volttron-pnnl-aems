@@ -12,3 +12,7 @@ LICENSE
 *.log*
 .env*.local
 coverage
+.next
+.yarn/cache
+.yarn/install-state.gz
+tsc.log

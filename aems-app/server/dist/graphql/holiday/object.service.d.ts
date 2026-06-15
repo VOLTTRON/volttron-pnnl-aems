@@ -8,7 +8,7 @@ export declare class HolidayObject {
         Scalars: import("..").Scalars;
     }>, import("@pothos/plugin-prisma").PrismaModelTypes & {
         Name: "Holiday";
-        Shape: import(".prisma/client").Holiday;
+        Shape: import("@prisma/client").Holiday;
         Include: Prisma.HolidayInclude;
         Select: Prisma.HolidaySelect;
         OrderBy: Prisma.HolidayOrderByWithRelationInput;
@@ -20,7 +20,7 @@ export declare class HolidayObject {
         ListRelations: "configurations";
         Relations: {
             configurations: {
-                Shape: import(".prisma/client").Configuration[];
+                Shape: import("@prisma/client").Configuration[];
                 Name: "Configuration";
                 Nullable: false;
             };
@@ -31,9 +31,9 @@ export declare class HolidayObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        type: import(".prisma/client").$Enums.HolidayType;
+        type: import("@prisma/client").$Enums.HolidayType;
         message: string | null;
-        stage: import(".prisma/client").$Enums.ModelStage;
+        stage: import("@prisma/client").$Enums.ModelStage;
         correlation: string | null;
         label: string;
         observance: string | null;

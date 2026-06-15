@@ -32,6 +32,15 @@
 - **Styles**: SCSS modules with .module.scss suffix
 - **Types**: Generated types from Prisma and GraphQL codegen
 
+## Code Conventions
+- **TypeScript**: 
+    - Prefer existing types and restrict the use of any
+    - Prefer implicit typing over explicit type declaration
+    - Maintain end-to-end type safety: prisma -> prisma-json-types-generator -> common -> server -> schema.graphql -> client -> graphql-codegen
+- **Naming**:
+    - Use PascalCase for enums
+    - Prefer shorter argument names
+
 ## Important Notes
 - Always run `yarn compile` after Prisma schema changes
 - Database requires PostGIS extension for geospatial features

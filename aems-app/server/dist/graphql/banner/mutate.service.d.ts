@@ -9,7 +9,7 @@ export declare class BannerMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.BannerCreateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.BannerCreateInput, {
         message: "String";
         expiration: "DateTime";
     }>>;
@@ -18,13 +18,13 @@ export declare class BannerMutation {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import(".prisma/client").Prisma.UserUpdateManyWithoutBannersNestedInput>;
+    }>, import("@prisma/client").Prisma.UserUpdateManyWithoutBannersNestedInput>;
     readonly BannerUpdate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, import("@pothos/plugin-prisma-utils").PickFields<import(".prisma/client").Prisma.BannerUpdateInput, {
+    }>, import("@pothos/plugin-prisma-utils").PickFields<import("@prisma/client").Prisma.BannerUpdateInput, {
         message: "String";
         expiration: "DateTime";
         users: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
@@ -32,7 +32,7 @@ export declare class BannerMutation {
             AuthScopes: import("../../auth").AuthRoles;
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: import("..").Scalars;
-        }>, import(".prisma/client").Prisma.UserUpdateManyWithoutBannersNestedInput>;
+        }>, import("@prisma/client").Prisma.UserUpdateManyWithoutBannersNestedInput>;
     }>>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, subscriptionService: SubscriptionService, bannerQuery: BannerQuery, userQuery: UserQuery);
 }

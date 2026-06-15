@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const throttler_1 = require("@nestjs/throttler");
 const api_module_1 = require("./api/api.module");
+const worker_module_1 = require("./worker/worker.module");
 const core_1 = require("@nestjs/core");
 const pothos_module_1 = require("./graphql/pothos.module");
 const prisma_module_1 = require("./prisma/prisma.module");
@@ -23,6 +24,7 @@ const framework_module_1 = require("./auth/framework.module");
 const middleware_module_1 = require("./middleware/middleware.module");
 const change_module_1 = require("./change/change.module");
 const keycloak_module_1 = require("./keycloak/keycloak.module");
+const historian_module_1 = require("./historian/historian.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -30,7 +32,9 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             api_module_1.ApiModule,
+            worker_module_1.WorkerModule,
             auth_module_1.AuthModule,
+            historian_module_1.HistorianModule,
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
                 expandVariables: true,

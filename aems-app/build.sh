@@ -79,6 +79,19 @@ on_failure() {
     exit 1
 }
 
+# Remove portal: symlinks before `yarn install` in the current working directory.
+# Yarn 4 fails with EEXIST when re-linking a portal dep whose symlink already
+# exists (e.g. after a CI cache restore). Deleting them lets yarn recreate them
+# cleanly. Safe to run when node_modules doesn't exist yet — the globs just no-op.
+clean_portal_links() {
+    if [[ -d "./node_modules/@local" ]]; then
+        rm -rf ./node_modules/@local
+    fi
+    if [[ -L "./node_modules/@prisma/client" || -e "./node_modules/@prisma/client" ]]; then
+        rm -rf ./node_modules/@prisma/client
+    fi
+}
+
 # Set up error handling
 set -e
 trap on_failure ERR
@@ -135,6 +148,7 @@ fi
 
 if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
     print_cyan "Common: Installing dependencies..."
+    clean_portal_links
     yarn install
 fi
 
@@ -158,6 +172,7 @@ fi
 
 if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
     print_cyan "Server: Installing dependencies..."
+    clean_portal_links
     yarn install
 fi
 
@@ -181,6 +196,7 @@ fi
 
 if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
     print_cyan "Client: Installing dependencies..."
+    clean_portal_links
     yarn install
 fi
 

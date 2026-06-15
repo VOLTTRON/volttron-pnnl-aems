@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://tanuki.pnnl.gov/amelia.bleeker/skeleton" target="_blank">
-    <img src="https://img.shields.io/badge/version-2.0.4-blue.svg" alt="Version" />
+    <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version" />
   </a>
   <a href="https://tanuki.pnnl.gov/amelia.bleeker/skeleton" target="_blank">
     <img src="https://img.shields.io/badge/git-main-blue" alt="Git Repo Main" />
@@ -66,6 +66,7 @@
   - [Setup Keycloak](#setup-keycloak)
   - [Administration](#administration)
   - [Utilities](#utilities)
+  - [Backups](#backups)
 - [Development](#development)
   - [Node.js](#nodejs)
   - [Project Structure](#project-structure)
@@ -74,6 +75,7 @@
   - [Quality](#quality)
   - [Initializing](#initializing)
   - [Running](#running)
+  - [Local Development with Docker Backend](#local-development-with-docker-backend)
   - [Configuration](#configuration-1)
 - [Contributing](#contributing)
   - [Development Workflow](#development-workflow)
@@ -85,12 +87,7 @@
 - [Developing Towards the Skeleton Project](#developing-towards-the-skeleton-project)
   - [Branches](#branches)
   - [Workflow](#workflow)
-- [License](#license)
-  - [Copyright Notice](#copyright-notice)
-  - [Usage Rights](#usage-rights)
-  - [Restrictions](#restrictions)
-  - [Contact Information](#contact-information)
-  - [Third-party Dependencies](#third-party-dependencies)
+- [Contact Information](#contact-information)
 
 ---
 
@@ -141,6 +138,465 @@ The Skeleton App is built on a modern, scalable architecture:
 - **Type Safety**: End-to-End type safety
 
 This guide supports Windows, Linux, and macOS installations.
+
+### System Architecture Diagrams
+
+The architecture is organized into multiple diagrams for clarity. Each diagram focuses on a specific aspect of the system.
+
+#### 1. High-Level System Overview
+
+This diagram shows the major architectural layers and how they interact.
+
+```mermaid
+graph TB
+    Users([External Users<br/>Web Browsers])
+    
+    subgraph Edge["Edge Layer"]
+        Proxy[Traefik Reverse Proxy<br/>TLS/SSL Termination<br/>Route Management]
+    end
+    
+    subgraph AppTier["Application Tier"]
+        Client[Next.js Client<br/>React Frontend]
+        Server[NestJS Server<br/>GraphQL API<br/>Auth Gateway]
+    end
+    
+    subgraph AuthTier["Authentication Tier"]
+        Keycloak[Keycloak SSO<br/>OAuth/OIDC]
+        AuthJS[Auth.js<br/>Session Management]
+    end
+    
+    subgraph DataTier["Data Tier"]
+        Database[(PostgreSQL<br/>+ PostGIS)]
+        Redis[(Redis<br/>Cache & Pub/Sub)]
+        KeycloakDB[(Keycloak DB<br/>PostgreSQL)]
+    end
+    
+    subgraph Optional["Optional Services<br/>(Role-Based Access)"]
+        Maps[MapTiles Server]
+        Geocode[Nominatim Geocoding]
+        Wiki[BookStack Wiki]
+    end
+    
+    Users -->|HTTPS| Proxy
+    Proxy -->|Route: /| Client
+    Proxy -->|Route: /graphql<br/>/api, /ext/*| Server
+    Proxy -->|Route: /auth/sso/| Keycloak
+    
+    Client <-->|GraphQL/REST| Server
+    Server --> AuthJS
+    Server -.->|OAuth| Keycloak
+    Keycloak --> KeycloakDB
+    AuthJS --> Redis
+    
+    Server -->|Check Roles<br/>Proxy Request| Maps
+    Server -->|Check Roles<br/>Proxy Request| Geocode
+    Server -->|Check Roles<br/>Proxy Request| Wiki
+    
+    Server --> Database
+    Server --> Redis
+    
+    classDef edge fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef app fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef auth fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef data fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef optional fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    
+    class Proxy edge
+    class Client,Server app
+    class Keycloak,AuthJS auth
+    class Database,Redis,KeycloakDB data
+    class Maps,Geocode,Wiki optional
+```
+
+**Key Points:**
+- **4-Tier Architecture**: Edge → Application → Authentication → Data
+- **Security Gateway**: Server acts as auth gateway for optional services at `/ext/*` routes
+- **Role-Based Access**: Server checks user roles before proxying to Maps/Geocode/Wiki
+- **Centralized Routing**: Traefik routes `/ext/*` to Server, not directly to optional services
+- **Flexible Authentication**: Supports both Auth.js (default) and Keycloak SSO
+
+#### 2. Application Architecture
+
+End-to-end application flow from client to server.
+
+```mermaid
+graph TB
+    subgraph Build["Build System"]
+        Prisma[Prisma Module<br/>Database Schema<br/>Type Generation]
+        Common[Common Module<br/>Shared Types<br/>Utilities]
+    end
+    
+    subgraph Frontend["Frontend (Next.js)"]
+        Pages[Pages & Routes]
+        Components[React Components]
+        Queries[GraphQL Queries]
+        ClientAPI[Apollo Client]
+    end
+    
+    subgraph Backend["Backend (NestJS)"]
+        GraphQL[GraphQL API<br/>Apollo Server]
+        Resolvers[Resolvers]
+        PothosSchema[Pothos Schema<br/>Builders]
+        Services[Business Logic<br/>Services]
+    end
+    
+    Prisma -->|Generates| Common
+    Common -->|Used by| Frontend
+    Common -->|Used by| Backend
+    Prisma -->|Client| Backend
+    
+    Pages --> Components
+    Components --> Queries
+    Queries --> ClientAPI
+    ClientAPI <-->|GraphQL/REST| GraphQL
+    
+    GraphQL --> Resolvers
+    Resolvers --> Services
+    PothosSchema --> GraphQL
+    
+    Services -->|Uses| Prisma
+    
+    classDef build fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef frontend fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef backend fill:#ce93d8,stroke:#6a1b9a,stroke-width:2px
+    
+    class Prisma,Common build
+    class Pages,Components,Queries,ClientAPI frontend
+    class GraphQL,Resolvers,PothosSchema,Services backend
+```
+
+**Key Points:**
+- **Build Order**: Prisma → Common → Server/Client
+- **Type Safety**: End-to-end TypeScript with generated types
+- **Request Flow**: Client → Apollo Client → GraphQL API → Resolvers → Services → Prisma
+- **GraphQL**: Pothos for type-safe schema building
+- **Monorepo**: Shared code via common module
+
+#### 3. Authentication & Security
+
+Shows authentication flows and security mechanisms.
+
+```mermaid
+graph TB
+    User([User])
+    
+    subgraph ClientAuth["Client Layer"]
+        NextAuth[Auth.js Provider]
+        SessionClient[Session Context]
+    end
+    
+    subgraph ServerAuth["Server Layer"]
+        Guards[Auth Guards]
+        SessionMgr[Session Manager]
+        TokenVerify[Token Verification]
+        ExtProxy[External Service<br/>Proxy Handler]
+    end
+    
+    subgraph AuthProviders["Authentication Providers"]
+        LocalAuth[Local Auth<br/>Email/Password]
+        Keycloak[Keycloak SSO<br/>OAuth/OIDC]
+        OAuth[OAuth Providers<br/>Google, GitHub, etc.]
+    end
+    
+    subgraph Storage["Session Storage"]
+        Redis[(Redis<br/>Session Store)]
+        Database[(PostgreSQL<br/>User Data & Roles)]
+        KeycloakDB[(Keycloak DB<br/>PostgreSQL)]
+    end
+    
+    subgraph ExtServices["External Services<br/>(Role-Protected)"]
+        Maps[MapTiles]
+        Geocode[Nominatim]
+        Wiki[BookStack]
+    end
+    
+    User -->|Login Request| NextAuth
+    NextAuth --> SessionClient
+    
+    NextAuth -->|Authenticate| LocalAuth
+    NextAuth -.->|SSO| Keycloak
+    NextAuth -.->|OAuth| OAuth
+    
+    SessionClient -->|API Calls| Guards
+    SessionClient -->|/ext/* Requests| ExtProxy
+    
+    Guards --> TokenVerify
+    Guards --> SessionMgr
+    ExtProxy --> Guards
+    
+    ExtProxy -->|Check Role<br/>Then Proxy| Maps
+    ExtProxy -->|Check Role<br/>Then Proxy| Geocode
+    ExtProxy -->|Check Role<br/>Then Proxy| Wiki
+    
+    SessionMgr <--> Redis
+    TokenVerify <--> Redis
+    Guards --> Database
+    
+    LocalAuth --> Database
+    Keycloak --> KeycloakDB
+    SessionMgr --> Database
+    
+    classDef client fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef server fill:#ce93d8,stroke:#6a1b9a,stroke-width:2px
+    classDef providers fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef storage fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef external fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    
+    class NextAuth,SessionClient client
+    class Guards,SessionMgr,TokenVerify,ExtProxy server
+    class LocalAuth,Keycloak,OAuth providers
+    class Redis,Database,KeycloakDB storage
+    class Maps,Geocode,Wiki external
+```
+
+**Key Points:**
+- **Multi-Provider**: Supports local, SSO, and OAuth authentication
+- **Session Management**: JWT tokens stored in Redis
+- **Role-Based Access**: Guards enforce permissions on all endpoints including `/ext/*`
+- **External Service Gateway**: Server proxies requests to Maps/Geocode/Wiki after role validation
+- **EXT_*_ROLES Configuration**: Each external service has configurable role requirements
+- **SSO Integration**: Optional Keycloak for enterprise environments
+
+#### 4. Data Architecture
+
+Details the data persistence layer and caching strategy.
+
+```mermaid
+graph TB
+    subgraph Application["Application Services"]
+        Server[NestJS Server]
+        Services[Background Services]
+    end
+    
+    subgraph Cache["Cache Layer"]
+        Redis[(Redis)]
+        SessionCache[Session Store]
+        PubSub[Pub/Sub<br/>Subscriptions]
+        QueryCache[Query Cache]
+    end
+    
+    subgraph Primary["Primary Database"]
+        PostgreSQL[(PostgreSQL 16+)]
+        PostGIS[PostGIS Extension<br/>Geospatial Data]
+        PrismaORM[Prisma ORM<br/>Query Layer]
+    end
+    
+    subgraph Volumes["Persistent Storage"]
+        DBData[/Database Files/]
+        Uploads[/File Uploads/]
+        ClientCache[/Build Cache/]
+    end
+    
+    Server --> SessionCache
+    Server --> QueryCache
+    Server --> PubSub
+    SessionCache --> Redis
+    QueryCache --> Redis
+    PubSub --> Redis
+    
+    Server --> PrismaORM
+    Services --> PrismaORM
+    PrismaORM --> PostgreSQL
+    PostgreSQL --> PostGIS
+    
+    PostgreSQL -.-> DBData
+    Server -.-> Uploads
+    
+    classDef app fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef cache fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef db fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef storage fill:#fafafa,stroke:#424242,stroke-width:2px
+    
+    class Server,Services app
+    class Redis,SessionCache,PubSub,QueryCache cache
+    class PostgreSQL,PostGIS,PrismaORM db
+    class DBData,Uploads,ClientCache storage
+```
+
+**Key Points:**
+- **Redis Caching**: Sessions, query results, and real-time pub/sub
+- **PostgreSQL + PostGIS**: Relational data with geospatial capabilities
+- **Prisma ORM**: Type-safe database queries and migrations
+- **Volume Persistence**: Data survives container restarts
+
+#### 5. Geospatial Services (Optional)
+
+Architecture for map and geocoding features with role-based access control.
+
+```mermaid
+graph TB
+    Client[Next.js Client]
+    
+    subgraph ServerLayer["NestJS Server Layer"]
+        Server[GraphQL/REST API]
+        ExtGateway[External Service<br/>Gateway /ext/*]
+        RoleCheck[Role Authorization<br/>Middleware]
+    end
+    
+    subgraph MapServices["Internal Map Services"]
+        MapTiles[MapTiles Server<br/>OpenStreetMap Tiles]
+        Nominatim[Nominatim<br/>Geocoding API]
+    end
+    
+    subgraph MapData["Map Data Storage"]
+        Tiles[/MBTiles Files<br/>Vector/Raster Tiles/]
+        OSMData[/OSM Data<br/>.pbf Files/]
+        NomDB[(Nominatim DB<br/>PostgreSQL)]
+    end
+    
+    subgraph ClientMap["Client Components"]
+        MapLibre[MapLibre GL<br/>Map Rendering]
+        Geocoder[Address Search<br/>Autocomplete]
+    end
+    
+    Client --> MapLibre
+    Client --> Geocoder
+    
+    MapLibre -->|Request Tiles<br/>/ext/map| ExtGateway
+    Geocoder -->|Search Query| Server
+    
+    ExtGateway --> RoleCheck
+    Server -->|Geocode Request<br/>/ext/nom| ExtGateway
+    
+    RoleCheck -->|Authorized| MapTiles
+    RoleCheck -->|Authorized| Nominatim
+    
+    MapTiles --> Tiles
+    Nominatim --> OSMData
+    Nominatim --> NomDB
+    
+    classDef client fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef server fill:#ce93d8,stroke:#6a1b9a,stroke-width:2px
+    classDef services fill:#fff8e1,stroke:#f57f17,stroke-width:2px
+    classDef data fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    
+    class Client,MapLibre,Geocoder client
+    class Server,ExtGateway,RoleCheck server
+    class MapTiles,Nominatim services
+    class Tiles,OSMData,NomDB data
+```
+
+**Key Points:**
+- **Self-Hosted Maps**: No external API dependencies for tiles
+- **Role-Based Gateway**: Server enforces role permissions before proxying to map services
+- **Secure Access**: Client requests map tiles via `/ext/map` through the auth gateway
+- **Geocoding**: Address search proxied through server with role validation
+- **MapLibre GL**: Open-source map rendering library
+- **Data Sharing**: Nominatim uses same OSM data as tiles
+- **EXT_MAP_ROLES & EXT_NOM_ROLES**: Configurable role requirements per service
+
+#### 6. Infrastructure & Deployment
+
+Docker deployment architecture showing all application containers and services.
+
+```mermaid
+graph TB
+    subgraph Init["Initialization Containers<br/>(Run Once)"]
+        Certs[Certificate Generator<br/>mkcert + Let's Encrypt]
+        Migrations[Database Migrations<br/>Prisma]
+    end
+    
+    subgraph Proxy["Traefik Proxy"]
+        TLS[TLS Termination]
+        Router[Dynamic Routing]
+        LetsEncrypt[Let's Encrypt<br/>ACME]
+    end
+    
+    subgraph AppContainers["Application Containers"]
+        ClientC[Client<br/>Next.js Frontend<br/>Replicable]
+        ServerC[Server - Gateway<br/>NestJS API + Auth<br/>Replicable]
+        ServicesC[Server - Background Services<br/>Log Management<br/>INSTANCE_TYPE=*]
+        SeedersC[Server - Seeders<br/>Database Seeding<br/>INSTANCE_TYPE=^seed]
+    end
+    
+    subgraph Optional["Optional Containers<br/>(Role-Protected via Server)"]
+        MapC[Map Tiles Server<br/>OpenStreetMap]
+        NomC[Nominatim Geocoding<br/>Address Lookup]
+        WikiC[BookStack Wiki<br/>Documentation]
+    end
+    
+    subgraph Secrets["Secrets Management"]
+        SecretFiles[/Docker Secrets<br/>File-based/]
+        EnvVars[Environment Variables<br/>Fallback]
+    end
+    
+    subgraph Build["Multi-Stage Build Process"]
+        Base[Base Image<br/>Node.js 22]
+        PrismaBuild[Prisma Builder]
+        CommonBuild[Common Builder]
+        AppBuild[App Builder]
+        Runner[Production Runner]
+    end
+    
+    Certs -->|Provides Certs| TLS
+    Migrations -->|Schema| AppContainers
+    
+    Router -->|Route: /| ClientC
+    Router -->|Route: /graphql<br/>/api, /ext/*| ServerC
+    
+    ServerC -->|Internal Proxy<br/>After Role Check| MapC
+    ServerC -->|Internal Proxy<br/>After Role Check| NomC
+    ServerC -->|Internal Proxy<br/>After Role Check| WikiC
+    
+    SecretFiles -->|Mounted at<br/>/run/secrets/| AppContainers
+    EnvVars -.->|Fallback| AppContainers
+    
+    Base --> PrismaBuild
+    PrismaBuild --> CommonBuild
+    CommonBuild --> AppBuild
+    AppBuild --> Runner
+    Runner --> AppContainers
+    Runner --> Optional
+    
+    classDef init fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef proxy fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef containers fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef optional fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    classDef secrets fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef build fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    
+    class Certs,Migrations init
+    class TLS,Router,LetsEncrypt proxy
+    class ClientC,ServerC,ServicesC,SeedersC containers
+    class MapC,NomC,WikiC optional
+    class SecretFiles,EnvVars secrets
+    class Base,PrismaBuild,CommonBuild,AppBuild,Runner build
+```
+
+**Key Points:**
+- **Four Server-Based Containers**: All use same `server:${TAG}` image with different configurations
+  - **Server - Gateway**: Main API server (INSTANCE_TYPE=""), handles GraphQL/REST/Auth, can be replicated
+  - **Server - Background Services**: Runs log management and other services (INSTANCE_TYPE=*)
+  - **Server - Seeders**: Database seeding only (INSTANCE_TYPE=^seed), restarts on failure (max 3x)
+  - **Client**: Next.js frontend, can be replicated for load balancing
+- **Horizontal Scaling**: Both Client and Server (Gateway) support deploy.replicas for scaling
+- **Automated Init**: Certificates and database migrations run once before application containers start
+- **Multi-Stage Builds**: Optimized Docker images with proper dependency order (prisma → common → server/client)
+- **Security Gateway**: Server (Gateway) acts as auth gateway for optional services at `/ext/*` routes
+- **Route Isolation**: Traefik routes `/ext/*` only to Server, not directly to optional containers
+- **Internal Network**: Optional services only accessible via Server's internal proxy after role validation
+- **Secrets Management**: File-based secrets with environment variable fallback for flexibility
+- **Zero-Downtime Deployments**: Traefik routing enables rolling updates without service interruption
+- **Cross-Platform**: Consistent builds on Windows, Mac, and Linux
+
+---
+
+### Architecture Summary
+
+The Skeleton App follows a modern **microservices architecture** with clear separation of concerns:
+
+1. **Edge Layer**: Traefik handles TLS termination and intelligent routing
+2. **Application Layer**: Separate Next.js frontend and NestJS backend services
+3. **Authentication Layer**: Flexible auth with local, OAuth, and SSO support
+4. **Data Layer**: PostgreSQL with PostGIS for geospatial data, Redis for caching
+5. **Optional Services**: Self-hosted maps, geocoding, and documentation wiki
+
+**Design Principles:**
+- **Type Safety**: End-to-end TypeScript with generated types
+- **Security**: TLS encryption, role-based access control, secrets management
+- **Scalability**: Stateless services, Redis caching, horizontal scaling ready
+- **Modularity**: Optional services can be enabled/disabled via Docker profiles
+- **Developer Experience**: Hot reload, automated testing, comprehensive tooling
 
 ---
 
@@ -851,7 +1307,9 @@ brew install postgresql@16
 # Windows - Download from https://www.postgresql.org/download/windows/
 ```
 
-**2. Create Subscriber Database**
+**2. Create Subscriber Database and Tables**
+
+The subscriber database must have the same table structures as the publisher before creating the subscription.
 
 ```bash
 # Connect as postgres superuser
@@ -868,9 +1326,39 @@ CREATE DATABASE historian;
 -- Create necessary schemas
 CREATE SCHEMA IF NOT EXISTS public;
 
+-- Create topics table with primary key
+CREATE TABLE IF NOT EXISTS topics (
+    topic_id SERIAL PRIMARY KEY,
+    topic_name VARCHAR(512) NOT NULL UNIQUE,
+    metadata TEXT
+);
+
+-- Create data table with PRIMARY KEY (REQUIRED for replication)
+-- The primary key is essential for logical replication to work with UPDATE operations
+CREATE TABLE IF NOT EXISTS data (
+    ts TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    topic_id INTEGER NOT NULL,
+    value_string TEXT NOT NULL,
+    PRIMARY KEY (topic_id, ts)
+);
+
+-- Create index for timestamp queries
+CREATE INDEX IF NOT EXISTS idx_data ON data(ts);
+
+-- Verify tables were created correctly
+\dt
+
+-- Verify primary keys exist
+SELECT tc.table_name, kcu.column_name 
+FROM information_schema.table_constraints tc 
+JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name 
+WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_name IN ('data', 'topics');
+
 -- Exit
 \q
 ```
+
+**Important:** The `data` table MUST have a primary key on `(topic_id, ts)` for replication to work. Without it, UPDATE operations will fail with "cannot update table because it does not have a replica identity" errors.
 
 **3. Create Subscription**
 
@@ -1360,9 +1848,426 @@ SELECT pg_drop_replication_slot('historian_sub_slot');
 -- Then recreate subscription on subscriber
 ```
 
+#### Cleaning Up Broken Subscriptions
+
+If subscriptions become corrupted, misconfigured, or need to be completely reset, follow these steps to clean up and recreate them.
+
+**When to Clean Up:**
+- Subscription is stuck in an error state
+- Configuration changes require subscription recreation
+- Replication slot has diverged or become invalid
+- Network/connectivity issues have corrupted subscription state
+- Switching from one publisher to another
+
+**Step 1: Remove Subscription on Subscriber**
+
+Try the standard drop method first:
+
+```bash
+# Connect to subscriber database
+psql -U postgres -d historian
+```
+
+```sql
+-- Try to drop the subscription normally
+DROP SUBSCRIPTION IF EXISTS historian_sub;
+
+-- Verify subscription is removed
+SELECT * FROM pg_subscription;
+
+-- Exit
+\q
+```
+
+**If DROP fails with connection errors**, use the direct catalog deletion method:
+
+```sql
+-- Connect to subscriber database
+psql -U postgres -d historian
+
+-- Method 1: Disable subscription first (prevents connection attempts)
+ALTER SUBSCRIPTION historian_sub DISABLE;
+DROP SUBSCRIPTION historian_sub;
+
+-- OR Method 2: Direct catalog deletion (if ALTER/DROP both fail)
+-- This removes the subscription without contacting the publisher
+DELETE FROM pg_subscription_rel WHERE srsubid = (SELECT oid FROM pg_subscription WHERE subname = 'historian_sub');
+DELETE FROM pg_subscription WHERE subname = 'historian_sub';
+
+-- Verify subscription is removed
+SELECT * FROM pg_subscription;
+
+-- Exit
+\q
+```
+
+**Note:** Direct catalog deletion should only be used when normal DROP fails due to publisher connectivity issues. This method bypasses the normal cleanup process and leaves the replication slot on the publisher, which must be manually cleaned up in Step 2.
+
+**Step 2: Clean Up Replication Slot on Publisher (if needed)**
+
+If the subscription drop didn't remove the slot automatically, clean it up manually:
+
+```bash
+# Connect to publisher historian database
+docker exec -it aems-historian psql -U historian -d historian
+```
+
+```sql
+-- Check for orphaned replication slots
+SELECT slot_name, active, pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS retained_wal
+FROM pg_replication_slots
+WHERE slot_name = 'historian_sub_slot';
+
+-- Drop the replication slot if it exists
+SELECT pg_drop_replication_slot('historian_sub_slot');
+
+-- Verify slot is removed
+SELECT * FROM pg_replication_slots;
+
+-- Exit
+\q
+```
+
+**Step 3: Recreate Subscription on Subscriber**
+
+After cleanup, recreate the subscription following the [Subscriber Setup](#subscriber-setup-remote-replica) instructions:
+
+```bash
+# Connect to subscriber
+psql -U postgres -d historian
+```
+
+```sql
+-- Recreate subscription with fresh configuration
+CREATE SUBSCRIPTION historian_sub
+CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
+PUBLICATION historian_pub
+WITH (
+    copy_data = true,
+    create_slot = true,
+    enabled = true,
+    slot_name = 'historian_sub_slot'
+);
+
+-- Verify subscription is working
+SELECT subname, subenabled, pid FROM pg_stat_subscription;
+
+-- Exit
+\q
+```
+
+**Important Notes:**
+- Dropping a subscription will delete all tracking data and require a full re-sync
+- If `copy_data = true`, all data will be copied again from the publisher
+- Ensure the publisher's replication slot is cleaned up to avoid WAL bloat
+- Monitor the initial sync progress as it may take time for large databases
+
+### Historian Topic Mapping
+
+The historian topic mapping configuration defines how VOLTTRON topics are structured and mapped for data storage in the historian database. This configuration enables flexible topic naming conventions and metric organization for different data types (HVAC units, weather sensors, power meters).
+
+#### Overview
+
+The topic mapping file provides:
+- **Topic Templates**: URL patterns for organizing different data types
+- **Metric Mappings**: Standardized metric names for various sensor types
+- **Flexible Structure**: Customizable for different building configurations
+
+#### File Locations
+
+**Production Deployment:**
+```
+./docker/historian/historian-topic-map.json
+```
+Used by the Docker-deployed historian service in production environments.
+
+**Default Template:**
+```
+./aems-app/server/config/historian-topic-map.default.json
+```
+The default generated template used as a starting point for new deployments.
+
+**Note:** Both files are identical by default. Customize the production file (`./docker/historian/historian-topic-map.json`) for your specific deployment needs.
+
+#### Configuration Structure
+
+The mapping file contains three main sections:
+
+**1. Templates**
+
+Topic templates define the URL structure for different data types:
+
+```json
+{
+  "templates": {
+    "Unit": "{campus}/{building}/{system}/{metric}",
+    "Weather": "{campus}/{building}/weather/{metric}",
+    "Meter": "{campus}/{building}/meter/{metric}"
+  }
+}
+```
+
+Variables in templates:
+- `{campus}` - Campus or site identifier
+- `{building}` - Building identifier
+- `{system}` - HVAC system or zone identifier
+- `{metric}` - Specific measurement type
+
+**2. Unit Metrics**
+
+HVAC unit sensor mappings for thermostats and climate control systems:
+
+```json
+{
+  "unitMetrics": {
+    "ZoneTemperature": "ZoneTemperature",
+    "OccupiedCoolingSetPoint": "OccupiedCoolingSetPoint",
+    "OccupiedHeatingSetPoint": "OccupiedHeatingSetPoint",
+    "FirstStageCooling": "FirstStageCooling",
+    "FirstStageHeating": "FirstStageHeating"
+  }
+}
+```
+
+Available unit metrics include:
+- **Temperature Control**: ZoneTemperature, OccupiedSetPoint, UnoccupiedSetPoint
+- **Heating/Cooling**: HeatingDemand, CoolingDemand, AuxiliaryHeatCommand
+- **System Status**: SupplyFanStatus, OccupancyCommand, HeartBeat
+- **Advanced Control**: DeadBand, DemandResponseFlag, ReversingValve
+
+**3. Weather Metrics**
+
+Weather station sensor mappings:
+
+```json
+{
+  "weatherMetrics": {
+    "AirTemperature": "air_temperature",
+    "RelativeHumidity": "relative_humidity",
+    "WindSpeed": "wind_speed",
+    "AirPressure": "air_pressure"
+  }
+}
+```
+
+Available weather metrics include:
+- **Temperature**: AirTemperature, DewPointTemperature, HeatIndex, WindChill
+- **Atmospheric**: AirPressure, AirPressureAtMeanSeaLevel
+- **Wind**: WindSpeed, WindFromDirection, WindSpeedOfGust
+- **Precipitation**: PrecipitationLastHour, PrecipitationLast3Hours
+- **Other**: RelativeHumidity, VisibilityInAir
+
+**4. Meter Metrics**
+
+Power and utility meter mappings:
+
+```json
+{
+  "meterMetrics": {
+    "Power": "WholeBuildingPower",
+    "Demand": "Demand"
+  }
+}
+```
+
+#### Topic Examples
+
+Based on the templates, VOLTTRON topics are structured as:
+
+**HVAC Unit Data:**
+```
+campus1/building1/zone101/ZoneTemperature
+campus1/building1/zone102/OccupiedCoolingSetPoint
+```
+
+**Weather Data:**
+```
+campus1/building1/weather/air_temperature
+campus1/building1/weather/relative_humidity
+```
+
+**Meter Data:**
+```
+campus1/building1/meter/WholeBuildingPower
+campus1/building1/meter/Demand
+```
+
+#### Customization Guide
+
+**Adding Custom Metrics:**
+
+1. Edit the production mapping file:
+   ```bash
+   nano ./docker/historian/historian-topic-map.json
+   ```
+
+2. Add your custom metric to the appropriate section:
+   ```json
+   {
+     "unitMetrics": {
+       "CustomSensorName": "custom_database_column"
+     }
+   }
+   ```
+
+3. Restart the historian service:
+   ```bash
+   docker compose restart historian
+   ```
+
+**Modifying Templates:**
+
+To change the topic structure, update the template pattern:
+
+```json
+{
+  "templates": {
+    "Unit": "{site}/{building}/{floor}/{room}/{metric}",
+    "Weather": "{site}/weather/{station}/{metric}"
+  }
+}
+```
+
+**Best Practices:**
+
+- **Consistent Naming**: Use consistent metric names across your deployment
+- **Hierarchical Structure**: Organize topics from general to specific
+- **Readable Names**: Use clear, descriptive metric names
+- **Version Control**: Track changes to the mapping file in your version control system
+- **Documentation**: Document custom metrics and their meanings
+- **Testing**: Test topic mappings with sample data before production deployment
+
+#### Integration with VOLTTRON
+
+The topic mapping file is used by:
+
+1. **VOLTTRON Agent**: Maps published topics to database storage
+2. **Historian Service**: Stores time-series data based on topic patterns
+3. **GraphQL API**: Queries data using the defined metric names
+4. **Grafana Dashboards**: Visualizes metrics using the standardized names
+
+#### Troubleshooting
+
+**Topics Not Being Stored:**
+
+- Verify the topic matches a defined template pattern
+- Check that the metric is defined in the appropriate metrics section
+- Review historian service logs: `docker logs aems-historian`
+
+**Metric Name Mismatches:**
+
+- Ensure VOLTTRON agent publishes using the mapped metric names
+- Verify the mapping file has been loaded by restarting the service
+- Check for typos in metric names (names are case-sensitive)
+
+**Configuration Not Taking Effect:**
+
+```bash
+# Restart the historian service to reload configuration
+docker compose restart historian
+
+# Verify the file is mounted correctly
+docker exec -it aems-historian cat /app/config/historian-topic-map.json
+```
+
 ### Configuration
 
-Default configuration for docker compose can be found at [.env](./.env). Overrides for secrets can be placed in a [.env.secrets](./.env.secrets) file. The [.env.secrets](./.env.secrets) file will need to be set as system environment variables by either using the provided scripts ([secrets.ps1](./secrets.ps1) or [secrets.sh](./secrets.sh)) or some other means prior to building and running the containers. The PowerShell script can also unset all listed variables using the `clear` argument. There are default users with temporary passwords defined for local authentication in the [docker/seed/20211103151730-system-user.json](./docker/seed/20211103151730-system-user.json) file.
+Default configuration for docker compose can be found at [.env](./.env). Sensitive values should be stored in [.env.secrets](./.env.secrets) file. There are default users with temporary passwords defined for local authentication in the [docker/seed/20211103151730-system-user.json](./docker/seed/20211103151730-system-user.json) file.
+
+#### Docker Secrets Management
+
+The application supports **Docker secrets** for secure handling of sensitive information in production deployments. This approach provides enhanced security compared to environment variables.
+
+**How It Works:**
+
+1. Secrets are defined in `.env.secrets` file (never commit this file!)
+2. Run the secrets script to generate individual secret files in `docker/secrets/`
+3. Docker Compose automatically mounts these secrets to containers at `/run/secrets/`
+4. Applications read from secrets first, then fall back to environment variables
+5. Third-party containers (PostgreSQL, Redis, etc.) use native secret file support
+
+**Generate Secret Files:**
+
+```bash
+# Windows
+.\secrets.ps1
+
+# Linux/Mac
+./secrets.sh
+```
+
+This generates:
+1. Individual secret files in `docker/secrets/` (e.g., `database_password.txt`)
+2. A `.env.secrets.docker` file with `_FILE` environment variable definitions
+
+**Deploy with Secrets:**
+
+```bash
+# Use the generated .env.secrets.docker file
+docker compose --env-file docker/.env.secrets.docker up -d
+```
+
+**Supported Secrets:**
+
+- `SESSION_SECRET` - Server session management
+- `JWT_SECRET` - JWT token signing
+- `DATABASE_PASSWORD` - Main PostgreSQL database
+- `REDIS_PASSWORD` - Redis authentication
+- `KEYCLOAK_CLIENT_SECRET` - OAuth client secret
+- `KEYCLOAK_ADMIN_PASSWORD` - Admin interface password
+- `KEYCLOAK_DATABASE_PASSWORD` - Keycloak's database
+- `NOMINATIM_DATABASE_PASSWORD` - Nominatim's database
+- `BOOKSTACK_ROOT_PASSWORD` - Wiki database root
+- `BOOKSTACK_DATABASE_PASSWORD` - Wiki database user
+- `BOOKSTACK_KEYCLOAK_CLIENT_SECRET` - Wiki OAuth client
+
+**Fallback Behavior:**
+
+The system provides flexible secret management through conditional environment variables:
+
+**Without Secrets (Backward Compatible):**
+- Don't run `secrets.sh` / `secrets.ps1`
+- Start containers normally: `docker compose up -d`
+- Database containers read passwords from `.env` files (e.g., `POSTGRES_PASSWORD`)
+- Everything works as before - no changes needed
+
+**With Secrets (Enhanced Security):**
+- Run `secrets.sh` / `secrets.ps1` to generate secret files
+- Start containers with: `docker compose --env-file docker/.env.secrets.docker up -d`
+- The `.env.secrets.docker` file sets `_FILE` variables (e.g., `POSTGRES_PASSWORD_FILE`)
+- Database containers read passwords from `/run/secrets/` instead
+- Plain password variables are ignored when `_FILE` is set
+
+This provides flexibility for different deployment scenarios:
+- **Development**: Use environment variables directly (simpler setup, no secrets script needed)
+- **Production**: Use Docker secrets (enhanced security, run secrets script)
+- **CI/CD**: Choose based on your platform's secret management capabilities
+
+**Security Benefits:**
+
+- ✅ Secrets never appear in container environment variables
+- ✅ Secrets are not visible in `docker inspect` output
+- ✅ File-based secrets can have restricted permissions (chmod 600)
+- ✅ Easier secret rotation without container rebuilds
+- ✅ Compatible with Docker Swarm and Kubernetes secrets
+
+**Example Configuration:**
+
+```yaml
+# docker-compose.yml snippet
+secrets:
+  database_password:
+    file: ./docker/secrets/database_password.txt
+
+services:
+  database:
+    secrets:
+      - database_password
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/database_password
+```
+
+See [.env.secrets.example](./.env.secrets.example) for detailed documentation and all available secrets.
 
 The file [docker-compose.yml](./docker-compose.yml) or [docker/docker-compose.yml](./docker/docker-compose.yml) may need to be edited for some deployments. The docker compose definition contains a few optional containers that can be enabled by adding profiles. Proxy (`proxy`) is a Traefik proxy that can serve locally signed or valid internet certificates provided by Let's Encrypt. Open Street Map (`map`) is map file service that can be configured to provide Open Street Map tiles. Nominatim (`nom`) is an address lookup and auto-complete service that is configured to utilize the same data and area as the optional map container.
 
@@ -1727,6 +2632,81 @@ Database user role management scripts for updating or removing user roles direct
 - Provides clear feedback on operation success/failure
 - Logs number of affected rows for verification
 
+### Backups
+
+Automated, encrypted backups of the full Docker Compose deployment are configured and driven entirely through the **Backups admin UI** (`/backups`). Policy, destinations, encryption keys, schedule, and the history of every run live in the database; implementation details are under [docker/backup/](./docker/backup/README.md).
+
+Admin UI tabs:
+
+- **Policy** — enable backups, set the cron schedule and retention in days, and choose what to back up. Services, volumes, bind paths, and env files are discovered from the live workspace and backed up by default; remove anything you want to skip (`excludeServices`, `excludeVolumes`, `excludePaths`, `excludeEnvFiles`). Type a path into the env-files picker to add files that aren't yet on disk (`extraEnvFiles`).
+- **Destinations** — add one or more `local` / `share` / `s3` targets. S3 destinations accept optional SSE-KMS settings. Each destination has retention applied independently.
+- **Keys** — the sidecar auto-generates an `age` keypair on first boot and registers it as the active `BackupKey`. Rotate, acknowledge, and **download the private key for offline safekeeping** from this tab — that download is required to restore archives.
+- **Runs** — trigger on-demand runs, cancel in-flight runs, and inspect per-component and per-destination results. Every scheduled and manual run produces a `BackupRun` row with status, duration, archive size, SHA-256, and manifest.
+
+Architecture:
+
+- **Scheduling**: the NestJS `BackupService` (`server/src/services/backup/backup.service.ts`) reads `BackupPolicy.cron` and registers a CronJob that inserts a `Queued` `BackupRun` row at each fire time. There is no host cron or Task Scheduler to manage.
+- **Execution**: the backup sidecar (`docker/backup/`) claims queued runs, spawns an internal `backup.sh` executor with DB-derived CLI flags, streams NDJSON progress events back into `BackupComponent` and `BackupRunDestination` rows, and flips the final `BackupRun` status.
+- **Discovery**: the executor derives its plan from the resolved `docker compose config`. New services added to `docker-compose.yml` are backed up automatically.
+- **Encryption (mandatory)**: backups refuse to run if no active `BackupKey` exists. The sidecar generates one on first boot and exports it to the executor; operators only interact with keys through the Keys tab.
+
+Restore (break-glass CLI):
+
+`backup-restore.sh` / `backup-restore.ps1` at the repo root are kept as a recovery tool because the UI and database may be unavailable when you need them most. The script decrypts the archive, verifies every file against `manifest.json`, prompts for confirmation, then restores databases (via `docker compose exec`), named volumes (via a throwaway `alpine:3` container), bind-mount paths, and included files (`.env`, etc.) back to the repo root.
+
+**Host prerequisites:** `docker`, `python3`, `tar`, `gzip`, and either `age` or `gpg` on `PATH`. The `aws` CLI is additionally required to pull an `s3://` archive. On Windows the PowerShell wrapper shells out to `bash.exe` from Git for Windows or Docker Desktop.
+
+**Restore steps, in order:**
+
+1. **Locate the encrypted archive.** Pick the `<project>-<timestamp>.tar.gz.age` (or `.gpg`) to restore from any configured destination — the local `./backups/` directory, a mounted network share, or an `s3://bucket/prefix/...` URL. The Runs tab in the admin UI lists every archive's path, size, and SHA-256 if the UI is still reachable.
+
+2. **Locate the matching private key.** An archive can only be decrypted with the key that was active when it was written. The current key lives at [docker/secrets/backup/age.key](./docker/secrets/backup/) on the host (bind-mounted into the sidecar at `/host-secrets/age.key`) and is also downloadable from the admin UI's Keys tab. If the archive predates a key rotation, use the offline copy of the older key instead.
+
+3. **Put the app in maintenance mode.** Restore overwrites live data. Stop user traffic at the proxy, or scale the client/server down — do not leave users writing to the database while the dump is replaying.
+
+4. **Start the services that will be restored into.** Database restores stream the dump back through `docker compose exec <service> psql|mariadb`, so the target DB container must be running and healthy. Volume and path restores don't require the owning service to be up, but the volume is recreated under the current `COMPOSE_PROJECT_NAME` prefix — make sure you're running the restore from the same repo checkout (same `.env`) that the target deployment uses.
+
+   ```bash
+   docker compose up -d database   # or whichever services you'll restore into
+   ```
+
+5. **Dry-run the restore** to download/decrypt the archive and verify every file against `manifest.json` without touching any live data:
+
+   ```bash
+   ./backup-restore.sh \
+       --archive ./backups/<project>-<ts>.tar.gz.age \
+       --identity ./docker/secrets/backup/age.key \
+       --dry-run
+   ```
+
+   Fix any checksum failures (typically a corrupted download) before continuing.
+
+6. **Run the real restore.** Drop `--dry-run` and answer `yes` at the confirmation prompt (or pass `--force` for unattended runs):
+
+   ```bash
+   ./backup-restore.sh \
+       --archive ./backups/<project>-<ts>.tar.gz.age \
+       --identity ./docker/secrets/backup/age.key
+   ```
+
+   Narrow the scope when you only need part of the archive:
+
+   - `--components databases,volumes,paths,includes` — restore one or more categories (default: `all`).
+   - `--only service1,service2` — restore specific databases/volumes/paths by name (overrides `--components`).
+
+   For `.gpg` archives, use `--gpg-key-file` in place of `--identity`. When run from inside the backup sidecar container, `BACKUP_AGE_IDENTITY` is already exported and the key flag can be omitted entirely.
+
+7. **Restart the stack** so services pick up any restored `.env` files, volumes, and database state:
+
+   ```bash
+   docker compose down
+   docker compose up -d
+   ```
+
+8. **Verify.** Log in, spot-check restored records, and confirm the Runs tab in the admin UI is reachable again. If a previously captured `.env` was restored on top of a newer one, reconcile any variables that have changed since the archive was written.
+
+See [docker/backup/README.md](./docker/backup/README.md) for the full pipeline description, architecture diagram, and per-component restore details.
+
 ## Development
 
 ### Node.js
@@ -1842,6 +2822,199 @@ yarn build
 yarn start:prod
 ```
 
+### Local Development with Docker Backend
+
+Run the Next.js client locally with hot reload while connecting to Docker backend services (database, Redis, GraphQL API). Enables session sharing and Keycloak authentication between local and Docker environments.
+
+#### Step 1: Configure Hostname
+
+**⚠️ IMPORTANT: Complete this step BEFORE starting Docker containers!**
+
+For session sharing and Keycloak authentication to work, you **cannot use `localhost`**. Configure a proper hostname first:
+
+**Option 1: Use Your Machine's IP Address**
+
+```bash
+# Find your machine's IP address
+# Windows: ipconfig
+# Linux/Mac: ifconfig or ip addr
+
+# Edit .env and set:
+HOSTNAME=192.168.1.100  # Replace with your actual IP address
+```
+
+**Option 2: Use Hosts File Mapping** (Recommended)
+
+```bash
+# Add to your hosts file:
+# Windows: C:\Windows\System32\drivers\etc\hosts
+# Linux/Mac: /etc/hosts
+
+192.168.1.100  myapp.local  # Replace IP with your machine's IP
+
+# Edit .env and set:
+HOSTNAME=myapp.local
+```
+
+**Why hostname configuration is critical:**
+- Session cookies require matching domains between local and Docker clients
+- Keycloak OAuth redirects require consistent hostname resolution
+- Using `localhost` will cause authentication failures and prevent session sharing
+
+#### Step 2: Start or Restart Docker Services
+
+**If this is your first time starting services:**
+
+```bash
+docker compose up -d
+```
+
+**If you changed the HOSTNAME after containers were already running:**
+
+You must regenerate certificates to include the new hostname. Use the reset script:
+
+```bash
+# Windows
+.\reset-service.ps1 certs
+
+# Linux/Mac
+./reset-service.sh certs
+```
+
+This script will:
+- Stop all containers
+- Remove certificate volumes
+- Regenerate certificates with the new hostname
+- Restart all services
+
+**Verify services are running:**
+
+```bash
+docker ps
+```
+
+You should see containers like `aems-proxy`, `aems-server`, `aems-database`, etc.
+
+#### Step 3: Create Client Environment File
+
+Create `client/.env.local` with the following configuration:
+
+```bash
+# Backend services (Docker) - replace ${HOSTNAME} with your actual configured hostname
+DATABASE_HOST=myapp.local
+DATABASE_PORT=6543
+REDIS_HOST=myapp.local
+REDIS_PORT=6379
+
+# Backend API rewrites - replace ${HOSTNAME} with your actual configured hostname
+REWRITE_AUTHJS_URL=https://myapp.local/authjs
+REWRITE_GRAPHQL_URL=https://myapp.local/graphql
+REWRITE_API_URL=https://myapp.local/api
+REWRITE_EXT_URL=https://myapp.local/ext
+
+# Certificate handling (automatically configured by yarn dev)
+NODE_TLS_REJECT_UNAUTHORIZED=0
+```
+
+**Important:** Replace `myapp.local` with your actual configured hostname (your IP address or custom hostname).
+
+#### Step 4: Start Local Development Client
+
+```bash
+cd client
+yarn dev
+```
+
+This command will:
+- Automatically copy TLS certificates from Docker's `aems-proxy` container
+- Start the HTTPS development server on port 3000
+- Configure backend service connections
+- Enable session sharing with Docker client
+
+**Access your local client:**
+
+```
+https://myapp.local:3000
+```
+
+Replace `myapp.local` with your configured hostname.
+
+#### Development Workflow
+
+1. **Start Docker services** (once per session):
+   ```bash
+   docker compose up -d
+   ```
+
+2. **Start local dev client**:
+   ```bash
+   cd client
+   yarn dev
+   ```
+
+3. **Make code changes** - Hot reload works automatically
+
+4. **Test in both environments** - Use same login session:
+   - Local dev: `https://myapp.local:3000`
+   - Docker prod: `https://myapp.local`
+
+5. **Stop local client** when done:
+   ```
+   CTRL-C
+   ```
+
+#### Troubleshooting
+
+**Certificates Not Copying**
+
+**Error**: `Docker container 'aems-proxy' is not running`
+
+**Solution**: Ensure Docker services are running:
+```bash
+docker compose up -d
+```
+
+**Session Not Shared / Keycloak Login Fails**
+
+**Cause**: Hostname mismatch or `localhost` being used
+
+**Solution**:
+1. Verify `.env` file has correct HOSTNAME (not `localhost`)
+2. If you changed HOSTNAME, regenerate certificates using `reset-service` script
+3. Ensure `client/.env.local` uses the same hostname
+4. Access local client using configured hostname, not `localhost`
+
+**Certificate Errors (ERR_TLS_CERT_ALTNAME_INVALID)**
+
+**Cause**: Certificates don't include your hostname
+
+**Solution**: Regenerate certificates with correct hostname:
+
+```bash
+# Windows
+.\reset-service.ps1 certs
+
+# Linux/Mac
+./reset-service.sh certs
+```
+
+**Port Already in Use (port 3000)**
+
+**Solution**: Use a different port:
+```bash
+# Windows
+$env:PORT="3001"; yarn dev
+
+# Linux/Mac
+PORT=3001 yarn dev
+```
+
+#### Additional Notes
+
+- Certificates are valid for 1 year (regenerate if expired using reset-service script)
+- `.env.local` overrides `.env` for local development only
+- Stop Docker services when not needed to free system resources
+
 ### Configuration
 
 The primary production configuration file is [.env](./.env). These values get passed down to the individual production containers. The values must be assigned using their respective container environment file. The individual container environment files are located in the [docker](./docker/) directory.
@@ -1876,6 +3049,7 @@ INSTANCE_TYPE=^seed
 **Service Types:**
 - `seed` - Database seeding service
 - `log` - Log management and pruning service
+- `event` - Subscription event management and pruning service
 
 **Configuration Examples:**
 
@@ -2013,15 +3187,15 @@ This project utilizes a Gitflow workflow. While this method works well for small
   git push origin develop
   ```
 - Create a release
-  1. Increment the version number from `2.0.4` using [Semantic Versioning](https://semver.org/) or your project's preferred method.
+  1. Increment the version number from `1.0.0` using [Semantic Versioning](https://semver.org/) or your project's preferred method.
      1. In VSCode go to the `Search (Ctrl+Shift+F)` tab.
-     2. Enter `2.0.4` in the `Search` field.
+     2. Enter `1.0.0` in the `Search` field.
      3. Enter your incremented version number in the `Replace` field.
      4. Press the `...` to `Expand Search Details` and enter `.env*,*.yml,*.json,*.md` in the `files to include` field.
      5. Replace all of the relevant entries.
   2. Create a new release branch from the `develop` branch using the updated release version.
   ```bash
-  git checkout -b release/2.0.4 develop
+  git checkout -b release/1.0.0 develop
   ```
   3. Make changes to the release branch.
   ```bash
@@ -2031,79 +3205,25 @@ This project utilizes a Gitflow workflow. While this method works well for small
   4. Merge the release branch into the `main` and `develop` branches.
   ```bash
   git checkout main
-  git merge release/2.0.4
-  git tag -a 2.0.4 -m "Tagged for new version release."
+  git merge release/1.0.0
+  git tag -a 1.0.0 -m "Tagged for new version release."
   git push origin --tags
   git push origin main
   git checkout develop
-  git merge release/2.0.4
-  git branch -d release/2.0.4
+  git merge release/1.0.0
+  git branch -d release/1.0.0
   git push origin develop
   ```
 
 ## License
 
-This project is developed by Pacific Northwest National Laboratory (PNNL) and is operated by Battelle for the United States Department of Energy under Contract DE-AC05-76RL01830.
+See top level repository directory.
 
-### Copyright Notice
-
-```
-**************************************************************************************************************************
-This computer software was prepared by Battelle Memorial Institute, hereinafter the Contractor, under Contract No.
-DE-AC05-76RL01830 with the Department of Energy (DOE). All rights in the computer software are reserved by
-DOE on behalf of the United States Government and the Contractor as provided in the Contract. You are authorized
-to use this computer software for Governmental purposes but it is not to be released or distributed to the public.
-
-This material was prepared as an account of work sponsored by an agency of the United States Government. Neither
-the United States Government nor the United States Department of Energy, nor the Contractor, nor any of their
-employees, nor any jurisdiction or organization that has cooperated in the development of these materials, makes
-any warranty, express or implied, or assumes any legal liability or responsibility for the accuracy, completeness,
-or usefulness of any information, apparatus, product, software, or process disclosed, or represents that its use
-would not infringe privately owned rights.
-
-                                     PACIFIC NORTHWEST NATIONAL LABORATORY
-                                                  operated by
-                                                   BATTELLE
-                                                    for the
-                                       UNITED STATES DEPARTMENT OF ENERGY
-                                        under Contract DE-AC05-76RL01830
-**************************************************************************************************************************
-```
-
-### Usage Rights
-
-- **Governmental Use**: Authorized for use by government agencies and contractors
-- **Internal Development**: Permitted for PNNL internal projects and research
-- **Educational Use**: Allowed for academic and research purposes within authorized institutions
-- **Commercial Use**: Requires explicit permission and licensing agreements
-
-### Restrictions
-
-- **Public Distribution**: Not authorized for public release or distribution
-- **Third-party Sharing**: Requires prior approval from PNNL and DOE
-- **Modification**: Changes must be documented and approved through proper channels
-- **Export Control**: Subject to U.S. export control regulations
-
-### Contact Information
-
-For licensing inquiries, permissions, or questions about usage rights:
+## Contact Information
 
 - **Technical Contact**: [Amelia Bleeker](mailto:amelia.bleeker@pnnl.gov)
 - **Legal/Licensing**: PNNL Technology Transfer Office
 - **Repository**: [https://tanuki.pnnl.gov/amelia.bleeker/skeleton](https://tanuki.pnnl.gov/amelia.bleeker/skeleton)
-
-### Third-party Dependencies
-
-This project includes various open-source dependencies with their own licenses. See individual package.json files and node_modules directories for complete license information. Key dependencies include:
-
-- **Next.js**: MIT License
-- **NestJS**: MIT License
-- **Prisma**: Apache 2.0 License
-- **Apollo GraphQL**: MIT License
-- **PostgreSQL**: PostgreSQL License
-- **Docker**: Apache 2.0 License
-
-All third-party dependencies are used in compliance with their respective licenses and terms of use.
 
 ---
 

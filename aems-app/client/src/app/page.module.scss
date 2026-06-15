@@ -5,20 +5,21 @@
   flex-direction: row;
   justify-content: flex-start;
   align-items: flex-start;
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
+  overflow: hidden;
 
   &.navbar {
     padding-top: $pt-navbar-height;
 
     >.navigation {
       >ul {
-        min-height: calc(100vh - $pt-navbar-height);
+        height: calc(100vh - $pt-navbar-height);
       }
     }
 
     >.content {
-      min-height: calc(100vh - $pt-navbar-height);
+      height: calc(100vh - $pt-navbar-height);
     }
   }
 
@@ -26,12 +27,12 @@
 
     >.navigation {
       >ul {
-        min-height: calc(100vh - 2px);
+        height: 100vh;
       }
     }
 
     >.content {
-      min-height: 100vh;
+      height: 100vh;
     }
   }
 }
@@ -47,6 +48,8 @@
   align-items: center;
   width: 100%;
   padding: 1em;
+  box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .code {

@@ -13,7 +13,7 @@ import { set } from "lodash";
 import { Inject, Injectable, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "@/prisma/prisma.service";
 import { setInterval } from "node:timers/promises";
-import { GraphQLScalarType, GraphQLSchema } from "graphql";
+import { GraphQLError, GraphQLScalarType, GraphQLSchema, Kind } from "graphql";
 import { PothosBuilder } from "./pothos.decorator";
 import { AppConfigService } from "@/app.config";
 import PrismaTypes from "@local/prisma/dist/pothos";
@@ -96,6 +96,30 @@ export class SchemaBuilderService
       "DateTime",
       new GraphQLScalarType<Date, string>({
         name: "DateTime",
+        description: "ISO-8601 date-time string. Parsed into a native Date for resolvers.",
+        serialize: (value) => {
+          if (value instanceof Date) return value.toISOString();
+          if (typeof value === "string" || typeof value === "number") {
+            const d = new Date(value);
+            if (!isNaN(d.getTime())) return d.toISOString();
+          }
+          throw new GraphQLError(`DateTime cannot serialize value: ${String(value)}`);
+        },
+        parseValue: (value) => {
+          if (value instanceof Date) return value;
+          if (typeof value === "string" || typeof value === "number") {
+            const d = new Date(value);
+            if (!isNaN(d.getTime())) return d;
+          }
+          throw new GraphQLError(`DateTime cannot parse value: ${String(value)}`);
+        },
+        parseLiteral: (ast) => {
+          if (ast.kind === Kind.STRING || ast.kind === Kind.INT) {
+            const d = new Date(ast.kind === Kind.INT ? parseInt(ast.value, 10) : ast.value);
+            if (!isNaN(d.getTime())) return d;
+          }
+          throw new GraphQLError(`DateTime cannot parse literal: ${ast.kind}`);
+        },
       }),
     );
     this.Json = this.addScalarType(
