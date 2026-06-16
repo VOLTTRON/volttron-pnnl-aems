@@ -8,8 +8,9 @@ import {
   HandleInteractionKind,
   Intent,
 } from "@blueprintjs/core";
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import { merge, clamp, cloneDeep } from "lodash";
+import { ConfigContext } from "@/app/components/providers";
 import {
   SETPOINT_MIN,
   SETPOINT_MAX,
@@ -22,6 +23,12 @@ import {
   STANDBY_TIME_MAX,
   STANDBY_OFFSET_MIN,
   STANDBY_OFFSET_MAX,
+  OVERRIDE_SETPOINT_MIN,
+  OVERRIDE_SETPOINT_MAX,
+  OVERRIDE_SETPOINT_DEFAULT,
+  OVERRIDE_DEADBAND_MIN,
+  OVERRIDE_DEADBAND_MAX,
+  OVERRIDE_DEADBAND_DEFAULT,
   createSetpointLabel,
   getSetpointMessage,
   SETPOINT_DEFAULT,
@@ -44,6 +51,8 @@ interface SetpointProps {
 }
 
 export function Setpoint({ unit, editing, setEditing, readOnly = false }: SetpointProps) {
+  const { config } = useContext(ConfigContext);
+  const showServiceOverride = config?.serviceOverride ?? true;
   const merged = merge(
     {
       label: createSetpointLabel("all", {
@@ -56,6 +65,8 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
       }),
       setpoint: SETPOINT_DEFAULT,
       deadband: DEADBAND_DEFAULT,
+      overrideSetpoint: OVERRIDE_SETPOINT_DEFAULT,
+      overrideDeadband: OVERRIDE_DEADBAND_DEFAULT,
       heating: HEATING_DEFAULT,
       cooling: COOLING_DEFAULT,
       standbyTime: STANDBY_TIME_DEFAULT,
@@ -64,7 +75,17 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
     unit?.configuration?.setpoint,
     editing?.configuration?.setpoint,
   );
-  const { label, setpoint, deadband, heating, cooling, standbyTime, standbyOffset } = merged;
+  const {
+    label,
+    setpoint,
+    deadband,
+    overrideSetpoint,
+    overrideDeadband,
+    heating,
+    cooling,
+    standbyTime,
+    standbyOffset,
+  } = merged;
   const occupancyDetection = editing?.occupancyDetection ?? unit?.occupancyDetection ?? false;
   const padding = SETPOINT_PADDING + deadband / 2;
 
@@ -230,6 +251,97 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
           />
         </MultiSlider>
       </Label>
+
+      {showServiceOverride && (
+      <Label>
+        <b>Service Setpoint Range</b>
+        <MultiSlider
+          min={OVERRIDE_SETPOINT_MIN}
+          max={OVERRIDE_SETPOINT_MAX}
+          stepSize={0.5}
+          labelStepSize={5}
+          intent={Intent.SUCCESS}
+          labelRenderer={(v, o) => (o?.isHandleTooltip || (v > HEATING_MIN && v < COOLING_MAX) ? `${v}º\xa0F` : "")}
+        >
+          <MultiSlider.Handle
+            type={HandleType.START}
+            interactionKind={HandleInteractionKind.LOCK}
+            intentBefore={Intent.WARNING}
+            intentAfter={Intent.SUCCESS}
+            value={overrideSetpoint - overrideDeadband / 2}
+            onChange={(v) => {
+              const value = v + overrideDeadband / 2;
+              const overrideSetpoint = clamp(value, heating + padding, cooling - padding);
+              const standbyOffsetNew = clamp(
+                standbyOffset,
+                STANDBY_OFFSET_MIN,
+                Math.min(
+                  STANDBY_OFFSET_MAX,
+                  overrideSetpoint - overrideDeadband / 2 - heating,
+                  cooling - (overrideSetpoint + overrideDeadband / 2),
+                ),
+              );
+              if (standbyOffsetNew !== standbyOffset) {
+                setStandby(standbyOffsetNew.toString());
+              }
+              const label = createSetpointLabel("all", {
+                setpoint,
+                deadband,
+                heating,
+                cooling,
+                standbyTime,
+                standbyOffset: standbyOffsetNew,
+              });
+              const clone = cloneDeep(editing ?? {});
+              clone.configuration = clone.configuration ?? {};
+              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+              clone.configuration.setpoint.overrideSetpoint = overrideSetpoint;
+              clone.configuration.setpoint.standbyOffset = standbyOffsetNew;
+              clone.configuration.setpoint.label = label;
+              setEditing?.(clone);
+            }}
+          />
+          <MultiSlider.Handle
+            type={HandleType.END}
+            interactionKind={HandleInteractionKind.LOCK}
+            intentBefore={Intent.SUCCESS}
+            intentAfter={Intent.PRIMARY}
+            value={overrideSetpoint + overrideDeadband / 2}
+            onChange={(v) => {
+              const value = v - overrideDeadband / 2;
+              const overrideSetpoint = clamp(value, heating + padding, cooling - padding);
+              const standbyOffsetNew = clamp(
+                standbyOffset,
+                STANDBY_OFFSET_MIN,
+                Math.min(
+                  STANDBY_OFFSET_MAX,
+                  overrideSetpoint - overrideDeadband / 2 - heating,
+                  cooling - (overrideSetpoint + overrideDeadband / 2),
+                ),
+              );
+              if (standbyOffsetNew !== standbyOffset) {
+                setStandby(standbyOffsetNew.toString());
+              }
+              const label = createSetpointLabel("all", {
+                setpoint,
+                deadband,
+                heating,
+                cooling,
+                standbyTime,
+                standbyOffset: standbyOffsetNew,
+              });
+              const clone = cloneDeep(editing ?? {});
+              clone.configuration = clone.configuration ?? {};
+              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+              clone.configuration.setpoint.overrideSetpoint = overrideSetpoint;
+              clone.configuration.setpoint.standbyOffset = standbyOffsetNew;
+              clone.configuration.setpoint.label = label;
+              setEditing?.(clone);
+            }}
+          />
+        </MultiSlider>
+      </Label>
+      )}
     </div>
   );
 
@@ -305,6 +417,28 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
             fill
           />
         </FormGroup>
+
+        {showServiceOverride && (
+        <FormGroup label="Service Deadband (°F)">
+          <NumericInput
+            allowNumericCharactersOnly
+            step={1}
+            min={OVERRIDE_DEADBAND_MIN}
+            max={OVERRIDE_DEADBAND_MAX}
+            value={overrideDeadband}
+            onValueChange={(v) => {
+              const overrideDeadband = clamp(v, OVERRIDE_DEADBAND_MIN, OVERRIDE_DEADBAND_MAX);
+              const clone = cloneDeep(editing ?? {});
+              clone.configuration = clone.configuration ?? {};
+              clone.configuration.setpoint = clone.configuration?.setpoint ?? {};
+              clone.configuration.setpoint.overrideDeadband = overrideDeadband;
+              setEditing?.(clone);
+            }}
+            disabled={readOnly}
+            fill
+          />
+        </FormGroup>
+        )}
 
         <div style={{ color: "var(--bp5-intent-danger)", fontSize: "0.875rem", fontWeight: "bold" }}>{error}</div>
       </div>
@@ -400,7 +534,8 @@ export function Setpoint({ unit, editing, setEditing, readOnly = false }: Setpoi
           <strong>Note:</strong> The occupied setpoint range (green) shows the comfort zone during occupied hours.
           Unoccupied limits (orange/blue) define energy-saving temperatures when the space is empty. The deadband
           prevents frequent switching between heating and cooling. Standby settings are only active if occupancy
-          detection is enabled in the unit configuration and the capability is supported by the control system.
+          detection is enabled in the unit configuration and the capability is supported by the control system. 
+          Service setpoint and deadband are used during configured service occupancy schedules.
         </small>
       </div>
     </div>

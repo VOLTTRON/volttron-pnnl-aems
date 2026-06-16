@@ -6,6 +6,12 @@ const SETPOINT_PADDING = 2;
 const DEADBAND_MIN = Validate.Deadband.options?.min as number;
 const DEADBAND_MAX = Validate.Deadband.options?.max as number;
 const DEADBAND_DEFAULT = Validate.Deadband.options?.default as number;
+const OVERRIDE_SETPOINT_MIN = Validate.OverrideSetpoint.options?.min as number;
+const OVERRIDE_SETPOINT_MAX = Validate.OverrideSetpoint.options?.max as number;
+const OVERRIDE_SETPOINT_DEFAULT = Validate.OverrideSetpoint.options?.default as number;
+const OVERRIDE_DEADBAND_MIN = Validate.OverrideDeadband.options?.min as number;
+const OVERRIDE_DEADBAND_MAX = Validate.OverrideDeadband.options?.max as number;
+const OVERRIDE_DEADBAND_DEFAULT = Validate.OverrideDeadband.options?.default as number;
 const HEATING_MIN = Validate.Heating.options?.min as number;
 const HEATING_DEFAULT = Validate.Heating.options?.default as number;
 const COOLING_MAX = Validate.Cooling.options?.max as number;
@@ -22,7 +28,15 @@ const STANDBY_OFFSET_DEFAULT = Validate.StandbyOffset.options?.default as number
 
 type SetpointType = NonNullable<ReadSetpointQuery["readSetpoint"]>;
 
-type Required = "setpoint" | "deadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset";
+type Required =
+  | "setpoint"
+  | "deadband"
+  | "overrideSetpoint"
+  | "overrideDeadband"
+  | "heating"
+  | "cooling"
+  | "standbyTime"
+  | "standbyOffset";
 
 const createSetpointLabel = (type: "all" | Required, setpoint: SetpointType): string => {
   switch (type) {
@@ -38,6 +52,8 @@ const createSetpointLabel = (type: "all" | Required, setpoint: SetpointType): st
       return `${setpoint.standbyTime} min`;
     case "setpoint":
     case "deadband":
+    case "overrideSetpoint":
+    case "overrideDeadband":
     case "heating":
     case "cooling":
     case "standbyOffset":
@@ -71,6 +87,20 @@ const getSetpointMessage = (setpoint: SetpointType): string | undefined => {
     (setpoint?.standbyOffset ?? 0) > STANDBY_OFFSET_MAX
   ) {
     return `Standby temperature offset must be in the range [${STANDBY_OFFSET_MIN},${STANDBY_OFFSET_MAX}]º F.`;
+  } else if (
+    (setpoint?.overrideSetpoint ?? 0) < OVERRIDE_SETPOINT_MIN ||
+    (setpoint?.overrideSetpoint ?? 0) > OVERRIDE_SETPOINT_MAX
+  ) {
+    return `Override setpoint must be in the range [${OVERRIDE_SETPOINT_MIN},${OVERRIDE_SETPOINT_MAX}]º F.`;
+  } else if (
+    (setpoint?.overrideDeadband ?? 0) < OVERRIDE_DEADBAND_MIN ||
+    (setpoint?.overrideDeadband ?? 0) > OVERRIDE_DEADBAND_MAX
+  ) {
+    return `Override deadband must be in the range [${OVERRIDE_DEADBAND_MIN},${OVERRIDE_DEADBAND_MAX}].`;
+  } else if ((setpoint?.overrideDeadband ?? 0) % 1 !== 0) {
+    return "Override deadband must be a whole degree.";
+  } else if ((setpoint?.overrideSetpoint ?? 0) % 0.5 !== 0) {
+    return "Override setpoint must be a whole or half degree.";
   }
 };
 
@@ -79,6 +109,8 @@ const isSetpointValid = (setpoint: SetpointType | undefined): boolean => {
     !setpoint ||
     typeof setpoint.setpoint !== "number" ||
     typeof setpoint.deadband !== "number" ||
+    typeof setpoint.overrideSetpoint !== "number" ||
+    typeof setpoint.overrideDeadband !== "number" ||
     typeof setpoint.heating !== "number" ||
     typeof setpoint.cooling !== "number" ||
     typeof setpoint.standbyTime !== "number" ||
@@ -98,6 +130,12 @@ export {
   DEADBAND_MIN,
   DEADBAND_MAX,
   DEADBAND_DEFAULT,
+  OVERRIDE_SETPOINT_MIN,
+  OVERRIDE_SETPOINT_MAX,
+  OVERRIDE_SETPOINT_DEFAULT,
+  OVERRIDE_DEADBAND_MIN,
+  OVERRIDE_DEADBAND_MAX,
+  OVERRIDE_DEADBAND_DEFAULT,
   HEATING_MIN,
   HEATING_DEFAULT,
   COOLING_MAX,

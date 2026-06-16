@@ -1,6 +1,6 @@
 import { AppConfigService } from "@/app.config";
 import { BaseService } from "..";
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger, OnApplicationBootstrap } from "@nestjs/common";
 import { PrismaService } from "@/prisma/prisma.service";
 import { Cron } from "@nestjs/schedule";
 import { Mutation, StageType, typeofObject } from "@local/common";
@@ -8,9 +8,10 @@ import { merge } from "lodash";
 import { VolttronService } from "../volttron.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { Schedule } from "@prisma/client";
+import { toOccupiedRange, toServiceWindow } from "./config.occupancy";
 
 @Injectable()
-export class ConfigService extends BaseService {
+export class ConfigService extends BaseService implements OnApplicationBootstrap {
   private logger = new Logger(ConfigService.name);
 
   constructor(
@@ -22,20 +23,24 @@ export class ConfigService extends BaseService {
     super("config", configService);
   }
 
+  async onApplicationBootstrap() {
+    if (!this.configService.service.config.startup) return;
+    this.logger.log("SERVICE_CONFIG_STARTUP=true → marking all units for repush");
+    await this.prismaService.prisma.unit.updateMany({
+      data: { stage: StageType.ProcessType.enum, message: "Repushing on startup..." },
+    });
+  }
+
   @Cron(`*/10 * * * * *`)
   execute(): Promise<void> {
     return super.execute();
   }
 
   private buildOccupancyPayload(schedule?: Schedule | null) {
-    return schedule?.occupied
-      ? /(00:00)|(24:00)/.test(schedule?.startTime ?? "00:00") && /(00:00)|(24:00)/.test(schedule?.endTime ?? "24:00")
-        ? "always_on"
-        : {
-            start: schedule?.startTime,
-            end: /(00:00)|(24:00)/.test(schedule?.endTime ?? "00:00") ? "23:59" : schedule?.endTime,
-          }
-      : "always_off";
+    const occupancy = toOccupiedRange(schedule?.occupied, schedule?.startTime, schedule?.endTime);
+    const overridePre = toServiceWindow(schedule?.overridePreStartTime, schedule?.overridePreEndTime);
+    const overridePost = toServiceWindow(schedule?.overridePostStartTime, schedule?.overridePostEndTime);
+    return { occupancy, override: { pre: overridePre, post: overridePost } };
   }
 
   async task() {
@@ -98,6 +103,10 @@ export class ConfigService extends BaseService {
                 UnoccupiedHeatingSetPoint: unit.configuration?.setpoint?.heating ?? 0,
                 StandbyTime: unit.configuration?.setpoint?.standbyTime ?? 0,
                 StandbyTemperatureOffset: unit.configuration?.setpoint?.standbyOffset ?? 0,
+                ...(this.configService.service.config.serviceOverride && {
+                  ServiceSetPoint: unit.configuration?.setpoint?.overrideSetpoint ?? 0,
+                  ServiceDeadBand: (unit.configuration?.setpoint?.overrideDeadband ?? 0) / 2,
+                }),
               };
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
@@ -115,7 +124,7 @@ export class ConfigService extends BaseService {
                 .reduce(
                   (p, c) => {
                     const k = `${c.date.getUTCFullYear().toString()}-${(c.date.getUTCMonth() + 1).toString().padStart(2, "0")}-${c.date.getUTCDate().toString().padStart(2, "0")}`;
-                    const v = this.buildOccupancyPayload(c.schedule);
+                    const v = this.buildOccupancyPayload(c.schedule).occupancy;
                     if (k in p) {
                       p[k].push(v);
                     } else {
@@ -123,7 +132,7 @@ export class ConfigService extends BaseService {
                     }
                     return p;
                   },
-                  {} as Record<string, any[]>,
+                  {} as Record<string, ReturnType<typeof this.buildOccupancyPayload>["occupancy"][]>,
                 );
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
@@ -141,7 +150,7 @@ export class ConfigService extends BaseService {
                     merge(p, {
                       [c.label]: c.type === "Custom" ? { month: c.month, day: c.day, observance: c.observance } : {},
                     }),
-                  {},
+                  {} as Record<string, { month?: number; day?: number; observance?: string }>,
                 );
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
@@ -153,15 +162,15 @@ export class ConfigService extends BaseService {
 
               this.logger.debug(`[${unit.label}] Setting weekly schedule...`);
               const set_schedule = {
-                Monday: this.buildOccupancyPayload(unit.configuration?.mondaySchedule),
-                Tuesday: this.buildOccupancyPayload(unit.configuration?.tuesdaySchedule),
-                Wednesday: this.buildOccupancyPayload(unit.configuration?.wednesdaySchedule),
-                Thursday: this.buildOccupancyPayload(unit.configuration?.thursdaySchedule),
-                Friday: this.buildOccupancyPayload(unit.configuration?.fridaySchedule),
-                Saturday: this.buildOccupancyPayload(unit.configuration?.saturdaySchedule),
-                Sunday: this.buildOccupancyPayload(unit.configuration?.sundaySchedule),
+                Monday: this.buildOccupancyPayload(unit.configuration?.mondaySchedule).occupancy,
+                Tuesday: this.buildOccupancyPayload(unit.configuration?.tuesdaySchedule).occupancy,
+                Wednesday: this.buildOccupancyPayload(unit.configuration?.wednesdaySchedule).occupancy,
+                Thursday: this.buildOccupancyPayload(unit.configuration?.thursdaySchedule).occupancy,
+                Friday: this.buildOccupancyPayload(unit.configuration?.fridaySchedule).occupancy,
+                Saturday: this.buildOccupancyPayload(unit.configuration?.saturdaySchedule).occupancy,
+                Sunday: this.buildOccupancyPayload(unit.configuration?.sundaySchedule).occupancy,
                 ...(this.configService.service.config.holidaySchedule && {
-                  Holiday: this.buildOccupancyPayload(unit.configuration?.holidaySchedule),
+                  Holiday: this.buildOccupancyPayload(unit.configuration?.holidaySchedule).occupancy,
                 }),
               };
               await this.volttronService.makeApiCall(
@@ -171,6 +180,33 @@ export class ConfigService extends BaseService {
                 set_schedule,
               );
               this.logger.debug(`[${unit.label}] Weekly schedule updated successfully`);
+
+              if (this.configService.service.config.serviceOverride) {
+                this.logger.debug(`[${unit.label}] Setting weekly service schedule...`);
+                const set_service_schedule = {
+                  Monday: this.buildOccupancyPayload(unit.configuration?.mondaySchedule).override,
+                  Tuesday: this.buildOccupancyPayload(unit.configuration?.tuesdaySchedule).override,
+                  Wednesday: this.buildOccupancyPayload(unit.configuration?.wednesdaySchedule).override,
+                  Thursday: this.buildOccupancyPayload(unit.configuration?.thursdaySchedule).override,
+                  Friday: this.buildOccupancyPayload(unit.configuration?.fridaySchedule).override,
+                  Saturday: this.buildOccupancyPayload(unit.configuration?.saturdaySchedule).override,
+                  Sunday: this.buildOccupancyPayload(unit.configuration?.sundaySchedule).override,
+                  ...(this.configService.service.config.holidaySchedule && {
+                    Holiday: this.buildOccupancyPayload(unit.configuration?.holidaySchedule).override,
+                  }),
+                };
+                await this.volttronService
+                  .makeApiCall(
+                    `manager.${unit.system.toLowerCase()}`,
+                    "set_service_schedule",
+                    token,
+                    set_service_schedule,
+                  )
+                  .catch((err) => {
+                    this.logger.warn(err, `Failed to set weekly service schedule for: ${unit.label}`);
+                  });
+                this.logger.debug(`[${unit.label}] Weekly service schedule updated successfully`);
+              }
 
               this.logger.debug(`[${unit.label}] Setting optimal start parameters...`);
               const set_optimal_start = {

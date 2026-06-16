@@ -2316,6 +2316,9 @@ type Query {
   """Read a list of comments."""
   readComments(distinct: [CommentFields!], orderBy: [CommentOrderBy!], paging: PagingInput, where: CommentFilter): [Comment!]
 
+  """Read whitelisted server-side configuration flags."""
+  readConfig: ServerConfig
+
   """Read a unique configuration."""
   readConfiguration(where: ConfigurationUniqueFilter!): Configuration
 
@@ -2622,6 +2625,11 @@ type Schedule {
   mondayConfigurations: [Configuration!]
   occupancies: [Occupancy!]
   occupied: Boolean
+  override: Boolean
+  overridePostEndTime: String
+  overridePostStartTime: String
+  overridePreEndTime: String
+  overridePreStartTime: String
   saturdayConfigurations: [Configuration!]
   setpoint: Setpoint
   setpointId: String
@@ -2648,6 +2656,11 @@ input ScheduleCreateInput {
   label: String!
   message: String
   occupied: Boolean
+  override: Boolean
+  overridePostEndTime: String
+  overridePostStartTime: String
+  overridePreEndTime: String
+  overridePreStartTime: String
   setpoint: ScheduleCreateSetpointRelationInput
   setpointId: String
   stage: ModelStage
@@ -2666,6 +2679,11 @@ enum ScheduleFields {
   label
   message
   occupied
+  override
+  overridePostEndTime
+  overridePostStartTime
+  overridePreEndTime
+  overridePreStartTime
   setpointId
   stage
   startTime
@@ -2683,6 +2701,11 @@ input ScheduleFilter {
   label: StringFilter
   message: StringFilter
   occupied: BooleanFilter
+  override: BooleanFilter
+  overridePostEndTime: StringFilter
+  overridePostStartTime: StringFilter
+  overridePreEndTime: StringFilter
+  overridePreStartTime: StringFilter
   setpointId: StringFilter
   stage: ModelStage
   startTime: StringFilter
@@ -2715,6 +2738,11 @@ input ScheduleUpdateInput {
   label: String
   message: String
   occupied: Boolean
+  override: Boolean
+  overridePostEndTime: String
+  overridePostStartTime: String
+  overridePreEndTime: String
+  overridePreStartTime: String
   setpoint: ScheduleUpdateSetpointRelationInput
   setpointId: String
   stage: ModelStage
@@ -2723,6 +2751,11 @@ input ScheduleUpdateInput {
 
 input ScheduleUpdateSetpointRelationInput {
   update: SetpointUpdateInput
+}
+
+type ServerConfig {
+  holidaySchedule: Boolean
+  serviceOverride: Boolean
 }
 
 type Setpoint {
@@ -2735,6 +2768,8 @@ type Setpoint {
   id: String
   label: String
   message: String
+  overrideDeadband: Float
+  overrideSetpoint: Float
   schedules: [Schedule!]
   setpoint: Float
   stage: ModelStage
@@ -2758,6 +2793,8 @@ input SetpointCreateInput {
   heating: Float
   label: String!
   message: String
+  overrideDeadband: Float
+  overrideSetpoint: Float
   setpoint: Float
   stage: ModelStage
   standbyOffset: Float
@@ -2773,6 +2810,8 @@ enum SetpointFields {
   id
   label
   message
+  overrideDeadband
+  overrideSetpoint
   setpoint
   stage
   standbyOffset
@@ -2792,6 +2831,8 @@ input SetpointFilter {
   id: StringFilter
   label: StringFilter
   message: StringFilter
+  overrideDeadband: FloatFilter
+  overrideSetpoint: FloatFilter
   setpoint: FloatFilter
   stage: ModelStage
   standbyOffset: FloatFilter
@@ -2810,6 +2851,8 @@ input SetpointOrderBy {
   id: OrderBy
   label: OrderBy
   message: OrderBy
+  overrideDeadband: OrderBy
+  overrideSetpoint: OrderBy
   setpoint: OrderBy
   stage: OrderBy
   standbyOffset: OrderBy
@@ -2828,6 +2871,8 @@ input SetpointUpdateInput {
   heating: Float
   label: String
   message: String
+  overrideDeadband: Float
+  overrideSetpoint: Float
   setpoint: Float
   stage: ModelStage
   standbyOffset: Float

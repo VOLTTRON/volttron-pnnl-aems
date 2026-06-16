@@ -41,7 +41,7 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
     @Inject(AppConfigService.Key) private configService: AppConfigService,
     private prismaService: PrismaService,
   ) {
-    this.execute().catch((error) => {
+    this.execute().catch((error: Error) => {
       this.logger.error(`Failed to initialize GrafanaRewriteMiddleware:`, error);
     });
   }
@@ -49,20 +49,20 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
   async execute(): Promise<void> {
     // Skip if no config path set (e.g., in services/seeders containers)
     if (!this.configService.grafana.configPath) {
-      this.logger.debug('Grafana config path not set, skipping dashboard configuration');
+      this.logger.debug("Grafana config path not set, skipping dashboard configuration");
       return;
     }
 
     const urls: ConfigURLs = {};
     this.logger.log("Loading Grafana dashboard configuration files...");
     const files = await getConfigFiles([this.configService.grafana.configPath], ".json", this.logger);
-    
+
     // If no files found, log at debug level instead of error
     if (files.length === 0) {
       this.logger.debug(`No Grafana dashboard configuration files found in ${this.configService.grafana.configPath}`);
       return;
     }
-    
+
     for (const file of files) {
       try {
         this.logger.log(`Parsing Grafana config file: ${file}`);
@@ -83,10 +83,10 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
           Object.entries(json).forEach(([key, value]) => {
             const match = ConfigUnitRegex.exec(key);
             const { unit } = match?.groups ?? {};
-            
+
             // Extract URL from either string (old format) or object (new format)
-            const urlString = typeof value === 'string' ? value : value.url;
-            
+            const urlString = typeof value === "string" ? value : value.url;
+
             if (key === "Site Overview") {
               urls[campus][building][SiteOverviewKey] = new URL(urlString);
             } else if (unit) {
@@ -97,6 +97,7 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
           });
         }
       } catch (error: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         this.logger.error(`Error parsing Grafana config file ${file}:`, error);
         continue;
       }
@@ -158,7 +159,9 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
         return next();
       }
 
-      this.logger.log(`[Grafana Access] Matched config for ${config.campus}/${config.building}/${config.unit} from ${clientIp}`);
+      this.logger.log(
+        `[Grafana Access] Matched config for ${config.campus}/${config.building}/${config.unit} from ${clientIp}`,
+      );
 
       // Log authentication state
       if (!req.user) {
@@ -183,7 +186,7 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
 
       const userRoles = req.user?.roles ?? [];
       const hasUserRole = Role.User.granted(...userRoles);
-      
+
       this.logger.debug(`[Grafana Access] Role check for User role`, {
         userId: req.user.id,
         email: req.user.email,
@@ -194,19 +197,16 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
       });
 
       if (!hasUserRole) {
-        this.logger.warn(
-          `[Grafana Access] FORBIDDEN - No user role for ${req.user.email} from ${clientIp}`,
-          {
-            campus: config.campus,
-            building: config.building,
-            unit: config.unit,
-            userId: req.user.id,
-            email: req.user.email,
-            roleString: req.user.role,
-            rolesArray: userRoles.map((r) => r.name),
-            rolesLength: userRoles.length,
-          },
-        );
+        this.logger.warn(`[Grafana Access] FORBIDDEN - No user role for ${req.user.email} from ${clientIp}`, {
+          campus: config.campus,
+          building: config.building,
+          unit: config.unit,
+          userId: req.user.id,
+          email: req.user.email,
+          roleString: req.user.role,
+          rolesArray: userRoles.map((r) => r.name),
+          rolesLength: userRoles.length,
+        });
         return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
       }
 
@@ -239,16 +239,13 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
         });
 
         if (units.length === 0) {
-          this.logger.warn(
-            `[Grafana Access] FORBIDDEN - No units assigned for ${req.user.email} from ${clientIp}`,
-            {
-              campus: config.campus,
-              building: config.building,
-              unit: config.unit,
-              userId: req.user.id,
-              email: req.user.email,
-            },
-          );
+          this.logger.warn(`[Grafana Access] FORBIDDEN - No units assigned for ${req.user.email} from ${clientIp}`, {
+            campus: config.campus,
+            building: config.building,
+            unit: config.unit,
+            userId: req.user.id,
+            email: req.user.email,
+          });
           return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
         }
 
@@ -258,7 +255,9 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
       }
       if (req.path === config.path) {
         const redirectUrl = new URL(`${config.url.pathname}${config.url.search}`, `${req.protocol}://${req.host}`);
-        this.logger.log(`[Grafana Access] Redirecting ${req.user.email} from ${clientIp}: ${req.url} -> ${redirectUrl.toString()}`);
+        this.logger.log(
+          `[Grafana Access] Redirecting ${req.user.email} from ${clientIp}: ${req.url} -> ${redirectUrl.toString()}`,
+        );
         return res.redirect(301, redirectUrl.toString());
       }
       const targetUrl = new URL(
@@ -270,7 +269,9 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
           targetUrl.searchParams.append(key, value);
         }
       });
-      this.logger.log(`[Grafana Access] Proxying request for ${req.user.email} from ${clientIp}: ${req.url} -> ${targetUrl.toString()}`);
+      this.logger.log(
+        `[Grafana Access] Proxying request for ${req.user.email} from ${clientIp}: ${req.url} -> ${targetUrl.toString()}`,
+      );
       const client = targetUrl.protocol === "https:" ? https : http;
 
       let requestBody: Buffer | undefined;
@@ -280,6 +281,7 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
           if (contentType.includes("application/json")) {
             requestBody = Buffer.from(JSON.stringify(req.body), "utf8");
           } else if (contentType.includes("application/x-www-form-urlencoded")) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
             requestBody = Buffer.from(new URLSearchParams(req.body).toString(), "utf8");
           } else {
             requestBody = Buffer.from(String(req.body), "utf8");

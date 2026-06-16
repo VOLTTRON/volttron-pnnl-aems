@@ -82,12 +82,17 @@ export declare class ScheduleObject {
         startTime: string;
         endTime: string;
         occupied: boolean;
+        override: boolean;
+        overridePreStartTime: string;
+        overridePreEndTime: string;
+        overridePostStartTime: string;
+        overridePostEndTime: string;
     }>;
     readonly ScheduleFields: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied", "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied">;
+    }>, "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime", "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime">;
     constructor(builder: SchemaBuilderService);
 }

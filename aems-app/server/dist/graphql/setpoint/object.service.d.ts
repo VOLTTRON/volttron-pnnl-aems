@@ -40,6 +40,8 @@ export declare class SetpointObject {
         correlation: string | null;
         label: string;
         deadband: number;
+        overrideSetpoint: number;
+        overrideDeadband: number;
         heating: number;
         cooling: number;
         standbyTime: number;
@@ -50,6 +52,6 @@ export declare class SetpointObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset", "id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset">;
+    }>, "id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset", "id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset">;
     constructor(builder: SchemaBuilderService);
 }

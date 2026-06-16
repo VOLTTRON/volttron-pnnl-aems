@@ -9,11 +9,11 @@ export declare class ScheduleQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied")[] | null | undefined;
-        sum?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied")[] | null | undefined;
-        maximum?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied")[] | null | undefined;
-        minimum?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied")[] | null | undefined;
-        average?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied")[] | null | undefined;
+        count?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
+        sum?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
+        maximum?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
+        minimum?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
+        average?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
     }>;
     readonly ScheduleWhereUnique: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -78,6 +78,36 @@ export declare class ScheduleQuery {
             PrismaTypes: import("@local/prisma/dist/pothos").default;
             Scalars: Scalars;
         }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<boolean>, "not" | "equals">>;
+        override: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
+            Context: import("..").Context;
+            AuthScopes: import("../../auth").AuthRoles;
+            PrismaTypes: import("@local/prisma/dist/pothos").default;
+            Scalars: Scalars;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<boolean>, "not" | "equals">>;
+        overridePreStartTime: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
+            Context: import("..").Context;
+            AuthScopes: import("../../auth").AuthRoles;
+            PrismaTypes: import("@local/prisma/dist/pothos").default;
+            Scalars: Scalars;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "in" | "equals" | "contains" | "mode">>;
+        overridePreEndTime: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
+            Context: import("..").Context;
+            AuthScopes: import("../../auth").AuthRoles;
+            PrismaTypes: import("@local/prisma/dist/pothos").default;
+            Scalars: Scalars;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "in" | "equals" | "contains" | "mode">>;
+        overridePostStartTime: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
+            Context: import("..").Context;
+            AuthScopes: import("../../auth").AuthRoles;
+            PrismaTypes: import("@local/prisma/dist/pothos").default;
+            Scalars: Scalars;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "in" | "equals" | "contains" | "mode">>;
+        overridePostEndTime: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
+            Context: import("..").Context;
+            AuthScopes: import("../../auth").AuthRoles;
+            PrismaTypes: import("@local/prisma/dist/pothos").default;
+            Scalars: Scalars;
+        }>, Pick<import("@pothos/plugin-prisma-utils").FilterShape<string>, "endsWith" | "startsWith" | "not" | "in" | "equals" | "contains" | "mode">>;
         setpointId: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
             AuthScopes: import("../../auth").AuthRoles;
