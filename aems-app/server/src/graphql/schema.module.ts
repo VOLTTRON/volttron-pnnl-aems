@@ -29,6 +29,7 @@ import { AccountQuery } from "./account/query.service";
 import { BannerQuery } from "./banner/query.service";
 import { ChangeQuery } from "./change/query.service";
 import { CommentQuery } from "./comment/query.service";
+import { ConfigQuery } from "./config/query.service";
 import { ConfigurationQuery } from "./configuration/query.service";
 import { ControlQuery } from "./control/query.service";
 import { CurrentQuery } from "./current/query.service";
@@ -102,6 +103,7 @@ import { BackupArchiveService } from "@/services/backup/backup-archive.service";
     BannerQuery,
     ChangeQuery,
     CommentQuery,
+    ConfigQuery,
     ConfigurationQuery,
     ControlQuery,
     CurrentQuery,

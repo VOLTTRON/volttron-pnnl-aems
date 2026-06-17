@@ -7,7 +7,6 @@ import { HttpStatus, RoleType, typeofObject } from "@local/common";
 import { Controller, Get, Inject, Logger, Param, Req, Res } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { Request, Response } from "express";
-import { info } from "node:console";
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 

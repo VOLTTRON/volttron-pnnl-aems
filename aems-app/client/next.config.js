@@ -133,10 +133,6 @@ const nextConfig = {
   experimental: {
     instrumentationHook: true,
     nextScriptWorkers: true,
-    parallelServerCompiles: true,
-    parallelServerBuildTraces: true,
-    webpackBuildWorker: true,
-    workerThreads: true,
     serverComponentsExternalPackages: ["pino", "pino-pretty", "jsonpath"],
   },
 };

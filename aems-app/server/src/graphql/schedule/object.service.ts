@@ -29,6 +29,11 @@ export class ScheduleObject {
         startTime: t.exposeString("startTime"),
         endTime: t.exposeString("endTime"),
         occupied: t.exposeBoolean("occupied"),
+        override: t.exposeBoolean("override"),
+        overridePreStartTime: t.exposeString("overridePreStartTime"),
+        overridePreEndTime: t.exposeString("overridePreEndTime"),
+        overridePostStartTime: t.exposeString("overridePostStartTime"),
+        overridePostEndTime: t.exposeString("overridePostEndTime"),
         // foreign keys
         setpointId: t.exposeString("setpointId", { nullable: true }),
         // direct relations

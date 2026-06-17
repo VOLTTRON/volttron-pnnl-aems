@@ -221,6 +221,8 @@ export class AppConfigService {
       password: string;
       verbose: boolean;
       holidaySchedule: boolean;
+      serviceOverride: boolean;
+      startup: boolean;
     };
     control: {
       templatePaths: string[];
@@ -482,6 +484,8 @@ export class AppConfigService {
         password: process.env.SERVICE_CONFIG_PASSWORD ?? "",
         verbose: parseBoolean(process.env.SERVICE_CONFIG_VERBOSE),
         holidaySchedule: parseBoolean(process.env.SERVICE_CONFIG_HOLIDAY_SCHEDULE),
+        serviceOverride: parseBoolean(process.env.SERVICE_CONFIG_SERVICE_OVERRIDE ?? "true"),
+        startup: parseBoolean(process.env.SERVICE_CONFIG_STARTUP),
       },
       control: {
         templatePaths: (process.env.SERVICE_SETUP_TEMPLATE_PATHS ?? "")

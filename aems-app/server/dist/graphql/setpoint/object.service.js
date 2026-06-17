@@ -31,6 +31,8 @@ let SetpointObject = class SetpointObject {
                 label: t.exposeString("label"),
                 setpoint: t.exposeFloat("setpoint"),
                 deadband: t.exposeFloat("deadband"),
+                overrideSetpoint: t.exposeFloat("overrideSetpoint"),
+                overrideDeadband: t.exposeFloat("overrideDeadband"),
                 heating: t.exposeFloat("heating"),
                 cooling: t.exposeFloat("cooling"),
                 standbyTime: t.exposeInt("standbyTime"),

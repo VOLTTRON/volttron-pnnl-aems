@@ -21,6 +21,8 @@ export declare class SetpointMutation {
         label: "String";
         setpoint: "Float";
         deadband: "Float";
+        overrideSetpoint: "Float";
+        overrideDeadband: "Float";
         heating: "Float";
         cooling: "Float";
         standbyTime: "Int";
@@ -43,6 +45,8 @@ export declare class SetpointMutation {
         label: "String";
         setpoint: "Float";
         deadband: "Float";
+        overrideSetpoint: "Float";
+        overrideDeadband: "Float";
         heating: "Float";
         cooling: "Float";
         standbyTime: "Int";

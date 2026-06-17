@@ -6,10 +6,11 @@ import {
   UpdateCurrentDocument,
   UpdateCurrentMutation,
 } from "@/graphql-codegen/graphql";
-import { useMutation, useQuery } from "@apollo/client";
+import { useMutation } from "@apollo/client";
 import { createContext, useCallback, useContext } from "react";
 import { useState } from "react";
 import { NotificationContext, NotificationType } from "./notification";
+import { useQueryWithCallbacks } from "../hooks/useQueryWithCallbacks";
 
 export const SensitivePreferences = ["name"] as const;
 
@@ -34,7 +35,7 @@ export function CurrentProvider({ children }: { children: React.ReactNode }) {
 
   const { createNotification } = useContext(NotificationContext);
 
-  const { refetch } = useQuery(ReadCurrentDocument, {
+  const { refetch } = useQueryWithCallbacks(ReadCurrentDocument, {
     variables: {},
     fetchPolicy: "no-cache",
     onCompleted: (data) => {
