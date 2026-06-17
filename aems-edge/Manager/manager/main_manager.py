@@ -297,12 +297,19 @@ class ManagerProxy:
             data_handler=self.data_handler,
             callbacks=callbacks,
         )
+        self.after_hours_manager = None
         self.lockout_manager = LockOutManager(get_forecast_fn=self.get_weather_forecast,
                                               get_current_oat_fn=self.get_current_oat,
                                               control_fn=self.do_zone_control,
                                               scheduler_fn=self.core.schedule,
                                               change_occupancy_fn=self.change_occupancy,
                                               sync_occupancy_state_fn=self.sync_occupancy_state)
+
+        # Wait to call this until the system connects.
+        self.core.onstart.connect(lambda x: self.setup_runtime())
+
+    def setup_runtime(self):
+        _log.debug(f'SETUP DATA SUBSCRIPTIONS FOR {self.identity}')
         try:
             after_hours_schedule = self.config_get('after_hours_schedule')
         except KeyError:
@@ -319,11 +326,6 @@ class ManagerProxy:
                                                           restore_setpoints_fn=self.set_temperature_setpoints,
                                                           scheduler_fn=self.core.schedule,
                                                           now_func=self.cfg.get_current_datetime)
-        # Wait to call this until the system connects.
-        self.core.onstart.connect(lambda x: self.setup_optimal_start())
-
-    def setup_optimal_start(self):
-        _log.debug(f'SETUP DATA SUBSCRIPTIONS FOR {self.identity}')
         self._p.vip.pubsub.subscribe(peer='pubsub', prefix=self.cfg.base_device_topic,
                                      callback=self.update_data).get(timeout=10.0)
         if self.cfg.outdoor_temperature_topic:
@@ -333,6 +335,7 @@ class ManagerProxy:
         self.optimal_start.setup_optimal_start()
         if self._proxied_agent.has_connected_identity(self.cfg.weather_identity):
             self._weather_update_greenlet = self.core.schedule(cron('0 * * * *'), self.update_weather_forecast)
+
 
     @property
     def _p(self) -> ManagerAgent:

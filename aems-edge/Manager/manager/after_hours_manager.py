@@ -22,7 +22,7 @@ except ImportError:
 SERVICE_SET = 'ServiceSetPoint'
 SERVICE_DB = 'ServiceDeadband'
 OCCUPIED_SET = 'OccupiedSetPoint'
-DB = 'Deadband'
+DB = 'DeadBand'
 
 DAYS = [
     "Monday", "Tuesday", "Wednesday", "Thursday",
