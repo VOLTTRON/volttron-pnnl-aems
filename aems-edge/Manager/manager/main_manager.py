@@ -51,6 +51,7 @@ from .holiday_manager import HolidayManager
 from .lock_out_manager import LockOutManager
 from .occupancy_override_manager import OccupancyOverride
 from .optimal_start_manager import OptimalStartConfig, OptimalStartManager, PlatformCallbacks
+from .after_hours_manager import WeeklyServiceScheduler
 from .points import DaysOfWeek, OccupancyTypes, Points, SetpointControlType
 
 SCHEDULE = 'Schedule'
@@ -164,6 +165,16 @@ class ManagerAgent(Agent):
     def set_schedule(self, data) -> bool:
         try:
             result = self._proxy.set_schedule(data, update_store=True)
+            _log.debug(f'set_schedule_rpc: {result}')
+            return result
+        except Exception as ex:
+            _log.error(f'Failed to set schedule: {ex}', exc_info=True)
+            return False
+
+    @RPC.export
+    def set_service_schedule(self, data) -> bool:
+        try:
+            result = self._proxy.set_service_schedule(data, update_store=True)
             _log.debug(f'set_schedule_rpc: {result}')
             return result
         except Exception as ex:
@@ -292,6 +303,22 @@ class ManagerProxy:
                                               scheduler_fn=self.core.schedule,
                                               change_occupancy_fn=self.change_occupancy,
                                               sync_occupancy_state_fn=self.sync_occupancy_state)
+        try:
+            after_hours_schedule = self.config_get('after_hours_schedule')
+        except KeyError:
+            after_hours_schedule = {}
+        try:
+            default_setpoints = self.config_get('set_points')
+        except KeyError:
+            default_setpoints = self.cfg.default_setpoints
+
+        self.after_hours_manager = WeeklyServiceScheduler(after_hours_schedule,
+                                                          default_setpoints,
+                                                          config_get_fn=self.config_get,
+                                                          zone_control_fn=self.do_zone_control,
+                                                          restore_setpoints_fn=self.set_temperature_setpoints,
+                                                          scheduler_fn=self.core.schedule,
+                                                          now_func=self.cfg.get_current_datetime)
         # Wait to call this until the system connects.
         self.core.onstart.connect(lambda x: self.setup_optimal_start())
 
@@ -516,6 +543,34 @@ class ManagerProxy:
         self.publish(topic, headers, data)
         return True
 
+    def set_service_schedule(self, data: dict[str, dict[str, str]], update_store: bool = True) -> bool:
+        """
+        Sets the service schedule for the system for after hours operations (e.g., janitorial).
+        There are no partial updates, the entire schedule
+
+        :param data:  schedule information for each day in week for RTU.
+        :type data: dict
+            {
+                Monday: {
+                pre: { start: '00:00', end: '03:15' },
+                post: { start: '22:00', end: '23:59' }
+                },
+                Tuesday: { pre: { start: '00:00', end: '02:20' }, post: 'always_off' },
+                Wednesday: { pre: { start: '06:30', end: '08:00' }, post: 'always_off' },
+                Thursday: { pre: 'always_off', post: 'always_on' },
+                Friday: { pre: 'always_on', post: 'always_off' },
+                Saturday: { pre: 'always_off', post: 'always_off' },
+                Sunday: { pre: 'always_off', post: 'always_off' }
+            }
+        :return: True when no errors occur and False if an error occurs.
+        :rtype: bool
+        """
+
+        self.after_hours_manager.update_schedule(data)
+        if update_store:
+            self.config_set('after_hours_schedule', data)
+        return True
+
     def set_optimal_start(self, config: OptimalStartConfig | dict, update_store: bool = True) -> bool:
         """
         Sets the optimal start for the system.  This is called from the ManagerAgent when the optimal start is updated.
@@ -561,6 +616,9 @@ class ManagerProxy:
         :return: Return True on success and False on failure or error.
         :rtype: bool
         """
+        if self.after_hours_manager.is_active and not self.is_system_occupied():
+            _log.debug(f'{self.identity} - After hours active, not setting setpoints.')
+            return True
         headers = {headers_mod.DATE: format_timestamp(get_aware_utc_now())}
         topic = '/'.join([self.cfg.base_record_topic, SET_POINTS])
         _log.debug(f'Update temperature_setpoints - {data} -- update_store: {update_store}')
@@ -809,8 +867,6 @@ class ManagerProxy:
         :type header:
         :param message:
         :type message:
-        :return:
-        :rtype:
         """
         _log.debug(f'Update data : {topic}')
         data, meta = message
@@ -821,20 +877,18 @@ class ManagerProxy:
         """
         Update RTU data from driver publish for optimal start, lockout control, and
         economizer control.
-        :param peer:
-        :type peer:
-        :param sender:
-        :type sender:
-        :param bus:
-        :type bus:
-        :param topic:
-        :type topic:
-        :param header:
-        :type header:
-        :param message:
-        :type message:
-        :return:
-        :rtype:
+        :param peer: 'pubsub'
+        :type peer: str
+        :param sender: publisher
+        :type sender: str
+        :param bus: local
+        :type bus: str
+        :param topic: callback topic to match.
+        :type topic: str
+        :param header: header of message
+        :type header: dict
+        :param message: data payload
+        :type message: Any
         """
         _log.debug(f'Update data : {topic}')
         payload = {}
@@ -846,8 +900,8 @@ class ManagerProxy:
     def is_system_occupied(self) -> bool | str | None:
         """
         Call driver get_point to get current RTU occupancy status.
-        :return:
-        :rtype:
+        :return: True if occupied, False if unoccupied, None if unknown, or error message.
+        :rtype: bool | str | None
         """
         try:
             result = self.rpc_get_point(Points.occupancy.value)
