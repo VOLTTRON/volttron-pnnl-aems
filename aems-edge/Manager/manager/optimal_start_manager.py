@@ -154,8 +154,8 @@ class OptimalStartManager:
     :type training_time: Optional[float]
     :ivar _scheduler_greenlets: Internal list to manage daily scheduling greenlets.
     :type _scheduler_greenlets: list
-    :ivar _run_schedule_greenlet: Greenlet for managing daily runs.
-    :type _run_schedule_greenlet: Optional[Any]
+    :ivar run_schedule_greenlet: Greenlet for managing daily runs.
+    :type run_schedule_greenlet: Optional[Any]
     :ivar _start_greenlet: Greenlet for start transitions.
     :type _start_greenlet: Optional[Any]
     :ivar _end_greenlet: Greenlet for end transitions.
@@ -196,7 +196,7 @@ class OptimalStartManager:
         self.result: dict[str, Any] = {}
         self.training_time: Optional[float] = None
         self._scheduler_greenlets: list = []
-        self._run_schedule_greenlet = None
+        self.run_schedule_greenlet = None
         self._start_greenlet = None
         self._end_greenlet = None
 
@@ -307,12 +307,12 @@ class OptimalStartManager:
         optimal_start = occupancy_time - td(minutes=active_minutes)
         reschedule_at = now.replace(microsecond=0) + td(minutes=_RESCHEDULE_INTERVAL_MINUTES)
 
-        self._cancel_greenlet("_run_schedule_greenlet")
+        self._cancel_greenlet("run_schedule_greenlet")
 
         # Too early to commit — reschedule with fresher data.
         if reschedule_at < optimal_start:
             _log.debug("Too early — rescheduling run_method at %s.", reschedule_at)
-            self._run_schedule_greenlet = self._cb.schedule_fn(
+            self.run_schedule_greenlet = self._cb.schedule_fn(
                 reschedule_at, self.run_method
             )
             return
@@ -414,7 +414,7 @@ class OptimalStartManager:
 
         run_time = now.replace(hour=earliest.hour, minute=earliest.minute)
         _log.debug("Scheduling run_method at %s.", format_timestamp(run_time))
-        self._run_schedule_greenlet = self._cb.schedule_fn(run_time, self.run_method)
+        self.run_schedule_greenlet = self._cb.schedule_fn(run_time, self.run_method)
 
     def _schedule_occupancy_transitions(self, start_time, end_time) -> None:
         """

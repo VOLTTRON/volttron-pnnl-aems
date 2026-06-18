@@ -175,7 +175,7 @@ class ManagerAgent(Agent):
     def set_service_schedule(self, data) -> bool:
         try:
             result = self._proxy.set_service_schedule(data, update_store=True)
-            _log.debug(f'set_schedule_rpc: {result}')
+            _log.debug(f'set_service_schedule_rpc: {result}')
             return result
         except Exception as ex:
             _log.error(f'Failed to set schedule: {ex}', exc_info=True)
@@ -322,6 +322,7 @@ class ManagerProxy:
         self.after_hours_manager = WeeklyServiceScheduler(after_hours_schedule,
                                                           default_setpoints,
                                                           config_get_fn=self.config_get,
+                                                          create_setpoint_fn=self.create_setpoints,
                                                           zone_control_fn=self.do_zone_control,
                                                           restore_setpoints_fn=self.set_temperature_setpoints,
                                                           scheduler_fn=self.core.schedule,
@@ -609,40 +610,50 @@ class ManagerProxy:
         self.publish(topic, headers=headers, message=config)
         return True
 
-    def set_temperature_setpoints(self, data: dict[str, float], update_store: bool = True) -> Union[bool, str]:
+    def set_temperature_setpoints(self, data: dict[str, float], update_store: bool = True) -> bool:
         """
-        Sets the temperature setpoints for the RTU.  Called on periodic and when setpoints are updated.
+        Sets the temperature setpoints for the RTU. Called on periodic and when setpoints are updated.
+
         :param data: RTU occupied and unoccupied heating and cooling set points.
-        :type data: dict
-        :param update_store: True when method is triggered via RPC (store data in config store).
-        :type update_store: bool
-        :return: Return True on success and False on failure or error.
-        :rtype: bool
+        :param update_store: True when method is triggered via RPC; stores data in config store.
+        :return: True on success and False on failure or error.
         """
-        if self.after_hours_manager.is_active and not self.is_system_occupied():
-            _log.debug(f'{self.identity} - After hours active, not setting setpoints.')
-            return True
         headers = {headers_mod.DATE: format_timestamp(get_aware_utc_now())}
-        topic = '/'.join([self.cfg.base_record_topic, SET_POINTS])
-        _log.debug(f'Update temperature_setpoints - {data} -- update_store: {update_store}')
-        result = self.create_setpoints(data)
-        return_value = True
+        topic = "/".join([self.cfg.base_record_topic, SET_POINTS])
+
+        _log.debug(f"Update temperature_setpoints - {data} -- update_store: {update_store}")
+
+        result = (
+            self.after_hours_manager.service_setpoints
+            if self.after_hours_manager.is_active
+            else self.create_setpoints(data)
+        )
+
         if isinstance(result, str):
+            _log.error(f"Failed to create temperature setpoints: {result}")
             return False
-        for point, value in result.items():
-            control_result = self.do_zone_control(point, value)
-            if isinstance(control_result, str):
-                _log.error(f'Zone control response {self.identity} - Set {point} to {value} -- {control_result}')
-                return_value = False
+
         if update_store:
-            self.config_set('set_points', data)
-            for point, value in result.items():
-                control_result = self.do_zone_control(point, value, on_property='relinquishDefault')
-                if isinstance(control_result, str):
-                    _log.error(f'Zone control response {self.identity} - Set {point} to {value} -- {control_result}')
-                    return_value = False
+            self.config_set("set_points", data)
+
+        control_kwargs = (
+            {"on_property": "relinquishDefault"}
+            if update_store
+            else {}
+        )
+        success = True
+        for point, value in result.items():
+            control_result = self.do_zone_control(point, value, **control_kwargs)
+
+            if isinstance(control_result, str):
+                _log.error(
+                    f"Zone control response {self.identity} - "
+                    f"Set {point} to {value} -- {control_result}"
+                )
+                success = False
+
         self.publish(topic, headers=headers, message=data)
-        return return_value
+        return success
 
     def set_holidays(self, data, update_store: bool = True) -> bool:
         """
@@ -845,10 +856,10 @@ class ManagerProxy:
             _log.debug(f'Unit is between earliest start time and occupancy start!')
             _log.debug(f'Set unit to unoccupied mode and restart optimal start')
             self.change_occupancy(OccupancyTypes.UNOCCUPIED)
-            self.optimal_start.run_schedule = None
+            self.optimal_start.run_schedule_greenlet = None
 
         # # if we are in a time when we can do optimal start, schedule pre-start calculations
-        if self.optimal_start.run_schedule is None:
+        if self.optimal_start.run_schedule_greenlet is None:
             if current_time < _earliest:
                 self.optimal_start.set_up_run()
             elif _earliest <= current_time <= _start:

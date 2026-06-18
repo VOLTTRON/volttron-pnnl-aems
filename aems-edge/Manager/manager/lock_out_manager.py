@@ -167,57 +167,66 @@ class LockOutManager:
             self.optimal_start_lockout_active = False
             self._sync_occupancy_state_fn()
 
-    def evaluate_optimal_start_lockout(self):
+    def evaluate_optimal_start_lockout(self) -> None:
         """
         Evaluate whether the optimal start lockout should be active based on weather forecast.
 
-        If the forecast indicates that the temperature is below the optimal start lockout temperature,
-        the optimal start lockout will be activated, and the occupancy type will be set to OCCUPIED.
-        If the temperature is above the optimal start lockout temperature and the lockout is currently active,
-        the occupancy type will be set to RELEASE and the lockout will be deactivated.
+        If the forecast minimum temperature is below the optimal start lockout temperature,
+        the lockout is activated and occupancy is set to OCCUPIED.
 
-        :return: None
-        :rtype: None
+        If the forecast cannot be evaluated, or the forecast minimum temperature is at or above
+        the optimal start lockout temperature, the lockout is released if currently active.
         """
         gevent.sleep(30)
+
         forecast = self._get_forecast_fn()
-        _log.debug(f'Evaluate optimal start lockout with weather: {forecast}')
-        if not forecast:
-            _log.debug(f'No weather forecast, cannot evaluate optimal start lockout!')
-            return
+        _log.debug(f"Evaluate optimal start lockout with weather: {forecast}")
+
+        should_lockout = False
 
         try:
-            min_temp = min(forecast)
+            min_temp = min(forecast or [])
         except ValueError as ex:
-            _log.error(f'Error evaluating optimal start lockout: {ex}')
-            min_temp = None
+            _log.debug(f"No valid weather forecast, cannot evaluate optimal start lockout: {ex}")
+        else:
+            _log.debug(
+                f"Optimal Start Lockout - OAT {min_temp} -- {self.optimal_start_lockout_temp}"
+            )
+            should_lockout = min_temp < self.optimal_start_lockout_temp
 
-        _log.debug(f'Optimal Start Lockout - OAT {min_temp} -- {self.optimal_start_lockout_temp}')
-        # If the temperature is below the optimal start lockout temperature, activate the lockout
-        if min_temp is not None and min_temp < self.optimal_start_lockout_temp:
+        if should_lockout:
             self._change_occupancy_fn(OccupancyTypes.OCCUPIED)
             self.optimal_start_lockout_active = True
-        # If the lockout is currently active and the temperature is above the optimal start lockout temperature,
-        # deactivate the lockout
         elif self.optimal_start_lockout_active:
             self.optimal_start_lockout_active = False
             self._sync_occupancy_state_fn()
 
-    def evaluate(self):
+    def evaluate(self) -> None:
         """
         Called by manager.py when new data is received.
-        Checks for stale data, gets current OAT, evaluates lockouts.
 
-        :return: None
-        :rtype: None
+        Checks for stale data, gets current OAT, and evaluates lockouts.
         """
         current_time = get_aware_utc_now()
         timestamp, oat = self._get_current_oat_fn()
-        # TODO: make the stale data time configurable
-        if timestamp is None or current_time - timestamp > STALE_DATA_TIMEOUT:
+
+        _log.debug(
+            f"Evaluate lockouts with OAT: {oat} -- {timestamp} -- {current_time}"
+        )
+
+        lockout_active = self.clg_lockout_active or self.electric_heat_lockout_active
+        missing_timestamp = timestamp is None
+        stale_data = (
+                timestamp is not None
+                and current_time - timestamp > STALE_DATA_TIMEOUT
+        )
+
+        if (missing_timestamp or stale_data) and lockout_active:
             self.release_all()
             return
+
         self.evaluate_electric_heating_lockout(oat)
+
         if self.has_economizer:
             self.evaluate_cooling_lockout(oat)
 
