@@ -1044,12 +1044,9 @@ export function UnitDashboard({
 
       <div className={styles.grid}>
         <Card className={styles.chartCard}>
-          {timeSeriesLoading ? (
-            <div className={styles.chartLoading}>
-              <Spinner />
-            </div>
-          ) : (
+          {
             <ECharts
+              loading={timeSeriesLoading}
               option={{
                 animation: false,
                 title: { text: unit.label || unit.name || "" },
@@ -1296,18 +1293,15 @@ export function UnitDashboard({
               showLegendToggle
               showDataZoomTools
             />
-          )}
+          }
         </Card>
       </div>
 
       <div className={styles.grid}>
         <Card className={styles.chartCard} style={{ height: "400px" }}>
-          {powerLoading ? (
-            <div className={styles.chartLoading} style={{ height: "400px" }}>
-              <Spinner />
-            </div>
-          ) : (
+          {
             <ECharts
+              loading={powerLoading}
               option={{
                 animation: false,
                 title: { text: "Building Power" },
@@ -1378,7 +1372,7 @@ export function UnitDashboard({
               showLegendToggle
               showDataZoomTools
             />
-          )}
+          }
         </Card>
       </div>
     </div>
