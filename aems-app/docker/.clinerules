@@ -29,3 +29,4 @@
 - Use service profiles to enable optional components (proxy, redis, sso, map, nom, wiki)
 - Environment files override defaults for each service
 - README files should contain documentation only - no code examples belong in README files
+- See also: `../.claude/architecture/docker.md`, `../.claude/architecture/deployment.md`; CLAUDE.md is the source of truth

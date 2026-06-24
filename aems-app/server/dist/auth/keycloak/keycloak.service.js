@@ -196,7 +196,6 @@ let KeycloakAuthjsService = KeycloakAuthjsService_1 = class KeycloakAuthjsServic
     }
     create() {
         return (0, keycloak_1.default)({
-            allowDangerousEmailAccountLinking: true,
             id: _1.Provider,
             checks: this.configService.keycloak.checks,
             clientId: this.configService.keycloak.clientId,

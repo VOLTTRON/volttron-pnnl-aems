@@ -646,7 +646,6 @@ describe("JSON Utils", () => {
 
       // Add 100,000 items to make it reasonably large
       for (let i = 0; i < 100000; i++) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         largeData.items.push({
           id: i,
           name: `Item ${i}`,
@@ -771,9 +770,7 @@ describe("JSON Utils", () => {
       expect(errorOccurred).toBe(true);
 
       // Resources should be cleaned up
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect((factory as any).stream).toBeNull();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect((factory as any).watcher).toBeNull();
     });
   });

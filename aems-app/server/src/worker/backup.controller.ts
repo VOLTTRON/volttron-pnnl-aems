@@ -6,7 +6,7 @@ import {
   Logger,
   Param,
   Post,
-  UseGuards,
+  UseGuards
 } from "@nestjs/common";
 import { BackupComponentStatus, BackupComponentType, BackupKeyAlgorithm, BackupRunStatus } from "@prisma/client";
 import { BackupWorkerService, ClaimResult } from "./backup.service";

@@ -8,7 +8,7 @@
 # /workspace and only adds the HTTP poller on top. No Postgres client ships
 # in the image — the sidecar holds no DB credentials.
 
-FROM node:22-alpine
+FROM node:22.14.0-alpine
 
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
@@ -53,6 +53,20 @@ COPY worker/ ./
 COPY init-keys.sh /usr/local/bin/init-keys.sh
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/init-keys.sh /usr/local/bin/entrypoint.sh
+
+# Add node user to the docker group so it can use the mounted Docker socket.
+# Try gid 999 first (conventional docker gid on many Linux hosts); fall back
+# to any available gid if 999 is taken; skip if the group already exists.
+# addgroup <user> <group> is the correct Alpine syntax for supplementary groups.
+RUN (addgroup -g 999 docker 2>/dev/null || addgroup docker 2>/dev/null || true) \
+    && addgroup node docker
+
+# Pre-create mount-point directories with correct ownership so init-keys.sh
+# can write into them when running as node (bind mounts land on top of these).
+RUN mkdir -p /host-secrets /var/lib/backup/staging /var/lib/backup/pending \
+    && chown -R node:node /host-secrets /var/lib/backup
+
+USER node
 
 # The sidecar expects the repo root to be mounted at /workspace (read-only)
 # and the backup secrets directory at /run/secrets/backup.

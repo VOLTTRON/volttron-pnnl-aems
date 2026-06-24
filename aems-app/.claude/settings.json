@@ -1,0 +1,49 @@
+{
+  "env": {
+    "CLAUDE_CODE_USE_BEDROCK": "0",
+    "CLAUDE_CODE_USE_VERTEX": "0",
+    "ANTHROPIC_BASE_URL": "https://ai-incubator-api.pnnl.gov",
+
+    "ANTHROPIC_MODEL": "claude-sonnet-4-6-project",
+
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7-project",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6-project",
+
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001-v1-project",
+    "ANTHROPIC_SMALL_FAST_MODEL": "claude-haiku-4-5-20251001-v1-project",
+
+    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1",
+    "DISABLE_TELEMETRY": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"
+  },
+  "experimental": false,
+  "permissions": {
+    "defaultMode": "plan",
+    "allow": [
+      "Read(**)",
+      "Glob(**)",
+      "Grep(**)",
+      "WebFetch",
+      "WebSearch",
+
+      "Bash(*)",
+      "PowerShell(*)",
+      "Edit(**)",
+      "Write(**)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/prisma-rebuild-reminder.cjs"
+          }
+        ]
+      }
+    ]
+  }
+}

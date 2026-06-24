@@ -43,3 +43,8 @@ Next.js 14 (App Router) + React 18 + TypeScript + Blueprint.js + SCSS modules. C
 - `server.cjs` and `copy-certs.cjs` are CommonJS despite `"type": "module"` in [package.json](package.json). Keep the `.cjs` extension.
 - The client's [schema.graphql](schema.graphql) gets out of sync with [../server/schema.graphql](../server/schema.graphql) — codegen pulls from one of them per [codegen.ts](codegen.ts). Check the config before assuming which.
 - Images, fonts, and static assets live in [public/](public/).
+
+## Further reading
+
+- Architecture: [../.claude/architecture/client.md](../.claude/architecture/client.md), [../.claude/architecture/graphql.md](../.claude/architecture/graphql.md).
+- Project rules: [../.claude/rules.md](../.claude/rules.md).

@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  ReadCurrentDocument,
-  ReadCurrentQuery,
-  UpdateCurrentDocument,
-  UpdateCurrentMutation,
-} from "@/graphql-codegen/graphql";
+import { ReadCurrentDocument, ReadCurrentQuery, UpdateCurrentDocument, UpdateCurrentMutation } from "@/graphql-codegen/graphql";
 import { useMutation } from "@apollo/client";
 import { createContext, useCallback, useContext } from "react";
 import { useState } from "react";

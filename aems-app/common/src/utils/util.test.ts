@@ -8,6 +8,17 @@ import {
   toOrdinal,
   Chainable,
   chainable,
+  typeofNonNullable,
+  keyofObject,
+  typeofEnum,
+  typeofObject,
+  typeofString,
+  typeofNumber,
+  typeofBoolean,
+  typeofFunction,
+  typeofSymbol,
+  typeofArray,
+  printEnvironment,
 } from "./util";
 
 describe("deepFreeze", () => {
@@ -314,11 +325,8 @@ describe("toOrdinal", () => {
     expect(() => toOrdinal(2.3)).toThrow(TypeError);
   });
   it("should fail for non-numeric values", () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     expect(() => toOrdinal("test" as any)).toThrow(TypeError);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     expect(() => toOrdinal(null as any)).toThrow(TypeError);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     expect(() => toOrdinal(undefined as any)).toThrow(TypeError);
   });
 });
@@ -343,5 +351,181 @@ describe("Chainable<T>", () => {
       .end();
 
     expect(result).toEqual({ original: "Hello World", uppercase: "HELLO WORLD" });
+  });
+});
+
+describe("typeofNonNullable", () => {
+  it("returns true for a non-null, non-undefined value", () => {
+    expect(typeofNonNullable("hello")).toBe(true);
+    expect(typeofNonNullable(0)).toBe(true);
+    expect(typeofNonNullable(false)).toBe(true);
+  });
+  it("returns false for null", () => {
+    expect(typeofNonNullable(null)).toBe(false);
+  });
+  it("returns false for undefined", () => {
+    expect(typeofNonNullable(undefined)).toBe(false);
+  });
+});
+
+describe("keyofObject", () => {
+  it("always returns true", () => {
+    expect(keyofObject("anyKey")).toBe(true);
+    expect(keyofObject(42)).toBe(true);
+    expect(keyofObject(Symbol("s"))).toBe(true);
+  });
+});
+
+describe("typeofEnum", () => {
+  enum Color { Red = "red", Blue = "blue" }
+  const isColor = typeofEnum(Color);
+  it("returns true for a valid enum value", () => {
+    expect(isColor("red")).toBe(true);
+    expect(isColor("blue")).toBe(true);
+  });
+  it("returns false for a non-member value", () => {
+    expect(isColor("green")).toBe(false);
+    expect(isColor(0)).toBe(false);
+  });
+});
+
+describe("typeofObject", () => {
+  it("returns true for a plain object without callback", () => {
+    expect(typeofObject({})).toBe(true);
+  });
+  it("returns false for a primitive", () => {
+    expect(typeofObject("string")).toBe(false);
+    expect(typeofObject(42)).toBe(false);
+  });
+  it("returns true when object passes the callback", () => {
+    expect(typeofObject({ x: 1 }, (v) => "x" in v)).toBe(true);
+  });
+  it("returns false when object fails the callback", () => {
+    expect(typeofObject({ x: 1 }, (v) => "y" in v)).toBe(false);
+  });
+});
+
+describe("typeofString", () => {
+  it("returns true for a string", () => {
+    expect(typeofString("hello")).toBe(true);
+  });
+  it("returns false for a non-string", () => {
+    expect(typeofString(42)).toBe(false);
+    expect(typeofString(null)).toBe(false);
+  });
+});
+
+describe("typeofNumber", () => {
+  it("returns true for a number", () => {
+    expect(typeofNumber(42)).toBe(true);
+    expect(typeofNumber(0)).toBe(true);
+  });
+  it("returns false for a non-number", () => {
+    expect(typeofNumber("42")).toBe(false);
+    expect(typeofNumber(null)).toBe(false);
+  });
+});
+
+describe("typeofBoolean", () => {
+  it("returns true for boolean values", () => {
+    expect(typeofBoolean(true)).toBe(true);
+    expect(typeofBoolean(false)).toBe(true);
+  });
+  it("returns false for non-boolean values", () => {
+    expect(typeofBoolean("true")).toBe(false);
+    expect(typeofBoolean(1)).toBe(false);
+  });
+});
+
+describe("typeofFunction", () => {
+  it("returns true for a function", () => {
+    expect(typeofFunction(() => {})).toBe(true);
+     
+    expect(typeofFunction(function () {})).toBe(true);
+  });
+  it("returns false for a non-function", () => {
+    expect(typeofFunction("fn")).toBe(false);
+    expect(typeofFunction({})).toBe(false);
+  });
+});
+
+describe("typeofSymbol", () => {
+  it("returns true for a symbol", () => {
+    expect(typeofSymbol(Symbol("s"))).toBe(true);
+  });
+  it("returns false for a non-symbol", () => {
+    expect(typeofSymbol("symbol")).toBe(false);
+    expect(typeofSymbol(42)).toBe(false);
+  });
+});
+
+describe("typeofArray", () => {
+  it("returns true for an array", () => {
+    expect(typeofArray([])).toBe(true);
+    expect(typeofArray([1, 2, 3])).toBe(true);
+  });
+  it("returns false for a non-array", () => {
+    expect(typeofArray({})).toBe(false);
+    expect(typeofArray("array")).toBe(false);
+  });
+});
+
+describe("printEnvironment", () => {
+  const ORIGINAL_ENV = process.env;
+
+  beforeEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+  });
+
+  afterEach(() => {
+    process.env = ORIGINAL_ENV;
+  });
+
+  it("calls the printable option with the JSON output", () => {
+    process.env.APP_NAME = "skeleton";
+    const messages: string[] = [];
+    printEnvironment({ printable: (m) => messages.push(m) });
+    expect(messages).toHaveLength(1);
+    const parsed = JSON.parse(messages[0]) as Record<string, string>;
+    expect(parsed.APP_NAME).toBe("skeleton");
+  });
+
+  it("uses the stringify option when provided", () => {
+    const messages: string[] = [];
+    printEnvironment({ printable: (m) => messages.push(m), stringify: () => "custom" });
+    expect(messages[0]).toBe("custom");
+  });
+
+  it("masks PASSWORD keys with asterisks", () => {
+    process.env.DB_PASSWORD = "mysecret";
+    const messages: string[] = [];
+    printEnvironment({ printable: (m) => messages.push(m) });
+    const parsed = JSON.parse(messages[0]) as Record<string, string>;
+    expect(parsed.DB_PASSWORD).toBe("********");
+  });
+
+  it("shows a WARNING when PASSWORD key holds the default placeholder", () => {
+    process.env.DB_PASSWORD = "SeT_tHiS_iN_0x3A-.env.secrets-";
+    const messages: string[] = [];
+    printEnvironment({ printable: (m) => messages.push(m) });
+    const parsed = JSON.parse(messages[0]) as Record<string, string>;
+    expect(parsed.DB_PASSWORD).toContain("WARNING");
+  });
+
+  it("masks embedded password in a URL key", () => {
+    process.env.DATABASE_URL = "postgres://user:secretpass@localhost/db";
+    const messages: string[] = [];
+    printEnvironment({ printable: (m) => messages.push(m) });
+    const parsed = JSON.parse(messages[0]) as Record<string, string>;
+    expect(parsed.DATABASE_URL).toContain("********");
+    expect(parsed.DATABASE_URL).not.toContain("secretpass");
+  });
+
+  it("leaves a URL without embedded password unchanged", () => {
+    process.env.PUBLIC_URL = "https://example.com/path";
+    const messages: string[] = [];
+    printEnvironment({ printable: (m) => messages.push(m) });
+    const parsed = JSON.parse(messages[0]) as Record<string, string>;
+    expect(parsed.PUBLIC_URL).toBe("https://example.com/path");
   });
 });

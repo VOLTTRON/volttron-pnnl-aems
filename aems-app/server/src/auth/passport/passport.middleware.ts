@@ -66,7 +66,7 @@ export class PassportMiddleware implements NestMiddleware, OnModuleDestroy {
       this.use = session({
         cookie: {
           maxAge: configService.session.maxAge,
-          secure: false,
+          secure: configService.nodeEnv === "production",
           httpOnly: true,
           sameSite: "lax",
         },

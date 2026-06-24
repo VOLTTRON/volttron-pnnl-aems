@@ -19,16 +19,16 @@ import { HistorianModule } from "./historian/historian.module";
 
 @Module({
   imports: [
-    ApiModule,
-    WorkerModule,
-    AuthModule,
-    HistorianModule,
     ConfigModule.forRoot({
       isGlobal: true,
       expandVariables: true,
       load: [AppConfigToken],
       envFilePath: [".env", ".env.local"],
     }),
+    ApiModule,
+    WorkerModule,
+    AuthModule,
+    HistorianModule,
     MiddlewareModule,
     FrameworkModule.register(),
     LoggingModule,
