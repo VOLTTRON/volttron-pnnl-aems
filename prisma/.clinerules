@@ -27,3 +27,4 @@
 - Always run migrations in development before committing schema changes
 - Generated Prisma client is consumed by server and common modules
 - README files should contain documentation only - no code examples belong in README files
+- See also: `../.claude/architecture/prisma.md`, `../.claude/architecture/build-system.md`; CLAUDE.md is the source of truth

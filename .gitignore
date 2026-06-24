@@ -12,7 +12,7 @@ docker-images.**
 # .vscode
 .DS_Store
 # claude
-.claude
+.claude/settings.local.json
 
 # secrets
 .env.secrets

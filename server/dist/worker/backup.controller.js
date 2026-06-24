@@ -17,6 +17,7 @@ exports.BackupWorkerController = void 0;
 const common_1 = require("@nestjs/common");
 const backup_service_1 = require("./backup.service");
 const token_guard_1 = require("./token.guard");
+const public_decorator_1 = require("../auth/public.decorator");
 let BackupWorkerController = BackupWorkerController_1 = class BackupWorkerController {
     constructor(workerService) {
         this.workerService = workerService;
@@ -124,6 +125,7 @@ __decorate([
 ], BackupWorkerController.prototype, "upsertKey", null);
 exports.BackupWorkerController = BackupWorkerController = BackupWorkerController_1 = __decorate([
     (0, common_1.Controller)("worker/backup"),
+    (0, public_decorator_1.Public)(),
     (0, common_1.UseGuards)(token_guard_1.WorkerTokenGuard),
     __metadata("design:paramtypes", [backup_service_1.BackupWorkerService])
 ], BackupWorkerController);

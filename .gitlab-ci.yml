@@ -11,12 +11,6 @@
 # https://hub.docker.com/r/library/node/tags/
 image: node:22.14.0
 
-# Pick zero or more services to be used on all builds.
-# Only needed when using a docker container to run your tests in.
-# Check out: https://docs.gitlab.com/ee/ci/services/index.html
-services:
-  - postgis/postgis:16-3.4
-  - docker:dind
 variables:
   BASE_DIR: "."
   POSTGRES_DB: skeleton
@@ -36,7 +30,7 @@ variables:
 # The key is explicit + versioned. Bump the version whenever `paths` changes,
 # otherwise GitLab keeps restoring the previous archive and its old contents.
 cache:
-  key: "yarn-v3"
+  key: "yarn-v4"
   paths:
     - "**/node_modules/"
     - "**/dist/"
@@ -57,9 +51,15 @@ build:
 
 test:
   stage: test
+  variables:
+    YARN_ENABLE_IMMUTABLE_INSTALLS: false
+    SKIP_MIGRATIONS: "true"
+  services:
+    - postgis/postgis:16-3.4
   script:
     - corepack enable
-    - chmod +x ${BASE_DIR}/test.sh
+    - chmod +x ${BASE_DIR}/build.sh ${BASE_DIR}/test.sh
+    - ${BASE_DIR}/build.sh
     - ${BASE_DIR}/test.sh
   artifacts:
     reports:
@@ -69,6 +69,11 @@ test:
 
 publish_init:
   image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_COMMIT_BRANCH == "develop"
@@ -83,6 +88,11 @@ publish_init:
 
 publish_server:
   image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_COMMIT_BRANCH == "develop"
@@ -97,6 +107,11 @@ publish_server:
 
 publish_client:
   image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_COMMIT_BRANCH == "develop"

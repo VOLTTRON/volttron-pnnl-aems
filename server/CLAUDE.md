@@ -45,3 +45,8 @@ NestJS 11 + Apollo Server 4 + Pothos (code-first GraphQL) backed by Prisma. Hand
 - Adding a new sub-module? Wire it into [app.module.ts](src/app.module.ts). The project uses module-per-aggregate, mirroring the GraphQL folder layout.
 - WebSocket / Socket.IO + Express session sharing is fiddly — look at the existing `websocket.service.ts` before adding new WS auth.
 - `main` branch for PRs is `develop`.
+
+## Further reading
+
+- Architecture: [../.claude/architecture/server.md](../.claude/architecture/server.md), [../.claude/architecture/graphql.md](../.claude/architecture/graphql.md), [../.claude/architecture/auth.md](../.claude/architecture/auth.md).
+- Project rules: [../.claude/rules.md](../.claude/rules.md).

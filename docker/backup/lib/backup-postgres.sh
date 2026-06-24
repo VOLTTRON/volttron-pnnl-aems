@@ -34,6 +34,12 @@ docker compose exec -T "$SERVICE" sh -c '
     set -e
     if [ -n "${POSTGRES_PASSWORD_FILE:-}" ] && [ -r "$POSTGRES_PASSWORD_FILE" ]; then
         PGPASSWORD="$(cat "$POSTGRES_PASSWORD_FILE")"
+    elif [ -n "${POSTGRES_PASSWORD:-}" ]; then
+        PGPASSWORD="$POSTGRES_PASSWORD"
+    fi
+    if [ -z "${PGPASSWORD:-}" ]; then
+        echo "backup-postgres: no password available (POSTGRES_PASSWORD_FILE/POSTGRES_PASSWORD unset)" >&2
+        exit 3
     fi
     export PGPASSWORD
     USER="${POSTGRES_USER:-postgres}"

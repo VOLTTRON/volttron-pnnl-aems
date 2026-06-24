@@ -32,3 +32,8 @@ Because this is a `portal:` dep, server/client resolve the **built** output from
 - Used by only one → keep it in that module.
 - Tied to Prisma model shapes but reusable → `common/` (depends on `@local/prisma`).
 - Touches Nest/React/runtime specifics → not here.
+
+## Further reading
+
+- Architecture: [../.claude/architecture/common.md](../.claude/architecture/common.md), [../.claude/architecture/build-system.md](../.claude/architecture/build-system.md).
+- Project rules: [../.claude/rules.md](../.claude/rules.md).

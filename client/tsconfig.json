@@ -26,7 +26,8 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
-    "target": "ESNext"
+    "target": "ESNext",
+    "types": ["jest", "node"]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.json", ".next/types/**/*.ts", "modules/server/server.ts"],
   "exclude": ["typings/browser.d.ts", "typings/browser", "node_modules", "modules"]

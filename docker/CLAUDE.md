@@ -68,3 +68,8 @@ Image builds for `client`, `server`, `prisma`, and `common` use the **repo root 
 - Traefik v3 syntax differs from v2 in places; check `traefik:v3.5.3` docs before copying older snippets.
 - If you change secret names in the top-level `secrets:` block, every `secrets: [...]` reference in each service must match — no fuzzy lookup.
 - Optional profiles are opt-in; a service with `profiles: [...]` is invisible to `docker compose up` unless the profile is selected. Don't remove profile gating to "make it simpler" — it's load-bearing for minimal deploys.
+
+## Further reading
+
+- Architecture: [../.claude/architecture/docker.md](../.claude/architecture/docker.md), [../.claude/architecture/deployment.md](../.claude/architecture/deployment.md).
+- Project rules: [../.claude/rules.md](../.claude/rules.md).

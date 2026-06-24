@@ -77,7 +77,7 @@ let PassportMiddleware = PassportMiddleware_1 = class PassportMiddleware {
             this.use = session({
                 cookie: {
                     maxAge: configService.session.maxAge,
-                    secure: false,
+                    secure: configService.nodeEnv === "production",
                     httpOnly: true,
                     sameSite: "lax",
                 },

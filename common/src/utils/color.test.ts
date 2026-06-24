@@ -58,7 +58,6 @@ describe("Color", () => {
   });
 
   it("should throw an error for invalid color values", () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     expect(() => new Color("Invalid" as any)).toThrow(new Error("Invalid color values"));
     expect(() => new Color("#GG0000")).toThrow(new Error("Invalid color values"));
   });
@@ -452,7 +451,6 @@ describe("Color Class Integration with colorize Function", () => {
       const color = new Color("#ff6432");
       // Note: RGB string colorize won't work directly with colorize function
       // This tests the behavior when an invalid color input is provided
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const result = colorize("Test", { color: color.rgb as any });
       expect(result).toBe("Test"); // Should return original text for invalid input
     });
@@ -460,7 +458,6 @@ describe("Color Class Integration with colorize Function", () => {
     it("should use Color class HSL string output with colorize function", () => {
       const color = new Color("#ff0000");
       // Note: HSL string colorize won't work directly with colorize function
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const result = colorize("Test", { color: color.hsl as any });
       expect(result).toBe("Test"); // Should return original text for invalid input
     });
@@ -476,7 +473,6 @@ describe("Color Class Integration with colorize Function", () => {
       const colorName = color.toString(ColorType.Color);
       if (colorName !== color.hex) {
         // Only test if a valid color name was found
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const nameResult = colorize("Test", { color: colorName as any });
         expect(nameResult).toContain("Test");
         expect(nameResult).toContain("\x1b[0m");
@@ -593,5 +589,129 @@ describe("Type Safety", () => {
     const allBackground: AllBackgroundName = "bgBrightRed";
     const result = colorize("Test", { background: allBackground });
     expect(result).toBe("\x1b[101mTest\x1b[0m");
+  });
+
+  it("returns text without background code for an unrecognised background string", () => {
+    const result = colorize("Test", { background: "notacolor" as any });
+    const esc = String.fromCharCode(0x1b);
+    expect(result).not.toMatch(new RegExp(`${esc}\\[4[0-9]m`));
+  });
+
+  it("returns text without color code for an invalid hex color string", () => {
+    const result = colorize("Test", { color: "#gggggg" as any });
+    const esc = String.fromCharCode(0x1b);
+    expect(result).not.toMatch(new RegExp(`${esc}\\[38;2;`));
+  });
+});
+
+describe("Color.toString overloads", () => {
+  it("Hex returns 6-char hex", () => {
+    const c = new Color("#ff0000");
+    expect(c.toString(ColorType.Hex)).toBe("#ff0000");
+  });
+
+  it("HexA returns 8-char hex when 6-char source", () => {
+    const c = new Color("#ff0000");
+    expect(c.toString(ColorType.HexA)).toBe("#ff0000ff");
+  });
+
+  it("HexA returns 7-char (6+1) slice when already 8-char hex", () => {
+    const c = new Color("#ff000080");
+    // 8-char hex — HexA slice should be the first 7 chars
+    expect(c.toString(ColorType.HexA)).toBe("#ff0000");
+  });
+
+  it("RGB returns rgb() string", () => {
+    const c = new Color(255, 0, 0);
+    expect(c.toString(ColorType.RGB)).toBe("rgb(255, 0, 0)");
+  });
+
+  it("RGBA returns rgba() string", () => {
+    const c = new Color(255, 0, 0);
+    expect(c.toString(ColorType.RGBA)).toBe("rgba(255, 0, 0, 1)");
+  });
+
+  it("HSL returns hsl() string — max===g branch", () => {
+    // Pure green: max channel is g
+    const c = new Color(0, 200, 0);
+    expect(c.toString(ColorType.HSL)).toMatch(/^hsl\(/);
+  });
+
+  it("HSL returns hsl() string — max===b branch", () => {
+    // Pure blue: max channel is b
+    const c = new Color(0, 0, 200);
+    expect(c.toString(ColorType.HSL)).toMatch(/^hsl\(/);
+  });
+
+  it("HSL returns hsl() string — max===r branch", () => {
+    // Pure red: max channel is r
+    const c = new Color(200, 0, 0);
+    expect(c.toString(ColorType.HSL)).toMatch(/^hsl\(/);
+  });
+
+  it("HSL achromatic (max===min) returns hsl(0, 0%, ...)", () => {
+    const c = new Color(128, 128, 128);
+    expect(c.toString(ColorType.HSL)).toBe("hsl(0, 0%, 50%)");
+  });
+
+  it("HSLA returns hsla() string", () => {
+    const c = new Color(255, 0, 0);
+    expect(c.toString(ColorType.HSLA)).toMatch(/^hsla\(/);
+  });
+
+  it("Color returns named color when hex matches a known name", () => {
+    const c = new Color("red");
+    expect(c.toString(ColorType.Color)).toBe("red");
+  });
+
+  it("Color returns hex when no name match", () => {
+    const c = new Color("#010203");
+    expect(c.toString(ColorType.Color)).toBe("#010203");
+  });
+
+  it("default (no arg) returns hex", () => {
+    const c = new Color("#abcdef");
+    expect(c.toString()).toBe("#abcdef");
+  });
+});
+
+describe("Color valueOf and Symbol.toPrimitive", () => {
+  const c = new Color("#ff0000");
+
+  it("valueOf() returns hex string", () => {
+    expect(c.valueOf()).toBe("#ff0000");
+  });
+
+  it("[Symbol.toPrimitive]('string') returns hex", () => {
+    expect(c[Symbol.toPrimitive]("string")).toBe("#ff0000");
+  });
+
+  it("[Symbol.toPrimitive]('default') returns hex", () => {
+    expect(c[Symbol.toPrimitive]("default")).toBe("#ff0000");
+  });
+
+  it("[Symbol.toPrimitive]('number') returns integer from hex", () => {
+    const n = c[Symbol.toPrimitive]("number");
+    expect(typeof n).toBe("number");
+    expect(n).toBe(parseInt("#ff0000", 16));
+  });
+
+  it("[Symbol.toPrimitive]('number') with 8-char hex slices to 7 chars before parsing", () => {
+    const c8 = new Color("#ff000080");
+    const n = c8[Symbol.toPrimitive]("number");
+    expect(n).toBe(parseInt("#ff0000", 16));
+  });
+
+  it("[Symbol.toPrimitive] unknown hint returns true", () => {
+    const toPrimitive = c[Symbol.toPrimitive].bind(c) as (hint: string) => unknown;
+    expect(toPrimitive("boolean")).toBe(true);
+  });
+});
+
+describe("Color constructor — named color branch", () => {
+  it("accepts (name, namedColorWord) constructor form", () => {
+    const c = new Color("myred", "red");
+    expect(c.name).toBe("myred");
+    expect(c.hex).toBe("#ff0000");
   });
 });

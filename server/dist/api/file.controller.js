@@ -102,7 +102,7 @@ let FileController = FileController_1 = class FileController {
                 const bytes = file.buffer;
                 const buffer = Buffer.from(bytes);
                 const contentLength = buffer.length;
-                const fileName = (0, file_1.getObjectKey)({ name: file.filename });
+                const fileName = (0, file_1.getObjectKey)({ name: file.originalname });
                 const filePath = (0, node_path_1.join)(uploadDir, fileName);
                 const recordedFile = await uploadFile(user?.id ?? "", fileName, file.mimetype, contentLength, filePath, buffer, this.prismaService.prisma);
                 fsFiles.push(fileName);
@@ -141,7 +141,26 @@ __decorate([
         type: FilesUploadDto,
     }),
     (0, roles_decorator_1.Roles)(common_1.RoleType.User),
-    (0, common_2.UseInterceptors)((0, platform_express_1.FilesInterceptor)("files")),
+    (0, common_2.UseInterceptors)((0, platform_express_1.FilesInterceptor)("files", 10, {
+        limits: { fileSize: 50 * 1024 * 1024 },
+        fileFilter: (_req, file, cb) => {
+            const allowed = new Set([
+                "image/jpeg",
+                "image/png",
+                "image/gif",
+                "image/webp",
+                "image/svg+xml",
+                "application/pdf",
+                "text/plain",
+                "text/csv",
+                "application/json",
+                "application/zip",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ]);
+            cb(null, allowed.has(file.mimetype));
+        },
+    })),
     (0, common_2.Post)("upload"),
     __param(0, (0, user_decorator_1.User)()),
     __param(1, (0, common_2.Res)()),

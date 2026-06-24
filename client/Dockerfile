@@ -103,6 +103,9 @@ RUN mkdir .next
 COPY --from=builder /app/client/.next/standalone ./
 COPY --from=builder /app/client/.next/static ./.next/static
 
+RUN chown -R node:node /app/client
+USER node
+
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"

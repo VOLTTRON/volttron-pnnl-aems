@@ -28,15 +28,15 @@ exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            api_module_1.ApiModule,
-            worker_module_1.WorkerModule,
-            auth_module_1.AuthModule,
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
                 expandVariables: true,
                 load: [app_config_1.AppConfigToken],
                 envFilePath: [".env", ".env.local"],
             }),
+            api_module_1.ApiModule,
+            worker_module_1.WorkerModule,
+            auth_module_1.AuthModule,
             middleware_module_1.MiddlewareModule,
             framework_module_1.FrameworkModule.register(),
             logging_module_1.LoggingModule,

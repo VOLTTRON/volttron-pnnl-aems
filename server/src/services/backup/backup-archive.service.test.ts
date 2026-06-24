@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-unsafe-assignment */
 import { BackupArchiveService } from "./backup-archive.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { BackupSubscriptionPublisher } from "./backup-publisher.service";

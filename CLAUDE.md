@@ -66,3 +66,10 @@ Per-module commands (`yarn` inside the sub-project directory):
 - PostGIS is required — the DB image is custom ([docker/database/Dockerfile](docker/database/Dockerfile)). Don't assume vanilla Postgres.
 - Main branch for PRs is `develop` (not `main`).
 - `.clinerules` at the root is the legacy Cline equivalent of this file — keep the two in rough sync if you change one.
+
+## Further reading
+
+- [.claude/rules.md](.claude/rules.md) — full project rules of the road (long form of the guardrails above).
+- [.claude/architecture/](.claude/architecture/) — design docs per area: [overview](.claude/architecture/overview.md), [build-system](.claude/architecture/build-system.md), [prisma](.claude/architecture/prisma.md), [common](.claude/architecture/common.md), [server](.claude/architecture/server.md), [client](.claude/architecture/client.md), [graphql](.claude/architecture/graphql.md), [auth](.claude/architecture/auth.md), [docker](.claude/architecture/docker.md), [testing](.claude/architecture/testing.md), [deployment](.claude/architecture/deployment.md).
+- [.claude/agents/](.claude/agents/) — specialized subagents: `pothos-builder`, `prisma-schema`, `auth-flow`, `docker-stack`.
+- [.claude/commands/](.claude/commands/) — project slash commands: `/rebuild-prisma`, `/regen-graphql`, `/full-build`, `/docker-up`, `/new-migration`, `/check-all`.

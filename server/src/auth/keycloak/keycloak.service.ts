@@ -191,8 +191,6 @@ export class KeycloakAuthjsService implements AuthjsProvider {
 
   create() {
     return Keycloak({
-      // we trust our Keycloak server to provide the correct user information
-      allowDangerousEmailAccountLinking: true,
       id: Provider,
       checks: this.configService.keycloak.checks,
       clientId: this.configService.keycloak.clientId,

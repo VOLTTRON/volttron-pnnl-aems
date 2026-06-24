@@ -29,3 +29,4 @@
 - Use Blueprint.js components and theming system
 - Follow Next.js App Router patterns with server components
 - README files should contain documentation only - no code examples belong in README files
+- See also: `../.claude/architecture/client.md`, `../.claude/architecture/graphql.md`; CLAUDE.md is the source of truth

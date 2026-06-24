@@ -11,7 +11,7 @@ import { Roles } from "@/auth/roles.decorator";
 import { User } from "@/auth/user.decorator";
 import { ApiBody, ApiConsumes, ApiProperty, ApiTags } from "@nestjs/swagger";
 import { AppConfigService } from "@/app.config";
-import { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { getObjectKey } from "@/utils/file";
 import "multer";
 
@@ -112,7 +112,28 @@ export class FileController {
     type: FilesUploadDto,
   })
   @Roles(RoleType.User)
-  @UseInterceptors(FilesInterceptor("files"))
+  @UseInterceptors(
+    FilesInterceptor("files", 10, {
+      limits: { fileSize: 50 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) => {
+        const allowed = new Set([
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+          "image/svg+xml",
+          "application/pdf",
+          "text/plain",
+          "text/csv",
+          "application/json",
+          "application/zip",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ]);
+        cb(null, allowed.has(file.mimetype));
+      },
+    }),
+  )
   @Post("upload")
   async upload(@User() user: Express.User, @Res() res: Response, @UploadedFiles() files: Express.Multer.File[]) {
     if (files.length === 0) {
@@ -147,7 +168,7 @@ export class FileController {
         const bytes = file.buffer;
         const buffer = Buffer.from(bytes);
         const contentLength = buffer.length;
-        const fileName = getObjectKey({ name: file.filename });
+        const fileName = getObjectKey({ name: file.originalname });
         const filePath = join(uploadDir, fileName);
 
         const recordedFile = await uploadFile(

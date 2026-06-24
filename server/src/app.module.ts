@@ -16,15 +16,15 @@ import { MiddlewareModule } from "@/middleware/middleware.module";
 
 @Module({
   imports: [
-    ApiModule,
-    WorkerModule,
-    AuthModule,
     ConfigModule.forRoot({
       isGlobal: true,
       expandVariables: true,
       load: [AppConfigToken],
       envFilePath: [".env", ".env.local"],
     }),
+    ApiModule,
+    WorkerModule,
+    AuthModule,
     MiddlewareModule,
     FrameworkModule.register(),
     LoggingModule,

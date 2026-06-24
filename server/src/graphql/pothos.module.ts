@@ -137,13 +137,12 @@ export class PothosGraphQLModule {
 
                       return true; // Allow connection
                     } catch (error) {
-                      // Log error but allow connection - authorization happens at resolver level
                       console.error("WebSocket authentication error in onConnect:", error);
-                      return true;
+                      return false;
                     }
                   }
 
-                  return true; // Allow connection even without authentication
+                  return false;
                 },
               },
               "subscriptions-transport-ws": {
@@ -166,11 +165,11 @@ export class PothosGraphQLModule {
                       return { user }; // Return connection context
                     } catch (error) {
                       console.error("WebSocket authentication error in onConnect (legacy):", error);
-                      return {}; // Allow connection without user
+                      return false;
                     }
                   }
 
-                  return {}; // Allow connection
+                  return false;
                 },
               },
             },

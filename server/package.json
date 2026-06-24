@@ -132,7 +132,7 @@
     },
     "testRegex": ".*\\.(?:spec|test)\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.ts$": "ts-jest"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
@@ -145,7 +145,10 @@
       "clover",
       "cobertura"
     ],
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": [
+      "<rootDir>/../jest.setup.ts"
+    ]
   },
   "packageManager": "yarn@4.9.1"
 }
