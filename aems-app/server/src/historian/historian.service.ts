@@ -1429,9 +1429,11 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
       if (allTempIds.length > 0) {
         // Setpoint-error always bins because the per-bucket walk in
-        // computeBucketErrorSeries needs a fixed grid; below the configured
-        // raw-data threshold we still derive a bucket width targeting `count`.
-        const bucketInterval = this.deriveBucketInterval(startTime, endTime);
+        // computeBucketErrorSeries needs a fixed grid. The width is also
+        // floored (see `deriveSetpointErrorBucketInterval`) so short ranges
+        // don't pick a grid finer than the RTU sampling cadence and litter
+        // the chart with spurious "Missing Data" stripes.
+        const bucketInterval = this.deriveSetpointErrorBucketInterval(startTime, endTime);
 
         const tempQuery = `
           SELECT
@@ -1653,6 +1655,24 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Human-readable bucket widths (seconds). Both `deriveBucketInterval` and
+   * `deriveSetpointErrorBucketInterval` snap their target up to the next
+   * entry here so SQL `date_bin` and the JS bucket walk land on the same
+   * grid.
+   */
+  private static readonly NICE_BUCKET_SECONDS = [
+    10, 30,
+    60, 120, 300, 600, 900, 1800,
+    3600, 7200, 10800, 21600, 43200,
+    86400, 604800,
+  ];
+
+  private static snapToNiceSeconds(targetSec: number): number {
+    const list = HistorianService.NICE_BUCKET_SECONDS;
+    return list.find((s) => s >= targetSec) ?? list[list.length - 1];
+  }
+
+  /**
    * Derive a sensible bucket interval for a query range, targeting the
    * configured `historian.binning.count` and snapping to a human-readable
    * width. Returns both a Postgres interval literal (e.g. "300 seconds")
@@ -1663,14 +1683,49 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     const rangeMs = Math.max(1, endTime.getTime() - startTime.getTime());
     const targetBuckets = Math.max(1, this.configService.historian.binning.count);
     const targetSec = Math.max(1, Math.ceil(rangeMs / 1000 / targetBuckets));
-    const niceSeconds = [
-      10, 30,
-      60, 120, 300, 600, 900, 1800,
-      3600, 7200, 10800, 21600, 43200,
-      86400, 604800,
-    ];
-    const chosen = niceSeconds.find((s) => s >= targetSec) ?? niceSeconds[niceSeconds.length - 1];
+    const chosen = HistorianService.snapToNiceSeconds(targetSec);
     return { sql: `${chosen} seconds`, ms: chosen * 1000 };
+  }
+
+  /**
+   * Compute the minimum setpoint-error bucket width (seconds, snapped to
+   * the nice list) from binning config. Pure function — exposed for tests.
+   * Honors an explicit `setpointErrorMinBucket` override; otherwise derives
+   * from `start * unit / count` (the bucket width binning would produce
+   * for a range exactly at the raw threshold).
+   */
+  static computeSetpointErrorFloorSec(binning: {
+    count: number;
+    start: number;
+    unit: "milliseconds" | "seconds" | "minutes" | "hours" | "days" | "weeks" | "months" | "years";
+    setpointErrorMinBucket?: string;
+  }): number {
+    let raw: number;
+    if (binning.setpointErrorMinBucket) {
+      raw = Math.max(1, Math.ceil(HistorianService.parseClientInterval(binning.setpointErrorMinBucket).ms / 1000));
+    } else {
+      const thresholdMs = Math.max(0, binning.start) * HistorianService.msPerDurationUnit(binning.unit);
+      raw = Math.max(1, Math.ceil(thresholdMs / 1000 / Math.max(1, binning.count)));
+    }
+    return HistorianService.snapToNiceSeconds(raw);
+  }
+
+  /**
+   * Setpoint-error bucket interval. The error series is computed by walking
+   * a fixed grid (LOCF over occupancy + four setpoints, AVG over zone temp),
+   * so on short ranges `deriveBucketInterval` produces buckets finer than
+   * the RTU sampling cadence and most buckets land empty — which the client
+   * then renders as spurious "Missing Data" stripes. Floor the width at
+   * either an explicit override (`HISTORIAN_SETPOINT_ERROR_MIN_BUCKET`,
+   * e.g. `5m`) or the implicit threshold derived from the binning config
+   * (`start * unit / count` — i.e. the bucket width binning would produce
+   * for a range exactly at the raw threshold).
+   */
+  private deriveSetpointErrorBucketInterval(startTime: Date, endTime: Date): { sql: string; ms: number } {
+    const base = this.deriveBucketInterval(startTime, endTime);
+    const flooredSec = HistorianService.computeSetpointErrorFloorSec(this.configService.historian.binning);
+    if (base.ms >= flooredSec * 1000) return base;
+    return { sql: `${flooredSec} seconds`, ms: flooredSec * 1000 };
   }
 
   /**
@@ -1963,8 +2018,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     };
 
     // Setpoint-error always bins because the per-bucket walk in
-    // computeBucketErrorSeries needs a fixed grid.
-    const bucketInterval = this.deriveBucketInterval(startTime, endTime);
+    // computeBucketErrorSeries needs a fixed grid. The width is also floored
+    // (see `deriveSetpointErrorBucketInterval`) so short ranges don't pick a
+    // grid finer than the RTU sampling cadence.
+    const bucketInterval = this.deriveSetpointErrorBucketInterval(startTime, endTime);
 
     try {
       const pathToId = await this.resolveTopicIds([

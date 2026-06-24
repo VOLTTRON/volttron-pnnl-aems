@@ -97,7 +97,7 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
           });
         }
       } catch (error: any) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+         
         this.logger.error(`Error parsing Grafana config file ${file}:`, error);
         continue;
       }

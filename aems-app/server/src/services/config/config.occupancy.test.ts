@@ -18,7 +18,7 @@ describe("toMinutes", () => {
     ["bad", null],
     ["12:3", null],
   ])("returns null for invalid input %p", (input, expected) => {
-    expect(toMinutes(input as string | null | undefined)).toBe(expected);
+    expect(toMinutes(input)).toBe(expected);
   });
 });
 
