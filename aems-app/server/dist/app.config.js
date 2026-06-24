@@ -188,6 +188,7 @@ class AppConfigService {
                 count: parseInt(process.env.HISTORIAN_BINNING_COUNT ?? "500"),
                 start: parseInt(process.env.HISTORIAN_BINNING_START ?? "48"),
                 unit: toDurationUnit(process.env.HISTORIAN_BINNING_UNIT ?? "hours"),
+                setpointErrorMinBucket: process.env.HISTORIAN_SETPOINT_ERROR_MIN_BUCKET || undefined,
             },
         };
         this.ext = Object.entries(process.env)

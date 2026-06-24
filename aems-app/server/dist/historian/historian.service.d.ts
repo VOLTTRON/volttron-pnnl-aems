@@ -36,7 +36,16 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     getMultiSystemUnit(campus: string, building: string, systems: string[], deniedSystems: string[], metric: UnitMetric, startTime: Date, endTime: Date, interval?: string): Promise<HistorianMultiSystemData[]>;
     getMultiSystemUnitRanges(campus: string, building: string, systems: string[], deniedSystems: string[], metric: UnitMetric, startTime: Date, endTime: Date): Promise<HistorianMultiSystemRanges[]>;
     getMultiSystemSetpointErrorRanges(campus: string, building: string, systems: string[], deniedSystems: string[], startTime: Date, endTime: Date): Promise<HistorianMultiSystemRanges[]>;
+    private static readonly NICE_BUCKET_SECONDS;
+    private static snapToNiceSeconds;
     private deriveBucketInterval;
+    static computeSetpointErrorFloorSec(binning: {
+        count: number;
+        start: number;
+        unit: "milliseconds" | "seconds" | "minutes" | "hours" | "days" | "weeks" | "months" | "years";
+        setpointErrorMinBucket?: string;
+    }): number;
+    private deriveSetpointErrorBucketInterval;
     private resolveBucketing;
     private static msPerDurationUnit;
     private static parseClientInterval;

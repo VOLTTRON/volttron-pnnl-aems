@@ -115,6 +115,7 @@ export declare class AppConfigService {
             count: number;
             start: number;
             unit: ReturnType<typeof toDurationUnit>;
+            setpointErrorMinBucket?: string;
         };
     };
     ext: Record<string, ExtConfig>;
