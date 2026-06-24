@@ -258,7 +258,21 @@ export function ECharts({
   useEffect(() => {
     if (chartRef.current !== null) {
       const chart = getInstanceByDom(chartRef.current);
-      loading === true ? chart!.showLoading() : chart!.hideLoading();
+      if (loading === true) {
+        const isDark = theme === "dark";
+        chart!.showLoading(
+          "default",
+          isDark
+            ? {
+                maskColor: "rgba(45, 45, 45, 0.8)",
+                textColor: "#fff",
+                color: "#fff",
+              }
+            : undefined,
+        );
+      } else {
+        chart!.hideLoading();
+      }
     }
   }, [loading, theme]);
 

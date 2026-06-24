@@ -43,7 +43,8 @@ RUN apk add --no-cache \
         curl \
         jq \
         git \
-        tzdata
+        tzdata \
+        su-exec
 
 WORKDIR /app
 COPY worker/package.json worker/package-lock.json* ./
@@ -61,12 +62,15 @@ RUN chmod +x /usr/local/bin/init-keys.sh /usr/local/bin/entrypoint.sh
 RUN (addgroup -g 999 docker 2>/dev/null || addgroup docker 2>/dev/null || true) \
     && addgroup node docker
 
-# Pre-create mount-point directories with correct ownership so init-keys.sh
-# can write into them when running as node (bind mounts land on top of these).
+# Pre-create mount-point directories with correct ownership. Image-level
+# ownership propagates to first-creation of the backup-data named volume;
+# bind mounts and tmpfs land on top of these and get fixed up by entrypoint.sh.
 RUN mkdir -p /host-secrets /var/lib/backup/staging /var/lib/backup/pending \
     && chown -R node:node /host-secrets /var/lib/backup
 
-USER node
+# Entrypoint runs as root so it can chown bind-mount/tmpfs targets that land
+# on top of the image's pre-created dirs, then drops to node via su-exec
+# before invoking the worker.
 
 # The sidecar expects the repo root to be mounted at /workspace (read-only)
 # and the backup secrets directory at /run/secrets/backup.
