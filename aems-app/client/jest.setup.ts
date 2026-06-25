@@ -14,6 +14,16 @@ console.error = (...args: Parameters<typeof console.error>) => {
   _consoleError(...args);
 };
 
+// Apollo Client 3.14 emits deprecation warnings (linked to https://go.apollo.dev/c/err)
+// from MockedProvider's internal use of `addTypename` and `canonizeResults`, even when
+// callers haven't opted in. Removing the props would change mock-matching semantics, so
+// filter the warnings here to keep test output clean.
+const _consoleWarn = console.warn.bind(console);
+console.warn = (...args: Parameters<typeof console.warn>) => {
+  if (args.some((a) => typeof a === "string" && a.includes("go.apollo.dev/c/err"))) return;
+  _consoleWarn(...args);
+};
+
 // Blueprint.js uses ResizeObserver internally (Overlay2/Dialog portals)
 global.ResizeObserver = class ResizeObserver {
   observe() {}

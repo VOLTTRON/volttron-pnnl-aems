@@ -68,14 +68,14 @@ describe("Navigation", () => {
     expect(screen.getAllByRole("menuitem").length).toBeGreaterThan(0);
   });
 
-  it("renders publicly visible routes (About is display:true for all)", () => {
+  it("renders publicly visible routes (Welcome is display:true for all)", () => {
     renderNavigation();
-    expect(screen.getByText("About")).toBeInTheDocument();
+    expect(screen.getByText("Welcome")).toBeInTheDocument();
   });
 
-  it("renders Demo route for user", () => {
+  it("renders Info route for user", () => {
     renderNavigation();
-    expect(screen.getByText("Demo")).toBeInTheDocument();
+    expect(screen.getByText("Info")).toBeInTheDocument();
   });
 
   it("renders Admin group for admin users (parent of admin routes)", () => {

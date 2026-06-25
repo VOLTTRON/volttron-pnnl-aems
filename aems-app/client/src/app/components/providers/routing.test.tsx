@@ -88,14 +88,14 @@ describe("isGranted", () => {
 
 describe("findRedirect", () => {
   it("returns a non-index, displayable route for any authenticated user", () => {
-    // 'about' has display: true and no scope — granted for any role including empty
+    // 'welcome' has display: true and no scope — granted for any role including empty
     const result = findRedirect(staticRoutes, { role: "user" });
-    expect(result?.data?.id).toBe("about");
+    expect(result?.data?.id).toBe("welcome");
   });
 
   it("returns the same non-index, displayable route for admin", () => {
     const result = findRedirect(staticRoutes, { role: "admin" });
-    expect(result?.data?.id).toBe("about");
+    expect(result?.data?.id).toBe("welcome");
   });
 
   it("falls back to login when routes tree has no displayable non-index routes", () => {
@@ -120,8 +120,8 @@ describe("findRoute", () => {
   });
 
   it("resolves a top-level static path", () => {
-    const route = findRoute(staticRoutes, "/about");
-    expect(route.data?.id).toBe("about");
+    const route = findRoute(staticRoutes, "/welcome");
+    expect(route.data?.id).toBe("welcome");
   });
 
   it("resolves a nested static path", () => {
@@ -135,16 +135,16 @@ describe("findRoute", () => {
   });
 
   it("resolves items overload with ancestor array", () => {
-    const { route, items } = findRoute(staticRoutes, "/about", true);
-    expect(route.data?.id).toBe("about");
+    const { route, items } = findRoute(staticRoutes, "/welcome", true);
+    expect(route.data?.id).toBe("welcome");
     expect(Array.isArray(items)).toBe(true);
   });
 });
 
 describe("findPath", () => {
   it("returns path string from route node ancestors", () => {
-    const route = findRoute(staticRoutes, "/about");
-    expect(findPath(route as any)).toContain("about");
+    const route = findRoute(staticRoutes, "/welcome");
+    expect(findPath(route as any)).toContain("welcome");
   });
 
   it("builds path from Route array", () => {
@@ -176,9 +176,9 @@ describe("RouteProvider", () => {
   });
 
   it("exposes route matching mocked pathname", () => {
-    mockPathname.mockReturnValue("/about");
+    mockPathname.mockReturnValue("/welcome");
     const { result } = renderHook(() => useContext(RouteContext), { wrapper });
-    expect(result.current.route?.data?.id).toBe("about");
+    expect(result.current.route?.data?.id).toBe("welcome");
   });
 
   it("addResolver registers a resolver", () => {

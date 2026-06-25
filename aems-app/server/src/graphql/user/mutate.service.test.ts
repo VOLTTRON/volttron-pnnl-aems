@@ -9,6 +9,7 @@ import { CommentQuery } from "../comment/query.service";
 import { CommentMutation } from "../comment/mutate.service";
 import { BannerQuery } from "../banner/query.service";
 import { BannerMutation } from "../banner/mutate.service";
+import { UnitQuery } from "../unit/query.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 
@@ -68,6 +69,10 @@ function makeBannerMutation(): BannerMutation {
   return { BannerCreate: "BannerCreate" } as unknown as BannerMutation;
 }
 
+function makeUnitQuery(): UnitQuery {
+  return { UnitWhereUnique: "UnitWhereUnique" } as unknown as UnitQuery;
+}
+
 function makePrisma(returnUser: object = { id: "u1", email: "a@b.com" }) {
   return {
     prisma: {
@@ -96,6 +101,7 @@ function makeAllDeps(prisma: PrismaService, sub: SubscriptionService) {
     makeAccountQuery(),
     makeCommentQuery(),
     makeBannerQuery(),
+    makeUnitQuery(),
     makeAccountMutation(),
     makeCommentMutation(),
     makeBannerMutation(),
@@ -138,13 +144,15 @@ describe("UserMutation", () => {
   });
 
   describe("updateUser resolver", () => {
+    const adminCtx = { user: { id: "admin", authRoles: { admin: true } } };
+
     it("calls prisma.user.update with where and data", async () => {
       const prisma = makePrisma({ id: "u1", email: "updated@b.com" });
       const sub = makeSubscription();
       makeAllDeps(prisma, sub);
 
-      const resolve = resolvers["updateUser"] as (q: unknown, r: unknown, args: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { id: "u1" }, update: { email: "updated@b.com" } });
+      const resolve = resolvers["updateUser"] as (q: unknown, r: unknown, args: unknown, c: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { id: "u1" }, update: { email: "updated@b.com" } }, adminCtx);
 
       expect(prisma.prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: "u1" }, data: { email: "updated@b.com" } }),
@@ -157,8 +165,8 @@ describe("UserMutation", () => {
       const sub = makeSubscription();
       makeAllDeps(prisma, sub);
 
-      const resolve = resolvers["updateUser"] as (q: unknown, r: unknown, args: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { id: "u1" }, update: { email: "updated@b.com" } });
+      const resolve = resolvers["updateUser"] as (q: unknown, r: unknown, args: unknown, c: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { id: "u1" }, update: { email: "updated@b.com" } }, adminCtx);
 
       expect(sub.publish).toHaveBeenCalledTimes(2);
       expect(sub.publish).toHaveBeenCalledWith("User", expect.objectContaining({ id: "u1" }));
