@@ -17,7 +17,7 @@ urlcolor: blue
 
 ## Audience and Scope
 
-This guide is for the **administrator who installs and configures the AEMS software stack** on a host computer. It is the bridge between an off-the-shelf operating system and the moment when a running web UI is reachable at `https://<HOSTNAME>` and a building installer can begin to configure VOLTTRON, BACnet drivers, and thermostats.
+This guide is for the **administrator who installs and configures the AEMS software stack** on a host computer. This guide bridges the gap between an off-the-shelf operating system and the moment when a running web UI is reachable at `https://<HOSTNAME>` and a building installer can begin to configure VOLTTRON, BACnet drivers, and thermostats.
 
 **In scope:**
 
@@ -27,7 +27,7 @@ This guide is for the **administrator who installs and configures the AEMS softw
 - DNS, TLS, and reverse-proxy configuration.
 - Cloning the AEMS repository, populating secrets, and bringing the Docker Compose stack up.
 - Creating the first administrator account through the in-app registration flow.
-- Hardening Keycloak, configuring backups, and validating the deployment.
+- Configuring backups and validating the deployment.
 - Routine maintenance, updates, and a deployment-phase troubleshooting catalog.
 - Clean hand-off to the companion guides.
 
@@ -91,7 +91,7 @@ A working AEMS deployment has three distinct phases:
 2. **Site configuration** — on the running stack, configure the VOLTTRON platform's BACnet driver to talk to the building's RTUs and thermostats, install the historian agent's database connection, configure the weather agent's station, and wire the target agent. *AEMS Building Installer Configuration User Guide* covers this phase.
 3. **Day-to-day operation** — through the AEMS web UI, configure setpoints, occupancy schedules, holidays, optimal start, and Intelligent Load Control parameters. *AEMS Building Owner and Occupant User Guide* covers this phase.
 
-If you can browse to `https://<HOSTNAME>` and see the AEMS welcome screen, this guide has done its job; pick up *AEMS Building Installer Configuration User Guide* at its **VOLTTRON Configuration** section and continue from there.
+Once you can browse to `https://<HOSTNAME>` and see the AEMS welcome screen, this guide has done its job; pick up the *AEMS Building Installer Configuration User Guide* at its **VOLTTRON Configuration** section and continue from there.
 
 ## Deployment Lifecycle
 
@@ -803,7 +803,7 @@ The AEMS stack is now running, an administrator account exists, and backups are 
 - BACnet Driver and BACnet Proxy agent configuration.
 - Target Agent configuration and startup.
 
-> **NOTE — Installer Guide Errata.** The existing *AEMS Building Installer Configuration User Guide* describes installing VOLTTRON as a standalone Linux service via the `vcfg` interactive configurator. In the current deployment, **VOLTTRON runs as a Docker service under the AEMS Compose project** that you brought up in this guide. The `vcfg` procedure is **not used** today. The conceptual content of the installer guide — BACnet topology, thermostat configuration, agent purpose, configuration-file structure — remains correct. The configuration files themselves now live under [`aems-app/docker/volttron/setup/configs/`](../../../aems-app/docker/volttron/setup/configs/) and reload via `docker compose restart volttron`. A revision of the installer guide to reflect the Docker reality is planned.
+> **NOTE — Installer Guide Errata.** The existing *AEMS Building Installer Configuration User Guide* describes installing VOLTTRON as a standalone Linux service via the `vcfg` interactive configurator. In the current deployment, **VOLTTRON runs as a Docker service under the AEMS Compose project** that this guide installed. The `vcfg` procedure is **not used** today. The conceptual content of the installer guide — BACnet topology, thermostat configuration, agent purpose, configuration-file structure — remains correct. The configuration files themselves now live under [`aems-app/docker/volttron/setup/configs/`](../../../aems-app/docker/volttron/setup/configs/) and reload via `docker compose restart volttron`. A revision of the installer guide to reflect the Docker reality is planned.
 
 ## To the Owner Guide
 
