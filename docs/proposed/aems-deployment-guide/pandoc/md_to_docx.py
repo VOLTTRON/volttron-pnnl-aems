@@ -1333,38 +1333,43 @@ def _wrap_drawing(W, H, doc_name, shapes_xml):
 
 
 def _os_decision_diagram_xml():
-    """OS decision tree:
+    """OS decision tree (Ubuntu only, two hardware paths):
 
         ┌──────────────────────┐
         │  What is the host?   │   (orange question box)
         └──────────┬───────────┘
                    │
-          ┌────────┼────────┐
-          ▼        ▼        ▼
-        [PC]    [Pi 5]   [Win 11]
-          │        │        │
-          ▼        ▼        ▼
-    Ubuntu     Ubuntu      Docker
-    24.04      24.04 arm64 Desktop
-    §4.2       §4.3        §4.4
+              ┌────┴────┐
+              ▼         ▼
+            [PC]     [Pi 5]
+              │         │
+              ▼         ▼
+        Ubuntu      Ubuntu
+        24.04       24.04 arm64
+        x86_64      (Pi 5)
+        §4.2        §4.3 → §4.2
     """
-    W = 620
+    W = 480
     H = 360
 
-    question = ("question", 175, 10, 270, 56, ["What is the host?"], PNNL_ORANGE, PNNL_ORANGE, PNNL_WHITE)
+    question = (
+        "question", 105, 10, 270, 56,
+        ["What is the host?"], PNNL_ORANGE, PNNL_ORANGE, PNNL_WHITE,
+    )
     boxes = [
-        ("pc", 25, 110, 170, 70, ["Standard x86 PC", "(production)"], PNNL_LIGHT, PNNL_DARK, PNNL_DARK),
-        ("pi", 225, 110, 170, 70, ["Raspberry Pi 5", "(1 building)"], PNNL_LIGHT, PNNL_DARK, PNNL_DARK),
-        ("win", 425, 110, 170, 70, ["Windows workstation", "(dev / demo)"], PNNL_LIGHT, PNNL_DARK, PNNL_DARK),
+        ("pc", 50, 110, 170, 70,
+         ["Standard x86 PC", "(production)"], PNNL_LIGHT, PNNL_DARK, PNNL_DARK),
+        ("pi", 260, 110, 170, 70,
+         ["Raspberry Pi 5", "(1 building)"], PNNL_LIGHT, PNNL_DARK, PNNL_DARK),
         # OS / step boxes
-        ("pc_os", 25, 240, 170, 88, ["Ubuntu Server", "24.04 LTS (x86_64)", "§4.2"], PNNL_WHITE, PNNL_DARK, PNNL_DARK),
-        ("pi_os", 225, 240, 170, 88, ["Ubuntu Server", "24.04 LTS arm64", "§4.3 → §4.2"], PNNL_WHITE, PNNL_DARK, PNNL_DARK),
-        ("win_os", 425, 240, 170, 88, ["Windows 11 +", "Docker Desktop", "§4.4"], PNNL_WHITE, PNNL_DARK, PNNL_DARK),
+        ("pc_os", 50, 240, 170, 88,
+         ["Ubuntu Server", "24.04 LTS (x86_64)", "§4.2"], PNNL_WHITE, PNNL_DARK, PNNL_DARK),
+        ("pi_os", 260, 240, 170, 88,
+         ["Ubuntu Server", "24.04 LTS arm64", "§4.3 → §4.2"], PNNL_WHITE, PNNL_DARK, PNNL_DARK),
     ]
 
     shapes = []
     sid = 1100
-    # Question box (orange)
     qid, qx, qy, qw, qh, qlines, qfill, qline, qtext = question
     shapes.append(_shape_xml(sid, qid, qx, qy, qw, qh, qlines, qfill, qline, qtext))
     sid += 1
@@ -1373,25 +1378,17 @@ def _os_decision_diagram_xml():
         shapes.append(_shape_xml(sid, bid, x, y, w, h, lines, fill, line_c, text_c))
         sid += 1
 
-    # Connectors from the question box to each of the three host boxes,
-    # and then from each host box down to its OS box.
     q_cx = qx + qw / 2
     q_by = qy + qh
-    host_centers = []
-    for bid, x, y, w, h, *_ in boxes[:3]:
-        host_centers.append((x + w / 2, y, x, x + w, y + h))
-    # Question → host (vertical "elbow" via straight lines)
-    for cx, top, _, _, _ in host_centers:
-        shapes.append(_connector_xml(sid, "conn", q_cx, q_by, cx, top))
+    # Question → each host box
+    for bid, x, y, w, h, *_ in boxes[:2]:
+        shapes.append(_connector_xml(sid, "conn", q_cx, q_by, x + w / 2, y))
         sid += 1
-    # Host box bottom → OS box top
-    for hidx, host in enumerate(boxes[:3]):
-        _, hx, hy, hw, hh, *_ = host
-        os = boxes[3 + hidx]
-        _, ox, oy, ow, oh, *_ = os
-        shapes.append(
-            _connector_xml(sid, "conn", hx + hw / 2, hy + hh, ox + ow / 2, oy)
-        )
+    # Host → OS
+    for hidx in range(2):
+        _, hx, hy, hw, hh, *_ = boxes[hidx]
+        _, ox, oy, ow, oh, *_ = boxes[2 + hidx]
+        shapes.append(_connector_xml(sid, "conn", hx + hw / 2, hy + hh, ox + ow / 2, oy))
         sid += 1
 
     return _wrap_drawing(W, H, "OS Decision Tree", shapes)

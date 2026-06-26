@@ -20,7 +20,6 @@ Drop PNG figures into this directory using the filenames below. The Markdown sou
 | `fig-9.3-keycloak-register.png` | §9.1 step 4 | Keycloak registration form filled in. Live capture. |
 | `fig-9.4-ui-before-role.png` | §9.1 step 5 | Authenticated UI, no admin nav visible. Live capture. |
 | `fig-9.5-ui-after-role.png` | §9.1 step 7 | Authenticated UI after `update-user-role.sh`, admin nav visible. Live capture. |
-| `fig-9.6-keycloak-mfa.png` | §9.2 | Keycloak admin → Authentication → Required Actions → "Configure OTP" enabled and set as default. Live capture. |
 | `fig-9.7-backups-policy.png` | §9.4 step 2 | Backups admin UI — Policy tab with cron + retention set. Live capture. |
 | `fig-9.8-backups-keys.png` | §9.4 step 4 | Backups admin UI — Keys tab with "Download active private key" highlighted. Live capture. |
 | `fig-9.9-backups-runs.png` | §9.4 step 5 | Backups admin UI — Runs tab with a Succeeded manual run. Live capture. |

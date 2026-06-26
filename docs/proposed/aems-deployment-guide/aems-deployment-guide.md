@@ -1,6 +1,6 @@
 ---
 title: "Autonomous Energy Management Software System for Small Commercial Buildings: Software Deployment Guide"
-subtitle: "Host OS, Docker, and AEMS Stack Installation for Windows, Linux, and Raspberry Pi 5"
+subtitle: "Host OS, Docker, and AEMS Stack Installation for Linux and Raspberry Pi 5"
 authors: "Srinivas Katipamula\nAmelia Bleeker"
 date: "June 26, 2026"
 date_iso: "2026-06-26T00:00:00"
@@ -22,7 +22,7 @@ This guide is for the **administrator who installs and configures the AEMS softw
 **In scope:**
 
 - Hardware bill of materials for standard PCs and for a Raspberry Pi 5 (with M.2 HAT and NVMe SSD) deployment.
-- Host operating system install on Ubuntu Server 24.04 LTS (x86_64 and arm64 — including Raspberry Pi 5) and Windows 11 with Docker Desktop.
+- Host operating system install on Ubuntu Server 24.04 LTS (x86_64 and arm64 — including Raspberry Pi 5).
 - Docker Engine and Docker Compose v2 installation.
 - DNS, TLS, and reverse-proxy configuration.
 - Cloning the AEMS repository, populating secrets, and bringing the Docker Compose stack up.
@@ -38,7 +38,7 @@ This guide is for the **administrator who installs and configures the AEMS softw
 
 ## How to Read This Guide
 
-The sections are ordered to be followed sequentially on a clean machine. Each numbered subsection of §4 (Host Operating System Install) is a self-contained path; pick the one that matches your target host and skip the others. Everything from §5 onward is OS-agnostic, with the convention that Linux/macOS commands are shown alongside their PowerShell equivalents (`.sh` and `.ps1` helper scripts ship in the repository).
+The sections are ordered to be followed sequentially on a clean machine. §4 (Host Operating System Install) covers the standard Ubuntu Server install on an x86_64 host and the Pi 5 arm64 variant; pick the one that matches your hardware and skip the other. Everything from §5 onward is identical for both paths. All commands shown are bash on Ubuntu — the AEMS stack runs on Linux and the helper scripts in `aems-app/` are bash (`.sh`).
 
 ## Document Conventions
 
@@ -66,7 +66,6 @@ The sections are ordered to be followed sequentially on a clean machine. Each nu
 | HVAC | Heating, Ventilation, and Air Conditioning |
 | ILC | Intelligent Load Control |
 | IP | Internet Protocol |
-| MFA | Multi-Factor Authentication |
 | NIC | Network Interface Card |
 | NTP | Network Time Protocol |
 | NVMe | Non-Volatile Memory Express |
@@ -81,7 +80,6 @@ The sections are ordered to be followed sequentially on a clean machine. Each nu
 | URL | Uniform Resource Locator |
 | VOLTTRON | The Eclipse VOLTTRON™ distributed control platform |
 | VPN | Virtual Private Network |
-| WSL2 | Windows Subsystem for Linux, version 2 |
 
 # Introduction
 
@@ -206,8 +204,8 @@ Decide these before touching the host. Each is awkward to change after first boo
 
 1. Download `ubuntu-24.04.x-live-server-amd64.iso` from <https://ubuntu.com/download/server>.
 2. Write the ISO to a USB stick:
-   - **Windows:** Rufus (<https://rufus.ie>), select the ISO, leave defaults.
-   - **macOS / Linux:** `sudo dd if=ubuntu-24.04.x-live-server-amd64.iso of=/dev/sdX bs=4M status=progress` — confirm `/dev/sdX` is the USB stick, not your local disk.
+   - **Linux / macOS:** `sudo dd if=ubuntu-24.04.x-live-server-amd64.iso of=/dev/sdX bs=4M status=progress` — confirm `/dev/sdX` is the USB stick, not your local disk.
+   - **From a Windows workstation:** use [balenaEtcher](https://etcher.balena.io/) or [Rufus](https://rufus.ie) to flash the USB. (Windows is supported only as the workstation that writes the ISO and runs the operator browser; the AEMS host itself runs Ubuntu.)
 
 ### Install
 
@@ -300,49 +298,9 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 From this point on, follow §4.2.4 (host firewall) and then §5 onward — the path is identical to the x86_64 Ubuntu install.
 
-## Windows 11 with Docker Desktop (Development and Demo Only)
+## A Note on Windows Hosts
 
-> **WARNING.** Windows hosts are appropriate for development, demonstration, and proof-of-concept deployments only. BACnet UDP 47808 forwarding from a Windows NIC into the WSL2 container network is not straightforward and is not supported for production BACnet sites. Use Ubuntu Server (x86_64 or arm64 on Pi 5) for production.
-
-### Enable WSL2
-
-In an elevated PowerShell:
-
-```powershell
-wsl --install
-wsl --set-default-version 2
-```
-
-Reboot when prompted. After reboot, run `wsl --status` and confirm version 2 is the default.
-
-### Install Docker Desktop
-
-Download Docker Desktop from <https://www.docker.com/products/docker-desktop> and install with the **Use WSL 2 based engine** option checked. In **Settings → Resources**, allocate at least 4 vCPU and 8 GB of memory. For finer control, create `%UserProfile%\.wslconfig` with:
-
-```ini
-[wsl2]
-memory=8GB
-processors=4
-swap=4GB
-```
-
-Then run `wsl --shutdown` in PowerShell and restart Docker Desktop.
-
-### Install Git for Windows
-
-Download Git for Windows from <https://git-scm.com/download/win>. Accept the default options. Git for Windows ships with `bash.exe`, which is required by `backup-restore.ps1` and the secret-generation scripts.
-
-Before cloning the repository, configure line-ending handling so that shell scripts inside the repository retain Unix line endings:
-
-```powershell
-git config --global core.autocrlf input
-```
-
-### Windows-Specific Caveats
-
-- Always use the `.ps1` variant of every helper script in the `aems-app/` directory (`secrets.ps1`, `start-services.ps1`, `update-user-role.ps1`, `backup-restore.ps1`, etc.).
-- BACnet/IP from a Windows host requires manual routing or an external BACnet gateway; not recommended for production.
-- File-share volumes between Windows and WSL2 are slower than native ext4 inside the WSL2 distribution; clone the repository **inside** WSL2 if you experience compose build slowness.
+> **NOTE.** Windows is **not supported** as an AEMS host platform. The VOLTTRON edge agent and the BACnet/IP driver depend on Linux networking primitives (raw UDP socket binding to a host interface for 47808 broadcasts, `network_mode: host` containers, BBMD compatibility) that are not reliably available through Docker Desktop's WSL2 networking. The AEMS host must run Ubuntu Server on x86_64 or on Raspberry Pi 5 (arm64). A Windows machine can serve as the operator workstation that writes the install media and accesses the running UI from a browser.
 
 # Install Docker Engine and Compose
 
@@ -379,21 +337,13 @@ exit                                  # log out and back in to refresh group mem
 docker ps                             # should succeed without sudo
 ```
 
-## Windows
-
-Docker Desktop was installed in §4.4. Verify in PowerShell:
-
-```powershell
-docker compose version
-docker run --rm hello-world
-```
-
 ## Optional Tools
 
 If you anticipate needing to perform a break-glass backup restore from the command line, install `age` and `gpg` now. They are not required for the running stack:
 
-- Ubuntu (x86_64 / arm64): `sudo apt -y install age gnupg`
-- Windows: install `age` from <https://github.com/FiloSottile/age/releases> and ensure `gpg` is on `PATH` (Git for Windows ships one).
+```bash
+sudo apt -y install age gnupg
+```
 
 # DNS and TLS
 
@@ -421,7 +371,7 @@ Wait for propagation before pointing Let's Encrypt at the name — failed ACME v
 Either add an A record to your organization's internal DNS, or add a `hosts` file entry on every operator workstation:
 
 - Linux / macOS: append `192.0.2.10 aems.lab.example` to `/etc/hosts`.
-- Windows: append the same line to `C:\Windows\System32\drivers\etc\hosts` (run Notepad as administrator).
+- Windows workstation (operator browser only): append the same line to `C:\Windows\System32\drivers\etc\hosts` (run Notepad as administrator).
 
 > **WARNING.** `localhost` will not work as a hostname. The application sets session cookies bound to the hostname and relies on a stable redirect URL through Keycloak; both break when the browser and the server disagree on the name. Use a real FQDN or a hosts-file entry, never `localhost`.
 
@@ -501,12 +451,7 @@ NO_PROXY=*.example.com,127.0.0.1
 cp .env.secrets.example .env.secrets
 ```
 
-Open `.env.secrets` and replace every `your_*_here` placeholder with a strong, unique value. For opaque secrets, generate with:
-
-- Linux / Pi / macOS: `openssl rand -hex 32`
-- Windows PowerShell: `[Convert]::ToHexString([Guid]::NewGuid().ToByteArray()) + [Convert]::ToHexString([Guid]::NewGuid().ToByteArray())`
-
-For administrator passwords (`KEYCLOAK_ADMIN_PASSWORD`), prefer a strong passphrase you can record in a password manager.
+Open `.env.secrets` and replace every `your_*_here` placeholder with a strong, unique value. For opaque secrets, generate with `openssl rand -hex 32`. For administrator passwords (`KEYCLOAK_ADMIN_PASSWORD`), prefer a strong passphrase you can record in a password manager.
 
 > **WARNING.** Never commit `.env.secrets`. The file and the `docker/secrets/` directory it generates are already in `.gitignore`. Treat the file with the same care as your SSH private keys.
 
@@ -515,8 +460,7 @@ For administrator passwords (`KEYCLOAK_ADMIN_PASSWORD`), prefer a strong passphr
 Run the secrets script to write per-secret files under `docker/secrets/` and generate `docker/.env.secrets.docker`:
 
 ```bash
-./secrets.sh                # Linux / Pi
-.\secrets.ps1               # Windows
+./secrets.sh
 ```
 
 Re-run this command any time you edit `.env.secrets`.
@@ -530,8 +474,7 @@ Re-run this command any time you edit `.env.secrets`.
 ## Build and Start
 
 ```bash
-./start-services.sh         # Linux / Pi
-.\start-services.ps1        # Windows
+./start-services.sh
 ```
 
 This wraps:
@@ -591,25 +534,12 @@ If the UI does not load, cross-reference §13 (Troubleshooting):
 6. On the host, grant the new user the `admin` role:
 
    ```bash
-   ./update-user-role.sh admin@example.com admin       # Linux / Pi
-   .\update-user-role.ps1 admin@example.com admin      # Windows
+   ./update-user-role.sh admin@example.com admin
    ```
 
 7. Reload the page in the browser. Administrative navigation items appear.
 
 **Figures 9.1–9.5.** Guest menu → Keycloak Register link → registration form → post-login UI before role grant → post-login UI after role grant.
-
-## Harden Keycloak
-
-Sign in to the Keycloak admin console at `https://<HOSTNAME>/auth/sso/admin/` with `KEYCLOAK_ADMIN` and `KEYCLOAK_ADMIN_PASSWORD` from `.env.secrets`.
-
-1. **Enable MFA on the `default` realm.** Navigate to **Authentication → Required Actions**, find **Configure OTP**, click **Enable**, and click **Set as default action**. Existing and new users will be prompted to enrol an authenticator app on next login.
-2. **Configure a password policy.** Navigate to **Authentication → Policies**, set minimum length (12+), require special characters, set password history (5+).
-3. **Rotate `KEYCLOAK_ADMIN_PASSWORD`** if it was generated insecurely or if the default has not been changed. Edit `.env.secrets`, re-run `./secrets.sh`, then `./start-services.sh`.
-
-> **NOTE.** The Keycloak client secret (`KEYCLOAK_CLIENT_SECRET`) is pushed into the realm by the Keycloak init container from `.env.secrets` on first boot. You do not need to manually copy it from the Keycloak admin console into `.env` — that older procedure no longer applies.
-
-**Figure 9.6.** Keycloak admin → Authentication → Required Actions, with MFA enabled and set as default.
 
 ## Configure Backups
 
@@ -685,7 +615,6 @@ For the authoritative, in-repo table of every profile with its service compositi
 | Weekly | Review Keycloak login logs for brute-force patterns. |
 | Monthly | Apply OS security updates. Restart the host during a planned window. |
 | Monthly | Validate a backup restore on a non-production environment. |
-| Quarterly | Rotate `.env.secrets` values that have not been rotated yet. |
 | Annually | Review the hardening checklist in §12. |
 
 ## Health Checks
@@ -715,17 +644,6 @@ docker compose pull
 ```
 
 > **WARNING.** **Verify a recent successful backup exists in `/backups` Runs** immediately before applying updates. Database migrations are forward-only — there is no automatic rollback.
-
-## Rotate Secrets
-
-Edit `.env.secrets`, then:
-
-```bash
-./secrets.sh
-./start-services.sh
-```
-
-The affected containers roll automatically.
 
 ## Restart vs. Reset
 
@@ -761,7 +679,6 @@ This checklist mirrors the in-repo hardening list in [`README.md`](../../../READ
 - [ ] Host firewall exposes only 80/tcp and 443/tcp publicly; 22/tcp restricted to administrator source IPs; 6543/tcp restricted to known replication subscribers only; 47808/udp internal-only.
 - [ ] BACnet network is on a separate VLAN or NIC from the public network.
 - [ ] Any default seeded administrator password has been changed.
-- [ ] Keycloak MFA enabled on the `default` realm.
 - [ ] Keycloak admin console URL is not exposed publicly (IP allowlist via Traefik middleware if it must be).
 - [ ] At least one off-host backup destination is configured.
 - [ ] Active age private key has at least one offline copy in named custody.
@@ -791,7 +708,7 @@ For BACnet, VOLTTRON, and runtime-UI troubleshooting, see the Installer Guide an
 **Causes and fixes.**
 
 - DNS not resolving — `dig +short <HOSTNAME>` returns nothing. Fix DNS or add a hosts-file entry.
-- Host firewall blocking 443. Check `sudo ufw status` (Ubuntu/Pi) or Windows Defender Firewall (Windows).
+- Host firewall blocking 443. Check `sudo ufw status`.
 - Docker not running — `sudo systemctl status docker`.
 - Profile misconfigured — `docker compose ps` shows the `proxy` service missing. Verify `COMPOSE_PROFILES` includes `proxy`.
 - Port 443 already in use by another process — `sudo ss -tlnp | grep ':443 '`.
@@ -848,21 +765,7 @@ Detailed BACnet troubleshooting — including device-discovery procedures and Sc
 
 **Fix.** Have the user complete the Guest → Login → Register flow at least once (§9.1, step 1–5), then re-run the role grant.
 
-## 13.8 Helper Scripts Fail on Windows
-
-**Symptoms.**
-
-- `secrets.ps1` fails with "cannot find file."
-- `backup-restore.ps1` fails with "bash not recognized."
-- Scripts under `aems-app/docker/` have CRLF line endings inside the container.
-
-**Fixes.**
-
-- Run the PowerShell variant (`.ps1`), not the bash variant (`.sh`).
-- Install Git for Windows so `bash.exe` is on `PATH`.
-- `git config --global core.autocrlf input` and re-clone the repository so shell scripts retain Unix line endings.
-
-## 13.9 Raspberry Pi 5 Thermal Throttling or Out-of-Memory
+## 13.8 Raspberry Pi 5 Thermal Throttling or Out-of-Memory
 
 **Symptoms.** `vcgencmd measure_temp` shows >80 °C under load; containers killed with OOM messages in `dmesg`.
 
@@ -873,7 +776,7 @@ Detailed BACnet troubleshooting — including device-discovery procedures and Sc
 - For 8 GB Pi 5: keep `COMPOSE_PROFILES` at the recommended `proxy,sso,redis,volttron,historian`.
 - Add a 4 GB swap file per the Ubuntu housekeeping in §4.3.3.
 
-## 13.10 Backup Admin UI Shows "No Active Key"
+## 13.9 Backup Admin UI Shows "No Active Key"
 
 **Cause.** The backup sidecar did not initialize the age keypair on first boot.
 
@@ -918,17 +821,17 @@ Once on-site BACnet and VOLTTRON configuration is complete, **AEMS Building Owne
 
 All scripts live at the root of `aems-app/` and must be run from there. Full purpose-and-flags reference is in [`README.md` § Managing the Stack](../../../README.md).
 
-| Script (Linux / Pi) | Windows | Purpose |
-|---------------------|---------|---------|
-| `./start-services.sh` | `.\start-services.ps1` | Build images and bring the stack up in detached mode. |
-| `./reset-service.sh` | `.\reset-service.ps1` | **Destructive.** Stop, delete the named service's volumes, restart. |
-| `./secrets.sh` | `.\secrets.ps1` | Generate per-secret files from `.env.secrets`. |
-| `./update-user-role.sh` | `.\update-user-role.ps1` | Grant or clear an application role on a user by email. |
-| `./migrate-historian-data.sh` | `.\migrate-historian-data.ps1` | One-shot migration of legacy telemetry into the historian. |
-| `./backup-restore.sh` | `.\backup-restore.ps1` | Break-glass restore from an encrypted backup archive. |
-| `./backup.sh` | — | Internal. Do not invoke directly. |
-| `./build.sh` | `.\build.ps1` | Build the monorepo modules in dependency order. Source-tree builds only. |
-| `./test.sh` | `.\test.ps1` | Lint, type-check, and Jest across all modules. Slow. |
+| Script | Purpose |
+|--------|---------|
+| `./start-services.sh` | Build images and bring the stack up in detached mode. |
+| `./reset-service.sh` | **Destructive.** Stop, delete the named service's volumes, restart. |
+| `./secrets.sh` | Generate per-secret files from `.env.secrets`. |
+| `./update-user-role.sh` | Grant or clear an application role on a user by email. |
+| `./migrate-historian-data.sh` | One-shot migration of legacy telemetry into the historian. |
+| `./backup-restore.sh` | Break-glass restore from an encrypted backup archive. |
+| `./backup.sh` | Internal. Do not invoke directly. |
+| `./build.sh` | Build the monorepo modules in dependency order. Source-tree builds only. |
+| `./test.sh` | Lint, type-check, and Jest across all modules. Slow. |
 
 # Appendix B — `.env` and `.env.secrets` Minimum Edits Cheat Sheet
 
@@ -970,7 +873,7 @@ pandoc \
   -o "AEMS Software Deployment Guide ($(date +%Y-%m-%d)).docx"
 ```
 
-A wrapper script that does the same thing lives at `docs/proposed/aems-deployment-guide/pandoc/build-deployment-guide.sh` (or `.ps1` on Windows).
+A wrapper script that does the same thing lives at `docs/proposed/aems-deployment-guide/pandoc/build-deployment-guide.sh`.
 
 The reference doc `aems-pnnl-reference.docx` defines the PNNL house style (cover page, heading styles, monospace code style, caption style). To regenerate it from a current PNNL guide:
 
