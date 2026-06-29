@@ -125,7 +125,7 @@ A full, authoritative diagram with profile gating, internal ports, and volume na
 
 > **WARNING.** The host's hostname must be a real, resolvable DNS name. `localhost` will not work — session cookies and OAuth redirects depend on a stable name that the browser and the server agree on.
 
-## Option A: Standard PC, Server, or VM
+## Option A: Standard PC or Server
 
 A modern x86_64 machine that boots Ubuntu Server 24.04 LTS is the recommended production target. Vendor-neutral specifications:
 
@@ -134,7 +134,7 @@ A modern x86_64 machine that boots Ubuntu Server 24.04 LTS is the recommended pr
 - 512 GB or larger NVMe SSD.
 - One gigabit NIC for the public-facing network; a second NIC is useful when the BACnet network must be isolated by VLAN.
 
-A virtual machine on an existing hypervisor (VMware ESXi, Proxmox, Hyper-V) with the same resource allocation is also supported.
+> **WARNING.** **Bare-metal hosts only — virtual machines are not supported.** VOLTTRON's BACnet/IP driver must bind directly to a host network interface to send and receive UDP broadcasts on port 47808. Hypervisor NIC virtualization (VMware vSwitch, Hyper-V vSwitch, Proxmox bridge, etc.) drops or rewrites the broadcasts that BACnet device discovery depends on, so thermostats and RTUs become unreachable from a VM-hosted VOLTTRON. Install the AEMS host on bare metal — either a dedicated PC/server or a Raspberry Pi 5 (Option B).
 
 ## Option B: Raspberry Pi 5 with M.2 HAT and NVMe SSD
 
@@ -157,8 +157,8 @@ The Raspberry Pi 5 is a supported deployment target for **single-building, compa
 - All AEMS images are multi-arch, but **verify** `aarch64` availability for any custom or pinned image tag before relying on it.
 - Sustained Docker load on a Pi 5 will thermal-throttle without active cooling.
 - USB-attached spinning disks are not supported as a primary storage tier.
-- A single Pi 5 is sized for one building of roughly 50 RTU points; campuses or multi-building deployments require a standard PC.
-- For Pi 5 deployments with less than 16 GB RAM, keep `COMPOSE_PROFILES` at the recommended `proxy,sso,redis,volttron,historian` and add a 4 GB swap file (§13.9 has the recipe).
+- A single Pi 5 is sized for one small-to-medium commercial building; campuses or multi-building deployments require a standard PC.
+- For Pi 5 deployments with less than 16 GB RAM, keep `COMPOSE_PROFILES` at the recommended `proxy,sso,redis,volttron,historian` and add a 4 GB swap file (§14.8 has the recipe).
 
 Once the Pi is booting from NVMe and Ubuntu Server 24.04 LTS for arm64 is installed, **the install path is identical to the standard Ubuntu path** — continue with §4.2 from that point on.
 
@@ -513,11 +513,11 @@ Open `https://<HOSTNAME>` in a browser. You should see the AEMS landing page wit
 
 ## Common First-Launch Problems
 
-If the UI does not load, cross-reference §13 (Troubleshooting):
+If the UI does not load, cross-reference §14 (Troubleshooting):
 
-- Hostname does not resolve → §13.2.
-- "Port already in use" on 80 or 443 → §13.2.
-- Let's Encrypt rate-limit error in `proxy` logs → §13.6.
+- Hostname does not resolve → §14.2.
+- "Port already in use" on 80 or 443 → §14.2.
+- Let's Encrypt rate-limit error in `proxy` logs → §14.6.
 - Corporate forward proxy intercepting image pulls → re-check the `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` block in `.env`.
 
 # Initial Configuration
@@ -545,6 +545,8 @@ If the UI does not load, cross-reference §13 (Troubleshooting):
 
 Backups are mandatory for any production deployment. The full backup pipeline is documented in [`aems-app/docker/backup/README.md`](../../../aems-app/docker/backup/README.md).
 
+Every archive is **encrypted before it leaves the host** — no plaintext archive is ever uploaded to a destination. The backup sidecar uses asymmetric encryption via `age` (preferred), falling back to symmetric `gpg` when an `age` key is unavailable. On first boot the sidecar generates an `age` keypair: the **public key** encrypts each archive automatically at backup time, and the matching **private key** is what [`backup-restore.sh`](../../../aems-app/backup-restore.sh) needs to decrypt one. Operators never paste keys into config files — the sidecar holds the live keypair and the **Keys** tab in the admin UI surfaces a one-click download of the active private key. Step 4 below is the only place that copy gets created; without it, a total host loss leaves every archive permanently unreadable, regardless of how many off-host copies you kept.
+
 1. Open `https://<HOSTNAME>/backups` (administrator UI).
 2. In the **Policy** tab, set the cron schedule (e.g. `0 2 * * *` for 02:00 nightly) and retention in days. Review the default policy that ships in [`aems-app/docker/seed/20260427080000-backup-policy.json`](../../../aems-app/docker/seed/).
 3. In the **Destinations** tab, add at least one off-host destination. For production, an S3 bucket in a separate AWS account is strongly recommended.
@@ -566,6 +568,169 @@ A light touch only — full configuration is in the Installer Guide.
   ```bash
   docker compose restart historian server
   ```
+
+# Historian and VOLTTRON Configuration
+
+This chapter covers the host-side configuration files an administrator edits before the on-site BACnet wiring described in the Installer Guide. The reload command for each file appears alongside the description; live-mounted files pick up edits on a service restart, while files baked into the historian image require a rebuild.
+
+## Configuration File Map
+
+The table below lists every site-customizable file under [`aems-app/docker/historian/`](../../../aems-app/docker/historian/) and [`aems-app/docker/volttron/setup/configs/`](../../../aems-app/docker/volttron/setup/configs/). Reload commands fall into three classes:
+
+- **Live-mount reload** — `docker compose restart volttron` picks up the change. All files under `volttron/setup/configs/` are bind-mounted into the container.
+- **Image-baked reload** — `./start-services.sh` rebuilds the historian image and rolls the container. Required for files copied in at image build time (`pg_hba.conf`, `postgresql.conf`).
+- **Volume-reset reload** — `./reset-service.sh historian` is destructive. Required only when first-boot state is corrupt and a clean slate is needed.
+
+| File | Purpose | Reload |
+|------|---------|--------|
+| [historian-topic-map.json](../../../aems-app/docker/historian/historian-topic-map.json) | VOLTTRON-topic → historian-column mapping, aggregation, units. | `docker compose restart historian server` |
+| [pg_hba.conf](../../../aems-app/docker/historian/pg_hba.conf) | Host-based authentication. Restrict the replication subscriber range here. | Image-baked reload (`./start-services.sh`). |
+| [postgresql.conf](../../../aems-app/docker/historian/postgresql.conf) | Postgres tunables: WAL, replication, resource limits. | Image-baked reload (`./start-services.sh`). |
+| [bacnet.config](../../../aems-app/docker/volttron/setup/configs/bacnet.config) | BACnet driver — host NIC and device ID. | Live-mount reload. |
+| [bacnet_proxy.config](../../../aems-app/docker/volttron/setup/configs/bacnet_proxy.config) | BACnet proxy agent — gateway address and object ID. | Live-mount reload. |
+| [driver.config](../../../aems-app/docker/volttron/setup/configs/driver.config) | Platform-driver polling floor and publish depth. | Live-mount reload. |
+| [weather.config](../../../aems-app/docker/volttron/setup/configs/weather.config) | weather.gov station code and poll interval. | Live-mount reload. |
+| [emailer.config](../../../aems-app/docker/volttron/setup/configs/emailer.config) | Optional SMTP alerting (off by default). | Live-mount reload. |
+| [topic_watcher.config](../../../aems-app/docker/volttron/setup/configs/topic_watcher.config) | Per-RTU heartbeat-watch groups. | Live-mount reload. |
+| [site.json](../../../aems-app/docker/volttron/setup/site.json) | Site identity — campus, building, timezone. | Live-mount reload. |
+
+## Historian Topic Map
+
+[historian-topic-map.json](../../../aems-app/docker/historian/historian-topic-map.json) controls how VOLTTRON topics are bucketed into the historian database — what each metric is called, how multiple samples in a binning window collapse into one value, and how that value is rendered in the dashboard. Most installs accept the defaults; this subsection covers customizing the entries that already exist (topic name, aggregation, transform, suffix).
+
+> **NOTE.** Adding a brand-new metric to this file is not supported. The dashboard renders only the metric enum values it knows about at build time; an entry for a metric the dashboard does not recognize will be stored in the historian but never displayed. Use this file to retune existing entries, not to extend the metric set.
+
+The file has three top-level sections:
+
+| Section | Purpose |
+|---------|---------|
+| `templates` | Topic-path patterns for each device class. `{campus}/{building}/{system}/{metric}` for units, `{campus}/{building}/weather/{metric}` for weather, `{campus}/{building}/meter/{metric}` for meters. The braced tokens fill in from [site.json](../../../aems-app/docker/volttron/setup/site.json) and the metric's `topic` field. |
+| `unitMetrics` | Per-RTU metrics (zone temperature, setpoints, fan status, etc.) — 21 entries by default. |
+| `weatherMetrics` | Weather.gov-sourced observations — 14 entries by default. |
+| `meterMetrics` | Building-power-meter readings — 2 entries by default. |
+
+Each metric entry uses these fields:
+
+| Field | Purpose | Common values |
+|-------|---------|---------------|
+| `topic` | VOLTTRON topic segment substituted into the template. | `"ZoneTemperature"`, `"air_temperature"` |
+| `aggregation` | How samples collapse into one value per bin. | `mean` (continuous measurements), `max` (state codes / peaks), `last` (heartbeats, counters) |
+| `transform` | Server-side numeric rounding applied to every returned value. | `decimal1` (temperatures, humidity), `decimal2` (power), `integer` (state codes) |
+| `suffix` | Free text appended when the value is rendered (no auto-spacing). | `"°F"`, `"%"`, `" W"` |
+
+### Example: change aggregation for peak-comfort reporting
+
+To report the warmest zone temperature in each bin (instead of the bin's mean), change the `aggregation` for `ZoneTemperature` from `"mean"` to `"max"`:
+
+```json
+"ZoneTemperature": { "topic": "ZoneTemperature", "aggregation": "max", "transform": "decimal1", "suffix": "°F" }
+```
+
+Reload with `docker compose restart historian server`. The change takes effect immediately for new queries; previously-binned data already in the dashboard's cache is not retroactively recomputed.
+
+### Example: relabel a metric's unit suffix
+
+If your dashboard audience prefers SI units, override `WindSpeed`'s suffix from `" mph"` to `" km/h"` (the value is still whatever the weather agent publishes; only the rendered text changes):
+
+```json
+"WindSpeed": { "topic": "wind_speed", "aggregation": "mean", "transform": "decimal1", "suffix": " km/h" }
+```
+
+Reload as above. Convert the value upstream if you also need a unit conversion, not just a label change.
+
+### Full reference
+
+The complete schema — every supported `aggregation`, `transform`, and `format` value, with the SQL each one emits and guidance on which to pick for which kind of signal — is in [historian-topic-map.json.txt](../../../aems-app/docker/historian/historian-topic-map.json.txt), kept alongside the JSON file. A longer markdown walkthrough with additional worked examples lives at [aems-app/README.md § Historian Topic Mapping](../../../aems-app/README.md).
+
+## BACnet Driver — Host Interface
+
+The Docker-side [bacnet.config](../../../aems-app/docker/volttron/setup/configs/bacnet.config) sets `local_interface` to the IP/CIDR of the host NIC that lives on the BACnet LAN. The default `172.31.32.1/24` is PNNL's lab network and must be changed to your site's address.
+
+The canonical edit point is `VOLTTRON_GATEWAY_ADDRESS` (and the related `VOLTTRON_BACNET_ADDRESS`) in [`aems-app/.env`](../../../aems-app/.env), which template-fills `bacnet.config` and `bacnet_proxy.config` at container startup. Edit `.env`; do not edit the rendered files directly or they will be overwritten on the next rebuild.
+
+For BACnet network design and device-ID conventions on the BACnet LAN itself, see the *AEMS Building Installer Configuration User Guide*.
+
+> **WARNING.** An incorrect `local_interface` is the most common cause of "no points in the historian" at first boot. Verify with `ip -4 addr show` on the host that the chosen interface actually exists on the BACnet-side VLAN before starting the stack. See §14.5 for full troubleshooting.
+
+## Weather Agent — Station Code
+
+The weather station is set by `VOLTTRON_WEATHER_STATION` in [`aems-app/.env`](../../../aems-app/.env), which template-fills [weather.config](../../../aems-app/docker/volttron/setup/configs/weather.config) at container startup. Edit `.env` rather than the rendered file. For the station-selection procedure and weather-agent setup, see the *AEMS Building Installer Configuration User Guide* section on weather-agent configuration.
+
+## SMTP Alerting (Optional)
+
+[emailer.config](../../../aems-app/docker/volttron/setup/configs/emailer.config) ships **disabled**: `smtp-username`, `smtp-password`, and `to-addresses` are empty. The agent loads but sends nothing.
+
+To activate it, set `VOLTTRON_SMTP_*` and `VOLTTRON_EMAIL_*` in [`aems-app/.env`](../../../aems-app/.env). `VOLTTRON_SMTP_PASSWORD` must be sourced from [`aems-app/.env.secrets`](../../../aems-app/.env.secrets.example) and propagated by `./secrets.sh` like every other credential — never paste a real SMTP password directly into `emailer.config` or `.env`.
+
+The `allow-frequency-minutes` setting (default 1440 = once per day) throttles duplicate alerts for the same condition. Lowering it makes the agent more noisy; raising it can mask repeated failures.
+
+## Driver Polling and Per-RTU Watch Groups
+
+Two related knobs not covered by the existing PNNL guides:
+
+- `minimum_polling_interval` in [driver.config](../../../aems-app/docker/volttron/setup/configs/driver.config) (default 10 seconds) — the global floor on BACnet poll rate enforced across every device the platform driver manages. Higher values reduce BACnet network traffic and CPU load on the historian; lower values give faster setpoint and sensor feedback. Do not drop below 5 s on a Pi 5 host.
+- Per-RTU `*_group` entries in [topic_watcher.config](../../../aems-app/docker/volttron/setup/configs/topic_watcher.config) (default 600 seconds) — the heartbeat-watch interval per device. If a unit stops publishing its `HeartBeat` topic for longer than the group's value, the watcher flags it as unreachable. When you scale beyond the default 5 RTUs, add a `rtu0N_group` entry mirroring the existing rows. Match the group value to roughly 6× your `minimum_polling_interval` so transient packet loss does not trigger spurious alarms.
+
+## Site Identity
+
+`VOLTTRON_CAMPUS`, `VOLTTRON_BUILDING`, and `VOLTTRON_TIMEZONE` in [`aems-app/.env`](../../../aems-app/.env) are the canonical site identity; they template-fill [site.json](../../../aems-app/docker/volttron/setup/site.json) at container startup. Edit `.env`, not the rendered file.
+
+> **WARNING.** The campus and building names are baked into every historian topic (`{campus}/{building}/...`). Changing them after data collection has started means pre-rename rows stay filed under the old name in the historian volume — the dashboard will see them as a separate site until you rewrite or drop them.
+
+## Historian Retention
+
+> **WARNING.** The historian has **no automatic retention pruning** today. The Postgres `data` table grows indefinitely until disk fills. Plan retention manually until automatic pruning is added.
+
+A rough growth estimate: one row per (point, poll) tuple. For the default 5-RTU deployment, ~21 unit metrics × 5 RTUs × ~14 weather metrics × ~2 meter metrics ≈ 120 polled points. At a 10-second `minimum_polling_interval` and 24-hour-a-day operation, that is roughly 1 million rows per day, or ~30 million rows per month. Each row is small (a timestamp, a topic id, a value), so storage usage is on the order of gigabytes per year for a typical small-building deployment.
+
+Two practical options today:
+
+1. **Manual periodic prune.** In a maintenance window, connect to the historian and delete old rows:
+
+   ```bash
+   docker compose exec historian psql -U historian -d historian -c \
+     "DELETE FROM data WHERE ts < NOW() - INTERVAL '90 days';"
+   docker compose exec historian psql -U historian -d historian -c "VACUUM FULL data;"
+   ```
+
+   `VACUUM FULL` rewrites the table and reclaims disk; it requires an exclusive lock, so run it during low-traffic hours.
+
+2. **Vertical scale.** Provision a larger NVMe SSD on the AEMS host and migrate the `historian-data` volume to it. See §12.6 (Disk-Space Monitoring) for the inspection commands.
+
+Automatic retention is a known gap. Plan to revisit this section once retention tooling lands.
+
+## Off-Site Historian Replication
+
+A second AEMS host (or an analytics warehouse) can subscribe to this stack's historian and receive a live copy of telemetry via PostgreSQL logical replication. Use this for disaster recovery, multi-site aggregation, or read-only analytics that should not compete with the live VOLTTRON write path.
+
+### Publisher Side (This Stack)
+
+The publisher is configured automatically. On first boot of the `historian` profile, [docker-entrypoint-wrapper.sh](../../../aems-app/docker/historian/docker-entrypoint-wrapper.sh) runs [setup-replication.sh](../../../aems-app/docker/historian/setup-replication.sh), which:
+
+- Creates a `replicator` Postgres role with read-only `SELECT` grants (no `SUPERUSER`, no `CREATEDB`, no `CREATEROLE`).
+- Adds primary keys to the `data` and `topics` tables if VOLTTRON has not yet created them (primary keys are required for logical replication to handle `UPDATE` operations).
+- Creates a `historian_pub` publication covering all tables in the historian database.
+
+No manual run is required. The replicator's password is `HISTORIAN_REPLICATOR_PASSWORD` in [`aems-app/.env.secrets`](../../../aems-app/.env.secrets.example); set it before first launch.
+
+What you **do** need to edit is [pg_hba.conf](../../../aems-app/docker/historian/pg_hba.conf). The shipped file allows replication from `0.0.0.0/0` (any IP) because the replicator role still requires the password and TLS. For production, narrow this to your subscriber's address:
+
+```
+hostssl replication     replicator      <SUBSCRIBER_IP>/32       scram-sha-256
+hostssl historian       replicator      <SUBSCRIBER_IP>/32       scram-sha-256
+```
+
+`pg_hba.conf` is baked into the historian image, so apply the edit and rebuild with `./start-services.sh`. Also expose the replication port (default `6543/tcp`) on the host firewall to the subscriber IP only, per §4.2.4.
+
+### Subscriber Side (Remote Host)
+
+The subscriber host runs [setup-subscriber.sh](../../../aems-app/docker/historian/setup-subscriber.sh) against its own historian instance. The script reads `TEST_HISTORIAN_HOST`, `TEST_HISTORIAN_PORT`, `TEST_HISTORIAN_USER`, and `TEST_HISTORIAN_PASSWORD` from its environment and creates a uniquely-named subscription tied to its operating-system username, so multiple developers can subscribe to the same publisher without slot collisions.
+
+The end-to-end procedure — including how to provision the subscriber host, what credentials to set, how to monitor replication lag, and how to remove a subscriber when retiring it — is documented at `https://<HOSTNAME>/historian` on the running deployment and in the [aems-app/README.md § Historian Database Replication](../../../aems-app/README.md) reference. This guide does not restate it.
+
+### Break-Glass: Resetting Wedged Replication
+
+If replication gets stuck after a schema change or after manually deleting historian rows, [fix-replication.sql](../../../aems-app/docker/historian/fix-replication.sql) drops and recreates the publication. Use it only on operator direction; running it interrupts every active subscriber.
 
 # Stack Topology Reference
 
@@ -615,7 +780,7 @@ For the authoritative, in-repo table of every profile with its service compositi
 | Weekly | Review Keycloak login logs for brute-force patterns. |
 | Monthly | Apply OS security updates. Restart the host during a planned window. |
 | Monthly | Validate a backup restore on a non-production environment. |
-| Annually | Review the hardening checklist in §12. |
+| Annually | Review the hardening checklist in §13. |
 
 ## Health Checks
 
