@@ -50,7 +50,8 @@ from .data_utils import Data, DataFileAccess
 from .holiday_manager import HolidayManager
 from .lock_out_manager import LockOutManager
 from .occupancy_override_manager import OccupancyOverride
-from .optimal_start_manager import OptimalStartConfig, OptimalStartManager
+from .optimal_start_manager import OptimalStartConfig, OptimalStartManager, PlatformCallbacks
+from .after_hours_manager import WeeklyServiceScheduler
 from .points import DaysOfWeek, OccupancyTypes, Points, SetpointControlType
 
 SCHEDULE = 'Schedule'
@@ -171,6 +172,16 @@ class ManagerAgent(Agent):
             return False
 
     @RPC.export
+    def set_service_schedule(self, data) -> bool:
+        try:
+            result = self._proxy.set_service_schedule(data, update_store=True)
+            _log.debug(f'set_service_schedule_rpc: {result}')
+            return result
+        except Exception as ex:
+            _log.error(f'Failed to set schedule: {ex}', exc_info=True)
+            return False
+
+    @RPC.export
     def set_temperature_setpoints(self, data) -> bool:
         try:
             result = self._proxy.set_temperature_setpoints(data, update_store=True)
@@ -271,28 +282,51 @@ class ManagerProxy:
         self.occupancy_override = OccupancyOverride(change_occupancy_fn=self.change_occupancy,
                                                     scheduler_fn=self.core.schedule,
                                                     sync_occupancy_state_fn=self.sync_occupancy_state)
-        self.optimal_start = OptimalStartManager(schedule=self.cfg.schedule,
-                                                 config=self.cfg,
-                                                 identity=self.identity,
-                                                 scheduler_fn=self.core.schedule,
-                                                 holiday_manager=self.holiday_manager,
-                                                 data_handler=self.data_handler,
-                                                 publish_fn=self.publish,
-                                                 change_occupancy_fn=self.change_occupancy,
-                                                 config_set_fn=self.config_set,
-                                                 config_get_fn=self.config_get)
-
+        callbacks = PlatformCallbacks(
+            schedule_fn=self.core.schedule,
+            change_occupancy_fn=self.change_occupancy,
+            publish_fn=self.publish,
+            config_get_fn=self.config_get,
+            config_set_fn=self.config_set,
+        )
+        self.optimal_start = OptimalStartManager(
+            schedule=self.cfg.schedule,
+            config=self.cfg,
+            identity=self.identity,
+            holiday_manager=self.holiday_manager,
+            data_handler=self.data_handler,
+            callbacks=callbacks,
+        )
+        self.after_hours_manager = None
         self.lockout_manager = LockOutManager(get_forecast_fn=self.get_weather_forecast,
                                               get_current_oat_fn=self.get_current_oat,
                                               control_fn=self.do_zone_control,
                                               scheduler_fn=self.core.schedule,
                                               change_occupancy_fn=self.change_occupancy,
                                               sync_occupancy_state_fn=self.sync_occupancy_state)
-        # Wait to call this until the system connects.
-        self.core.onstart.connect(lambda x: self.setup_optimal_start())
 
-    def setup_optimal_start(self):
+        # Wait to call this until the system connects.
+        self.core.onstart.connect(lambda x: self.setup_runtime())
+
+    def setup_runtime(self):
         _log.debug(f'SETUP DATA SUBSCRIPTIONS FOR {self.identity}')
+        try:
+            after_hours_schedule = self.config_get('after_hours_schedule')
+        except KeyError:
+            after_hours_schedule = {}
+        try:
+            default_setpoints = self.config_get('set_points')
+        except KeyError:
+            default_setpoints = self.cfg.default_setpoints
+
+        self.after_hours_manager = WeeklyServiceScheduler(after_hours_schedule,
+                                                          default_setpoints,
+                                                          config_get_fn=self.config_get,
+                                                          create_setpoint_fn=self.create_setpoints,
+                                                          zone_control_fn=self.do_zone_control,
+                                                          restore_setpoints_fn=self.set_temperature_setpoints,
+                                                          scheduler_fn=self.core.schedule,
+                                                          now_func=self.cfg.get_current_datetime)
         self._p.vip.pubsub.subscribe(peer='pubsub', prefix=self.cfg.base_device_topic,
                                      callback=self.update_data).get(timeout=10.0)
         if self.cfg.outdoor_temperature_topic:
@@ -302,6 +336,7 @@ class ManagerProxy:
         self.optimal_start.setup_optimal_start()
         if self._proxied_agent.has_connected_identity(self.cfg.weather_identity):
             self._weather_update_greenlet = self.core.schedule(cron('0 * * * *'), self.update_weather_forecast)
+
 
     @property
     def _p(self) -> ManagerAgent:
@@ -512,6 +547,34 @@ class ManagerProxy:
         self.publish(topic, headers, data)
         return True
 
+    def set_service_schedule(self, data: dict[str, dict[str, str]], update_store: bool = True) -> bool:
+        """
+        Sets the service schedule for the system for after hours operations (e.g., janitorial).
+        There are no partial updates, the entire schedule
+
+        :param data:  schedule information for each day in week for RTU.
+        :type data: dict
+            {
+                Monday: {
+                pre: { start: '00:00', end: '03:15' },
+                post: { start: '22:00', end: '23:59' }
+                },
+                Tuesday: { pre: { start: '00:00', end: '02:20' }, post: 'always_off' },
+                Wednesday: { pre: { start: '06:30', end: '08:00' }, post: 'always_off' },
+                Thursday: { pre: 'always_off', post: 'always_on' },
+                Friday: { pre: 'always_on', post: 'always_off' },
+                Saturday: { pre: 'always_off', post: 'always_off' },
+                Sunday: { pre: 'always_off', post: 'always_off' }
+            }
+        :return: True when no errors occur and False if an error occurs.
+        :rtype: bool
+        """
+
+        self.after_hours_manager.update_schedule(data)
+        if update_store:
+            self.config_set('after_hours_schedule', data)
+        return True
+
     def set_optimal_start(self, config: OptimalStartConfig | dict, update_store: bool = True) -> bool:
         """
         Sets the optimal start for the system.  This is called from the ManagerAgent when the optimal start is updated.
@@ -547,37 +610,50 @@ class ManagerProxy:
         self.publish(topic, headers=headers, message=config)
         return True
 
-    def set_temperature_setpoints(self, data: dict[str, float], update_store: bool = True) -> Union[bool, str]:
+    def set_temperature_setpoints(self, data: dict[str, float], update_store: bool = True) -> bool:
         """
-        Sets the temperature setpoints for the RTU.  Called on periodic and when setpoints are updated.
+        Sets the temperature setpoints for the RTU. Called on periodic and when setpoints are updated.
+
         :param data: RTU occupied and unoccupied heating and cooling set points.
-        :type data: dict
-        :param update_store: True when method is triggered via RPC (store data in config store).
-        :type update_store: bool
-        :return: Return True on success and False on failure or error.
-        :rtype: bool
+        :param update_store: True when method is triggered via RPC; stores data in config store.
+        :return: True on success and False on failure or error.
         """
         headers = {headers_mod.DATE: format_timestamp(get_aware_utc_now())}
-        topic = '/'.join([self.cfg.base_record_topic, SET_POINTS])
-        _log.debug(f'Update temperature_setpoints - {data} -- update_store: {update_store}')
-        result = self.create_setpoints(data)
-        return_value = True
+        topic = "/".join([self.cfg.base_record_topic, SET_POINTS])
+
+        _log.debug(f"Update temperature_setpoints - {data} -- update_store: {update_store}")
+
+        result = (
+            self.after_hours_manager.service_setpoints
+            if self.after_hours_manager.is_active
+            else self.create_setpoints(data)
+        )
+
         if isinstance(result, str):
+            _log.error(f"Failed to create temperature setpoints: {result}")
             return False
-        for point, value in result.items():
-            control_result = self.do_zone_control(point, value)
-            if isinstance(control_result, str):
-                _log.error(f'Zone control response {self.identity} - Set {point} to {value} -- {control_result}')
-                return_value = False
+
         if update_store:
-            self.config_set('set_points', data)
-            for point, value in result.items():
-                control_result = self.do_zone_control(point, value, on_property='relinquishDefault')
-                if isinstance(control_result, str):
-                    _log.error(f'Zone control response {self.identity} - Set {point} to {value} -- {control_result}')
-                    return_value = False
+            self.config_set("set_points", data)
+
+        control_kwargs = (
+            {"on_property": "relinquishDefault"}
+            if update_store
+            else {}
+        )
+        success = True
+        for point, value in result.items():
+            control_result = self.do_zone_control(point, value, **control_kwargs)
+
+            if isinstance(control_result, str):
+                _log.error(
+                    f"Zone control response {self.identity} - "
+                    f"Set {point} to {value} -- {control_result}"
+                )
+                success = False
+
         self.publish(topic, headers=headers, message=data)
-        return return_value
+        return success
 
     def set_holidays(self, data, update_store: bool = True) -> bool:
         """
@@ -780,10 +856,10 @@ class ManagerProxy:
             _log.debug(f'Unit is between earliest start time and occupancy start!')
             _log.debug(f'Set unit to unoccupied mode and restart optimal start')
             self.change_occupancy(OccupancyTypes.UNOCCUPIED)
-            self.optimal_start.run_schedule = None
+            self.optimal_start.run_schedule_greenlet = None
 
         # # if we are in a time when we can do optimal start, schedule pre-start calculations
-        if self.optimal_start.run_schedule is None:
+        if self.optimal_start.run_schedule_greenlet is None:
             if current_time < _earliest:
                 self.optimal_start.set_up_run()
             elif _earliest <= current_time <= _start:
@@ -805,8 +881,6 @@ class ManagerProxy:
         :type header:
         :param message:
         :type message:
-        :return:
-        :rtype:
         """
         _log.debug(f'Update data : {topic}')
         data, meta = message
@@ -817,20 +891,18 @@ class ManagerProxy:
         """
         Update RTU data from driver publish for optimal start, lockout control, and
         economizer control.
-        :param peer:
-        :type peer:
-        :param sender:
-        :type sender:
-        :param bus:
-        :type bus:
-        :param topic:
-        :type topic:
-        :param header:
-        :type header:
-        :param message:
-        :type message:
-        :return:
-        :rtype:
+        :param peer: 'pubsub'
+        :type peer: str
+        :param sender: publisher
+        :type sender: str
+        :param bus: local
+        :type bus: str
+        :param topic: callback topic to match.
+        :type topic: str
+        :param header: header of message
+        :type header: dict
+        :param message: data payload
+        :type message: Any
         """
         _log.debug(f'Update data : {topic}')
         payload = {}
@@ -842,8 +914,8 @@ class ManagerProxy:
     def is_system_occupied(self) -> bool | str | None:
         """
         Call driver get_point to get current RTU occupancy status.
-        :return:
-        :rtype:
+        :return: True if occupied, False if unoccupied, None if unknown, or error message.
+        :rtype: bool | str | None
         """
         try:
             result = self.rpc_get_point(Points.occupancy.value)
