@@ -215,14 +215,16 @@ class LockOutManager:
         )
 
         lockout_active = self.clg_lockout_active or self.electric_heat_lockout_active
-        missing_timestamp = timestamp is None
+        missing_timestamp = timestamp is None or oat is None
         stale_data = (
                 timestamp is not None
                 and current_time - timestamp > STALE_DATA_TIMEOUT
         )
-
-        if (missing_timestamp or stale_data) and lockout_active:
-            self.release_all()
+        invalid_data = missing_timestamp or stale_data
+        if invalid_data:
+            if lockout_active:
+                _log.debug(f"Invalid data, releasing lockouts: {lockout_active}")
+                self.release_all()
             return
 
         self.evaluate_electric_heating_lockout(oat)
