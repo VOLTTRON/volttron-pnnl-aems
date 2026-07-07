@@ -2861,6 +2861,8 @@ APP_HOSTNAME=myapp.local
 - Keycloak OAuth redirects require consistent hostname resolution
 - Using `localhost` will cause authentication failures and prevent session sharing
 
+**Avoid `.gov` (and other HSTS-preloaded suffixes) for test/dev deployments.** The built-in `certs` service issues a self-signed cert via mkcert. Browsers reject any self-signed cert with a warning, but for `.gov` (and other HSTS-preloaded TLDs like `.dev`, `.app`, `.bank`), Chromium/Edge/Firefox additionally refuse to offer the "Advanced → Proceed anyway" click-through — the site becomes fully unreachable. Use an IP, a hosts-file alias, or a non-preloaded intranet name for internal test hosts. Production deployments that terminate TLS with a real CA cert (`CERT_RESOLVER=letsencrypt` or an operator-supplied cert) are unaffected.
+
 #### Step 2: Start or Restart Docker Services
 
 **If this is your first time starting services:**
