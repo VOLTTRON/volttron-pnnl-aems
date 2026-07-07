@@ -83,8 +83,8 @@ fi
 if [ -n "$GRAFANA_CLIENT_ID" ]; then
     echo "Found grafana-oauth client ID: $GRAFANA_CLIENT_ID"
     echo "Updating grafana-oauth client secret and redirect URIs..."
-    # Use KC_HOSTNAME if available, otherwise fall back to HOSTNAME
-    ACTUAL_HOSTNAME="${KC_HOSTNAME:-${HOSTNAME}}"
+    # Use KC_HOSTNAME if available, otherwise fall back to APP_HOSTNAME
+    ACTUAL_HOSTNAME="${KC_HOSTNAME:-${APP_HOSTNAME}}"
     echo "Using hostname: $ACTUAL_HOSTNAME"
     /opt/keycloak/bin/kcadm.sh update clients/$GRAFANA_CLIENT_ID \
         -r default \

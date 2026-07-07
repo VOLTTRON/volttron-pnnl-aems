@@ -620,7 +620,7 @@ Get up and running with the Skeleton App:
    cp .env.example .env
    cp .env.secrets.example .env.secrets
 
-   # Edit '.env' and set 'HOSTNAME' to a valid hostname or your IP Address
+   # Edit '.env' and set 'APP_HOSTNAME' to a valid hostname or your IP Address
 
    # Set secrets (Windows)
    .\secrets.ps1
@@ -1177,7 +1177,7 @@ The following steps will need to be completed to deploy the application.
 
 ### Traefik Reverse Proxy (optional)
 
-If enabling the Traefik reverse proxy the profile `proxy` will need to be enabled. The environment variable `HOSTNAME` will need to be set to something other than localhost for deployments. For testing in development environments either `localhost` or the IP address can be utilized. Likewise, any other section of the [.env](./.env) file that references `localhost` will also need to be changed.
+If enabling the Traefik reverse proxy the profile `proxy` will need to be enabled. The environment variable `APP_HOSTNAME` will need to be set to something other than localhost for deployments. For testing in development environments either `localhost` or the IP address can be utilized. Likewise, any other section of the [.env](./.env) file that references `localhost` will also need to be changed.
 
 If the deployed application needs auto-generated public certificates it will need a valid domain name. The application will also need to be reachable from the internet. The following [.env](./.env) variables will need to be set: `CERT_RESOLVER=letsencrypt` and `ADMIN_EMAIL` will need to have a valid email specified.
 
@@ -1488,7 +1488,7 @@ docker compose up -d historian
 # Update .env for Let's Encrypt
 CERT_RESOLVER=letsencrypt
 ADMIN_EMAIL=your.email@example.com
-HOSTNAME=your-domain.com
+APP_HOSTNAME=your-domain.com
 
 # Restart to obtain certificates
 docker compose down
@@ -2344,7 +2344,7 @@ Keycloak is automatically configured for use when using the Docker Compose deplo
 Follow the steps below to setup Keycloak which will allow users to register and manage their own accounts.
 Registered users will still need to be granted access to the application by an administrator.
 
-1. You will need to set a domain name or IP address as the "HOSTNAME" in the [.env](./.env) file. You can optionally set the "KEYCLOAK_DEFAULT_ROLE" to automatically assign a role to newly registered accounts. This change is not retroactive.
+1. You will need to set a domain name or IP address as the "APP_HOSTNAME" in the [.env](./.env) file. You can optionally set the "KEYCLOAK_DEFAULT_ROLE" to automatically assign a role to newly registered accounts. This change is not retroactive.
 2. Navigate to the Keycloak admin page (replacing `localhost` with the previously set variable): [https://localhost/auth/sso/admin/master/console](https://localhost/auth/sso/admin/master/console)
 3. Sign in using the username and password specified in the [.env](./.env) file as "KEYCLOAK_ADMIN" and "KEYCLOAK_ADMIN_PASSWORD".
 4. Click the "Keycloak" drop down to create a new realm.
@@ -2840,7 +2840,7 @@ For session sharing and Keycloak authentication to work, you **cannot use `local
 # Linux/Mac: ifconfig or ip addr
 
 # Edit .env and set:
-HOSTNAME=192.168.1.100  # Replace with your actual IP address
+APP_HOSTNAME=192.168.1.100  # Replace with your actual IP address
 ```
 
 **Option 2: Use Hosts File Mapping** (Recommended)
@@ -2853,7 +2853,7 @@ HOSTNAME=192.168.1.100  # Replace with your actual IP address
 192.168.1.100  myapp.local  # Replace IP with your machine's IP
 
 # Edit .env and set:
-HOSTNAME=myapp.local
+APP_HOSTNAME=myapp.local
 ```
 
 **Why hostname configuration is critical:**
@@ -2869,7 +2869,7 @@ HOSTNAME=myapp.local
 docker compose up -d
 ```
 
-**If you changed the HOSTNAME after containers were already running:**
+**If you changed the APP_HOSTNAME after containers were already running:**
 
 You must regenerate certificates to include the new hostname. Use the reset script:
 
@@ -2900,13 +2900,13 @@ You should see containers like `aems-proxy`, `aems-server`, `aems-database`, etc
 Create `client/.env.local` with the following configuration:
 
 ```bash
-# Backend services (Docker) - replace ${HOSTNAME} with your actual configured hostname
+# Backend services (Docker) - replace ${APP_HOSTNAME} with your actual configured hostname
 DATABASE_HOST=myapp.local
 DATABASE_PORT=6543
 REDIS_HOST=myapp.local
 REDIS_PORT=6379
 
-# Backend API rewrites - replace ${HOSTNAME} with your actual configured hostname
+# Backend API rewrites - replace ${APP_HOSTNAME} with your actual configured hostname
 REWRITE_AUTHJS_URL=https://myapp.local/authjs
 REWRITE_GRAPHQL_URL=https://myapp.local/graphql
 REWRITE_API_URL=https://myapp.local/api
@@ -2979,8 +2979,8 @@ docker compose up -d
 **Cause**: Hostname mismatch or `localhost` being used
 
 **Solution**:
-1. Verify `.env` file has correct HOSTNAME (not `localhost`)
-2. If you changed HOSTNAME, regenerate certificates using `reset-service` script
+1. Verify `.env` file has correct APP_HOSTNAME (not `localhost`)
+2. If you changed APP_HOSTNAME, regenerate certificates using `reset-service` script
 3. Ensure `client/.env.local` uses the same hostname
 4. Access local client using configured hostname, not `localhost`
 

@@ -59,8 +59,8 @@ services:
     image: traefik:v3.6.2
     labels:
       - traefik.tls.stores.default.defaultgeneratedcert.resolver=${CERT_RESOLVER}
-      - traefik.tls.stores.default.defaultgeneratedcert.domain.main=${HOSTNAME}
-      - traefik.tls.stores.default.defaultgeneratedcert.domain.sans=*.${HOSTNAME}
+      - traefik.tls.stores.default.defaultgeneratedcert.domain.main=${APP_HOSTNAME}
+      - traefik.tls.stores.default.defaultgeneratedcert.domain.sans=*.${APP_HOSTNAME}
       - traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https,wss
     ports:
       - 80:80
@@ -121,11 +121,11 @@ services:
       - traefik.http.middlewares.client-security.headers.sslRedirect=true
       - traefik.http.middlewares.client-security.headers.stsSeconds=31536000
       - traefik.http.routers.client-http.entrypoints=web
-      - traefik.http.routers.client-http.rule=Host(`${HOSTNAME}`)
+      - traefik.http.routers.client-http.rule=Host(`${APP_HOSTNAME}`)
       - traefik.http.routers.client-http.middlewares=client-https
       - traefik.http.middlewares.client-https.redirectscheme.scheme=https
       - traefik.http.routers.client.entrypoints=websecure
-      - traefik.http.routers.client.rule=Host(`${HOSTNAME}`)
+      - traefik.http.routers.client.rule=Host(`${APP_HOSTNAME}`)
       - traefik.http.routers.client.middlewares=client-security
       - traefik.http.routers.client.priority=1
       - traefik.http.routers.client.tls=true
@@ -186,11 +186,11 @@ services:
       - traefik.http.middlewares.server-security.headers.sslRedirect=true
       - traefik.http.middlewares.server-security.headers.stsSeconds=31536000
       - traefik.http.routers.server-http.entrypoints=web
-      - traefik.http.routers.server-http.rule=Host(`${HOSTNAME}`)
+      - traefik.http.routers.server-http.rule=Host(`${APP_HOSTNAME}`)
       - traefik.http.routers.server-http.middlewares=server-https
       - traefik.http.middlewares.server-https.redirectscheme.scheme=https
       - traefik.http.routers.server.entrypoints=websecure
-      - traefik.http.routers.server.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/authjs`) || PathPrefix(`/graphql`) || PathPrefix(`/api`) || PathPrefix(`/ext`))
+      - traefik.http.routers.server.rule=Host(`${APP_HOSTNAME}`) && (PathPrefix(`/authjs`) || PathPrefix(`/graphql`) || PathPrefix(`/api`) || PathPrefix(`/ext`))
       - traefik.http.routers.server.middlewares=server-security
       - traefik.http.routers.server.tls=true
       - traefik.http.routers.server.tls.certresolver=${CERT_RESOLVER}
@@ -495,11 +495,11 @@ services:
       - traefik.http.middlewares.keycloak-security.headers.sslRedirect=true
       - traefik.http.middlewares.keycloak-security.headers.stsSeconds=31536000
       - traefik.http.routers.keycloak-http.entrypoints=web
-      - traefik.http.routers.keycloak-http.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/auth/sso/admin/`) || PathPrefix(`/auth/sso/js/`) || PathPrefix(`/auth/sso/realms/`) || PathPrefix(`/auth/sso/resources/`) || PathPrefix(`/auth/sso/robots.txt`))
+      - traefik.http.routers.keycloak-http.rule=Host(`${APP_HOSTNAME}`) && (PathPrefix(`/auth/sso/admin/`) || PathPrefix(`/auth/sso/js/`) || PathPrefix(`/auth/sso/realms/`) || PathPrefix(`/auth/sso/resources/`) || PathPrefix(`/auth/sso/robots.txt`))
       - traefik.http.routers.keycloak-http.middlewares=keycloak-https
       - traefik.http.middlewares.keycloak-https.redirectscheme.scheme=https
       - traefik.http.routers.keycloak.entrypoints=websecure
-      - traefik.http.routers.keycloak.rule=Host(`${HOSTNAME}`) && (PathPrefix(`/auth/sso/admin/`) || PathPrefix(`/auth/sso/js/`) || PathPrefix(`/auth/sso/realms/`) || PathPrefix(`/auth/sso/resources/`) || PathPrefix(`/auth/sso/robots.txt`))
+      - traefik.http.routers.keycloak.rule=Host(`${APP_HOSTNAME}`) && (PathPrefix(`/auth/sso/admin/`) || PathPrefix(`/auth/sso/js/`) || PathPrefix(`/auth/sso/realms/`) || PathPrefix(`/auth/sso/resources/`) || PathPrefix(`/auth/sso/robots.txt`))
       - traefik.http.routers.keycloak.middlewares=keycloak-security
       - traefik.http.routers.keycloak.tls=true
       - traefik.http.routers.keycloak.tls.certresolver=${CERT_RESOLVER}
@@ -660,11 +660,11 @@ services:
       - traefik.http.middlewares.grafana-security.headers.stsSeconds=31536000
       - traefik.http.middlewares.grafana-stripprefix.stripprefix.prefixes=/grafana
       - traefik.http.routers.grafana-http.entrypoints=web
-      - traefik.http.routers.grafana-http.rule=Host(`${HOSTNAME}`) && PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana-http.rule=Host(`${APP_HOSTNAME}`) && PathPrefix(`/grafana`)
       - traefik.http.routers.grafana-http.middlewares=grafana-https
       - traefik.http.middlewares.grafana-https.redirectscheme.scheme=https
       - traefik.http.routers.grafana.entrypoints=websecure
-      - traefik.http.routers.grafana.rule=Host(`${HOSTNAME}`) && PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana.rule=Host(`${APP_HOSTNAME}`) && PathPrefix(`/grafana`)
       - traefik.http.routers.grafana.middlewares=grafana-security
       - traefik.http.routers.grafana.priority=100
       - traefik.http.routers.grafana.tls=true
