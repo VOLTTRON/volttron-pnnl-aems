@@ -2,7 +2,7 @@ import { NestFactory } from "@nestjs/core";
 import { resolve } from "node:path";
 import { rm, stat } from "node:fs/promises";
 import { ConsoleLogger, Logger } from "@nestjs/common";
-import { AppModule } from "@/app.module";
+import { SchemaAppModule } from "@/schema-app.module";
 import { getLogLevels } from "@/logging";
 
 async function GenerateSchema() {
@@ -17,11 +17,15 @@ async function GenerateSchema() {
     const filename = resolve(process.cwd(), "schema.graphql");
     await rm(filename, { force: true });
     logger.log("Waiting for 'schema.graphql' to update...");
-    while ((await stat(filename).catch(() => null)) === null && !signal.aborted) {
+    let fileStats: Awaited<ReturnType<typeof stat>> | null = null;
+    while ((fileStats = await stat(filename).catch(() => null)) === null && !signal.aborted) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
     if (signal.aborted) {
       logger.error("Timed out waiting for 'schema.graphql' to update");
+      process.exit(1);
+    } else if (fileStats && fileStats.size === 0) {
+      logger.error("'schema.graphql' was written but is empty — schema generation failed");
       process.exit(1);
     } else {
       logger.log("Graphql schema updated");
@@ -32,7 +36,7 @@ async function GenerateSchema() {
     logger.error(error);
     process.exit(1);
   });
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create(SchemaAppModule, {
     logger: new ConsoleLogger({
       logLevels: getLogLevels(process.env.LOG_CONSOLE_LEVEL ?? ""),
       prefix: process.env.INSTANCE_NAME ?? "",

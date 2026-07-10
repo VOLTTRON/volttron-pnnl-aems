@@ -1,6 +1,4 @@
-import { has, merge } from "lodash";
-
-import { deepFreeze } from "../utils/util";
+import { deepFreeze, deepMerge } from "../utils/util";
 
 import { IBase, IConstant, IMatcher, IParse, IParseStrict } from ".";
 
@@ -15,7 +13,7 @@ abstract class Base<T extends IConstant> implements IBase<T> {
       throw new Error("Values with at least one item must be specified.");
     }
     this._values = values.map((v) => deepFreeze(decorator ? decorator(this, v) : v));
-    this._constants = values.reduce((p, c) => merge(p, merge({ [c.name]: c }, { [c.label]: c })), {});
+    this._constants = this._values.reduce((p, c) => deepMerge(p, { [c.name]: c }, { [c.label]: c }) as Record<string, T>, {} as Record<string, T>);
     this._keys = (Object.keys(values[0]) as (keyof T)[]).filter((k) => typeof values[0][k] === "string");
   }
 
@@ -51,7 +49,7 @@ abstract class Base<T extends IConstant> implements IBase<T> {
     let parsed = undefined;
     if (typeof value === "number") {
       parsed = this._values[value];
-    } else if (typeof value === "object" && has(value, "name")) {
+    } else if (typeof value === "object" && value !== null && Object.prototype.hasOwnProperty.call(value, "name")) {
       parsed = this.parse((value as IConstant).name);
     } else if (typeof value === "string") {
       parsed = this._constants[value];

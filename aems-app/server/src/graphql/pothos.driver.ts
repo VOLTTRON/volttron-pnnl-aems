@@ -39,65 +39,46 @@ export class PothosApolloDriver extends ApolloDriver {
     }
     this.schema = await schemaBuilder.instance.awaitSchema();
     this.logger.log("GraphQL schema loaded");
-    this.printSchema();
+    await this.printSchema();
     return super.start({
       ...options,
       schema: this.schema,
     });
   }
 
-  registerServer(apolloOptions: ApolloDriverConfig): Promise<void> {
+  async registerServer(apolloOptions: ApolloDriverConfig): Promise<void> {
     this.sortSchema = apolloOptions.sortSchema;
     delete apolloOptions.sortSchema;
     this.autoSchemaFile = apolloOptions.autoSchemaFile;
     delete apolloOptions.autoSchemaFile;
     this.logger.log("Registering Apollo Server");
-    this.printSchema();
+    await this.printSchema();
     return super.registerServer(apolloOptions);
   }
 
-  private printSchema() {
-    if (this.autoSchemaFile && this.schema) {
-      const schemaAsString = printSchema(this.sortSchema ? lexicographicSortSchema(this.schema) : this.schema);
-      let path = "schema.gql";
-      if (typeof this.autoSchemaFile === "string") {
-        path = this.autoSchemaFile;
-      } else if (typeofObject<SchemaFileConfig>(this.autoSchemaFile)) {
-        path = this.autoSchemaFile.path || path;
-        if (this.autoSchemaFile.federation) {
-          this.logger.warn("GraphQL auto schema file federation option is not supported.");
-        }
-      }
-      const filename = resolve(process.cwd(), path);
-      readFile(filename)
-        .then(async (current) => {
-          const currentAsString = current.toString();
-          if (currentAsString !== schemaAsString) {
-            await writeFile(filename, schemaAsString)
-              .then(async () => {
-                this.logger.log(`Updated GraphQL schema file: ${path}`);
-                await writeFile(resolve(process.cwd(), "schema.graphql"), schemaAsString).catch(() =>
-                  this.logger.warn("Failed to update schema.graphql"),
-                );
-              })
-              .catch((error) => this.logger.warn(error, `Failed to update GraphQL schema file: ${path}`));
-          } else {
-            this.logger.log(`No changes in GraphQL schema file: ${path}`);
-            await writeFile(resolve(process.cwd(), "schema.graphql"), schemaAsString).catch(() =>
-              this.logger.warn("Failed to update schema.graphql"),
-            );
-          }
-        })
-        .catch(async () => {
-          await writeFile(filename, schemaAsString)
-            .then(async () => {
-              this.logger.log(`Created GraphQL schema file: ${path}`);
-              await writeFile(resolve(process.cwd(), "schema.graphql"), schemaAsString).catch(() =>
-                this.logger.warn("Failed to update schema.graphql"),
-              );
-            })
-            .catch((error) => this.logger.warn(error, `Failed to create GraphQL schema file: ${path}`));
-        });
+  private async printSchema(): Promise<void> {
+    if (!this.autoSchemaFile || !this.schema) {
+      return;
     }
+    const schemaAsString = printSchema(this.sortSchema ? lexicographicSortSchema(this.schema) : this.schema);
+    let path = "schema.gql";
+    if (typeof this.autoSchemaFile === "string") {
+      path = this.autoSchemaFile;
+    } else if (typeofObject<SchemaFileConfig>(this.autoSchemaFile)) {
+      path = this.autoSchemaFile.path || path;
+      if (this.autoSchemaFile.federation) {
+        this.logger.warn("GraphQL auto schema file federation option is not supported.");
+      }
+    }
+    const filename = resolve(process.cwd(), path);
+    const current = await readFile(filename).catch(() => null);
+    const currentAsString = current?.toString() ?? null;
+    if (currentAsString !== schemaAsString) {
+      await writeFile(filename, schemaAsString);
+      this.logger.log(currentAsString === null ? `Created GraphQL schema file: ${path}` : `Updated GraphQL schema file: ${path}`);
+    } else {
+      this.logger.log(`No changes in GraphQL schema file: ${path}`);
+    }
+    await writeFile(resolve(process.cwd(), "schema.graphql"), schemaAsString);
   }
 }

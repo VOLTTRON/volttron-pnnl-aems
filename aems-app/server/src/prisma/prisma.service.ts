@@ -1,5 +1,4 @@
 import { hashSync } from "@node-rs/bcrypt";
-import { isArray } from "lodash";
 import { PrismaClient } from "@prisma/client";
 import { checkPassword } from "@/auth";
 import { getLogLevel } from "@/logging";
@@ -52,7 +51,7 @@ const extendPrisma = <T extends PrismaClient>(prisma: T, configService: AppConfi
               break;
             case "createMany":
             case "updateMany":
-              if (isArray(args.data)) {
+              if (Array.isArray(args.data)) {
                 args.data.forEach((v) => {
                   if (typeof v.password === "string") {
                     v.password = processPassword(
@@ -89,25 +88,32 @@ export class PrismaService {
 
   constructor(@Inject(AppConfigService.Key) configService: AppConfigService, @Optional() prisma?: PrismaClient) {
     const level = getLogLevel(configService.log.prisma.level);
+
+    // Build a DATABASE_URL from the individual config fields so that the
+    // password read via readSecret() (Docker secret file > env var) takes
+    // precedence over whatever is baked into prisma/.env at image build time.
+    const { host, port, name, schema, username, password } = configService.database;
+    const connLimit = 5;
+    const datasourceUrl = host && name && username && password
+      ? `postgresql://${username}:${encodeURIComponent(password)}@${host}:${port}/${name}?schema=${schema}&connection_limit=${connLimit}`
+      : undefined;
+    const datasources = datasourceUrl ? { db: { url: datasourceUrl } } : undefined;
+
     if (level && !prisma) {
       const prisma = new PrismaClient({
-        log: [
-          {
-            emit: "event",
-            level: "query",
-          },
-        ],
+        log: [{ emit: "event", level: "query" }],
+        datasources,
       });
       prisma.$on("query", (event) => {
         this.logger[level](event, "Prisma Query");
       });
       this.prisma = extendPrisma(prisma, configService) as PrismaClient;
       this.logger.log(
-        `Prisma Client configured for database (with query logging) at:  ${configService.database.url.split("@").pop()}`,
+        `Prisma Client configured for database (with query logging) at:  ${host}:${port}/${name}`,
       );
     } else if (!prisma) {
-      this.prisma = extendPrisma(new PrismaClient(), configService) as PrismaClient;
-      this.logger.log(`Prisma Client configured for database at:  ${configService.database.url.split("@").pop()}`);
+      this.prisma = extendPrisma(new PrismaClient({ datasources }), configService) as PrismaClient;
+      this.logger.log(`Prisma Client configured for database at:  ${host}:${port}/${name}`);
     } else {
       this.prisma = extendPrisma(prisma, configService) as PrismaClient;
       this.logger.log(`Prisma Client configured using supplied prisma client.`);

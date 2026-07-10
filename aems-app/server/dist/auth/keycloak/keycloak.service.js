@@ -25,7 +25,6 @@ const app_config_1 = require("../../app.config");
 const common_2 = require("@local/common");
 const subscription_service_1 = require("../../subscription/subscription.service");
 const node_crypto_1 = require("node:crypto");
-const lodash_1 = require("lodash");
 const jwt_1 = require("@nestjs/jwt");
 const constants_1 = require("@local/common/dist/constants");
 const keycloak_1 = require("@auth/express/providers/keycloak");
@@ -57,10 +56,10 @@ let KeycloakPassportService = KeycloakPassportService_1 = class KeycloakPassport
         const rolesFromToken = token?.realm_access?.roles || [];
         const roles = rolesFromToken.map((v) => common_2.RoleType.parse(v)?.enum).filter((0, common_2.typeofEnum)(constants_1.RoleEnum));
         if (!profile.email || !profile.name) {
-            (0, lodash_1.merge)(profile, token);
+            Object.assign(profile, token);
         }
         if (!profile.email || !profile.name) {
-            (0, lodash_1.merge)(profile, await fetch(`${this.configService.keycloak.userinfoUrl}`, {
+            Object.assign(profile, await fetch(`${this.configService.keycloak.userinfoUrl}`, {
                 headers: { Authorization: `Bearer ${accessToken}` },
             })
                 .then((res) => res.json())
@@ -75,7 +74,12 @@ let KeycloakPassportService = KeycloakPassportService_1 = class KeycloakPassport
             },
             include: { accounts: { where: { provider: "keycloak" } } },
         })
-            .then((user) => (user ? (0, lodash_1.omit)(user, ["password"]) : null));
+            .then((user) => {
+            if (!user)
+                return null;
+            const { password: _pw, ...rest } = user;
+            return rest;
+        });
         if (user) {
             if (profile.name !== user.name ||
                 profile.email !== user.email ||
@@ -197,6 +201,7 @@ let KeycloakAuthjsService = KeycloakAuthjsService_1 = class KeycloakAuthjsServic
     create() {
         return (0, keycloak_1.default)({
             id: _1.Provider,
+            allowDangerousEmailAccountLinking: true,
             checks: this.configService.keycloak.checks,
             clientId: this.configService.keycloak.clientId,
             clientSecret: this.configService.keycloak.clientSecret,

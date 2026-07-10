@@ -248,9 +248,9 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
    export DATABASE_URL="postgresql://develop:password@localhost:5432/skeleton?schema=public"
    ```
 
-3. **Generate Prisma Client**
+3. **Build (generates Prisma Client and compiles)**
    ```bash
-   yarn generate
+   yarn build
    ```
 
 ### Migration Management
@@ -341,10 +341,10 @@ CREATE INDEX "Geography_type_idx" ON "Geography"("type");
 
 #### Adding New Models
 
-1. **Create model file** in `prisma/models/`
+1. **Create model file** in `prisma/prisma/models/`
 
    ```prisma
-   // prisma/models/example.prisma
+   // prisma/prisma/models/example.prisma
    model Example {
      id        String   @id @default(cuid())
      name      String
@@ -648,16 +648,13 @@ builder.prismaObject("User", {
 ```json
 {
   "scripts": {
-    "build": "yarn generate && tsc",
-    "generate": "prisma generate",
-    "migrate:create": "prisma migrate dev --create-only",
+    "build": "prisma generate && tsc",
+    "migrate:create": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:reset": "prisma migrate reset",
     "migrate:status": "prisma migrate status",
     "db:push": "prisma db push",
     "db:pull": "prisma db pull",
-    "db:seed": "tsx prisma/seed.ts",
-    "studio": "prisma studio",
     "lint": "eslint src --ext .ts",
     "check": "tsc --noEmit",
     "test": "jest",

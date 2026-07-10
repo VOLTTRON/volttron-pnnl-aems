@@ -1,5 +1,4 @@
 import { buildTree } from "./tree";
-import { clone } from "lodash";
 
 const ITEMS = [
   {
@@ -51,7 +50,7 @@ describe("utils.buildTree()", () => {
   let items: { id: number; parentId: number | undefined; name: string }[] = [];
 
   beforeEach(() => {
-    items = clone(ITEMS);
+    items = structuredClone(ITEMS);
   });
 
   it("should return all root items", () => {
@@ -165,7 +164,7 @@ describe("getAncestors", () => {
   let items: { id: number; parentId: number | undefined; name: string }[] = [];
 
   beforeEach(() => {
-    items = clone(ITEMS);
+    items = structuredClone(ITEMS);
   });
 
   it("should return the correct ancestors", () => {
@@ -182,7 +181,7 @@ describe("isAncestor", () => {
   let items: { id: number; parentId: number | undefined; name: string }[] = [];
 
   beforeEach(() => {
-    items = clone(ITEMS);
+    items = structuredClone(ITEMS);
   });
 
   it("should return true if the node is an ancestor", () => {
@@ -206,7 +205,7 @@ describe("iterator", () => {
   let items: { id: number; parentId: number | undefined; name: string }[] = [];
 
   beforeEach(() => {
-    items = clone(ITEMS);
+    items = structuredClone(ITEMS);
   });
 
   it("should iterate over all nodes", () => {
@@ -238,7 +237,7 @@ describe("node predicates", () => {
   let items: { id: number; parentId: number | undefined; name: string }[] = [];
 
   beforeEach(() => {
-    items = clone(ITEMS);
+    items = structuredClone(ITEMS);
   });
 
   it("isRoot() returns true for the virtual root", () => {

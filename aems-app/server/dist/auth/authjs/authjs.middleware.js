@@ -19,6 +19,7 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
 const app_config_1 = require("../../app.config");
 const express_1 = require("@auth/express");
+const errors_1 = require("@auth/core/errors");
 const authjs_config_1 = require("./authjs.config");
 const __1 = require("..");
 const auth_service_1 = require("../auth.service");
@@ -38,7 +39,12 @@ let AuthjsMiddleware = AuthjsMiddleware_1 = class AuthjsMiddleware {
                     req.user = (await this.getAuthjsUser(req)) ?? req.user;
                 }
                 catch (error) {
-                    this.logger.error("Auth.js session middleware error:", error);
+                    if (error instanceof errors_1.AuthError) {
+                        this.logger.debug(`Auth.js session error (${error.type}): ${error.message}`);
+                    }
+                    else {
+                        this.logger.error("Auth.js session middleware error:", error);
+                    }
                 }
                 return next();
             };

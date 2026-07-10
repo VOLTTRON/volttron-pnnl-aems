@@ -4,7 +4,6 @@ import { GeographyObject } from "./object.service";
 import { PothosQuery } from "../pothos.decorator";
 import { Geography } from "@prisma/client";
 import { typeofNonNullable } from "@local/common";
-import { pick } from "lodash";
 import { PrismaService } from "@/prisma/prisma.service";
 import { GraphQLScalarType } from "graphql";
 import { Scalars } from "..";
@@ -100,7 +99,7 @@ export class GeographyQuery {
               ORDER BY "Geography"."name" ASC
               LIMIT 1000
               `.then(
-            (records) => (fields ? (records?.map((record) => pick(record, fields)) as Geography[]) : records) ?? [],
+            (records) => (fields ? records?.map((record) => Object.fromEntries(fields.map(f => [f, record[f as keyof Geography]])) as Geography) ?? [] : records ?? []),
           );
         },
       }),

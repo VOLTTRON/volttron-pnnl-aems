@@ -23,7 +23,6 @@ const plugin_prisma_utils_1 = require("@pothos/plugin-prisma-utils");
 const plugin_scope_auth_1 = require("@pothos/plugin-scope-auth");
 const plugin_smart_subscriptions_1 = require("@pothos/plugin-smart-subscriptions");
 const plugin_relay_1 = require("@pothos/plugin-relay");
-const lodash_1 = require("lodash");
 const common_2 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const promises_1 = require("node:timers/promises");
@@ -157,7 +156,7 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
         ].forEach(({ src, dst }) => {
             const fields = aggregate?.[src];
             if (fields) {
-                temp[dst] = fields.reduce((a, v) => (0, lodash_1.set)(a, v, true), {});
+                temp[dst] = fields.reduce((a, v) => { a[v] = true; return a; }, {});
             }
         });
         return temp;

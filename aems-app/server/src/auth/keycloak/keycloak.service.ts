@@ -9,7 +9,6 @@ import { AppConfigService } from "@/app.config";
 import { Mutation, RoleType, typeofEnum } from "@local/common";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { randomUUID } from "node:crypto";
-import { merge, omit } from "lodash";
 import { JwtService } from "@nestjs/jwt";
 import { JwtPayload } from "jsonwebtoken";
 import { RoleEnum } from "@local/common/dist/constants";
@@ -53,10 +52,10 @@ export class KeycloakPassportService extends PassportStrategy(Strategy, Provider
     const rolesFromToken: string[] = token?.realm_access?.roles || [];
     const roles: RoleEnum[] = rolesFromToken.map((v: string) => RoleType.parse(v)?.enum).filter(typeofEnum(RoleEnum));
     if (!profile.email || !profile.name) {
-      merge(profile, token);
+      Object.assign(profile, token);
     }
     if (!profile.email || !profile.name) {
-      merge(
+      Object.assign(
         profile,
         await fetch(`${this.configService.keycloak.userinfoUrl}`, {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -74,7 +73,11 @@ export class KeycloakPassportService extends PassportStrategy(Strategy, Provider
         },
         include: { accounts: { where: { provider: "keycloak" } } },
       })
-      .then((user) => (user ? omit(user, ["password"]) : null));
+      .then((user) => {
+        if (!user) return null;
+        const { password: _pw, ...rest } = user;
+        return rest;
+      });
     if (user) {
       if (
         profile.name !== user.name ||
@@ -192,6 +195,7 @@ export class KeycloakAuthjsService implements AuthjsProvider {
   create() {
     return Keycloak({
       id: Provider,
+      allowDangerousEmailAccountLinking: true,
       checks: this.configService.keycloak.checks,
       clientId: this.configService.keycloak.clientId,
       clientSecret: this.configService.keycloak.clientSecret,

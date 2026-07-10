@@ -621,12 +621,17 @@ Get up and running with the Skeleton App:
    cp .env.secrets.example .env.secrets
 
    # Edit '.env' and set 'APP_HOSTNAME' to a valid hostname or your IP Address
+   # Edit '.env.secrets' and fill in real values for all secrets
 
-   # Set secrets (Windows)
+   # Generate docker/secrets/ files from .env.secrets (Windows)
    .\secrets.ps1
 
-   # Set secrets (Linux/Mac)
-   source ./secrets.sh
+   # Generate docker/secrets/ files from .env.secrets (Linux/Mac)
+   ./secrets.sh
+
+   # Validate the configuration before starting
+   ./check-env.sh        # Linux/Mac
+   .\check-env.ps1       # Windows
    ```
 
 3. **Start the application**
@@ -2211,12 +2216,14 @@ docker compose --env-file docker/.env.secrets.docker up -d
 
 - `SESSION_SECRET` - Server session management
 - `JWT_SECRET` - JWT token signing
+- `WORKER_TOKEN` - Backup sidecar authentication
 - `DATABASE_PASSWORD` - Main PostgreSQL database
 - `REDIS_PASSWORD` - Redis authentication
 - `KEYCLOAK_CLIENT_SECRET` - OAuth client secret
 - `KEYCLOAK_ADMIN_PASSWORD` - Admin interface password
 - `KEYCLOAK_DATABASE_PASSWORD` - Keycloak's database
 - `NOMINATIM_DATABASE_PASSWORD` - Nominatim's database
+- `BOOKSTACK_SESSION_SECRET` - Wiki session encryption key
 - `BOOKSTACK_ROOT_PASSWORD` - Wiki database root
 - `BOOKSTACK_DATABASE_PASSWORD` - Wiki database user
 - `BOOKSTACK_KEYCLOAK_CLIENT_SECRET` - Wiki OAuth client
@@ -2531,44 +2538,63 @@ source ./env.sh .env.production
 
 #### `secrets.[ps1|sh]`
 
-Secret management scripts for handling sensitive environment variables separately from main configuration.
-
-**PowerShell Version (`secrets.ps1`):**
-
-- **Set Mode**: Reads `.env.secrets` and sets user environment variables permanently
-- **Clear Mode**: Removes previously set environment variables
-- **Persistent**: Variables survive system restarts
+Reads `.env.secrets` and writes individual secret files into `docker/secrets/` (one `.txt` file per key, named to match the Docker Compose `secrets:` block). Also generates `docker/.env.secrets.docker` with `_FILE` environment variable definitions for third-party containers.
 
 **Usage:**
 
 ```powershell
-# Set secrets as user environment variables
+# Windows
 .\secrets.ps1
-
-# Clear/unset all secret environment variables
-.\secrets.ps1 clear
 ```
-
-**Shell Version (`secrets.sh`):**
-
-- **Session Export**: Loads secrets into current shell session
-- **Temporary**: Variables only available in current session
-- **Platform Compatible**: Works on Linux, FreeBSD, and macOS
-
-**Usage:**
 
 ```bash
-# Export secrets to current session
-source ./secrets.sh
+# Linux/Mac
+./secrets.sh
 ```
+
+Run this once after filling in `.env.secrets`, and again any time you edit `.env.secrets` directly. To apply changed credentials to a running stack, use `rotate-secrets.[ps1|sh]` instead — it handles the SQL/API steps required to update running services before regenerating the files.
 
 **File Format (`.env.secrets`):**
 
 ```bash
 DATABASE_PASSWORD=your_secure_password
 JWT_SECRET=your_jwt_secret_key
-API_KEY=your_api_key
 # Comments are ignored
+```
+
+#### `check-env.[ps1|sh]`
+
+Validates that `.env`, `.env.secrets`, and `docker/secrets/` are consistent before deploying. Called automatically by `start-services.[ps1|sh]`.
+
+Detects the deployment mode and applies appropriate checks:
+
+| Mode | Condition | Behavior |
+|------|-----------|----------|
+| Raw dev | `.env` still has placeholder values, no `.env.secrets` | Warning only — valid starting point |
+| Env-only | `.env` has real values, no `.env.secrets` | Warning about security posture, does not block |
+| Secrets | `.env.secrets` exists | Hard-fails if any secret file is missing or stale |
+| Mixed | Both `.env` edited and `.env.secrets` present | Advisory warning, still validates secrets chain |
+
+```bash
+./check-env.sh        # Linux/Mac
+.\check-env.ps1       # Windows
+```
+
+#### `rotate-secrets.[ps1|sh]`
+
+Applies changed credentials from `.env.secrets` (or `.env` in env-only mode) to running services, then restarts affected containers.
+
+For database passwords, it runs the `ALTER ROLE`/`ALTER USER` SQL inside the running container before overwriting the secret file — so the running database is updated atomically rather than causing auth failures. For Keycloak secrets it uses `kcadm.sh`. For app-only secrets (session, JWT, worker token) it updates the file and restarts the relevant service.
+
+```bash
+# Auto-detect all changed secrets and rotate them
+./rotate-secrets.sh
+
+# Rotate specific secrets only
+./rotate-secrets.sh DATABASE_PASSWORD REDIS_PASSWORD
+
+# Preview what would happen without executing
+./rotate-secrets.sh --dry-run
 ```
 
 #### `update-user-role.[ps1|sh]`

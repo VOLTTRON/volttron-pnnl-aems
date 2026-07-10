@@ -39,7 +39,7 @@ For production deployments with valid domain names, Traefik can automatically ob
 # Configure in main .env file
 CERT_RESOLVER=letsencrypt
 ADMIN_EMAIL=your.email@example.com
-HOSTNAME=yourdomain.com
+APP_HOSTNAME=yourdomain.com
 ```
 
 ### Custom Certificates

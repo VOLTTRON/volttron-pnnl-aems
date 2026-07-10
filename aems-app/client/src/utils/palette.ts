@@ -1,5 +1,6 @@
 import { Colors } from "@blueprintjs/core";
 import { Color, JsonColor, typeofObject } from "@local/common";
+import { uniq } from "@local/common/dist/utils/lodash";
 import json from "./palettes.json";
 
 export { Color } from "@local/common";
@@ -470,8 +471,8 @@ const scaleFilter = (options: { scale: ScaleType }, palette: Palette): boolean =
 };
 
 export const allPalettes = [...blueprintPalettes, ...customPalettes] as const;
-export const allTypes = [...new Set(allPalettes.map((palette) => palette.type))] as const;
-export const allSchemes = [...new Set(allPalettes.map((palette) => palette.scheme))] as const;
+export const allTypes = uniq(allPalettes.map((palette) => palette.type));
+export const allSchemes = uniq(allPalettes.map((palette) => palette.scheme));
 
 export interface JsonPalettes {
   palettes: JsonPalette[];
@@ -487,8 +488,8 @@ export class Palettes {
     if (this.palettes.length !== new Set(this.palettes.map((palette) => palette.name)).size) {
       throw new Error("Duplicate palette names");
     }
-    this.types = [...new Set(this.palettes.map((palette) => palette.type))];
-    this.schemes = [...new Set(this.palettes.map((palette) => palette.scheme))];
+    this.types = uniq(this.palettes.map((palette) => palette.type));
+    this.schemes = uniq(this.palettes.map((palette) => palette.scheme));
   }
 
   static build(builder: JsonPalettes): Palettes {

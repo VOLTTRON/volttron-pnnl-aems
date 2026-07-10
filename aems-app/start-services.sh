@@ -61,6 +61,13 @@ on_failure() {
 set -e
 trap on_failure ERR
 
+print_blue "Checking environment/secrets configuration..."
+
+if ! ./check-env.sh; then
+    print_red "Environment check failed — fix the issues above before starting services."
+    exit 1
+fi
+
 print_blue "Building and starting Docker Compose services..."
 
 # Build Docker images

@@ -11,7 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserObject = void 0;
 const client_1 = require("@prisma/client");
-const lodash_1 = require("lodash");
 const common_1 = require("@nestjs/common");
 const builder_service_1 = require("../builder.service");
 const pothos_decorator_1 = require("../pothos.decorator");
@@ -42,7 +41,7 @@ let UserObject = class UserObject {
             }),
         });
         this.UserFields = builder.enumType("UserFields", {
-            values: Object.values((0, lodash_1.omit)(client_1.Prisma.UserScalarFieldEnum, "password")),
+            values: Object.values(Object.fromEntries(Object.entries(client_1.Prisma.UserScalarFieldEnum).filter(([k]) => k !== "password"))),
         });
     }
 };

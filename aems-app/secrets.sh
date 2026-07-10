@@ -26,15 +26,19 @@ mkdir -p "$SECRETS_DIR"
 echo "Generating Docker secret files from $SECRETS_FILE..."
 
 # Read .env.secrets and create individual secret files
-while IFS='=' read -r key value || [ -n "$key" ]; do
+while IFS= read -r line || [ -n "$line" ]; do
   # Skip empty lines and comments
-  if [ -z "$key" ] || [ "${key#\#}" != "$key" ]; then
-    continue
-  fi
-  
+  case "$line" in
+    ''|\#*) continue ;;
+  esac
+
+  # Split on the FIRST = only so values containing = are preserved intact
+  key=$(printf '%s' "$line" | sed 's/=.*//')
+  value=$(printf '%s' "$line" | sed 's/^[^=]*=//')
+
   # Remove leading/trailing whitespace from key and value
-  key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-  value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  key=$(printf '%s' "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  value=$(printf '%s' "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
   
   # Convert environment variable name to secret filename
   # e.g., SESSION_SECRET -> session_secret.txt

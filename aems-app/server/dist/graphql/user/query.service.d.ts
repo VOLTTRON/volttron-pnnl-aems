@@ -9,11 +9,11 @@ export declare class UserQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
-        sum?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
-        maximum?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
-        minimum?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
-        average?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
+        count?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "password" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
+        sum?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "password" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
+        maximum?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "password" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
+        minimum?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "password" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
+        average?: ("name" | "role" | "id" | "email" | "image" | "emailVerified" | "password" | "preferences" | "createdAt" | "updatedAt")[] | null | undefined;
     }>;
     readonly UserWhereUnique: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;

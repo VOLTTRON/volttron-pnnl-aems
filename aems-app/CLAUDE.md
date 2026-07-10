@@ -10,6 +10,7 @@ common/   # Shared utilities, constants, types (depends on prisma)
 server/   # NestJS + Apollo + Pothos GraphQL API (depends on common, prisma)
 client/   # Next.js 14 + React 18 + Blueprint.js UI (depends on common, prisma)
 docker/   # docker-compose.yml + per-service Dockerfiles and configs
+scripts/  # Playwright deployment verification + OSV security audit (npm-managed, not Yarn)
 docs/     # Additional documentation
 ```
 
@@ -42,7 +43,7 @@ Per-module commands (`yarn` inside the sub-project directory):
 **Recommended dev workflow** (per [README.md](README.md) → Development Setup): run the **full Docker stack** for backing services + server, then run the **client locally** against it.
 
 1. Configure a real hostname (not `localhost`) in `.env` — either your LAN IP or a hosts-file entry like `myapp.local`. Session cookies and Keycloak OAuth redirects require a consistent hostname between the Docker client and the local dev client.
-2. `docker compose up -d` — **run from the repo root**, not from `docker/`. The root [docker-compose.yml](docker-compose.yml) is a shim that `include:`s [docker/docker-compose.yml](docker/docker-compose.yml), and running from the root is what makes compose pick up the root [.env](.env). Invoking with `-f docker/docker-compose.yml` or `cd docker && docker compose up` loads `docker/.env` instead — wrong variables. Optional services (map, keycloak, wiki, nominatim) are gated behind compose profiles; see [docker/CLAUDE.md](docker/CLAUDE.md).
+2. `docker compose up -d` — **run from the repo root**, not from `docker/`. The root [docker-compose.yml](docker-compose.yml) is a shim that `include:`s [docker/docker-compose.yml](docker/docker-compose.yml), and running from the root is what makes compose pick up the root [.env](.env). Invoking with `-f docker/docker-compose.yml` or `cd docker && docker compose up` loads `docker/.env` instead — wrong variables. Optional services are gated behind compose profiles (`proxy`, `sso`, `map`, `nom`, `wiki`, `redis`); see [docker/CLAUDE.md](docker/CLAUDE.md).
 3. Create `client/.env.local` pointing the `REWRITE_*_URL` and `DATABASE_HOST`/`REDIS_HOST` vars at the configured hostname (see README § "Create Client Environment File").
 4. `cd client && yarn dev` — starts the local HTTPS dev server. The `dev` script ([server.cjs](client/server.cjs)) auto-copies TLS certs from the `skeleton-proxy` container so the local client shares sessions with the Dockerized one.
 5. Access at `https://<HOSTNAME>:3000`.

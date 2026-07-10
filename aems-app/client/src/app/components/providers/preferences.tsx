@@ -1,7 +1,7 @@
 "use client";
 
-import { merge, omit } from "lodash";
 import { createContext, useCallback, useEffect } from "react";
+import { deepMerge, omit } from "@local/common";
 import { useState } from "react";
 import { SensitivePreferences } from "./current";
 import { Mode, Preferences as PrismaPreferences } from "@local/prisma";
@@ -54,12 +54,13 @@ export function compilePreferences<
   S extends ServerPreferences,
   P extends PrismaPreferences,
 >(...preferences: (Partial<T> | Partial<S> | Partial<P> | null | undefined)[]): Preferences & T & S & P {
-  return merge({}, DefaultPreferences, ...preferences);
+  return deepMerge({}, DefaultPreferences, ...preferences) as unknown as Preferences & T & S & P;
 }
 
 function getLocalStorage(): Preferences | undefined {
   const value = localStorage.getItem(`preferences`);
-  const preferences = value ? JSON.parse(value) : undefined;
+  if (!value) return undefined;
+  const preferences = JSON.parse(value);
   const sanitized = omit(preferences, SensitivePreferences);
   return isPreferences(sanitized) ? sanitized : undefined;
 }

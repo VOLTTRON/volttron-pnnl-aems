@@ -16,7 +16,6 @@ const builder_service_1 = require("../builder.service");
 const object_service_1 = require("./object.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const common_2 = require("@local/common");
-const lodash_1 = require("lodash");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const graphql_1 = require("graphql");
 let GeographyQuery = GeographyQuery_1 = class GeographyQuery {
@@ -90,7 +89,7 @@ let GeographyQuery = GeographyQuery_1 = class GeographyQuery {
               )
               ORDER BY "Geography"."name" ASC
               LIMIT 1000
-              `.then((records) => (fields ? records?.map((record) => (0, lodash_1.pick)(record, fields)) : records) ?? []);
+              `.then((records) => (fields ? records?.map((record) => Object.fromEntries(fields.map(f => [f, record[f]]))) ?? [] : records ?? []));
             },
         }));
         builder.queryField("pageGeography", (t) => t.prismaConnection({

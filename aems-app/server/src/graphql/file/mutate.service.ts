@@ -3,7 +3,6 @@ import { SchemaBuilderService } from "../builder.service";
 import { FileQuery } from "./query.service";
 import { UserQuery } from "../user/query.service";
 import { Prisma } from "@prisma/client";
-import { pick } from "lodash";
 import { Mutation } from "@local/common";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
@@ -61,7 +60,8 @@ export class FileMutation {
           create: t.arg({ type: FileCreate, required: true }),
         },
         resolve: async (query, _root, args, ctx, _info) => {
-          const file: Prisma.FileCreateInput = pick(args.create, ["objectKey", "mimeType", "contentLength"]);
+          const { objectKey, mimeType, contentLength } = args.create;
+          const file: Prisma.FileCreateInput = { objectKey, mimeType, contentLength } as Prisma.FileCreateInput;
           const create = args.create;
           if (!ctx.user?.authRoles.admin || !create.user) {
             delete create.user;

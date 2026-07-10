@@ -1,5 +1,4 @@
 import { Prisma } from "@prisma/client";
-import { omit } from "lodash";
 import { Injectable } from "@nestjs/common";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosObject } from "../pothos.decorator";
@@ -48,7 +47,9 @@ export class UserObject {
     });
 
     this.UserFields = builder.enumType("UserFields", {
-      values: Object.values(omit(Prisma.UserScalarFieldEnum, "password")),
+      values: Object.values(
+        Object.fromEntries(Object.entries(Prisma.UserScalarFieldEnum).filter(([k]) => k !== "password"))
+      ),
     });
   }
 }

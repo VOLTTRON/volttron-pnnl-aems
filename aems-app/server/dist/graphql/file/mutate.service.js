@@ -14,7 +14,6 @@ const common_1 = require("@nestjs/common");
 const builder_service_1 = require("../builder.service");
 const query_service_1 = require("./query.service");
 const query_service_2 = require("../user/query.service");
-const lodash_1 = require("lodash");
 const common_2 = require("@local/common");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
@@ -53,7 +52,8 @@ let FileMutation = class FileMutation {
                 create: t.arg({ type: FileCreate, required: true }),
             },
             resolve: async (query, _root, args, ctx, _info) => {
-                const file = (0, lodash_1.pick)(args.create, ["objectKey", "mimeType", "contentLength"]);
+                const { objectKey, mimeType, contentLength } = args.create;
+                const file = { objectKey, mimeType, contentLength };
                 const create = args.create;
                 if (!ctx.user?.authRoles.admin || !create.user) {
                     delete create.user;
