@@ -1,5 +1,6 @@
 import {
   deepFreeze,
+  deepMerge,
   parseBoolean,
   templateFormat,
   delay,
@@ -19,6 +20,16 @@ import {
   typeofSymbol,
   typeofArray,
   printEnvironment,
+  pick,
+  omit,
+  xor,
+  xorPrimitive,
+  debounce,
+  chunk,
+  difference,
+  union,
+  sortBy,
+  max,
 } from "./util";
 
 describe("deepFreeze", () => {
@@ -440,7 +451,7 @@ describe("typeofBoolean", () => {
 describe("typeofFunction", () => {
   it("returns true for a function", () => {
     expect(typeofFunction(() => {})).toBe(true);
-     
+
     expect(typeofFunction(function () {})).toBe(true);
   });
   it("returns false for a non-function", () => {
@@ -467,6 +478,216 @@ describe("typeofArray", () => {
   it("returns false for a non-array", () => {
     expect(typeofArray({})).toBe(false);
     expect(typeofArray("array")).toBe(false);
+  });
+});
+
+describe("deepMerge", () => {
+  it("returns target when no sources", () => {
+    expect(deepMerge({ a: 1 })).toEqual({ a: 1 });
+  });
+  it("shallow-merges non-object values from source", () => {
+    expect(deepMerge({ a: 1, b: 2 }, { b: 3 })).toEqual({ a: 1, b: 3 });
+  });
+  it("deeply merges nested objects", () => {
+    expect(deepMerge({ a: { x: 1, y: 2 } }, { a: { y: 9 } })).toEqual({ a: { x: 1, y: 9 } });
+  });
+  it("does not deep-merge arrays — last value wins", () => {
+    expect(deepMerge({ a: [1, 2] }, { a: [3] })).toEqual({ a: [3] });
+  });
+  it("merges multiple sources left-to-right", () => {
+    expect(deepMerge({ a: 1 }, { b: 2 }, { c: 3 })).toEqual({ a: 1, b: 2, c: 3 });
+  });
+  it("later sources override earlier ones", () => {
+    expect(deepMerge({ a: 1 }, { a: 2 }, { a: 3 })).toEqual({ a: 3 });
+  });
+  it("skips undefined values in sources", () => {
+    expect(deepMerge({ a: 1, b: 2 }, { b: undefined })).toEqual({ a: 1, b: 2 });
+  });
+});
+
+describe("pick", () => {
+  it("returns only the specified keys", () => {
+    expect(pick({ a: 1, b: 2, c: 3 }, ["a", "c"])).toEqual({ a: 1, c: 3 });
+  });
+  it("ignores keys not present on the object", () => {
+    expect(pick({ a: 1 } as any, ["a", "z"])).toEqual({ a: 1 });
+  });
+  it("returns an empty object when keys is empty", () => {
+    expect(pick({ a: 1 }, [])).toEqual({});
+  });
+});
+
+describe("omit", () => {
+  it("removes the specified keys", () => {
+    expect(omit({ a: 1, b: 2, c: 3 }, ["b"])).toEqual({ a: 1, c: 3 });
+  });
+  it("returns the same shape when keys is empty", () => {
+    expect(omit({ a: 1, b: 2 }, [])).toEqual({ a: 1, b: 2 });
+  });
+  it("is a no-op for keys not present on the object", () => {
+    expect(omit({ a: 1 } as any, ["z"])).toEqual({ a: 1 });
+  });
+});
+
+describe("xor", () => {
+  it("returns elements present in exactly one array (primitives)", () => {
+    expect(xor([1, 2, 3], [2, 3, 4])).toEqual([1, 4]);
+  });
+  it("returns all elements when arrays have no overlap", () => {
+    expect(xor([1, 2], [3, 4])).toEqual([1, 2, 3, 4]);
+  });
+  it("returns empty when arrays are identical", () => {
+    expect(xor([1, 2], [1, 2])).toEqual([]);
+  });
+  it("handles object elements via JSON.stringify equality", () => {
+    expect(xor([{ x: 1 }, { x: 2 }], [{ x: 2 }, { x: 3 }])).toEqual([{ x: 1 }, { x: 3 }]);
+  });
+  it("handles tuple elements", () => {
+    expect(xor([[0, 1], [1, 2]], [[1, 2], [2, 3]])).toEqual([[0, 1], [2, 3]]);
+  });
+  it("returns empty arrays for two empty inputs", () => {
+    expect(xor([], [])).toEqual([]);
+  });
+});
+
+describe("xorPrimitive", () => {
+  it("returns elements present in exactly one array", () => {
+    expect(xorPrimitive(["a", "b", "c"], ["b", "c", "d"])).toEqual(["a", "d"]);
+  });
+  it("handles numbers", () => {
+    expect(xorPrimitive([1, 2, 3], [2, 4])).toEqual([1, 3, 4]);
+  });
+  it("returns empty for identical arrays", () => {
+    expect(xorPrimitive([1, 2], [1, 2])).toEqual([]);
+  });
+});
+
+describe("debounce", () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it("does not call fn before the delay", () => {
+    const fn = jest.fn();
+    const debouncedFn = debounce(fn, 100);
+    debouncedFn();
+    expect(fn).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(99);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("calls fn after the delay", () => {
+    const fn = jest.fn();
+    const debouncedFn = debounce(fn, 100);
+    debouncedFn();
+    jest.advanceTimersByTime(100);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets the timer on repeated calls", () => {
+    const fn = jest.fn();
+    const debouncedFn = debounce(fn, 100);
+    debouncedFn();
+    jest.advanceTimersByTime(50);
+    debouncedFn();
+    jest.advanceTimersByTime(50);
+    expect(fn).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(50);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes arguments to fn", () => {
+    const fn = jest.fn();
+    const debouncedFn = debounce(fn, 10);
+    debouncedFn("hello", 42);
+    jest.advanceTimersByTime(10);
+    expect(fn).toHaveBeenCalledWith("hello", 42);
+  });
+});
+
+describe("chunk", () => {
+  it("splits an array into chunks of the given size", () => {
+    expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+  });
+  it("returns a single chunk when size >= array length", () => {
+    expect(chunk([1, 2, 3], 5)).toEqual([[1, 2, 3]]);
+  });
+  it("returns empty for empty array", () => {
+    expect(chunk([], 2)).toEqual([]);
+  });
+  it("returns empty for size < 1", () => {
+    expect(chunk([1, 2, 3], 0)).toEqual([]);
+  });
+});
+
+describe("difference", () => {
+  it("returns elements of first array not in others", () => {
+    expect(difference([1, 2, 3, 4], [2, 4])).toEqual([1, 3]);
+  });
+  it("accepts multiple exclusion arrays", () => {
+    expect(difference([1, 2, 3, 4, 5], [2], [4])).toEqual([1, 3, 5]);
+  });
+  it("returns the original array when nothing is excluded", () => {
+    expect(difference([1, 2, 3], [])).toEqual([1, 2, 3]);
+  });
+  it("returns empty when all elements are excluded", () => {
+    expect(difference([1, 2], [1, 2])).toEqual([]);
+  });
+});
+
+describe("union", () => {
+  it("merges arrays and deduplicates", () => {
+    expect(union([1, 2], [2, 3])).toEqual([1, 2, 3]);
+  });
+  it("handles multiple arrays", () => {
+    expect(union([1], [2], [2, 3])).toEqual([1, 2, 3]);
+  });
+  it("returns unique values from a single array", () => {
+    expect(union([1, 1, 2])).toEqual([1, 2]);
+  });
+  it("returns empty for no arguments", () => {
+    expect(union()).toEqual([]);
+  });
+});
+
+describe("sortBy", () => {
+  it("sorts by a single iteratee", () => {
+    const items = [{ n: 3 }, { n: 1 }, { n: 2 }];
+    expect(sortBy(items, (v) => v.n)).toEqual([{ n: 1 }, { n: 2 }, { n: 3 }]);
+  });
+  it("uses multiple iteratees as tiebreakers", () => {
+    const items = [
+      { a: 1, b: 2 },
+      { a: 1, b: 1 },
+      { a: 0, b: 9 },
+    ];
+    expect(sortBy(items, (v) => v.a, (v) => v.b)).toEqual([
+      { a: 0, b: 9 },
+      { a: 1, b: 1 },
+      { a: 1, b: 2 },
+    ]);
+  });
+  it("does not mutate the original array", () => {
+    const arr = [3, 1, 2];
+    sortBy(arr, (v) => v);
+    expect(arr).toEqual([3, 1, 2]);
+  });
+  it("returns empty array for empty input", () => {
+    expect(sortBy([], (v) => v)).toEqual([]);
+  });
+});
+
+describe("max", () => {
+  it("returns the maximum value", () => {
+    expect(max([3, 1, 4, 1, 5, 9])).toBe(9);
+  });
+  it("returns the only element from a single-element array", () => {
+    expect(max([7])).toBe(7);
+  });
+  it("returns undefined for an empty array", () => {
+    expect(max([])).toBeUndefined();
+  });
+  it("handles negative numbers", () => {
+    expect(max([-3, -1, -4])).toBe(-1);
   });
 });
 

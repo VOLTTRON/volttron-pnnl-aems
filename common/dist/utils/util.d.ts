@@ -1,4 +1,16 @@
 import { DeepTyped, DeepPartial } from "./types";
+export declare function pick<T extends object, K extends keyof T>(obj: T, keys: K[]): Pick<T, K>;
+export declare function omit<T extends object, K extends keyof T>(obj: T, keys: readonly K[]): Omit<T, K>;
+export declare function xor<T>(a: T[], b: T[]): T[];
+export declare function xorPrimitive<T extends string | number | boolean>(a: T[], b: T[]): T[];
+export declare function debounce<T extends (...args: Parameters<T>) => void>(fn: T, ms: number): T;
+export declare function chunk<T>(array: T[], size: number): T[][];
+export declare function difference<T>(array: T[], ...values: T[][]): T[];
+export declare function union<T>(...arrays: T[][]): T[];
+export declare function sortBy<T>(array: T[], ...iteratees: ((v: T) => unknown)[]): T[];
+export declare function max(array: number[]): number | undefined;
+export declare function deepMerge(...sources: (object | null | undefined)[]): any;
+export declare function deepMerge<T extends object>(target: T, ...sources: Partial<T>[]): T;
 export declare const typeofNonNullable: <T>(value: T) => value is NonNullable<T>;
 export declare const keyofObject: <T extends object>(key: string | number | symbol) => key is keyof T;
 export declare const typeofEnum: <T extends object>(type: T) => (value: any) => value is T[keyof T];

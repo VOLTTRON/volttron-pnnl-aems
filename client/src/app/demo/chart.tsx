@@ -4,7 +4,7 @@ import { useContext } from "react";
 import { Colors } from "@blueprintjs/core";
 import { compilePreferences, CurrentContext, PreferencesContext } from "../components/providers";
 import { ECharts } from "../components/common/echarts";
-import { range } from "lodash";
+const range = (start: number, end: number) => Array.from({ length: end - start }, (_, i) => start + i);
 
 const chart = {
   active: Colors.CERULEAN2,

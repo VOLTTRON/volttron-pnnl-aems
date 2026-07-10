@@ -112,13 +112,17 @@ The Docker deployment consists of the following core services:
    # Copy and edit the main environment file
    cp ../.env.example ../.env
    cp ../.env.secrets.example ../.env.secrets
-   
-   # Set secrets as environment variables
+
+   # Edit ../.env.secrets with real values, then generate docker/secrets/ files
    # Windows
    ..\secrets.ps1
-   
-   # Linux/Mac  
-   source ../secrets.sh
+
+   # Linux/Mac
+   ../secrets.sh
+
+   # Validate configuration before starting
+   ../check-env.sh       # Linux/Mac
+   ..\check-env.ps1      # Windows
    ```
 
 2. **Start core services**
@@ -128,7 +132,7 @@ The Docker deployment consists of the following core services:
    ```
 
 3. **Access the application**
-   - Main application: https://localhost (or your configured HOSTNAME)
+   - Main application: https://localhost (or your configured APP_HOSTNAME)
    - GraphQL API: https://localhost/graphql
 
 ### Enable Optional Services
@@ -198,7 +202,7 @@ The Docker configuration uses multiple environment files for different services:
 # Main environment file (../.env)
 COMPOSE_PROJECT_NAME=skeleton
 TAG=latest
-HOSTNAME=localhost                    # Change for production
+APP_HOSTNAME=localhost                # Change for production
 AUTH_PROVIDERS=keycloak              # local,super,bearer,keycloak
 LOGGERS=console,database             # console,database
 INSTANCE_TYPE=""                     # Service configuration (see below)
@@ -311,7 +315,7 @@ The `certs` service automatically generates self-signed certificates using mkcer
 # Configure in main .env file
 CERT_RESOLVER=letsencrypt
 ADMIN_EMAIL=your.email@example.com
-HOSTNAME=yourdomain.com
+APP_HOSTNAME=yourdomain.com
 ```
 
 ### Security Headers

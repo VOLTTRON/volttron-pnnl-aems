@@ -1,9 +1,9 @@
 "use client";
 
 import { renderTerm } from "@/utils/client";
+import { xor } from "@local/common";
 import { Alignment, Button, ButtonGroup, HTMLTable, HTMLTableProps, Intent } from "@blueprintjs/core";
 import { IconName, IconNames } from "@blueprintjs/icons";
-import { xor } from "lodash";
 import { MouseEvent } from "react";
 import styles from "./page.module.scss";
 

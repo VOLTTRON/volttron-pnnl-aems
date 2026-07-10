@@ -618,13 +618,18 @@ Get up and running with the Skeleton App:
    cp .env.example .env
    cp .env.secrets.example .env.secrets
 
-   # Edit '.env' and set 'HOSTNAME' to a valid hostname or your IP Address
+   # Edit '.env' and set 'APP_HOSTNAME' to a valid hostname or your IP Address
+   # Edit '.env.secrets' and fill in real values for all secrets
 
-   # Set secrets (Windows)
+   # Generate docker/secrets/ files from .env.secrets (Windows)
    .\secrets.ps1
 
-   # Set secrets (Linux/Mac)
-   source ./secrets.sh
+   # Generate docker/secrets/ files from .env.secrets (Linux/Mac)
+   ./secrets.sh
+
+   # Validate the configuration before starting
+   ./check-env.sh        # Linux/Mac
+   .\check-env.ps1       # Windows
    ```
 
 3. **Start the application**
@@ -1175,7 +1180,7 @@ The following steps will need to be completed to deploy the application.
 
 ### Traefik Reverse Proxy (optional)
 
-If enabling the Traefik reverse proxy the profile `proxy` will need to be enabled. The environment variable `HOSTNAME` will need to be set to something other than localhost for deployments. For testing in development environments either `localhost` or the IP address can be utilized. Likewise, any other section of the [.env](./.env) file that references `localhost` will also need to be changed.
+If enabling the Traefik reverse proxy the profile `proxy` will need to be enabled. The environment variable `APP_HOSTNAME` will need to be set to something other than localhost for deployments. For testing in development environments either `localhost` or the IP address can be utilized. Likewise, any other section of the [.env](./.env) file that references `localhost` will also need to be changed.
 
 If the deployed application needs auto-generated public certificates it will need a valid domain name. The application will also need to be reachable from the internet. The following [.env](./.env) variables will need to be set: `CERT_RESOLVER=letsencrypt` and `ADMIN_EMAIL` will need to have a valid email specified.
 
@@ -1259,12 +1264,14 @@ docker compose --env-file docker/.env.secrets.docker up -d
 
 - `SESSION_SECRET` - Server session management
 - `JWT_SECRET` - JWT token signing
+- `WORKER_TOKEN` - Backup sidecar authentication
 - `DATABASE_PASSWORD` - Main PostgreSQL database
 - `REDIS_PASSWORD` - Redis authentication
 - `KEYCLOAK_CLIENT_SECRET` - OAuth client secret
 - `KEYCLOAK_ADMIN_PASSWORD` - Admin interface password
 - `KEYCLOAK_DATABASE_PASSWORD` - Keycloak's database
 - `NOMINATIM_DATABASE_PASSWORD` - Nominatim's database
+- `BOOKSTACK_SESSION_SECRET` - Wiki session encryption key
 - `BOOKSTACK_ROOT_PASSWORD` - Wiki database root
 - `BOOKSTACK_DATABASE_PASSWORD` - Wiki database user
 - `BOOKSTACK_KEYCLOAK_CLIENT_SECRET` - Wiki OAuth client
@@ -1392,7 +1399,7 @@ Keycloak is automatically configured for use when using the Docker Compose deplo
 Follow the steps below to setup Keycloak which will allow users to register and manage their own accounts.
 Registered users will still need to be granted access to the application by an administrator.
 
-1. You will need to set a domain name or IP address as the "HOSTNAME" in the [.env](./.env) file. You can optionally set the "KEYCLOAK_DEFAULT_ROLE" to automatically assign a role to newly registered accounts. This change is not retroactive.
+1. You will need to set a domain name or IP address as the "APP_HOSTNAME" in the [.env](./.env) file. You can optionally set the "KEYCLOAK_DEFAULT_ROLE" to automatically assign a role to newly registered accounts. This change is not retroactive.
 2. Navigate to the Keycloak admin page (replacing `localhost` with the previously set variable): [https://localhost/auth/sso/admin/master/console](https://localhost/auth/sso/admin/master/console)
 3. Sign in using the username and password specified in the [.env](./.env) file as "KEYCLOAK_ADMIN" and "KEYCLOAK_ADMIN_PASSWORD".
 4. Click the "Keycloak" drop down to create a new realm.
@@ -1579,44 +1586,63 @@ source ./env.sh .env.production
 
 #### `secrets.[ps1|sh]`
 
-Secret management scripts for handling sensitive environment variables separately from main configuration.
-
-**PowerShell Version (`secrets.ps1`):**
-
-- **Set Mode**: Reads `.env.secrets` and sets user environment variables permanently
-- **Clear Mode**: Removes previously set environment variables
-- **Persistent**: Variables survive system restarts
+Reads `.env.secrets` and writes individual secret files into `docker/secrets/` (one `.txt` file per key, named to match the Docker Compose `secrets:` block). Also generates `docker/.env.secrets.docker` with `_FILE` environment variable definitions for third-party containers.
 
 **Usage:**
 
 ```powershell
-# Set secrets as user environment variables
+# Windows
 .\secrets.ps1
-
-# Clear/unset all secret environment variables
-.\secrets.ps1 clear
 ```
-
-**Shell Version (`secrets.sh`):**
-
-- **Session Export**: Loads secrets into current shell session
-- **Temporary**: Variables only available in current session
-- **Platform Compatible**: Works on Linux, FreeBSD, and macOS
-
-**Usage:**
 
 ```bash
-# Export secrets to current session
-source ./secrets.sh
+# Linux/Mac
+./secrets.sh
 ```
+
+Run this once after filling in `.env.secrets`, and again any time you edit `.env.secrets` directly. To apply changed credentials to a running stack, use `rotate-secrets.[ps1|sh]` instead — it handles the SQL/API steps required to update running services before regenerating the files.
 
 **File Format (`.env.secrets`):**
 
 ```bash
 DATABASE_PASSWORD=your_secure_password
 JWT_SECRET=your_jwt_secret_key
-API_KEY=your_api_key
 # Comments are ignored
+```
+
+#### `check-env.[ps1|sh]`
+
+Validates that `.env`, `.env.secrets`, and `docker/secrets/` are consistent before deploying. Called automatically by `start-services.[ps1|sh]`.
+
+Detects the deployment mode and applies appropriate checks:
+
+| Mode | Condition | Behavior |
+|------|-----------|----------|
+| Raw dev | `.env` still has placeholder values, no `.env.secrets` | Warning only — valid starting point |
+| Env-only | `.env` has real values, no `.env.secrets` | Warning about security posture, does not block |
+| Secrets | `.env.secrets` exists | Hard-fails if any secret file is missing or stale |
+| Mixed | Both `.env` edited and `.env.secrets` present | Advisory warning, still validates secrets chain |
+
+```bash
+./check-env.sh        # Linux/Mac
+.\check-env.ps1       # Windows
+```
+
+#### `rotate-secrets.[ps1|sh]`
+
+Applies changed credentials from `.env.secrets` (or `.env` in env-only mode) to running services, then restarts affected containers.
+
+For database passwords, it runs the `ALTER ROLE`/`ALTER USER` SQL inside the running container before overwriting the secret file — so the running database is updated atomically rather than causing auth failures. For Keycloak secrets it uses `kcadm.sh`. For app-only secrets (session, JWT, worker token) it updates the file and restarts the relevant service.
+
+```bash
+# Auto-detect all changed secrets and rotate them
+./rotate-secrets.sh
+
+# Rotate specific secrets only
+./rotate-secrets.sh DATABASE_PASSWORD REDIS_PASSWORD
+
+# Preview what would happen without executing
+./rotate-secrets.sh --dry-run
 ```
 
 #### `update-user-role.[ps1|sh]`
@@ -1888,7 +1914,7 @@ For session sharing and Keycloak authentication to work, you **cannot use `local
 # Linux/Mac: ifconfig or ip addr
 
 # Edit .env and set:
-HOSTNAME=192.168.1.100  # Replace with your actual IP address
+APP_HOSTNAME=192.168.1.100  # Replace with your actual IP address
 ```
 
 **Option 2: Use Hosts File Mapping** (Recommended)
@@ -1901,13 +1927,15 @@ HOSTNAME=192.168.1.100  # Replace with your actual IP address
 192.168.1.100  myapp.local  # Replace IP with your machine's IP
 
 # Edit .env and set:
-HOSTNAME=myapp.local
+APP_HOSTNAME=myapp.local
 ```
 
 **Why hostname configuration is critical:**
 - Session cookies require matching domains between local and Docker clients
 - Keycloak OAuth redirects require consistent hostname resolution
 - Using `localhost` will cause authentication failures and prevent session sharing
+
+**Avoid `.gov` (and other HSTS-preloaded suffixes) for test/dev deployments.** The built-in `certs` service issues a self-signed cert via mkcert. Browsers reject any self-signed cert with a warning, but for `.gov` (and other HSTS-preloaded TLDs like `.dev`, `.app`, `.bank`), Chromium/Edge/Firefox additionally refuse to offer the "Advanced → Proceed anyway" click-through — the site becomes fully unreachable. Use an IP, a hosts-file alias, or a non-preloaded intranet name for internal test hosts. Production deployments that terminate TLS with a real CA cert (`CERT_RESOLVER=letsencrypt` or an operator-supplied cert) are unaffected.
 
 #### Step 2: Start or Restart Docker Services
 
@@ -1917,7 +1945,7 @@ HOSTNAME=myapp.local
 docker compose up -d
 ```
 
-**If you changed the HOSTNAME after containers were already running:**
+**If you changed the APP_HOSTNAME after containers were already running:**
 
 You must regenerate certificates to include the new hostname. Use the reset script:
 
@@ -1948,13 +1976,13 @@ You should see containers like `skeleton-proxy`, `skeleton-server`, `skeleton-da
 Create `client/.env.local` with the following configuration:
 
 ```bash
-# Backend services (Docker) - replace ${HOSTNAME} with your actual configured hostname
+# Backend services (Docker) - replace ${APP_HOSTNAME} with your actual configured hostname
 DATABASE_HOST=myapp.local
 DATABASE_PORT=6543
 REDIS_HOST=myapp.local
 REDIS_PORT=6379
 
-# Backend API rewrites - replace ${HOSTNAME} with your actual configured hostname
+# Backend API rewrites - replace ${APP_HOSTNAME} with your actual configured hostname
 REWRITE_AUTHJS_URL=https://myapp.local/authjs
 REWRITE_GRAPHQL_URL=https://myapp.local/graphql
 REWRITE_API_URL=https://myapp.local/api
@@ -2027,8 +2055,8 @@ docker compose up -d
 **Cause**: Hostname mismatch or `localhost` being used
 
 **Solution**:
-1. Verify `.env` file has correct HOSTNAME (not `localhost`)
-2. If you changed HOSTNAME, regenerate certificates using `reset-service` script
+1. Verify `.env` file has correct APP_HOSTNAME (not `localhost`)
+2. If you changed APP_HOSTNAME, regenerate certificates using `reset-service` script
 3. Ensure `client/.env.local` uses the same hostname
 4. Access local client using configured hostname, not `localhost`
 

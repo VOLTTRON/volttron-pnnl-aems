@@ -14,7 +14,9 @@ function readSecret(secretName, defaultValue = "") {
         }
     }
     catch (error) {
-        logger.warn(`Secret should be specified for production environment: ${secretName}. Attempted to read from ${dockerSecretPath} but failed: ${error.message || String(error)}`);
+        if (error?.code !== "ENOENT") {
+            logger.warn(`Failed to read Docker secret ${secretName} from ${dockerSecretPath}: ${error.message || String(error)}`);
+        }
     }
     const fileEnvVar = `${secretName}_FILE`;
     const secretFilePath = process.env[fileEnvVar];
@@ -38,11 +40,8 @@ function readSecret(secretName, defaultValue = "") {
         logger.log(`Using direct environment variable: ${secretName}`);
         return envValue;
     }
-    if (defaultValue) {
-        logger.warn(`No secret found for ${secretName}, using default value`);
-    }
-    else {
-        logger.warn(`No secret found for ${secretName} and no default provided`);
+    if (process.env.NODE_ENV === "production") {
+        logger.warn(`No secret found for ${secretName}${defaultValue ? ", using default value" : " and no default provided"}`);
     }
     return defaultValue;
 }

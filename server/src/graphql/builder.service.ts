@@ -8,7 +8,6 @@ import ScopeAuthPlugin from "@pothos/plugin-scope-auth";
 import SmartSubscriptionsPlugin, { subscribeOptionsFromIterator } from "@pothos/plugin-smart-subscriptions";
 import RelayPlugin from "@pothos/plugin-relay";
 import { Context, Scalars, Aggregate, GroupByInput } from ".";
-import { set } from "lodash";
 import { Inject, Injectable, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "@/prisma/prisma.service";
 import { setInterval } from "node:timers/promises";
@@ -175,7 +174,7 @@ export class SchemaBuilderService
     ].forEach(({ src, dst }) => {
       const fields = aggregate?.[src];
       if (fields) {
-        temp[dst] = fields.reduce((a, v) => set(a, v, true), {} as { [k in F]: boolean | null });
+        temp[dst] = fields.reduce((a, v) => { (a as Record<string, unknown>)[v] = true; return a; }, {} as { [k in F]: boolean | null });
       }
     });
     return temp;

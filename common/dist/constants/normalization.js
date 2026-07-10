@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const lodash_1 = require("lodash");
 const regex_1 = require("regex");
 const base_1 = require("./base");
-const processLettersAndNumbers = (v) => (0, lodash_1.replace)(v, (0, regex_1.regex)("gm") `[^\s\p{L}0-9]`, "");
+const util_1 = require("../utils/util");
+const processLettersAndNumbers = (v) => v.replace((0, regex_1.regex)("gm") `[^\s\p{L}0-9]`, "");
 class Normalization extends base_1.default {
     constructor() {
         super([
@@ -11,74 +11,74 @@ class Normalization extends base_1.default {
                 name: "NFD",
                 label: "NFD",
                 unallowed: ["NFC", "NFKD", "NFKC"],
-                process: ((v) => ((0, lodash_1.isNil)(v) ? "" : v.normalize("NFD"))),
+                process: ((v) => (v == null ? "" : v.normalize("NFD"))),
             },
             {
                 name: "NFC",
                 label: "NFC",
                 unallowed: ["NFD", "NFKD", "NFKC"],
-                process: ((v) => ((0, lodash_1.isNil)(v) ? "" : v.normalize("NFC"))),
+                process: ((v) => (v == null ? "" : v.normalize("NFC"))),
             },
             {
                 name: "NFKD",
                 label: "NFKD",
                 unallowed: ["NFD", "NFC", "NFKC"],
-                process: ((v) => ((0, lodash_1.isNil)(v) ? "" : v.normalize("NFKD"))),
+                process: ((v) => (v == null ? "" : v.normalize("NFKD"))),
             },
             {
                 name: "NFKC",
                 label: "NFKC",
                 unallowed: ["NFD", "NFC", "NFKD"],
-                process: ((v) => ((0, lodash_1.isNil)(v) ? "" : v.normalize("NFKC"))),
+                process: ((v) => (v == null ? "" : v.normalize("NFKC"))),
             },
             {
                 name: "LOWERCASE",
                 label: "Lowercase",
                 unallowed: ["UPPERCASE"],
-                process: ((v) => ((0, lodash_1.isNil)(v) ? "" : v.toLowerCase())),
+                process: ((v) => (v == null ? "" : v.toLowerCase())),
             },
             {
                 name: "UPPERCASE",
                 label: "Uppercase",
                 unallowed: ["LOWERCASE"],
-                process: ((v) => ((0, lodash_1.isNil)(v) ? "" : v.toUpperCase())),
+                process: ((v) => (v == null ? "" : v.toUpperCase())),
             },
             {
                 name: "LETTERS",
                 label: "Letters",
                 unallowed: [],
-                process: ((v) => ((0, lodash_1.isNil)(v) ? "" : (0, lodash_1.replace)(v, (0, regex_1.regex)("gm") `[^\s\p{L}]`, ""))),
+                process: ((v) => (v == null ? "" : v.replace((0, regex_1.regex)("gm") `[^\s\p{L}]`, ""))),
             },
             {
                 name: "NUMBERS",
                 label: "Numbers",
                 unallowed: [],
-                process: ((v) => ((0, lodash_1.isNil)(v) ? "" : (0, lodash_1.replace)(v, /[^\s0-9]/gm, ""))),
+                process: ((v) => (v == null ? "" : v.replace(/[^\s0-9]/gm, ""))),
             },
             {
                 name: "TRIM",
                 label: "Trim",
                 unallowed: ["CONCATENATE"],
-                process: ((v) => ((0, lodash_1.isNil)(v) ? "" : v.trim())),
+                process: ((v) => (v == null ? "" : v.trim())),
             },
             {
                 name: "COMPACT",
                 label: "Compact",
                 unallowed: ["CONCATENATE"],
-                process: ((v) => ((0, lodash_1.isNil)(v) ? "" : (0, lodash_1.replace)(v, /\s+/gm, " "))),
+                process: ((v) => (v == null ? "" : v.replace(/\s+/gm, " "))),
             },
             {
                 name: "CONCATENATE",
                 label: "Concatenate",
                 unallowed: ["TRIM", "COMPACT"],
-                process: ((v) => ((0, lodash_1.isNil)(v) ? "" : (0, lodash_1.replace)(v, /\s+/gm, ""))),
+                process: ((v) => (v == null ? "" : v.replace(/\s+/gm, ""))),
             },
         ].map((r) => ({
             ...r,
             allowed: ((_v) => {
                 throw new Error("Normalization allowed function not implemented.");
             }),
-        })), (t, r) => (0, lodash_1.merge)(r, {
+        })), (t, r) => (0, util_1.deepMerge)(r, {
             allowed: (r.unallowed.length === 0
                 ? (_v) => true
                 : (...v) => t.allowed(r, ...v)),
@@ -108,15 +108,16 @@ class Normalization extends base_1.default {
         this.allowed = (a, ...b) => {
             const normalizations = b.map((v) => this.parse(v)?.name).filter((v) => v);
             const allowed = this.parse(a)?.unallowed ?? [];
-            return (0, lodash_1.isEmpty)((0, lodash_1.intersection)(normalizations, allowed));
+            return normalizations.filter(v => allowed.includes(v)).length === 0;
         };
         this.process = (...types) => {
-            const joined = types.map((t) => ((0, lodash_1.has)(t, "label") ? t.label : t)).join("|");
-            const normalize = (0, lodash_1.intersectionWith)(this.values, joined.split(/[^a-zA-Z']+/).map((s) => this.parse(s)), (a, b) => a?.name === b?.name);
+            const joined = types.map((t) => (t !== null && typeof t === "object" && Object.prototype.hasOwnProperty.call(t, "label") ? (t).label : t)).join("|");
+            const parsed = joined.split(/[^a-zA-Z']+/).map((s) => this.parse(s));
+            const normalize = this.values.filter((a) => parsed.some((b) => a?.name === b?.name));
             return (value) => {
                 return normalize.reduce((p, n, i, a) => {
-                    if ((n.name === "LETTERS" && (0, lodash_1.get)(a, [i + 1, "name"]) === "NUMBERS") ||
-                        (n.name === "NUMBERS" && (0, lodash_1.get)(a, [i - 1, "name"]) === "LETTERS")) {
+                    if ((n.name === "LETTERS" && a[i + 1]?.name === "NUMBERS") ||
+                        (n.name === "NUMBERS" && a[i - 1]?.name === "LETTERS")) {
                         return processLettersAndNumbers(p);
                     }
                     return n.process(p);

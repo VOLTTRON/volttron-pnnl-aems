@@ -1,7 +1,6 @@
 import { extname, resolve } from "path";
 import { readFile, readdir, stat } from "fs/promises";
 import { Seed } from "@prisma/client";
-import { chunk, omit } from "lodash";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { BaseService } from "..";
 import { PrismaService } from "@/prisma/prisma.service";
@@ -87,7 +86,7 @@ export class SeedService extends BaseService {
                           await this.prismaService.prisma[seeder.table].upsert({
                             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                             where: { [seeder.id]: record[seeder.id] },
-                            update: omit(record, [seeder.id]),
+                            update: Object.fromEntries(Object.entries(record).filter(([k]) => k !== seeder.id)),
                             create: record,
                           });
                           break;
@@ -121,7 +120,7 @@ export class SeedService extends BaseService {
                           await this.prismaService.prisma[seeder.table].update({
                             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                             where: { [seeder.id]: record[seeder.id] },
-                            data: omit(record, [seeder.id]),
+                            data: Object.fromEntries(Object.entries(record).filter(([k]) => k !== seeder.id)),
                           });
                           break;
                         default:
@@ -144,14 +143,17 @@ export class SeedService extends BaseService {
                         await this.prismaService.prisma[seeder.table].upsert({
                           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                           where: { [seeder.id]: data[seeder.id] },
-                          update: omit(data, [seeder.id]),
+                          update: Object.fromEntries(Object.entries(data as Record<string, unknown>).filter(([k]) => k !== seeder.id)),
                           create: data,
                         });
                       }
                       break;
                     case "create":
                       if (this.configService.service.seed.batchSize > 0) {
-                        for (const records of chunk(seeder.data, this.configService.service.seed.batchSize)) {
+                        const batchSize = this.configService.service.seed.batchSize;
+                        const chunks: (typeof seeder.data)[] = [];
+                        for (let i = 0; i < seeder.data.length; i += batchSize) chunks.push(seeder.data.slice(i, i + batchSize));
+                        for (const records of chunks) {
                           // @ts-expect-error: Unable to determine specific types for json
                           await this.prismaService.prisma[seeder.table].createMany({
                             data: records,
@@ -173,7 +175,7 @@ export class SeedService extends BaseService {
                         await this.prismaService.prisma[seeder.table].update({
                           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                           where: { [seeder.id]: data[seeder.id] },
-                          data: omit(data, [seeder.id]),
+                          data: Object.fromEntries(Object.entries(data as Record<string, unknown>).filter(([k]) => k !== seeder.id)),
                         });
                       }
                       break;

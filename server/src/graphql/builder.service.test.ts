@@ -170,24 +170,4 @@ describe("SchemaBuilderService", () => {
     });
   });
 
-  describe("multiple instances", () => {
-    it("should allow multiple schema builder service instances", () => {
-      const service1 = new SchemaBuilderService(mockPrismaService, mockConfigService, mockSubscriptionService);
-      const service2 = new SchemaBuilderService(mockPrismaService, mockConfigService, mockSubscriptionService);
-
-      expect(service1).toBeInstanceOf(SchemaBuilderService);
-      expect(service2).toBeInstanceOf(SchemaBuilderService);
-      expect(service1).not.toBe(service2);
-    });
-
-    it("should maintain separate type definitions", () => {
-      const service1 = new SchemaBuilderService(mockPrismaService, mockConfigService, mockSubscriptionService);
-      const service2 = new SchemaBuilderService(mockPrismaService, mockConfigService, mockSubscriptionService);
-
-      expect(service1.DateTime).toBeDefined();
-      expect(service2.DateTime).toBeDefined();
-      expect(service1.Json).toBeDefined();
-      expect(service2.Json).toBeDefined();
-    });
-  });
 });

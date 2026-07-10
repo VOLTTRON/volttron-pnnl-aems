@@ -24,7 +24,8 @@
 - **Build All**: `./build.sh` (or `.\build.ps1` on Windows) currently very slow
 - **Test All**: `./test.sh` (or `.\test.ps1` on Windows) currently very slow
 - **Dev Server**: `yarn start` in client/ and server/ directories
-- **Docker**: `docker compose up -d` for full deployment
+- **Docker**: `docker compose up -d` from the repo root for full deployment (never from docker/ subdirectory)
+- **PRs target**: `develop` branch (not `main`)
 
 ## File Conventions
 - **Config**: Environment files in docker/ directory override defaults

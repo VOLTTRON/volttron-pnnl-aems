@@ -3,7 +3,6 @@
 import { createContext, useCallback, useEffect } from "react";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { max } from "lodash";
 import { RoleType, DefaultNode, DefaultTree, DefaultType, Node, typeofNonNullable } from "@local/common";
 import { Dynamic, Route, RouteResolver, RouteResolvers } from "@/app/types";
 import { staticRoutes } from "@/app/routes";
@@ -131,7 +130,7 @@ if (process.env.NODE_ENV === "development") {
     .filter((v) => v.data && !v.data.index)
     .map((v) => [v.data?.id, v.data?.name, v.data?.display ?? false, v.data?.scope ?? "", findPath(v)] as const);
   const pads = values[0].map(
-    (_v, i) => (max(values.map((v) => (typeof v[i] === "string" ? v[i].length : 10))) ?? 10) + 4,
+    (_v, i) => (values.map((v) => (typeof v[i] === "string" ? (v[i] as string).length : 10)).reduce((a, b) => a > b ? a : b, 0) ?? 10) + 4,
   );
   console.log(
     "Client Static Routes:\n" +

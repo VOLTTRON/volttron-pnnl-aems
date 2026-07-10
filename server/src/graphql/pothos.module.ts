@@ -8,7 +8,6 @@ import {
   ApolloServerPluginSchemaReportingDisabled,
   ApolloServerPluginUsageReportingDisabled,
 } from "@apollo/server/plugin/disabled";
-import { omit } from "lodash";
 import { SchemaModule } from "./schema.module";
 import { PrismaModule } from "@/prisma/prisma.module";
 import { Context } from ".";
@@ -173,7 +172,9 @@ export class PothosGraphQLModule {
                 },
               },
             },
-            ...omit(moduleOptionsFactory(configService), ["sortSchema", "autoSchemaFile", "subscriptions"]),
+            ...Object.fromEntries(
+              Object.entries(moduleOptionsFactory(configService)).filter(([k]) => !["sortSchema", "autoSchemaFile", "subscriptions"].includes(k))
+            ),
           }),
         }),
       ],

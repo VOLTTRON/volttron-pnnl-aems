@@ -8,9 +8,10 @@
 
 ## Development Workflow
 - **Compile**: `yarn check` to check for compile issues
-- **Dev Server**: `yarn start` or `yarn start:dev`
+- **Dev Server**: `yarn dev` or `yarn dev:https` — runs the custom HTTPS server (`server.cjs`). Requires the Docker stack running and a real hostname in `.env` (not `localhost`).
+- **Dev Server (plain HTTP)**: `yarn dev:http` — plain `next dev`, no TLS. `yarn start` / `yarn start:dev` also use this mode.
 - **Build**: `yarn build` (includes schema compilation) do not run automatically
-- **Schema Compilation**: `yarn compile:schema` (run after schema changes)
+- **Schema Compilation**: `yarn compile:graphql` (run after server schema changes — NOT `compile:schema`, which is a server-side command)
 - **Testing**: `yarn test` with Jest
 
 ## File Conventions

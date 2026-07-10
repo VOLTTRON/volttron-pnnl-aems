@@ -24,7 +24,10 @@ PUB_FILE="$SECRETS_DIR/age.pub"
 ARCHIVE_DIR="$SECRETS_DIR/archive"
 
 mkdir -p "$SECRETS_DIR" "$ARCHIVE_DIR"
-chmod 700 "$SECRETS_DIR" "$ARCHIVE_DIR"
+# chmod may fail on bind-mounts owned by a different uid (e.g. Windows hosts).
+# Best-effort only — the directory already exists with suitable permissions in
+# that case, so silently skip rather than aborting the whole script.
+chmod 700 "$SECRETS_DIR" "$ARCHIVE_DIR" 2>/dev/null || true
 
 log() { echo "[init-keys] $*"; }
 err() { echo "[init-keys] ERROR: $*" >&2; }

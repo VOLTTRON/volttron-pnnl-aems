@@ -1,7 +1,7 @@
 "use client";
 
-import { difference, union } from "lodash";
 import { createContext, useCallback, useState } from "react";
+import { union } from "@local/common";
 
 export type CreateLoading = (type?: LoadingType) => Loading;
 
@@ -47,7 +47,7 @@ function loadingBuilder(t?: LoadingType): Loading {
 export function LoadingProvider({ children }: { children: React.ReactNode }) {
   const [loadings, setLoadings] = useState([] as Loading[]);
 
-  const clearLoading: ClearLoading = useCallback((v) => setLoadings(difference(loadings, [v])), [loadings]);
+  const clearLoading: ClearLoading = useCallback((v) => setLoadings(loadings.filter(x => x !== v)), [loadings]);
 
   const createLoading: CreateLoading = useCallback(
     (t) => {

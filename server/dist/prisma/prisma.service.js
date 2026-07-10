@@ -14,7 +14,6 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PrismaService = void 0;
 const bcrypt_1 = require("@node-rs/bcrypt");
-const lodash_1 = require("lodash");
 const client_1 = require("@prisma/client");
 const auth_1 = require("../auth");
 const logging_1 = require("../logging");
@@ -53,7 +52,7 @@ const extendPrisma = (prisma, configService) => {
                             break;
                         case "createMany":
                         case "updateMany":
-                            if ((0, lodash_1.isArray)(args.data)) {
+                            if (Array.isArray(args.data)) {
                                 args.data.forEach((v) => {
                                     if (typeof v.password === "string") {
                                         v.password = processPassword(v.password, configService.password.validate, configService.password.strength);
@@ -78,24 +77,26 @@ let PrismaService = class PrismaService {
     constructor(configService, prisma) {
         this.logger = new common_1.Logger("PrismaClient");
         const level = (0, logging_1.getLogLevel)(configService.log.prisma.level);
+        const { host, port, name, schema, username, password } = configService.database;
+        const connLimit = 5;
+        const datasourceUrl = host && name && username && password
+            ? `postgresql://${username}:${encodeURIComponent(password)}@${host}:${port}/${name}?schema=${schema}&connection_limit=${connLimit}`
+            : undefined;
+        const datasources = datasourceUrl ? { db: { url: datasourceUrl } } : undefined;
         if (level && !prisma) {
             const prisma = new client_1.PrismaClient({
-                log: [
-                    {
-                        emit: "event",
-                        level: "query",
-                    },
-                ],
+                log: [{ emit: "event", level: "query" }],
+                datasources,
             });
             prisma.$on("query", (event) => {
                 this.logger[level](event, "Prisma Query");
             });
             this.prisma = extendPrisma(prisma, configService);
-            this.logger.log(`Prisma Client configured for database (with query logging) at:  ${configService.database.url.split("@").pop()}`);
+            this.logger.log(`Prisma Client configured for database (with query logging) at:  ${host}:${port}/${name}`);
         }
         else if (!prisma) {
-            this.prisma = extendPrisma(new client_1.PrismaClient(), configService);
-            this.logger.log(`Prisma Client configured for database at:  ${configService.database.url.split("@").pop()}`);
+            this.prisma = extendPrisma(new client_1.PrismaClient({ datasources }), configService);
+            this.logger.log(`Prisma Client configured for database at:  ${host}:${port}/${name}`);
         }
         else {
             this.prisma = extendPrisma(prisma, configService);

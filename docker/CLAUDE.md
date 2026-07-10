@@ -21,10 +21,10 @@ There is a shim [../docker-compose.yml](../docker-compose.yml) at the repo root 
 
 ## Compose profiles
 
-Core services have no profile (always start). Optional services attach profiles like `proxy`, `keycloak`, `map`, `nominatim`, `wiki`. Enable from the repo root with:
+Core services have no profile (always start). Optional services attach profiles like `proxy`, `sso`, `map`, `nom`, `wiki`, `redis`. Enable from the repo root with:
 
 ```
-docker compose --profile proxy --profile keycloak up -d
+docker compose --profile proxy --profile sso up -d
 ```
 
 Check [docker-compose.yml](docker-compose.yml) for the authoritative list; [README.md](README.md) documents each profile.
@@ -33,10 +33,14 @@ Check [docker-compose.yml](docker-compose.yml) for the authoritative list; [READ
 
 Two layers:
 
-1. **Docker secrets** (declared at the top of [docker-compose.yml](docker-compose.yml)) — session, JWT, DB passwords, Keycloak, BookStack, Nominatim. Each is a file in [secrets/](secrets/) mounted read-only into the containers that need it. Secret files must exist **before** `docker compose up` — the repo-root `secrets.sh` / `secrets.ps1` generates them.
+1. **Docker secrets** (declared at the top of [docker-compose.yml](docker-compose.yml)) — session, JWT, DB passwords, Keycloak, BookStack session key, Nominatim. Each is a file in [secrets/](secrets/) mounted read-only into the containers that need it. Secret files must exist **before** `docker compose up` — the repo-root `secrets.sh` / `secrets.ps1` generates them.
 2. **Auto-generated at first boot** — the backup sidecar's encryption keypair. NOT a declared docker secret (would require the file to pre-exist); instead the `init-keys.sh` entrypoint writes into `./secrets/backup/` mounted at `/host-secrets`.
 
 Never commit anything in [secrets/](secrets/) — already gitignored.
+
+**Validation and rotation helpers (repo root):**
+- [../check-env.sh](../check-env.sh) / [../check-env.ps1](../check-env.ps1) — validates `.env`, `.env.secrets`, and `docker/secrets/` are in sync before deploying. Run by `start-services.sh` automatically.
+- [../rotate-secrets.sh](../rotate-secrets.sh) / [../rotate-secrets.ps1](../rotate-secrets.ps1) — after changing a value in `.env.secrets`, applies the credential change to running containers (SQL ALTER for Postgres/MariaDB, kcadm for Keycloak) then restarts affected services. Use `--dry-run` to preview.
 
 ## Environment
 
@@ -55,7 +59,8 @@ Image builds for `client`, `server`, `prisma`, and `common` use the **repo root 
 
 ## Workflow
 
-- **First run**: generate secrets (`../secrets.sh`), then `docker compose up -d`.
+- **First run**: `../secrets.sh` → `../check-env.sh` → `docker compose up -d`.
+- **Rotate a credential**: edit `../.env.secrets`, then `../rotate-secrets.sh` — this applies the change to running containers before restarting them.
 - **Rebuild images after code change**: `docker compose build <service>` or `--build` on `up`.
 - **Reset DB**: `docker compose down -v` wipes volumes — destructive.
 - **Logs**: `docker compose logs -f <service>`. Backup and Keycloak have especially chatty entrypoints.
@@ -64,7 +69,8 @@ Image builds for `client`, `server`, `prisma`, and `common` use the **repo root 
 ## Gotchas
 
 - The DB image is **custom** — don't replace `image:` with `postgres:16`; you'll lose PostGIS.
-- Secrets files must exist before compose start for any service that declares them; ordering of `secrets.sh` → `up` matters.
+- Secrets files must exist before compose start for any service that declares them; ordering of `secrets.sh` → `check-env.sh` → `up` matters. `start-services.sh` enforces this order automatically.
+- Changing a secret in `.env.secrets` without running `rotate-secrets.sh` will leave the running database or service with the old credential — the next request will get an auth error, not a graceful fallback.
 - Traefik v3 syntax differs from v2 in places; check `traefik:v3.5.3` docs before copying older snippets.
 - If you change secret names in the top-level `secrets:` block, every `secrets: [...]` reference in each service must match — no fuzzy lookup.
 - Optional profiles are opt-in; a service with `profiles: [...]` is invisible to `docker compose up` unless the profile is selected. Don't remove profile gating to "make it simpler" — it's load-bearing for minimal deploys.

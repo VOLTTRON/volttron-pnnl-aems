@@ -4,7 +4,7 @@ import { Button, Icon, InputGroup, InputGroupProps, Intent } from "@blueprintjs/
 import { IconNames } from "@blueprintjs/icons";
 import styles from "./page.module.scss";
 import { Dispatch, SetStateAction, useCallback, useEffect, useState } from "react";
-import { debounce } from "lodash";
+import { debounce } from "@local/common";
 
 export function Search({
   loading,

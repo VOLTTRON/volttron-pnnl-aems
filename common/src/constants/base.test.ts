@@ -240,21 +240,10 @@ describe("constants.Base", () => {
 
   describe("Base error messages", () => {
     it("should provide detailed error message in parseStrict", () => {
-      try {
-        testConstant.parseStrict("nonexistent");
-        fail("Should have thrown an error");
-      } catch (error) {
-        expect((error as Error).message).toContain("Unknown constant");
-        expect((error as Error).message).toContain("nonexistent");
-      }
+      expect(() => testConstant.parseStrict("nonexistent")).toThrow(/Unknown constant.*nonexistent/);
     });
     it("should handle complex object in error message", () => {
-      try {
-        testConstant.parseStrict({ complex: "object" } as any);
-        fail("Should have thrown an error");
-      } catch (error) {
-        expect((error as Error).message).toContain("Unknown constant");
-      }
+      expect(() => testConstant.parseStrict({ complex: "object" } as any)).toThrow(/Unknown constant/);
     });
   });
 });

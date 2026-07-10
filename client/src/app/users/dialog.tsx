@@ -12,8 +12,7 @@ import {
 } from "@/graphql-codegen/graphql";
 import { useMutation } from "@apollo/client";
 import { Term } from "@/utils/client";
-import { RoleType } from "@local/common";
-import { xor } from "lodash";
+import { RoleType, xorPrimitive } from "@local/common";
 import { ConfirmDialog, CreateDialog, DeleteDialog, UpdateDialog } from "../dialog";
 import { CurrentContext } from "../components/providers";
 
@@ -81,7 +80,7 @@ export function CreateUser({
             label={r.label}
             checked={role.includes(r.name)}
             indeterminate={!role.includes(r.name) && r.granted(...role.split(" "))}
-            onClick={() => setRole(xor(role.split(" "), [r.name]).sort().join(" "))}
+            onClick={() => setRole(xorPrimitive(role.split(" "), [r.name]).sort().join(" "))}
             inline
           />
         ))}
@@ -164,7 +163,7 @@ export function UpdateUser({
             label={r.label}
             checked={role.includes(r.name)}
             indeterminate={!role.includes(r.name) && r.granted(...role.split(" "))}
-            onClick={() => setRole(xor(role.split(" "), [r.name]).sort().join(" "))}
+            onClick={() => setRole(xorPrimitive(role.split(" "), [r.name]).sort().join(" "))}
             inline
           />
         ))}

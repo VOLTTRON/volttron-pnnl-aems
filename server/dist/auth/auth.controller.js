@@ -17,8 +17,8 @@ exports.AuthController = void 0;
 const auth_service_1 = require("./auth.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const common_1 = require("@nestjs/common");
-const lodash_1 = require("lodash");
 const user_decorator_1 = require("./user.decorator");
+const common_2 = require("@local/common");
 const swagger_1 = require("@nestjs/swagger");
 const app_config_1 = require("../app.config");
 let AuthController = AuthController_1 = class AuthController {
@@ -31,7 +31,7 @@ let AuthController = AuthController_1 = class AuthController {
     root() {
         return this.authService.getProviderNames().reduce((out, value) => ({
             ...out,
-            [value]: (0, lodash_1.pick)(this.authService.getProvider(value) ?? {}, ["name", "label", "credentials", "endpoint"]),
+            [value]: (0, common_2.pick)((this.authService.getProvider(value) ?? {}), ["name", "label", "credentials", "endpoint"]),
         }), {});
     }
     current(user) {

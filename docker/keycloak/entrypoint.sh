@@ -24,6 +24,14 @@ elif [ -f "/run/secrets/keycloak_client_secret" ]; then
     exit 1
 fi
 
+if [ -r "/run/secrets/keycloak_database_password" ]; then
+    export KC_DB_PASSWORD=$(cat /run/secrets/keycloak_database_password | tr -d '\n\r')
+    echo "Using database password from Docker secret"
+elif [ -f "/run/secrets/keycloak_database_password" ]; then
+    echo "ERROR: /run/secrets/keycloak_database_password exists but is not readable. Check container user and secret file ownership."
+    exit 1
+fi
+
 # Start Keycloak in the background and capture output (standalone mode)
 echo "Starting Keycloak server in standalone mode..."
 KC_CACHE=local /opt/keycloak/bin/kc.sh start --import-realm > /tmp/keycloak.log 2>&1 &
@@ -71,37 +79,28 @@ if [ $elapsed -ge $timeout ]; then
     exit 1
 fi
 
-# Additional wait to ensure admin interface is fully ready
+# Poll until kcadm can authenticate — this confirms the admin API is truly ready
 echo "Waiting for admin interface to be ready..."
-sleep 15
+ready_timeout=120
+ready_elapsed=0
+until /opt/keycloak/bin/kcadm.sh config credentials \
+    --server http://localhost:8080/auth/sso \
+    --realm master \
+    --user "${KEYCLOAK_ADMIN}" \
+    --password "${KEYCLOAK_ADMIN_PASSWORD}" > /dev/null 2>&1; do
+    if [ $ready_elapsed -ge $ready_timeout ]; then
+        echo "Timeout waiting for Keycloak admin interface"
+        exit 1
+    fi
+    sleep 5
+    ready_elapsed=$((ready_elapsed + 5))
+done
+echo "Admin interface is ready."
 
 # Configure client secret if KEYCLOAK_CLIENT_SECRET is set
 if [ -n "$KEYCLOAK_CLIENT_SECRET" ] && [ "$KEYCLOAK_CLIENT_SECRET" != "SeT_tHiS_iN_0x3A-.env.secrets-" ]; then
     echo "Configuring app client secret..."
-    
-    # Authenticate with admin credentials
-    echo "Authenticating with Keycloak admin..."
-    echo "Admin user: ${KEYCLOAK_ADMIN}"
-    echo "Using server: http://localhost:8080/auth/sso"
-    
-    # Try authentication with error handling  
-    if ! /opt/keycloak/bin/kcadm.sh config credentials \
-        --server http://localhost:8080/auth/sso \
-        --realm master \
-        --user "${KEYCLOAK_ADMIN}" \
-        --password "${KEYCLOAK_ADMIN_PASSWORD}"; then
-        echo "Authentication failed."
-        echo "This might be because:"
-        echo "1. Admin credentials are not set correctly"
-        echo "2. Keycloak admin API is not ready yet"
-        echo "3. The admin path has changed"
-        echo "Admin user: '${KEYCLOAK_ADMIN}'"
-        echo "Admin password length: ${#KEYCLOAK_ADMIN_PASSWORD}"
-        
-        echo "Exiting due to authentication failure"
-        exit 1
-    fi
-    
+
     # Find the app client ID dynamically
     echo "Finding app client ID..."
     CLIENT_ID=$(/opt/keycloak/bin/kcadm.sh get clients -r default --fields id,clientId | grep -B1 '"clientId" : "app"' | grep '"id"' | sed 's/.*"id" : "\([^"]*\)".*/\1/')

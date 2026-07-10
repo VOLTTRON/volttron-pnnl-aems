@@ -6,10 +6,10 @@
 
 <p align="center">
   <a href="https://nestjs.com/" target="_blank">
-    <img src="https://img.shields.io/badge/NestJS-11.0.1-E0234E?logo=nestjs" alt="NestJS Version" />
+    <img src="https://img.shields.io/badge/NestJS-11.1.19-E0234E?logo=nestjs" alt="NestJS Version" />
   </a>
   <a href="https://www.apollographql.com/docs/apollo-server/" target="_blank">
-    <img src="https://img.shields.io/badge/Apollo_Server-4.11.3-311C87?logo=apollo-graphql" alt="Apollo Server Version" />
+    <img src="https://img.shields.io/badge/Apollo_Server-4.13.0-311C87?logo=apollo-graphql" alt="Apollo Server Version" />
   </a>
   <a href="https://pothos-graphql.dev/" target="_blank">
     <img src="https://img.shields.io/badge/Pothos-4.3.0-FF6B6B?logo=graphql" alt="Pothos Version" />
@@ -18,7 +18,7 @@
     <img src="https://img.shields.io/badge/TypeScript-5.7.3-3178C6?logo=typescript" alt="TypeScript Version" />
   </a>
   <a href="https://redis.io/" target="_blank">
-    <img src="https://img.shields.io/badge/Redis-5.6.0-DC382D?logo=redis" alt="Redis Version" />
+    <img src="https://img.shields.io/badge/ioredis-5.6.0-DC382D?logo=redis" alt="ioredis Version" />
   </a>
   <a href="https://nodejs.org/dist/latest-v22.x/" target="_blank">
     <img src="https://img.shields.io/badge/node-22.x-green.svg?logo=node.js" alt="Node.js Version" />
@@ -319,10 +319,6 @@ async function MainBootstrap() {
   // WebSocket adapter for subscriptions
   const wsAdapter = new WsAdapter(app);
   app.useWebSocketAdapter(wsAdapter);
-
-  // Swagger API documentation
-  const documentBuilder = new DocumentBuilder().setTitle("API").setVersion("1.0").build();
-  SwaggerModule.setup("swagger", app, documentFactory);
 
   await app.listen(configService.port);
 }
@@ -1572,9 +1568,8 @@ EXT_ADMIN_UNAUTHORIZED=https://localhost/auth/denied
    ```
 
 7. **Access the application**
-   - Server: http://localhost:3001
-   - GraphQL Playground: http://localhost:3001/graphql
-   - Swagger API: http://localhost:3001/swagger
+   - Server runs at the configured port (default: 3000 inside Docker, proxied via Traefik)
+   - GraphQL API: `/graphql`
 
 ### Development Scripts
 
@@ -1731,7 +1726,7 @@ module.exports = {
   moduleNameMapper: {
     "@/(.*)": "<rootDir>/$1",
   },
-  testRegex: ".*\\.(?:spec|test)\\.ts$",
+  testRegex: ".*\\.test\\.ts$",
   transform: {
     "^.+\\.(t|j)s$": "ts-jest",
   },
@@ -2273,7 +2268,7 @@ When contributing to the server module:
 3. **Add Tests**: Include unit and integration tests for new features
 4. **Update GraphQL Schema**: Regenerate schema after resolver changes
 5. **Consider Security**: Implement proper authentication and authorization
-6. **Document APIs**: Update GraphQL documentation and Swagger specs
+6. **Document APIs**: Update GraphQL documentation
 7. **Performance**: Consider database query efficiency and caching
 
 ### Code Style Guidelines

@@ -3,6 +3,10 @@ jest.mock("@auth/express", () => ({
   ExpressAuth: jest.fn(),
 }));
 
+jest.mock("@auth/core/errors", () => ({
+  AuthError: class AuthError extends Error {},
+}));
+
 jest.mock("./authjs.config", () => ({
   buildConfig: jest.fn(() => ({})),
 }));

@@ -39,6 +39,7 @@ stages:
   - build
   - test
   - publish
+  - security
 
 build:
   stage: build
@@ -123,3 +124,20 @@ publish_client:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - docker build --file=client/Dockerfile --tag=$CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/client:$TAG_VERSION .
     - docker push $CI_REGISTRY/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/client:$TAG_VERSION
+
+osv-scan:
+  stage: security
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  before_script:
+    - curl -fsSL https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64
+        -o /usr/local/bin/osv-scanner
+    - chmod +x /usr/local/bin/osv-scanner
+  script:
+    - bash scripts/audit.sh --json
+  artifacts:
+    when: always
+    paths:
+      - osv-report.json
+    expire_in: 30 days
+  allow_failure: true

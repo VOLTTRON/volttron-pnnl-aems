@@ -20,7 +20,7 @@ export class SubscriptionService implements PubSubEngineExt {
 
   constructor(prismaService: PrismaService, @Inject(AppConfigService.Key) configService: AppConfigService) {
     const logger = new Logger(SubscriptionService.name);
-    switch (configService.graphql.pubsub) {
+    switch (configService.instanceName === "Schema" ? "" : configService.graphql.pubsub) {
       case "redis":
       case "ioredis":
         this.instance = new RedisPubSub({

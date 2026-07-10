@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const lodash_1 = require("lodash");
 const util_1 = require("../utils/util");
 class Base {
     constructor(values, decorator) {
@@ -10,7 +9,7 @@ class Base {
             if (typeof value === "number") {
                 parsed = this._values[value];
             }
-            else if (typeof value === "object" && (0, lodash_1.has)(value, "name")) {
+            else if (typeof value === "object" && value !== null && Object.prototype.hasOwnProperty.call(value, "name")) {
                 parsed = this.parse(value.name);
             }
             else if (typeof value === "string") {
@@ -33,7 +32,7 @@ class Base {
             throw new Error("Values with at least one item must be specified.");
         }
         this._values = values.map((v) => (0, util_1.deepFreeze)(decorator ? decorator(this, v) : v));
-        this._constants = values.reduce((p, c) => (0, lodash_1.merge)(p, (0, lodash_1.merge)({ [c.name]: c }, { [c.label]: c })), {});
+        this._constants = this._values.reduce((p, c) => (0, util_1.deepMerge)(p, { [c.name]: c }, { [c.label]: c }), {});
         this._keys = Object.keys(values[0]).filter((k) => typeof values[0][k] === "string");
     }
     get matcher() {

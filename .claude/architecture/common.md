@@ -6,7 +6,7 @@ Utilities, constants, and types shared by [server/](../../server/) and [client/]
 
 - [common/src/index.ts](../../common/src/index.ts) — barrel export. Everything public must be re-exported here.
 - [common/src/constants/](../../common/src/constants/) — app-wide constants: `Role`, `Log`, `HttpStatus`, `FeedbackStatus`, `Frequency`, `Normalization`.
-- [common/src/utils/](../../common/src/utils/) — pure utilities: type guards (`types.ts`), math (`lerp`, `clamp`, `range`), tree builders (`buildTree`, `deepFreeze`), object utilities (`getDifference`), parsing utilities (`util.ts`), color helpers (`color.ts`).
+- [common/src/utils/](../../common/src/utils/) — pure utilities: type guards (`types.ts`), math (`lerp`, `clamp`, `range` — `math.ts`), tree builders (`buildTree`, `deepFreeze` — `tree.ts`), object utilities (`getDifference`), parsing utilities (`util.ts`), color helpers (`color.ts`), lodash-compatible array/object/string/function helpers (`lodash.ts`).
 - [common/src/index.test.ts](../../common/src/index.test.ts) — smoke test that the public surface stays exported.
 
 ## The isomorphic constraint

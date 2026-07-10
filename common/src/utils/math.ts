@@ -26,13 +26,13 @@ export const clamp = (a: number, min = 0, max = 1): number => Math.min(max, Math
 export const invlerp = (min: number, max: number, a: number): number => clamp((a - min) / (max - min));
 
 /**
- * Range
- * @param aMin a value range min
- * @param aMax a value range max
- * @param rMin result range min
- * @param rMax result range max
- * @param a vaue between a range
- * @returns value between result range
+ * Maps a value from one numeric range to another.
+ * @param aMin input range min
+ * @param aMax input range max
+ * @param rMin output range min
+ * @param rMax output range max
+ * @param a value within input range
+ * @returns value mapped to output range
  */
 export const range = (aMin: number, aMax: number, rMin: number, rMax: number, a: number): number =>
   aMin === aMax ? rMax : lerp(rMin, rMax, invlerp(aMin, aMax, a));
