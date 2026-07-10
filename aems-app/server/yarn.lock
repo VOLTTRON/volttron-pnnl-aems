@@ -11031,7 +11031,7 @@ __metadata:
     typescript: "npm:^5.7.3"
     typescript-eslint: "npm:^8.20.0"
     undici: "npm:^7.10.0"
-    webpack: "npm:^5.99.5"
+    webpack: "npm:^5.104.0"
     yaml: "npm:^2.8.3"
   languageName: unknown
   linkType: soft

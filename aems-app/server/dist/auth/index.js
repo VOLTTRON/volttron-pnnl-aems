@@ -32,7 +32,7 @@ exports.AuthUser = AuthUser;
 function buildExpressUser(user) {
     const { password: _password, ...rest } = {
         ...user,
-        roles: (user.role?.split(",") ?? []).map((r) => common_1.RoleType.parse(r.trim())).filter((r) => (0, common_1.typeofObject)(r)),
+        roles: (user.role?.split(",") ?? []).map((r) => common_1.RoleType.parse(r)).filter((r) => (0, common_1.typeofObject)(r)),
         authRoles: authRoles(user.role ?? ""),
     };
     return rest;

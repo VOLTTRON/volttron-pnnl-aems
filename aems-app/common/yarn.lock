@@ -1177,6 +1177,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/estree@npm:^1.0.8":
+  version: 1.0.9
+  resolution: "@types/estree@npm:1.0.9"
+  checksum: 10/16aabfa703b5bdac83f719b07ce92a11b2d3c9b8628eacc92889d8af46cab2d78fc45c7b5378de383d0500585cea5c2f79125eeddfe5fbc6bd6a27eb0c8ccee5
+  languageName: node
+  linkType: hard
+
 "@types/geojson@npm:^7946.0.16":
   version: 7946.0.16
   resolution: "@types/geojson@npm:7946.0.16"
