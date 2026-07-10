@@ -9,7 +9,7 @@ import {
   Intent,
 } from "@blueprintjs/core";
 import { useContext, useMemo, useState } from "react";
-import { merge, clamp, cloneDeep } from "lodash";
+import { merge, clamp, cloneDeep } from "@local/common/dist/utils/lodash";
 import { ConfigContext } from "@/app/components/providers";
 import {
   SETPOINT_MIN,

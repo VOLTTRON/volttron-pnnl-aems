@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.transformTemplate = void 0;
-const lodash_1 = require("lodash");
+const lodash_1 = require("@local/common/dist/utils/lodash");
 const common_1 = require("@local/common");
 const applyFunction = (unit, action) => {
     return Function.apply(null, [

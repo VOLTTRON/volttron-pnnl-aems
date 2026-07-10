@@ -25,7 +25,7 @@ const mutate_service_4 = require("../holiday/mutate.service");
 const query_service_3 = require("../holiday/query.service");
 const change_service_1 = require("../../change/change.service");
 const client_1 = require("@prisma/client");
-const lodash_1 = require("lodash");
+const lodash_1 = require("@local/common/dist/utils/lodash");
 let ConfigurationMutation = class ConfigurationMutation {
     constructor(builder, prismaService, subscriptionService, configurationQuery, setpointMutation, scheduleMutation, occupancyQuery, occupancyMutation, holidayQuery, holidayMutation, changeService) {
         const { ConfigurationWhereUnique } = configurationQuery;

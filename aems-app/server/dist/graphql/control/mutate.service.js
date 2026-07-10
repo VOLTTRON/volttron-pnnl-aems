@@ -20,7 +20,7 @@ const subscription_service_1 = require("../../subscription/subscription.service"
 const query_service_2 = require("../unit/query.service");
 const change_service_1 = require("../../change/change.service");
 const client_1 = require("@prisma/client");
-const lodash_1 = require("lodash");
+const lodash_1 = require("@local/common/dist/utils/lodash");
 let ControlMutation = class ControlMutation {
     constructor(builder, prismaService, subscriptionService, controlQuery, unitQuery, changeService) {
         const { ControlWhereUnique } = controlQuery;

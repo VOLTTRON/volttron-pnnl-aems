@@ -20,7 +20,7 @@ const subscription_service_1 = require("../../subscription/subscription.service"
 const mutate_service_1 = require("../schedule/mutate.service");
 const query_service_2 = require("../configuration/query.service");
 const change_service_1 = require("../../change/change.service");
-const lodash_1 = require("lodash");
+const lodash_1 = require("@local/common/dist/utils/lodash");
 const client_1 = require("@prisma/client");
 let OccupancyMutation = class OccupancyMutation {
     constructor(builder, prismaService, subscriptionService, occupancyQuery, scheduleMutation, configurationQuery, changeService) {

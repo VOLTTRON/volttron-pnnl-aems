@@ -43,7 +43,7 @@ import { CurrentContext, NotificationContext, NotificationType, RouteContext } f
 import { filter } from "@/utils/client";
 import { Search } from "../components/common";
 import { IconNames } from "@blueprintjs/icons";
-import { cloneDeep, isEqual, merge, omit, pick, uniqWith } from "lodash";
+import { cloneDeep, isEqual, merge, omit, pick, uniqWith } from "@local/common/dist/utils/lodash";
 import { Setpoint } from "./components/Setpoint";
 import { Schedules } from "./components/Schedules";
 import { Holidays } from "./components/Holidays";

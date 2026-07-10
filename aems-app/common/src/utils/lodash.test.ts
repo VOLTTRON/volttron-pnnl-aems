@@ -58,6 +58,14 @@ import {
   memoize,
   noop,
   identity,
+  clamp,
+  isArray,
+  isNumber,
+  isString,
+  upperFirst,
+  cloneDeep,
+  merge,
+  uniqWith,
 } from "./lodash";
 
 // ---------------------------------------------------------------------------
@@ -900,5 +908,150 @@ describe("identity", () => {
   it("returns the same object reference", () => {
     const obj = { a: 1 };
     expect(identity(obj)).toBe(obj);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Additional lang / clone / merge
+// ---------------------------------------------------------------------------
+
+describe("clamp", () => {
+  it("returns value when within range", () => {
+    expect(clamp(5, 0, 10)).toBe(5);
+  });
+  it("clamps to lower bound", () => {
+    expect(clamp(-5, 0, 10)).toBe(0);
+  });
+  it("clamps to upper bound", () => {
+    expect(clamp(15, 0, 10)).toBe(10);
+  });
+});
+
+describe("isArray", () => {
+  it("returns true for arrays", () => {
+    expect(isArray([1, 2, 3])).toBe(true);
+    expect(isArray([])).toBe(true);
+  });
+  it("returns false for non-arrays", () => {
+    expect(isArray("a")).toBe(false);
+    expect(isArray({ length: 0 })).toBe(false);
+    expect(isArray(null)).toBe(false);
+    expect(isArray(undefined)).toBe(false);
+  });
+});
+
+describe("isNumber", () => {
+  it("returns true for numbers", () => {
+    expect(isNumber(0)).toBe(true);
+    expect(isNumber(1.5)).toBe(true);
+    expect(isNumber(NaN)).toBe(true);
+  });
+  it("returns false for non-numbers", () => {
+    expect(isNumber("1")).toBe(false);
+    expect(isNumber(null)).toBe(false);
+    expect(isNumber(undefined)).toBe(false);
+  });
+});
+
+describe("isString", () => {
+  it("returns true for strings", () => {
+    expect(isString("")).toBe(true);
+    expect(isString("a")).toBe(true);
+  });
+  it("returns false for non-strings", () => {
+    expect(isString(1)).toBe(false);
+    expect(isString(null)).toBe(false);
+    expect(isString(undefined)).toBe(false);
+    expect(isString({})).toBe(false);
+  });
+});
+
+describe("upperFirst", () => {
+  it("uppercases the first character", () => {
+    expect(upperFirst("hello")).toBe("Hello");
+  });
+  it("leaves the rest untouched", () => {
+    expect(upperFirst("hELLO")).toBe("HELLO");
+  });
+  it("returns empty string for empty input", () => {
+    expect(upperFirst("")).toBe("");
+  });
+});
+
+describe("cloneDeep", () => {
+  it("returns primitives as-is", () => {
+    expect(cloneDeep(1)).toBe(1);
+    expect(cloneDeep("a")).toBe("a");
+    expect(cloneDeep(null)).toBe(null);
+    expect(cloneDeep(undefined)).toBe(undefined);
+  });
+  it("deep-clones plain objects", () => {
+    const src = { a: 1, b: { c: 2 } };
+    const clone = cloneDeep(src);
+    expect(clone).toEqual(src);
+    expect(clone).not.toBe(src);
+    expect(clone.b).not.toBe(src.b);
+  });
+  it("deep-clones arrays including nested objects", () => {
+    const src = [{ a: 1 }, { a: 2 }];
+    const clone = cloneDeep(src);
+    expect(clone).toEqual(src);
+    expect(clone).not.toBe(src);
+    expect(clone[0]).not.toBe(src[0]);
+  });
+});
+
+describe("merge", () => {
+  it("recursively merges properties", () => {
+    type Shape = { a?: number; b?: { c?: number; d?: number } };
+    const result: Shape = merge<Shape>({ a: 1, b: { c: 2 } }, { b: { d: 3 } });
+    expect(result).toEqual({ a: 1, b: { c: 2, d: 3 } });
+  });
+  it("later sources overwrite earlier ones for leaf values", () => {
+    type Shape = { a?: number };
+    expect(merge<Shape>({}, { a: 1 }, { a: 2 })).toEqual({ a: 2 });
+  });
+  it("skips undefined source values", () => {
+    type Shape = { a?: number };
+    expect(merge<Shape>({ a: 1 }, { a: undefined })).toEqual({ a: 1 });
+  });
+  it("does not mutate the target", () => {
+    type Shape = { a?: number; b?: { c?: number; d?: number } };
+    const target: Shape = { a: 1, b: { c: 2 } };
+    const result = merge<Shape>(target, { b: { d: 3 } });
+    expect(target).toEqual({ a: 1, b: { c: 2 } });
+    expect(result).not.toBe(target);
+  });
+  it("replaces arrays wholesale (does not merge them)", () => {
+    type Shape = { a?: number[] };
+    expect(merge<Shape>({ a: [1, 2, 3] }, { a: [9] })).toEqual({ a: [9] });
+  });
+  it("ignores null and undefined sources", () => {
+    type Shape = { a?: number };
+    expect(
+      merge<Shape>({ a: 1 }, null as unknown as Partial<Shape>, undefined),
+    ).toEqual({ a: 1 });
+  });
+});
+
+describe("uniqWith", () => {
+  it("removes duplicates by comparator", () => {
+    const input = [
+      { x: 1, y: 2 },
+      { x: 1, y: 2 },
+      { x: 2, y: 1 },
+    ];
+    const eq = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+      a.x === b.x && a.y === b.y;
+    expect(uniqWith(input, eq)).toEqual([
+      { x: 1, y: 2 },
+      { x: 2, y: 1 },
+    ]);
+  });
+  it("preserves first occurrence order", () => {
+    expect(uniqWith([1, 2, 1, 3, 2], (a, b) => a === b)).toEqual([1, 2, 3]);
+  });
+  it("returns empty array for empty input", () => {
+    expect(uniqWith([], () => true)).toEqual([]);
   });
 });

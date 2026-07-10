@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import { cloneDeep, get, merge, set } from "lodash";
+import { cloneDeep, get, merge, set } from "@local/common/dist/utils/lodash";
 import { Unit } from "@prisma/client";
 import { templateFormat } from "@local/common";
 

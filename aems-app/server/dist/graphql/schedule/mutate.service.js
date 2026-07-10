@@ -20,7 +20,7 @@ const subscription_service_1 = require("../../subscription/subscription.service"
 const mutate_service_1 = require("../setpoint/mutate.service");
 const change_service_1 = require("../../change/change.service");
 const client_1 = require("@prisma/client");
-const lodash_1 = require("lodash");
+const lodash_1 = require("@local/common/dist/utils/lodash");
 let ScheduleMutation = class ScheduleMutation {
     constructor(builder, prismaService, subscriptionService, scheduleQuery, setpointMutation, changeService) {
         const { ScheduleWhereUnique } = scheduleQuery;

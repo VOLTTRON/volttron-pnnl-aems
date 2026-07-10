@@ -1,5 +1,5 @@
 import { InputGroup, Label } from "@blueprintjs/core";
-import { cloneDeep, merge } from "lodash";
+import { cloneDeep, merge } from "@local/common/dist/utils/lodash";
 import { ReadUnitQuery } from "@/graphql-codegen/graphql";
 import { DeepPartial } from "@local/common";
 

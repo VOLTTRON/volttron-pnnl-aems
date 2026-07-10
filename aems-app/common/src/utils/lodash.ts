@@ -22,21 +22,37 @@
 /**
  * Creates an object composed of the picked `keys` from `obj`.
  * Drop-in replacement for `import { pick } from "lodash"`.
+ *
+ * Matches lodash semantics: `obj` may be `null` / `undefined` (returns `{}`)
+ * and unknown keys are silently ignored (typos in `keys` do not fail
+ * typecheck).
  */
-export function pick<T extends object, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
+export function pick<T extends object, K extends keyof T>(obj: T | null | undefined, keys: readonly K[]): Pick<T, K>;
+export function pick<T extends object>(obj: T | null | undefined, keys: readonly string[]): Partial<T>;
+export function pick(obj: object | null | undefined, keys: readonly string[]): Record<string, unknown> {
+  if (obj == null) return {};
+  const set = new Set<string>(keys);
   return Object.fromEntries(
-    keys.filter((k) => k in obj).map((k) => [k, obj[k]]),
-  ) as Pick<T, K>;
+    Object.entries(obj as Record<string, unknown>).filter(([k]) => set.has(k)),
+  );
 }
 
 /**
  * Creates an object without the listed `keys` from `obj`.
  * Drop-in replacement for `import { omit } from "lodash"`.
+ *
+ * Matches lodash semantics: `obj` may be `null` / `undefined` (returns `{}`)
+ * and unknown keys are silently ignored (typos in `keys` do not fail
+ * typecheck).
  */
-export function omit<T extends object, K extends keyof T>(obj: T, keys: readonly K[]): Omit<T, K> {
+export function omit<T extends object, K extends keyof T>(obj: T | null | undefined, keys: readonly K[]): Omit<T, K>;
+export function omit<T extends object>(obj: T | null | undefined, keys: readonly string[]): Partial<T>;
+export function omit(obj: object | null | undefined, keys: readonly string[]): Record<string, unknown> {
+  if (obj == null) return {};
+  const set = new Set<string>(keys);
   return Object.fromEntries(
-    Object.entries(obj).filter(([k]) => !(keys as readonly string[]).includes(k)),
-  ) as Omit<T, K>;
+    Object.entries(obj as Record<string, unknown>).filter(([k]) => !set.has(k)),
+  );
 }
 
 /**
@@ -232,13 +248,27 @@ export function range(startOrEnd: number, end?: number, step = 1): number[] {
   return Array.from({ length }, (_, i) => start + i * step);
 }
 
+type SortIteratee<T> = ((v: T) => unknown) | keyof T | string;
+
+function toIterateeFn<T>(iteratee: SortIteratee<T>): (v: T) => unknown {
+  if (typeof iteratee === "function") return iteratee;
+  return (v: T) => (v as Record<string, unknown>)[iteratee as string];
+}
+
 /**
  * Creates an array of elements sorted by the result of each `iteratee`.
+ * Each iteratee may be a function or a property-name shortcut (`"campus"`).
+ * A single iteratee array (`sortBy(arr, ["a", "b"])`) also works.
  * Drop-in replacement for `import { sortBy } from "lodash"`.
  */
-export function sortBy<T>(array: T[], ...iteratees: ((v: T) => unknown)[]): T[] {
+export function sortBy<T>(array: T[], iteratees: SortIteratee<T>[]): T[];
+export function sortBy<T>(array: T[], ...iteratees: SortIteratee<T>[]): T[];
+export function sortBy<T>(array: T[], ...args: (SortIteratee<T> | SortIteratee<T>[])[]): T[] {
+  const flat: SortIteratee<T>[] =
+    args.length === 1 && Array.isArray(args[0]) ? (args[0] as SortIteratee<T>[]) : (args as SortIteratee<T>[]);
+  const fns = flat.map(toIterateeFn);
   return [...array].sort((a, b) => {
-    for (const fn of iteratees) {
+    for (const fn of fns) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const fa = fn(a) as any;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -252,19 +282,21 @@ export function sortBy<T>(array: T[], ...iteratees: ((v: T) => unknown)[]): T[] 
 
 /**
  * Like `sortBy` but supports `"asc"` / `"desc"` per iteratee.
+ * Each iteratee may be a function or a property-name shortcut.
  * Drop-in replacement for `import { orderBy } from "lodash"`.
  */
 export function orderBy<T>(
   array: T[],
-  iteratees: ((v: T) => unknown)[],
+  iteratees: SortIteratee<T>[],
   orders: ("asc" | "desc")[],
 ): T[] {
+  const fns = iteratees.map(toIterateeFn);
   return [...array].sort((a, b) => {
-    for (let i = 0; i < iteratees.length; i++) {
+    for (let i = 0; i < fns.length; i++) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const fa = iteratees[i](a) as any;
+      const fa = fns[i](a) as any;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const fb = iteratees[i](b) as any;
+      const fb = fns[i](b) as any;
       const dir = orders[i] === "desc" ? -1 : 1;
       if (fa < fb) return -1 * dir;
       if (fa > fb) return 1 * dir;
@@ -319,11 +351,12 @@ export function minBy<T>(array: T[], iteratee: (v: T) => number): T | undefined 
 }
 
 /**
- * Returns the sum of all numbers in `array`.
+ * Returns the sum of all numeric values in `array`. Non-numeric values are
+ * skipped (matching lodash's behaviour).
  * Drop-in replacement for `import { sum } from "lodash"`.
  */
-export function sum(array: number[]): number {
-  return array.reduce((a, b) => a + b, 0);
+export function sum(array: readonly (number | null | undefined)[]): number {
+  return array.reduce<number>((a, b) => (typeof b === "number" ? a + b : a), 0);
 }
 
 /**
@@ -356,12 +389,22 @@ export function meanBy<T>(array: T[], iteratee: (v: T) => number): number | unde
 // ---------------------------------------------------------------------------
 
 /**
+ * Parse a dot / bracket-notation path into segments, matching lodash's
+ * behaviour: `a.b[0].c` → `["a", "b", "0", "c"]`. Empty segments (produced
+ * by leading brackets or repeated dots) are dropped.
+ */
+function parsePath(path: string | string[]): string[] {
+  if (Array.isArray(path)) return path;
+  return path.replace(/\[(\d+)\]/g, ".$1").split(".").filter((k) => k !== "");
+}
+
+/**
  * Gets the value at `path` of `obj`, returning `defaultValue` when the result
  * is `undefined`. Supports dot-notation and bracket notation paths.
  * Drop-in replacement for `import { get } from "lodash"`.
  */
 export function get<T = unknown>(obj: unknown, path: string | string[], defaultValue?: T): T {
-  const keys = Array.isArray(path) ? path : path.replace(/\[(\d+)\]/g, ".$1").split(".");
+  const keys = parsePath(path);
   let value: unknown = obj;
   for (const key of keys) {
     if (value == null) return defaultValue as T;
@@ -376,7 +419,8 @@ export function get<T = unknown>(obj: unknown, path: string | string[], defaultV
  * Drop-in replacement for `import { set } from "lodash"`.
  */
 export function set<T extends object>(obj: T, path: string | string[], value: unknown): T {
-  const keys = Array.isArray(path) ? path : path.replace(/\[(\d+)\]/g, ".$1").split(".");
+  const keys = parsePath(path);
+  if (keys.length === 0) return obj;
   let cur: Record<string, unknown> = obj as unknown as Record<string, unknown>;
   for (let i = 0; i < keys.length - 1; i++) {
     const k = keys[i];
@@ -395,7 +439,7 @@ export function set<T extends object>(obj: T, path: string | string[], value: un
  * Drop-in replacement for `import { has } from "lodash"`.
  */
 export function has(obj: unknown, path: string | string[]): boolean {
-  const keys = Array.isArray(path) ? path : path.replace(/\[(\d+)\]/g, ".$1").split(".");
+  const keys = parsePath(path);
   let cur: unknown = obj;
   for (let i = 0; i < keys.length; i++) {
     if (cur == null || typeof cur !== "object") return false;
@@ -476,13 +520,25 @@ export function omitBy<T extends object>(
 // ---------------------------------------------------------------------------
 
 /**
+ * Splits `str` into an array of case-preserving words, matching lodash's
+ * `words` behaviour for ASCII input:
+ *   "ABCDef" → ["ABC", "Def"]
+ *   "Ahu1"   → ["Ahu", "1"]
+ *   "foo bar-baz" → ["foo", "bar", "baz"]
+ */
+function words(str: string): string[] {
+  const pattern = /[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+/g;
+  return str.match(pattern) ?? [];
+}
+
+/**
  * Converts `str` to camelCase.
  * Drop-in replacement for `import { camelCase } from "lodash"`.
  */
 export function camelCase(str: string): string {
-  return str
-    .replace(/[^a-zA-Z0-9]+(.)/g, (_, c: string) => c.toUpperCase())
-    .replace(/^[A-Z]/, (c) => c.toLowerCase());
+  return words(str)
+    .map((w, i) => (i === 0 ? w.toLowerCase() : w[0].toUpperCase() + w.slice(1).toLowerCase()))
+    .join("");
 }
 
 /**
@@ -490,11 +546,9 @@ export function camelCase(str: string): string {
  * Drop-in replacement for `import { snakeCase } from "lodash"`.
  */
 export function snakeCase(str: string): string {
-  return str
-    .replace(/([a-z])([A-Z])/g, "$1_$2")
-    .replace(/[^a-zA-Z0-9]+/g, "_")
-    .replace(/^_|_$/g, "")
-    .toLowerCase();
+  return words(str)
+    .map((w) => w.toLowerCase())
+    .join("_");
 }
 
 /**
@@ -502,11 +556,9 @@ export function snakeCase(str: string): string {
  * Drop-in replacement for `import { kebabCase } from "lodash"`.
  */
 export function kebabCase(str: string): string {
-  return str
-    .replace(/([a-z])([A-Z])/g, "$1-$2")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase();
+  return words(str)
+    .map((w) => w.toLowerCase())
+    .join("-");
 }
 
 /**
@@ -522,10 +574,9 @@ export function capitalize(str: string): string {
  * Drop-in replacement for `import { startCase } from "lodash"`.
  */
 export function startCase(str: string): string {
-  return str
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/[^a-zA-Z0-9]+(.)/g, (_, c: string) => " " + c.toUpperCase())
-    .replace(/^[a-z]/, (c) => c.toUpperCase());
+  return words(str)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
 /**
@@ -694,4 +745,138 @@ export const noop = (..._args: unknown[]): void => {};
  */
 export function identity<T>(value: T): T {
   return value;
+}
+
+// ---------------------------------------------------------------------------
+// Additional lang / clone / merge helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Clamps `value` between `lower` and `upper` (inclusive).
+ * Drop-in replacement for `import { clamp } from "lodash"`.
+ */
+export function clamp(value: number, lower: number, upper: number): number {
+  return Math.min(Math.max(value, lower), upper);
+}
+
+/**
+ * Returns `true` when `value` is an array. Type predicate; matches
+ * lodash `isArray` semantics.
+ * Drop-in replacement for `import { isArray } from "lodash"`.
+ */
+export const isArray = (value: unknown): value is unknown[] => Array.isArray(value);
+
+/**
+ * Returns `true` when `value` is a finite JS number. Matches lodash: `NaN`
+ * returns `true` (because `typeof NaN === "number"`).
+ * Drop-in replacement for `import { isNumber } from "lodash"`.
+ */
+export const isNumber = (value: unknown): value is number => typeof value === "number";
+
+/**
+ * Returns `true` when `value` is a string primitive.
+ * Drop-in replacement for `import { isString } from "lodash"`.
+ */
+export const isString = (value: unknown): value is string => typeof value === "string";
+
+/**
+ * Uppercases the first character of `str`, leaving the rest unchanged.
+ * Drop-in replacement for `import { upperFirst } from "lodash"`.
+ */
+export function upperFirst(str: string): string {
+  return str.length === 0 ? "" : str[0].toUpperCase() + str.slice(1);
+}
+
+/**
+ * Deep-clones a JSON-serialisable value. Handles plain objects, arrays,
+ * primitives, `null`, and `undefined` (Dates, Maps, Sets, class instances,
+ * functions, and cyclic refs are NOT supported — matching what consumers
+ * use `cloneDeep` for here).
+ * Drop-in replacement for `import { cloneDeep } from "lodash"` for the
+ * common case.
+ */
+export function cloneDeep<T>(value: T): T {
+  if (value === null || value === undefined) return value;
+  if (typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    return (value as unknown[]).map((v) => cloneDeep(v)) as unknown as T;
+  }
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(value as Record<string, unknown>)) {
+    out[key] = cloneDeep((value as Record<string, unknown>)[key]);
+  }
+  return out as T;
+}
+
+/**
+ * Recursively merges own enumerable properties of `sources` into a new object
+ * (returned value; `target` is NOT mutated — differs from lodash's mutating
+ * `_.merge` but matches every consumer here, which all use the
+ * `merge({}, a, b)` idiom). Later sources overwrite earlier ones; nested
+ * plain-object values are merged, everything else is replaced by reference.
+ * Drop-in replacement for `import { merge } from "lodash"` in the
+ * common case.
+ *
+ * The return type is the intersection of the target and every source
+ * (matching lodash), so `merge({}, a, b)` returns `a & b`.
+ */
+export function merge<T extends object, S1 extends object>(
+  target: T | null | undefined,
+  source1: S1 | null | undefined,
+): T & S1;
+export function merge<T extends object, S1 extends object, S2 extends object>(
+  target: T | null | undefined,
+  source1: S1 | null | undefined,
+  source2: S2 | null | undefined,
+): T & S1 & S2;
+export function merge<T extends object, S1 extends object, S2 extends object, S3 extends object>(
+  target: T | null | undefined,
+  source1: S1 | null | undefined,
+  source2: S2 | null | undefined,
+  source3: S3 | null | undefined,
+): T & S1 & S2 & S3;
+export function merge<T extends object>(
+  target: T | null | undefined,
+  ...sources: (object | null | undefined)[]
+): T;
+export function merge(
+  target: object | null | undefined,
+  ...sources: (object | null | undefined)[]
+): object {
+  const result = (cloneDeep(target ?? {}) ?? {}) as Record<string, unknown>;
+  for (const source of sources) {
+    if (!source) continue;
+    for (const key of Object.keys(source)) {
+      const sv = (source as Record<string, unknown>)[key];
+      const tv = result[key];
+      if (
+        sv &&
+        typeof sv === "object" &&
+        !Array.isArray(sv) &&
+        tv &&
+        typeof tv === "object" &&
+        !Array.isArray(tv)
+      ) {
+        result[key] = merge(tv as object, sv as object);
+      } else if (sv !== undefined) {
+        result[key] = cloneDeep(sv);
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Creates a duplicate-free version of `array` using the `comparator` to
+ * compare elements. First occurrence wins.
+ * Drop-in replacement for `import { uniqWith } from "lodash"`.
+ */
+export function uniqWith<T>(array: T[], comparator: (a: T, b: T) => boolean): T[] {
+  const result: T[] = [];
+  for (const value of array) {
+    if (!result.some((seen) => comparator(seen, value))) {
+      result.push(value);
+    }
+  }
+  return result;
 }

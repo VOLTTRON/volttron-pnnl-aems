@@ -191,7 +191,7 @@ export function UpdateUser({
               id={`unit-${unit.id}`}
               label={unit.name ?? unit.id ?? "Unknown"}
               checked={unitIds.includes(unit.id ?? "")}
-              onClick={() => setUnitIds(xor(unitIds, [unit.id ?? ""]))}
+              onClick={() => setUnitIds(xorPrimitive(unitIds, [unit.id ?? ""]))}
               inline
             />
           ))}

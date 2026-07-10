@@ -25,7 +25,7 @@ import {
   set,
   snakeCase,
   upperFirst,
-} from "lodash";
+} from "@local/common/dist/utils/lodash";
 import { BaseService } from "..";
 import { PrismaService } from "@/prisma/prisma.service";
 import { AppConfigService } from "@/app.config";

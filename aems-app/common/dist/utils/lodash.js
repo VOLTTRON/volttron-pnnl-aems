@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.noop = exports.isEqual = exports.isEmpty = exports.isPlainObject = exports.isObject = exports.isNil = void 0;
+exports.isString = exports.isNumber = exports.isArray = exports.noop = exports.isEqual = exports.isEmpty = exports.isPlainObject = exports.isObject = exports.isNil = void 0;
 exports.pick = pick;
 exports.omit = omit;
 exports.compact = compact;
@@ -54,11 +54,22 @@ exports.throttle = throttle;
 exports.once = once;
 exports.memoize = memoize;
 exports.identity = identity;
+exports.clamp = clamp;
+exports.upperFirst = upperFirst;
+exports.cloneDeep = cloneDeep;
+exports.merge = merge;
+exports.uniqWith = uniqWith;
 function pick(obj, keys) {
-    return Object.fromEntries(keys.filter((k) => k in obj).map((k) => [k, obj[k]]));
+    if (obj == null)
+        return {};
+    const set = new Set(keys);
+    return Object.fromEntries(Object.entries(obj).filter(([k]) => set.has(k)));
 }
 function omit(obj, keys) {
-    return Object.fromEntries(Object.entries(obj).filter(([k]) => !keys.includes(k)));
+    if (obj == null)
+        return {};
+    const set = new Set(keys);
+    return Object.fromEntries(Object.entries(obj).filter(([k]) => !set.has(k)));
 }
 function compact(array) {
     return array.filter(Boolean);
@@ -155,9 +166,16 @@ function range(startOrEnd, end, step = 1) {
     const length = Math.max(Math.ceil((stop - start) / step), 0);
     return Array.from({ length }, (_, i) => start + i * step);
 }
-function sortBy(array, ...iteratees) {
+function toIterateeFn(iteratee) {
+    if (typeof iteratee === "function")
+        return iteratee;
+    return (v) => v[iteratee];
+}
+function sortBy(array, ...args) {
+    const flat = args.length === 1 && Array.isArray(args[0]) ? args[0] : args;
+    const fns = flat.map(toIterateeFn);
     return [...array].sort((a, b) => {
-        for (const fn of iteratees) {
+        for (const fn of fns) {
             const fa = fn(a);
             const fb = fn(b);
             if (fa < fb)
@@ -169,10 +187,11 @@ function sortBy(array, ...iteratees) {
     });
 }
 function orderBy(array, iteratees, orders) {
+    const fns = iteratees.map(toIterateeFn);
     return [...array].sort((a, b) => {
-        for (let i = 0; i < iteratees.length; i++) {
-            const fa = iteratees[i](a);
-            const fb = iteratees[i](b);
+        for (let i = 0; i < fns.length; i++) {
+            const fa = fns[i](a);
+            const fb = fns[i](b);
             const dir = orders[i] === "desc" ? -1 : 1;
             if (fa < fb)
                 return -1 * dir;
@@ -207,7 +226,7 @@ function minBy(array, iteratee) {
     return array.reduce((best, v) => (iteratee(v) < iteratee(best) ? v : best));
 }
 function sum(array) {
-    return array.reduce((a, b) => a + b, 0);
+    return array.reduce((a, b) => (typeof b === "number" ? a + b : a), 0);
 }
 function sumBy(array, iteratee) {
     return array.reduce((acc, v) => acc + iteratee(v), 0);
@@ -218,8 +237,13 @@ function mean(array) {
 function meanBy(array, iteratee) {
     return array.length ? sumBy(array, iteratee) / array.length : undefined;
 }
+function parsePath(path) {
+    if (Array.isArray(path))
+        return path;
+    return path.replace(/\[(\d+)\]/g, ".$1").split(".").filter((k) => k !== "");
+}
 function get(obj, path, defaultValue) {
-    const keys = Array.isArray(path) ? path : path.replace(/\[(\d+)\]/g, ".$1").split(".");
+    const keys = parsePath(path);
     let value = obj;
     for (const key of keys) {
         if (value == null)
@@ -229,7 +253,9 @@ function get(obj, path, defaultValue) {
     return (value === undefined ? defaultValue : value);
 }
 function set(obj, path, value) {
-    const keys = Array.isArray(path) ? path : path.replace(/\[(\d+)\]/g, ".$1").split(".");
+    const keys = parsePath(path);
+    if (keys.length === 0)
+        return obj;
     let cur = obj;
     for (let i = 0; i < keys.length - 1; i++) {
         const k = keys[i];
@@ -242,7 +268,7 @@ function set(obj, path, value) {
     return obj;
 }
 function has(obj, path) {
-    const keys = Array.isArray(path) ? path : path.replace(/\[(\d+)\]/g, ".$1").split(".");
+    const keys = parsePath(path);
     let cur = obj;
     for (let i = 0; i < keys.length; i++) {
         if (cur == null || typeof cur !== "object")
@@ -278,33 +304,32 @@ function pickBy(obj, predicate = (v) => Boolean(v)) {
 function omitBy(obj, predicate) {
     return Object.fromEntries(Object.entries(obj).filter(([k, v]) => !predicate(v, k)));
 }
+function words(str) {
+    const pattern = /[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+/g;
+    return str.match(pattern) ?? [];
+}
 function camelCase(str) {
-    return str
-        .replace(/[^a-zA-Z0-9]+(.)/g, (_, c) => c.toUpperCase())
-        .replace(/^[A-Z]/, (c) => c.toLowerCase());
+    return words(str)
+        .map((w, i) => (i === 0 ? w.toLowerCase() : w[0].toUpperCase() + w.slice(1).toLowerCase()))
+        .join("");
 }
 function snakeCase(str) {
-    return str
-        .replace(/([a-z])([A-Z])/g, "$1_$2")
-        .replace(/[^a-zA-Z0-9]+/g, "_")
-        .replace(/^_|_$/g, "")
-        .toLowerCase();
+    return words(str)
+        .map((w) => w.toLowerCase())
+        .join("_");
 }
 function kebabCase(str) {
-    return str
-        .replace(/([a-z])([A-Z])/g, "$1-$2")
-        .replace(/[^a-zA-Z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-        .toLowerCase();
+    return words(str)
+        .map((w) => w.toLowerCase())
+        .join("-");
 }
 function capitalize(str) {
     return str.length === 0 ? "" : str[0].toUpperCase() + str.slice(1).toLowerCase();
 }
 function startCase(str) {
-    return str
-        .replace(/([a-z])([A-Z])/g, "$1 $2")
-        .replace(/[^a-zA-Z0-9]+(.)/g, (_, c) => " " + c.toUpperCase())
-        .replace(/^[a-z]/, (c) => c.toUpperCase());
+    return words(str)
+        .map((w) => w[0].toUpperCase() + w.slice(1))
+        .join(" ");
 }
 function truncate(str, options = {}) {
     const { length = 30, omission = "..." } = options;
@@ -388,5 +413,63 @@ const noop = (..._args) => { };
 exports.noop = noop;
 function identity(value) {
     return value;
+}
+function clamp(value, lower, upper) {
+    return Math.min(Math.max(value, lower), upper);
+}
+const isArray = (value) => Array.isArray(value);
+exports.isArray = isArray;
+const isNumber = (value) => typeof value === "number";
+exports.isNumber = isNumber;
+const isString = (value) => typeof value === "string";
+exports.isString = isString;
+function upperFirst(str) {
+    return str.length === 0 ? "" : str[0].toUpperCase() + str.slice(1);
+}
+function cloneDeep(value) {
+    if (value === null || value === undefined)
+        return value;
+    if (typeof value !== "object")
+        return value;
+    if (Array.isArray(value)) {
+        return value.map((v) => cloneDeep(v));
+    }
+    const out = {};
+    for (const key of Object.keys(value)) {
+        out[key] = cloneDeep(value[key]);
+    }
+    return out;
+}
+function merge(target, ...sources) {
+    const result = (cloneDeep(target ?? {}) ?? {});
+    for (const source of sources) {
+        if (!source)
+            continue;
+        for (const key of Object.keys(source)) {
+            const sv = source[key];
+            const tv = result[key];
+            if (sv &&
+                typeof sv === "object" &&
+                !Array.isArray(sv) &&
+                tv &&
+                typeof tv === "object" &&
+                !Array.isArray(tv)) {
+                result[key] = merge(tv, sv);
+            }
+            else if (sv !== undefined) {
+                result[key] = cloneDeep(sv);
+            }
+        }
+    }
+    return result;
+}
+function uniqWith(array, comparator) {
+    const result = [];
+    for (const value of array) {
+        if (!result.some((seen) => comparator(seen, value))) {
+            result.push(value);
+        }
+    }
+    return result;
 }
 //# sourceMappingURL=lodash.js.map

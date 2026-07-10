@@ -8,7 +8,7 @@ import { useQuery } from "@apollo/client";
 import { ReadUnitsDocument } from "@/graphql-codegen/graphql";
 import Link from "next/link";
 import styles from "./page.module.scss";
-import { sortBy } from "lodash";
+import { sortBy } from "@local/common/dist/utils/lodash";
 
 export default function DashboardsPage() {
   const { current } = useContext(CurrentContext);

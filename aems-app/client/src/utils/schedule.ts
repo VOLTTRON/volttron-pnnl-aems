@@ -1,5 +1,5 @@
 import { DeepPartial, Validate } from "@local/common";
-import { isNumber, sum } from "lodash";
+import { isNumber, sum } from "@local/common/dist/utils/lodash";
 
 // Constants for schedule validation and defaults
 const TIME_PADDING = 120;

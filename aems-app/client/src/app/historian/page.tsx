@@ -23,7 +23,7 @@ import { NotificationContext, NotificationType } from "../components/providers";
 import { Table, Search, Paging } from "../components/common";
 import { filter, Term } from "@/utils/client";
 import styles from "./page.module.scss";
-import { orderBy } from "lodash";
+import { orderBy } from "@local/common/dist/utils/lodash";
 
 export default function HistorianPage() {
   const { createNotification } = useContext(NotificationContext);

@@ -2,7 +2,7 @@ import { Button, Checkbox, InputGroup, Intent, Label } from "@blueprintjs/core";
 import { IconNames } from "@blueprintjs/icons";
 import { HolidayType, ReadUnitQuery } from "@/graphql-codegen/graphql";
 import { DeepPartial, ObservanceType } from "@local/common";
-import { cloneDeep, merge } from "lodash";
+import { cloneDeep, merge } from "@local/common/dist/utils/lodash";
 
 export type HolidayCreateDelete = NonNullable<NonNullable<UnitType["configuration"]>["holidays"]>[number] & {
   action?: "create" | "delete";

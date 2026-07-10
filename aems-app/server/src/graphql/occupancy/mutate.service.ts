@@ -8,7 +8,7 @@ import { SubscriptionService } from "@/subscription/subscription.service";
 import { ScheduleMutation } from "../schedule/mutate.service";
 import { ConfigurationQuery } from "../configuration/query.service";
 import { ChangeService } from "@/change/change.service";
-import { omit } from "lodash";
+import { omit } from "@local/common/dist/utils/lodash";
 import { ChangeMutation } from "@prisma/client";
 
 @Injectable()
