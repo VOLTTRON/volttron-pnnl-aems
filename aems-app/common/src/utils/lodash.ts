@@ -265,7 +265,7 @@ export function sortBy<T>(array: T[], iteratees: SortIteratee<T>[]): T[];
 export function sortBy<T>(array: T[], ...iteratees: SortIteratee<T>[]): T[];
 export function sortBy<T>(array: T[], ...args: (SortIteratee<T> | SortIteratee<T>[])[]): T[] {
   const flat: SortIteratee<T>[] =
-    args.length === 1 && Array.isArray(args[0]) ? (args[0] as SortIteratee<T>[]) : (args as SortIteratee<T>[]);
+    args.length === 1 && Array.isArray(args[0]) ? (args[0]) : (args as SortIteratee<T>[]);
   const fns = flat.map(toIterateeFn);
   return [...array].sort((a, b) => {
     for (const fn of fns) {
@@ -857,7 +857,7 @@ export function merge(
         typeof tv === "object" &&
         !Array.isArray(tv)
       ) {
-        result[key] = merge(tv as object, sv as object);
+        result[key] = merge(tv, sv);
       } else if (sv !== undefined) {
         result[key] = cloneDeep(sv);
       }

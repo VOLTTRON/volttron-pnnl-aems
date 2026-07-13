@@ -172,7 +172,7 @@ function toIterateeFn(iteratee) {
     return (v) => v[iteratee];
 }
 function sortBy(array, ...args) {
-    const flat = args.length === 1 && Array.isArray(args[0]) ? args[0] : args;
+    const flat = args.length === 1 && Array.isArray(args[0]) ? (args[0]) : args;
     const fns = flat.map(toIterateeFn);
     return [...array].sort((a, b) => {
         for (const fn of fns) {
