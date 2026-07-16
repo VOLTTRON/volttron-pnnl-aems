@@ -89,6 +89,7 @@ export declare class AppConfigService {
         admin: string;
         adminPassword: string;
         adminRole: string;
+        adminInternalUrl: string;
     };
     password: {
         strength: number;

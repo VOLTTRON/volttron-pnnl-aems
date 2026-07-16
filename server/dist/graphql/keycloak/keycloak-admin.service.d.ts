@@ -9,6 +9,7 @@ export declare class KeycloakAdminService {
     private prismaService;
     private readonly logger;
     constructor(configService: AppConfigService, prismaService: PrismaService);
+    private get keycloakBase();
     private get adminBase();
     private get masterTokenUrl();
     getAdminToken(): Promise<string>;

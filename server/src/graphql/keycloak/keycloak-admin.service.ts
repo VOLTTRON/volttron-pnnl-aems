@@ -21,15 +21,23 @@ export class KeycloakAdminService {
     private prismaService: PrismaService,
   ) {}
 
-  private get adminBase(): string {
+  // When KEYCLOAK_ADMIN_INTERNAL_URL is set (e.g. http://keycloak:8080/auth/sso in Docker),
+  // use it as the base for admin API calls to avoid routing through the public proxy.
+  // Falls back to deriving from issuerUrl for local dev where no proxy is in the path.
+  private get keycloakBase(): string {
+    const internal = this.configService.keycloak.adminInternalUrl;
+    if (internal) return internal.replace(/\/$/, "");
     const issuer = this.configService.keycloak.issuerUrl;
-    return issuer.replace(/\/realms\/([^/]+)/, "/admin/realms/$1");
+    return issuer.replace(/\/realms\/[^/]+/, "");
+  }
+
+  private get adminBase(): string {
+    const realm = /\/realms\/([^/]+)/.exec(this.configService.keycloak.issuerUrl)?.[1] ?? "default";
+    return `${this.keycloakBase}/admin/realms/${realm}`;
   }
 
   private get masterTokenUrl(): string {
-    const issuer = this.configService.keycloak.issuerUrl;
-    const base = issuer.replace(/\/realms\/[^/]+/, "");
-    return `${base}/realms/master/protocol/openid-connect/token`;
+    return `${this.keycloakBase}/realms/master/protocol/openid-connect/token`;
   }
 
   async getAdminToken(): Promise<string> {

@@ -149,6 +149,7 @@ export class AppConfigService {
     admin: string;
     adminPassword: string;
     adminRole: string;
+    adminInternalUrl: string;
   };
   password: {
     strength: number;
@@ -285,6 +286,7 @@ export class AppConfigService {
       admin: process.env.KEYCLOAK_ADMIN ?? "admin",
       adminPassword: readSecret("KEYCLOAK_ADMIN_PASSWORD", ""),
       adminRole: process.env.KEYCLOAK_ADMIN_ROLE ?? "realm-admin",
+      adminInternalUrl: process.env.KEYCLOAK_ADMIN_INTERNAL_URL ?? "",
     };
     this.password = {
       strength: parseInt(process.env.PASSWORD_STRENGTH ?? "0"),
