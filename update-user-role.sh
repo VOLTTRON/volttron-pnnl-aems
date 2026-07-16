@@ -76,8 +76,13 @@ KEYCLOAK_ISSUER_URL=""
 KEYCLOAK_ADMIN="admin"
 KEYCLOAK_ADMIN_ROLE="realm-admin"
 
-read_env ".env"
+# Load server/.env first, then root .env — root wins.
+# server/.env holds local-dev DB overrides; root .env is authoritative for Docker Compose
+# container config (COMPOSE_PROJECT_NAME, DATABASE_USERNAME, etc.).
+# Keycloak-specific vars (KEYCLOAK_ISSUER_URL, KEYCLOAK_ADMIN_ROLE) only exist in
+# server/.env, so they survive the root .env pass unmodified.
 read_env "server/.env"
+read_env ".env"
 
 # Admin password: prefer secrets files (avoid .env placeholder values)
 KEYCLOAK_ADMIN_PASSWORD=""
