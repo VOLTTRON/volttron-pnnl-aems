@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { Mutation } from "@local/common";
+import { Injectable, Logger } from "@nestjs/common";
+import { Mutation, RoleType } from "@local/common";
 import { SchemaBuilderService } from "../builder.service";
 import { UserQuery } from "./query.service";
 import { AccountQuery } from "../account/query.service";
@@ -12,10 +12,24 @@ import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { UserObject } from "./object.service";
+import { KeycloakAdminService } from "../keycloak/keycloak-admin.service";
+
+function validateRoleGrant(requestedRole: string | null | undefined, caller: Express.User): void {
+  if (!requestedRole) return;
+  const requested = requestedRole.split(/[, |]+/).filter(Boolean);
+  const callerRoleNames = caller.roles.map((r) => r.name);
+  for (const name of requested) {
+    if (!RoleType.granted(name, ...callerRoleNames)) {
+      throw new Error(`You do not have permission to grant the role '${name}'.`);
+    }
+  }
+}
 
 @Injectable()
 @PothosMutation()
 export class UserMutation {
+  private readonly logger = new Logger(UserMutation.name);
+
   readonly UserCreate;
   readonly UserUpdate;
   readonly UserUpdateAccounts;
@@ -34,6 +48,7 @@ export class UserMutation {
     accountMutation: AccountMutation,
     commentMutation: CommentMutation,
     bannerMutation: BannerMutation,
+    keycloakAdminService: KeycloakAdminService,
   ) {
     const { UserPreferences } = userObject;
     const { UserWhereUnique } = userQuery;
@@ -105,7 +120,8 @@ export class UserMutation {
         args: {
           create: t.arg({ type: UserCreate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
+          validateRoleGrant(args.create.role, ctx.user!);
           return prismaService.prisma.user
             .create({
               ...query,
@@ -113,6 +129,13 @@ export class UserMutation {
             })
             .then(async (user) => {
               await subscriptionService.publish("User", { topic: "User", id: user.id, mutation: Mutation.Created });
+              if (user.role && RoleType.Keycloak.granted(...user.role.split(/[, |]+/))) {
+                keycloakAdminService
+                  .syncAdminRole(user.id, true)
+                  .catch((e: unknown) =>
+                    this.logger.warn(`Failed to sync Keycloak admin role for new user ${user.id}: ${String(e)}`),
+                  );
+              }
               return user;
             });
         },
@@ -128,7 +151,17 @@ export class UserMutation {
           where: t.arg({ type: UserWhereUnique, required: true }),
           update: t.arg({ type: UserUpdate, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
+          let oldRole: string | null | undefined;
+          if (args.update.role !== undefined) {
+            const roleValue = typeof args.update.role === "string" ? args.update.role : args.update.role?.set;
+            validateRoleGrant(roleValue, ctx.user!);
+            const existing = await prismaService.prisma.user.findUnique({
+              where: args.where,
+              select: { role: true },
+            });
+            oldRole = existing?.role;
+          }
           return prismaService.prisma.user
             .update({
               ...query,
@@ -142,6 +175,17 @@ export class UserMutation {
                 id: user.id,
                 mutation: Mutation.Updated,
               });
+              if (args.update.role !== undefined) {
+                const hadKeycloak = RoleType.Keycloak.granted(...((oldRole ?? "").split(/[, |]+/)));
+                const hasKeycloak = RoleType.Keycloak.granted(...((user.role ?? "").split(/[, |]+/)));
+                if (hadKeycloak !== hasKeycloak) {
+                  keycloakAdminService
+                    .syncAdminRole(user.id, hasKeycloak)
+                    .catch((e: unknown) =>
+                      this.logger.warn(`Failed to sync Keycloak admin role for user ${user.id}: ${String(e)}`),
+                    );
+                }
+              }
               return user;
             });
         },

@@ -24,6 +24,12 @@ class Role extends base_1.default {
                 grants: [],
                 enum: _1.RoleEnum.User,
             },
+            {
+                name: "keycloak",
+                label: "Keycloak",
+                grants: ["admin", "user"],
+                enum: _1.RoleEnum.Keycloak,
+            },
         ].map((r) => ({
             ...r,
             granted: ((_v) => {
@@ -36,6 +42,8 @@ class Role extends base_1.default {
         this.AdminType = this.parseStrict("admin");
         this.User = this.parseStrict("user");
         this.UserType = this.parseStrict("user");
+        this.Keycloak = this.parseStrict("keycloak");
+        this.KeycloakType = this.parseStrict("keycloak");
         this.granted = (a, ...b) => {
             const name = this.parse(a)?.name;
             const roles = b.map((v) => this.parse(v)?.name).filter((v) => v);

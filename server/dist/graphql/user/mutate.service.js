@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var UserMutation_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserMutation = void 0;
 const common_1 = require("@nestjs/common");
@@ -24,8 +25,21 @@ const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
 const object_service_1 = require("./object.service");
-let UserMutation = class UserMutation {
-    constructor(builder, prismaService, subscriptionService, userObject, userQuery, accountQuery, commentQuery, bannerQuery, accountMutation, commentMutation, bannerMutation) {
+const keycloak_admin_service_1 = require("../keycloak/keycloak-admin.service");
+function validateRoleGrant(requestedRole, caller) {
+    if (!requestedRole)
+        return;
+    const requested = requestedRole.split(/[, |]+/).filter(Boolean);
+    const callerRoleNames = caller.roles.map((r) => r.name);
+    for (const name of requested) {
+        if (!common_2.RoleType.granted(name, ...callerRoleNames)) {
+            throw new Error(`You do not have permission to grant the role '${name}'.`);
+        }
+    }
+}
+let UserMutation = UserMutation_1 = class UserMutation {
+    constructor(builder, prismaService, subscriptionService, userObject, userQuery, accountQuery, commentQuery, bannerQuery, accountMutation, commentMutation, bannerMutation, keycloakAdminService) {
+        this.logger = new common_1.Logger(UserMutation_1.name);
         const { UserPreferences } = userObject;
         const { UserWhereUnique } = userQuery;
         const { AccountWhereUnique } = accountQuery;
@@ -88,7 +102,8 @@ let UserMutation = class UserMutation {
             args: {
                 create: t.arg({ type: UserCreate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
+                validateRoleGrant(args.create.role, ctx.user);
                 return prismaService.prisma.user
                     .create({
                     ...query,
@@ -96,6 +111,11 @@ let UserMutation = class UserMutation {
                 })
                     .then(async (user) => {
                     await subscriptionService.publish("User", { topic: "User", id: user.id, mutation: common_2.Mutation.Created });
+                    if (user.role && common_2.RoleType.Keycloak.granted(...user.role.split(/[, |]+/))) {
+                        keycloakAdminService
+                            .syncAdminRole(user.id, true)
+                            .catch((e) => this.logger.warn(`Failed to sync Keycloak admin role for new user ${user.id}: ${String(e)}`));
+                    }
                     return user;
                 });
             },
@@ -108,7 +128,17 @@ let UserMutation = class UserMutation {
                 where: t.arg({ type: UserWhereUnique, required: true }),
                 update: t.arg({ type: UserUpdate, required: true }),
             },
-            resolve: async (query, _root, args, _ctx, _info) => {
+            resolve: async (query, _root, args, ctx, _info) => {
+                let oldRole;
+                if (args.update.role !== undefined) {
+                    const roleValue = typeof args.update.role === "string" ? args.update.role : args.update.role?.set;
+                    validateRoleGrant(roleValue, ctx.user);
+                    const existing = await prismaService.prisma.user.findUnique({
+                        where: args.where,
+                        select: { role: true },
+                    });
+                    oldRole = existing?.role;
+                }
                 return prismaService.prisma.user
                     .update({
                     ...query,
@@ -122,6 +152,15 @@ let UserMutation = class UserMutation {
                         id: user.id,
                         mutation: common_2.Mutation.Updated,
                     });
+                    if (args.update.role !== undefined) {
+                        const hadKeycloak = common_2.RoleType.Keycloak.granted(...((oldRole ?? "").split(/[, |]+/)));
+                        const hasKeycloak = common_2.RoleType.Keycloak.granted(...((user.role ?? "").split(/[, |]+/)));
+                        if (hadKeycloak !== hasKeycloak) {
+                            keycloakAdminService
+                                .syncAdminRole(user.id, hasKeycloak)
+                                .catch((e) => this.logger.warn(`Failed to sync Keycloak admin role for user ${user.id}: ${String(e)}`));
+                        }
+                    }
                     return user;
                 });
             },
@@ -153,7 +192,7 @@ let UserMutation = class UserMutation {
     }
 };
 exports.UserMutation = UserMutation;
-exports.UserMutation = UserMutation = __decorate([
+exports.UserMutation = UserMutation = UserMutation_1 = __decorate([
     (0, common_1.Injectable)(),
     (0, pothos_decorator_1.PothosMutation)(),
     __metadata("design:paramtypes", [builder_service_1.SchemaBuilderService,
@@ -166,6 +205,7 @@ exports.UserMutation = UserMutation = __decorate([
         query_service_4.BannerQuery,
         mutate_service_1.AccountMutation,
         mutate_service_2.CommentMutation,
-        mutate_service_3.BannerMutation])
+        mutate_service_3.BannerMutation,
+        keycloak_admin_service_1.KeycloakAdminService])
 ], UserMutation);
 //# sourceMappingURL=mutate.service.js.map

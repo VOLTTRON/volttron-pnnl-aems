@@ -8,6 +8,8 @@ declare class Role extends Base<IRole> implements IBase<IRole> {
     AdminType: IRole;
     User: IRole;
     UserType: IRole;
+    Keycloak: IRole;
+    KeycloakType: IRole;
     granted: (a: IRole | number | string, ...b: (IRole | number | string)[]) => boolean;
 }
 declare const role: Role;

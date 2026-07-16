@@ -11,6 +11,7 @@ import { BannerQuery } from "../banner/query.service";
 import { BannerMutation } from "../banner/mutate.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { KeycloakAdminService } from "../keycloak/keycloak-admin.service";
 
 const resolvers: Record<string, (query: unknown, root: unknown, args: unknown) => unknown> = {};
 
@@ -75,9 +76,16 @@ function makePrisma(returnUser: object = { id: "u1", email: "a@b.com" }) {
         create: jest.fn().mockResolvedValue(returnUser),
         update: jest.fn().mockResolvedValue(returnUser),
         delete: jest.fn().mockResolvedValue(returnUser),
+        findUnique: jest.fn().mockResolvedValue(null),
       },
     },
   } as unknown as PrismaService;
+}
+
+function makeKeycloakAdmin() {
+  return {
+    syncAdminRole: jest.fn().mockResolvedValue(undefined),
+  } as unknown as KeycloakAdminService;
 }
 
 function makeSubscription() {
@@ -99,6 +107,7 @@ function makeAllDeps(prisma: PrismaService, sub: SubscriptionService) {
     makeAccountMutation(),
     makeCommentMutation(),
     makeBannerMutation(),
+    makeKeycloakAdmin(),
   );
 }
 
@@ -108,14 +117,16 @@ describe("UserMutation", () => {
     Object.keys(resolvers).forEach((k) => delete resolvers[k]);
   });
 
+  const mockCtx = { user: { roles: [] } };
+
   describe("createUser resolver", () => {
     it("calls prisma.user.create with args.create data", async () => {
       const prisma = makePrisma({ id: "u1", email: "a@b.com" });
       const sub = makeSubscription();
       makeAllDeps(prisma, sub);
 
-      const resolve = resolvers["createUser"] as (q: unknown, r: unknown, args: unknown) => Promise<unknown>;
-      const result = await resolve({}, null, { create: { name: "Alice", email: "a@b.com" } });
+      const resolve = resolvers["createUser"] as (q: unknown, r: unknown, args: unknown, ctx: unknown) => Promise<unknown>;
+      const result = await resolve({}, null, { create: { name: "Alice", email: "a@b.com" } }, mockCtx);
 
       expect(prisma.prisma.user.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: { name: "Alice", email: "a@b.com" } }),
@@ -129,8 +140,8 @@ describe("UserMutation", () => {
       const sub = makeSubscription();
       makeAllDeps(prisma, sub);
 
-      const resolve = resolvers["createUser"] as (q: unknown, r: unknown, args: unknown) => Promise<unknown>;
-      await resolve({}, null, { create: { email: "a@b.com" } });
+      const resolve = resolvers["createUser"] as (q: unknown, r: unknown, args: unknown, ctx: unknown) => Promise<unknown>;
+      await resolve({}, null, { create: { email: "a@b.com" } }, mockCtx);
 
       expect(sub.publish).toHaveBeenCalledTimes(1);
       expect(sub.publish).toHaveBeenCalledWith("User", expect.objectContaining({ id: "u1" }));

@@ -73,6 +73,7 @@ export enum RoleEnum {
   Super = "super",
   Admin = "admin",
   User = "user",
+  Keycloak = "keycloak",
 }
 
 export interface IRole extends IEnum<RoleEnum> {
