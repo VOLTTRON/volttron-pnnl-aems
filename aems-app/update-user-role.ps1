@@ -60,8 +60,13 @@ try {
         }
     }
 
-    Read-EnvFile ".env"
+    # Load server/.env first, then root .env — root wins.
+    # server/.env holds local-dev DB overrides; root .env is what Docker Compose reads and is
+    # authoritative for container config (COMPOSE_PROJECT_NAME, DATABASE_USERNAME, etc.).
+    # Keycloak-specific vars (KEYCLOAK_ISSUER_URL, KEYCLOAK_ADMIN_ROLE) only exist in
+    # server/.env, so they survive the root .env pass unmodified.
     Read-EnvFile "server/.env"
+    Read-EnvFile ".env"
 
     if ($env:COMPOSE_PROJECT_NAME) { $ComposeProjectName = $env:COMPOSE_PROJECT_NAME }
     if ($env:DATABASE_NAME)        { $DatabaseName        = $env:DATABASE_NAME }
