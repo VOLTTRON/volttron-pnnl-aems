@@ -70,6 +70,10 @@ import { BackupMutation } from "./backup/mutate.service";
 import { BackupDiscoveryService } from "@/services/backup/backup-discovery.service";
 import { BackupSubscriptionPublisher } from "@/services/backup/backup-publisher.service";
 import { BackupArchiveService } from "@/services/backup/backup-archive.service";
+import { KeycloakAdminService } from "./keycloak/keycloak-admin.service";
+import { KeycloakObject } from "./keycloak/object.service";
+import { KeycloakQuery } from "./keycloak/query.service";
+import { KeycloakMutation } from "./keycloak/mutate.service";
 
 @Module({
   imports: [PrismaModule, SubscriptionModule, ChangeModule, HistorianModule],
@@ -99,6 +103,7 @@ import { BackupArchiveService } from "@/services/backup/backup-archive.service";
     UnitObject,
     HistorianObject,
     BackupObject,
+    KeycloakObject,
     AccountQuery,
     BannerQuery,
     ChangeQuery,
@@ -121,6 +126,7 @@ import { BackupArchiveService } from "@/services/backup/backup-archive.service";
     UnitQuery,
     HistorianQuery,
     BackupQuery,
+    KeycloakQuery,
     AccountMutation,
     BannerMutation,
     ChangeMutation,
@@ -140,6 +146,8 @@ import { BackupArchiveService } from "@/services/backup/backup-archive.service";
     ChangeMutation,
     UnitMutation,
     BackupMutation,
+    KeycloakMutation,
+    KeycloakAdminService,
   ],
 })
 export class SchemaModule implements ModuleMetadata {
@@ -152,6 +160,7 @@ export class SchemaModule implements ModuleMetadata {
         BackupDiscoveryService,
         BackupSubscriptionPublisher,
         BackupArchiveService,
+        KeycloakAdminService,
         {
           provide: `${PothosObjectKey.toString()}s`,
           inject: [DiscoveryService],

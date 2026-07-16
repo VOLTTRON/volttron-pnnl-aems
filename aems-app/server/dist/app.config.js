@@ -160,6 +160,9 @@ class AppConfigService {
             passRoles: (0, common_1.parseBoolean)(process.env.KEYCLOAK_PASS_ROLES),
             defaultRole: process.env.KEYCLOAK_DEFAULT_ROLE ?? "",
             checks: process.env.KEYCLOAK_CHECKS?.split(/[, ]/g).map(this.normalize).filter(typeofChecks) || undefined,
+            admin: process.env.KEYCLOAK_ADMIN ?? "admin",
+            adminPassword: (0, readSecret_1.readSecret)("KEYCLOAK_ADMIN_PASSWORD", ""),
+            adminRole: process.env.KEYCLOAK_ADMIN_ROLE ?? "realm-admin",
         };
         this.password = {
             strength: parseInt(process.env.PASSWORD_STRENGTH ?? "0"),

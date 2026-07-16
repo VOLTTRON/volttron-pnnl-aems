@@ -1,0 +1,33 @@
+query ReadAvailableKeycloakRoles {
+  readAvailableKeycloakRoles {
+    id
+    name
+  }
+}
+
+query ReadKeycloakRoles($userId: String!) {
+  readKeycloakRoles(userId: $userId) {
+    id
+    name
+  }
+}
+
+mutation AssignKeycloakRoles($userId: String!, $roles: [String!]!) {
+  assignKeycloakRoles(userId: $userId, roles: $roles)
+}
+
+mutation RevokeKeycloakRoles($userId: String!, $roles: [String!]!) {
+  revokeKeycloakRoles(userId: $userId, roles: $roles)
+}
+
+query ReadKeycloakAdminAccess($userId: String!) {
+  readKeycloakAdminAccess(userId: $userId)
+}
+
+mutation GrantKeycloakAdminAccess($userId: String!) {
+  grantKeycloakAdminAccess(userId: $userId)
+}
+
+mutation RevokeKeycloakAdminAccess($userId: String!) {
+  revokeKeycloakAdminAccess(userId: $userId)
+}

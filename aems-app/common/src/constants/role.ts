@@ -24,6 +24,12 @@ class Role extends Base<IRole> implements IBase<IRole> {
           grants: [],
           enum: RoleEnum.User,
         },
+        {
+          name: "keycloak",
+          label: "Keycloak",
+          grants: ["admin", "user"],
+          enum: RoleEnum.Keycloak,
+        },
       ].map((r) => ({
         ...r,
         granted: ((_v) => {
@@ -41,6 +47,8 @@ class Role extends Base<IRole> implements IBase<IRole> {
   AdminType = this.parseStrict("admin");
   User = this.parseStrict("user");
   UserType = this.parseStrict("user");
+  Keycloak = this.parseStrict("keycloak");
+  KeycloakType = this.parseStrict("keycloak");
 
   /**
    * Determines if the a role is granted by the b role(s).

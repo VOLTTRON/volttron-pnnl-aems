@@ -26,6 +26,7 @@ describe("Auth Module", () => {
             admin: false,
             user: true,
             super: false,
+            keycloak: false,
           },
         };
 
@@ -91,6 +92,7 @@ describe("Auth Module", () => {
           admin: true,
           user: false,
           super: false,
+          keycloak: false,
         };
 
         const authUser = new AuthUser("user-6", roles);

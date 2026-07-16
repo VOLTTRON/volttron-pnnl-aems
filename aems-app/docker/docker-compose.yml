@@ -170,6 +170,7 @@ services:
       - database_password
       - redis_password
       - keycloak_client_secret
+      - keycloak_admin_password
       - worker_token
     healthcheck:
       test: "curl --fail -X POST http://localhost:3000/graphql -H 'Content-Type: application/json' -d '{\"query\":\"{__typename}\"}'"
@@ -249,6 +250,7 @@ services:
       - database_password
       - redis_password
       - keycloak_client_secret
+      - keycloak_admin_password
       - worker_token
     healthcheck:
       test: "curl --fail -X POST http://localhost:3000/graphql -H 'Content-Type: application/json' -d '{\"query\":\"{__typename}\"}'"

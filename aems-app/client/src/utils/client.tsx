@@ -1,4 +1,19 @@
 /**
+ * Derives the Keycloak admin console URL from NEXT_PUBLIC_KEYCLOAK_ISSUER_URL.
+ * Falls back to NEXT_PUBLIC_KEYCLOAK_ADMIN_URL if set, or the hardcoded default.
+ */
+export const keycloakAdminUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_KEYCLOAK_ADMIN_URL) return process.env.NEXT_PUBLIC_KEYCLOAK_ADMIN_URL;
+  const issuer = process.env.NEXT_PUBLIC_KEYCLOAK_ISSUER_URL ?? "";
+  const match = /\/realms\/([^/]+)/.exec(issuer);
+  if (match) {
+    const base = issuer.slice(0, issuer.indexOf("/realms/"));
+    return `${base}/admin/${match[1]}/console/`;
+  }
+  return "/auth/sso/admin/default/console/";
+};
+
+/**
  * Wraps the child component(s) only if the condition is met.
  * Requires three props: condition, wrapper, and children.
  * The condition is a boolean which determines if the wrapper should be utilized.

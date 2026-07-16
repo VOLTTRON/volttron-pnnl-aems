@@ -40,7 +40,8 @@ export type IGranted = (...value: (IRole | number | string)[]) => boolean;
 export declare enum RoleEnum {
     Super = "super",
     Admin = "admin",
-    User = "user"
+    User = "user",
+    Keycloak = "keycloak"
 }
 export interface IRole extends IEnum<RoleEnum> {
     grants: string[];

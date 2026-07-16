@@ -1484,6 +1484,11 @@ input IntFilter {
 
 scalar Json
 
+type KeycloakRole {
+  id: String
+  name: String
+}
+
 type Location {
   createdAt: DateTime
   id: ID
@@ -1664,6 +1669,9 @@ type Mutation {
   """
   acknowledgeBackupKey(id: String!): BackupKey
 
+  """Assign Keycloak realm roles (by name) to the given app user."""
+  assignKeycloakRoles(roles: [String!]!, userId: String!): Boolean
+
   """Request cancellation of an in-flight backup run."""
   cancelBackupRun(id: String!): BackupRun
 
@@ -1784,6 +1792,17 @@ type Mutation {
   Return the private key material for an acknowledged BackupKey. Rate limited to one call per minute per user and audited via the Log service.
   """
   downloadBackupPrivateKey(id: String!): String
+
+  """
+  Grant Keycloak admin console access to the given app user (assigns the configured realm-management client role).
+  """
+  grantKeycloakAdminAccess(userId: String!): Boolean
+
+  """Revoke Keycloak admin console access from the given app user."""
+  revokeKeycloakAdminAccess(userId: String!): Boolean
+
+  """Revoke Keycloak realm roles (by name) from the given app user."""
+  revokeKeycloakRoles(roles: [String!]!, userId: String!): Boolean
 
   """
   Rotate the active backup encryption key. Retires the current key (sets active=false, rotatedAt=now) and lets the sidecar worker generate a fresh keypair on its next poll. The old key row is retained so historical archives remain decryptable.
@@ -2274,6 +2293,9 @@ type Query {
   """Read a list of accounts."""
   readAccounts(distinct: [AccountFields!], orderBy: [AccountOrderBy!], paging: PagingInput, where: AccountFilter): [Account!]
 
+  """List all available Keycloak realm roles."""
+  readAvailableKeycloakRoles: [KeycloakRole!]
+
   """Read a unique backup destination."""
   readBackupDestination(where: BackupDestinationUniqueFilter!): BackupDestination
 
@@ -2357,6 +2379,14 @@ type Query {
 
   """Read a list of holidays."""
   readHolidays(distinct: [HolidayFields!], orderBy: [HolidayOrderBy!], paging: PagingInput, where: HolidayFilter): [Holiday!]
+
+  """
+  Returns true if the given app user has Keycloak admin console access (realm-management client role).
+  """
+  readKeycloakAdminAccess(userId: String!): Boolean
+
+  """List the Keycloak realm roles assigned to the given app user."""
+  readKeycloakRoles(userId: String!): [KeycloakRole!]
 
   """Read a unique location."""
   readLocation(where: LocationUniqueFilter!): Location

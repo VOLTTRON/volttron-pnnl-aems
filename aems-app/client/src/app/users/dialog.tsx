@@ -1,5 +1,6 @@
 "use client";
 
+import styles from "./dialog.module.scss";
 import { Checkbox, FormGroup, InputGroup } from "@blueprintjs/core";
 import React, { useCallback, useContext, useEffect, useState } from "react";
 import { IconName } from "@blueprintjs/icons";
@@ -12,10 +13,11 @@ import {
   ReadUnitsQuery,
 } from "@/graphql-codegen/graphql";
 import { useMutation } from "@apollo/client";
-import { Term } from "@/utils/client";
+import { Term, keycloakAdminUrl } from "@/utils/client";
 import { RoleType, xorPrimitive } from "@local/common";
 import { ConfirmDialog, CreateDialog, DeleteDialog, UpdateDialog } from "../dialog";
 import { CurrentContext } from "../components/providers";
+import { useIsKeycloakEnabled } from "../components/hooks/useIsKeycloakEnabled";
 
 export function CreateUser({
   open,
@@ -30,6 +32,10 @@ export function CreateUser({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
+  const isKeycloakEnabled = useIsKeycloakEnabled();
+
+  const { current } = useContext(CurrentContext);
+  const canGrant = (roleName: string) => RoleType.granted(roleName, ...(current?.role?.split(" ") ?? []));
 
   const [createUser] = useMutation(CreateUserDocument, {
     refetchQueries: [ReadUsersDocument],
@@ -72,19 +78,35 @@ export function CreateUser({
           onChange={(event) => setPassword(event.target.value)}
           fill
         />
+        {isKeycloakEnabled && (
+          <p className={styles.helperText}>
+            For system accounts using local authentication only. Keycloak SSO users should manage their password in the{" "}
+            <a
+              href={keycloakAdminUrl()}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Keycloak Admin Console
+            </a>
+            .
+          </p>
+        )}
       </FormGroup>
       <FormGroup label="Role">
-        {RoleType.values.map((r) => (
-          <Checkbox
-            key={`role-${r.name}`}
-            id={`role-${r.name}`}
-            label={r.label}
-            checked={role.includes(r.name)}
-            indeterminate={!role.includes(r.name) && r.granted(...role.split(" "))}
-            onClick={() => setRole(xorPrimitive(role.split(" "), [r.name]).sort().join(" "))}
-            inline
-          />
-        ))}
+        {RoleType.values
+          .filter((r) => r.name !== "keycloak" || isKeycloakEnabled)
+          .map((r) => (
+            <Checkbox
+              key={`role-${r.name}`}
+              id={`role-${r.name}`}
+              label={r.label}
+              checked={role.includes(r.name)}
+              indeterminate={!role.includes(r.name) && r.granted(...role.split(" "))}
+              disabled={!canGrant(r.name)}
+              onClick={() => setRole(xorPrimitive(role.split(" "), [r.name]).sort().join(" "))}
+              inline
+            />
+          ))}
       </FormGroup>
     </CreateDialog>
   );
@@ -108,8 +130,10 @@ export function UpdateUser({
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
   const [unitIds, setUnitIds] = useState<string[]>([]);
+  const isKeycloakEnabled = useIsKeycloakEnabled();
 
   const { current, refetchCurrent } = useContext(CurrentContext);
+  const canGrant = (roleName: string) => RoleType.granted(roleName, ...(current?.role?.split(" ") ?? []));
 
   const [updateUser] = useMutation(UpdateUserDocument, {
     refetchQueries: [ReadUsersDocument],
@@ -169,19 +193,35 @@ export function UpdateUser({
           onChange={(event) => setPassword(event.target.value)}
           fill
         />
+        {isKeycloakEnabled && (
+          <p className={styles.helperText}>
+            For system accounts using local authentication only. Keycloak SSO users should manage their password in the{" "}
+            <a
+              href={keycloakAdminUrl()}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Keycloak Admin Console
+            </a>
+            .
+          </p>
+        )}
       </FormGroup>
       <FormGroup label="Role">
-        {RoleType.values.map((r) => (
-          <Checkbox
-            key={`role-${r.name}`}
-            id={`role-${r.name}`}
-            label={r.label}
-            checked={role.includes(r.name)}
-            indeterminate={!role.includes(r.name) && r.granted(...role.split(" "))}
-            onClick={() => setRole(xorPrimitive(role.split(" "), [r.name]).sort().join(" "))}
-            inline
-          />
-        ))}
+        {RoleType.values
+          .filter((r) => r.name !== "keycloak" || isKeycloakEnabled)
+          .map((r) => (
+            <Checkbox
+              key={`role-${r.name}`}
+              id={`role-${r.name}`}
+              label={r.label}
+              checked={role.includes(r.name)}
+              indeterminate={!role.includes(r.name) && r.granted(...role.split(" "))}
+              disabled={!canGrant(r.name)}
+              onClick={() => setRole(xorPrimitive(role.split(" "), [r.name]).sort().join(" "))}
+              inline
+            />
+          ))}
       </FormGroup>
       {units && (
         <FormGroup label="Units">

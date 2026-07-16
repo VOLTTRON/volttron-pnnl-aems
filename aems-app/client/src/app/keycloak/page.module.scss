@@ -1,0 +1,42 @@
+.page {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.roleRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.roleList {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.adminAccessRow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 16px;
+    padding: 12px;
+    border: 1px solid var(--pt-divider-black, rgba(16, 22, 26, 0.15));
+    border-radius: 3px;
+}
+
+.adminAccessNote {
+    font-size: 12px;
+    color: var(--muted-text-color, #5f6b7c);
+    margin: 4px 0 0;
+}
+
+.roleListHeader {
+    margin-top: 16px;
+    margin-bottom: 4px;
+}
