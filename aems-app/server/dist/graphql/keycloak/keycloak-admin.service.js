@@ -23,14 +23,19 @@ let KeycloakAdminService = KeycloakAdminService_1 = class KeycloakAdminService {
         this.prismaService = prismaService;
         this.logger = new common_1.Logger(KeycloakAdminService_1.name);
     }
-    get adminBase() {
+    get keycloakBase() {
+        const internal = this.configService.keycloak.adminInternalUrl;
+        if (internal)
+            return internal.replace(/\/$/, "");
         const issuer = this.configService.keycloak.issuerUrl;
-        return issuer.replace(/\/realms\/([^/]+)/, "/admin/realms/$1");
+        return issuer.replace(/\/realms\/[^/]+/, "");
+    }
+    get adminBase() {
+        const realm = /\/realms\/([^/]+)/.exec(this.configService.keycloak.issuerUrl)?.[1] ?? "default";
+        return `${this.keycloakBase}/admin/realms/${realm}`;
     }
     get masterTokenUrl() {
-        const issuer = this.configService.keycloak.issuerUrl;
-        const base = issuer.replace(/\/realms\/[^/]+/, "");
-        return `${base}/realms/master/protocol/openid-connect/token`;
+        return `${this.keycloakBase}/realms/master/protocol/openid-connect/token`;
     }
     async getAdminToken() {
         const body = new URLSearchParams({
