@@ -72,9 +72,9 @@ Two layers:
 
 [docker/secrets/](../../docker/secrets/) is gitignored. Don't commit anything there.
 
-**Validation and rotation** — two helper scripts manage lifecycle beyond initial generation:
+**Validation and rotation:**
 - [check-env.sh](../../check-env.sh) / [check-env.ps1](../../check-env.ps1): validates that `.env`, `.env.secrets`, and `docker/secrets/` are consistent before deploying. Called automatically by `start-services.sh`. Modes: raw-dev/env-only (warn only), secrets mode (hard-fail if chain broken), mixed (advisory).
-- [rotate-secrets.sh](../../rotate-secrets.sh) / [rotate-secrets.ps1](../../rotate-secrets.ps1): after editing `.env.secrets`, applies the changed credentials to running containers (Postgres `ALTER ROLE`, Keycloak `kcadm`, Redis/app restart), regenerates secret files, and restarts affected services.
+- [secrets.sh](../../secrets.sh) / [secrets.ps1](../../secrets.ps1) handles the rest of the secret lifecycle: bootstrap `.env.secrets` on first run, write `docker/secrets/*.txt`, and rotate live credentials (`ALTER ROLE` for Postgres, `kcadm` for Keycloak, restart for Redis/app secrets) when values change. If a target container is down during a rotation it refuses to overwrite — pass `--force` to bypass.
 
 ## Environment
 
@@ -98,7 +98,7 @@ Image builds for `client`, `server`, `prisma`, and `common` use the **repo root 
 | Action | Command |
 |---|---|
 | First-time setup | `./secrets.sh`, then `./check-env.sh`, then `docker compose up -d` |
-| Rotate a credential | Edit `.env.secrets`, then `./rotate-secrets.sh` |
+| Rotate a credential | Edit `.env.secrets`, then `./secrets.sh` (detects the change, ALTERs the running DB, restarts affected services) |
 | Rebuild after code change | `docker compose build <service>` or `--build` on `up` |
 | Reset DB (⚠ destructive) | `docker compose down -v` |
 | Tail logs | `docker compose logs -f <service>` |

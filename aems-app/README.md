@@ -623,18 +623,23 @@ Get up and running with the Skeleton App:
 2. **Configure environment**
 
    ```bash
-   # Copy and customize environment files
+   # Copy and customize the main environment file
    cp .env.example .env
-   cp .env.secrets.example .env.secrets
-
    # Edit '.env' and set 'APP_HOSTNAME' to a valid hostname or your IP Address
-   # Edit '.env.secrets' and fill in real values for all secrets
 
-   # Generate docker/secrets/ files from .env.secrets (Windows)
-   .\secrets.ps1
+   # Bootstrap .env.secrets from .env (first run auto-creates the file
+   # seeded with every secret key it finds in .env; second run generates
+   # the docker/secrets/*.txt files once you've filled in real values).
+   #
+   # Windows:
+   .\secrets.ps1  # first run: writes stub .env.secrets, exits
+   # ...edit .env.secrets, then:
+   .\secrets.ps1  # second run: writes docker/secrets/*.txt
 
-   # Generate docker/secrets/ files from .env.secrets (Linux/Mac)
-   ./secrets.sh
+   # Linux/Mac:
+   ./secrets.sh   # first run
+   # ...edit .env.secrets, then:
+   ./secrets.sh   # second run
 
    # Validate the configuration before starting
    ./check-env.sh        # Linux/Mac
@@ -2281,7 +2286,9 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/database_password
 ```
 
-See [.env.secrets.example](./.env.secrets.example) for detailed documentation and all available secrets.
+The authoritative secret list lives in [.env](./.env) — every entry with the placeholder value `SeT_tHiS_iN_0x3A-.env.secrets-` is treated as a declared secret. Add a new secret by adding a line to `.env` with that placeholder; the next `secrets.sh` run picks it up automatically.
+
+`.env.secrets` (gitignored) holds the real values you fill in after bootstrap. `docker/.env.secrets.docker` (also gitignored, auto-generated) contains the compose interpolation glue that makes the running containers read from `/run/secrets/*` instead of the placeholder values in `.env`.
 
 The file [docker-compose.yml](./docker-compose.yml) or [docker/docker-compose.yml](./docker/docker-compose.yml) may need to be edited for some deployments. The docker compose definition contains a few optional containers that can be enabled by adding profiles. Proxy (`proxy`) is a Traefik proxy that can serve locally signed or valid internet certificates provided by Let's Encrypt. Open Street Map (`map`) is map file service that can be configured to provide Open Street Map tiles. Nominatim (`nom`) is an address lookup and auto-complete service that is configured to utilize the same data and area as the optional map container.
 
@@ -2559,7 +2566,17 @@ Reads `.env.secrets` and writes individual secret files into `docker/secrets/` (
 ./secrets.sh
 ```
 
-Run this once after filling in `.env.secrets`, and again any time you edit `.env.secrets` directly. To apply changed credentials to a running stack, use `rotate-secrets.[ps1|sh]` instead — it handles the SQL/API steps required to update running services before regenerating the files.
+Run this any time you edit `.env.secrets`. `secrets.sh` picks the right lane per key:
+
+- **Bootstrap** (no `.env.secrets` yet): writes a stub seeded from `.env`, exits.
+- **Fresh deploy** (no `docker/secrets/<key>.txt` yet): writes the file. No rotation needed — nothing is running with the old credential yet.
+- **Rotation** (deployed file exists with a value that differs from `.env.secrets`): runs the `ALTER ROLE`/`ALTER USER`/`kcadm.sh` command against the running container **before** overwriting the file, then restarts the affected services. If the container isn't running, the script refuses (writing the file without rotating would leave the next boot unable to authenticate). Pass `--force` to override.
+- **No-op** (values already match): silent skip.
+
+Flags:
+- `./secrets.sh --dry-run` — show the plan without executing.
+- `./secrets.sh KEY1 KEY2 ...` — limit to named keys.
+- `./secrets.sh --force` — skip the rotation stage entirely; just write files. For fresh deploys where you'll wipe volumes, or for non-Docker environments.
 
 **File Format (`.env.secrets`):**
 
@@ -2585,23 +2602,6 @@ Detects the deployment mode and applies appropriate checks:
 ```bash
 ./check-env.sh        # Linux/Mac
 .\check-env.ps1       # Windows
-```
-
-#### `rotate-secrets.[ps1|sh]`
-
-Applies changed credentials from `.env.secrets` (or `.env` in env-only mode) to running services, then restarts affected containers.
-
-For database passwords, it runs the `ALTER ROLE`/`ALTER USER` SQL inside the running container before overwriting the secret file — so the running database is updated atomically rather than causing auth failures. For Keycloak secrets it uses `kcadm.sh`. For app-only secrets (session, JWT, worker token) it updates the file and restarts the relevant service.
-
-```bash
-# Auto-detect all changed secrets and rotate them
-./rotate-secrets.sh
-
-# Rotate specific secrets only
-./rotate-secrets.sh DATABASE_PASSWORD REDIS_PASSWORD
-
-# Preview what would happen without executing
-./rotate-secrets.sh --dry-run
 ```
 
 #### `update-user-role.[ps1|sh]`
