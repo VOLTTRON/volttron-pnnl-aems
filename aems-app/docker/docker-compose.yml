@@ -1,30 +1,40 @@
+# Every declared secret uses a `${..._SOURCE:-./secrets/.placeholder}`
+# indirection so that when `secrets.sh` hasn't been run and the real
+# `./secrets/foo.txt` files don't exist, compose falls through to the
+# tracked empty `.placeholder` file instead of auto-creating each source
+# path as a directory (a footgun that corrupts every secret mount).
+# Empty placeholders satisfy `-f` / `-r` file tests but return "" on
+# read, and every downstream consumer either uses `-s` (non-empty) or
+# checks the read value for truthiness before using it. `secrets.sh`
+# overrides the indirection by emitting per-secret `_SOURCE=` lines into
+# `docker/.env.secrets.docker`.
 secrets:
   session_secret:
-    file: ./secrets/session_secret.txt
+    file: ${SESSION_SECRET_SOURCE:-./secrets/.placeholder}
   jwt_secret:
-    file: ./secrets/jwt_secret.txt
+    file: ${JWT_SECRET_SOURCE:-./secrets/.placeholder}
   database_password:
-    file: ./secrets/database_password.txt
+    file: ${DATABASE_PASSWORD_SOURCE:-./secrets/.placeholder}
   redis_password:
-    file: ./secrets/redis_password.txt
+    file: ${REDIS_PASSWORD_SOURCE:-./secrets/.placeholder}
   keycloak_client_secret:
-    file: ./secrets/keycloak_client_secret.txt
+    file: ${KEYCLOAK_CLIENT_SECRET_SOURCE:-./secrets/.placeholder}
   keycloak_admin_password:
-    file: ./secrets/keycloak_admin_password.txt
+    file: ${KEYCLOAK_ADMIN_PASSWORD_SOURCE:-./secrets/.placeholder}
   keycloak_database_password:
-    file: ./secrets/keycloak_database_password.txt
+    file: ${KEYCLOAK_DATABASE_PASSWORD_SOURCE:-./secrets/.placeholder}
   nominatim_database_password:
-    file: ./secrets/nominatim_database_password.txt
+    file: ${NOMINATIM_DATABASE_PASSWORD_SOURCE:-./secrets/.placeholder}
   bookstack_session_secret:
-    file: ./secrets/bookstack_session_secret.txt
+    file: ${BOOKSTACK_SESSION_SECRET_SOURCE:-./secrets/.placeholder}
   bookstack_root_password:
-    file: ./secrets/bookstack_root_password.txt
+    file: ${BOOKSTACK_ROOT_PASSWORD_SOURCE:-./secrets/.placeholder}
   bookstack_database_password:
-    file: ./secrets/bookstack_database_password.txt
+    file: ${BOOKSTACK_DATABASE_PASSWORD_SOURCE:-./secrets/.placeholder}
   bookstack_keycloak_client_secret:
-    file: ./secrets/bookstack_keycloak_client_secret.txt
+    file: ${BOOKSTACK_KEYCLOAK_CLIENT_SECRET_SOURCE:-./secrets/.placeholder}
   worker_token:
-    file: ./secrets/worker_token.txt
+    file: ${WORKER_TOKEN_SOURCE:-./secrets/.placeholder}
 
 # NOTE: The backup encryption keypair is NOT declared as a docker secret
 # because docker secrets require the source file to exist before compose
@@ -352,7 +362,14 @@ services:
     env_file:
       - .env.database
     environment:
-      POSTGRES_PASSWORD_FILE: ${POSTGRES_PASSWORD_FILE:-/run/secrets/database_password}
+      # `${VAR-fallback}` (no colon) uses the fallback only when VAR is
+      # UNSET; a blank-set value sticks. `secrets.sh` writes
+      # `POSTGRES_PASSWORD=` (blank) into `docker/.env.secrets.docker`
+      # to satisfy the postgres `file_env` "not both set" invariant
+      # when the `_FILE` var is active. Without secrets, no override
+      # is loaded and this resolves to `DATABASE_PASSWORD` from `.env`.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-${DATABASE_PASSWORD}}
+      POSTGRES_PASSWORD_FILE: ${POSTGRES_PASSWORD_FILE:-}
     secrets:
       - database_password
     healthcheck:
@@ -370,7 +387,7 @@ services:
   redis:
     command: >
       sh -c "
-      if [ -f /run/secrets/redis_password ]; then
+      if [ -s /run/secrets/redis_password ]; then
         redis-server --requirepass $$(cat /run/secrets/redis_password);
       elif [ ! -z \"$$REDIS_PASSWORD\" ]; then
         redis-server --requirepass $$REDIS_PASSWORD;
@@ -407,7 +424,8 @@ services:
     env_file:
       - .env.nominatim
     environment:
-      POSTGRES_PASSWORD_FILE: ${NOMINATIM_POSTGRES_PASSWORD_FILE:-/run/secrets/nominatim_database_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-${NOMINATIM_DATABASE_PASSWORD}}
+      POSTGRES_PASSWORD_FILE: ${NOMINATIM_POSTGRES_PASSWORD_FILE:-}
     secrets:
       - nominatim_database_password
     hostname: nominatim
@@ -602,7 +620,8 @@ services:
     env_file:
       - .env.keycloak
     environment:
-      POSTGRES_PASSWORD_FILE: ${KC_DB_POSTGRES_PASSWORD_FILE:-/run/secrets/keycloak_database_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-${KEYCLOAK_DATABASE_PASSWORD}}
+      POSTGRES_PASSWORD_FILE: ${KC_DB_POSTGRES_PASSWORD_FILE:-}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready"]
       interval: 10s

@@ -33,6 +33,7 @@
 
 ## Table of Contents
 
+- [AEMS Platform](#aems-platform)
 - [🚀 Features](#-features)
 - [🏗️ Architecture](#️-architecture)
 - [🚀 Getting Started](#-getting-started)
@@ -88,6 +89,12 @@
   - [Branches](#branches)
   - [Workflow](#workflow)
 - [Contact Information](#contact-information)
+
+---
+
+## AEMS Platform
+
+AEMS has grown from a foundational skeleton into a full-featured energy management platform. The most significant addition is a **real-time historian and dashboarding suite** that ingests meter and sensor data directly from the Volttron platform, with configurable time-bucketing, auto-aggregation, and gap-filling — surfaced through new campus/building/unit-scoped Site and Unit dashboards with interactive charts, gauges, sparklines, and per-user time-range preferences. A complete **HVAC configuration workflow** was built out: setup wizards for Units, Schedules, Setpoints, Holidays, Occupancies, and Locations (with map-based location search), including bulk editing, override setpoint ranges, standby scheduling, and an **ILC (Intelligent Load Control) page** driven by GraphQL subscriptions for live status updates. The platform now includes a **full backup subsystem** with scheduled archives, S3 or local destinations, encryption, and worker-based restore. **Keycloak** is now the identity provider for AEMS, providing centralized single sign-on, role-based access across the application, and a dedicated administration page for managing users and role assignments — complemented by a welcome/info landing experience, a self-service guest registration flow, and a change-tracking view so operators can see who modified which configuration and when. Operationally, the Docker stack tripled in scope — adding managed containers for the historian database with logical replication, Keycloak, Volttron with a socat bridge, backup services, and a consolidated agents container — and picked up a comprehensive server-side test suite covering backup, config, historian, and auth flows.
 
 ---
 

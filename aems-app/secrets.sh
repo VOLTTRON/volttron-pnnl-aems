@@ -44,7 +44,22 @@ while IFS= read -r line || [ -n "$line" ]; do
   # e.g., SESSION_SECRET -> session_secret.txt
   secret_name=$(echo "$key" | tr '[:upper:]' '[:lower:]')
   secret_file="$SECRETS_DIR/${secret_name}.txt"
-  
+
+  # `docker compose up` will auto-create the mount source as a directory when
+  # the declared secret file is missing, leaving a broken `./secrets/foo.txt/`
+  # directory that later blocks `echo ... > $secret_file`. Recover from that
+  # state here: remove an empty directory at the target, refuse on a
+  # non-empty one so we never destroy user data.
+  if [ -d "$secret_file" ]; then
+    if [ -z "$(ls -A "$secret_file" 2>/dev/null)" ]; then
+      rmdir "$secret_file"
+    else
+      echo "Error: $secret_file exists as a non-empty directory." >&2
+      echo "Refusing to overwrite. Move or delete it manually, then re-run." >&2
+      exit 1
+    fi
+  fi
+
   # Write value to secret file
   echo "$value" > "$secret_file"
   chmod 600 "$secret_file"
@@ -80,6 +95,33 @@ NOMINATIM_POSTGRES_PASSWORD_FILE=/run/secrets/nominatim_database_password
 # BookStack wiki database
 MYSQL_ROOT_PASSWORD_FILE=/run/secrets/bookstack_root_password
 MYSQL_PASSWORD_FILE=/run/secrets/bookstack_database_password
+
+# Compose top-level `secrets:` entries interpolate `${*_SOURCE}` to pick
+# the host-side file. When unset, compose falls back to the tracked
+# empty `docker/secrets/.placeholder`. Setting these overrides the
+# fallback so real secret files get mounted.
+SESSION_SECRET_SOURCE=./secrets/session_secret.txt
+JWT_SECRET_SOURCE=./secrets/jwt_secret.txt
+DATABASE_PASSWORD_SOURCE=./secrets/database_password.txt
+REDIS_PASSWORD_SOURCE=./secrets/redis_password.txt
+KEYCLOAK_CLIENT_SECRET_SOURCE=./secrets/keycloak_client_secret.txt
+KEYCLOAK_ADMIN_PASSWORD_SOURCE=./secrets/keycloak_admin_password.txt
+KEYCLOAK_DATABASE_PASSWORD_SOURCE=./secrets/keycloak_database_password.txt
+NOMINATIM_DATABASE_PASSWORD_SOURCE=./secrets/nominatim_database_password.txt
+BOOKSTACK_SESSION_SECRET_SOURCE=./secrets/bookstack_session_secret.txt
+BOOKSTACK_ROOT_PASSWORD_SOURCE=./secrets/bookstack_root_password.txt
+BOOKSTACK_DATABASE_PASSWORD_SOURCE=./secrets/bookstack_database_password.txt
+BOOKSTACK_KEYCLOAK_CLIENT_SECRET_SOURCE=./secrets/bookstack_keycloak_client_secret.txt
+WORKER_TOKEN_SOURCE=./secrets/worker_token.txt
+
+# Blank the plain-env counterparts. The postgres official image's
+# `file_env` helper errors out if BOTH `POSTGRES_PASSWORD` and
+# `POSTGRES_PASSWORD_FILE` are set; blanking here lets the `_FILE`
+# variables above win cleanly. Compose treats an empty env_file value
+# as clearing whatever earlier env_file entries set.
+POSTGRES_PASSWORD=
+KEYCLOAK_ADMIN_PASSWORD=
+KC_DB_PASSWORD=
 EOF
 
 chmod 600 "$SECRETS_ENV_FILE"

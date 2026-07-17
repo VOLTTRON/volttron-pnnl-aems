@@ -17,6 +17,10 @@ docker-images.**
 # secrets
 .env.secrets
 docker/secrets/
+# but keep the empty placeholder tracked — it's what compose bind-mounts
+# for every declared secret when the user hasn't run `secrets.sh`, so
+# real secret files don't need to exist for `docker compose up` to work.
+!docker/secrets/.placeholder
 docker/.env.secrets.docker
 
 # backups

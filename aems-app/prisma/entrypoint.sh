@@ -1,7 +1,7 @@
 #!/bin/sh
 # Read DATABASE_PASSWORD from Docker secret file if present, then run migrations.
 SECRET_FILE="/run/secrets/database_password"
-if [ -f "$SECRET_FILE" ]; then
+if [ -s "$SECRET_FILE" ]; then
   DATABASE_PASSWORD=$(cat "$SECRET_FILE")
   export DATABASE_PASSWORD
 fi

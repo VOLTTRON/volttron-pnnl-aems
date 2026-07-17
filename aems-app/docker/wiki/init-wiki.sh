@@ -7,7 +7,7 @@
 
 SECRET_FILE="/run/secrets/bookstack_session_secret"
 
-if [ -f "$SECRET_FILE" ]; then
+if [ -s "$SECRET_FILE" ]; then
   APP_KEY=$(cat "$SECRET_FILE")
   export APP_KEY
   # Persist into the linuxserver env file so the main process inherits it

@@ -48,7 +48,21 @@ Get-Content $SECRETS_FILE | ForEach-Object {
     # e.g., SESSION_SECRET -> session_secret.txt
     $secret_name = $key.ToLower()
     $secret_file = Join-Path $SECRETS_DIR "$secret_name.txt"
-    
+
+    # `docker compose up` will auto-create the mount source as a directory when
+    # the declared secret file is missing, leaving a broken `./secrets/foo.txt/`
+    # directory that later blocks Set-Content. Recover from that state here:
+    # remove an empty directory at the target, refuse on a non-empty one so
+    # we never destroy user data.
+    if (Test-Path $secret_file -PathType Container) {
+        if ((Get-ChildItem -LiteralPath $secret_file -Force | Measure-Object).Count -eq 0) {
+            Remove-Item -LiteralPath $secret_file -Force
+        } else {
+            Write-Error "Error: $secret_file exists as a non-empty directory. Refusing to overwrite. Move or delete it manually, then re-run."
+            exit 1
+        }
+    }
+
     # Write value to secret file
     Set-Content -Path $secret_file -Value $value -NoNewline
 
@@ -104,6 +118,32 @@ NOMINATIM_POSTGRES_PASSWORD_FILE=/run/secrets/nominatim_database_password
 # BookStack wiki database
 MYSQL_ROOT_PASSWORD_FILE=/run/secrets/bookstack_root_password
 MYSQL_PASSWORD_FILE=/run/secrets/bookstack_database_password
+
+# Compose top-level ``secrets:`` entries interpolate ``\${*_SOURCE}`` to
+# pick the host-side file. When unset, compose falls back to the tracked
+# empty ``docker/secrets/.placeholder``. Setting these overrides the
+# fallback so real secret files get mounted.
+SESSION_SECRET_SOURCE=./secrets/session_secret.txt
+JWT_SECRET_SOURCE=./secrets/jwt_secret.txt
+DATABASE_PASSWORD_SOURCE=./secrets/database_password.txt
+REDIS_PASSWORD_SOURCE=./secrets/redis_password.txt
+KEYCLOAK_CLIENT_SECRET_SOURCE=./secrets/keycloak_client_secret.txt
+KEYCLOAK_ADMIN_PASSWORD_SOURCE=./secrets/keycloak_admin_password.txt
+KEYCLOAK_DATABASE_PASSWORD_SOURCE=./secrets/keycloak_database_password.txt
+NOMINATIM_DATABASE_PASSWORD_SOURCE=./secrets/nominatim_database_password.txt
+BOOKSTACK_SESSION_SECRET_SOURCE=./secrets/bookstack_session_secret.txt
+BOOKSTACK_ROOT_PASSWORD_SOURCE=./secrets/bookstack_root_password.txt
+BOOKSTACK_DATABASE_PASSWORD_SOURCE=./secrets/bookstack_database_password.txt
+BOOKSTACK_KEYCLOAK_CLIENT_SECRET_SOURCE=./secrets/bookstack_keycloak_client_secret.txt
+WORKER_TOKEN_SOURCE=./secrets/worker_token.txt
+
+# Blank the plain-env counterparts. The postgres official image's
+# ``file_env`` helper errors out if BOTH ``POSTGRES_PASSWORD`` and
+# ``POSTGRES_PASSWORD_FILE`` are set; blanking here lets the ``_FILE``
+# variables above win cleanly.
+POSTGRES_PASSWORD=
+KEYCLOAK_ADMIN_PASSWORD=
+KC_DB_PASSWORD=
 "@
 
 Set-Content -Path $SECRETS_ENV_FILE -Value $envContent
