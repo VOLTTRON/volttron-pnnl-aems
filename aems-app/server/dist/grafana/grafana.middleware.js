@@ -40,7 +40,7 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
     }
     async execute() {
         if (!this.configService.grafana.configPath) {
-            this.logger.debug('Grafana config path not set, skipping dashboard configuration');
+            this.logger.debug("Grafana config path not set, skipping dashboard configuration");
             return;
         }
         const urls = {};
@@ -69,7 +69,7 @@ let GrafanaRewriteMiddleware = GrafanaRewriteMiddleware_1 = class GrafanaRewrite
                     Object.entries(json).forEach(([key, value]) => {
                         const match = ConfigUnitRegex.exec(key);
                         const { unit } = match?.groups ?? {};
-                        const urlString = typeof value === 'string' ? value : value.url;
+                        const urlString = typeof value === "string" ? value : value.url;
                         if (key === "Site Overview") {
                             urls[campus][building][SiteOverviewKey] = new URL(urlString);
                         }

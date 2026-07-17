@@ -29,7 +29,9 @@ let VolttronService = VolttronService_1 = class VolttronService {
         });
     }
     onModuleDestroy() {
-        this.agent.destroy();
+        this.agent.destroy().catch((error) => {
+            this.logger.error(`Failed to destroy VolttronService agent:`, error);
+        });
     }
     async makeAuthCall() {
         if (this.configService.volttron.mocked) {
@@ -54,7 +56,7 @@ let VolttronService = VolttronService_1 = class VolttronService {
     }
     async makeApiCall(id, method, token, data) {
         if (this.configService.volttron.mocked) {
-            this.logger.log(`Mocked Volttron API call: ${method}`);
+            this.logger.log(`Mocked Volttron API call: ${method}\nData: ${(0, node_util_1.inspect)(data)}`);
             return { jsonrpc: "2.0", id: id, result: {} };
         }
         return this.makeApiCallWithRetry(id, method, token, data);

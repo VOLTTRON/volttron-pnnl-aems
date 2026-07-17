@@ -93,9 +93,13 @@ COPY --from=builder /app/server/dist ./dist
 COPY --from=builder /app/server/node_modules ./node_modules
 COPY server/.env ./
 
-# Copy and setup entrypoint script for CA certificate handling
-COPY server/docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Copy and setup entrypoint script for CA certificate handling.
+# --chmod=0755 sets the mode inside the layer atomically, independent of the
+# source tree's mode (Windows checkouts, restrictive umask, poisoned build
+# cache from an earlier build where the file lacked +x).
+COPY --chmod=0755 server/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN mkdir -p /app/server/upload && chown -R node:node /app
+USER node
 
 EXPOSE 3000
 ENV PORT=3000

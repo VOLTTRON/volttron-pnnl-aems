@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import Base from "./base";
 import { IConstant } from ".";
 
@@ -211,7 +210,6 @@ describe("constants.Base", () => {
         }
       }
       const decorated = new DecoratedConstant();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       expect((decorated.values[0] as any).decoratedValue as number).toEqual(2);
     });
   });

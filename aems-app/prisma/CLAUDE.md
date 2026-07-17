@@ -41,3 +41,8 @@ Preview features enabled: `relationJoins`, `postgresqlExtensions`, `views`. Post
 - Editing a model without regenerating will leave `@local/prisma/dist` stale; downstream typechecks will fail with confusing errors. Always `yarn build` after schema changes.
 - `@prisma/client` is declared as a `peerDependency` but consumed by `common/server/client` through `portal:../prisma/node_modules/@prisma/client` — do not install a second copy in those modules.
 - The `previewFeatures = ["views"]` flag means `view` blocks in the schema are supported; treat them as read-only.
+
+## Further reading
+
+- Architecture: [../.claude/architecture/prisma.md](../.claude/architecture/prisma.md), [../.claude/architecture/build-system.md](../.claude/architecture/build-system.md).
+- Project rules: [../.claude/rules.md](../.claude/rules.md).

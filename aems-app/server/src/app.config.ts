@@ -177,6 +177,7 @@ export class AppConfigService {
       count: number;
       start: number;
       unit: ReturnType<typeof toDurationUnit>;
+      setpointErrorMinBucket?: string;
     };
   };
   ext: Record<string, ExtConfig>;
@@ -221,6 +222,8 @@ export class AppConfigService {
       password: string;
       verbose: boolean;
       holidaySchedule: boolean;
+      serviceOverride: boolean;
+      startup: boolean;
     };
     control: {
       templatePaths: string[];
@@ -400,6 +403,7 @@ export class AppConfigService {
         count: parseInt(process.env.HISTORIAN_BINNING_COUNT ?? "500"),
         start: parseInt(process.env.HISTORIAN_BINNING_START ?? "48"),
         unit: toDurationUnit(process.env.HISTORIAN_BINNING_UNIT ?? "hours"),
+        setpointErrorMinBucket: process.env.HISTORIAN_SETPOINT_ERROR_MIN_BUCKET || undefined,
       },
     };
     this.ext = Object.entries(process.env)
@@ -482,6 +486,8 @@ export class AppConfigService {
         password: process.env.SERVICE_CONFIG_PASSWORD ?? "",
         verbose: parseBoolean(process.env.SERVICE_CONFIG_VERBOSE),
         holidaySchedule: parseBoolean(process.env.SERVICE_CONFIG_HOLIDAY_SCHEDULE),
+        serviceOverride: parseBoolean(process.env.SERVICE_CONFIG_SERVICE_OVERRIDE ?? "true"),
+        startup: parseBoolean(process.env.SERVICE_CONFIG_STARTUP),
       },
       control: {
         templatePaths: (process.env.SERVICE_SETUP_TEMPLATE_PATHS ?? "")

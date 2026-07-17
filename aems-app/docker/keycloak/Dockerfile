@@ -1,4 +1,9 @@
-FROM quay.io/keycloak/keycloak:latest
+# Pin to a specific version when quay.io is reachable (target: 26.6.2).
+# Currently left at :latest because the build network cannot reach quay.io
+# directly — Docker pulls the cached local image. To lock the version,
+# configure a Docker daemon proxy for quay.io or mirror the image to the
+# local registry and update this line to the pinned digest/tag.
+FROM quay.io/keycloak/keycloak:26.6.3
 
 # Copy custom entrypoint script and realm configuration
 COPY entrypoint.sh /docker-entrypoint-scripts.d/entrypoint.sh
@@ -22,9 +27,6 @@ RUN which curl > /dev/null 2>&1 || \
     (command -v apt-get > /dev/null 2>&1 && apt-get update && apt-get install -y curl && apt-get clean) || \
     (command -v apk > /dev/null 2>&1 && apk add curl) || \
     echo "curl already available or could not be installed"
-
-# Switch back to keycloak user
-USER keycloak
 
 # Use custom entrypoint
 ENTRYPOINT ["/docker-entrypoint-scripts.d/entrypoint.sh"]

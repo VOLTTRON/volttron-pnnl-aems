@@ -505,12 +505,9 @@ export function SiteDashboard({
 
       <div className={styles.timelineGrid}>
         <Card className={styles.timelineCard}>
-          {occupancyLoading ? (
-            <div className={styles.chartLoading}>
-              <Spinner />
-            </div>
-          ) : (
+          {
             <ECharts
+              loading={occupancyLoading}
               option={{
                 animation: false,
                 title: { text: "Occupancy Status" },
@@ -576,7 +573,7 @@ export function SiteDashboard({
               showLegendToggle
               showDataZoomTools
             />
-          )}
+          }
         </Card>
 
         {unitSystems.map((sys) => (
@@ -591,12 +588,9 @@ export function SiteDashboard({
           />
         ))}
         <Card className={styles.timelineCard}>
-          {setpointErrorLoading ? (
-            <div className={styles.chartLoading}>
-              <Spinner />
-            </div>
-          ) : (
+          {
             <ECharts
+              loading={setpointErrorLoading}
               option={{
                 animation: false,
                 title: { text: "Occupancy Setpoint Error" },
@@ -666,18 +660,15 @@ export function SiteDashboard({
               showLegendToggle
               showDataZoomTools
             />
-          )}
+          }
         </Card>
       </div>
 
       <div className={styles.timelineGrid}>
         <Card className={styles.chartCard}>
-          {weatherLoading || outdoorTempLoading ? (
-            <div className={styles.chartLoading}>
-              <Spinner />
-            </div>
-          ) : (
+          {
             <ECharts
+              loading={weatherLoading || outdoorTempLoading}
               option={{
                 animation: false,
                 title: { text: "Outdoor Temperature" },
@@ -766,16 +757,13 @@ export function SiteDashboard({
               showLegendToggle
               showDataZoomTools
             />
-          )}
+          }
         </Card>
 
         <Card className={styles.chartCard}>
-          {powerLoading ? (
-            <div className={styles.chartLoading}>
-              <Spinner />
-            </div>
-          ) : (
+          {
             <ECharts
+              loading={powerLoading}
               option={{
                 animation: false,
                 title: { text: "Building Power" },
@@ -846,7 +834,7 @@ export function SiteDashboard({
               showLegendToggle
               showDataZoomTools
             />
-          )}
+          }
         </Card>
       </div>
     </div>

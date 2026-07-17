@@ -188,6 +188,7 @@ class AppConfigService {
                 count: parseInt(process.env.HISTORIAN_BINNING_COUNT ?? "500"),
                 start: parseInt(process.env.HISTORIAN_BINNING_START ?? "48"),
                 unit: toDurationUnit(process.env.HISTORIAN_BINNING_UNIT ?? "hours"),
+                setpointErrorMinBucket: process.env.HISTORIAN_SETPOINT_ERROR_MIN_BUCKET || undefined,
             },
         };
         this.ext = Object.entries(process.env)
@@ -265,6 +266,8 @@ class AppConfigService {
                 password: process.env.SERVICE_CONFIG_PASSWORD ?? "",
                 verbose: (0, common_1.parseBoolean)(process.env.SERVICE_CONFIG_VERBOSE),
                 holidaySchedule: (0, common_1.parseBoolean)(process.env.SERVICE_CONFIG_HOLIDAY_SCHEDULE),
+                serviceOverride: (0, common_1.parseBoolean)(process.env.SERVICE_CONFIG_SERVICE_OVERRIDE ?? "true"),
+                startup: (0, common_1.parseBoolean)(process.env.SERVICE_CONFIG_STARTUP),
             },
             control: {
                 templatePaths: (process.env.SERVICE_SETUP_TEMPLATE_PATHS ?? "")

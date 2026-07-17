@@ -17,6 +17,18 @@ class Validate extends base_1.default {
                 options: { default: 4, min: 2, max: 6 },
             },
             {
+                name: "overrideSetpoint",
+                label: "Override Setpoint",
+                type: "setpoint",
+                options: { default: 70, min: 55, max: 85 },
+            },
+            {
+                name: "overrideDeadband",
+                label: "Override Deadband",
+                type: "setpoint",
+                options: { default: 4, min: 2, max: 10 },
+            },
+            {
                 name: "heating",
                 label: "Heating",
                 type: "setpoint",
@@ -143,6 +155,10 @@ class Validate extends base_1.default {
         this.SetpointType = this.parseStrict("setpoint");
         this.Deadband = this.parseStrict("deadband");
         this.DeadbandType = this.parseStrict("deadband");
+        this.OverrideSetpoint = this.parseStrict("overrideSetpoint");
+        this.OverrideSetpointType = this.parseStrict("overrideSetpoint");
+        this.OverrideDeadband = this.parseStrict("overrideDeadband");
+        this.OverrideDeadbandType = this.parseStrict("overrideDeadband");
         this.Heating = this.parseStrict("heating");
         this.HeatingType = this.parseStrict("heating");
         this.Cooling = this.parseStrict("cooling");

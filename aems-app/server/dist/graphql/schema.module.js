@@ -37,22 +37,23 @@ const query_service_1 = require("./account/query.service");
 const query_service_2 = require("./banner/query.service");
 const query_service_3 = require("./change/query.service");
 const query_service_4 = require("./comment/query.service");
-const query_service_5 = require("./configuration/query.service");
-const query_service_6 = require("./control/query.service");
-const query_service_7 = require("./current/query.service");
-const query_service_8 = require("./feedback/query.service");
-const query_service_9 = require("./file/query.service");
-const query_service_10 = require("./geography/query.service");
-const query_service_11 = require("./holiday/query.service");
-const query_service_12 = require("./location/query.service");
-const query_service_13 = require("./log/query.service");
-const query_service_14 = require("./occupancy/query.service");
-const query_service_15 = require("./schedule/query.service");
-const query_service_16 = require("./setpoint/query.service");
-const query_service_17 = require("./unit/query.service");
-const query_service_18 = require("./user/query.service");
-const query_service_19 = require("./historian/query.service");
-const query_service_20 = require("./backup/query.service");
+const query_service_5 = require("./config/query.service");
+const query_service_6 = require("./configuration/query.service");
+const query_service_7 = require("./control/query.service");
+const query_service_8 = require("./current/query.service");
+const query_service_9 = require("./feedback/query.service");
+const query_service_10 = require("./file/query.service");
+const query_service_11 = require("./geography/query.service");
+const query_service_12 = require("./holiday/query.service");
+const query_service_13 = require("./location/query.service");
+const query_service_14 = require("./log/query.service");
+const query_service_15 = require("./occupancy/query.service");
+const query_service_16 = require("./schedule/query.service");
+const query_service_17 = require("./setpoint/query.service");
+const query_service_18 = require("./unit/query.service");
+const query_service_19 = require("./user/query.service");
+const query_service_20 = require("./historian/query.service");
+const query_service_21 = require("./backup/query.service");
 const mutate_service_1 = require("./account/mutate.service");
 const mutate_service_2 = require("./banner/mutate.service");
 const mutate_service_3 = require("./change/mutate.service");
@@ -146,23 +147,24 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             query_service_2.BannerQuery,
             query_service_3.ChangeQuery,
             query_service_4.CommentQuery,
-            query_service_5.ConfigurationQuery,
-            query_service_6.ControlQuery,
-            query_service_7.CurrentQuery,
-            query_service_8.FeedbackQuery,
-            query_service_9.FileQuery,
-            query_service_11.HolidayQuery,
-            query_service_12.LocationQuery,
-            query_service_13.LogQuery,
-            query_service_14.OccupancyQuery,
-            query_service_15.ScheduleQuery,
-            query_service_16.SetpointQuery,
-            query_service_18.UserQuery,
-            query_service_10.GeographyQuery,
+            query_service_5.ConfigQuery,
+            query_service_6.ConfigurationQuery,
+            query_service_7.ControlQuery,
+            query_service_8.CurrentQuery,
+            query_service_9.FeedbackQuery,
+            query_service_10.FileQuery,
+            query_service_12.HolidayQuery,
+            query_service_13.LocationQuery,
+            query_service_14.LogQuery,
+            query_service_15.OccupancyQuery,
+            query_service_16.ScheduleQuery,
+            query_service_17.SetpointQuery,
+            query_service_19.UserQuery,
+            query_service_11.GeographyQuery,
             query_service_3.ChangeQuery,
-            query_service_17.UnitQuery,
-            query_service_19.HistorianQuery,
-            query_service_20.BackupQuery,
+            query_service_18.UnitQuery,
+            query_service_20.HistorianQuery,
+            query_service_21.BackupQuery,
             mutate_service_1.AccountMutation,
             mutate_service_2.BannerMutation,
             mutate_service_3.ChangeMutation,

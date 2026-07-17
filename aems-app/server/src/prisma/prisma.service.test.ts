@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { PrismaService } from "./prisma.service";
 import { AppConfigService } from "@/app.config";
 import { PrismaClient } from "@prisma/client";

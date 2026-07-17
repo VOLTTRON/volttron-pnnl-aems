@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { FeedbackStatusType } from "../";
 
 describe("constants.FeedbackStatusType", () => {

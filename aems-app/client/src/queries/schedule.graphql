@@ -12,6 +12,11 @@ query ReadSchedules(
     startTime
     endTime
     occupied
+    override
+    overridePreStartTime
+    overridePreEndTime
+    overridePostStartTime
+    overridePostEndTime
     stage
     setpointId
     createdAt
@@ -32,6 +37,11 @@ query ReadSchedule($where: ScheduleUniqueFilter!) {
     startTime
     endTime
     occupied
+    override
+    overridePreStartTime
+    overridePreEndTime
+    overridePostStartTime
+    overridePostEndTime
     stage
     setpointId
     createdAt
@@ -52,6 +62,11 @@ mutation CreateSchedule($create: ScheduleCreateInput!) {
     startTime
     endTime
     occupied
+    override
+    overridePreStartTime
+    overridePreEndTime
+    overridePostStartTime
+    overridePostEndTime
     stage
     createdAt
     updatedAt
@@ -71,6 +86,11 @@ mutation UpdateSchedule($where: ScheduleUniqueFilter!, $update: ScheduleUpdateIn
     startTime
     endTime
     occupied
+    override
+    overridePreStartTime
+    overridePreEndTime
+    overridePostStartTime
+    overridePostEndTime
     stage
     createdAt
     updatedAt

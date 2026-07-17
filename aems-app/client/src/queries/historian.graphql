@@ -21,20 +21,6 @@ query HistorianUnitTimeSeries(
   )
 }
 
-query HistorianUnitCurrentValue(
-  $campus: String!
-  $building: String!
-  $system: String!
-  $metric: UnitMetric!
-) {
-  historianUnitCurrentValue(
-    campus: $campus
-    building: $building
-    system: $system
-    metric: $metric
-  )
-}
-
 query HistorianUnitAggregated(
   $campus: String!
   $building: String!

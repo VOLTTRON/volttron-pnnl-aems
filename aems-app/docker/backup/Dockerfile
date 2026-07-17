@@ -8,7 +8,7 @@
 # /workspace and only adds the HTTP poller on top. No Postgres client ships
 # in the image — the sidecar holds no DB credentials.
 
-FROM node:22-alpine
+FROM node:22.14.0-alpine
 
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
@@ -43,7 +43,8 @@ RUN apk add --no-cache \
         curl \
         jq \
         git \
-        tzdata
+        tzdata \
+        su-exec
 
 WORKDIR /app
 COPY worker/package.json worker/package-lock.json* ./
@@ -53,6 +54,23 @@ COPY worker/ ./
 COPY init-keys.sh /usr/local/bin/init-keys.sh
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/init-keys.sh /usr/local/bin/entrypoint.sh
+
+# Add node user to the docker group so it can use the mounted Docker socket.
+# Try gid 999 first (conventional docker gid on many Linux hosts); fall back
+# to any available gid if 999 is taken; skip if the group already exists.
+# addgroup <user> <group> is the correct Alpine syntax for supplementary groups.
+RUN (addgroup -g 999 docker 2>/dev/null || addgroup docker 2>/dev/null || true) \
+    && addgroup node docker
+
+# Pre-create mount-point directories with correct ownership. Image-level
+# ownership propagates to first-creation of the backup-data named volume;
+# bind mounts and tmpfs land on top of these and get fixed up by entrypoint.sh.
+RUN mkdir -p /host-secrets /var/lib/backup/staging /var/lib/backup/pending \
+    && chown -R node:node /host-secrets /var/lib/backup
+
+# Entrypoint runs as root so it can chown bind-mount/tmpfs targets that land
+# on top of the image's pre-created dirs, then drops to node via su-exec
+# before invoking the worker.
 
 # The sidecar expects the repo root to be mounted at /workspace (read-only)
 # and the backup secrets directory at /run/secrets/backup.

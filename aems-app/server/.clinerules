@@ -31,3 +31,4 @@
 - Always run `yarn compile:schema` after GraphQL schema changes
 - Use Pothos builders for GraphQL schema, not SDL files
 - README files should contain documentation only - no code examples belong in README files
+- See also: `../.claude/architecture/server.md`, `../.claude/architecture/graphql.md`, `../.claude/architecture/auth.md`; CLAUDE.md is the source of truth

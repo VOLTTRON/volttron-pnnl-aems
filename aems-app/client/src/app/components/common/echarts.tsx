@@ -25,6 +25,54 @@ function getLegendNames(option: any): string[] {
   return series.map((s: any) => s?.name).filter((n: any): n is string => typeof n === "string" && n.length > 0);
 }
 
+// Merge user-interactive runtime state (dataZoom range, legend toggles) from
+// the live chart into an incoming option before setOption. Without this,
+// callers that re-assert `dataZoom: [{start: 0, end: 100}, ...]` on every
+// render snap the chart back to full zoom whenever data refreshes.
+function preserveInteractiveState(chart: ECharts, incoming: EChartsOption): EChartsOption {
+  const live: any = chart.getOption?.();
+  if (!live) return incoming;
+
+  const out: any = { ...incoming };
+
+  const incomingDz = (incoming as any).dataZoom;
+  const liveDz = live.dataZoom;
+  if (Array.isArray(incomingDz) && Array.isArray(liveDz)) {
+    out.dataZoom = incomingDz.map((dz: any, i: number) => {
+      const liveEntry = liveDz[i];
+      if (!liveEntry || typeof liveEntry.start !== "number" || typeof liveEntry.end !== "number") {
+        return dz;
+      }
+      return { ...dz, start: liveEntry.start, end: liveEntry.end };
+    });
+  } else if (incomingDz && liveDz && !Array.isArray(incomingDz) && !Array.isArray(liveDz)) {
+    if (typeof (liveDz as any).start === "number" && typeof (liveDz as any).end === "number") {
+      out.dataZoom = { ...incomingDz, start: (liveDz as any).start, end: (liveDz as any).end };
+    }
+  }
+
+  const incomingLegendRaw = (incoming as any).legend;
+  const liveLegendRaw = live.legend;
+  const incomingLegend = Array.isArray(incomingLegendRaw) ? incomingLegendRaw[0] : incomingLegendRaw;
+  const liveLegend = Array.isArray(liveLegendRaw) ? liveLegendRaw[0] : liveLegendRaw;
+  if (incomingLegend && liveLegend?.selected) {
+    const incomingNames = new Set(getLegendNames(incoming));
+    const merged: Record<string, boolean> = {};
+    for (const [name, on] of Object.entries(liveLegend.selected as Record<string, boolean>)) {
+      if (incomingNames.has(name)) merged[name] = on;
+    }
+    const patchedLegend = {
+      ...incomingLegend,
+      selected: { ...((incomingLegend as any).selected ?? {}), ...merged },
+    };
+    out.legend = Array.isArray(incomingLegendRaw)
+      ? [patchedLegend, ...incomingLegendRaw.slice(1)]
+      : patchedLegend;
+  }
+
+  return out as EChartsOption;
+}
+
 function readLiveLegendState(chart: ECharts): { state: LegendState; names: string[] } {
   const opt: any = chart.getOption?.();
   const names = getLegendNames(opt);
@@ -193,10 +241,13 @@ export function ECharts({
     if (chartRef.current !== null) {
       const chart = getInstanceByDom(chartRef.current);
       let finalOption = option;
+      if (chart) {
+        finalOption = preserveInteractiveState(chart, finalOption);
+      }
       if ((showLegendToggle || showDataZoomTools) && chart) {
         const { state } = readLiveLegendState(chart);
         stateRef.current = state;
-        finalOption = mergeToolbox(option, state, showLegendToggle, showDataZoomTools, chartRef);
+        finalOption = mergeToolbox(finalOption, state, showLegendToggle, showDataZoomTools, chartRef);
       }
       // Use notMerge: false for better performance on updates
       // Use lazyUpdate: true to batch rendering updates
@@ -207,7 +258,21 @@ export function ECharts({
   useEffect(() => {
     if (chartRef.current !== null) {
       const chart = getInstanceByDom(chartRef.current);
-      loading === true ? chart!.showLoading() : chart!.hideLoading();
+      if (loading === true) {
+        const isDark = theme === "dark";
+        chart!.showLoading(
+          "default",
+          isDark
+            ? {
+                maskColor: "rgba(45, 45, 45, 0.8)",
+                textColor: "#fff",
+                color: "#fff",
+              }
+            : undefined,
+        );
+      } else {
+        chart!.hideLoading();
+      }
     }
   }, [loading, theme]);
 

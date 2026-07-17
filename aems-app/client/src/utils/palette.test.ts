@@ -6,6 +6,7 @@ import {
   PaletteScheme,
   PaletteColor,
   Palettes,
+  ScaleType,
   allPalettes,
   Color,
 } from "./palette";
@@ -309,5 +310,132 @@ describe("Color", () => {
     it("should throw an error for an invalid color format", () => {
       expect(() => Color.parse("invalid-color")).toThrow(new Error("Invalid color values"));
     });
+  });
+});
+
+describe("Palette — error branches", () => {
+  it("throws when constructed with zero colors", () => {
+    expect(() => new Palette("X", PaletteType.Custom, PaletteScheme.Qualitative)).toThrow(
+      "At least one color is required",
+    );
+  });
+
+  it("getColor throws for unknown PaletteColor enum value", () => {
+    const p = new Palette("X", PaletteType.Custom, PaletteScheme.Qualitative, new Color("#ff0000"));
+    expect(() => p.getColor("Senary" as PaletteColor)).toThrow(/Unknown color value/);
+  });
+});
+
+describe("Palettes — static methods and instance coverage", () => {
+  it("Palettes.build constructs from JsonPalettes", () => {
+    const json = {
+      palettes: [
+        {
+          name: "TestPalette",
+          type: PaletteType.Custom,
+          scheme: PaletteScheme.Qualitative,
+          colors: [{ name: "Red", hex: "#ff0000" }],
+        },
+      ],
+    };
+    const p = Palettes.build(json as any);
+    expect(p.length).toBe(1);
+    expect(p.getPalette("TestPalette").name).toBe("TestPalette");
+  });
+
+  it("Palettes.getPalette with fallback returns fallback for unknown name", () => {
+    const fallback = allPalettes[0];
+    const result = Palettes.getPalette("DoesNotExist", fallback);
+    expect(result).toBe(fallback);
+  });
+
+  it("Palettes.getPalette throws without fallback for unknown name", () => {
+    expect(() => Palettes.getPalette("DoesNotExist")).toThrow("Unknown palette name: DoesNotExist");
+  });
+
+  it("Palettes.getPalette by index returns correct palette", () => {
+    const result = Palettes.getPalette(0);
+    expect(result).toBeDefined();
+    expect(result.name).toBe(allPalettes[0].name);
+  });
+
+  it("Palettes static Symbol.iterator yields all palettes", () => {
+    const collected = [...Palettes];
+    expect(collected.length).toBe(allPalettes.length);
+  });
+
+  it("Palettes instance Symbol.iterator yields instance palettes", () => {
+    const p = new Palettes();
+    const collected = [...p];
+    expect(collected.length).toBe(allPalettes.length);
+  });
+
+  it("instance getPalette by index returns correct palette", () => {
+    const p = new Palettes();
+    const result = p.getPalette(0);
+    expect(result).toBeDefined();
+  });
+
+  it("instance getPalette with fallback returns fallback for unknown", () => {
+    const p = new Palettes();
+    const fallback = allPalettes[0];
+    const result = p.getPalette("DoesNotExist", fallback);
+    expect(result).toBe(fallback);
+  });
+
+  it("Palettes constructor throws on duplicate names", () => {
+    const dup = allPalettes[0];
+    expect(() => new Palettes([dup, dup])).toThrow("Duplicate palette names");
+  });
+
+  it("addPalette throws on duplicate name", () => {
+    const p = new Palettes();
+    expect(() => p.addPalette(allPalettes[0])).toThrow(/already exists/);
+  });
+});
+
+describe("Palettes — ScaleType filtering", () => {
+  it("Categorical scale returns Qualitative palettes", () => {
+    const result = Palettes.getPalettes({ scale: ScaleType.Categorical });
+    expect(result.schemes).toEqual([PaletteScheme.Qualitative]);
+  });
+
+  it("Ordinal scale returns Sequential and Diverging palettes", () => {
+    const result = Palettes.getPalettes({ scale: ScaleType.Ordinal });
+    const schemes = [...new Set(result.palettes.map((p) => p.scheme))];
+    expect(schemes.every((s) => [PaletteScheme.Sequential, PaletteScheme.Diverging].includes(s as PaletteScheme))).toBe(
+      true,
+    );
+  });
+
+  it("Interval scale returns Sequential palettes only", () => {
+    const result = Palettes.getPalettes({ scale: ScaleType.Interval });
+    expect(result.schemes).toEqual([PaletteScheme.Sequential]);
+  });
+
+  it("Ratio scale returns Diverging palettes only", () => {
+    const result = Palettes.getPalettes({ scale: ScaleType.Ratio });
+    expect(result.schemes).toEqual([PaletteScheme.Diverging]);
+  });
+
+  it("instance getPalettes with scale delegates to scaleFilter", () => {
+    const result = new Palettes().getPalettes({ scale: ScaleType.Categorical });
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.schemes).toEqual([PaletteScheme.Qualitative]);
+  });
+
+  it("Palettes.getPalettes with no type/scheme options returns all palettes", () => {
+    const result = Palettes.getPalettes({});
+    expect(result.length).toEqual(allPalettes.length);
+  });
+
+  it("filter by single type (not array)", () => {
+    const result = Palettes.getPalettes({ type: PaletteType.Core });
+    expect(result.palettes.every((p) => p.type === PaletteType.Core)).toBe(true);
+  });
+
+  it("filter by single scheme (not array)", () => {
+    const result = Palettes.getPalettes({ scheme: PaletteScheme.Sequential });
+    expect(result.palettes.every((p) => p.scheme === PaletteScheme.Sequential)).toBe(true);
   });
 });

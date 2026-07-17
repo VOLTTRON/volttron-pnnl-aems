@@ -4,6 +4,8 @@ query ReadSetpoint($where: SetpointUniqueFilter!) {
     label
     setpoint
     deadband
+    overrideSetpoint
+    overrideDeadband
     heating
     cooling
     standbyTime
@@ -27,6 +29,8 @@ query ReadSetpoints(
     label
     setpoint
     deadband
+    overrideSetpoint
+    overrideDeadband
     heating
     cooling
     standbyTime
@@ -46,6 +50,8 @@ mutation CreateSetpoint($create: SetpointCreateInput!) {
     label
     setpoint
     deadband
+    overrideSetpoint
+    overrideDeadband
     heating
     cooling
     standbyTime
@@ -64,6 +70,8 @@ mutation UpdateSetpoint($where: SetpointUniqueFilter!, $update: SetpointUpdateIn
     label
     setpoint
     deadband
+    overrideSetpoint
+    overrideDeadband
     heating
     cooling
     standbyTime

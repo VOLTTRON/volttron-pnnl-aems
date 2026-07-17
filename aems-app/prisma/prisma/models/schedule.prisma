@@ -12,6 +12,15 @@ model Schedule {
     startTime               String          @default("08:00")
     endTime                 String          @default("18:00")
     occupied                Boolean         @default(true)
+    // `override` is a UI-only visibility switch for the service-schedule sliders;
+    // pre/post times are always sent to Volttron regardless of its value. A
+    // zero-range pre/post window (start == end, e.g. "00:00"/"00:00" or
+    // "24:00"/"24:00") signals "this service window is unused".
+    override                Boolean         @default(false)
+    overridePreStartTime    String          @default("00:00")
+    overridePreEndTime      String          @default("00:00")
+    overridePostStartTime   String          @default("24:00")
+    overridePostEndTime     String          @default("24:00")
     // foreign keys
     setpointId              String?
     // direct relations

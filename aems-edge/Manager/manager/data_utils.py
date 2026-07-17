@@ -5,7 +5,7 @@
 #
 # ===----------------------------------------------------------------------===
 #
-# Copyright 2024 Battelle Memorial Institute
+# Copyright 2026 Battelle Memorial Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy
@@ -77,14 +77,18 @@ class DataFileAccess:
             self.datafile = datafile
         _log.debug(f'Data file: {self.datafile} -- {self.datafile.as_posix()}')
 
-    def read(self) -> Optional[pd.DataFrame]:
+    def read(self) -> Optional[pd.DataFrame]|None:
         """
         Reads data from the file and returns it as a pandas DataFrame.
 
         :return: A pandas DataFrame containing the data read from the file (indext by 'ts' column), or None if the file could not be read.
         :rtype: Optional[pd.DataFrame]
         """
-        return pd.read_csv(self.datafile, index_col='ts', parse_dates=True)
+        try:
+            return pd.read_csv(self.datafile, index_col='ts', parse_dates=True)
+        except pd.errors.EmptyDataError:
+            _log.debug(f'Empty data file: {self.datafile}')
+            return None
 
     def write(self, df: pd.DataFrame) -> None:
         """

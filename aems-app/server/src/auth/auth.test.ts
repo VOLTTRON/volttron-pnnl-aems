@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { AuthUser, buildExpressUser, checkPassword, AuthRoles } from "./index";
 import { RoleType } from "@local/common";
 import { User } from "@prisma/client";

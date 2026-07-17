@@ -4,6 +4,22 @@
 
 set -euo pipefail
 
+# Two-phase entrypoint:
+#   1. Started as root: fix ownership of bind-mount and tmpfs targets that
+#      overlay the image's pre-created dirs (Docker Desktop bind mounts
+#      and tmpfs-without-uid= appear root-owned at runtime), then re-exec
+#      ourselves as node so everything below — including init-keys.sh's
+#      keypair generation — runs as the worker user and creates files
+#      with the right ownership.
+#   2. Re-entered as node: skip the chown branch, run the rest.
+# Best-effort chown: silently tolerates read-only mounts, SELinux denials,
+# or rootless Docker where in-container root lacks CAP_CHOWN; the mkdir
+# in init-keys.sh will surface a clearer error if it didn't take.
+if [[ "$(id -u)" -eq 0 ]]; then
+    chown -R node:node /host-secrets /var/lib/backup 2>/dev/null || true
+    exec su-exec node:node "$0" "$@"
+fi
+
 # Sweep transient workspace directories. If the previous run was killed
 # abruptly (container OOM, SIGKILL, power loss), backup.sh's ERR trap
 # never fired and staging trees + partial archives may remain on disk.

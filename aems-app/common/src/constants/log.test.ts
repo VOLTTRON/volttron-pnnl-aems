@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { LogType } from "../";
 
 describe("constants.LogType", () => {

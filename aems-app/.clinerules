@@ -47,3 +47,4 @@
 - Use build scripts for proper dependency compilation order
 - Docker deployment includes optional services (proxy, maps, wiki)
 - README files should contain documentation only - no code examples belong in README files
+- See also: `.claude/rules.md` (full project rules) and `.claude/architecture/` (per-area design docs); `CLAUDE.md` is the auto-loaded source of truth and is kept in rough sync with this file

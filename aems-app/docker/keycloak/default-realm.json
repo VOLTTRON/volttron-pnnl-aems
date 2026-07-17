@@ -35,7 +35,7 @@
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": false,
   "editUsernameAllowed": true,
-  "bruteForceProtected": false,
+  "bruteForceProtected": true,
   "permanentLockout": false,
   "maxTemporaryLockouts": 0,
   "bruteForceStrategy": "MULTIPLE",
@@ -44,7 +44,7 @@
   "waitIncrementSeconds": 60,
   "quickLoginCheckMilliSeconds": 1000,
   "maxDeltaTimeSeconds": 43200,
-  "failureFactor": 30,
+  "failureFactor": 10,
   "roles": {
     "realm": [
       {
@@ -696,10 +696,10 @@
       "clientAuthenticatorType": "client-secret",
       "secret": "SeT_tHiS_iN_0x3A-.env.secrets-",
       "redirectUris": [
-        "https://${HOSTNAME}/grafana/login/generic_oauth"
+        "https://${APP_HOSTNAME}/grafana/login/generic_oauth"
       ],
       "webOrigins": [
-        "https://${HOSTNAME}"
+        "https://${APP_HOSTNAME}"
       ],
       "notBefore": 0,
       "bearerOnly": false,
@@ -717,7 +717,7 @@
         "client.secret.creation.time": "1752766690",
         "backchannel.logout.session.required": "true",
         "standard.token.exchange.enabled": "false",
-        "post.logout.redirect.uris": "https://${HOSTNAME}/grafana",
+        "post.logout.redirect.uris": "https://${APP_HOSTNAME}/grafana",
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.revoke.offline.tokens": "true"
       },

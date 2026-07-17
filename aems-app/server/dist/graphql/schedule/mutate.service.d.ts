@@ -23,6 +23,11 @@ export declare class ScheduleMutation {
         startTime: "String";
         endTime: "String";
         occupied: "Boolean";
+        override: "Boolean";
+        overridePreStartTime: "String";
+        overridePreEndTime: "String";
+        overridePostStartTime: "String";
+        overridePostEndTime: "String";
         setpointId: "String";
         setpoint: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;
@@ -49,6 +54,11 @@ export declare class ScheduleMutation {
         startTime: "String";
         endTime: "String";
         occupied: "Boolean";
+        override: "Boolean";
+        overridePreStartTime: "String";
+        overridePreEndTime: "String";
+        overridePostStartTime: "String";
+        overridePostEndTime: "String";
         setpointId: "String";
         setpoint: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
             Context: import("..").Context;

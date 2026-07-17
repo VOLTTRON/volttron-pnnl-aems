@@ -12,12 +12,16 @@ if [ ! -f /etc/certs/mkcert-hostname.crt ]; then
     --domain "${HOSTNAME}"
 fi;
 if [ ! -f /etc/certs/mkcert-local.crt ]; then
-    mkcert create-cert \
-    --ca-key "/etc/certs/mkcert-ca.key" \
-    --ca-cert "/etc/certs/mkcert-ca.crt" \
-    --key "/etc/certs/mkcert-local.key" \
-    --cert "/etc/certs/mkcert-local.crt" \
-    --domain "localhost" \
-    --domain "127.0.0.1" \
-    --domain "${HOSTNAME}"
+    set -- \
+        --ca-key "/etc/certs/mkcert-ca.key" \
+        --ca-cert "/etc/certs/mkcert-ca.crt" \
+        --key "/etc/certs/mkcert-local.key" \
+        --cert "/etc/certs/mkcert-local.crt" \
+        --domain "localhost" \
+        --domain "127.0.0.1" \
+        --domain "${HOSTNAME}"
+    if [ -n "${MACHINE_IP}" ]; then
+        set -- "$@" --domain "${MACHINE_IP}"
+    fi
+    mkcert create-cert "$@"
 fi;

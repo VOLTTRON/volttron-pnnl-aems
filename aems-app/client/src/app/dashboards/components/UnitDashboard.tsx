@@ -5,7 +5,6 @@ import { Card, Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
 import {
   HistorianUnitTimeSeriesDocument,
-  HistorianUnitCurrentValueDocument,
   HistorianWeatherTimeSeriesDocument,
   UnitMetric,
   WeatherMetric,
@@ -241,39 +240,6 @@ export function UnitDashboard({
   const unitBuilding = unit.building || building;
   const unitSystem = unit.system || unit.name || "";
 
-  // Current values for unit metrics
-  const { data: heatingSetpoint } = useQuery(HistorianUnitCurrentValueDocument, {
-    variables: {
-      campus: unitCampus,
-      building: unitBuilding,
-      system: unitSystem,
-      metric: UnitMetric.OccupiedHeatingSetPoint,
-    },
-  });
-  const { data: coolingSetpoint } = useQuery(HistorianUnitCurrentValueDocument, {
-    variables: {
-      campus: unitCampus,
-      building: unitBuilding,
-      system: unitSystem,
-      metric: UnitMetric.OccupiedCoolingSetPoint,
-    },
-  });
-  const { data: unoccupiedHeatingSetpoint } = useQuery(HistorianUnitCurrentValueDocument, {
-    variables: {
-      campus: unitCampus,
-      building: unitBuilding,
-      system: unitSystem,
-      metric: UnitMetric.UnoccupiedHeatingSetPoint,
-    },
-  });
-  const { data: unoccupiedCoolingSetpoint } = useQuery(HistorianUnitCurrentValueDocument, {
-    variables: {
-      campus: unitCampus,
-      building: unitBuilding,
-      system: unitSystem,
-      metric: UnitMetric.UnoccupiedCoolingSetPoint,
-    },
-  });
   // Time series for unit metrics
   const { data: zoneTempSeries, loading: zoneTempLoading } = useQuery(HistorianUnitTimeSeriesDocument, {
     variables: {
@@ -486,6 +452,30 @@ export function UnitDashboard({
     if (!data || data.length === 0) return null;
     return data[data.length - 1]?.value ?? null;
   }, [zoneTempSeries]);
+
+  const heatingSetpointValue = React.useMemo(() => {
+    const data = heatingSetpointSeries?.historianUnitTimeSeries?.data;
+    if (!data || data.length === 0) return null;
+    return data[data.length - 1]?.value ?? null;
+  }, [heatingSetpointSeries]);
+
+  const coolingSetpointValue = React.useMemo(() => {
+    const data = coolingSetpointSeries?.historianUnitTimeSeries?.data;
+    if (!data || data.length === 0) return null;
+    return data[data.length - 1]?.value ?? null;
+  }, [coolingSetpointSeries]);
+
+  const unoccupiedHeatingSetpointValue = React.useMemo(() => {
+    const data = unoccupiedHeatingSetpointSeries?.historianUnitTimeSeries?.data;
+    if (!data || data.length === 0) return null;
+    return data[data.length - 1]?.value ?? null;
+  }, [unoccupiedHeatingSetpointSeries]);
+
+  const unoccupiedCoolingSetpointValue = React.useMemo(() => {
+    const data = unoccupiedCoolingSetpointSeries?.historianUnitTimeSeries?.data;
+    if (!data || data.length === 0) return null;
+    return data[data.length - 1]?.value ?? null;
+  }, [unoccupiedCoolingSetpointSeries]);
 
   const occupancyCommandValue = React.useMemo(() => {
     const data = occupancyCommandSeries?.historianUnitTimeSeries?.data;
@@ -860,10 +850,10 @@ export function UnitDashboard({
 
             {/* Occupied values */}
             <div className={styles.setpointValue} style={{ color: warmPalette.tertiary.hex }}>
-              {heatingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F
+              {heatingSetpointValue?.toFixed(1) ?? "--"}°F
             </div>
             <div className={styles.setpointValue} style={{ color: coolPalette.tertiary.hex }}>
-              {coolingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F
+              {coolingSetpointValue?.toFixed(1) ?? "--"}°F
             </div>
 
             {/* Unoccupied label - spans both columns */}
@@ -871,10 +861,10 @@ export function UnitDashboard({
 
             {/* Unoccupied values */}
             <div className={styles.setpointValue} style={{ color: warmPalette.primary.hex }}>
-              {unoccupiedHeatingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F
+              {unoccupiedHeatingSetpointValue?.toFixed(1) ?? "--"}°F
             </div>
             <div className={styles.setpointValue} style={{ color: coolPalette.primary.hex }}>
-              {unoccupiedCoolingSetpoint?.historianUnitCurrentValue?.value?.toFixed(1) || "--"}°F
+              {unoccupiedCoolingSetpointValue?.toFixed(1) ?? "--"}°F
             </div>
           </div>
         </Card>
@@ -1054,12 +1044,9 @@ export function UnitDashboard({
 
       <div className={styles.grid}>
         <Card className={styles.chartCard}>
-          {timeSeriesLoading ? (
-            <div className={styles.chartLoading}>
-              <Spinner />
-            </div>
-          ) : (
+          {
             <ECharts
+              loading={timeSeriesLoading}
               option={{
                 animation: false,
                 title: { text: unit.label || unit.name || "" },
@@ -1306,18 +1293,15 @@ export function UnitDashboard({
               showLegendToggle
               showDataZoomTools
             />
-          )}
+          }
         </Card>
       </div>
 
       <div className={styles.grid}>
         <Card className={styles.chartCard} style={{ height: "400px" }}>
-          {powerLoading ? (
-            <div className={styles.chartLoading} style={{ height: "400px" }}>
-              <Spinner />
-            </div>
-          ) : (
+          {
             <ECharts
+              loading={powerLoading}
               option={{
                 animation: false,
                 title: { text: "Building Power" },
@@ -1388,7 +1372,7 @@ export function UnitDashboard({
               showLegendToggle
               showDataZoomTools
             />
-          )}
+          }
         </Card>
       </div>
     </div>

@@ -1,5 +1,6 @@
 {
   "extends": "next",
+  "ignorePatterns": ["**/*.test.ts", "**/*.spec.ts"],
   "rules": {
     "react/no-is-mounted": "off"
   }

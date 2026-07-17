@@ -16,7 +16,6 @@ describe("constants.HttpStatusType", () => {
       expect(HttpStatusType.parse("Not Found")?.name).toEqual("not-found");
     });
     it("(object with name) is parsed correctly", () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       expect(HttpStatusType.parse({ name: "ok" } as any)?.name).toEqual("ok");
     });
     it("(invalid string) is undefined", () => {
@@ -41,11 +40,9 @@ describe("constants.HttpStatusType", () => {
       expect(() => HttpStatusType.parseStrict(999)).toThrow(Error);
     });
     it("(null) throws Error", () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       expect(() => HttpStatusType.parseStrict(null as any)).toThrow(Error);
     });
     it("(undefined) throws Error", () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       expect(() => HttpStatusType.parseStrict(undefined as any)).toThrow(Error);
     });
   });

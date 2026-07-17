@@ -1,6 +1,6 @@
 {
   "name": "server",
-  "version": "2.0.4",
+  "version": "1.0.0",
   "description": "",
   "author": "Amelia Bleeker (PNNL)",
   "private": true,
@@ -133,7 +133,7 @@
     },
     "testRegex": ".*\\.(?:spec|test)\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.ts$": "ts-jest"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
@@ -146,7 +146,10 @@
       "clover",
       "cobertura"
     ],
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": [
+      "<rootDir>/../jest.setup.ts"
+    ]
   },
   "packageManager": "yarn@4.9.1"
 }

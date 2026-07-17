@@ -1048,7 +1048,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 }
             }
             if (allTempIds.length > 0) {
-                const bucketInterval = this.deriveBucketInterval(startTime, endTime);
+                const bucketInterval = this.deriveSetpointErrorBucketInterval(startTime, endTime);
                 const tempQuery = `
           SELECT
             topic_id,
@@ -1241,18 +1241,34 @@ let HistorianService = HistorianService_1 = class HistorianService {
         });
         return results;
     }
+    static snapToNiceSeconds(targetSec) {
+        const list = HistorianService_1.NICE_BUCKET_SECONDS;
+        return list.find((s) => s >= targetSec) ?? list[list.length - 1];
+    }
     deriveBucketInterval(startTime, endTime) {
         const rangeMs = Math.max(1, endTime.getTime() - startTime.getTime());
         const targetBuckets = Math.max(1, this.configService.historian.binning.count);
         const targetSec = Math.max(1, Math.ceil(rangeMs / 1000 / targetBuckets));
-        const niceSeconds = [
-            10, 30,
-            60, 120, 300, 600, 900, 1800,
-            3600, 7200, 10800, 21600, 43200,
-            86400, 604800,
-        ];
-        const chosen = niceSeconds.find((s) => s >= targetSec) ?? niceSeconds[niceSeconds.length - 1];
+        const chosen = HistorianService_1.snapToNiceSeconds(targetSec);
         return { sql: `${chosen} seconds`, ms: chosen * 1000 };
+    }
+    static computeSetpointErrorFloorSec(binning) {
+        let raw;
+        if (binning.setpointErrorMinBucket) {
+            raw = Math.max(1, Math.ceil(HistorianService_1.parseClientInterval(binning.setpointErrorMinBucket).ms / 1000));
+        }
+        else {
+            const thresholdMs = Math.max(0, binning.start) * HistorianService_1.msPerDurationUnit(binning.unit);
+            raw = Math.max(1, Math.ceil(thresholdMs / 1000 / Math.max(1, binning.count)));
+        }
+        return HistorianService_1.snapToNiceSeconds(raw);
+    }
+    deriveSetpointErrorBucketInterval(startTime, endTime) {
+        const base = this.deriveBucketInterval(startTime, endTime);
+        const flooredSec = HistorianService_1.computeSetpointErrorFloorSec(this.configService.historian.binning);
+        if (base.ms >= flooredSec * 1000)
+            return base;
+        return { sql: `${flooredSec} seconds`, ms: flooredSec * 1000 };
     }
     resolveBucketing(startTime, endTime, clientInterval) {
         if (clientInterval) {
@@ -1448,7 +1464,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             [unoccHeatMetric]: unoccHeatPath,
             [unoccCoolMetric]: unoccCoolPath,
         };
-        const bucketInterval = this.deriveBucketInterval(startTime, endTime);
+        const bucketInterval = this.deriveSetpointErrorBucketInterval(startTime, endTime);
         try {
             const pathToId = await this.resolveTopicIds([
                 tempPath,
@@ -2086,6 +2102,12 @@ WHERE subname = 'historian_sub';`;
     }
 };
 exports.HistorianService = HistorianService;
+HistorianService.NICE_BUCKET_SECONDS = [
+    10, 30,
+    60, 120, 300, 600, 900, 1800,
+    3600, 7200, 10800, 21600, 43200,
+    86400, 604800,
+];
 exports.HistorianService = HistorianService = HistorianService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_2.Inject)(app_config_1.AppConfigService.Key)),

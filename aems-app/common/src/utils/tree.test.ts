@@ -233,3 +233,53 @@ describe("iterator", () => {
     expect(actual).toEqual(expected);
   });
 });
+
+describe("node predicates", () => {
+  let items: { id: number; parentId: number | undefined; name: string }[] = [];
+
+  beforeEach(() => {
+    items = clone(ITEMS);
+  });
+
+  it("isRoot() returns true for the virtual root", () => {
+    const tree = buildTree(items);
+    expect(tree.root.isRoot()).toBe(true);
+  });
+
+  it("isRoot() returns false for a child node", () => {
+    const tree = buildTree(items);
+    expect(tree.findNode(0)?.isRoot()).toBe(false);
+  });
+
+  it("isLeaf() returns true for a node with no children", () => {
+    const tree = buildTree(items);
+    // great grandchild 0 (id=4) has no children
+    expect(tree.findNode(4)?.isLeaf()).toBe(true);
+  });
+
+  it("isLeaf() returns false for a node with children", () => {
+    const tree = buildTree(items);
+    expect(tree.findNode(10)?.isLeaf()).toBe(false);
+  });
+
+  it("isBranch() returns true for a node with children", () => {
+    const tree = buildTree(items);
+    expect(tree.findNode(10)?.isBranch()).toBe(true);
+  });
+
+  it("isBranch() returns false for a leaf node", () => {
+    const tree = buildTree(items);
+    expect(tree.findNode(4)?.isBranch()).toBe(false);
+  });
+});
+
+describe("buildTree edge cases", () => {
+  it("throws when items lack id/parentId fields and no config is given", () => {
+     
+    expect(() => buildTree([{ foo: 1, bar: 2 }] as any)).toThrow("Invalid configuration");
+  });
+
+  it("accepts an empty array with a custom config without throwing", () => {
+    expect(() => buildTree([], { id: "id", parentId: "parentId" })).not.toThrow();
+  });
+});

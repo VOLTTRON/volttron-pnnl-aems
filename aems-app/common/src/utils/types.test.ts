@@ -253,13 +253,9 @@ describe("utils.types", () => {
 
   describe("Type utility edge cases", () => {
     it("should handle empty objects", () => {
-      // eslint-disable-next-line @typescript-eslint/no-empty-object-type
       const emptyPartial: DeepPartial<{}> = {};
-      // eslint-disable-next-line @typescript-eslint/no-empty-object-type
       const emptyNullable: DeepNullable<{}> = {};
-      // eslint-disable-next-line @typescript-eslint/no-empty-object-type
       const emptyTyped: DeepTyped<{}, string> = {};
-      // eslint-disable-next-line @typescript-eslint/no-empty-object-type
       const emptyRequired: WithRequired<{}, never> = {};
       
       expect(emptyPartial).toEqual({});

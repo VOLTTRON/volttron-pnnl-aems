@@ -120,10 +120,10 @@ let PothosGraphQLModule = PothosGraphQLModule_1 = class PothosGraphQLModule {
                                         }
                                         catch (error) {
                                             console.error("WebSocket authentication error in onConnect:", error);
-                                            return true;
+                                            return false;
                                         }
                                     }
-                                    return true;
+                                    return false;
                                 },
                             },
                             "subscriptions-transport-ws": {
@@ -141,10 +141,10 @@ let PothosGraphQLModule = PothosGraphQLModule_1 = class PothosGraphQLModule {
                                         }
                                         catch (error) {
                                             console.error("WebSocket authentication error in onConnect (legacy):", error);
-                                            return {};
+                                            return false;
                                         }
                                     }
-                                    return {};
+                                    return false;
                                 },
                             },
                         },

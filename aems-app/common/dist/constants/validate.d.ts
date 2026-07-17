@@ -23,6 +23,10 @@ declare class Validate extends Base<IValidate> implements IBase<IValidate> {
     SetpointType: IValidate;
     Deadband: IValidate;
     DeadbandType: IValidate;
+    OverrideSetpoint: IValidate;
+    OverrideSetpointType: IValidate;
+    OverrideDeadband: IValidate;
+    OverrideDeadbandType: IValidate;
     Heating: IValidate;
     HeatingType: IValidate;
     Cooling: IValidate;

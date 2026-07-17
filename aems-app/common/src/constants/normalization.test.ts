@@ -149,4 +149,39 @@ describe("constants.NormalizationType", () => {
       expect(NormalizationType.Letters.process(" Concatenate ")).toEqual(" Concatenate ");
     });
   });
+
+  describe("nil input handling", () => {
+    const nilCases = [null, undefined] as const;
+    const types = [
+      ["NFD", NormalizationType.NFD],
+      ["NFC", NormalizationType.NFC],
+      ["NFKD", NormalizationType.NFKD],
+      ["NFKC", NormalizationType.NFKC],
+      ["Lowercase", NormalizationType.Lowercase],
+      ["Uppercase", NormalizationType.Uppercase],
+      ["Letters", NormalizationType.Letters],
+      ["Numbers", NormalizationType.Numbers],
+      ["Trim", NormalizationType.Trim],
+      ["Compact", NormalizationType.Compact],
+      ["Concatenate", NormalizationType.Concatenate],
+    ] as const;
+
+    it.each(types)("%s process(null) returns empty string", (_name, type) => {
+       
+      expect(type.process(null as any)).toEqual("");
+    });
+
+    it.each(types)("%s process(undefined) returns empty string", (_name, type) => {
+       
+      expect(type.process(undefined as any)).toEqual("");
+    });
+
+    it("process() with nil via NormalizationType.process chain returns empty string for null", () => {
+      const fn = NormalizationType.process("LOWERCASE", "TRIM");
+       
+      expect(fn(null as any)).toEqual("");
+    });
+
+    void nilCases;
+  });
 });

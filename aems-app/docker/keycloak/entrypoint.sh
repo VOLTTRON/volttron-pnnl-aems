@@ -7,15 +7,21 @@ echo "Starting Keycloak with client secret configuration..."
 
 # Read secrets BEFORE starting Keycloak so they're available during initialization
 # Trim newlines/carriage returns from secrets to avoid authentication issues
-if [ -f "/run/secrets/keycloak_admin_password" ]; then
+if [ -r "/run/secrets/keycloak_admin_password" ]; then
     export KEYCLOAK_ADMIN_PASSWORD=$(cat /run/secrets/keycloak_admin_password | tr -d '\n\r')
     export KC_BOOTSTRAP_ADMIN_PASSWORD=$(cat /run/secrets/keycloak_admin_password | tr -d '\n\r')
     echo "Using admin password from Docker secret"
+elif [ -f "/run/secrets/keycloak_admin_password" ]; then
+    echo "ERROR: /run/secrets/keycloak_admin_password exists but is not readable. Check container user and secret file ownership."
+    exit 1
 fi
 
-if [ -f "/run/secrets/keycloak_client_secret" ]; then
+if [ -r "/run/secrets/keycloak_client_secret" ]; then
     export KEYCLOAK_CLIENT_SECRET=$(cat /run/secrets/keycloak_client_secret | tr -d '\n\r')
     echo "Using client secret from Docker secret"
+elif [ -f "/run/secrets/keycloak_client_secret" ]; then
+    echo "ERROR: /run/secrets/keycloak_client_secret exists but is not readable. Check container user and secret file ownership."
+    exit 1
 fi
 
 # Start Keycloak in the background and capture output (standalone mode)
