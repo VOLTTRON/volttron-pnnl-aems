@@ -35,7 +35,7 @@ Secrets must exist on the host before `docker compose up`. There are two support
 - `check-env.sh` will warn about the security posture but will not block.
 
 **Credential rotation (after changing a password or secret):**
-- Run [rotate-secrets.sh](../../rotate-secrets.sh) / [rotate-secrets.ps1](../../rotate-secrets.ps1). This detects which values changed, applies the change to running containers (ALTER ROLE for Postgres, kcadm for Keycloak, restart for Redis/app secrets), regenerates the secret files, and restarts affected services.
+- Re-run [secrets.sh](../../secrets.sh) / [secrets.ps1](../../secrets.ps1). It detects which values changed, applies the change to the running containers (ALTER ROLE for Postgres, kcadm for Keycloak, restart for Redis/app secrets), regenerates the secret files, and restarts affected services. If a target container is down during a rotation it refuses to overwrite (pass `--force` to override).
 - Use `--dry-run` to preview what would happen without executing.
 
 **Backup keypair:**
@@ -58,9 +58,8 @@ Top-level helper scripts:
 |---|---|
 | [build.sh](../../build.sh) / [build.ps1](../../build.ps1) | Run the full build chain (`prisma → common → server → client`). |
 | [test.sh](../../test.sh) / [test.ps1](../../test.ps1) | Run `lint → check → test:cov` across all workspaces. |
-| [secrets.sh](../../secrets.sh) / [secrets.ps1](../../secrets.ps1) | Generate secret files in [docker/secrets/](../../docker/secrets/) from `.env.secrets`. |
+| [secrets.sh](../../secrets.sh) / [secrets.ps1](../../secrets.ps1) | One entry point for the secret pipeline: bootstrap `.env.secrets` from `.env`, write `docker/secrets/*.txt`, rotate live credentials (SQL ALTER, kcadm, restart). |
 | [check-env.sh](../../check-env.sh) / [check-env.ps1](../../check-env.ps1) | Validate `.env` / `.env.secrets` / `docker/secrets/` are consistent before deploying. |
-| [rotate-secrets.sh](../../rotate-secrets.sh) / [rotate-secrets.ps1](../../rotate-secrets.ps1) | Apply changed credentials to running services (SQL ALTER, kcadm, restart). |
 | [start-services.sh](../../start-services.sh) / [start-services.ps1](../../start-services.ps1) | Run `check-env`, then `docker compose build && docker compose up -d`. |
 | [reset-service.sh](../../reset-service.sh) / [reset-service.ps1](../../reset-service.ps1) | Reset specific service volumes/certs (e.g., `reset-service.sh certs`). |
 | [update-user-role.sh](../../update-user-role.sh) / [update-user-role.ps1](../../update-user-role.ps1) | Update a user's role by email — runs against the running DB container. |
@@ -82,8 +81,8 @@ To rotate a credential after the stack is running:
 
 ```
 1. Edit .env.secrets (or .env in env-only mode)
-2. ./rotate-secrets.sh       ← applies change to running containers + restarts affected services
-   ./rotate-secrets.sh --dry-run   ← preview without executing
+2. ./secrets.sh              ← detects the change, ALTERs the running DB, updates the file, restarts affected services
+   ./secrets.sh --dry-run    ← preview without executing
 ```
 
 For a hot redeploy of just the server:

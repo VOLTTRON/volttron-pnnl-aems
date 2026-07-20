@@ -238,9 +238,9 @@ Log results to the progress log.
 
 ### Phase P6: Credential rotation dry-run
 
-**[EC-ROTATE-DRY]** Confirm the rotation script can read current state:
+**[EC-ROTATE-DRY]** Confirm the secrets script can preview a rotation against current state:
 ```bash
-[ -f rotate-secrets.sh ] && bash rotate-secrets.sh --dry-run && echo PASS || echo "FAIL: rotate-secrets.sh --dry-run returned non-zero"
+[ -f secrets.sh ] && bash secrets.sh --dry-run && echo PASS || echo "FAIL: secrets.sh --dry-run returned non-zero"
 ```
 
 Log result to the progress log.
@@ -381,12 +381,12 @@ NEW_VAL="verify-test-rotation-$(date +%s)"
 sed -i "s|^SESSION_SECRET=.*|SESSION_SECRET=$NEW_VAL|" .env.secrets
 
 # 3. Run live rotation
-bash rotate-secrets.sh
+bash secrets.sh
 
 # 4. Check-env still passes
 bash check-env.sh && echo "check-env: PASS" || echo "check-env: FAIL"
 
-# 5. GraphQL health still works (services restarted by rotate-secrets.sh)
+# 5. GraphQL health still works (services restarted by secrets.sh)
 sleep 15
 resp=$(curl -sk -X POST "https://$APP_HOSTNAME/graphql" \
   -H 'Content-Type: application/json' \
@@ -396,7 +396,7 @@ echo "$resp" | grep -q '"__typename"' && echo "graphql-after-rotate: PASS" || ec
 # 6. Restore with a fresh random value (avoid sed delimiter collisions with the original)
 RESTORED_VAL=$(openssl rand -hex 32)
 sed -i "s|^SESSION_SECRET=.*|SESSION_SECRET=$RESTORED_VAL|" .env.secrets
-bash rotate-secrets.sh
+bash secrets.sh
 ```
 
 Report PASS only if both `check-env` and `graphql-after-rotate` passed. Log results.
@@ -445,7 +445,7 @@ For each FAIL, print a remediation hint:
 - **EC-COOKIE-ATTRS**: "Auth cookie is missing `Secure` or has wrong `Domain`. Check `APP_HOSTNAME` is not `localhost` and that the Next.js server is setting `Domain` on cookies. If no cookie at all: check `docker compose logs client` — the signin page may be returning an error."
 - **EC-AUTH-PAGE**: "Auth pages returned 500. Run `docker compose logs server` for the error."
 - **EC-NO-CONSOLE-ERRORS**: "Check the browser output above for specific JS errors — usually a failed fetch or missing env var on the client."
-- **EC-ROTATE-DRY**: "Run `./rotate-secrets.sh --dry-run` manually to see the error output."
+- **EC-ROTATE-DRY**: "Run `./secrets.sh --dry-run` manually to see the error output."
 - **EC-SECRETS-REGEN**: "Check that `.env.secrets` exists and has all required keys. Compare with `.env.secrets.example`."
 - **EC-CHECKENV-COLD**: "Check `./check-env.sh` output — likely a key in `.env.secrets` that `secrets.sh` didn't write to `docker/secrets/`."
 - **EC-COLD-MIGRATION**: "Run `docker compose logs init` — migration failed against clean DB. May be a schema file or Prisma version issue."
@@ -453,7 +453,7 @@ For each FAIL, print a remediation hint:
 - **EC-BACKUP-KEYGEN**: "Run `docker compose logs backup` — `init-keys.sh` may have a permissions error writing to `./secrets/backup/`."
 - **EC-SEEDERS-RUN**: "Run `docker compose logs seeders` — seed data failed to load. Seeders restart up to 3× before giving up."
 - **EC-COLD-SEED**: "The `User` table is empty. Seeders may have failed — check `docker compose logs seeders`."
-- **EC-ROTATE-LIVE**: "Live rotation failed. Run `./rotate-secrets.sh` manually and inspect output. Check `docker compose logs server` for auth errors."
+- **EC-ROTATE-LIVE**: "Live rotation failed. Run `./secrets.sh` manually and inspect output. Check `docker compose logs server` for auth errors."
 
 **On all pass:**
 ```bash

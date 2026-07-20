@@ -9,7 +9,6 @@
 
 ENV_FILE=".env"
 SECRETS_FILE=".env.secrets"
-SECRETS_EXAMPLE=".env.secrets.example"
 SECRETS_DIR="docker/secrets"
 PLACEHOLDER="SeT_tHiS_iN_0x3A-.env.secrets-"
 
@@ -30,8 +29,12 @@ mark_error() { ERRORS=$((ERRORS + 1)); }
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
-example_keys() {
-  grep -v '^\s*#' "$SECRETS_EXAMPLE" | grep -v '^\s*$' | grep '=' | sed 's/=.*//'
+# Derive the authoritative secret key list from .env by grepping for
+# the placeholder marker. Any line in .env of the form KEY=<placeholder>
+# is treated as a declared secret; this is the same signal `secrets.sh`
+# uses when bootstrapping .env.secrets.
+env_secret_keys() {
+  grep -F "=$PLACEHOLDER" "$ENV_FILE" | sed 's/=.*//'
 }
 
 get_value() {
@@ -40,7 +43,7 @@ get_value() {
 }
 
 env_has_placeholders() {
-  for key in $(example_keys); do
+  for key in $(env_secret_keys); do
     val=$(get_value "$ENV_FILE" "$key")
     if [ "$val" = "$PLACEHOLDER" ]; then
       return 0
@@ -50,7 +53,7 @@ env_has_placeholders() {
 }
 
 env_has_real_values() {
-  for key in $(example_keys); do
+  for key in $(env_secret_keys); do
     val=$(get_value "$ENV_FILE" "$key")
     if [ -z "$val" ] || [ "$val" = "$PLACEHOLDER" ]; then
       return 1
@@ -62,10 +65,6 @@ env_has_real_values() {
 # ── pre-flight ─────────────────────────────────────────────────────────────────
 if [ ! -f "$ENV_FILE" ]; then
   printf "${RED}ERROR:${RESET} $ENV_FILE not found. Run from the repo root.\n"
-  exit 1
-fi
-if [ ! -f "$SECRETS_EXAMPLE" ]; then
-  printf "${RED}ERROR:${RESET} $SECRETS_EXAMPLE not found. Run from the repo root.\n"
   exit 1
 fi
 
@@ -85,7 +84,8 @@ if [ ! -f "$SECRETS_FILE" ]; then
     warn "Services that depend on secrets (auth, database passwords, etc.) will not work"
     warn "until you either:"
     warn "  a) Edit .env directly with real values (simple dev setup), or"
-    warn "  b) cp $SECRETS_EXAMPLE $SECRETS_FILE, fill in values, run ./secrets.sh"
+    warn "  b) Run ./secrets.sh — it bootstraps $SECRETS_FILE from .env, then re-run it"
+    warn "     after filling in real values to generate docker/secrets/*.txt"
   else
     header "Mode: env-only"
     warn "Running without docker secrets — secret values are set directly in .env."
@@ -115,7 +115,7 @@ fi
 
 header "Checking .env.secrets completeness"
 
-for key in $(example_keys); do
+for key in $(env_secret_keys); do
   val=$(get_value "$SECRETS_FILE" "$key")
   if [ -z "$val" ]; then
     error "$key is missing from $SECRETS_FILE"
@@ -131,20 +131,20 @@ done
 header "Checking docker/secrets/ is populated and in sync"
 
 if [ ! -d "$SECRETS_DIR" ]; then
-  error "docker/secrets/ directory does not exist — run ./rotate-secrets.sh to generate and apply secrets"
+  error "docker/secrets/ directory does not exist — run ./secrets.sh to generate and apply secrets"
   mark_error
 else
-  for key in $(example_keys); do
+  for key in $(env_secret_keys); do
     secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
     secret_file="${SECRETS_DIR}/${secret_name}.txt"
     if [ ! -f "$secret_file" ]; then
-      error "$secret_file missing — run ./rotate-secrets.sh to generate and apply secrets"
+      error "$secret_file missing — run ./secrets.sh to generate and apply secrets"
       mark_error
     else
       env_val=$(get_value "$SECRETS_FILE" "$key")
       file_val=$(tr -d '\n' < "$secret_file")
       if [ "$env_val" != "$file_val" ]; then
-        error "$key: $secret_file is stale (out of sync with .env.secrets) — run ./rotate-secrets.sh to apply changes to running services"
+        error "$key: $secret_file is stale (out of sync with .env.secrets) — run ./secrets.sh to apply changes to running services"
         mark_error
       else
         ok "$key → $secret_file"

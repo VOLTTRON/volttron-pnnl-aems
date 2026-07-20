@@ -17,7 +17,13 @@ docker-images.**
 # secrets
 .env.secrets
 docker/secrets/
-docker/.env.secrets.docker
+# but keep the empty placeholder and the empty secrets env file tracked —
+# .placeholder is bind-mounted for every declared secret when secrets.sh
+# hasn't been run; .env.secrets.docker is referenced by the root include:
+# env_file so compose picks up _SOURCE vars without any --env-file flags.
+# secrets.sh populates both; they start empty so the placeholder fallbacks win.
+!docker/secrets/.placeholder
+!docker/.env.secrets.docker
 
 # backups
 docker/backups/

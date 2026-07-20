@@ -10,7 +10,6 @@ $ErrorActionPreference = "Stop"
 
 $ENV_FILE        = ".env"
 $SECRETS_FILE    = ".env.secrets"
-$SECRETS_EXAMPLE = ".env.secrets.example"
 $SECRETS_DIR     = "docker/secrets"
 $PLACEHOLDER     = "SeT_tHiS_iN_0x3A-.env.secrets-"
 
@@ -25,10 +24,16 @@ function noteError { $script:Errors++ }
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
-function Get-ExampleKeys {
-  Get-Content $SECRETS_EXAMPLE | Where-Object {
-    $_ -notmatch '^\s*#' -and $_ -match '='
-  } | ForEach-Object { ($_ -split '=', 2)[0].Trim() }
+# Derive the authoritative secret key list from .env by grepping for
+# the placeholder marker. Any line in .env of the form KEY=<placeholder>
+# is treated as a declared secret; this is the same signal `secrets.ps1`
+# uses when bootstrapping .env.secrets.
+function Get-EnvSecretKeys {
+  Get-Content $ENV_FILE | ForEach-Object {
+    if ($_.TrimEnd() -match "^([A-Za-z_][A-Za-z0-9_]*)=$([regex]::Escape($PLACEHOLDER))$") {
+      $matches[1]
+    }
+  }
 }
 
 function Get-EnvValue {
@@ -40,7 +45,7 @@ function Get-EnvValue {
 }
 
 function Test-EnvHasPlaceholders {
-  foreach ($key in (Get-ExampleKeys)) {
+  foreach ($key in (Get-EnvSecretKeys)) {
     $val = Get-EnvValue -File $ENV_FILE -Key $key
     if ($val -eq $PLACEHOLDER) { return $true }
   }
@@ -48,7 +53,7 @@ function Test-EnvHasPlaceholders {
 }
 
 function Test-EnvHasRealValues {
-  foreach ($key in (Get-ExampleKeys)) {
+  foreach ($key in (Get-EnvSecretKeys)) {
     $val = Get-EnvValue -File $ENV_FILE -Key $key
     if ([string]::IsNullOrEmpty($val) -or $val -eq $PLACEHOLDER) { return $false }
   }
@@ -58,10 +63,6 @@ function Test-EnvHasRealValues {
 # ── pre-flight ─────────────────────────────────────────────────────────────────
 if (-not (Test-Path $ENV_FILE)) {
   Write-Host "ERROR: $ENV_FILE not found. Run from the repo root." -ForegroundColor Red
-  exit 1
-}
-if (-not (Test-Path $SECRETS_EXAMPLE)) {
-  Write-Host "ERROR: $SECRETS_EXAMPLE not found. Run from the repo root." -ForegroundColor Red
   exit 1
 }
 
@@ -81,7 +82,8 @@ if (-not (Test-Path $SECRETS_FILE)) {
     Write-Warn "Services that depend on secrets (auth, database passwords, etc.) will not work"
     Write-Warn "until you either:"
     Write-Warn "  a) Edit .env directly with real values (simple dev setup), or"
-    Write-Warn "  b) Copy-Item $SECRETS_EXAMPLE $SECRETS_FILE, fill in values, run .\secrets.ps1"
+    Write-Warn "  b) Run .\secrets.ps1 — it bootstraps $SECRETS_FILE from .env, then re-run it"
+    Write-Warn "     after filling in real values to generate docker/secrets/*.txt"
   } else {
     Write-Hdr "Mode: env-only"
     Write-Warn "Running without docker secrets — secret values are set directly in .env."
@@ -110,7 +112,7 @@ if (Test-EnvHasRealValues) {
 
 Write-Hdr "Checking .env.secrets completeness"
 
-foreach ($key in (Get-ExampleKeys)) {
+foreach ($key in (Get-EnvSecretKeys)) {
   $val = Get-EnvValue -File $SECRETS_FILE -Key $key
   if ([string]::IsNullOrEmpty($val)) {
     Write-Err "$key is missing from $SECRETS_FILE"
@@ -127,13 +129,13 @@ Write-Hdr "Checking docker/secrets/ is populated and in sync"
 
 if (-not (Test-Path $SECRETS_DIR)) {
   Write-Err "docker/secrets/ directory does not exist — run .\secrets.ps1 to generate secret files"
-  Mark-Error
+  noteError
 } else {
-  foreach ($key in (Get-ExampleKeys)) {
+  foreach ($key in (Get-EnvSecretKeys)) {
     $secretName = $key.ToLower()
     $secretFile = Join-Path $SECRETS_DIR "$secretName.txt"
     if (-not (Test-Path $secretFile)) {
-      Write-Err "$secretFile missing — run .\rotate-secrets.ps1 to generate and apply secrets"
+      Write-Err "$secretFile missing — run .\secrets.ps1 to generate and apply secrets"
       noteError
     } else {
       $envVal  = Get-EnvValue -File $SECRETS_FILE -Key $key
