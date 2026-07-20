@@ -320,6 +320,16 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     components: components,
   },
   {
+    id: "keycloak",
+    parentId: "admin",
+    path: `keycloak`,
+    name: "Keycloak",
+    icon: IconNames.KEY,
+    scope: "keycloak",
+    display: "keycloak",
+    components: components,
+  },
+  {
     id: "auth",
     parentId: "home",
     path: `auth`,

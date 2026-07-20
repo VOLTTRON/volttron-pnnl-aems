@@ -1,7 +1,7 @@
 "use client";
 
-import { difference, union } from "lodash";
 import { createContext, useCallback, useState } from "react";
+import { union } from "@local/common";
 
 export type CreateNotification = (message: string, type?: NotificationType) => Notification;
 
@@ -53,7 +53,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const clearNotification: ClearNotification = useCallback(
     (v) => {
       if (notifications.includes(v)) {
-        setNotifications(difference(notifications, [v]));
+        setNotifications(notifications.filter(x => x !== v));
       }
     },
     [notifications]

@@ -22,6 +22,8 @@ NestJS 11 + Apollo Server 4 + Pothos (code-first GraphQL) backed by Prisma. Hand
 - [server/src/prisma/](../../server/src/prisma/) — Prisma module + service (DI wrapper around `@local/prisma`).
 - [server/src/redis.ts](../../server/src/redis.ts), [server/src/subscription/](../../server/src/subscription/) — Redis client + GraphQL pub/sub transport.
 - [server/src/middleware/](../../server/src/middleware/), [server/src/logging/](../../server/src/logging/), [server/src/utils/](../../server/src/utils/).
+  - [readSecret.ts](../../server/src/utils/readSecret.ts) — reads a credential from `/run/secrets/<name>` (Docker secret file) with `_FILE` env var and plain env var fallbacks. Used by `PrismaService` and `KeycloakService`.
+- [server/src/schema-app.module.ts](../../server/src/schema-app.module.ts) — minimal `SchemaAppModule` used only by the `compile:schema` entrypoint (`schema.ts`). Loads just enough to build the Pothos schema without starting HTTP/WS/background services.
 
 ## Root module tree (`app.module.ts`)
 
@@ -81,7 +83,7 @@ export class MyService {
 }
 ```
 
-Use `configService.readSecret()` for sensitive values — it reads Docker secret files when available, falling back to the env var.
+Use `configService.readSecret()` (or the standalone `readSecret()` from `src/utils/readSecret.ts`) for sensitive values — it reads Docker secret files when available, falling back to the env var.
 
 ## REST and reverse-proxy
 
@@ -91,6 +93,7 @@ Use `configService.readSecret()` for sensitive values — it reads Docker secret
 ## Background services
 
 - Selected at boot via `INSTANCE_TYPE` env var. Examples: `seed`, `log`, `*` (all), `*,!event` (all except event).
+- The `start:redis` npm script launches the Redis subscriber entry point separately (used by the compose `services` container).
 - Wired through [server/src/services/services.module.ts](../../server/src/services/services.module.ts).
 - Scheduling via `@nestjs/schedule` (`@Cron`).
 

@@ -6,6 +6,7 @@ var RoleEnum;
     RoleEnum["Super"] = "super";
     RoleEnum["Admin"] = "admin";
     RoleEnum["User"] = "user";
+    RoleEnum["Keycloak"] = "keycloak";
 })(RoleEnum || (exports.RoleEnum = RoleEnum = {}));
 var HttpStatusEnum;
 (function (HttpStatusEnum) {

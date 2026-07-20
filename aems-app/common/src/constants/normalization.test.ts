@@ -1,6 +1,10 @@
 import { NormalizationType } from "../";
 
 describe("constants.NormalizationType", () => {
+  afterEach(() => {
+    NormalizationType.matcher = (v) => v;
+  });
+
   describe("NormalizationType.parse()", () => {
     it("(Lowercase) is Lowercase", () => {
       expect(NormalizationType.parse("Lowercase")?.name).toEqual(NormalizationType.LowercaseType.name);

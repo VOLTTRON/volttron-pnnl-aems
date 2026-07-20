@@ -1,7 +1,6 @@
 import { AppConfigService } from "@/app.config";
 import { typeofNonNullable } from "@local/common";
 import { Logger } from "@nestjs/common";
-import { toLower, trim } from "lodash";
 
 export abstract class BaseService {
   private baseLogger = new Logger(BaseService.name);
@@ -11,9 +10,9 @@ export abstract class BaseService {
   private readonly service;
 
   constructor(service: string, configService: AppConfigService) {
-    this.service = toLower(service.trim());
+    this.service = service.trim().toLowerCase();
     const instance = configService.instanceType.trim();
-    const types = instance.split(/[, ]+/).map(toLower).map(trim);
+    const types = instance.split(/[, ]+/).map(s => s.toLowerCase()).map(s => s.trim());
     const shutdown = types.map((type) => /^\^([^*!^]+)$/.exec(type)?.[1]).filter(typeofNonNullable);
     if (shutdown.length > 1) {
       throw new Error(`Can only specify a single shutdown service: ${types.join(",")}`);

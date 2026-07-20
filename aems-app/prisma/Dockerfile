@@ -35,4 +35,7 @@ RUN yarn build
 # Production image, run migration
 WORKDIR /prisma
 
-CMD ["yarn", "migrate:deploy"]
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
+CMD ["./entrypoint.sh"]

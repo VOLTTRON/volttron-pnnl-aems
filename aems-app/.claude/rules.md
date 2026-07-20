@@ -89,7 +89,8 @@ For deeper "why does it look this way" explanations of each subsystem, see [arch
 
 - **`docker compose up -d` from the repo root** — never `cd docker && ...` and never `-f docker/docker-compose.yml`. The root [docker-compose.yml](../docker-compose.yml) is a shim that `include:`s the real file with `project_directory: ./docker/`. Running from the wrong place loads the wrong `.env`.
 - **Optional services hide behind compose profiles** — `proxy`, `keycloak`, `map`, `nominatim`, `wiki`. Enable with `--profile <name>`.
-- **Secret files must exist before `up`** — run `./secrets.sh` (or `.\secrets.ps1`) first.
+- **Secret files must exist before `up`** — run `./secrets.sh` (or `.\secrets.ps1`) first, then `./check-env.sh` to verify the chain. `start-services.sh` runs the check automatically.
+- **When a credential changes**, re-run `./secrets.sh` (or `.\secrets.ps1`) — it detects the change, applies the ALTER ROLE / kcadm against the running container, updates the file, and restarts the service. Bypassing the script (hand-editing `docker/secrets/*.txt`, or `--force`) will cause auth failures on DB-backed services.
 - **Image builds use repo root as context** so they pull sibling portal-linked modules. Don't change the build context without understanding the portal chain.
 - **Custom DB image** — never replace with `postgres:16`. PostGIS will be missing.
 - **Traefik v3 syntax** — different from v2; check the docs before copying old snippets.

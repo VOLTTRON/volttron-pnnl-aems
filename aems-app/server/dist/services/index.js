@@ -3,14 +3,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BaseService = void 0;
 const common_1 = require("@local/common");
 const common_2 = require("@nestjs/common");
-const lodash_1 = require("lodash");
 class BaseService {
     constructor(service, configService) {
         this.baseLogger = new common_2.Logger(BaseService.name);
         this.running = false;
-        this.service = (0, lodash_1.toLower)(service.trim());
+        this.service = service.trim().toLowerCase();
         const instance = configService.instanceType.trim();
-        const types = instance.split(/[, ]+/).map(lodash_1.toLower).map(lodash_1.trim);
+        const types = instance.split(/[, ]+/).map(s => s.toLowerCase()).map(s => s.trim());
         const shutdown = types.map((type) => /^\^([^*!^]+)$/.exec(type)?.[1]).filter(common_1.typeofNonNullable);
         if (shutdown.length > 1) {
             throw new Error(`Can only specify a single shutdown service: ${types.join(",")}`);

@@ -39,7 +39,7 @@ For production deployments with valid domain names, Traefik can automatically ob
 # Configure in main .env file
 CERT_RESOLVER=letsencrypt
 ADMIN_EMAIL=your.email@example.com
-HOSTNAME=yourdomain.com
+APP_HOSTNAME=yourdomain.com
 ```
 
 ### Custom Certificates
@@ -120,13 +120,29 @@ Traefik automatically applies security headers:
 
 #### Self-Signed Certificate Warnings
 
-```bash
-# Install mkcert CA in browser trust store
-# The CA certificate is available at: docker/proxy/mkcert-ca.crt
+The mkcert CA must be trusted by the OS before browsers will accept the
+development certificate without warnings. Run the appropriate script from
+the repo root **after the first `docker compose up -d`**, and again any
+time the `certs-data` volume is recreated (e.g. after `docker compose down -v`):
 
-# For Chrome/Edge: Import to "Trusted Root Certification Authorities"
-# For Firefox: Import to "Authorities" in Certificate Manager
+**Windows** (elevated PowerShell required):
+```powershell
+.\trust-ca.ps1
 ```
+
+**Linux / macOS**:
+```sh
+./trust-ca.sh
+```
+
+Both scripts auto-detect the project name and proxy container from `.env`,
+copy `mkcert-ca.crt` out of the running proxy container, and install it
+into the system trust store. After running, restart Edge/Chrome — they
+pick up OS trust store changes on restart. Firefox requires a manual import
+(Settings → Privacy → Certificates → View Certificates → Authorities).
+
+A `--dry-run` / `-DryRun` flag is available to preview what each script
+would do without making changes.
 
 #### Let's Encrypt Certificate Failures
 

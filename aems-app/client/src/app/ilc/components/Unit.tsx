@@ -16,7 +16,7 @@ import {
   Intent,
 } from "@blueprintjs/core";
 import { IconNames } from "@blueprintjs/icons";
-import { cloneDeep, merge } from "lodash";
+import { cloneDeep, merge } from "@local/common/dist/utils/lodash";
 import { DeepPartial, Validate, Zone } from "@local/common";
 import { ReadUnitQuery } from "@/graphql-codegen/graphql";
 import { Location } from "@/app/setup/components/Location";

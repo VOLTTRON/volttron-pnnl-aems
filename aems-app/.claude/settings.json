@@ -19,18 +19,14 @@
   },
   "experimental": false,
   "permissions": {
-    "defaultMode": "plan",
+    "defaultMode": "auto",
     "allow": [
-      "Read(**)",
-      "Glob(**)",
-      "Grep(**)",
       "WebFetch",
       "WebSearch",
-
       "Bash(*)",
       "PowerShell(*)",
-      "Edit(**)",
-      "Write(**)"
+      "Edit(*)",
+      "Write(*)"
     ]
   },
   "hooks": {

@@ -9,7 +9,7 @@ import { SubscriptionService } from "@/subscription/subscription.service";
 import { ConfigurationQuery } from "../configuration/query.service";
 import { ChangeService } from "@/change/change.service";
 import { ChangeMutation } from "@prisma/client";
-import { omit } from "lodash";
+import { omit } from "@local/common/dist/utils/lodash";
 
 @Injectable()
 @PothosMutation()

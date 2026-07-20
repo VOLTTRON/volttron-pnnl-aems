@@ -22,7 +22,7 @@ const mutate_service_2 = require("../control/mutate.service");
 const mutate_service_3 = require("../location/mutate.service");
 const change_service_1 = require("../../change/change.service");
 const client_1 = require("@prisma/client");
-const lodash_1 = require("lodash");
+const lodash_1 = require("@local/common/dist/utils/lodash");
 let UnitMutation = class UnitMutation {
     constructor(builder, prismaService, subscriptionService, unitQuery, configurationMutation, controlMutation, locationMutation, changeService) {
         const { UnitWhereUnique } = unitQuery;

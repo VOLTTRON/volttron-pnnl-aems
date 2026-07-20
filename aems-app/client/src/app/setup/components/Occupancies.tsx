@@ -3,7 +3,7 @@ import { IconNames } from "@blueprintjs/icons";
 import { useState } from "react";
 import { ReadUnitQuery } from "@/graphql-codegen/graphql";
 import { DeepPartial, typeofNonNullable, typeofObject } from "@local/common";
-import { cloneDeep, merge } from "lodash";
+import { cloneDeep, merge } from "@local/common/dist/utils/lodash";
 import { END_TIME_MAX, START_TIME_MIN, toDataFormat, toMinutes } from "@/utils/schedule";
 
 const MIN_DURATION = 1;

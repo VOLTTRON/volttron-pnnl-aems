@@ -4,8 +4,6 @@ import { zxcvbnOptions } from "@zxcvbn-ts/core";
 import * as zxcvbnCommonPackage from "@zxcvbn-ts/language-common";
 import * as zxcvbnEnPackage from "@zxcvbn-ts/language-en";
 import { User as PrismaUser, User } from "@prisma/client";
-import { omit } from "lodash";
-
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -82,14 +80,12 @@ export class AuthUser implements IAuthUser {
 }
 
 export function buildExpressUser(user: User | Omit<User, "password">): Express.User {
-  return omit(
-    {
-      ...user,
-      roles: (user.role?.split(",") ?? []).map((r) => RoleType.parse(r.trim())).filter((r) => typeofObject(r)),
-      authRoles: authRoles(user.role ?? ""),
-    },
-    "password",
-  );
+  const { password: _password, ...rest } = {
+    ...user,
+    roles: (user.role?.split(",") ?? []).map((r) => RoleType.parse(r)).filter((r) => typeofObject(r)),
+    authRoles: authRoles(user.role ?? ""),
+  } as User & { roles: (typeof Role.User)[]; authRoles: AuthRoles };
+  return rest;
 }
 
 const options = {

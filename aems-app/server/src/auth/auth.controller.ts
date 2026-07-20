@@ -1,9 +1,9 @@
 import { AuthService } from "@/auth/auth.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { Controller, Get, Logger, Post, Req, Res, Inject } from "@nestjs/common";
-import { pick } from "lodash";
 import { Request, Response } from "express";
 import { User } from "./user.decorator";
+import { pick } from "@local/common";
 import { ApiResponse, ApiTags } from "@nestjs/swagger";
 import { AppConfigService } from "@/app.config";
 
@@ -38,7 +38,7 @@ export class AuthController {
     return this.authService.getProviderNames().reduce(
       (out, value) => ({
         ...out,
-        [value]: pick(this.authService.getProvider(value) ?? {}, ["name", "label", "credentials", "endpoint"]),
+        [value]: pick((this.authService.getProvider(value) ?? {}) as any, ["name", "label", "credentials", "endpoint"]),
       }),
       {},
     );

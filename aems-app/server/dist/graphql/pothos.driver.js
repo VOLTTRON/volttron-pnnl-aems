@@ -43,60 +43,47 @@ let PothosApolloDriver = PothosApolloDriver_1 = class PothosApolloDriver extends
         }
         this.schema = await schemaBuilder.instance.awaitSchema();
         this.logger.log("GraphQL schema loaded");
-        this.printSchema();
+        await this.printSchema();
         return super.start({
             ...options,
             schema: this.schema,
         });
     }
-    registerServer(apolloOptions) {
+    async registerServer(apolloOptions) {
         this.sortSchema = apolloOptions.sortSchema;
         delete apolloOptions.sortSchema;
         this.autoSchemaFile = apolloOptions.autoSchemaFile;
         delete apolloOptions.autoSchemaFile;
         this.logger.log("Registering Apollo Server");
-        this.printSchema();
+        await this.printSchema();
         return super.registerServer(apolloOptions);
     }
-    printSchema() {
-        if (this.autoSchemaFile && this.schema) {
-            const schemaAsString = (0, graphql_1.printSchema)(this.sortSchema ? (0, graphql_1.lexicographicSortSchema)(this.schema) : this.schema);
-            let path = "schema.gql";
-            if (typeof this.autoSchemaFile === "string") {
-                path = this.autoSchemaFile;
-            }
-            else if ((0, common_2.typeofObject)(this.autoSchemaFile)) {
-                path = this.autoSchemaFile.path || path;
-                if (this.autoSchemaFile.federation) {
-                    this.logger.warn("GraphQL auto schema file federation option is not supported.");
-                }
-            }
-            const filename = (0, node_path_1.resolve)(process.cwd(), path);
-            (0, promises_1.readFile)(filename)
-                .then(async (current) => {
-                const currentAsString = current.toString();
-                if (currentAsString !== schemaAsString) {
-                    await (0, promises_1.writeFile)(filename, schemaAsString)
-                        .then(async () => {
-                        this.logger.log(`Updated GraphQL schema file: ${path}`);
-                        await (0, promises_1.writeFile)((0, node_path_1.resolve)(process.cwd(), "schema.graphql"), schemaAsString).catch(() => this.logger.warn("Failed to update schema.graphql"));
-                    })
-                        .catch((error) => this.logger.warn(error, `Failed to update GraphQL schema file: ${path}`));
-                }
-                else {
-                    this.logger.log(`No changes in GraphQL schema file: ${path}`);
-                    await (0, promises_1.writeFile)((0, node_path_1.resolve)(process.cwd(), "schema.graphql"), schemaAsString).catch(() => this.logger.warn("Failed to update schema.graphql"));
-                }
-            })
-                .catch(async () => {
-                await (0, promises_1.writeFile)(filename, schemaAsString)
-                    .then(async () => {
-                    this.logger.log(`Created GraphQL schema file: ${path}`);
-                    await (0, promises_1.writeFile)((0, node_path_1.resolve)(process.cwd(), "schema.graphql"), schemaAsString).catch(() => this.logger.warn("Failed to update schema.graphql"));
-                })
-                    .catch((error) => this.logger.warn(error, `Failed to create GraphQL schema file: ${path}`));
-            });
+    async printSchema() {
+        if (!this.autoSchemaFile || !this.schema) {
+            return;
         }
+        const schemaAsString = (0, graphql_1.printSchema)(this.sortSchema ? (0, graphql_1.lexicographicSortSchema)(this.schema) : this.schema);
+        let path = "schema.gql";
+        if (typeof this.autoSchemaFile === "string") {
+            path = this.autoSchemaFile;
+        }
+        else if ((0, common_2.typeofObject)(this.autoSchemaFile)) {
+            path = this.autoSchemaFile.path || path;
+            if (this.autoSchemaFile.federation) {
+                this.logger.warn("GraphQL auto schema file federation option is not supported.");
+            }
+        }
+        const filename = (0, node_path_1.resolve)(process.cwd(), path);
+        const current = await (0, promises_1.readFile)(filename).catch(() => null);
+        const currentAsString = current?.toString() ?? null;
+        if (currentAsString !== schemaAsString) {
+            await (0, promises_1.writeFile)(filename, schemaAsString);
+            this.logger.log(currentAsString === null ? `Created GraphQL schema file: ${path}` : `Updated GraphQL schema file: ${path}`);
+        }
+        else {
+            this.logger.log(`No changes in GraphQL schema file: ${path}`);
+        }
+        await (0, promises_1.writeFile)((0, node_path_1.resolve)(process.cwd(), "schema.graphql"), schemaAsString);
     }
 };
 exports.PothosApolloDriver = PothosApolloDriver;

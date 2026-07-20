@@ -26,9 +26,12 @@ export function readSecret(secretName: string, defaultValue: string = ""): strin
       return secretValue;
     }
   } catch (error: any) {
-    // File doesn't exist or can't be read, continue to next option
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    logger.warn(`Secret should be specified for production environment: ${secretName}. Attempted to read from ${dockerSecretPath} but failed: ${error.message || String(error)}`);
+    if (error?.code !== "ENOENT") {
+      // ENOENT is expected outside Docker; other errors (permissions, etc.) are unexpected
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      logger.warn(`Failed to read Docker secret ${secretName} from ${dockerSecretPath}: ${error.message || String(error)}`);
+    }
   }
 
   // Try _FILE environment variable pattern (e.g., DATABASE_PASSWORD_FILE)
@@ -59,10 +62,8 @@ export function readSecret(secretName: string, defaultValue: string = ""): strin
   }
 
   // Return default value if no source is available
-  if (defaultValue) {
-    logger.warn(`No secret found for ${secretName}, using default value`);
-  } else {
-    logger.warn(`No secret found for ${secretName} and no default provided`);
+  if (process.env.NODE_ENV === "production") {
+    logger.warn(`No secret found for ${secretName}${defaultValue ? ", using default value" : " and no default provided"}`);
   }
 
   return defaultValue;

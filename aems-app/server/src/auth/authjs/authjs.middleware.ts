@@ -4,6 +4,7 @@ import { SubscriptionService } from "@/subscription/subscription.service";
 import { Request, RequestHandler } from "express";
 import { AppConfigService } from "@/app.config";
 import { ExpressAuthConfig, getSession } from "@auth/express";
+import { AuthError } from "@auth/core/errors";
 import { buildConfig } from "./authjs.config";
 import { buildExpressUser } from "..";
 import { AuthjsProvider, AuthService, ExpressProvider } from "../auth.service";
@@ -28,7 +29,14 @@ export class AuthjsMiddleware implements NestMiddleware, OnModuleDestroy {
         try {
           req.user = (await this.getAuthjsUser(req)) ?? req.user;
         } catch (error) {
-          this.logger.error("Auth.js session middleware error:", error);
+          // AuthError subclasses (JWTSessionError, etc.) are expected during secret
+          // rotation or when a browser presents an expired/invalid token. Treat them
+          // as debug-level events — the user simply gets an unauthenticated request.
+          if (error instanceof AuthError) {
+            this.logger.debug(`Auth.js session error (${error.type}): ${error.message}`);
+          } else {
+            this.logger.error("Auth.js session middleware error:", error);
+          }
         }
         return next();
       };

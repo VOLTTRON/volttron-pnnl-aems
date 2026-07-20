@@ -19,7 +19,7 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const subscription_service_1 = require("../../subscription/subscription.service");
 const change_service_1 = require("../../change/change.service");
 const client_1 = require("@prisma/client");
-const lodash_1 = require("lodash");
+const lodash_1 = require("@local/common/dist/utils/lodash");
 let SetpointMutation = class SetpointMutation {
     constructor(builder, prismaService, subscriptionService, setpointQuery, changeService) {
         const { SetpointWhereUnique } = setpointQuery;

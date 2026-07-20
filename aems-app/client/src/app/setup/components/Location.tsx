@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { InputGroup, Button, FormGroup, NumericInput, Tooltip, MenuItem } from "@blueprintjs/core";
 import { Suggest } from "@blueprintjs/select";
 import { IconNames } from "@blueprintjs/icons";
-import { cloneDeep } from "lodash";
+import { cloneDeep } from "@local/common/dist/utils/lodash";
 import { createGoogleMapsUrl, formatLocationName } from "@/utils/location";
 import { DeepPartial } from "@local/common";
 import { ReadUnitQuery } from "@/graphql-codegen/graphql";

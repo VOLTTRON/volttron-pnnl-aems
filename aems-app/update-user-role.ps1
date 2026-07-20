@@ -1,7 +1,8 @@
 # This script connects to the database docker container and modifies a single user's role.
 # It takes two arguments: email and role. The role is trimmed, lowercased, and may contain spaces.
+# When KEYCLOAK_ADMIN and KEYCLOAK_ADMIN_PASSWORD are set it also syncs the realm-management
+# 'realm-admin' client role via kcadm.sh inside the Keycloak container.
 
-# Display help if -h or --help is present in arguments
 if ($args -contains "-h" -or $args -contains "--help") {
     Write-Host "Usage: update-user-role.ps1 <email> <role>" -ForegroundColor Yellow
     Write-Host "Arguments:"
@@ -18,7 +19,6 @@ if ($args -contains "-h" -or $args -contains "--help") {
     exit 0
 }
 
-# Check if correct number of arguments provided
 if ($args.Count -ne 2) {
     Write-Host "Error: Exactly 2 arguments required" -ForegroundColor Red
     Write-Host "Usage: update-user-role.ps1 <email> <role>" -ForegroundColor Yellow
@@ -26,68 +26,92 @@ if ($args.Count -ne 2) {
     exit 1
 }
 
-# Get arguments
 $UserEmail = $args[0]
 $UserRole = $args[1]
 
-# Validate email format (basic check)
 $EmailPattern = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
 if ($UserEmail -notmatch $EmailPattern) {
     Write-Host "Error: Invalid email format: $UserEmail" -ForegroundColor Red
     exit 1
 }
 
-# Process role: trim whitespace and convert to lowercase
 $UserRole = $UserRole.Trim().ToLower()
-
-# Note: Empty role is allowed (removes user's role)
 
 Write-Host "Updating user role in database..." -ForegroundColor Blue
 Write-Host "Email: $UserEmail" -ForegroundColor Cyan
 Write-Host "New Role: $UserRole" -ForegroundColor Cyan
 
 try {
-    # Load environment variables from .env file
-    if (Test-Path ".env") {
-        Get-Content ".env" | ForEach-Object {
-            if ($_ -match "^([^#][^=]+)=(.*)$") {
-                $name = $matches[1].Trim()
-                $value = $matches[2].Trim()
-                [Environment]::SetEnvironmentVariable($name, $value, "Process")
+    # Load environment variables — root .env first, then server/.env (server values win)
+    $ComposeProjectName = "skeleton"
+    $DatabaseName = "skeleton"
+    $DatabaseUsername = "postgres"
+    $KeycloakAdmin = "admin"
+    $KeycloakAdminRole = "realm-admin"
+    $KeycloakRealm = "default"
+
+    function Read-EnvFile($path) {
+        if (Test-Path $path) {
+            Get-Content $path | ForEach-Object {
+                if ($_ -match "^([^#][^=]+)=(.*)$") {
+                    [Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim(), "Process")
+                }
             }
         }
     }
 
-    # Set default values if not provided
-    $ComposeProjectName = if ($env:COMPOSE_PROJECT_NAME) { $env:COMPOSE_PROJECT_NAME } else { "skeleton" }
-    $DatabaseName = if ($env:DATABASE_NAME) { $env:DATABASE_NAME } else { "skeleton" }
-    $DatabaseUsername = if ($env:DATABASE_USERNAME) { $env:DATABASE_USERNAME } else { "postgres" }
+    # Load server/.env first, then root .env — root wins.
+    # server/.env holds local-dev DB overrides; root .env is what Docker Compose reads and is
+    # authoritative for container config (COMPOSE_PROJECT_NAME, DATABASE_USERNAME, etc.).
+    # Keycloak-specific vars (KEYCLOAK_ISSUER_URL, KEYCLOAK_ADMIN_ROLE) only exist in
+    # server/.env, so they survive the root .env pass unmodified.
+    Read-EnvFile "server/.env"
+    Read-EnvFile ".env"
 
-    # Check if database container is running
+    if ($env:COMPOSE_PROJECT_NAME) { $ComposeProjectName = $env:COMPOSE_PROJECT_NAME }
+    if ($env:DATABASE_NAME)        { $DatabaseName        = $env:DATABASE_NAME }
+    if ($env:DATABASE_USERNAME)    { $DatabaseUsername    = $env:DATABASE_USERNAME }
+    if ($env:KEYCLOAK_ADMIN)       { $KeycloakAdmin        = $env:KEYCLOAK_ADMIN }
+    if ($env:KEYCLOAK_ADMIN_ROLE)  { $KeycloakAdminRole   = $env:KEYCLOAK_ADMIN_ROLE }
+
+    # Derive realm name from KEYCLOAK_ISSUER_URL if available
+    if ($env:KEYCLOAK_ISSUER_URL -match "/realms/([^/]+)") {
+        $KeycloakRealm = $Matches[1]
+    }
+
+    # Admin password: secrets files take priority over .env placeholders
+    foreach ($secretsFile in @(".env.secrets", "server/.env.secrets")) {
+        if (Test-Path $secretsFile) {
+            Get-Content $secretsFile | ForEach-Object {
+                if ($_ -match "^KEYCLOAK_ADMIN_PASSWORD=(.+)$") {
+                    $KeycloakAdminPassword = $matches[1].Trim()
+                }
+            }
+        }
+    }
+    if ((-not $KeycloakAdminPassword) -and $env:KEYCLOAK_ADMIN_PASSWORD -and
+        ($env:KEYCLOAK_ADMIN_PASSWORD -notmatch "SeT_tHiS_iN")) {
+        $KeycloakAdminPassword = $env:KEYCLOAK_ADMIN_PASSWORD
+    }
+
+    # Check database container
     $ContainerName = "$ComposeProjectName-database"
     $RunningContainers = docker ps --format "table {{.Names}}" | Select-String -Pattern "^$ContainerName$"
-    
     if (-not $RunningContainers) {
         Write-Host "Error: Database container '$ContainerName' is not running" -ForegroundColor Red
         Write-Host "Please start the database container first with: docker compose up -d database" -ForegroundColor Yellow
         exit 1
     }
 
-    # Execute the SQL update
-    Write-Host "Connecting to database container..." -ForegroundColor Cyan
-    
-    # Escape single quotes in the role for SQL safety
-    $EscapedRole = $UserRole -replace "'", "''"
+    $EscapedRole  = $UserRole  -replace "'", "''"
     $EscapedEmail = $UserEmail -replace "'", "''"
-    
-    $SqlCommand = "WITH updated AS (UPDATE \`"User\`" SET role = '$EscapedRole' WHERE email = '$EscapedEmail' RETURNING 1) SELECT COUNT(*) FROM updated;"
-    
-    # Capture both stdout and stderr to handle different scenarios
-    $Result = docker exec -i $ContainerName psql -U $DatabaseUsername -d $DatabaseName -t -c $SqlCommand 2>&1
-    
-    # Check if the docker command itself failed (container not accessible, etc.)
+
+    $SqlCommand = "WITH updated AS (UPDATE ""User"" SET role = '$EscapedRole' WHERE email = '$EscapedEmail' RETURNING id) SELECT u.id FROM updated u LIMIT 1;"
+
+    Write-Host "Connecting to database container..." -ForegroundColor Cyan
+    $Result = ($SqlCommand | docker exec -i $ContainerName psql -U $DatabaseUsername -d $DatabaseName -t -A) 2>&1
+
     if ($LASTEXITCODE -ne 0) {
-        # Check if this is a PostgreSQL error vs a Docker/connection error
         if ($Result -match "psql:|ERROR:|FATAL:") {
             Write-Host "Database error occurred:" -ForegroundColor Red
             Write-Host $Result -ForegroundColor Red
@@ -99,29 +123,60 @@ try {
             throw "Failed to connect to database container"
         }
     }
-    
-    # Clean up the result (remove whitespace and any error text)
-    $CleanResult = ($Result | Where-Object { $_ -match "^\s*\d+\s*$" } | Select-Object -First 1)
-    if ($CleanResult) {
-        $CleanResult = $CleanResult.Trim()
-    }
 
-    # Check if user was found and updated
-    if ($CleanResult -eq "1") {
-        Write-Host "Successfully updated role for user: $UserEmail" -ForegroundColor Green
-        Write-Host "New role: $UserRole" -ForegroundColor Green
-    }
-    elseif ($CleanResult -eq "0") {
+    $DataRow = ($Result | Where-Object { $_ -match "^\S" -and $_ -notmatch "^-" } | Select-Object -First 1)
+
+    if (-not $DataRow) {
         Write-Host "No user found with email: $UserEmail" -ForegroundColor Yellow
         Write-Host "Please verify the email address is correct and the user exists in the database" -ForegroundColor Yellow
         Write-Host "No changes were made to the database" -ForegroundColor Yellow
-        exit 0  # Exit successfully since this is not an error condition
+        exit 0
     }
-    else {
-        Write-Host "Unexpected result from database update. Raw output:" -ForegroundColor Red
-        Write-Host $Result -ForegroundColor Red
-        Write-Host "Cleaned result: '$CleanResult'" -ForegroundColor Red
-        exit 1
+
+    Write-Host "Successfully updated role for user: $UserEmail" -ForegroundColor Green
+    Write-Host "New role: $UserRole" -ForegroundColor Green
+
+    # Keycloak sync via kcadm.sh inside the Keycloak container
+    $RoleHasKeycloak = ($UserRole -split "[\s,|]+") -contains "keycloak"
+    $KcContainerName = "$ComposeProjectName-keycloak"
+    $KcRunning = docker ps --format "table {{.Names}}" | Select-String -Pattern "^$KcContainerName$"
+    $KcConfigured = $KcRunning -and $KeycloakAdminPassword
+
+    if ($KcConfigured) {
+        Write-Host "Syncing Keycloak admin role..." -ForegroundColor Cyan
+
+        $KcadmCmd = "/opt/keycloak/bin/kcadm.sh"
+        $KcServerUrl = "http://localhost:8080/auth/sso"
+
+        # Authenticate
+        $AuthOut = docker exec $KcContainerName sh -c "$KcadmCmd config credentials --server $KcServerUrl --realm master --user $KeycloakAdmin --password $KeycloakAdminPassword 2>&1"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Warning: Could not authenticate with Keycloak kcadm -- role sync skipped" -ForegroundColor Yellow
+            Write-Host $AuthOut -ForegroundColor Yellow
+        }
+        else {
+            if ($RoleHasKeycloak) {
+                $Out = docker exec $KcContainerName sh -c "$KcadmCmd add-roles -r $KeycloakRealm --uusername $UserEmail --cclientid realm-management --rolename $KeycloakAdminRole 2>&1"
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "Granted Keycloak '$KeycloakAdminRole' role to user" -ForegroundColor Green
+                }
+                else {
+                    Write-Host "Warning: Failed to grant Keycloak role: $Out" -ForegroundColor Yellow
+                }
+            }
+            else {
+                $Out = docker exec $KcContainerName sh -c "$KcadmCmd remove-roles -r $KeycloakRealm --uusername $UserEmail --cclientid realm-management --rolename $KeycloakAdminRole 2>&1"
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "Revoked Keycloak '$KeycloakAdminRole' role from user" -ForegroundColor Green
+                }
+                else {
+                    Write-Host "Warning: Failed to revoke Keycloak role (may not have been assigned): $Out" -ForegroundColor Yellow
+                }
+            }
+        }
+    }
+    elseif (-not $KcRunning) {
+        Write-Host "Note: Keycloak container '$KcContainerName' not running -- role sync skipped" -ForegroundColor Yellow
     }
 
     Write-Host "Role update operation completed!" -ForegroundColor Green

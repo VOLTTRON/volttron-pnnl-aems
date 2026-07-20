@@ -33,7 +33,7 @@ import { Unit } from "./components/Unit";
 import { Role, Stage, StageType } from "@local/common";
 import { useOperationManager } from "../components/hooks/useOperationManager";
 import { useMutationWithTracking } from "../components/hooks/useMutationWithTracking";
-import { omit, cloneDeep, merge } from "lodash";
+import { omit, cloneDeep, merge } from "@local/common/dist/utils/lodash";
 
 export default function ILCPage() {
   const [editing, setEditing] = useState<Partial<Term<NonNullable<ReadControlsQuery["readControls"]>[0]>> | null>(null);

@@ -28,7 +28,7 @@ class PubSubExt extends graphql_subscriptions_1.PubSub {
 let SubscriptionService = SubscriptionService_1 = class SubscriptionService {
     constructor(prismaService, configService) {
         const logger = new common_1.Logger(SubscriptionService_1.name);
-        switch (configService.graphql.pubsub) {
+        switch (configService.instanceName === "Schema" ? "" : configService.graphql.pubsub) {
             case "redis":
             case "ioredis":
                 this.instance = new graphql_redis_subscriptions_1.RedisPubSub({

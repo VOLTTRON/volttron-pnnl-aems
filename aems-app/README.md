@@ -31,8 +31,13 @@
 
 ---
 
+The Skeleton framework has been significantly expanded from a single Next.js monolith (v1.2.0) into a mature four-workspace TypeScript monorepo (v2.0.4) with a dedicated NestJS backend, enabling enterprise-grade features not possible in the original architecture. Key additions include a first-class **backup system** with scheduled/manual runs, S3 storage, and Age encryption; **PostGIS geographic data support** for map-based use cases; a **Keycloak admin management UI** for SSO user and role administration; and a **role-gated reverse proxy** for securely surfacing internal services like map tiles. The authentication stack was modernized from the experimental Lucia library to the industry-standard Auth.js + Passport.js combination, and real-time GraphQL subscriptions were upgraded to Redis-backed pub/sub for production scalability. The shared `@local/common` library was extracted to enforce consistent types and utilities across both the server and client, and the client gained new capabilities including light/dark theme switching, user preferences persistence, file uploads with S3 storage, ECharts data visualization, and deck.gl 3D map layers.
+
+---
+
 ## Table of Contents
 
+- [AEMS Platform](#aems-platform)
 - [🚀 Features](#-features)
 - [🏗️ Architecture](#️-architecture)
 - [🚀 Getting Started](#-getting-started)
@@ -88,6 +93,12 @@
   - [Branches](#branches)
   - [Workflow](#workflow)
 - [Contact Information](#contact-information)
+
+---
+
+## AEMS Platform
+
+AEMS has grown from a foundational skeleton into a full-featured energy management platform. The most significant addition is a **real-time historian and dashboarding suite** that ingests meter and sensor data directly from the Volttron platform, with configurable time-bucketing, auto-aggregation, and gap-filling — surfaced through new campus/building/unit-scoped Site and Unit dashboards with interactive charts, gauges, sparklines, and per-user time-range preferences. A complete **HVAC configuration workflow** was built out: setup wizards for Units, Schedules, Setpoints, Holidays, Occupancies, and Locations (with map-based location search), including bulk editing, override setpoint ranges, standby scheduling, and an **ILC (Intelligent Load Control) page** driven by GraphQL subscriptions for live status updates. The platform now includes a **full backup subsystem** with scheduled archives, S3 or local destinations, encryption, and worker-based restore. **Keycloak** is now the identity provider for AEMS, providing centralized single sign-on, role-based access across the application, and a dedicated administration page for managing users and role assignments — complemented by a welcome/info landing experience, a self-service guest registration flow, and a change-tracking view so operators can see who modified which configuration and when. Operationally, the Docker stack tripled in scope — adding managed containers for the historian database with logical replication, Keycloak, Volttron with a socat bridge, backup services, and a consolidated agents container — and picked up a comprehensive server-side test suite covering backup, config, historian, and auth flows.
 
 ---
 
@@ -616,17 +627,27 @@ Get up and running with the Skeleton App:
 2. **Configure environment**
 
    ```bash
-   # Copy and customize environment files
+   # Copy and customize the main environment file
    cp .env.example .env
-   cp .env.secrets.example .env.secrets
-
    # Edit '.env' and set 'APP_HOSTNAME' to a valid hostname or your IP Address
 
-   # Set secrets (Windows)
-   .\secrets.ps1
+   # Bootstrap .env.secrets from .env (first run auto-creates the file
+   # seeded with every secret key it finds in .env; second run generates
+   # the docker/secrets/*.txt files once you've filled in real values).
+   #
+   # Windows:
+   .\secrets.ps1  # first run: writes stub .env.secrets, exits
+   # ...edit .env.secrets, then:
+   .\secrets.ps1  # second run: writes docker/secrets/*.txt
 
-   # Set secrets (Linux/Mac)
-   source ./secrets.sh
+   # Linux/Mac:
+   ./secrets.sh   # first run
+   # ...edit .env.secrets, then:
+   ./secrets.sh   # second run
+
+   # Validate the configuration before starting
+   ./check-env.sh        # Linux/Mac
+   .\check-env.ps1       # Windows
    ```
 
 3. **Start the application**
@@ -2203,20 +2224,21 @@ This generates:
 **Deploy with Secrets:**
 
 ```bash
-# Use the generated .env.secrets.docker file
-docker compose --env-file docker/.env.secrets.docker up -d
+docker compose up -d
 ```
 
 **Supported Secrets:**
 
 - `SESSION_SECRET` - Server session management
 - `JWT_SECRET` - JWT token signing
+- `WORKER_TOKEN` - Backup sidecar authentication
 - `DATABASE_PASSWORD` - Main PostgreSQL database
 - `REDIS_PASSWORD` - Redis authentication
 - `KEYCLOAK_CLIENT_SECRET` - OAuth client secret
 - `KEYCLOAK_ADMIN_PASSWORD` - Admin interface password
 - `KEYCLOAK_DATABASE_PASSWORD` - Keycloak's database
 - `NOMINATIM_DATABASE_PASSWORD` - Nominatim's database
+- `BOOKSTACK_SESSION_SECRET` - Wiki session encryption key
 - `BOOKSTACK_ROOT_PASSWORD` - Wiki database root
 - `BOOKSTACK_DATABASE_PASSWORD` - Wiki database user
 - `BOOKSTACK_KEYCLOAK_CLIENT_SECRET` - Wiki OAuth client
@@ -2233,7 +2255,7 @@ The system provides flexible secret management through conditional environment v
 
 **With Secrets (Enhanced Security):**
 - Run `secrets.sh` / `secrets.ps1` to generate secret files
-- Start containers with: `docker compose --env-file docker/.env.secrets.docker up -d`
+- Start containers with: `docker compose up -d`
 - The `.env.secrets.docker` file sets `_FILE` variables (e.g., `POSTGRES_PASSWORD_FILE`)
 - Database containers read passwords from `/run/secrets/` instead
 - Plain password variables are ignored when `_FILE` is set
@@ -2267,7 +2289,9 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/database_password
 ```
 
-See [.env.secrets.example](./.env.secrets.example) for detailed documentation and all available secrets.
+The authoritative secret list lives in [.env](./.env) — every entry with the placeholder value `SeT_tHiS_iN_0x3A-.env.secrets-` is treated as a declared secret. Add a new secret by adding a line to `.env` with that placeholder; the next `secrets.sh` run picks it up automatically.
+
+`.env.secrets` (gitignored) holds the real values you fill in after bootstrap. `docker/.env.secrets.docker` (also gitignored, auto-generated) contains the compose interpolation glue that makes the running containers read from `/run/secrets/*` instead of the placeholder values in `.env`.
 
 The file [docker-compose.yml](./docker-compose.yml) or [docker/docker-compose.yml](./docker/docker-compose.yml) may need to be edited for some deployments. The docker compose definition contains a few optional containers that can be enabled by adding profiles. Proxy (`proxy`) is a Traefik proxy that can serve locally signed or valid internet certificates provided by Let's Encrypt. Open Street Map (`map`) is map file service that can be configured to provide Open Street Map tiles. Nominatim (`nom`) is an address lookup and auto-complete service that is configured to utilize the same data and area as the optional map container.
 
@@ -2531,44 +2555,56 @@ source ./env.sh .env.production
 
 #### `secrets.[ps1|sh]`
 
-Secret management scripts for handling sensitive environment variables separately from main configuration.
-
-**PowerShell Version (`secrets.ps1`):**
-
-- **Set Mode**: Reads `.env.secrets` and sets user environment variables permanently
-- **Clear Mode**: Removes previously set environment variables
-- **Persistent**: Variables survive system restarts
+Reads `.env.secrets` and writes individual secret files into `docker/secrets/` (one `.txt` file per key, named to match the Docker Compose `secrets:` block). Also generates `docker/.env.secrets.docker` with `_FILE` environment variable definitions for third-party containers.
 
 **Usage:**
 
 ```powershell
-# Set secrets as user environment variables
+# Windows
 .\secrets.ps1
-
-# Clear/unset all secret environment variables
-.\secrets.ps1 clear
 ```
-
-**Shell Version (`secrets.sh`):**
-
-- **Session Export**: Loads secrets into current shell session
-- **Temporary**: Variables only available in current session
-- **Platform Compatible**: Works on Linux, FreeBSD, and macOS
-
-**Usage:**
 
 ```bash
-# Export secrets to current session
-source ./secrets.sh
+# Linux/Mac
+./secrets.sh
 ```
+
+Run this any time you edit `.env.secrets`. `secrets.sh` picks the right lane per key:
+
+- **Bootstrap** (no `.env.secrets` yet): writes a stub seeded from `.env`, exits.
+- **Fresh deploy** (no `docker/secrets/<key>.txt` yet): writes the file. No rotation needed — nothing is running with the old credential yet.
+- **Rotation** (deployed file exists with a value that differs from `.env.secrets`): runs the `ALTER ROLE`/`ALTER USER`/`kcadm.sh` command against the running container **before** overwriting the file, then restarts the affected services. If the container isn't running, the script refuses (writing the file without rotating would leave the next boot unable to authenticate). Pass `--force` to override.
+- **No-op** (values already match): silent skip.
+
+Flags:
+- `./secrets.sh --dry-run` — show the plan without executing.
+- `./secrets.sh KEY1 KEY2 ...` — limit to named keys.
+- `./secrets.sh --force` — skip the rotation stage entirely; just write files. For fresh deploys where you'll wipe volumes, or for non-Docker environments.
 
 **File Format (`.env.secrets`):**
 
 ```bash
 DATABASE_PASSWORD=your_secure_password
 JWT_SECRET=your_jwt_secret_key
-API_KEY=your_api_key
 # Comments are ignored
+```
+
+#### `check-env.[ps1|sh]`
+
+Validates that `.env`, `.env.secrets`, and `docker/secrets/` are consistent before deploying. Called automatically by `start-services.[ps1|sh]`.
+
+Detects the deployment mode and applies appropriate checks:
+
+| Mode | Condition | Behavior |
+|------|-----------|----------|
+| Raw dev | `.env` still has placeholder values, no `.env.secrets` | Warning only — valid starting point |
+| Env-only | `.env` has real values, no `.env.secrets` | Warning about security posture, does not block |
+| Secrets | `.env.secrets` exists | Hard-fails if any secret file is missing or stale |
+| Mixed | Both `.env` edited and `.env.secrets` present | Advisory warning, still validates secrets chain |
+
+```bash
+./check-env.sh        # Linux/Mac
+.\check-env.ps1       # Windows
 ```
 
 #### `update-user-role.[ps1|sh]`

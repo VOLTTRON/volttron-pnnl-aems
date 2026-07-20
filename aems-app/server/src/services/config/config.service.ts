@@ -4,7 +4,7 @@ import { Inject, Injectable, Logger, OnApplicationBootstrap } from "@nestjs/comm
 import { PrismaService } from "@/prisma/prisma.service";
 import { Cron } from "@nestjs/schedule";
 import { Mutation, StageType, typeofObject } from "@local/common";
-import { merge } from "lodash";
+import { merge } from "@local/common/dist/utils/lodash";
 import { VolttronService } from "../volttron.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { Schedule } from "@prisma/client";

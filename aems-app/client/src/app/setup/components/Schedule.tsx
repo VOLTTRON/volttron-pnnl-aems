@@ -9,7 +9,7 @@ import {
   HandleType,
   HandleInteractionKind,
 } from "@blueprintjs/core";
-import { clamp, cloneDeep, merge } from "lodash";
+import { clamp, cloneDeep, merge } from "@local/common/dist/utils/lodash";
 import { useContext } from "react";
 import {
   START_TIME_MIN,

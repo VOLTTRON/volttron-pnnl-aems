@@ -16,7 +16,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SeedService = void 0;
 const path_1 = require("path");
 const promises_1 = require("fs/promises");
-const lodash_1 = require("lodash");
 const common_1 = require("@nestjs/common");
 const __1 = require("..");
 const prisma_service_1 = require("../../prisma/prisma.service");
@@ -77,7 +76,7 @@ let SeedService = SeedService_1 = class SeedService extends __1.BaseService {
                                                 case "upsert":
                                                     await this.prismaService.prisma[seeder.table].upsert({
                                                         where: { [seeder.id]: record[seeder.id] },
-                                                        update: (0, lodash_1.omit)(record, [seeder.id]),
+                                                        update: Object.fromEntries(Object.entries(record).filter(([k]) => k !== seeder.id)),
                                                         create: record,
                                                     });
                                                     break;
@@ -106,7 +105,7 @@ let SeedService = SeedService_1 = class SeedService extends __1.BaseService {
                                                 case "update":
                                                     await this.prismaService.prisma[seeder.table].update({
                                                         where: { [seeder.id]: record[seeder.id] },
-                                                        data: (0, lodash_1.omit)(record, [seeder.id]),
+                                                        data: Object.fromEntries(Object.entries(record).filter(([k]) => k !== seeder.id)),
                                                     });
                                                     break;
                                                 default:
@@ -127,14 +126,18 @@ let SeedService = SeedService_1 = class SeedService extends __1.BaseService {
                                             for (const data of seeder.data) {
                                                 await this.prismaService.prisma[seeder.table].upsert({
                                                     where: { [seeder.id]: data[seeder.id] },
-                                                    update: (0, lodash_1.omit)(data, [seeder.id]),
+                                                    update: Object.fromEntries(Object.entries(data).filter(([k]) => k !== seeder.id)),
                                                     create: data,
                                                 });
                                             }
                                             break;
                                         case "create":
                                             if (this.configService.service.seed.batchSize > 0) {
-                                                for (const records of (0, lodash_1.chunk)(seeder.data, this.configService.service.seed.batchSize)) {
+                                                const batchSize = this.configService.service.seed.batchSize;
+                                                const chunks = [];
+                                                for (let i = 0; i < seeder.data.length; i += batchSize)
+                                                    chunks.push(seeder.data.slice(i, i + batchSize));
+                                                for (const records of chunks) {
                                                     await this.prismaService.prisma[seeder.table].createMany({
                                                         data: records,
                                                         skipDuplicates: true,
@@ -153,7 +156,7 @@ let SeedService = SeedService_1 = class SeedService extends __1.BaseService {
                                             for (const data of seeder.data) {
                                                 await this.prismaService.prisma[seeder.table].update({
                                                     where: { [seeder.id]: data[seeder.id] },
-                                                    data: (0, lodash_1.omit)(data, [seeder.id]),
+                                                    data: Object.fromEntries(Object.entries(data).filter(([k]) => k !== seeder.id)),
                                                 });
                                             }
                                             break;

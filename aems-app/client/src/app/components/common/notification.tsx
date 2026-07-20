@@ -2,8 +2,8 @@
 
 import { NotificationContext, NotificationType } from "../providers";
 import { useContext, useMemo } from "react";
-import { isObject } from "lodash";
 import { Intent, OverlayToaster, Position, Toast2 } from "@blueprintjs/core";
+import { typeofNonNullable } from "@local/common";
 
 export function Notification() {
   const { notifications, clearNotification } = useContext(NotificationContext);
@@ -13,7 +13,7 @@ export function Notification() {
       notifications
         ?.filter((v) => v.type === NotificationType.Error)
         .sort((a, b) => a.timestamp - b.timestamp)
-        .find(isObject),
+        .find(typeofNonNullable),
     [notifications]
   );
 
@@ -22,7 +22,7 @@ export function Notification() {
       notifications
         ?.filter((v) => v.type === NotificationType.Notification)
         .sort((a, b) => a.timestamp - b.timestamp)
-        .find(isObject),
+        .find(typeofNonNullable),
     [notifications]
   );
 

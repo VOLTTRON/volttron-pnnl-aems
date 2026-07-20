@@ -1,5 +1,139 @@
-import { get, isArray, isEqual, isNil, isObject, range, union } from "lodash";
 import { DeepTyped, DeepPartial } from "./types";
+
+/**
+ * Creates an object composed of the picked `keys` from `obj`.
+ * Drop-in replacement for `import { pick } from "lodash"`.
+ */
+export function pick<T extends object, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
+  return Object.fromEntries(
+    keys.filter((k) => k in obj).map((k) => [k, obj[k]]),
+  ) as Pick<T, K>;
+}
+
+/**
+ * Creates an object without the listed `keys` from `obj`.
+ * Drop-in replacement for `import { omit } from "lodash"`.
+ */
+export function omit<T extends object, K extends keyof T>(obj: T, keys: readonly K[]): Omit<T, K> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([k]) => !(keys as readonly string[]).includes(k)),
+  ) as Omit<T, K>;
+}
+
+/**
+ * Returns the symmetric difference of two arrays — elements present in
+ * exactly one of the two arrays.
+ *
+ * Uses `JSON.stringify` equality so it handles object / tuple elements.
+ * Drop-in replacement for `import { xor } from "lodash"`.
+ */
+export function xor<T>(a: T[], b: T[]): T[] {
+  const key = (v: T) => JSON.stringify(v);
+  const bKeys = new Set(b.map(key));
+  const aKeys = new Set(a.map(key));
+  return [
+    ...a.filter((x) => !bKeys.has(key(x))),
+    ...b.filter((x) => !aKeys.has(key(x))),
+  ];
+}
+
+/**
+ * Returns the symmetric difference of two primitive arrays (string / number /
+ * boolean) using strict equality — faster than `xor` for non-object arrays.
+ * Drop-in for patterns like `xor(stringArray, [value])`.
+ */
+export function xorPrimitive<T extends string | number | boolean>(a: T[], b: T[]): T[] {
+  return [...a.filter((x) => !b.includes(x)), ...b.filter((x) => !a.includes(x))];
+}
+
+/**
+ * Creates a debounced version of `fn` that delays invocation by `ms`
+ * milliseconds.  Each new call resets the timer.
+ * Drop-in replacement for `import { debounce } from "lodash"`.
+ */
+export function debounce<T extends (...args: Parameters<T>) => void>(fn: T, ms: number): T {
+  let id: ReturnType<typeof setTimeout>;
+  return ((...args: Parameters<T>) => {
+    clearTimeout(id);
+    id = setTimeout(() => fn(...args), ms);
+  }) as T;
+}
+
+/**
+ * Splits `array` into chunks of `size`.  The last chunk may be smaller.
+ * Drop-in replacement for `import { chunk } from "lodash"`.
+ */
+export function chunk<T>(array: T[], size: number): T[][] {
+  if (size < 1) return [];
+  const result: T[][] = [];
+  for (let i = 0; i < array.length; i += size) result.push(array.slice(i, i + size));
+  return result;
+}
+
+/**
+ * Returns the elements of `array` that are not in `values`.
+ * Drop-in replacement for `import { difference } from "lodash"`.
+ */
+export function difference<T>(array: T[], ...values: T[][]): T[] {
+  const excluded = new Set(values.flat());
+  return array.filter((x) => !excluded.has(x));
+}
+
+/**
+ * Creates a duplicate-free union of all given arrays, preserving order.
+ * Drop-in replacement for `import { union } from "lodash"`.
+ */
+export function union<T>(...arrays: T[][]): T[] {
+  return [...new Set(arrays.flat())];
+}
+
+/**
+ * Creates an array of elements sorted by the result of `iteratee`.
+ * Drop-in replacement for `import { sortBy } from "lodash"`.
+ */
+export function sortBy<T>(array: T[], ...iteratees: ((v: T) => unknown)[]): T[] {
+  return [...array].sort((a, b) => {
+    for (const fn of iteratees) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const fa = fn(a) as any;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const fb = fn(b) as any;
+      if (fa < fb) return -1;
+      if (fa > fb) return 1;
+    }
+    return 0;
+  });
+}
+
+/**
+ * Returns the maximum value in `array`, or `undefined` for an empty array.
+ * Drop-in replacement for `import { max } from "lodash"`.
+ */
+export function max(array: number[]): number | undefined {
+  return array.length ? array.reduce((a, b) => (a > b ? a : b)) : undefined;
+}
+
+// ---------------------------------------------------------------------------
+
+export function deepMerge(...sources: (object | null | undefined)[]): any;
+export function deepMerge<T extends object>(target: T, ...sources: Partial<T>[]): T;
+export function deepMerge<T extends object>(target?: T | null, ...sources: (Partial<T> | null | undefined)[]): T {
+  const result = { ...(target ?? {}) } as T;
+  for (const source of sources) {
+    if (!source) continue;
+    for (const key of Object.keys(source) as (keyof T)[]) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const sv = (source as any)[key];
+      const tv = result[key];
+      if (sv && typeof sv === "object" && !Array.isArray(sv) && tv && typeof tv === "object" && !Array.isArray(tv)) {
+        result[key] = deepMerge(tv as object, sv as object) as T[keyof T];
+      } else if (sv !== undefined) {
+        result[key] = sv as T[keyof T];
+      }
+    }
+  }
+  return result;
+}
 
 /**
  * Type guard for non null or undefined value.
@@ -68,9 +202,10 @@ export function deepFreeze<T extends object>(object: T) {
  */
 export const Removed = Symbol("Removed");
 
-const isArrayType = (value: any): value is any[] | null | undefined => isArray(value) || isNil(value);
+const isArrayType = (value: any): value is any[] | null | undefined => Array.isArray(value) || value == null;
 
-const isObjectType = (value: any): value is object | null | undefined => isObject(value) || isNil(value);
+const isObjectType = (value: any): value is object | null | undefined =>
+  (typeof value === "object" && value !== null) || value == null;
 
 /**
  * Get the difference between two values.
@@ -89,19 +224,21 @@ export const getDifference = <A, B>(
   a: A,
   b: B,
 ): (DeepTyped<A, typeof Removed> & DeepPartial<B>) | A | B | typeof Removed | undefined => {
-  if (isEqual(a, b)) {
+  if (JSON.stringify(a) === JSON.stringify(b)) {
     return undefined;
-  } else if (isNil(b)) {
+  } else if (b == null) {
     return Removed;
   } else if (isArrayType(a) && isArrayType(b)) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return range(Math.max(a?.length || 0, b?.length || 0)).map((i) => getDifference(a?.[i], b?.[i])) as
+    return Array.from({ length: Math.max(a?.length || 0, b?.length || 0) }, (_, i) =>
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      getDifference(a?.[i], b?.[i])
+    ) as
       | (DeepTyped<A, typeof Removed> & DeepPartial<B>)
       | undefined;
   } else if (isObjectType(a) && isObjectType(b)) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-redundant-type-constituents
     const diff = {} as (DeepTyped<A, typeof Removed> & DeepPartial<B>) & any;
-    for (const key of union(Object.keys(a ?? {}), Object.keys(b ?? {}))) {
+    for (const key of [...new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})])]) {
       const value = getDifference(a?.[key as keyof A], b?.[key as keyof B]);
       if (value !== undefined) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -124,8 +261,11 @@ export const parseBoolean = (value?: string) => (value ? /^\s*true|yes|t|y|1\s*$
  * Parse the template and replace all {enclosed} entries with the corresponding property.
  */
 export const templateFormat = (template: string, props: any) => {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return template.replace(/{([^{}]+)}/g, (v, k) => get(props, k));
+   
+  return template.replace(/{([^{}]+)}/g, (_v, k: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+    return k.split(".").reduce((obj: any, part) => obj?.[part], props);
+  });
 };
 
 /**

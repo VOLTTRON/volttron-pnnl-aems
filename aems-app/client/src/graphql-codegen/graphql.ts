@@ -1512,6 +1512,12 @@ export type IntFilter = {
   not?: InputMaybe<IntFilter>;
 };
 
+export type KeycloakRole = {
+  __typename?: 'KeycloakRole';
+  id?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+};
+
 export type Location = {
   __typename?: 'Location';
   createdAt?: Maybe<Scalars['DateTime']['output']>;
@@ -1686,6 +1692,8 @@ export type Mutation = {
   __typename?: 'Mutation';
   /** Acknowledge that the backup encryption key has been securely stored offline. */
   acknowledgeBackupKey?: Maybe<BackupKey>;
+  /** Assign Keycloak realm roles (by name) to the given app user. */
+  assignKeycloakRoles?: Maybe<Scalars['Boolean']['output']>;
   /** Request cancellation of an in-flight backup run. */
   cancelBackupRun?: Maybe<BackupRun>;
   /** Create a new account. */
@@ -1764,6 +1772,12 @@ export type Mutation = {
   deleteUser?: Maybe<User>;
   /** Return the private key material for an acknowledged BackupKey. Rate limited to one call per minute per user and audited via the Log service. */
   downloadBackupPrivateKey?: Maybe<Scalars['String']['output']>;
+  /** Grant Keycloak admin console access to the given app user (assigns the configured realm-management client role). */
+  grantKeycloakAdminAccess?: Maybe<Scalars['Boolean']['output']>;
+  /** Revoke Keycloak admin console access from the given app user. */
+  revokeKeycloakAdminAccess?: Maybe<Scalars['Boolean']['output']>;
+  /** Revoke Keycloak realm roles (by name) from the given app user. */
+  revokeKeycloakRoles?: Maybe<Scalars['Boolean']['output']>;
   /** Rotate the active backup encryption key. Retires the current key (sets active=false, rotatedAt=now) and lets the sidecar worker generate a fresh keypair on its next poll. The old key row is retained so historical archives remain decryptable. */
   rotateBackupKey?: Maybe<BackupKey>;
   /** Enqueue a manual backup run for immediate execution by the sidecar worker. */
@@ -1811,6 +1825,12 @@ export type Mutation = {
 
 export type MutationAcknowledgeBackupKeyArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type MutationAssignKeycloakRolesArgs = {
+  roles: Array<Scalars['String']['input']>;
+  userId: Scalars['String']['input'];
 };
 
 
@@ -2007,6 +2027,22 @@ export type MutationDeleteUserArgs = {
 
 export type MutationDownloadBackupPrivateKeyArgs = {
   id: Scalars['String']['input'];
+};
+
+
+export type MutationGrantKeycloakAdminAccessArgs = {
+  userId: Scalars['String']['input'];
+};
+
+
+export type MutationRevokeKeycloakAdminAccessArgs = {
+  userId: Scalars['String']['input'];
+};
+
+
+export type MutationRevokeKeycloakRolesArgs = {
+  roles: Array<Scalars['String']['input']>;
+  userId: Scalars['String']['input'];
 };
 
 
@@ -2428,6 +2464,8 @@ export type Query = {
   readAccount?: Maybe<Account>;
   /** Read a list of accounts. */
   readAccounts?: Maybe<Array<Account>>;
+  /** List all available Keycloak realm roles. */
+  readAvailableKeycloakRoles?: Maybe<Array<KeycloakRole>>;
   /** Read a unique backup destination. */
   readBackupDestination?: Maybe<BackupDestination>;
   /** Read a list of backup destinations. */
@@ -2484,6 +2522,10 @@ export type Query = {
   readHoliday?: Maybe<Holiday>;
   /** Read a list of holidays. */
   readHolidays?: Maybe<Array<Holiday>>;
+  /** Returns true if the given app user has Keycloak admin console access (realm-management client role). */
+  readKeycloakAdminAccess?: Maybe<Scalars['Boolean']['output']>;
+  /** List the Keycloak realm roles assigned to the given app user. */
+  readKeycloakRoles?: Maybe<Array<KeycloakRole>>;
   /** Read a unique location. */
   readLocation?: Maybe<Location>;
   /** Read a list of locations. */
@@ -3244,6 +3286,16 @@ export type QueryReadHolidaysArgs = {
   orderBy?: InputMaybe<Array<HolidayOrderBy>>;
   paging?: InputMaybe<PagingInput>;
   where?: InputMaybe<HolidayFilter>;
+};
+
+
+export type QueryReadKeycloakAdminAccessArgs = {
+  userId: Scalars['String']['input'];
+};
+
+
+export type QueryReadKeycloakRolesArgs = {
+  userId: Scalars['String']['input'];
 };
 
 
@@ -5605,6 +5657,55 @@ export type DeleteHolidayMutationVariables = Exact<{
 
 export type DeleteHolidayMutation = { __typename?: 'Mutation', deleteHoliday?: { __typename?: 'Holiday', id?: string | null } | null };
 
+export type ReadAvailableKeycloakRolesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ReadAvailableKeycloakRolesQuery = { __typename?: 'Query', readAvailableKeycloakRoles?: Array<{ __typename?: 'KeycloakRole', id?: string | null, name?: string | null }> | null };
+
+export type ReadKeycloakRolesQueryVariables = Exact<{
+  userId: Scalars['String']['input'];
+}>;
+
+
+export type ReadKeycloakRolesQuery = { __typename?: 'Query', readKeycloakRoles?: Array<{ __typename?: 'KeycloakRole', id?: string | null, name?: string | null }> | null };
+
+export type AssignKeycloakRolesMutationVariables = Exact<{
+  userId: Scalars['String']['input'];
+  roles: Array<Scalars['String']['input']> | Scalars['String']['input'];
+}>;
+
+
+export type AssignKeycloakRolesMutation = { __typename?: 'Mutation', assignKeycloakRoles?: boolean | null };
+
+export type RevokeKeycloakRolesMutationVariables = Exact<{
+  userId: Scalars['String']['input'];
+  roles: Array<Scalars['String']['input']> | Scalars['String']['input'];
+}>;
+
+
+export type RevokeKeycloakRolesMutation = { __typename?: 'Mutation', revokeKeycloakRoles?: boolean | null };
+
+export type ReadKeycloakAdminAccessQueryVariables = Exact<{
+  userId: Scalars['String']['input'];
+}>;
+
+
+export type ReadKeycloakAdminAccessQuery = { __typename?: 'Query', readKeycloakAdminAccess?: boolean | null };
+
+export type GrantKeycloakAdminAccessMutationVariables = Exact<{
+  userId: Scalars['String']['input'];
+}>;
+
+
+export type GrantKeycloakAdminAccessMutation = { __typename?: 'Mutation', grantKeycloakAdminAccess?: boolean | null };
+
+export type RevokeKeycloakAdminAccessMutationVariables = Exact<{
+  userId: Scalars['String']['input'];
+}>;
+
+
+export type RevokeKeycloakAdminAccessMutation = { __typename?: 'Mutation', revokeKeycloakAdminAccess?: boolean | null };
+
 export type ReadLocationQueryVariables = Exact<{
   where: LocationUniqueFilter;
 }>;
@@ -5990,6 +6091,13 @@ export const ReadHolidaysDocument = {"kind":"Document","definitions":[{"kind":"O
 export const CreateHolidayDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateHoliday"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"create"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"HolidayCreateInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createHoliday"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"create"},"value":{"kind":"Variable","name":{"kind":"Name","value":"create"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"day"}},{"kind":"Field","name":{"kind":"Name","value":"month"}},{"kind":"Field","name":{"kind":"Name","value":"observance"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"correlation"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"stage"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<CreateHolidayMutation, CreateHolidayMutationVariables>;
 export const UpdateHolidayDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateHoliday"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"where"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"HolidayUniqueFilter"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"update"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"HolidayUpdateInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateHoliday"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}},{"kind":"Argument","name":{"kind":"Name","value":"update"},"value":{"kind":"Variable","name":{"kind":"Name","value":"update"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"day"}},{"kind":"Field","name":{"kind":"Name","value":"month"}},{"kind":"Field","name":{"kind":"Name","value":"observance"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"correlation"}},{"kind":"Field","name":{"kind":"Name","value":"message"}},{"kind":"Field","name":{"kind":"Name","value":"stage"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<UpdateHolidayMutation, UpdateHolidayMutationVariables>;
 export const DeleteHolidayDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteHoliday"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"where"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"HolidayUniqueFilter"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteHoliday"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]} as unknown as DocumentNode<DeleteHolidayMutation, DeleteHolidayMutationVariables>;
+export const ReadAvailableKeycloakRolesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadAvailableKeycloakRoles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readAvailableKeycloakRoles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]} as unknown as DocumentNode<ReadAvailableKeycloakRolesQuery, ReadAvailableKeycloakRolesQueryVariables>;
+export const ReadKeycloakRolesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadKeycloakRoles"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readKeycloakRoles"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]} as unknown as DocumentNode<ReadKeycloakRolesQuery, ReadKeycloakRolesQueryVariables>;
+export const AssignKeycloakRolesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AssignKeycloakRoles"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"roles"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"assignKeycloakRoles"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}},{"kind":"Argument","name":{"kind":"Name","value":"roles"},"value":{"kind":"Variable","name":{"kind":"Name","value":"roles"}}}]}]}}]} as unknown as DocumentNode<AssignKeycloakRolesMutation, AssignKeycloakRolesMutationVariables>;
+export const RevokeKeycloakRolesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RevokeKeycloakRoles"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"roles"}},"type":{"kind":"NonNullType","type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"revokeKeycloakRoles"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}},{"kind":"Argument","name":{"kind":"Name","value":"roles"},"value":{"kind":"Variable","name":{"kind":"Name","value":"roles"}}}]}]}}]} as unknown as DocumentNode<RevokeKeycloakRolesMutation, RevokeKeycloakRolesMutationVariables>;
+export const ReadKeycloakAdminAccessDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadKeycloakAdminAccess"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readKeycloakAdminAccess"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}}]}]}}]} as unknown as DocumentNode<ReadKeycloakAdminAccessQuery, ReadKeycloakAdminAccessQueryVariables>;
+export const GrantKeycloakAdminAccessDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"GrantKeycloakAdminAccess"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"grantKeycloakAdminAccess"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}}]}]}}]} as unknown as DocumentNode<GrantKeycloakAdminAccessMutation, GrantKeycloakAdminAccessMutationVariables>;
+export const RevokeKeycloakAdminAccessDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RevokeKeycloakAdminAccess"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"revokeKeycloakAdminAccess"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}}]}]}}]} as unknown as DocumentNode<RevokeKeycloakAdminAccessMutation, RevokeKeycloakAdminAccessMutationVariables>;
 export const ReadLocationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadLocation"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"where"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LocationUniqueFilter"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readLocation"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<ReadLocationQuery, ReadLocationQueryVariables>;
 export const ReadLocationsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ReadLocations"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"where"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"LocationFilter"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"paging"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"PagingInput"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"orderBy"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LocationOrderBy"}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"distinct"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LocationFields"}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"readLocations"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}},{"kind":"Argument","name":{"kind":"Name","value":"paging"},"value":{"kind":"Variable","name":{"kind":"Name","value":"paging"}}},{"kind":"Argument","name":{"kind":"Name","value":"orderBy"},"value":{"kind":"Variable","name":{"kind":"Name","value":"orderBy"}}},{"kind":"Argument","name":{"kind":"Name","value":"distinct"},"value":{"kind":"Variable","name":{"kind":"Name","value":"distinct"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}},{"kind":"Field","name":{"kind":"Name","value":"countLocations"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"where"},"value":{"kind":"Variable","name":{"kind":"Name","value":"where"}}}]}]}}]} as unknown as DocumentNode<ReadLocationsQuery, ReadLocationsQueryVariables>;
 export const CreateLocationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateLocation"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"create"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"LocationCreateInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createLocation"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"create"},"value":{"kind":"Variable","name":{"kind":"Name","value":"create"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"latitude"}},{"kind":"Field","name":{"kind":"Name","value":"longitude"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]} as unknown as DocumentNode<CreateLocationMutation, CreateLocationMutationVariables>;

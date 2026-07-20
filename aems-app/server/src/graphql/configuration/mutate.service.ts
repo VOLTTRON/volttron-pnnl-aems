@@ -13,7 +13,7 @@ import { HolidayMutation } from "../holiday/mutate.service";
 import { HolidayQuery } from "../holiday/query.service";
 import { ChangeService } from "@/change/change.service";
 import { ChangeMutation } from "@prisma/client";
-import { isEqual, omit } from "lodash";
+import { isEqual, omit } from "@local/common/dist/utils/lodash";
 
 @Injectable()
 @PothosMutation()

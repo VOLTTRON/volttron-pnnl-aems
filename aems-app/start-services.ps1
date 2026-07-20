@@ -24,6 +24,14 @@ if ($args -contains "-h" -or $args -contains "--help") {
 # Store the starting path
 $StartingPath = Get-Location
 
+Write-Host "Checking environment/secrets configuration..." -ForegroundColor Blue
+
+& .\check-env.ps1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Environment check failed — fix the issues above before starting services." -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "Building and starting Docker Compose services..." -ForegroundColor Blue
 
 try {

@@ -10,7 +10,6 @@ import { Term, filter } from "@/utils/client";
 import { LogType } from "@local/common";
 import { Paging, Search, Table } from "../components/common";
 import { IconNames } from "@blueprintjs/icons";
-import { sortBy } from "lodash";
 import { AnsiUp } from "ansi_up";
 import parse from "html-react-parser";
 
@@ -71,9 +70,9 @@ export default function Page() {
   const clientLogs = useMemo(() => {
     let temp = filter(clientData, search, ["type", "message"]);
     if (clientSort.field === "timestamp") {
-      temp = sortBy(temp, (log) => log.timestamp);
+      temp = [...temp].sort((a, b) => a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0);
     } else {
-      temp = sortBy(temp, (log) => log.message);
+      temp = [...temp].sort((a, b) => (a.message ?? "") < (b.message ?? "") ? -1 : (a.message ?? "") > (b.message ?? "") ? 1 : 0);
     }
     if (clientSort.direction === "Desc") {
       temp.reverse();

@@ -77,6 +77,10 @@ const mutate_service_18 = require("./backup/mutate.service");
 const backup_discovery_service_1 = require("../services/backup/backup-discovery.service");
 const backup_publisher_service_1 = require("../services/backup/backup-publisher.service");
 const backup_archive_service_1 = require("../services/backup/backup-archive.service");
+const keycloak_admin_service_1 = require("./keycloak/keycloak-admin.service");
+const object_service_20 = require("./keycloak/object.service");
+const query_service_22 = require("./keycloak/query.service");
+const mutate_service_19 = require("./keycloak/mutate.service");
 let SchemaModule = SchemaModule_1 = class SchemaModule {
     static register() {
         return {
@@ -87,6 +91,7 @@ let SchemaModule = SchemaModule_1 = class SchemaModule {
                 backup_discovery_service_1.BackupDiscoveryService,
                 backup_publisher_service_1.BackupSubscriptionPublisher,
                 backup_archive_service_1.BackupArchiveService,
+                keycloak_admin_service_1.KeycloakAdminService,
                 {
                     provide: `${pothos_decorator_1.PothosObjectKey.toString()}s`,
                     inject: [core_1.DiscoveryService],
@@ -143,6 +148,7 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             object_service_16.UnitObject,
             object_service_18.HistorianObject,
             object_service_19.BackupObject,
+            object_service_20.KeycloakObject,
             query_service_1.AccountQuery,
             query_service_2.BannerQuery,
             query_service_3.ChangeQuery,
@@ -165,6 +171,7 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             query_service_18.UnitQuery,
             query_service_20.HistorianQuery,
             query_service_21.BackupQuery,
+            query_service_22.KeycloakQuery,
             mutate_service_1.AccountMutation,
             mutate_service_2.BannerMutation,
             mutate_service_3.ChangeMutation,
@@ -184,6 +191,8 @@ exports.SchemaModule = SchemaModule = SchemaModule_1 = __decorate([
             mutate_service_3.ChangeMutation,
             mutate_service_16.UnitMutation,
             mutate_service_18.BackupMutation,
+            mutate_service_19.KeycloakMutation,
+            keycloak_admin_service_1.KeycloakAdminService,
         ],
     })
 ], SchemaModule);

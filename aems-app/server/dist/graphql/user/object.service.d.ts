@@ -104,6 +104,6 @@ export declare class UserObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
-    }>, "name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt", "name" | "role" | "id" | "email" | "image" | "emailVerified" | "preferences" | "createdAt" | "updatedAt">;
+    }>, "name" | "role" | "id" | "email" | "image" | "emailVerified" | "password" | "preferences" | "createdAt" | "updatedAt", "name" | "role" | "id" | "email" | "image" | "emailVerified" | "password" | "preferences" | "createdAt" | "updatedAt">;
     constructor(builder: SchemaBuilderService);
 }

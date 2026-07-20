@@ -20,7 +20,6 @@ const pothos_driver_1 = require("./pothos.driver");
 const core_1 = require("@nestjs/core");
 const default_1 = require("@apollo/server/plugin/landingPage/default");
 const disabled_1 = require("@apollo/server/plugin/disabled");
-const lodash_1 = require("lodash");
 const schema_module_1 = require("./schema.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const subscription_module_1 = require("../subscription/subscription.module");
@@ -148,7 +147,7 @@ let PothosGraphQLModule = PothosGraphQLModule_1 = class PothosGraphQLModule {
                                 },
                             },
                         },
-                        ...(0, lodash_1.omit)(moduleOptionsFactory(configService), ["sortSchema", "autoSchemaFile", "subscriptions"]),
+                        ...Object.fromEntries(Object.entries(moduleOptionsFactory(configService)).filter(([k]) => !["sortSchema", "autoSchemaFile", "subscriptions"].includes(k))),
                     }),
                 }),
             ],

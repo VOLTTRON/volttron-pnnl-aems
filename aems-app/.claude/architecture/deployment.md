@@ -23,14 +23,23 @@ For multi-instance deployments, run **one** container with `INSTANCE_TYPE=*` (or
 
 ## Secret bootstrap
 
-Secrets must exist on the host before `docker compose up`:
+Secrets must exist on the host before `docker compose up`. There are two supported modes:
 
-1. Run [secrets.sh](../../secrets.sh) (POSIX) or [secrets.ps1](../../secrets.ps1) (PowerShell) at the repo root. This:
-   - Reads `.env.secrets` (gitignored) for any pre-set values.
-   - Generates random values for any unset secrets (session, JWT, DB passwords, etc.).
-   - Writes them into [docker/secrets/](../../docker/secrets/) as files named per the compose `secrets:` block.
-   - In PowerShell, also exports them as user environment variables (persistent across sessions).
-2. The backup sidecar's encryption keypair is auto-generated at first container boot via [docker/backup/init-keys.sh](../../docker/backup/init-keys.sh).
+**Secrets mode (recommended for production):**
+1. Copy `.env.secrets.example` → `.env.secrets` and fill in real values.
+2. Run [secrets.sh](../../secrets.sh) (POSIX) or [secrets.ps1](../../secrets.ps1) (PowerShell) at the repo root. This reads `.env.secrets` and writes individual secret files into [docker/secrets/](../../docker/secrets/) (one `.txt` file per key, named to match the compose `secrets:` block).
+3. Run [check-env.sh](../../check-env.sh) / [check-env.ps1](../../check-env.ps1) to verify the chain is consistent before starting the stack.
+
+**Env-only mode (simple dev):**
+- Edit `.env` directly with real values instead of using `.env.secrets`. No secrets script needed.
+- `check-env.sh` will warn about the security posture but will not block.
+
+**Credential rotation (after changing a password or secret):**
+- Re-run [secrets.sh](../../secrets.sh) / [secrets.ps1](../../secrets.ps1). It detects which values changed, applies the change to the running containers (ALTER ROLE for Postgres, kcadm for Keycloak, restart for Redis/app secrets), regenerates the secret files, and restarts affected services. If a target container is down during a rotation it refuses to overwrite (pass `--force` to override).
+- Use `--dry-run` to preview what would happen without executing.
+
+**Backup keypair:**
+The backup sidecar's age-style encryption keypair is auto-generated at first container boot via [docker/backup/init-keys.sh](../../docker/backup/init-keys.sh) — it is NOT a pre-declared Docker secret.
 
 Subsequent runs reuse the existing files unless you delete them. **Never commit anything in [docker/secrets/](../../docker/secrets/)** — already gitignored.
 
@@ -49,8 +58,9 @@ Top-level helper scripts:
 |---|---|
 | [build.sh](../../build.sh) / [build.ps1](../../build.ps1) | Run the full build chain (`prisma → common → server → client`). |
 | [test.sh](../../test.sh) / [test.ps1](../../test.ps1) | Run `lint → check → test:cov` across all workspaces. |
-| [secrets.sh](../../secrets.sh) / [secrets.ps1](../../secrets.ps1) | Generate / load secrets into [docker/secrets/](../../docker/secrets/). |
-| [start-services.sh](../../start-services.sh) / [start-services.ps1](../../start-services.ps1) | Load `.env`, then `docker compose up -d`. |
+| [secrets.sh](../../secrets.sh) / [secrets.ps1](../../secrets.ps1) | One entry point for the secret pipeline: bootstrap `.env.secrets` from `.env`, write `docker/secrets/*.txt`, rotate live credentials (SQL ALTER, kcadm, restart). |
+| [check-env.sh](../../check-env.sh) / [check-env.ps1](../../check-env.ps1) | Validate `.env` / `.env.secrets` / `docker/secrets/` are consistent before deploying. |
+| [start-services.sh](../../start-services.sh) / [start-services.ps1](../../start-services.ps1) | Run `check-env`, then `docker compose build && docker compose up -d`. |
 | [reset-service.sh](../../reset-service.sh) / [reset-service.ps1](../../reset-service.ps1) | Reset specific service volumes/certs (e.g., `reset-service.sh certs`). |
 | [update-user-role.sh](../../update-user-role.sh) / [update-user-role.ps1](../../update-user-role.ps1) | Update a user's role by email — runs against the running DB container. |
 | [env.sh](../../env.sh) | Cross-platform `.env` loader (POSIX/macOS/FreeBSD). |
@@ -59,11 +69,20 @@ Top-level helper scripts:
 
 ```
 1. git pull / checkout
-2. ./secrets.sh              ← generates/loads secrets if missing
-3. ./build.sh                ← optional if images will be rebuilt by docker
-4. docker compose up -d --build
-5. docker compose ps         ← verify
-6. docker compose logs -f server   ← watch boot
+2. ./secrets.sh              ← write docker/secrets/ from .env.secrets (skip for env-only mode)
+3. ./check-env.sh            ← verify secrets chain is consistent; aborts if broken
+4. ./build.sh                ← optional if images will be rebuilt by docker
+5. docker compose up -d --build
+6. docker compose ps         ← verify
+7. docker compose logs -f server   ← watch boot
+```
+
+To rotate a credential after the stack is running:
+
+```
+1. Edit .env.secrets (or .env in env-only mode)
+2. ./secrets.sh              ← detects the change, ALTERs the running DB, updates the file, restarts affected services
+   ./secrets.sh --dry-run    ← preview without executing
 ```
 
 For a hot redeploy of just the server:

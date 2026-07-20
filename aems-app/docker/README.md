@@ -1,6 +1,141 @@
 # AEMS Docker Compose Stack
 
-## Quick Start
+<p align="center">
+  <strong>Docker Compose deployment configuration for the Skeleton App</strong>
+</p>
+
+<p align="center">
+  <a href="https://docs.docker.com/compose/" target="_blank">
+    <img src="https://img.shields.io/badge/docker--compose-2.x-blue.svg" alt="Docker Compose Version" />
+  </a>
+  <a href="https://traefik.io/" target="_blank">
+    <img src="https://img.shields.io/badge/traefik-2.10-orange.svg" alt="Traefik Version" />
+  </a>
+  <a href="https://www.postgresql.org/" target="_blank">
+    <img src="https://img.shields.io/badge/postgresql-16-blue.svg" alt="PostgreSQL Version" />
+  </a>
+  <a href="https://www.keycloak.org/" target="_blank">
+    <img src="https://img.shields.io/badge/keycloak-latest-red.svg" alt="Keycloak Version" />
+  </a>
+</p>
+
+---
+
+## Table of Contents
+
+- [🏗️ Overview](#️-overview)
+  - [Architecture](#architecture)
+  - [Optional Services (Profiles)](#optional-services-profiles)
+- [🚀 Quick Start](#-quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Basic Deployment](#basic-deployment)
+  - [Enable Optional Services](#enable-optional-services)
+- [📁 Directory Structure](#-directory-structure)
+- [⚙️ Configuration](#️-configuration)
+  - [Environment Files](#environment-files)
+  - [Key Configuration Variables](#key-configuration-variables)
+- [🔒 Security & TLS](#-security--tls)
+  - [Certificate Management](#certificate-management)
+  - [Security Headers](#security-headers)
+- [🗄️ Data Persistence](#️-data-persistence)
+  - [Docker Volumes](#docker-volumes)
+  - [Backup Considerations](#backup-considerations)
+- [🚀 Service Profiles](#-service-profiles)
+  - [Core Services (Always Running)](#core-services-always-running)
+  - [Optional Profiles](#optional-profiles)
+- [🛠️ Development & Debugging](#️-development--debugging)
+  - [Development Mode](#development-mode)
+  - [Service Health Checks](#service-health-checks)
+  - [Database Access](#database-access)
+  - [Debugging Services](#debugging-services)
+- [🗺️ Map Services Configuration](#️-map-services-configuration)
+  - [OpenStreetMap Tiles](#openstreetmap-tiles)
+  - [Nominatim Geocoding](#nominatim-geocoding)
+- [🔐 Authentication Configuration](#-authentication-configuration)
+  - [Keycloak SSO Setup](#keycloak-sso-setup)
+  - [Local Authentication](#local-authentication)
+- [📊 Monitoring & Maintenance](#-monitoring--maintenance)
+  - [Health Monitoring](#health-monitoring)
+  - [Maintenance Tasks](#maintenance-tasks)
+- [🚨 Troubleshooting](#-troubleshooting)
+  - [Common Issues](#common-issues)
+  - [Service-Specific Issues](#service-specific-issues)
+- [🔧 Advanced Configuration](#-advanced-configuration)
+  - [Custom TLS Certificates](#custom-tls-certificates)
+  - [External Database](#external-database)
+  - [Load Balancing](#load-balancing)
+  - [Custom Environment Variables](#custom-environment-variables)
+- [📚 Additional Resources](#-additional-resources)
+  - [Documentation](#documentation)
+  - [Related Files](#related-files)
+  - [Support](#support)
+
+---
+
+## 🏗️ Overview
+
+This directory contains the Docker Compose configuration and supporting files for deploying the Skeleton App in containerized environments. The configuration supports both development and production deployments with optional services that can be enabled through Docker Compose profiles.
+
+### Architecture
+
+The Docker deployment consists of the following core services:
+
+- **Client**: Next.js frontend application
+- **Server**: NestJS backend API server  
+- **Services**: Background services and job processing
+- **Database**: PostgreSQL with PostGIS extensions
+- **Init**: Database migration and initialization service
+
+### Optional Services (Profiles)
+
+- **Proxy** (`proxy`): Traefik reverse proxy with TLS/SSL support
+- **Redis** (`redis`): Caching and session storage
+- **SSO** (`sso`): Keycloak authentication server
+- **Map** (`map`): OpenStreetMap tile server
+- **Nominatim** (`nom`): Geocoding and address lookup service
+- **Wiki** (`wiki`): BookStack documentation wiki
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Docker 20.10+ and Docker Compose 2.x
+- At least 4GB RAM available for containers
+- 10GB+ disk space for images and volumes
+
+### Basic Deployment
+
+1. **Configure environment variables**
+   ```bash
+   # Copy and edit the main environment file
+   cp ../.env.example ../.env
+   cp ../.env.secrets.example ../.env.secrets
+
+   # Edit ../.env.secrets with real values, then generate docker/secrets/ files
+   # Windows
+   ..\secrets.ps1
+
+   # Linux/Mac
+   ../secrets.sh
+
+   # Validate configuration before starting
+   ../check-env.sh       # Linux/Mac
+   ..\check-env.ps1      # Windows
+   ```
+
+2. **Start core services**
+   ```bash
+   # From project root
+   docker compose up -d
+   ```
+
+3. **Access the application**
+   - Main application: https://localhost (or your configured APP_HOSTNAME)
+   - GraphQL API: https://localhost/graphql
+
+### Enable Optional Services
 
 ```bash
 cd volttron-pnnl-aems/aems-app/docker
@@ -39,7 +174,39 @@ Always start with `docker compose up -d` (no profile needed).
 
 ## Profiles
 
-Enable via `COMPOSE_PROFILES` in `.env` or `--profile` flag.
+### Key Configuration Variables
+
+#### Core Application
+```bash
+# Main environment file (../.env)
+COMPOSE_PROJECT_NAME=skeleton
+TAG=latest
+APP_HOSTNAME=localhost                # Change for production
+AUTH_PROVIDERS=keycloak              # local,super,bearer,keycloak
+LOGGERS=console,database             # console,database
+INSTANCE_TYPE=""                     # Service configuration (see below)
+```
+
+#### Service Instance Configuration
+
+The `INSTANCE_TYPE` environment variable controls which background services run in each container, enabling flexible deployment configurations:
+
+**Basic Syntax:**
+```bash
+# Enable specific services
+INSTANCE_TYPE=seed,log
+
+# Enable all services  
+INSTANCE_TYPE=*
+
+# Enable all except specific services
+INSTANCE_TYPE=*,!log
+
+# Run one service then shutdown
+INSTANCE_TYPE=^seed
+```
+
+**Common Deployment Patterns:**
 
 ```bash
 # Persistent (.env):
@@ -80,7 +247,62 @@ Replaces the monolithic `volttron` profile with per-agent containers over WebSoc
 
 All agent containers share image `aems-fastapi:${TAG}`, connect to `ws://aems-fastapi-server:8000`, and mount `aems-volttron-home` and `aems-agent-logs` volumes. The `aems-fastapi-server` itself mounts only `aems-volttron-home` and the Docker socket.
 
-**Setup:**
+---
+
+## 🔒 Security & TLS
+
+### Certificate Management
+
+The `certs` service automatically generates self-signed certificates using mkcert:
+
+- **Development**: Self-signed certificates for localhost
+- **Production**: Let's Encrypt certificates for valid domains
+
+#### Self-signed Certificates (Development)
+```bash
+# Certificates are automatically generated
+# CA certificate: /etc/certs/mkcert-ca.crt
+# Host certificate: /etc/certs/mkcert-hostname.crt
+```
+
+#### Let's Encrypt Certificates (Production)
+```bash
+# Configure in main .env file
+CERT_RESOLVER=letsencrypt
+ADMIN_EMAIL=your.email@example.com
+APP_HOSTNAME=yourdomain.com
+```
+
+### Security Headers
+
+Traefik proxy automatically applies security headers:
+- HTTPS redirect
+- HSTS (HTTP Strict Transport Security)
+- XSS protection
+- Content type sniffing protection
+- Frame denial
+- Referrer policy
+
+---
+
+## 🗄️ Data Persistence
+
+### Docker Volumes
+
+| Volume | Purpose | Data |
+|--------|---------|------|
+| `database-data` | PostgreSQL data | Application database |
+| `certs-data` | TLS certificates | SSL/TLS certificates |
+| `client-cache` | Next.js cache | Build cache and static files |
+| `file-upload` | File uploads | User uploaded files |
+| `keycloak-data` | Keycloak database | SSO configuration |
+| `keycloak-cache` | Keycloak cache | Session and cache data |
+| `nominatim-data` | Nominatim database | Geocoding data |
+| `nominatim-cache` | Nominatim cache | Search cache |
+| `wiki-data` | Wiki configuration | BookStack config |
+| `wiki-storage` | Wiki storage | Wiki content and uploads |
+
+### Backup Considerations
 
 ```bash
 # 1. Clone aems-lib-fastapi as sibling to volttron-pnnl-aems

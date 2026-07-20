@@ -18,8 +18,7 @@ if [ ! -f /etc/certs/mkcert-local.crt ]; then
         --key "/etc/certs/mkcert-local.key" \
         --cert "/etc/certs/mkcert-local.crt" \
         --domain "localhost" \
-        --domain "127.0.0.1" \
-        --domain "${HOSTNAME}"
+        --domain "127.0.0.1"
     if [ -n "${MACHINE_IP}" ]; then
         set -- "$@" --domain "${MACHINE_IP}"
     fi

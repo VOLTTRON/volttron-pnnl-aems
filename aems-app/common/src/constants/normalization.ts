@@ -1,9 +1,9 @@
-import { get, has, intersection, intersectionWith, isEmpty, isNil, merge, replace } from "lodash";
 import { regex } from "regex";
 import { IAllowed, IBase, INormalization, IProcess } from ".";
 import Base from "./base";
+import { deepMerge } from "../utils/util";
 
-const processLettersAndNumbers = (v: string): string => replace(v, regex("gm")`[^\s\p{L}0-9]`, "");
+const processLettersAndNumbers = (v: string): string => v.replace(regex("gm")`[^\s\p{L}0-9]`, "");
 
 class Normalization extends Base<INormalization> implements IBase<INormalization> {
   constructor() {
@@ -13,67 +13,67 @@ class Normalization extends Base<INormalization> implements IBase<INormalization
           name: "NFD",
           label: "NFD",
           unallowed: ["NFC", "NFKD", "NFKC"],
-          process: ((v) => (isNil(v) ? "" : v.normalize("NFD"))) as IProcess,
+          process: ((v) => (v == null ? "" : v.normalize("NFD"))) as IProcess,
         },
         {
           name: "NFC",
           label: "NFC",
           unallowed: ["NFD", "NFKD", "NFKC"],
-          process: ((v) => (isNil(v) ? "" : v.normalize("NFC"))) as IProcess,
+          process: ((v) => (v == null ? "" : v.normalize("NFC"))) as IProcess,
         },
         {
           name: "NFKD",
           label: "NFKD",
           unallowed: ["NFD", "NFC", "NFKC"],
-          process: ((v) => (isNil(v) ? "" : v.normalize("NFKD"))) as IProcess,
+          process: ((v) => (v == null ? "" : v.normalize("NFKD"))) as IProcess,
         },
         {
           name: "NFKC",
           label: "NFKC",
           unallowed: ["NFD", "NFC", "NFKD"],
-          process: ((v) => (isNil(v) ? "" : v.normalize("NFKC"))) as IProcess,
+          process: ((v) => (v == null ? "" : v.normalize("NFKC"))) as IProcess,
         },
         {
           name: "LOWERCASE",
           label: "Lowercase",
           unallowed: ["UPPERCASE"],
-          process: ((v) => (isNil(v) ? "" : v.toLowerCase())) as IProcess,
+          process: ((v) => (v == null ? "" : v.toLowerCase())) as IProcess,
         },
         {
           name: "UPPERCASE",
           label: "Uppercase",
           unallowed: ["LOWERCASE"],
-          process: ((v) => (isNil(v) ? "" : v.toUpperCase())) as IProcess,
+          process: ((v) => (v == null ? "" : v.toUpperCase())) as IProcess,
         },
         {
           name: "LETTERS",
           label: "Letters",
           unallowed: [],
-          process: ((v) => (isNil(v) ? "" : replace(v, regex("gm")`[^\s\p{L}]`, ""))) as IProcess,
+          process: ((v) => (v == null ? "" : v.replace(regex("gm")`[^\s\p{L}]`, ""))) as IProcess,
         },
         {
           name: "NUMBERS",
           label: "Numbers",
           unallowed: [],
-          process: ((v) => (isNil(v) ? "" : replace(v, /[^\s0-9]/gm, ""))) as IProcess,
+          process: ((v) => (v == null ? "" : v.replace(/[^\s0-9]/gm, ""))) as IProcess,
         },
         {
           name: "TRIM",
           label: "Trim",
           unallowed: ["CONCATENATE"],
-          process: ((v) => (isNil(v) ? "" : v.trim())) as IProcess,
+          process: ((v) => (v == null ? "" : v.trim())) as IProcess,
         },
         {
           name: "COMPACT",
           label: "Compact",
           unallowed: ["CONCATENATE"],
-          process: ((v) => (isNil(v) ? "" : replace(v, /\s+/gm, " "))) as IProcess,
+          process: ((v) => (v == null ? "" : v.replace(/\s+/gm, " "))) as IProcess,
         },
         {
           name: "CONCATENATE",
           label: "Concatenate",
           unallowed: ["TRIM", "COMPACT"],
-          process: ((v) => (isNil(v) ? "" : replace(v, /\s+/gm, ""))) as IProcess,
+          process: ((v) => (v == null ? "" : v.replace(/\s+/gm, ""))) as IProcess,
         },
       ].map((r) => ({
         ...r,
@@ -82,11 +82,11 @@ class Normalization extends Base<INormalization> implements IBase<INormalization
         }) as IAllowed<INormalization>,
       })),
       (t, r) =>
-        merge(r, {
+        deepMerge(r, {
           allowed: (r.unallowed.length === 0
             ? (_v) => true
             : (...v) => (t as Normalization).allowed(r, ...v)) as IAllowed<INormalization>,
-        }),
+        }) as INormalization,
     );
   }
 
@@ -120,24 +120,21 @@ class Normalization extends Base<INormalization> implements IBase<INormalization
   allowed = (a: INormalization | number | string, ...b: (INormalization | number | string)[]): boolean => {
     const normalizations = b.map((v) => this.parse(v)?.name).filter((v) => v);
     const allowed = this.parse(a)?.unallowed ?? [];
-    return isEmpty(intersection(normalizations, allowed));
+    return normalizations.filter(v => allowed.includes(v as string)).length === 0;
   };
 
   /**
    * Create a normalization function for the specified normalization types.
    */
   process = (...types: (INormalization | number | string)[]): IProcess => {
-    const joined = types.map((t) => (has(t, "label") ? t.label : t)).join("|");
-    const normalize = intersectionWith(
-      this.values,
-      joined.split(/[^a-zA-Z']+/).map((s) => this.parse(s)),
-      (a, b) => a?.name === b?.name,
-    );
+    const joined = types.map((t): string | number => (t !== null && typeof t === "object" && Object.prototype.hasOwnProperty.call(t, "label") ? (t).label : t as string | number)).join("|");
+    const parsed = joined.split(/[^a-zA-Z']+/).map((s) => this.parse(s));
+    const normalize = this.values.filter((a) => parsed.some((b) => a?.name === b?.name));
     return (value) => {
       return normalize.reduce((p, n, i, a) => {
         if (
-          (n.name === "LETTERS" && get(a, [i + 1, "name"]) === "NUMBERS") ||
-          (n.name === "NUMBERS" && get(a, [i - 1, "name"]) === "LETTERS")
+          (n.name === "LETTERS" && a[i + 1]?.name === "NUMBERS") ||
+          (n.name === "NUMBERS" && a[i - 1]?.name === "LETTERS")
         ) {
           return processLettersAndNumbers(p);
         }

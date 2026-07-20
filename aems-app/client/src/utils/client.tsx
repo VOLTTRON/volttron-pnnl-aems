@@ -1,4 +1,17 @@
-import { cloneDeep, merge } from "lodash";
+/**
+ * Derives the Keycloak admin console URL from NEXT_PUBLIC_KEYCLOAK_ISSUER_URL.
+ * Falls back to NEXT_PUBLIC_KEYCLOAK_ADMIN_URL if set, or the hardcoded default.
+ */
+export const keycloakAdminUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_KEYCLOAK_ADMIN_URL) return process.env.NEXT_PUBLIC_KEYCLOAK_ADMIN_URL;
+  const issuer = process.env.NEXT_PUBLIC_KEYCLOAK_ISSUER_URL ?? "";
+  const match = /\/realms\/([^/]+)/.exec(issuer);
+  if (match) {
+    const base = issuer.slice(0, issuer.indexOf("/realms/"));
+    return `${base}/admin/${match[1]}/console/`;
+  }
+  return "/auth/sso/admin/default/console/";
+};
 
 /**
  * Wraps the child component(s) only if the condition is met.
@@ -72,8 +85,8 @@ export const getTerm = <T extends {}, F extends keyof T>(
   return { [field]: temp } as Record<F, [string, string, string]>;
 };
 
-const addTerm = <T extends {}, F extends keyof T>(item: NotTerm<T>, key: F, term: string) =>
-  merge(item, { terms: getTerm(item, key, term) });
+const addTerm = <T extends {}, F extends keyof T>(item: NotTerm<T>, key: F, term: string): Term<T> =>
+  ({ ...item, terms: { ...(item as any).terms, ...getTerm(item, key, term) } }) as Term<T>;
 
 /**
  * Searches all of the text fields in the list of items which contain the search value.
@@ -97,6 +110,6 @@ export const filter = <T extends {}, F extends keyof T>(
     .map((item) =>
       (fields ?? (Reflect.ownKeys(item) as F[]))
         .filter((key) => String(item[key]).toLowerCase().includes(term))
-        .reduce((item, key) => addTerm(item, key, term), cloneDeep(item))
+        .reduce((acc, key) => addTerm(acc as NotTerm<T>, key, term), { ...item } as Term<T>)
     );
 };

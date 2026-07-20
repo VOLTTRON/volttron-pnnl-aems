@@ -2,7 +2,7 @@ import { Button, InputGroup, Intent, Label, Menu, MenuItem, Popover } from "@blu
 import { DatePicker3 } from "@blueprintjs/datetime2";
 import { IconNames } from "@blueprintjs/icons";
 import { useState } from "react";
-import { cloneDeep, isEmpty, merge } from "lodash";
+import { cloneDeep, isEmpty, merge } from "@local/common/dist/utils/lodash";
 import { Holiday, HolidayCreateDelete } from "./Holiday";
 import {
   HolidayType as HolidayList,

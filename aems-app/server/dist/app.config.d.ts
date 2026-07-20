@@ -87,6 +87,10 @@ export declare class AppConfigService {
         passRoles: boolean;
         defaultRole: string;
         checks?: ("pkce" | "state" | "none" | "nonce")[];
+        admin: string;
+        adminPassword: string;
+        adminRole: string;
+        adminInternalUrl: string;
     };
     password: {
         strength: number;

@@ -7,7 +7,6 @@ const core_1 = require("@zxcvbn-ts/core");
 const core_2 = require("@zxcvbn-ts/core");
 const zxcvbnCommonPackage = require("@zxcvbn-ts/language-common");
 const zxcvbnEnPackage = require("@zxcvbn-ts/language-en");
-const lodash_1 = require("lodash");
 const authRoles = (role) => {
     const roles = role.split(/[, |]+/).map((r) => r.trim()).filter(Boolean);
     return common_1.RoleType.values.reduce((a, v) => {
@@ -31,11 +30,12 @@ class AuthUser {
 }
 exports.AuthUser = AuthUser;
 function buildExpressUser(user) {
-    return (0, lodash_1.omit)({
+    const { password: _password, ...rest } = {
         ...user,
-        roles: (user.role?.split(",") ?? []).map((r) => common_1.RoleType.parse(r.trim())).filter((r) => (0, common_1.typeofObject)(r)),
+        roles: (user.role?.split(",") ?? []).map((r) => common_1.RoleType.parse(r)).filter((r) => (0, common_1.typeofObject)(r)),
         authRoles: authRoles(user.role ?? ""),
-    }, "password");
+    };
+    return rest;
 }
 const options = {
     dictionary: {
