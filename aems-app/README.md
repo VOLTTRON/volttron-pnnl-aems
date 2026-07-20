@@ -31,6 +31,10 @@
 
 ---
 
+The Skeleton framework has been significantly expanded from a single Next.js monolith (v1.2.0) into a mature four-workspace TypeScript monorepo (v2.0.4) with a dedicated NestJS backend, enabling enterprise-grade features not possible in the original architecture. Key additions include a first-class **backup system** with scheduled/manual runs, S3 storage, and Age encryption; **PostGIS geographic data support** for map-based use cases; a **Keycloak admin management UI** for SSO user and role administration; and a **role-gated reverse proxy** for securely surfacing internal services like map tiles. The authentication stack was modernized from the experimental Lucia library to the industry-standard Auth.js + Passport.js combination, and real-time GraphQL subscriptions were upgraded to Redis-backed pub/sub for production scalability. The shared `@local/common` library was extracted to enforce consistent types and utilities across both the server and client, and the client gained new capabilities including light/dark theme switching, user preferences persistence, file uploads with S3 storage, ECharts data visualization, and deck.gl 3D map layers.
+
+---
+
 ## Table of Contents
 
 - [AEMS Platform](#aems-platform)
@@ -2220,8 +2224,7 @@ This generates:
 **Deploy with Secrets:**
 
 ```bash
-# Use the generated .env.secrets.docker file
-docker compose --env-file docker/.env.secrets.docker up -d
+docker compose up -d
 ```
 
 **Supported Secrets:**
@@ -2252,7 +2255,7 @@ The system provides flexible secret management through conditional environment v
 
 **With Secrets (Enhanced Security):**
 - Run `secrets.sh` / `secrets.ps1` to generate secret files
-- Start containers with: `docker compose --env-file docker/.env.secrets.docker up -d`
+- Start containers with: `docker compose up -d`
 - The `.env.secrets.docker` file sets `_FILE` variables (e.g., `POSTGRES_PASSWORD_FILE`)
 - Database containers read passwords from `/run/secrets/` instead
 - Plain password variables are ignored when `_FILE` is set
