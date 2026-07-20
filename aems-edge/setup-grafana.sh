@@ -322,7 +322,15 @@ if [[ -d "${GRAFANA_DIR}" ]]; then
     run_grafana_dashboard_generation "${GRAFANA_DIR}"
     if [[ $? -eq 0 ]]; then
         log_success "Grafana dashboard generation completed successfully"
-        
+
+        # The consuming aems-services and aems-server containers run as UID
+        # 1000 (node) and read this tree via a :ro mount at /app/grafana/.
+        # This script runs as root, so without an explicit chmod the app
+        # hits EACCES on readdir. a+rX sets the exec bit only on directories
+        # and already-exec files.
+        log_info "Making output tree world-readable for non-root consumers"
+        chmod -R a+rX "${OUTPUT_DIR}"
+
         # Dashboard URLs metadata file is already in OUTPUT_DIR
         # This is the mounted persistent volume where it needs to be
         URLS_SOURCE_FILE="${OUTPUT_DIR}/${VOLTTRON_CAMPUS}_${VOLTTRON_BUILDING}_dashboard_urls.json"

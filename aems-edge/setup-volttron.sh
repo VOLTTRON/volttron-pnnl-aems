@@ -363,6 +363,13 @@ else
     exit 1
 fi
 
+# The consuming aems-services container runs as UID 1000 (node) and reads
+# this tree via a :ro bind mount. This script runs as root, so without an
+# explicit chmod the app hits EACCES on readdir. a+rX sets the exec bit
+# only on directories and already-exec files.
+log_info "Making output tree world-readable for non-root consumers"
+chmod -R a+rX "${OUTPUT_DIR}"
+
 # Remove SSL configuration from platform_config.yml to use plain HTTP
 log_info "Removing SSL configuration from platform_config.yml..."
 PLATFORM_CONFIG="${OUTPUT_DIR}/configs/platform_config.yml"
