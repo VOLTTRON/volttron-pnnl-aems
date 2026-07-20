@@ -39,6 +39,7 @@ export default function ILCPage() {
   const [editing, setEditing] = useState<Partial<Term<NonNullable<ReadControlsQuery["readControls"]>[0]>> | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<(() => void) | null>(null);
+  const [mixedOverrides, setMixedOverrides] = useState<Record<string, boolean>>({});
 
   const { route } = useContext(RouteContext);
   const { createNotification } = useContext(NotificationContext);
@@ -101,32 +102,40 @@ export default function ILCPage() {
 
   const handleEdit = (control: Term<NonNullable<ReadControlsQuery["readControls"]>[0]>) => {
     const current = editing && controls?.find((v) => v.id === editing?.id);
-    if (current && isSave(current)) {
-      setConfirm(
-        () => () =>
-          setEditing({
-            id: control.id,
-            label: control.label,
-            correlation: control.correlation,
-            units: control.units?.map((v) => ({ id: v.id })) || [],
-          }),
-      );
-    } else {
+    const startEditing = () => {
+      setMixedOverrides((prev) => {
+        const { [control.id as string]: _, ...rest } = prev;
+        return rest;
+      });
       setEditing({
         id: control.id,
         label: control.label,
         correlation: control.correlation,
         units: control.units?.map((v) => ({ id: v.id })) || [],
       });
+    };
+    if (current && isSave(current)) {
+      setConfirm(() => startEditing);
+    } else {
+      startEditing();
     }
   };
 
   const handleCancel = () => {
     const current = editing && controls?.find((v) => v.id === editing?.id);
-    if (current && isSave(current)) {
-      setConfirm(() => () => setEditing(null));
-    } else {
+    const clearEditing = () => {
+      if (editing?.id) {
+        setMixedOverrides((prev) => {
+          const { [editing.id as string]: _, ...rest } = prev;
+          return rest;
+        });
+      }
       setEditing(null);
+    };
+    if (current && isSave(current)) {
+      setConfirm(() => clearEditing);
+    } else {
+      clearEditing();
     }
   };
 
@@ -205,6 +214,10 @@ export default function ILCPage() {
       // Wait for all operations to complete
       await Promise.allSettled(operations);
       createNotification?.("All changes saved successfully", NotificationType.Notification);
+      setMixedOverrides((prev) => {
+        const { [editing.id as string]: _, ...rest } = prev;
+        return rest;
+      });
       setEditing(null);
     }
   };
@@ -392,11 +405,15 @@ export default function ILCPage() {
           const value = merge({}, control, editing);
           const { units, label } = value;
           const { campus, building } = units?.[0] ?? {};
-          const peakLoadExclude = units?.every((u) => u.peakLoadExclude === true)
-            ? "true"
-            : units?.every((u) => u.peakLoadExclude === false)
-            ? "false"
+          const derivedParticipation = units?.every((u) => u.peakLoadExclude === false)
+            ? "yes"
+            : units?.every((u) => u.peakLoadExclude === true)
+            ? "no"
             : "mixed";
+          const participation =
+            control.id && mixedOverrides[control.id] && derivedParticipation !== "mixed"
+              ? "mixed"
+              : derivedParticipation;
 
           return isEditing ? (
             <Card key={`control-${control.id ?? i}-editing`} interactive className={styles.editingCard}>
@@ -473,29 +490,32 @@ export default function ILCPage() {
                   <Label>
                     <b>Participate in Grid Services</b>
                     <HTMLSelect
-                      value={peakLoadExclude}
+                      value={participation}
                       onChange={(e) => {
-                        const peakLoadExclude = e.target.value;
+                        if (!control.id) return;
+                        const controlId = control.id;
+                        const next = e.target.value;
                         const clone = cloneDeep(editing ?? {});
+                        if (next === "mixed") {
+                          setMixedOverrides((prev) => ({ ...prev, [controlId]: true }));
+                          setEditing(clone);
+                          return;
+                        }
+                        setMixedOverrides((prev) => ({ ...prev, [controlId]: false }));
                         clone.units = (control.units || []).map((u: any) => {
                           const existing = clone.units?.find((eu: any) => eu?.id === u.id) || {};
-                          switch (peakLoadExclude) {
-                            case "true":
-                              return { ...existing, id: u.id, peakLoadExclude: true };
-                            case "false":
-                              return { ...existing, id: u.id, peakLoadExclude: false };
-                            case "mixed":
-                            default:
-                              delete existing.peakLoadExclude;
-                              return existing;
-                          }
+                          return {
+                            ...existing,
+                            id: u.id,
+                            peakLoadExclude: next === "no",
+                          };
                         });
                         setEditing(clone);
                       }}
                       fill
                     >
-                      <option value="true">Yes</option>
-                      <option value="false">No</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
                       <option value="mixed">Mixed</option>
                     </HTMLSelect>
                   </Label>
@@ -558,18 +578,16 @@ export default function ILCPage() {
                         setEditing(clone);
                       }}
                       hidden={(() => {
-                        // Get the unit's peakLoadExclude value (from editing state or original unit)
                         const editingUnit = editing?.units?.find((v: any) => v?.id === unit.id);
                         const unitPeakLoadExclude = editingUnit?.peakLoadExclude ?? (unit as any).peakLoadExclude;
 
                         return [
-                          // Hide unit-level peakLoadExclude field since it's controlled at the control level
-                          "peakLoadExclude",
+                          // Hide the per-unit toggle when the control-level select is Yes or No;
+                          // show it when Mixed so users can flip individual units.
+                          ...(participation !== "mixed" ? ["peakLoadExclude"] : []),
 
-                          // Hide grid services related fields if control or unit excludes peak load
                           ...(unitPeakLoadExclude ? ["coolingPeakOffset", "heatingPeakOffset"] : []),
 
-                          // Always hide these advanced fields for ILC (they're for RTU configuration in setup page)
                           "optimalStartLockout",
                           "optimalStartDeviation",
                           "earliestStart",
