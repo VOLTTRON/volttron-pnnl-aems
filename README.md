@@ -1,4 +1,4 @@
-# Volttron PNNL AEMS
+# VOLTTRON PNNL AEMS
 
 This repository contains two projects: `aems-edge` and `aems-app`.
 
@@ -41,7 +41,7 @@ The architecture of AEMS integrates the following elements:
 
 ## Deployment Guide
 
-This section is written for the administrator who is installing, configuring, and maintaining an AEMS deployment. It covers the deployment lifecycle end-to-end and links into the in-depth references in [aems-app/README.md](./aems-app/README.md) rather than duplicating them.
+This section is the administrator's runbook — it covers the deployment lifecycle (configuration, operations, maintenance, hardening) at a high level and links into the in-depth references rather than duplicating them. For the **step-by-step bring-up and verification procedure**, follow the dedicated [docs/DEPLOYMENT_GUIDE.md](./docs/DEPLOYMENT_GUIDE.md); for the full configuration reference see [aems-app/README.md](./aems-app/README.md).
 
 ### Topology
 
@@ -78,11 +78,16 @@ Decide these before you start; they are awkward to change later.
 
 Authentication is **Keycloak SSO with Auth.js** out of the box (`AUTH_PROVIDERS=keycloak` in [aems-app/.env](./aems-app/.env)) — no decision required up front, but you will need to set the Keycloak client secret during [Initial Configuration](#initial-configuration) below.
 
-### What runs by default
+### Edge runtime modes
 
-The default `COMPOSE_PROFILES` value in [aems-app/.env](./aems-app/.env) brings up the full operational stack — `proxy`, `sso`, `redis`, `volttron`, `historian`, `grafana` — plus the always-on core (init, certs, database, client, server, services, seeders, backup sidecar). This is the configuration most deployments should use as-is.
+The stack supports **two interchangeable edge runtimes**, selected through `COMPOSE_PROFILES` in [aems-app/.env](./aems-app/.env). They are equally supported — pick one based on how your building's devices are reached. **Do not enable both** (they conflict on port 5410).
 
-The compose project also defines a few rarely-used profiles that are **not** in the default set: `map` (OpenStreetMap tiles), `nom` (Nominatim geocoder), `wiki` (BookStack), and `fastapi` / `fastapi-agents` (alternative FastAPI-based edge runtime). You only need these for specific scenarios; see [aems-app/docker/docker-compose.yml](./aems-app/docker/docker-compose.yml) for the authoritative service list.
+- **FastAPI mode** (`fastapi,fastapi-agents`) — uses the `aems-lib-fastapi` WebSocket message bus and runs all edge agents in a single `aems-agents` container. Devices are reached over HTTP through a Normal Framework (NF) gateway that bridges to BACnet.
+- **Legacy VOLTTRON mode** (`volttron`) — the monolithic VOLTTRON container with direct BACnet/IP (UDP 47808) device access.
+
+A typical full stack adds the shared services on top of the chosen runtime, e.g. `proxy,sso,redis,fastapi,fastapi-agents,grafana` or `proxy,sso,redis,volttron,grafana`, plus the always-on core (init, certs, database, client, server, services, seeders, backup sidecar). The runtime choice, profile combinations, and prerequisites are covered in detail in [docs/DEPLOYMENT_GUIDE.md → Choose an edge runtime](./docs/DEPLOYMENT_GUIDE.md#3-choose-an-edge-runtime).
+
+The compose project also defines a few truly optional profiles outside the operational stack: `map` (OpenStreetMap tiles), `nom` (Nominatim geocoder), and `wiki` (BookStack). See [aems-app/docker/docker-compose.yml](./aems-app/docker/docker-compose.yml) for the authoritative service list.
 
 ### Install
 
@@ -233,11 +238,12 @@ hostssl historian       replicator      203.0.113.42/32         scram-sha-256
 
 ### Detailed References
 
+- **Step-by-step deployment & verification guide (both edge runtimes):** [docs/DEPLOYMENT_GUIDE.md](./docs/DEPLOYMENT_GUIDE.md)
+- **FastAPI edge runtime architecture & data-flow reference:** [docs/FASTAPI_DOCKER_STATUS.md](./docs/FASTAPI_DOCKER_STATUS.md)
 - **Full configuration reference (env vars, profiles, secrets, backups, Keycloak):** [aems-app/README.md](./aems-app/README.md)
 - **Historian off-site replication guide and scripts:** `https://<HOSTNAME>/historian` (served by the running deployment)
 - **Backup pipeline internals and per-component restore details:** [aems-app/docker/backup/README.md](./aems-app/docker/backup/)
 - **VOLTTRON edge agent reference:** [aems-edge/README.rst](./aems-edge/README.rst)
-- **FastAPI edge runtime walkthrough (driver modes, device wiring):** [docs/SETUP_GUIDE.md](./docs/SETUP_GUIDE.md)
 - **VOLTTRON platform documentation:** [volttron.readthedocs.io](https://volttron.readthedocs.io/en/main/)
 
 ## Generating Certificates

@@ -202,7 +202,7 @@ class Device:
                     index=int(row['Index']),
                     bacnet_object_type=DATA_TYPE_MAP[row['BACnet Object Type']],
                     unit=row['Units'],
-                    write_priority=int(row['Write Priority']),
+                    write_priority=int(row['Write Priority']) if row.get('Write Priority', '').strip() else 16,
                     writeable=True if row.get('Writable', 'true').lower() == 'true' else False,
                     device_id=self.device_id
                 )
@@ -670,7 +670,7 @@ class NormalFrameworkConnector(Agent):
         :type kwargs: dict
         :return: None
         """
-        self.polling_service = self.core.periodic(self.polling_interval, self.scrape_all, wait=self.polling_interval)
+        self.polling_service = self.core.schedule(self.polling_interval, self.scrape_all)
 
     def initialize_devices(self, device_list: list, **kwargs):
         """
@@ -712,7 +712,12 @@ class NormalFrameworkConnector(Agent):
         :return: The device associated with the given topic.
         :rtype: Device
         """
-        return self.device_dict[topic]
+        if topic in self.device_dict:
+            return self.device_dict[topic]
+        prefixed = f"devices/{topic}"
+        if prefixed in self.device_dict:
+            return self.device_dict[prefixed]
+        raise KeyError(topic)
 
     @RPC.export
     def get_point(self, device_path: str, point_name: str, **kwargs):
