@@ -68,6 +68,8 @@ Two layers:
 
 **Layer 1: Docker secrets** declared at the top of [docker/docker-compose.yml](../../docker/docker-compose.yml) — session, JWT, DB passwords, Keycloak admin and client secret, BookStack session key, Nominatim, and `worker_token` (for backup sidecar API auth). Each is a file in [docker/secrets/](../../docker/secrets/) mounted **read-only** into containers. **Files must exist before `docker compose up`** — generate via the repo-root `secrets.sh` / `secrets.ps1`.
 
+The `keycloak_admin_password` secret is mounted into the `keycloak`, **`server`**, and **`services`** containers. The `server` and `services` containers need it so that `KeycloakAdminService` can authenticate against the Keycloak master realm to manage realm roles on behalf of app users.
+
 **Layer 2: Auto-generated at first boot** — the backup sidecar's age-style encryption keypair. NOT a declared Docker secret (would require pre-existence); the [docker/backup/init-keys.sh](../../docker/backup/init-keys.sh) entrypoint writes into `./docker/secrets/backup/` mounted at `/host-secrets`.
 
 [docker/secrets/](../../docker/secrets/) is gitignored. Don't commit anything there.
@@ -79,6 +81,7 @@ Two layers:
 ## Environment
 
 - Root [.env](../../.env) — non-secret defaults. Auto-loaded by compose only when invoked from the repo root.
+- `KEYCLOAK_ADMIN_INTERNAL_URL` — when set (e.g. `http://skeleton-keycloak:8080/auth/sso`), the `server` container routes Keycloak Admin REST API calls directly to the internal Docker DNS name, bypassing Traefik. Without this, the server would call out through the public hostname and back through the proxy unnecessarily. Typically set in `docker/.env.keycloak` or the root `.env`.
 - `docker/.env.secrets.docker` (if present) — additional secret-style overrides.
 - Compose interpolates `${VAR}` from the shell. [start-services.sh](../../start-services.sh) / [start-services.ps1](../../start-services.ps1) load `.env` before invoking compose.
 - `COMPOSE_PROJECT_NAME` prefixes container names — respect it when writing helper scripts.

@@ -103,13 +103,36 @@ The recommended dev workflow runs the **client locally** at `https://<HOSTNAME>:
 
 ## Keycloak
 
-Optional, gated behind the `keycloak` compose profile. When enabled:
+Optional, gated behind the `sso` compose profile. When enabled:
 
 - [docker/keycloak/](../../docker/keycloak/) contains the image + [default-realm.json](../../docker/keycloak/default-realm.json) + [init-keycloak.sh](../../docker/keycloak/init-keycloak.sh).
 - Traefik routes `/auth/sso/*` → Keycloak.
 - Set `AUTH_FRAMEWORK=authjs` and configure `KEYCLOAK_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`.
-- `KEYCLOAK_PASS_ROLES=true` maps Keycloak realm roles to the internal Role enum.
+- `KEYCLOAK_PASS_ROLES=true` maps Keycloak realm roles to the internal `Role` enum.
 - Onboarding screenshots are in [docs/](../../docs/).
+- The `keycloak` role (in `RoleEnum`) grants access to the in-app admin management page (`/keycloak`) and — when synced — direct access to the Keycloak Admin Console via SSO.
+
+### Keycloak Admin API
+
+[server/src/graphql/keycloak/](../../server/src/graphql/keycloak/) is a GraphQL aggregate (separate from the OAuth2 auth strategy) that exposes realm-role management to privileged app users.
+
+**KeycloakAdminService** ([keycloak-admin.service.ts](../../server/src/graphql/keycloak/keycloak-admin.service.ts)):
+- Authenticates against the Keycloak **master realm** using a Resource Owner Password grant (`KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD`).
+- When `KEYCLOAK_ADMIN_INTERNAL_URL` is set (e.g. `http://skeleton-keycloak:8080/auth/sso` in Docker), admin REST calls go directly to that host, bypassing the Traefik proxy.
+- Key methods: `listRealmRoles`, `getUserRoles`, `assignRoles`, `revokeRoles`, `hasAdminAccess`, `assignRealmManagementRoles`, `revokeRealmManagementRoles`, `syncAdminRole`.
+
+**Role sync (`syncAdminRole`):** Whenever the app-level `keycloak` role is granted or revoked on a user (via `createUser` / `updateUser`), `syncAdminRole` mirrors the change into Keycloak's `realm-management` client roles (default: `realm-admin`). This gives the user direct access to the Keycloak Admin Console via their existing SSO session — no separate Keycloak password needed.
+
+**GraphQL access control:** All queries and mutations in this aggregate use `authScopes: { keycloak: true }` (enforced by the Pothos scope-auth plugin). Only users holding the `keycloak` role can invoke them.
+
+**New env vars (consumed by `AppConfigService` on the server):**
+
+| Var | Description | Default |
+|-----|-------------|---------|
+| `KEYCLOAK_ADMIN` | Master-realm admin username | `admin` |
+| `KEYCLOAK_ADMIN_PASSWORD` | Admin password (also a Docker secret: `keycloak_admin_password`) | — |
+| `KEYCLOAK_ADMIN_INTERNAL_URL` | Base URL for Admin REST calls in Docker (bypasses Traefik proxy) | derived from `KEYCLOAK_ISSUER` |
+| `KEYCLOAK_ADMIN_ROLE` | `realm-management` client role to grant/revoke for admin console access | `realm-admin` |
 
 ## How to add a new auth provider
 

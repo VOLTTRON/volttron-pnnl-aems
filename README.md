@@ -1201,6 +1201,17 @@ The Bookstack wiki container is provided mostly as an example of how to configur
 
 Keycloak is the only container that requires configuration through their user interface. The other containers are configured by default to use a realm labeled `default`. Individual clients for [server](./server/), and `wiki` if utilized, will need to be configured, and their secrets set in the [.env](./.env) file. Keycloak documentation should be consulted for configuration.
 
+Key `.env` variables for the Keycloak integration (server-side, in addition to the `KEYCLOAK_CLIENT_SECRET` Docker secret):
+
+| Variable | Description | Default |
+|---|---|---|
+| `KEYCLOAK_ADMIN` | Master-realm admin username used by the server's Admin REST client | `admin` |
+| `KEYCLOAK_ADMIN_PASSWORD` | Admin password — also a Docker secret (`keycloak_admin_password`) mounted into `server` and `services` containers | — |
+| `KEYCLOAK_ADMIN_INTERNAL_URL` | Internal Docker URL for admin API calls (e.g. `http://skeleton-keycloak:8080/auth/sso`), bypasses Traefik | derived from `KEYCLOAK_ISSUER` |
+| `KEYCLOAK_ADMIN_ROLE` | `realm-management` client role granted for in-app admin access toggle | `realm-admin` |
+| `KEYCLOAK_DEFAULT_ROLE` | Role automatically assigned to new Keycloak registrations | — |
+| `KEYCLOAK_PASS_ROLES` | Map Keycloak realm roles to the app's internal `Role` enum on login | `false` |
+
 ### Nominatim (optional)
 
 By default the Nominatim container will download the required area when the containers are first started. Map data can be downloaded here: [download.geofabrik.de/north-america](https://download.geofabrik.de/north-america/us.html).
@@ -1436,6 +1447,15 @@ docker compose up -d
 ```
 
 > <b>Note: </b> Keycloak doesn't pass roles to the client application by default. The client role scope will need to be added to the ID token. This can be done at `Client scopes -> Mappers -> client roles`. The realm groups and associated client roles will also need to be manually assigned to the user in the Keycloak admin interface. [https://www.keycloak.org/docs](https://www.keycloak.org/docs/latest/server_admin/#assigning-permissions-using-roles-and-groups)
+
+### Managing Keycloak Users via the App
+
+Once Keycloak is configured and the stack is running, users with the **`keycloak`** role can navigate to **Admin → Keycloak** (`/keycloak`) to manage realm roles without leaving the application:
+
+- **Realm role assignment** — select any app user, see their current realm roles as colour-coded tags, and click Assign or Revoke per role.
+- **Admin Console access toggle** — grant or revoke the `realm-admin` client role for a user. When granted, the user can log into the Keycloak Admin Console directly via their existing SSO session — no separate Keycloak password is required.
+
+The `keycloak` role itself is assigned in the **Admin → Users** page. Assigning it automatically synchronises the `realm-admin` client role in Keycloak via `syncAdminRole`.
 
 ### Administration
 

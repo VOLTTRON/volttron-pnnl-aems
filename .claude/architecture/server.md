@@ -8,7 +8,7 @@ NestJS 11 + Apollo Server 4 + Pothos (code-first GraphQL) backed by Prisma. Hand
 - [server/src/app.module.ts](../../server/src/app.module.ts) — root NestJS module. Wires everything together.
 - [server/src/app.config.ts](../../server/src/app.config.ts) — typed env config service. **Read config through this, not `process.env`.**
 - [server/src/schema.ts](../../server/src/schema.ts) — entrypoint used by `yarn compile:schema` to emit [server/schema.graphql](../../server/schema.graphql).
-- [server/src/graphql/](../../server/src/graphql/) — Pothos schema builders, **one folder per aggregate**: `user/`, `backup/`, `banner/`, `comment/`, `feedback/`, `file/`, `geography/`, `log/`, `account/`, `current/`. Each typically defines object types, query inputs, mutation inputs, subscriptions.
+- [server/src/graphql/](../../server/src/graphql/) — Pothos schema builders, **one folder per aggregate**: `user/`, `backup/`, `banner/`, `comment/`, `feedback/`, `file/`, `geography/`, `log/`, `account/`, `current/`, `keycloak/`. Each typically defines object types, query inputs, mutation inputs, subscriptions.
   - [builder.service.ts](../../server/src/graphql/builder.service.ts) — the shared Pothos `SchemaBuilder` with plugins.
   - [pothos.driver.ts](../../server/src/graphql/pothos.driver.ts) — NestJS driver that feeds the Pothos schema into `@nestjs/graphql`.
   - [pothos.decorator.ts](../../server/src/graphql/pothos.decorator.ts) — `@PothosBuilder`, `@PothosObject`, `@PothosQuery`, `@PothosMutation` metadata decorators.
@@ -23,6 +23,28 @@ NestJS 11 + Apollo Server 4 + Pothos (code-first GraphQL) backed by Prisma. Hand
 - [server/src/redis.ts](../../server/src/redis.ts), [server/src/subscription/](../../server/src/subscription/) — Redis client + GraphQL pub/sub transport.
 - [server/src/middleware/](../../server/src/middleware/), [server/src/logging/](../../server/src/logging/), [server/src/utils/](../../server/src/utils/).
   - [readSecret.ts](../../server/src/utils/readSecret.ts) — reads a credential from `/run/secrets/<name>` (Docker secret file) with `_FILE` env var and plain env var fallbacks. Used by `PrismaService` and `KeycloakService`.
+- [server/src/graphql/keycloak/](../../server/src/graphql/keycloak/) — Keycloak Admin API aggregate. **Not** part of the OAuth2 auth strategy — this exposes realm-role management to app users holding the `keycloak` role. Files: `keycloak-admin.service.ts` (Admin REST API client), `object.service.ts` (`KeycloakRole` type), `query.service.ts`, `mutate.service.ts`. See [auth.md](auth.md) § "Keycloak Admin API" for full detail.
+
+  GraphQL operations (all scoped `authScopes: { keycloak: true }`):
+
+  | Operation | Type | Description |
+  |-----------|------|-------------|
+  | `readAvailableKeycloakRoles` | Query | Lists all realm roles |
+  | `readKeycloakRoles(userId)` | Query | Lists realm roles assigned to a user |
+  | `readKeycloakAdminAccess(userId)` | Query | Returns whether a user has Keycloak Admin Console access |
+  | `assignKeycloakRoles` | Mutation | Assigns realm roles to a user |
+  | `revokeKeycloakRoles` | Mutation | Revokes realm roles from a user |
+  | `grantKeycloakAdminAccess` | Mutation | Grants `realm-management` admin role |
+  | `revokeKeycloakAdminAccess` | Mutation | Revokes `realm-management` admin role |
+
+  Additional `AppConfigService` fields for the Keycloak admin service:
+
+  | Env var | Description | Default |
+  |---------|-------------|---------|
+  | `KEYCLOAK_ADMIN` | Master-realm admin username | `admin` |
+  | `KEYCLOAK_ADMIN_PASSWORD` | Admin password (Docker secret: `keycloak_admin_password`) | — |
+  | `KEYCLOAK_ADMIN_INTERNAL_URL` | Internal Docker URL for Admin REST calls | derived from `KEYCLOAK_ISSUER` |
+  | `KEYCLOAK_ADMIN_ROLE` | `realm-management` client role name for admin access | `realm-admin` |
 - [server/src/schema-app.module.ts](../../server/src/schema-app.module.ts) — minimal `SchemaAppModule` used only by the `compile:schema` entrypoint (`schema.ts`). Loads just enough to build the Pothos schema without starting HTTP/WS/background services.
 
 ## Root module tree (`app.module.ts`)
