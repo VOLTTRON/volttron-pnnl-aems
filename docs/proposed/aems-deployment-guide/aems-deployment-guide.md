@@ -431,21 +431,18 @@ The recommended way into the Keycloak Admin Console is to sign into the AEMS UI 
 
 Use this when a user has forgotten their AEMS password. The user must already exist in Keycloak, which means they must have completed the Guest → Login → Register flow at least once.
 
-1. Sign into the AEMS UI as an administrator, browse to `https://<HOSTNAME>/keycloak`, and click **Open Keycloak Admin Console**.
-2. In the top-left realm dropdown (which reads **master** immediately after sign-in), switch to **default**.
-3. In the left-hand navigation, choose **Users**. Enter the target user's email into the search box and press Enter.
-4. Click the user's row to open their profile, then select the **Credentials** tab.
-5. Under **Set password**, enter a new temporary password in both the **Password** and **Password confirmation** fields.
-6. Leave the **Temporary** toggle **on** so Keycloak forces the user to change the password on their next login.
-7. Click **Set password**, then click **Save password** in the confirmation dialog.
+1. Sign into the AEMS UI as an administrator, browse to `https://<HOSTNAME>/keycloak`, and click **Open Keycloak Admin Console**. The console opens in the `default` realm; no realm switch is required.
+2. In the left-hand navigation, choose **Users**. Enter the target user's email into the search box and press Enter.
+3. Click the user's row to open their profile, then select the **Credentials** tab.
+4. Under **Set password**, enter a new temporary password in both the **Password** and **Password confirmation** fields.
+5. Leave the **Temporary** toggle **on** so Keycloak forces the user to change the password on their next login.
+6. Click **Set password**, then click **Save password** in the confirmation dialog.
 
 Communicate the temporary password to the user out-of-band (not through the email address attached to the AEMS account).
 
 **Figure 7.1.** The AEMS `/keycloak` page with the **Open Keycloak Admin Console** button highlighted.
 
-**Figure 7.2.** Keycloak Admin Console with the realm switcher expanded, showing `master` and `default`.
-
-**Figure 7.3.** The Credentials tab for a user, with the Set password fields and the Temporary toggle highlighted.
+**Figure 7.2.** The Credentials tab for a user, with the Set password fields and the Temporary toggle highlighted.
 
 > **NOTE.** Keycloak enforces the realm's password policy on **Set password**. If the policy has been tightened — for example, minimum length 12, one special character required — a weak new password is rejected and the dialog stays open with a validation error. Choose a password that satisfies the policy.
 
@@ -468,7 +465,7 @@ The AEMS UI updates the user's `User.role` in the AEMS database and — because 
 
 The target user must have signed into the AEMS UI at least once before they appear in the **Admin → Users** list — the row is created on first login.
 
-**Figure 7.4.** The AEMS **Admin → Users** page showing the Edit User dialog with the Role dropdown set to `keycloak`.
+**Figure 7.3.** The AEMS **Admin → Users** page showing the Edit User dialog with the Role dropdown set to `keycloak`.
 
 > **NOTE.** Granting the `realm-management/realm-admin` role directly in the Keycloak Admin Console (bypassing the AEMS UI) does **not** update the AEMS `User.role` column — the AEMS UI will still show the user as their previous role and the two sides will drift. Always promote through the AEMS UI so the AEMS database and Keycloak stay in agreement.
 

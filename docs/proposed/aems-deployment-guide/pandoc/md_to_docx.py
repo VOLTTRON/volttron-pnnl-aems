@@ -915,13 +915,56 @@ def _shade_cell(cell, fill_hex):
 
 def render_list(doc, items, kind):
     style = PNNL_STYLES["bullet"] if kind == "ul" else PNNL_STYLES["number"]
+
+    # For ordered lists, allocate a fresh numId per list so numbering restarts
+    # at 1 for each new list. Without this override every ordered list picks
+    # up the single numId=35 on the "List Number" style and Word continues
+    # counting across the whole document.
+    num_id = None
+    if kind == "ol":
+        _NUMBERING_STATE["next_num_id"] += 1
+        num_id = _NUMBERING_STATE["next_num_id"]
+        _NUMBERING_STATE["ordered_num_ids"].append(num_id)
+
     for item in items:
         try:
             p = doc.add_paragraph(style=style)
         except KeyError:
             p = doc.add_paragraph()
             p.add_run("• " if kind == "ul" else "")
+
+        if num_id is not None:
+            _apply_num_id(p, num_id)
+
         add_inline(p, item)
+
+
+# Running state for numbered-list numId allocation. Reset at the start of
+# each build() call. next_num_id starts at 100 to stay well above any
+# numId defined in the template (the largest observed is 35).
+_NUMBERING_STATE = {
+    "next_num_id": 100,
+    "ordered_num_ids": [],  # list of allocated numIds; each becomes a fresh <w:num> in numbering.xml
+}
+
+
+def _apply_num_id(paragraph, num_id):
+    """Override the paragraph's numPr so Word uses `num_id` instead of the
+    style-inherited numId. Ensures each ordered list starts numbering at 1.
+    """
+    pPr = paragraph._p.get_or_add_pPr()
+    # Remove any existing numPr (from the style inheritance) before setting ours
+    existing = pPr.find(qn("w:numPr"))
+    if existing is not None:
+        pPr.remove(existing)
+    numPr = OxmlElement("w:numPr")
+    ilvl = OxmlElement("w:ilvl")
+    ilvl.set(qn("w:val"), "0")
+    numPr.append(ilvl)
+    n = OxmlElement("w:numId")
+    n.set(qn("w:val"), str(num_id))
+    numPr.append(n)
+    pPr.append(numPr)
 
 
 # Callout color palette. Each entry: (header_fill, body_fill, body_border)
@@ -1578,6 +1621,52 @@ def _patch_customxml_and_headers(docx_path, meta):
             file=sys.stderr,
         )
 
+    # Build the numbering.xml additions for the ordered lists in this build.
+    #
+    # Ordered lists get their own numbering definition so each list restarts
+    # at 1. Two things must be done:
+    #
+    # 1. Inject a fresh <w:abstractNum> (abstractNumId=100) that is a stripped
+    #    clone of the template's List Number abstract — same decimal format,
+    #    same indentation, but with NO <w:pStyle> style link at level 0.
+    #    The style link is what caused the previous regression: reusing an
+    #    existing abstract that was bound to Heading1 (abstract 9) or
+    #    ListNumber (abstract 8) caused Word to apply <w:startOverride> to
+    #    those styles' running counters and to renumber chapter headings.
+    #    An unbound abstract is safe to override without side effects.
+    #
+    # 2. Inject one <w:num> per allocated numId, each referencing the new
+    #    abstractNumId=100 and each carrying its own
+    #    <w:lvlOverride><w:startOverride w:val="1"/></w:lvlOverride> so Word
+    #    actually restarts the counter for that list. Without startOverride,
+    #    a fresh numId still inherits the abstract's global counter and
+    #    numbering continues across lists.
+    new_abstract_xml = (
+        '<w:abstractNum w:abstractNumId="100">'
+        '<w:nsid w:val="00AE7100"/>'
+        '<w:multiLevelType w:val="singleLevel"/>'
+        '<w:tmpl w:val="00AE7100"/>'
+        '<w:lvl w:ilvl="0">'
+        '<w:start w:val="1"/>'
+        '<w:numFmt w:val="decimal"/>'
+        '<w:lvlText w:val="%1."/>'
+        '<w:lvlJc w:val="left"/>'
+        '<w:pPr><w:ind w:left="360" w:hanging="360"/></w:pPr>'
+        '</w:lvl>'
+        '</w:abstractNum>'
+    )
+
+    new_num_xml = "".join(
+        f'<w:num w:numId="{nid}">'
+        f'<w:abstractNumId w:val="100"/>'
+        f'<w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride>'
+        f'</w:num>'
+        for nid in _NUMBERING_STATE["ordered_num_ids"]
+    )
+    # Compose the numbering.xml insertion. abstractNum entries must precede
+    # <w:num> entries in the numbering part per the OOXML schema.
+    numbering_insertion = (new_abstract_xml + new_num_xml) if new_num_xml else ""
+
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".docx")
     os.close(tmp_fd)
     try:
@@ -1593,6 +1682,20 @@ def _patch_customxml_and_headers(docx_path, meta):
                     if "PNNL-35747" in text:
                         text = text.replace("PNNL-35747", report_number)
                         data = text.encode("utf-8")
+                elif item.filename == "word/numbering.xml" and numbering_insertion:
+                    text = data.decode("utf-8", errors="replace")
+                    # <w:abstractNum> elements must precede <w:num> elements
+                    # per the OOXML schema. Insert the new abstract just
+                    # before the first existing <w:num>, and the new <w:num>
+                    # entries just before the closing </w:numbering>.
+                    first_num_idx = text.find("<w:num ")
+                    if first_num_idx > 0:
+                        text = text[:first_num_idx] + new_abstract_xml + text[first_num_idx:]
+                    else:
+                        # No existing <w:num> — put the abstract just before </w:numbering>
+                        text = text.replace("</w:numbering>", new_abstract_xml + "</w:numbering>")
+                    text = text.replace("</w:numbering>", new_num_xml + "</w:numbering>")
+                    data = text.encode("utf-8")
                 zout.writestr(item, data)
         os.replace(tmp_path, docx_path)
     finally:
@@ -1702,6 +1805,10 @@ def build():
     _SECTION_STATE["h2"] = 0
     _SECTION_STATE["h3"] = 0
     _SECTION_STATE["in_unnumbered_h1"] = False
+
+    # Reset ordered-list numbering allocation for this build.
+    _NUMBERING_STATE["next_num_id"] = 100
+    _NUMBERING_STATE["ordered_num_ids"] = []
 
     doc = clone_template_and_clear_body(meta)
 
