@@ -499,6 +499,10 @@ def _patch_title_page(doc, meta):
     authors = authors_raw.replace("\\n", "\n")
 
     # PNNL named styles used on the cover. Map each to the replacement text.
+    # PNNLCoverSubtitle / PNNLTitlePageSubtitle are only patched when the
+    # frontmatter provides a subtitle — otherwise the template's placeholder
+    # ("Enter Subtitle Here (or delete)") is cleared so it does not leak
+    # into the rendered cover.
     style_replacements = {
         "PNNLCoverNumber": report_number,
         "PNNLCoverTitle": title,
@@ -506,10 +510,11 @@ def _patch_title_page(doc, meta):
         "PNNLCoverAuthors": authors,
         "PNNLCoverContract": contract,
         "PNNLTitlePageTitle": title,
+        "PNNLCoverSubtitle": subtitle,
+        "PNNLTitlePageSubtitle": subtitle,
     }
 
     body = doc.element.body
-    title_paras = []
     for p_el in body.iter(qn("w:p")):
         pPr = p_el.find(qn("w:pPr"))
         if pPr is None:
@@ -520,32 +525,6 @@ def _patch_title_page(doc, meta):
         style_val = pStyle.get(qn("w:val")) or ""
         if style_val in style_replacements:
             _replace_paragraph_text(p_el, style_replacements[style_val])
-            if style_val == "PNNLCoverTitle":
-                title_paras.append(p_el)
-
-    # Insert subtitle paragraph just after each cover-title paragraph
-    if subtitle:
-        for tp in title_paras:
-            new_p = OxmlElement("w:p")
-            npPr = OxmlElement("w:pPr")
-            npStyle = OxmlElement("w:pStyle")
-            # Reuse the PNNLCoverDate style for the subtitle so spacing /
-            # alignment / color match the rest of the cover block; the
-            # subtitle is rendered italic via run formatting below.
-            npStyle.set(qn("w:val"), "PNNLCoverDate")
-            npPr.append(npStyle)
-            new_p.append(npPr)
-            r = OxmlElement("w:r")
-            rPr = OxmlElement("w:rPr")
-            it = OxmlElement("w:i")
-            rPr.append(it)
-            r.append(rPr)
-            t = OxmlElement("w:t")
-            t.text = subtitle
-            t.set(qn("xml:space"), "preserve")
-            r.append(t)
-            new_p.append(r)
-            tp.addnext(new_p)
 
     # Also handle ordinary (non-SDT) paragraphs that still carry the old
     # title's text — belt and braces in case the template version differs.
@@ -1539,11 +1518,14 @@ def render_diagram(doc, name):
 def _patch_customxml_and_headers(docx_path, meta):
     """Patch parts of the .docx zip that python-docx does not write through:
 
-    - customXml/item6.xml stores the PNNL cover bindings (title, authors,
-      date, number). The visible cover-page paragraphs were patched in
-      _patch_title_page, but Word can re-render the bound content controls
-      from this customXml when fields are refreshed, so the values here
-      must match too.
+    - One of `customXml/itemN.xml` stores the PNNL cover bindings (title,
+      subtitle, authors, date, number) under the `PNNL_Template` XML
+      namespace. Which N varies by template revision (some use item6, this
+      template uses item7), so we detect it by scanning contents for the
+      `PNNL_Template` namespace rather than trusting a hardcoded filename.
+      The visible cover-page paragraphs were patched in _patch_title_page,
+      but Word re-renders the bound content controls from this customXml
+      when fields refresh, so the values here must match too.
     - word/header5.xml is a left-over template header that prints
       'PNNL-35747' at the top of certain page-section ranges. Replace with
       the new report number so the running head is consistent.
@@ -1559,9 +1541,9 @@ def _patch_customxml_and_headers(docx_path, meta):
     authors_raw = meta.get("authors", "Pacific Northwest National Laboratory")
     authors = authors_raw.replace("\\n", "\n")
 
-    # New customXml/item6.xml contents — preserves the PNNL_Template
-    # namespace + element structure expected by the cover content controls.
-    new_item6 = (
+    # Rebuilt PNNL cover-binding XML — namespace + element structure must
+    # match what the template's content controls expect.
+    new_pnnl_binding = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
         '<projectDoc xmlns="PNNL_Template">\n'
         '  <PNNL_Template>\n'
@@ -1578,6 +1560,24 @@ def _patch_customxml_and_headers(docx_path, meta):
         '</projectDoc>'
     )
 
+    # Find which customXml/itemN.xml carries the PNNL_Template namespace.
+    pnnl_binding_name = None
+    with zipfile.ZipFile(docx_path, "r") as zin:
+        for item in zin.infolist():
+            name = item.filename
+            if not (name.startswith("customXml/item") and name.endswith(".xml")):
+                continue
+            head = zin.read(name)[:2048].decode("utf-8", errors="replace")
+            if "PNNL_Template" in head:
+                pnnl_binding_name = name
+                break
+    if pnnl_binding_name is None:
+        print(
+            "warning: no PNNL_Template customXml part found; cover "
+            "content-control bindings will not be updated.",
+            file=sys.stderr,
+        )
+
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".docx")
     os.close(tmp_fd)
     try:
@@ -1586,8 +1586,8 @@ def _patch_customxml_and_headers(docx_path, meta):
         ) as zout:
             for item in zin.infolist():
                 data = zin.read(item.filename)
-                if item.filename == "customXml/item6.xml":
-                    data = new_item6.encode("utf-8")
+                if item.filename == pnnl_binding_name:
+                    data = new_pnnl_binding.encode("utf-8")
                 elif item.filename.startswith("word/header") and item.filename.endswith(".xml"):
                     text = data.decode("utf-8", errors="replace")
                     if "PNNL-35747" in text:

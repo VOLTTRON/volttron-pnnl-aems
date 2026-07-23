@@ -1,6 +1,6 @@
 ---
 title: "Autonomous Energy Management Software System for Small Commercial Buildings: Software Deployment Guide"
-subtitle: "Host OS, Docker, and AEMS Stack Installation for Linux and Raspberry Pi 5"
+subtitle: "AEMS Stack Installation, Configuration, and Post-Launch Administration"
 authors: "Srinivas Katipamula\nAmelia Bleeker"
 date: "June 26, 2026"
 date_iso: "2026-06-26T00:00:00"
@@ -17,28 +17,11 @@ urlcolor: blue
 
 ## Audience and Scope
 
-This guide is for the **administrator who installs and configures the AEMS software stack** on a host computer. This guide bridges the gap between an off-the-shelf operating system and the moment when a running web UI is reachable at `https://<HOSTNAME>` and a building installer can begin to configure VOLTTRON, BACnet drivers, and thermostats.
-
-**In scope:**
-
-- Hardware bill of materials for standard PCs and for a Raspberry Pi 5 (with M.2 HAT and NVMe SSD) deployment.
-- Host operating system install on Ubuntu Server 24.04 LTS (x86_64 and arm64 — including Raspberry Pi 5).
-- Docker Engine and Docker Compose v2 installation.
-- DNS, TLS, and reverse-proxy configuration.
-- Cloning the AEMS repository, populating secrets, and bringing the Docker Compose stack up.
-- Creating the first administrator account through the in-app registration flow.
-- Configuring backups and validating the deployment.
-- Routine maintenance, updates, and a deployment-phase troubleshooting catalog.
-- Clean hand-off to the companion guides.
-
-**Out of scope** — covered by the two companion documents in the repository root:
-
-- **VOLTTRON platform configuration, BACnet network design, Schneider SE8650 thermostat provisioning, power meter wiring, weather agent, historian agent, and target agent setup** — see *AEMS Building Installer Configuration User Guide*.
-- **Day-to-day operation of the AEMS web UI** — Setpoint Manager, Schedule Manager, Holiday Manager, Optimal Start Manager, Intelligent Load Control configuration — see *AEMS Building Owner and Occupant User Guide*.
+This guide is for the **administrator who installs and configures the AEMS software stack** on a host computer that already has a supported Linux OS and Docker Compose v2 in place. This guide bridges the gap between that prepared host and the moment when a running web UI is reachable at `https://<HOSTNAME>` and a building installer can begin to configure VOLTTRON, BACnet drivers, and thermostats. Host hardware, operating-system install, and Docker Engine install are covered by the *AEMS Deployment Preparation Guide*; on-site VOLTTRON, BACnet, and thermostat provisioning are covered by the *AEMS Building Installer Configuration User Guide*; day-to-day web-UI operation is covered by the *AEMS Building Owner and Occupant User Guide*.
 
 ## How to Read This Guide
 
-The sections are ordered to be followed sequentially on a clean machine. §4 (Host Operating System Install) covers the standard Ubuntu Server install on an x86_64 host and the Pi 5 arm64 variant; pick the one that matches your hardware and skip the other. Everything from §5 onward is identical for both paths. All commands shown are bash on Ubuntu — the AEMS stack runs on Linux and the helper scripts in `aems-app/` are bash (`.sh`).
+The sections are ordered to be followed sequentially. This guide begins at DNS and TLS on a host that already has a supported Linux OS and Docker Compose v2 installed; if that is not yet true, complete the *AEMS Deployment Preparation Guide* first. All commands shown are bash on Linux — the AEMS stack runs on Linux and the helper scripts in `aems-app/` are bash (`.sh`).
 
 ## Document Conventions
 
@@ -54,32 +37,63 @@ The sections are ordered to be followed sequentially on a clean machine. §4 (Ho
 
 | Acronym | Expansion |
 |---------|-----------|
-| AEMS | Autonomous Energy Management System |
 | ACME | Automatic Certificate Management Environment |
+| AEMS | Autonomous Energy Management System |
+| API | Application Programming Interface |
+| AWS | Amazon Web Services |
 | BACnet | Building Automation and Control Network |
+| BBMD | BACnet/IP Broadcast Management Device |
 | BTO | Building Technologies Office |
 | CA | Certificate Authority |
+| CIDR | Classless Inter-Domain Routing |
+| CPU | Central Processing Unit |
 | DHCP | Dynamic Host Configuration Protocol |
 | DNS | Domain Name System |
 | DR | Disaster Recovery |
 | FQDN | Fully Qualified Domain Name |
+| GraphQL | Graph Query Language |
+| HTTP | Hypertext Transfer Protocol |
+| HTTPS | Hypertext Transfer Protocol Secure |
 | HVAC | Heating, Ventilation, and Air Conditioning |
+| ICAO | International Civil Aviation Organization |
 | ILC | Intelligent Load Control |
 | IP | Internet Protocol |
+| KMS | Key Management Service |
+| LAN | Local Area Network |
+| LDAP | Lightweight Directory Access Protocol |
+| METAR | Meteorological Aerodrome Report |
+| MFA | Multi-Factor Authentication |
 | NIC | Network Interface Card |
 | NTP | Network Time Protocol |
 | NVMe | Non-Volatile Memory Express |
+| NWS | National Weather Service |
+| OAuth | Open Authorization |
+| OIDC | OpenID Connect |
 | OS | Operating System |
+| PEM | Privacy-Enhanced Mail |
 | PNNL | Pacific Northwest National Laboratory |
+| PostGIS | PostgreSQL Geographic Information System extension |
+| REST | Representational State Transfer |
 | RTU | Rooftop Unit |
+| SAML | Security Assertion Markup Language |
+| SAN | Subject Alternative Name |
 | SBC | Single-Board Computer |
+| SFTP | SSH File Transfer Protocol |
+| SMTP | Simple Mail Transfer Protocol |
+| SQL | Structured Query Language |
 | SSD | Solid-State Drive |
+| SSH | Secure Shell |
 | SSO | Single Sign-On |
+| TCP | Transmission Control Protocol |
 | TLS | Transport Layer Security |
+| UDP | User Datagram Protocol |
+| UI | User Interface |
 | UPS | Uninterruptible Power Supply |
 | URL | Uniform Resource Locator |
+| VLAN | Virtual Local Area Network |
 | VOLTTRON | The Eclipse VOLTTRON™ distributed control platform |
 | VPN | Virtual Private Network |
+| WAL | Write-Ahead Log |
 
 # Introduction
 
@@ -87,7 +101,7 @@ The sections are ordered to be followed sequentially on a clean machine. §4 (Ho
 
 A working AEMS deployment has three distinct phases:
 
-1. **Software installation** — install an OS, install Docker, clone the repository, configure secrets and DNS, and launch the AEMS Docker Compose stack. **This guide covers phase 1.**
+1. **Software installation** — configure DNS and TLS, clone the repository, configure secrets, and launch the AEMS Docker Compose stack on a host that already has a supported Linux OS and Docker Compose v2 installed. **This guide covers phase 1.**
 2. **Site configuration** — on the running stack, configure the VOLTTRON platform's BACnet driver to talk to the building's RTUs and thermostats, install the historian agent's database connection, configure the weather agent's station, and wire the target agent. *AEMS Building Installer Configuration User Guide* covers this phase.
 3. **Day-to-day operation** — through the AEMS web UI, configure setpoints, occupancy schedules, holidays, optimal start, and Intelligent Load Control parameters. *AEMS Building Owner and Occupant User Guide* covers this phase.
 
@@ -108,244 +122,9 @@ The entire AEMS stack — web UI, API, primary Postgres database with PostGIS, R
 
 **Figure 1.3.** AEMS deployment topology. One host, one Compose project.
 
-A full, authoritative diagram with profile gating, internal ports, and volume names appears in [`aems-app/README.md`](../../../aems-app/README.md) and in [`aems-app/docker/README.md`](../../../aems-app/docker/README.md).
+# DNS and TLS Planning
 
-# Hardware Bill of Materials
-
-## Sizing Baseline
-
-| Resource | Baseline | Notes |
-|----------|----------|-------|
-| CPU | 4 cores | 8 cores recommended for sites with many RTUs. |
-| RAM | 8 GB | 16 GB strongly recommended once the historian and VOLTTRON profiles are running. |
-| Storage | 512 GB | Telemetry growth in the historian volume dominates; size against your retention policy. |
-| Network | Gigabit Ethernet | Wireless acceptable for bench / demo only. |
-| Power | UPS recommended | The host should ride through transient outages so the BACnet platform does not restart during a brownout. |
-| Network reachability | UDP 47808 host ↔ RTU/HP LAN | Or HTTP to a Normal Framework gateway. |
-
-> **WARNING.** The host's hostname must be a real, resolvable DNS name. `localhost` will not work — session cookies and OAuth redirects depend on a stable name that the browser and the server agree on.
-
-## Option A: Standard PC or Server
-
-A modern x86_64 machine that boots Ubuntu Server 24.04 LTS is the recommended production target. Vendor-neutral specifications:
-
-- 4-core x86_64 CPU (Intel Core / Xeon, AMD Ryzen / EPYC).
-- 16 GB RAM.
-- 512 GB or larger NVMe SSD.
-- One gigabit NIC for the public-facing network; a second NIC is useful when the BACnet network must be isolated by VLAN.
-
-> **WARNING.** **Bare-metal hosts only — virtual machines are not supported.** VOLTTRON's BACnet/IP driver must bind directly to a host network interface to send and receive UDP broadcasts on port 47808. Hypervisor NIC virtualization (VMware vSwitch, Hyper-V vSwitch, Proxmox bridge, etc.) drops or rewrites the broadcasts that BACnet device discovery depends on, so thermostats and RTUs become unreachable from a VM-hosted VOLTTRON. Install the AEMS host on bare metal — either a dedicated PC/server or a Raspberry Pi 5 (Option B).
-
-## Option B: Raspberry Pi 5 with M.2 HAT and NVMe SSD
-
-The Raspberry Pi 5 is a supported deployment target for **single-building, compact installations**. A recommended bill of materials:
-
-| Item | Recommendation | Notes |
-|------|---------------|-------|
-| Raspberry Pi 5 | 8 GB model | 16 GB strongly preferred when the historian profile is enabled. |
-| Power supply | Official Raspberry Pi 27 W USB-C | Under-rated supplies cause throttling under sustained Docker load. |
-| Cooling | Official Active Cooler (or equivalent) | Mandatory. Without active cooling the SoC thermal-throttles under sustained Docker load. |
-| M.2 HAT | Pimoroni NVMe Base, Pineboards HatDrive!, Geekworm X1001/X1003, or equivalent PCIe Gen 2/3 HAT+ | Verify M.2 HAT+ compatibility with Pi 5. |
-| Storage | 512 GB+ NVMe SSD from the Raspberry Pi Foundation compatibility list | Avoid drives outside the compatibility list — Pi 5 PCIe is selective. |
-| Enclosure | Sealed enclosure rated for the install location | Mechanical rooms require dust- and vibration-tolerant housings. |
-| Optional | PoE+ HAT | Single-cable power and data; reduces cabling in mechanical rooms. |
-
-**Boot from NVMe.** Configure the Pi to boot directly from the NVMe SSD per the official documentation at <https://www.raspberrypi.com/documentation/computers/raspberry-pi-5.html>. This includes updating the bootloader EEPROM (`sudo rpi-eeprom-update`) and setting `BOOT_ORDER` to prefer NVMe over the SD card slot. Do not run AEMS from an SD card in production — write amplification and historian I/O will exhaust the card.
-
-**Pi-specific caveats:**
-
-- All AEMS images are multi-arch, but **verify** `aarch64` availability for any custom or pinned image tag before relying on it.
-- Sustained Docker load on a Pi 5 will thermal-throttle without active cooling.
-- USB-attached spinning disks are not supported as a primary storage tier.
-- A single Pi 5 is sized for one small-to-medium commercial building; campuses or multi-building deployments require a standard PC.
-- For Pi 5 deployments with less than 16 GB RAM, keep `COMPOSE_PROFILES` at the recommended `proxy,sso,redis,volttron,historian` and add a 4 GB swap file (§14.8 has the recipe).
-
-Once the Pi is booting from NVMe and Ubuntu Server 24.04 LTS for arm64 is installed, **the install path is identical to the standard Ubuntu path** — continue with §4.2 from that point on.
-
-## Network Prerequisites
-
-| Port / Protocol | Purpose | Direction |
-|-----------------|---------|-----------|
-| 80/tcp | HTTP (redirects to HTTPS, ACME challenge) | Inbound from operator network and, if using Let's Encrypt, the internet. |
-| 443/tcp | HTTPS — AEMS UI, GraphQL, Keycloak | Inbound from operator network. |
-| 47808/udp | BACnet/IP to RTUs and HPs | Internal-only. The BACnet LAN should be a separate VLAN or NIC. |
-| 6543/tcp | Historian replication (optional) | Inbound from a known subscriber IP only, when off-site replication is configured. |
-| 22/tcp | SSH for administrative access | Inbound from administrator network only. |
-
-A real DNS A record (or, in lab environments, a per-workstation hosts-file entry) must resolve `<HOSTNAME>` to the host's IP address before the first launch.
-
-# Pre-Deployment Planning Checklist
-
-Decide these before touching the host. Each is awkward to change after first boot. The full reference is in [`README.md` § Pre-Deployment Planning](../../../README.md).
-
-| Decision | Your value | Notes |
-|----------|------------|-------|
-| Hostname (FQDN) | | Real DNS name. **Never `localhost`.** |
-| TLS strategy | | Let's Encrypt, third-party CA, or self-signed. |
-| `ADMIN_EMAIL` | | Used for Let's Encrypt registration and operator-facing notifications. |
-| Campus and building names | | Drives VOLTTRON agent configuration. |
-| Thermostat type | | `schneider` or `openstat`. |
-| Backup destinations | | Local plus at least one off-host destination for production. |
-| Backup-key custodian | | A named individual who holds the offline copy of the age private key. |
-| Off-site replication subscriber | | If running an off-site historian replica, the subscriber's IP for `pg_hba.conf` allowlisting. |
-| `COMPOSE_PROFILES` overrides | | Default `proxy,sso,redis,volttron,historian` works for most deployments. |
-
-# Host Operating System Install
-
-## OS Decision Tree
-
-<!-- diagram: os_decision -->
-
-**Figure 4.1.** Operating system decision tree.
-
-## Ubuntu Server 24.04 LTS (x86_64) — Recommended for Production
-
-### Download and Write the ISO
-
-1. Download `ubuntu-24.04.x-live-server-amd64.iso` from <https://ubuntu.com/download/server>.
-2. Write the ISO to a USB stick:
-   - **Linux / macOS:** `sudo dd if=ubuntu-24.04.x-live-server-amd64.iso of=/dev/sdX bs=4M status=progress` — confirm `/dev/sdX` is the USB stick, not your local disk.
-   - **From a Windows workstation:** use [balenaEtcher](https://etcher.balena.io/) or [Rufus](https://rufus.ie) to flash the USB. (Windows is supported only as the workstation that writes the ISO and runs the operator browser; the AEMS host itself runs Ubuntu.)
-
-### Install
-
-Boot the target machine from the USB stick and accept the defaults except for:
-
-- **Profile setup:** create a non-root administrator (you will add this user to the `docker` group in §5).
-- **SSH setup:** check **Install OpenSSH server**.
-- **Featured server snaps:** do not select any. **Do not** install Docker via snap on the installer screen — snap Docker has subtle bind-mount and DNS differences that break the AEMS stack. You will install Docker Engine via the official apt repository in §5.
-
-### Post-Install Housekeeping
-
-After first boot, log in as the administrator and run:
-
-```bash
-sudo apt update && sudo apt -y upgrade
-sudo hostnamectl set-hostname <your-fqdn>          # e.g. aems.example.com
-sudo timedatectl set-timezone <Region/City>         # e.g. America/Los_Angeles
-```
-
-Set a static IP or, preferably, configure a DHCP reservation on your network's DHCP server so the host's IP is stable.
-
-Enable unattended security updates **for the OS only** (Docker should be updated deliberately, not automatically):
-
-```bash
-sudo apt -y install unattended-upgrades
-sudo dpkg-reconfigure -plow unattended-upgrades
-```
-
-### Host Firewall
-
-Enable `ufw` and allow only the required ports:
-
-```bash
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw --force enable
-```
-
-If off-site historian replication will be enabled later, also allow 6543/tcp from the subscriber's IP only. Replace `<SUBSCRIBER_IP>` below with the actual address of your replication subscriber host:
-
-```bash
-sudo ufw allow from <SUBSCRIBER_IP>/32 to any port 6543 proto tcp
-```
-
-## Ubuntu Server 24.04 LTS arm64 (Raspberry Pi 5)
-
-Use Ubuntu Server, not Raspberry Pi OS. Ubuntu Server provides the same apt repositories, the same Docker Engine install path, the same `ufw` firewall workflow, and the same `unattended-upgrades` defaults that §4.2 describes for x86_64 hosts. Keeping the Pi 5 on the same distribution as the production Linux target means one OS to maintain, one set of packages to test against, and a single host-OS chapter in this guide.
-
-### Flash the Image
-
-Use the official Raspberry Pi Imager (<https://www.raspberrypi.com/software/>):
-
-1. Choose device → **Raspberry Pi 5**.
-2. Choose OS → **Other general-purpose OS → Ubuntu → Ubuntu Server 24.04 LTS (64-bit)**.
-3. Choose storage → your NVMe SSD attached via USB enclosure, or an SD card for the bootloader update step.
-4. **Customise OS settings** (the gear icon): enable SSH (key-only recommended), set the administrator username and password, set hostname and timezone, configure Wi-Fi or wired networking.
-5. Write and verify.
-
-> **NOTE.** Ubuntu Server 24.04 ships an arm64 image specifically built for the Raspberry Pi 5. Do not select the Raspberry Pi OS entries in the Imager — those bring a different package set, a different kernel, and a `dphys-swapfile` swap mechanism that diverges from the standard Ubuntu workflow used in §4.2.
-
-### Configure Boot-from-NVMe
-
-Follow the procedure at <https://www.raspberrypi.com/documentation/computers/raspberry-pi-5.html>. The bootloader EEPROM update is independent of the Linux distribution installed; the same `rpi-eeprom-update` flow Raspberry Pi publishes for Pi OS applies when running it from an Ubuntu live SD card or from any Pi-supported Linux:
-
-```bash
-sudo apt update && sudo apt -y install rpi-eeprom
-sudo rpi-eeprom-update -a
-sudo reboot
-sudo rpi-eeprom-config --edit
-# Set BOOT_ORDER=0xf416 (try NVMe before SD)
-sudo reboot
-```
-
-Verify that `lsblk` shows the NVMe device as `/dev/nvme0n1` and that `findmnt /` shows `/dev/nvme0n1p2` (or similar).
-
-### First-Boot Housekeeping
-
-The post-install steps from §4.2.3 (`apt update`, `hostnamectl`, `timedatectl`, unattended-upgrades) apply unchanged on the Pi.
-
-If your Pi 5 has less than 16 GB of RAM, add a 4 GB swap file using Ubuntu's standard mechanism:
-
-```bash
-sudo fallocate -l 4G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-```
-
-From this point on, follow §4.2.4 (host firewall) and then §5 onward — the path is identical to the x86_64 Ubuntu install.
-
-## A Note on Windows Hosts
-
-> **NOTE.** Windows is **not supported** as an AEMS host platform. The VOLTTRON edge agent and the BACnet/IP driver depend on Linux networking primitives (raw UDP socket binding to a host interface for 47808 broadcasts, `network_mode: host` containers, BBMD compatibility) that are not reliably available through Docker Desktop's WSL2 networking. The AEMS host must run Ubuntu Server on x86_64 or on Raspberry Pi 5 (arm64). A Windows machine can serve as the operator workstation that writes the install media and accesses the running UI from a browser.
-
-# Install Docker Engine and Compose
-
-## Ubuntu (x86_64 and arm64)
-
-Install Docker Engine from Docker's official apt repository (not from distribution packages, not via snap). The same procedure works on x86_64 servers and on the Pi 5 running Ubuntu arm64:
-
-```bash
-sudo apt update
-sudo apt -y install ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
-  sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-  https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list
-sudo apt update
-sudo apt -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-```
-
-Verify:
-
-```bash
-sudo docker run --rm hello-world
-docker compose version              # must be v2.x
-```
-
-Add the administrator user to the `docker` group so `docker` and `docker compose` can run without `sudo`:
-
-```bash
-sudo usermod -aG docker $USER
-exit                                  # log out and back in to refresh group membership
-docker ps                             # should succeed without sudo
-```
-
-## Optional Tools
-
-If you anticipate needing to perform a break-glass backup restore from the command line, install `age` and `gpg` now. They are not required for the running stack:
-
-```bash
-sudo apt -y install age gnupg
-```
-
-# DNS and TLS
+This chapter is planning-only: decide the hostname and TLS strategy so you have the values ready when the next chapter clones the repository and edits its configuration files.
 
 ## Decision Tree
 
@@ -355,9 +134,11 @@ sudo apt -y install age gnupg
 
 ## DNS Setup
 
+Choose an FQDN before you touch the host — the AEMS UI URL, the Keycloak realm's redirect URIs, and the TLS certificate all bind to it, and each is awkward to change after first boot.
+
 ### Public Deployment
 
-Register a DNS A record that points your chosen FQDN at the host's public IP. Verify:
+Register a DNS A record that points your chosen FQDN at the host's public IP. Once the record is live, verify from any workstation:
 
 ```bash
 dig +short <HOSTNAME>          # should return the host's public IP
@@ -375,45 +156,27 @@ Either add an A record to your organization's internal DNS, or add a `hosts` fil
 
 > **WARNING.** `localhost` will not work as a hostname. The application sets session cookies bound to the hostname and relies on a stable redirect URL through Keycloak; both break when the browser and the server disagree on the name. Use a real FQDN or a hosts-file entry, never `localhost`.
 
-## Let's Encrypt
+## TLS Strategy
 
-The easiest path for public deployments. In [`aems-app/.env`](../../../aems-app/.env), set:
+Pick one of the three strategies below. The actual `.env` edit and any file drops happen in the next chapter, after the repository is cloned; here you only need to decide which path you are on so you know which values to have on hand.
 
-```ini
-HOSTNAME=aems.example.com
-ADMIN_EMAIL=admin@example.com
-CERT_RESOLVER=letsencrypt
-```
+### Let's Encrypt
 
-Ensure ports 80/tcp and 443/tcp are reachable from the public internet — Let's Encrypt validates via an HTTP challenge on port 80 and an in-band TLS challenge on port 443. Do not place an upstream reverse proxy in front of the AEMS host that terminates TLS itself; the Traefik proxy in the stack handles termination directly.
+The easiest path for public deployments. Ports 80/tcp and 443/tcp must be reachable from the public internet — Let's Encrypt validates via an HTTP challenge on port 80 and an in-band TLS challenge on port 443. Do not place an upstream reverse proxy in front of the AEMS host that terminates TLS itself; the stack's Traefik proxy handles termination directly.
 
-If you hit Let's Encrypt's production rate limit while debugging, temporarily set `CERT_RESOLVER=letsencrypt-staging` (see Traefik docs) and re-run `./start-services.sh`.
+**You need:** the FQDN and an administrator email address that will receive certificate-expiry warnings from Let's Encrypt.
 
-## Third-Party Certificate
+### Third-Party Certificate
 
-If your organization issues TLS certificates from an internal CA, drop the cert and key into [`aems-app/docker/proxy/`](../../../aems-app/docker/proxy) and edit [`aems-app/docker/proxy/certs-traefik.yml`](../../../aems-app/docker/proxy/certs-traefik.yml) to point the `tls.certificates` list at the new filenames. Leave `CERT_RESOLVER=` empty in `.env` so Traefik uses the static config and does not attempt ACME.
+If your organization issues TLS certificates from an internal certificate authority (CA), obtain a certificate for the FQDN you chose above. The private key and the certificate chain will be dropped into the stack's proxy configuration in the next chapter.
 
-## Self-Signed (Default)
+**You need:** the FQDN, the PEM-encoded server certificate (with intermediate chain), and the corresponding PEM-encoded private key.
 
-If `CERT_RESOLVER` is empty and no third-party cert is configured, the `certs` initialization container generates a self-signed CA and a host certificate on first boot, writing them to the `certs-data` Docker volume. Operator browsers will see a "Not secure" warning until you import the CA certificate into the browser's trust store.
+### Self-Signed (Default)
 
-To extract the CA certificate from the volume:
+If you leave the TLS resolver setting empty and provide no third-party cert, the stack's initialization step generates a self-signed CA and a host certificate on first boot. Operator browsers will see a "Not secure" warning until you import the generated CA certificate into each browser's trust store.
 
-```bash
-docker compose cp certs:/data/mkcert-ca.crt ./aems-ca.crt
-```
-
-Distribute `aems-ca.crt` to each operator workstation and import it as a trusted root authority.
-
-## Hostname Change After First Boot
-
-If you change `HOSTNAME` in `.env` after the stack has booted at least once, the generated certificates and the Keycloak realm both still reference the old name. Reset the affected services from `aems-app/`:
-
-```bash
-./reset-service.sh certs                # regenerate certs for the new hostname
-```
-
-If Keycloak login fails after a hostname change, also reset `keycloak-db` (this wipes Keycloak state and re-imports `default-realm.json`).
+**You need:** nothing at planning time. The CA and host certificates are generated automatically at first launch, and the next chapter documents how to extract the CA for browser import.
 
 # Get the Code and Configure
 
@@ -432,7 +195,7 @@ Open [`aems-app/.env`](../../../aems-app/.env) in your editor. The minimum requi
 
 | Variable | Required value |
 |----------|----------------|
-| `HOSTNAME` | Your FQDN (matches §6 DNS). |
+| `HOSTNAME` | Your FQDN (matches the DNS record configured in *DNS and TLS*). |
 | `ADMIN_EMAIL` | Your administrator email (also used for Let's Encrypt registration). |
 | `CERT_RESOLVER` | `letsencrypt`, or leave empty for self-signed / third-party. |
 | `COMPOSE_PROFILES` | Leave at the default `proxy,sso,redis,volttron,historian` unless you have a reason to deviate. |
@@ -443,6 +206,64 @@ If your network requires a forward proxy to reach the internet, also set:
 HTTP_PROXY=http://proxy.example.com:3128
 HTTPS_PROXY=http://proxy.example.com:3128
 NO_PROXY=*.example.com,127.0.0.1
+```
+
+## Site Identity
+
+`VOLTTRON_CAMPUS`, `VOLTTRON_BUILDING`, and `VOLTTRON_TIMEZONE` in `aems-app/.env` are the canonical site identity. They template-fill `aems-app/docker/volttron/setup/site.json` at container startup, and every historian topic is built as `{campus}/{building}/…`. Defaults are:
+
+```ini
+VOLTTRON_CAMPUS=PNNL
+VOLTTRON_BUILDING=Building1
+VOLTTRON_TIMEZONE=America/Los_Angeles
+```
+
+Edit `aems-app/.env` (**not** the rendered `site.json` — it is overwritten on the next rebuild).
+
+> **WARNING.** Changing `VOLTTRON_CAMPUS` or `VOLTTRON_BUILDING` after telemetry has begun flowing does **not** rewrite the historian rows that were already collected. Pre-rename rows stay filed under the old `{campus}/{building}` pair, so the dashboard will present them as a separate site until you re-file or drop them. Decide these values now, before the first `./start-services.sh`.
+
+## Apply the TLS Strategy
+
+Complete the step below that matches the strategy you picked in *DNS and TLS Planning*.
+
+### Let's Encrypt
+
+Set the three variables in `aems-app/.env`:
+
+```ini
+HOSTNAME=aems.example.com
+ADMIN_EMAIL=admin@example.com
+CERT_RESOLVER=letsencrypt
+```
+
+Traefik will request a certificate on first launch through the ACME HTTP-01 challenge on port 80. If you hit Let's Encrypt's production rate limit while debugging, temporarily set `CERT_RESOLVER=letsencrypt-staging` and re-run `./start-services.sh`; switch back once the deployment is stable.
+
+### Third-Party Certificate
+
+Leave `CERT_RESOLVER=` empty in `aems-app/.env` so Traefik does not attempt ACME. Copy the certificate chain and private key into `aems-app/docker/proxy/`, then edit `aems-app/docker/proxy/certs-traefik.yml` to point the `tls.certificates` list at the new filenames.
+
+### Self-Signed
+
+Leave `CERT_RESOLVER=` empty in `aems-app/.env` and add no cert files to `docker/proxy/`. On first launch, the `certs` initialization container generates a self-signed CA and a host certificate and writes them to the `certs-data` Docker volume. Operator browsers will see a "Not secure" warning until you import the generated CA into each browser's trust store. To extract the CA after the stack is running:
+
+```bash
+docker compose cp certs:/data/mkcert-ca.crt ./aems-ca.crt
+```
+
+Distribute `aems-ca.crt` to every operator workstation and import it as a trusted root authority.
+
+## Hostname Change After First Boot
+
+If you change `HOSTNAME` in `aems-app/.env` after the stack has booted at least once, both the generated certificates and the Keycloak realm's redirect URIs still reference the old name. Reset the affected services from `aems-app/`:
+
+```bash
+./reset-service.sh certs                # regenerate certs for the new hostname
+```
+
+If Keycloak login still fails afterwards, also reset `keycloak-db` — this wipes the Keycloak database and causes the container to re-import the default realm from its baked-in `default-realm.json` on the next boot:
+
+```bash
+./reset-service.sh keycloak-db
 ```
 
 ## Generate `.env.secrets`
@@ -513,11 +334,11 @@ Open `https://<HOSTNAME>` in a browser. You should see the AEMS landing page wit
 
 ## Common First-Launch Problems
 
-If the UI does not load, cross-reference §14 (Troubleshooting):
+If the UI does not load, cross-reference the *Troubleshooting (Deployment Phase)* chapter:
 
-- Hostname does not resolve → §14.2.
-- "Port already in use" on 80 or 443 → §14.2.
-- Let's Encrypt rate-limit error in `proxy` logs → §14.6.
+- Hostname does not resolve → *Site Unreachable*.
+- "Port already in use" on 80 or 443 → *Site Unreachable*.
+- Let's Encrypt rate-limit error in `proxy` logs → *Let's Encrypt "Too Many Failed Validations"*.
 - Corporate forward proxy intercepting image pulls → re-check the `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` block in `.env`.
 
 # Initial Configuration
@@ -539,18 +360,31 @@ If the UI does not load, cross-reference §14 (Troubleshooting):
 
 7. Reload the page in the browser. Administrative navigation items appear.
 
+> **NOTE.** Two application roles grant administrative capability. The `admin` role granted above covers everything the administrator does inside the AEMS UI — backups, users, historian dashboards, site configuration. The `keycloak` role is a superset: it additionally grants Keycloak Admin Console access, which is what lets the holder reset another user's password or promote another operator to Keycloak admin. For a single-administrator deployment, grant `keycloak` instead of `admin` on step 6 so the first administrator can perform their own password recovery without a second operator. The details of the `keycloak` role's Keycloak-side privileges and the operations it enables are in the next chapter, *Keycloak Administration*.
+
 **Figures 9.1–9.5.** Guest menu → Keycloak Register link → registration form → post-login UI before role grant → post-login UI after role grant.
 
 ## Configure Backups
 
-Backups are mandatory for any production deployment. The full backup pipeline is documented in [`aems-app/docker/backup/README.md`](../../../aems-app/docker/backup/README.md).
+Backups are mandatory for any production deployment. The backup sidecar (`backup` service) runs continuously as part of the compose project and performs three jobs:
 
-Every archive is **encrypted before it leaves the host** — no plaintext archive is ever uploaded to a destination. The backup sidecar uses asymmetric encryption via `age` (preferred), falling back to symmetric `gpg` when an `age` key is unavailable. On first boot the sidecar generates an `age` keypair: the **public key** encrypts each archive automatically at backup time, and the matching **private key** is what [`backup-restore.sh`](../../../aems-app/backup-restore.sh) needs to decrypt one. Operators never paste keys into config files — the sidecar holds the live keypair and the **Keys** tab in the admin UI surfaces a one-click download of the active private key. Step 4 below is the only place that copy gets created; without it, a total host loss leaves every archive permanently unreadable, regardless of how many off-host copies you kept.
+- **Encrypt then upload.** Every archive is encrypted on the host before it leaves. The sidecar uses `age` asymmetric encryption by default (falling back to symmetric `gpg` if no `age` key is available). No plaintext archive is ever written to a destination.
+- **Manage the keypair.** On first boot the sidecar generates an `age` keypair and stores it in the `backup-secrets` Docker volume. The **public key** encrypts every archive automatically; the matching **private key** is what `./backup-restore.sh` needs to decrypt one. Operators do not paste keys into config files — the sidecar holds the live keypair and the admin UI surfaces a one-click download.
+- **Run on a schedule and on demand.** The scheduler is driven by a cron expression stored in the AEMS database. Manual runs from the admin UI use the same code path.
+
+The admin UI at `https://<HOSTNAME>/backups` has four tabs:
+
+- **Policy** — the cron schedule and the retention window in days. The service ships with a default nightly policy at `0 2 * * *` and 30-day retention, seeded on first boot.
+- **Destinations** — one or more upload targets. Supported destinations are **Local Disk** (a volume-mounted path on the host), **S3-Compatible** (AWS S3 or any provider with the S3 API — MinIO, Backblaze B2, Wasabi, Cloudflare R2), **Azure Blob**, and **SFTP** (`ssh` key or password auth).
+- **Keys** — the encryption keypair. **Download active private key** exports the current private key as an `age`-formatted text file. Rotation generates a new keypair; the old public key is retained so archives already encrypted with it remain decryptable, but new archives use the new key.
+- **Runs** — the archive history. Each run row shows start time, end time, size, per-destination upload status, and a **Trigger manual run** button.
+
+Walk this five-step configuration before declaring the deployment production-ready:
 
 1. Open `https://<HOSTNAME>/backups` (administrator UI).
-2. In the **Policy** tab, set the cron schedule (e.g. `0 2 * * *` for 02:00 nightly) and retention in days. Review the default policy that ships in [`aems-app/docker/seed/20260427080000-backup-policy.json`](../../../aems-app/docker/seed/).
-3. In the **Destinations** tab, add at least one off-host destination. For production, an S3 bucket in a separate AWS account is strongly recommended.
-4. In the **Keys** tab, click **Download active private key** and store the file offline. Possibilities include: a sealed envelope in a fireproof safe, a corporate KMS, or a password manager with a hardware-key second factor.
+2. In the **Policy** tab, set the cron schedule (e.g. `0 2 * * *` for 02:00 nightly) and retention in days. The service ships with a sensible default nightly policy; review it and adjust for your environment.
+3. In the **Destinations** tab, add at least one off-host destination. For production, an S3 bucket in a separate AWS account (or an equivalent isolated destination on another provider) is strongly recommended so that a total host loss does not also take the archive with it.
+4. In the **Keys** tab, click **Download active private key** and store the file offline. Possibilities include a sealed envelope in a fireproof safe, a corporate KMS, or a password manager with a hardware-key second factor. This is the only place the private key ever gets copied off the host — without it, a total host loss makes every archive permanently unreadable, regardless of how many off-host copies exist.
 
    > **WARNING.** **You cannot decrypt backup archives without the active age private key.** If you rotate keys, keep an offline copy of every key that was active at the time of any archive you might need to restore. The single largest cause of unrestorable backups is a lost key.
 
@@ -558,20 +392,139 @@ Every archive is **encrypted before it leaves the host** — no plaintext archiv
 
 **Figures 9.7–9.9.** Backups admin UI — Policy tab, Keys tab with the download button highlighted, Runs tab with a successful manual run.
 
-## Site Customization Defaults
+**Restoring from an archive.** Use `./backup-restore.sh` from `aems-app/` to decrypt and unpack an archive on the current host. The script needs (a) the archive file itself and (b) the `age` private key that was active when the archive was created. It restores the AEMS Postgres database, the historian database (if present in the archive), and any bind-mounted config the policy included. Test-restore into a non-production stack on a regular cadence — an untested backup is not a backup.
 
-A light touch only — full configuration is in the Installer Guide.
+# Keycloak Administration
 
-- Campus and building names live in seed data and can be overridden in [`aems-app/server/config/site.json`](../../../aems-app/server/config/).
-- VOLTTRON-topic to historian-column mapping lives in [`aems-app/docker/historian/historian-topic-map.json`](../../../aems-app/docker/historian/). Edit this file to match your site's BACnet topic naming, then reload:
+Keycloak is the identity provider for AEMS. On first boot, the `keycloak` service imports the `default` realm from `aems-app/docker/keycloak/default-realm.json` — creating the realm, its `app` and `grafana-oauth` clients, and the master-realm bootstrap admin (`KEYCLOAK_ADMIN`, default `admin`). Nothing in this chapter is required to bring the stack up; it covers the routine post-launch operations an administrator performs against the running Keycloak.
 
-  ```bash
-  docker compose restart historian server
-  ```
+All commands in this chapter run from `aems-app/` on the host. The Keycloak container is `${COMPOSE_PROJECT_NAME}-keycloak` (default `aems-keycloak`), the AEMS realm is `default`, and the master-realm admin user is `admin` (or whatever `KEYCLOAK_ADMIN` is set to in `aems-app/.env`). The master-realm admin password is `KEYCLOAK_ADMIN_PASSWORD` in `aems-app/.env.secrets`, mounted as a Docker secret; it never appears in plain text in the container environment.
+
+## Resetting a Realm User's Password
+
+Use this path when a user has forgotten their AEMS password and needs a new temporary password. The user must already exist in Keycloak (they exist there once they have completed the Guest → Login → Register flow at least once).
+
+```bash
+# Step 1 — Authenticate kcadm as the master-realm admin. The token is cached
+# inside the container for the life of the session; re-run this whenever
+# subsequent kcadm calls return "401 Unauthorized".
+docker exec -it aems-keycloak /opt/keycloak/bin/kcadm.sh config credentials \
+  --server http://localhost:8080/auth/sso \
+  --realm master \
+  --user admin \
+  --password "$KEYCLOAK_ADMIN_PASSWORD"
+
+# Step 2 — Set the new password on the target user in the `default` realm.
+docker exec -it aems-keycloak /opt/keycloak/bin/kcadm.sh set-password \
+  -r default \
+  --username user@example.com \
+  --new-password '<new-temporary-password>'
+```
+
+Communicate the temporary password to the user out-of-band (not through the email address on the AEMS account) and instruct them to change it on their next login.
+
+> **NOTE.** Keycloak enforces the realm's password policy on `set-password`. If the policy has been tightened — for example, minimum length 12, one special character required — a weak new password will be rejected with `403 Forbidden`. Choose a password that satisfies the policy.
+
+## Promoting a User to Keycloak Admin
+
+Two AEMS user roles are relevant:
+
+- **`admin`** — grants the user the full set of application-scoped administrative capabilities inside the AEMS UI (backups, users, historian dashboards, site configuration). Does **not** grant access to the Keycloak admin console.
+- **`keycloak`** — everything `admin` grants, **plus** access to the Keycloak realm-management surface via the AEMS UI's **Admin → Keycloak** page. Assigning this role in AEMS also grants the Keycloak-side `realm-management/realm-admin` client role in the `default` realm, so the user can manage realm roles, clients, and other users from the Keycloak admin console at `https://<HOSTNAME>/auth/sso/admin/`.
+
+**Preferred path — helper script.** From `aems-app/`:
+
+```bash
+./update-user-role.sh user@example.com keycloak
+```
+
+The script performs three steps atomically:
+
+1. Updates the `User.role` column in the AEMS Postgres database (`UPDATE "User" SET role='keycloak' WHERE email = 'user@example.com'`).
+2. Detects that the role contains `keycloak`, authenticates `kcadm.sh` against the master realm using `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD` (resolved from `.env.secrets` first, then `.env`).
+3. Runs `kcadm.sh add-roles -r default --uusername user@example.com --cclientid realm-management --rolename realm-admin` inside the running `aems-keycloak` container.
+
+To revoke, assign any non-`keycloak` role — for example `./update-user-role.sh user@example.com admin` — and the script runs the symmetric `remove-roles` call to drop the Keycloak-side privilege.
+
+The user must have signed into the AEMS UI at least once before the script will find them, because the script queries the AEMS database for the `User` row. If the script prints `No user found with email: …`, have the user complete the Guest → Login → Register flow first, then re-run.
+
+**Direct kcadm alternative.** If the helper script is unavailable — for example when triaging from a machine that does not have the repository checked out — grant the Keycloak-side role directly:
+
+```bash
+docker exec -it aems-keycloak /opt/keycloak/bin/kcadm.sh config credentials \
+  --server http://localhost:8080/auth/sso --realm master \
+  --user admin --password "$KEYCLOAK_ADMIN_PASSWORD"
+
+docker exec -it aems-keycloak /opt/keycloak/bin/kcadm.sh add-roles \
+  -r default --uusername user@example.com \
+  --cclientid realm-management --rolename realm-admin
+```
+
+The direct path grants only the Keycloak-side role; the AEMS `User.role` column is **not** updated, so the AEMS UI will still show the user as an ordinary account and the two sides will drift. Use the helper script whenever both sides need to stay in sync.
+
+## Rotating the Master-Realm Admin Password
+
+The master-realm admin password (`KEYCLOAK_ADMIN_PASSWORD`) is what `kcadm.sh` and `update-user-role.sh` authenticate with. Rotate it on a normal cadence and immediately whenever an operator with knowledge of it leaves the team.
+
+**Preferred path — `./secrets.sh`.** Edit `aems-app/.env.secrets`:
+
+```ini
+KEYCLOAK_ADMIN_PASSWORD=<new-strong-passphrase>
+```
+
+Then from `aems-app/` run:
+
+```bash
+./secrets.sh
+```
+
+The script detects that the deployed value differs from the file, then:
+
+1. Authenticates `kcadm.sh` to the master realm inside the running `aems-keycloak` container using the **old** password.
+2. Runs `kcadm.sh set-password -r master --username admin --new-password '<new value>'` inside the container.
+3. Invalidates its cached kcadm token so any subsequent secret operation re-authenticates with the new password.
+4. Overwrites the mounted secret file at `aems-app/docker/secrets/keycloak_admin_password.txt` with the new value.
+5. Queues a restart of the `keycloak` service so any dependent workers pick up the new value on next read.
+
+If the container is not running when you invoke `./secrets.sh`, the script refuses with `container aems-keycloak is not running` and leaves both the live Keycloak state and the secret file untouched. Start the stack first, then rotate.
+
+> **WARNING.** Do **not** hand-edit `aems-app/docker/secrets/keycloak_admin_password.txt` and restart Keycloak. The mounted secret is only read by Keycloak on **first boot** to seed the master admin — on subsequent boots Keycloak keeps whatever password is stored inside the `keycloak-db` database. Writing a new value to the mounted file without also running `kcadm.sh set-password` against the live database causes the two to drift, and every subsequent `./secrets.sh` and `./update-user-role.sh` will fail to authenticate. Always change the password *inside* Keycloak first (via the helper script above) so the file and the database stay in sync.
+
+**Direct kcadm alternative.** If you cannot use the helper script — for example when recovering a stack whose secrets layout has diverged — run:
+
+```bash
+# Authenticate with the OLD password
+docker exec -it aems-keycloak /opt/keycloak/bin/kcadm.sh config credentials \
+  --server http://localhost:8080/auth/sso --realm master \
+  --user admin --password '<OLD_PASSWORD>'
+
+# Set the NEW password on the master realm's admin user
+docker exec -it aems-keycloak /opt/keycloak/bin/kcadm.sh set-password \
+  -r master --username admin --new-password '<NEW_PASSWORD>'
+```
+
+Then update `.env.secrets` to match and rewrite the mounted secret file:
+
+```bash
+./secrets.sh --force        # regenerates docker/secrets/*.txt from .env.secrets
+docker compose restart keycloak server
+```
+
+`--force` is appropriate here because the live rotation is already done and only the on-disk secret file needs to be re-materialized.
+
+## Advanced Configuration
+
+Anything not covered above — password-policy tightening, MFA, custom identity providers (LDAP, SAML, OIDC federation), authentication-flow customization, per-realm branding — is standard Keycloak administration. Consult Keycloak's official documentation:
+
+- Overview and getting started: <https://www.keycloak.org/documentation>
+- Server Administration Guide (realms, clients, roles, users, groups, policies): <https://www.keycloak.org/docs/latest/server_admin/>
+- Securing Applications and Services (adapters, OIDC/OAuth flows): <https://www.keycloak.org/docs/latest/securing_apps/>
+
+The Keycloak version deployed by AEMS is pinned in `aems-app/docker/keycloak/`. When following third-party guides, cross-check the guide against that same version — Keycloak has changed both its Admin REST API and its admin console layout between major releases.
 
 # Historian and VOLTTRON Configuration
 
-This chapter covers the host-side configuration files an administrator edits before the on-site BACnet wiring described in the Installer Guide. The reload command for each file appears alongside the description; live-mounted files pick up edits on a service restart, while files baked into the historian image require a rebuild.
+This chapter covers the host-side configuration files an administrator edits before the on-site BACnet wiring begins. The reload command for each file appears alongside the description; live-mounted files pick up edits on a service restart, while files baked into the historian image require a rebuild.
 
 ## Configuration File Map
 
@@ -638,23 +591,126 @@ If your dashboard audience prefers SI units, override `WindSpeed`'s suffix from 
 
 Reload as above. Convert the value upstream if you also need a unit conversion, not just a label change.
 
-### Full reference
+### Full field reference
 
-The complete schema — every supported `aggregation`, `transform`, and `format` value, with the SQL each one emits and guidance on which to pick for which kind of signal — is in [historian-topic-map.json.txt](../../../aems-app/docker/historian/historian-topic-map.json.txt), kept alongside the JSON file. A longer markdown walkthrough with additional worked examples lives at [aems-app/README.md § Historian Topic Mapping](../../../aems-app/README.md).
+Each metric entry may be either a **bare-string form** (`"topic-name"`, uses per-metric defaults for every other field) or an **object form** (recommended). The object form has six fields, all optional; any field omitted falls back to the built-in default:
+
+```json
+"ZoneTemperature": {
+  "topic":       "ZoneTemperature",
+  "aggregation": "mean",
+  "transform":   "decimal1",
+  "format":      "none",
+  "prefix":      "",
+  "suffix":      "°F"
+}
+```
+
+**`topic`** — the VOLTTRON topic segment substituted into the template.
+
+**`aggregation`** — how the raw samples that fall inside one binning window collapse into a single value:
+
+| Value | SQL | Use for |
+|-------|-----|---------|
+| `min` | `MIN` | Trough-of-interest signals. |
+| `max` | `MAX` | Peaks (demand kW, wind gusts) and stage / command / flag codes. |
+| `mean` | `AVG` (default) | Continuous measurements — temperature, humidity, demand %. |
+| `mode` | `mode() WITHIN GROUP` | State codes where the majority sample matters. |
+| `median` | `percentile_cont(0.5)` | 50th-percentile continuous signals. |
+| `sum` | `SUM` | Accumulators. |
+| `count` | `COUNT` | Sample-count metrics. |
+| `first` | first non-null | Bin-opening samples. |
+| `last` | last non-null | Heartbeats, running totals, period-accumulated values (precipitation-per-hour). |
+
+**`transform`** — server-side numeric reduction applied after aggregation and before the value hits the wire. Every consumer — charts, gauges, tooltips, and exports — sees the same already-quantized number.
+
+| Value | Effect | Use for |
+|-------|--------|---------|
+| `none` (default) | Pass-through | Values you don't want touched. |
+| `integer` | `Math.round(value)` | Boolean, state, and command codes. |
+| `decimal1` | Round to one decimal place | Temperatures, humidity %, wind speed. |
+| `decimal2` | Round to two decimal places | Power, energy, monetary readings. |
+| `decimal3` | Round to three decimal places | Fine-grained sensor values. |
+| `floor` | `Math.floor(value)` | Counts that must never report a fractional bin. |
+| `ceiling` | `Math.ceil(value)` | Ceilings on demand or capacity metrics. |
+
+**`format`** — client-side number-to-string style. The server does not apply this; the dashboard formatter does. It affects tooltips today and gauges / axes on opt-in.
+
+| Value | Rendered as | Use for |
+|-------|-------------|---------|
+| `none` (default) | `String(value)` | Everyday measurements. |
+| `thousands` | Grouped digits (`12,345.67`) | Large meter readings, currency-style amounts. |
+| `compact` | Compact notation (`12345 → "12.3K"`) | Headline KPIs in small spaces. |
+| `scientific` | `value.toExponential(2)` (`12345 → "1.23e+4"`) | Very small or very large dimensionless values. |
+
+**`prefix`, `suffix`** — verbatim strings placed before and after the rendered value. **No auto-spacing** is applied — include a leading space in `suffix` if you want one. Examples: `prefix: "$"`, `suffix: ""` renders as `"$12.34"`; `suffix: "%"` renders as `"12.34%"` (no space); `suffix: " mph"` renders as `"12.3 mph"` (one space). Percent is a suffix, not a format — values are **not** multiplied by 100.
+
+**Picking values by metric semantics.** A quick reference for common cases:
+
+- Continuous measurements (temperature, humidity, demand %) → `aggregation: mean`, `transform: decimal1`, `format: none`.
+- Peak-of-interest signals (wind gusts, demand kW peaks) → `aggregation: max`.
+- Counters, heartbeats, running totals → `aggregation: last`, `transform: integer`.
+- Period-accumulated values (precipitation per hour) → `aggregation: last`.
+- State / command / stage / flag codes → `aggregation: max` (or `mode`), `transform: integer`.
+- Power / energy / monetary readings → `transform: decimal2`, optionally `format: thousands`.
+
+**Defaults.** A field left off falls back to a per-metric default: `mean` for `aggregation`, `none` for `transform`, `none` for `format`, empty for `prefix` and `suffix`. The 37 baseline metrics that ship with the file are already tuned to sensible values for the SE8650 thermostat, weather.gov station, and building meter — the customization use case is retuning an existing entry, not writing new ones from scratch.
 
 ## BACnet Driver — Host Interface
 
-The Docker-side [bacnet.config](../../../aems-app/docker/volttron/setup/configs/bacnet.config) sets `local_interface` to the IP/CIDR of the host NIC that lives on the BACnet LAN. The default `172.31.32.1/24` is PNNL's lab network and must be changed to your site's address.
+**BACnet LAN topology.** BACnet/IP is a UDP-broadcast protocol on port 47808. Put the AEMS host on the same broadcast domain (physical LAN or tagged VLAN) as the RTUs and thermostats, or install a **BBMD** (BACnet/IP Broadcast Management Device) on the RTU LAN and configure the VOLTTRON driver to register with it as a foreign device. A dedicated NIC or a tagged VLAN is strongly preferred over sharing the operator LAN — Who-Is / I-Am broadcasts on a busy office LAN both leak building-automation traffic and get lost in the general broadcast noise.
 
-The canonical edit point is `VOLTTRON_GATEWAY_ADDRESS` (and the related `VOLTTRON_BACNET_ADDRESS`) in [`aems-app/.env`](../../../aems-app/.env), which template-fills `bacnet.config` and `bacnet_proxy.config` at container startup. Edit `.env`; do not edit the rendered files directly or they will be overwritten on the next rebuild.
+**Host-interface binding.** `local_interface` in the rendered `bacnet.config` must resolve to the IP/CIDR of the NIC that lives on the BACnet LAN. The canonical edit point is `VOLTTRON_GATEWAY_ADDRESS` (and the related `VOLTTRON_BACNET_ADDRESS`) in `aems-app/.env`, which template-fills `bacnet.config` and `bacnet_proxy.config` at container startup. Edit `.env`, not the rendered files — the rendered files are overwritten on the next rebuild. Verify the interface exists before starting:
 
-For BACnet network design and device-ID conventions on the BACnet LAN itself, see the *AEMS Building Installer Configuration User Guide*.
+```bash
+ip -4 addr show     # find the NIC on the BACnet LAN
+```
 
-> **WARNING.** An incorrect `local_interface` is the most common cause of "no points in the historian" at first boot. Verify with `ip -4 addr show` on the host that the chosen interface actually exists on the BACnet-side VLAN before starting the stack. See §14.5 for full troubleshooting.
+The default `172.31.32.1/24` is PNNL's lab network and must be changed for any other deployment.
+
+**Device-ID conventions.** BACnet device IDs are unsigned 22-bit integers (0 through 4,194,302). Two conventions are used in AEMS deployments:
+
+- **Serial-number encoding** (Schneider SE8650 default): the last 5 digits of the thermostat's serial number are used verbatim as the device ID. Zero-collision inside any building of ≤ 100,000 devices.
+- **Address-based encoding**: `<building-number><RTU-number>` — e.g. `10101` for building 1, RTU 01. Simpler to read at the console; requires operator discipline to keep unique across buildings on the same BACnet LAN.
+
+Pick one convention per site and stick with it. Document the mapping in `topic_watcher.config` comments so an on-site technician can identify a device from its topic path.
+
+**Site-facing configuration files.** All three files below live under `aems-app/docker/volttron/setup/configs/`, are bind-mounted into the VOLTTRON container, and reload with `docker compose restart volttron`:
+
+- `bacnet.config` — the driver's own interface binding and BACnet object identifier.
+- `bacnet_proxy.config` — the proxy agent's gateway address and object identifier. When a BBMD is in use, this is where the proxy points at it.
+- `driver.config` — the platform driver's polling floor and publish depth (see *Driver Polling and Per-RTU Watch Groups* below).
+
+> **WARNING.** An incorrect `local_interface` is the most common cause of "no points in the historian" at first boot. Verify with `ip -4 addr show` on the host that the chosen interface actually exists on the BACnet-side VLAN before starting the stack. See the *VOLTTRON Cannot Reach RTUs* troubleshooting entry for the full diagnostic.
 
 ## Weather Agent — Station Code
 
-The weather station is set by `VOLTTRON_WEATHER_STATION` in [`aems-app/.env`](../../../aems-app/.env), which template-fills [weather.config](../../../aems-app/docker/volttron/setup/configs/weather.config) at container startup. Edit `.env` rather than the rendered file. For the station-selection procedure and weather-agent setup, see the *AEMS Building Installer Configuration User Guide* section on weather-agent configuration.
+The weather agent is a VOLTTRON agent that polls the U.S. National Weather Service (`api.weather.gov`) at a fixed interval and publishes observations onto the VOLTTRON message bus under `{campus}/{building}/weather/{metric}`. Stations are identified by 4-character ICAO codes — e.g. `KPDX` for Portland OR, `KTRI` for Tri-Cities WA.
+
+**Selecting a station for a deployment:**
+
+1. Open <https://forecast.weather.gov/> and enter the building's ZIP code or street address.
+2. On the returned forecast page, scroll to the **Current conditions** box in the upper-right. The station name and its ICAO code (in parentheses) appear immediately below the temperature — for example *Pasco Tri-Cities Airport, WA (KPSC)*.
+3. Prefer a station within 10 miles of the building; airports are the safest choice because they publish METAR observations at least hourly and have long historical continuity. Avoid personal weather stations and any station whose forecast page shows *"Observations are not currently available"*.
+4. If several candidate stations are roughly equidistant, prefer the one at similar elevation to the building — a 500-ft elevation delta biases air temperature by roughly 1.5 °F on average.
+
+**Setting the station.** `VOLTTRON_WEATHER_STATION` in `aems-app/.env` template-fills `weather.config` at container startup. Edit `.env`, then reload:
+
+```bash
+docker compose restart volttron
+```
+
+**Poll interval.** `VOLTTRON_WEATHER_POLL_INTERVAL_SECONDS` in `.env` (default 3600, i.e. one hour) controls how often the agent hits the NWS API. NWS caches observations and returns a `Cache-Control` header; lowering below 900 seconds is discouraged (no fresher data, wasted requests). Raising above 3600 seconds risks stale data on cold-air or humidity events that drive optimal-start decisions.
+
+**Published metrics.** By default the agent publishes 14 weather metrics: `AirTemperature`, `DewPointTemperature`, `HeatIndex`, `WindChill`, `AirPressure`, `AirPressureAtMeanSeaLevel`, `WindSpeed`, `WindSpeedOfGust`, `WindFromDirection`, `PrecipitationLastHour`, `PrecipitationLast3Hours`, `RelativeHumidity`, and `VisibilityInAir`. The mapping from NWS field names (`air_temperature`, `relative_humidity`, `wind_speed`, …) to these AEMS metric names lives in the `weatherMetrics` section of `historian-topic-map.json`.
+
+**Troubleshooting.** If no weather points appear in the historian within one poll cycle after startup, check the container log:
+
+```bash
+docker compose logs volttron | grep -i weather
+```
+
+The two common failure modes are (a) a typo in the station code — the NWS API returns 404 for unknown stations, and (b) the site's outbound firewall blocking `api.weather.gov`. The NWS API is on the public internet and requires no key, but many operator LANs block outbound HTTPS by default.
 
 ## SMTP Alerting (Optional)
 
@@ -695,7 +751,7 @@ Two practical options today:
 
    `VACUUM FULL` rewrites the table and reclaims disk; it requires an exclusive lock, so run it during low-traffic hours.
 
-2. **Vertical scale.** Provision a larger NVMe SSD on the AEMS host and migrate the `historian-data` volume to it. See §12.6 (Disk-Space Monitoring) for the inspection commands.
+2. **Vertical scale.** Provision a larger NVMe SSD on the AEMS host and migrate the `historian-data` volume to it. See *Routine Maintenance → Disk-Space Monitoring* for the inspection commands.
 
 Automatic retention is a known gap. Plan to revisit this section once retention tooling lands.
 
@@ -720,13 +776,118 @@ hostssl replication     replicator      <SUBSCRIBER_IP>/32       scram-sha-256
 hostssl historian       replicator      <SUBSCRIBER_IP>/32       scram-sha-256
 ```
 
-`pg_hba.conf` is baked into the historian image, so apply the edit and rebuild with `./start-services.sh`. Also expose the replication port (default `6543/tcp`) on the host firewall to the subscriber IP only, per §4.2.4.
+`pg_hba.conf` is baked into the historian image, so apply the edit and rebuild with `./start-services.sh`. Also expose the replication port (default `6543/tcp`) on the host firewall to the subscriber IP only; host-firewall configuration is out of scope for this guide.
 
 ### Subscriber Side (Remote Host)
 
-The subscriber host runs [setup-subscriber.sh](../../../aems-app/docker/historian/setup-subscriber.sh) against its own historian instance. The script reads `TEST_HISTORIAN_HOST`, `TEST_HISTORIAN_PORT`, `TEST_HISTORIAN_USER`, and `TEST_HISTORIAN_PASSWORD` from its environment and creates a uniquely-named subscription tied to its operating-system username, so multiple developers can subscribe to the same publisher without slot collisions.
+The subscriber is a separate PostgreSQL instance — typically on another AEMS host, an analytics warehouse, or a developer workstation — that pulls telemetry from the publisher via logical replication.
 
-The end-to-end procedure — including how to provision the subscriber host, what credentials to set, how to monitor replication lag, and how to remove a subscriber when retiring it — is documented at `https://<HOSTNAME>/historian` on the running deployment and in the [aems-app/README.md § Historian Database Replication](../../../aems-app/README.md) reference. This guide does not restate it.
+**Prerequisites on the subscriber host:**
+
+- PostgreSQL 16+ installed and running as the standard `postgres` superuser.
+- TCP reachability from subscriber → publisher on the port `HISTORIAN_REPLICATION_PORT` from the publisher's `.env` (default **6543**, not the PostgreSQL default 5432).
+- The publisher's `HISTORIAN_REPLICATOR_PASSWORD` value from `.env.secrets`.
+- The publisher's `HOSTNAME`.
+- Sufficient disk on the subscriber for the historian volume you expect (see *Historian Retention* above for growth estimates).
+
+**Step 1 — Create the subscriber database with the required schema.** Logical replication requires the target tables to exist and to carry the same primary keys as the publisher. Connect as `postgres`:
+
+```bash
+sudo -u postgres psql
+```
+
+Then, at the `psql` prompt:
+
+```sql
+CREATE DATABASE historian;
+\c historian
+CREATE SCHEMA IF NOT EXISTS public;
+
+CREATE TABLE IF NOT EXISTS topics (
+    topic_id   SERIAL PRIMARY KEY,
+    topic_name VARCHAR(512) NOT NULL UNIQUE,
+    metadata   TEXT
+);
+
+CREATE TABLE IF NOT EXISTS data (
+    ts           TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    topic_id     INTEGER NOT NULL,
+    value_string TEXT NOT NULL,
+    PRIMARY KEY (topic_id, ts)
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_ts ON data(ts);
+```
+
+The primary key on `(topic_id, ts)` is **mandatory** — without it, PostgreSQL rejects any `UPDATE` streamed by logical replication with a "cannot update table because it does not have a replica identity" error.
+
+**Step 2 — Create the subscription.** In the same `psql` session:
+
+```sql
+CREATE SUBSCRIPTION historian_sub
+CONNECTION 'host=<PUBLISHER_HOSTNAME> port=<HISTORIAN_REPLICATION_PORT> dbname=historian user=replicator password=<HISTORIAN_REPLICATOR_PASSWORD> sslmode=require'
+PUBLICATION historian_pub
+WITH (
+    copy_data   = true,
+    create_slot = true,
+    enabled     = true,
+    slot_name   = 'historian_sub_slot'
+);
+```
+
+Placeholder substitution:
+
+- `<PUBLISHER_HOSTNAME>` — the `HOSTNAME` from the publisher's `.env`.
+- `<HISTORIAN_REPLICATION_PORT>` — from the publisher's `.env` (default 6543).
+- `<HISTORIAN_REPLICATOR_PASSWORD>` — from the publisher's `.env.secrets`.
+- `sslmode=require` for production traffic over any network you don't fully trust; `sslmode=prefer` only on isolated internal LANs where the publisher uses a self-signed cert.
+
+**Step 3 — Verify initial sync and monitor lag.**
+
+```sql
+SELECT subname, subenabled, pid FROM pg_stat_subscription;
+
+SELECT subname AS subscription, latest_end_lsn, latest_end_time,
+       NOW() - latest_end_time AS replication_lag
+FROM pg_stat_subscription;
+```
+
+`copy_data = true` performs an initial one-shot bulk copy of every existing row; steady-state streaming replication follows automatically. Table-sync state can be inspected with `SELECT srsubstate FROM pg_subscription_rel` — `i` initializing, `d` copying, `s` synchronized, `r` ready.
+
+**Pause and resume.**
+
+```sql
+ALTER SUBSCRIPTION historian_sub DISABLE;
+-- ... maintenance ...
+ALTER SUBSCRIPTION historian_sub ENABLE;
+```
+
+**Retiring a subscriber.** On the subscriber:
+
+```sql
+DROP SUBSCRIPTION historian_sub;
+```
+
+Then on the **publisher**, drop the now-orphaned replication slot to prevent WAL bloat:
+
+```bash
+docker exec -it aems-historian psql -U historian -d historian \
+  -c "SELECT pg_drop_replication_slot('historian_sub_slot');"
+```
+
+**Break-glass — publisher unreachable during retirement.** If `DROP SUBSCRIPTION` hangs because the publisher is unreachable, disable the subscription first, then remove it from the catalog:
+
+```sql
+ALTER SUBSCRIPTION historian_sub DISABLE;
+DROP SUBSCRIPTION historian_sub;
+-- If that still fails:
+DELETE FROM pg_subscription_rel WHERE srsubid = (SELECT oid FROM pg_subscription WHERE subname='historian_sub');
+DELETE FROM pg_subscription        WHERE subname='historian_sub';
+```
+
+Direct catalog deletion leaves the publisher's replication slot orphaned — clean it up on the publisher (per the retirement command above) once the publisher is reachable again.
+
+**Live UI.** For an operator-friendly view of subscription status, disk usage, and lag over time, browse to `https://<PUBLISHER_HOSTNAME>/historian` on the running deployment.
 
 ### Break-Glass: Resetting Wedged Replication
 
@@ -754,19 +915,15 @@ If replication gets stuck after a schema change or after manually deleting histo
 
 ## Profiles
 
-The recommended `COMPOSE_PROFILES` value in [`aems-app/.env`](../../../aems-app/.env) for a typical production deployment is:
+Each profile in the *Services* table above is a Docker Compose profile — the service starts only when that profile is enabled in `COMPOSE_PROFILES`. The recommended `COMPOSE_PROFILES` value in `aems-app/.env` for a typical production deployment is:
 
 ```
 proxy,sso,redis,volttron,historian
 ```
 
+The `core` services in the table have no profile gate and always start.
+
 > **NOTE.** A `grafana` profile is also defined in the compose project but is **deprecated** and is not enabled in the recommended profile set. Built-in monitoring dashboards in the AEMS web UI have superseded it.
-
-For the authoritative, in-repo table of every profile with its service composition, see [`aems-app/docker/README.md`](../../../aems-app/docker/README.md).
-
-## Where Configuration Lives
-
-[`aems-app/README.md`](../../../aems-app/README.md) contains the authoritative table of every configuration file in the deployment with a one-line description of what it controls. Refer to it rather than duplicating the table here.
 
 # Routine Maintenance
 
@@ -780,7 +937,7 @@ For the authoritative, in-repo table of every profile with its service compositi
 | Weekly | Review Keycloak login logs for brute-force patterns. |
 | Monthly | Apply OS security updates. Restart the host during a planned window. |
 | Monthly | Validate a backup restore on a non-production environment. |
-| Annually | Review the hardening checklist in §13. |
+| Annually | Review the *Security Hardening Checklist* chapter. |
 
 ## Health Checks
 
@@ -836,7 +993,7 @@ docker image prune -a -f --filter "until=720h"   # remove images older than 30 d
 
 # Security Hardening Checklist
 
-This checklist mirrors the in-repo hardening list in [`README.md`](../../../README.md) with deployment-specific additions. Walk it before declaring the deployment production-ready.
+Walk this checklist before declaring the deployment production-ready.
 
 - [ ] `HOSTNAME` is a real DNS name. Never `localhost`.
 - [ ] Every value in `.env.secrets` is unique and strong; `secrets.sh` re-run after every edit.
@@ -850,23 +1007,23 @@ This checklist mirrors the in-repo hardening list in [`README.md`](../../../READ
 - [ ] Last backup completed successfully within the retention window.
 - [ ] OS unattended security updates enabled.
 - [ ] Docker Engine on a supported release; image pulls scheduled.
-- [ ] [`aems-app/docker/historian/pg_hba.conf`](../../../aems-app/docker/historian/pg_hba.conf) restricts replication subscriber by IP (if off-site replication is configured).
+- [ ] `aems-app/docker/historian/pg_hba.conf` restricts replication subscriber by IP (if off-site replication is configured).
 - [ ] Time synchronization is enabled via NTP. BACnet schedules and ILC events depend on accurate time.
 
 # Troubleshooting (Deployment Phase)
 
-For BACnet, VOLTTRON, and runtime-UI troubleshooting, see the Installer Guide and the Owner Guide respectively.
+This catalog covers issues that surface during the deployment phase — bringing the stack up, TLS, first login, VOLTTRON reaching the RTUs, backups. BACnet field debugging (device-discovery walkthroughs, thermostat provisioning) is the domain of the *AEMS Building Installer Configuration User Guide*, and runtime-UI issues are covered by the *AEMS Building Owner and Occupant User Guide*.
 
-## 13.1 Browser Shows "Not Secure" / Certificate Warning
+## Browser Shows "Not Secure" / Certificate Warning
 
 **Symptoms.** Browser displays a certificate warning when visiting `https://<HOSTNAME>`.
 
 **Causes and fixes.**
 
-- Using self-signed mode and the CA has not been imported on the operator's browser. Extract the CA per §6.5 and import it as a trusted root.
+- Using self-signed mode and the CA has not been imported on the operator's browser. Extract the CA per *DNS and TLS → Self-Signed (Default)* and import it as a trusted root.
 - Hostname mismatch — the certificate's CN/SAN does not match the URL you are visiting. Confirm `HOSTNAME` in `.env` matches the URL exactly. Reset certs with `./reset-service.sh certs` after a hostname change.
 
-## 13.2 Site Unreachable
+## Site Unreachable
 
 **Symptoms.** Browser shows "This site can't be reached" or connection refused.
 
@@ -878,7 +1035,7 @@ For BACnet, VOLTTRON, and runtime-UI troubleshooting, see the Installer Guide an
 - Profile misconfigured — `docker compose ps` shows the `proxy` service missing. Verify `COMPOSE_PROFILES` includes `proxy`.
 - Port 443 already in use by another process — `sudo ss -tlnp | grep ':443 '`.
 
-## 13.3 Login Loop or Keycloak 500 Error
+## Login Loop or Keycloak 500 Error
 
 **Symptoms.** Repeated redirects between the AEMS UI and Keycloak, or an Internal Server Error from `/auth/sso/`.
 
@@ -893,15 +1050,15 @@ For BACnet, VOLTTRON, and runtime-UI troubleshooting, see the Installer Guide an
 
 This regenerates certs and re-imports the realm with the new hostname.
 
-## 13.4 `start-services.sh` Fails with Compose v1 Errors
+## `start-services.sh` Fails with Compose v1 Errors
 
 **Symptom.** Errors mentioning `unsupported keyword 'include'` or `version: '3'` warnings.
 
 **Cause.** Docker Compose v1 is installed; the project requires v2 with `include:` support.
 
-**Fix.** `docker compose version` should report v2.x. If it reports v1 or "command not found," install the official Docker Engine + Compose v2 per §5.
+**Fix.** `docker compose version` must report v2.x. If it reports v1 or "command not found," Docker Compose v2 is missing from the host — see the *AEMS Deployment Preparation Guide* for the install path.
 
-## 13.5 VOLTTRON Cannot Reach RTUs
+## VOLTTRON Cannot Reach RTUs
 
 **Symptoms.** VOLTTRON logs show BACnet discovery timeouts; no points in the historian.
 
@@ -911,9 +1068,8 @@ This regenerates certs and re-imports the realm with the new hostname.
 - VOLTTRON container not on the host network. Verify in [`aems-app/docker/docker-compose.yml`](../../../aems-app/docker/docker-compose.yml) that the `volttron` service uses `network_mode: host`.
 - `VOLTTRON_GATEWAY_ADDRESS` in `.env` does not match the host's BACnet-side NIC IP.
 
-Detailed BACnet troubleshooting — including device-discovery procedures and Schneider SE8650 configuration — is in the Installer Guide.
 
-## 13.6 Let's Encrypt "Too Many Failed Validations"
+## Let's Encrypt "Too Many Failed Validations"
 
 **Symptoms.** `proxy` (Traefik) logs show ACME challenge failures and a rate-limit error.
 
@@ -921,27 +1077,16 @@ Detailed BACnet troubleshooting — including device-discovery procedures and Sc
 
 - DNS has not propagated yet. Wait, then retry.
 - Port 80/tcp is not reachable from the public internet. Verify with `curl -I http://<HOSTNAME>` from an external network.
-- An upstream reverse proxy is terminating TLS before the AEMS host. Either move TLS termination to AEMS or pre-stage a third-party cert (§6.4).
+- An upstream reverse proxy is terminating TLS before the AEMS host. Either move TLS termination to AEMS or pre-stage a third-party cert (see *DNS and TLS → Third-Party Certificate*).
 - During debugging, switch to the staging resolver to avoid burning production rate limit. Edit [`aems-app/docker/proxy/`](../../../aems-app/docker/proxy/) Traefik static config to add a `letsencrypt-staging` resolver, set `CERT_RESOLVER=letsencrypt-staging`, retry. Once green, switch back.
 
-## 13.7 `update-user-role.sh` Reports "User Not Found"
+## `update-user-role.sh` Reports "User Not Found"
 
 **Cause.** The application database has no row for that email because the user has never signed into the UI. The role-grant script looks up users in the AEMS database, not in Keycloak directly.
 
-**Fix.** Have the user complete the Guest → Login → Register flow at least once (§9.1, step 1–5), then re-run the role grant.
+**Fix.** Have the user complete the Guest → Login → Register flow described in *Initial Configuration → Create the First Administrator User* (steps 1–5) at least once, then re-run the role grant.
 
-## 13.8 Raspberry Pi 5 Thermal Throttling or Out-of-Memory
-
-**Symptoms.** `vcgencmd measure_temp` shows >80 °C under load; containers killed with OOM messages in `dmesg`.
-
-**Fixes.**
-
-- Confirm the active cooler is installed and operating.
-- Confirm the 27 W official PSU is in use; under-rated supplies cause CPU throttling that looks like thermal throttling.
-- For 8 GB Pi 5: keep `COMPOSE_PROFILES` at the recommended `proxy,sso,redis,volttron,historian`.
-- Add a 4 GB swap file per the Ubuntu housekeeping in §4.3.3.
-
-## 13.9 Backup Admin UI Shows "No Active Key"
+## Backup Admin UI Shows "No Active Key"
 
 **Cause.** The backup sidecar did not initialize the age keypair on first boot.
 
@@ -984,7 +1129,7 @@ Once on-site BACnet and VOLTTRON configuration is complete, **AEMS Building Owne
 
 # Appendix A — Helper Script Reference
 
-All scripts live at the root of `aems-app/` and must be run from there. Full purpose-and-flags reference is in [`README.md` § Managing the Stack](../../../README.md).
+All scripts live at the root of `aems-app/` and must be run from there.
 
 | Script | Purpose |
 |--------|---------|
@@ -1009,7 +1154,7 @@ CERT_RESOLVER=letsencrypt
 COMPOSE_PROFILES=proxy,sso,redis,volttron,historian
 ```
 
-For Pi 5 with < 16 GB RAM, keep `COMPOSE_PROFILES` at the recommended value above.
+On memory-constrained hosts, keep `COMPOSE_PROFILES` at the recommended value above.
 
 ## `aems-app/.env.secrets`
 
