@@ -515,13 +515,13 @@ This chapter covers the host-side configuration files an administrator edits bef
 
 The table below lists every site-customizable file under [`aems-app/docker/historian/`](../../../aems-app/docker/historian/) and [`aems-app/docker/volttron/setup/configs/`](../../../aems-app/docker/volttron/setup/configs/). Reload commands fall into three classes:
 
-- **Live-mount reload** — `docker compose restart volttron` picks up the change. All files under `volttron/setup/configs/` are bind-mounted into the container.
+- **Live-mount reload** — `./restart-service.sh volttron` picks up the change. All files under `volttron/setup/configs/` are bind-mounted into the container.
 - **Image-baked reload** — `./start-services.sh` rebuilds the historian image and rolls the container. Required for files copied in at image build time (`pg_hba.conf`, `postgresql.conf`).
 - **Volume-reset reload** — `./reset-service.sh historian` is destructive. Required only when first-boot state is corrupt and a clean slate is needed.
 
 | File | Purpose | Reload |
 |------|---------|--------|
-| [historian-topic-map.json](../../../aems-app/docker/historian/historian-topic-map.json) | VOLTTRON-topic → historian-column mapping, aggregation, units. | `docker compose restart historian server` |
+| [historian-topic-map.json](../../../aems-app/docker/historian/historian-topic-map.json) | VOLTTRON-topic → historian-column mapping, aggregation, units. | `./restart-service.sh historian server` |
 | [pg_hba.conf](../../../aems-app/docker/historian/pg_hba.conf) | Host-based authentication. Restrict the replication subscriber range here. | Image-baked reload (`./start-services.sh`). |
 | [postgresql.conf](../../../aems-app/docker/historian/postgresql.conf) | Postgres tunables: WAL, replication, resource limits. | Image-baked reload (`./start-services.sh`). |
 | [bacnet.config](../../../aems-app/docker/volttron/setup/configs/bacnet.config) | BACnet driver — host NIC and device ID. | Live-mount reload. |
@@ -564,7 +564,7 @@ To report the warmest zone temperature in each bin (instead of the bin's mean), 
 "ZoneTemperature": { "topic": "ZoneTemperature", "aggregation": "max", "transform": "decimal1", "suffix": "°F" }
 ```
 
-Reload with `docker compose restart historian server`. The change takes effect immediately for new queries; previously-binned data already in the dashboard's cache is not retroactively recomputed.
+Reload with `./restart-service.sh historian server`. The change takes effect immediately for new queries; previously-binned data already in the dashboard's cache is not retroactively recomputed.
 
 ### Example: relabel a metric's unit suffix
 
@@ -657,7 +657,7 @@ The default `172.31.32.1/24` is PNNL's lab network and must be changed for any o
 
 **Device-ID conventions.** Your building installer will pick a device-ID convention for the site — either a serial-number encoding (the last 5 digits of each thermostat's serial number, the Schneider SE8650 default) or an address-based encoding like `<building><rtu>` (e.g. `10101` for building 1, RTU 01). Either works; the sysadmin's job is to make sure the mapping is documented in `topic_watcher.config` comments so an on-site technician can identify a device from its topic path.
 
-**Site-facing configuration files.** All three files below live under `aems-app/docker/volttron/setup/configs/`, are bind-mounted into the VOLTTRON container, and reload with `docker compose restart volttron`:
+**Site-facing configuration files.** All three files below live under `aems-app/docker/volttron/setup/configs/`, are bind-mounted into the VOLTTRON container, and reload with `./restart-service.sh volttron`:
 
 - `bacnet.config` — the driver's own interface binding and BACnet object identifier.
 - `bacnet_proxy.config` — the proxy agent's gateway address and object identifier. When a BBMD is in use, this is where the proxy points at it.
@@ -679,7 +679,7 @@ The weather agent is a VOLTTRON agent that polls the U.S. National Weather Servi
 **Setting the station.** `VOLTTRON_WEATHER_STATION` in `aems-app/.env` template-fills `weather.config` at container startup. Edit `.env`, then reload:
 
 ```bash
-docker compose restart volttron
+./restart-service.sh volttron
 ```
 
 **Poll interval.** `VOLTTRON_WEATHER_POLL_INTERVAL_SECONDS` in `.env` (default 3600, i.e. one hour) controls how often the agent hits the NWS API. NWS caches observations and returns a `Cache-Control` header; lowering below 900 seconds is discouraged (no fresher data, wasted requests). Raising above 3600 seconds risks stale data on cold-air or humidity events that drive optimal-start decisions.
@@ -804,6 +804,24 @@ The `core` services in the table have no profile gate and always start.
 
 # Routine Maintenance
 
+## Helper Scripts
+
+Every routine maintenance operation below is wrapped by a helper script under `aems-app/`. Prefer the wrappers over invoking `docker` or `docker compose` directly — the wrappers validate arguments, resolve the compose project, and refuse invalid operations, whereas a typo in a raw docker command can silently break the deployment. Each script has a matching `.ps1` for Windows hosts. Run every script from `aems-app/`.
+
+| Script | Purpose |
+|--------|---------|
+| `./start-services.sh` | Build images and bring the full stack up. Also used to apply image-baked config changes. |
+| `./restart-service.sh <service>` | Restart one or more services in place. Non-destructive. Preserves volumes. |
+| `./reset-service.sh <service>` | **Destructive.** Stop the stack, delete the service's persistent volumes, bring the stack back up. Use only when a service's on-disk state is corrupt. |
+| `./backup.sh` | Trigger the backup sidecar manually (the scheduled run is normally sufficient). |
+| `./backup-restore.sh --archive <path>` | Break-glass restore from an encrypted archive. Stops relevant services, restores selected components, brings them back up. |
+| `./secrets.sh` | Regenerate `docker/secrets/*.txt` from `.env.secrets` and restart affected services in lockstep. Use after editing any secret. |
+| `./trust-ca.sh` | Install the mkcert CA from the proxy container into the host trust store. Only needed on self-signed deployments. |
+| `./check-env.sh` | Validate that `.env`, `.env.secrets`, and `docker/secrets/` are consistent. Run before `start-services.sh` if the stack fails to boot. |
+| `./update-user-role.sh <email> <role>` | Change an AEMS user's role. Keeps the database and Keycloak `realm-admin` client role in sync. |
+
+Run any wrapper with `-h` or `--help` for detailed usage. Wrappers that accept a service argument list every available service when invoked with no arguments.
+
 ## Cadence Checklist
 
 | Cadence | Task | How |
@@ -848,7 +866,7 @@ docker compose pull
 
 | Action | Command | When |
 |--------|---------|------|
-| Reload after config edit | `docker compose restart <service>` | Non-destructive. Picks up new mounted-file content. |
+| Reload after config edit | `./restart-service.sh <service>` | Non-destructive. Picks up new mounted-file content. |
 | Reset a single service's volume | `./reset-service.sh <service>` | **Destructive.** Wipes the service's volume(s). Use after a hostname change for `certs`, or to reset Keycloak realm state. |
 | Full stack stop | `docker compose down` | Keeps volumes. |
 | Full data wipe | `docker compose down -v` | **Destructive.** Destroys every volume, including `database-data` and `historian-data`. |
@@ -1001,7 +1019,7 @@ The AEMS stack is now running, an administrator account exists, and backups are 
 - BACnet Driver and BACnet Proxy agent configuration.
 - Target Agent configuration and startup.
 
-> **NOTE — Installer Guide Errata.** The existing *AEMS Building Installer Configuration User Guide* describes installing VOLTTRON as a standalone Linux service via the `vcfg` interactive configurator. In the current deployment, **VOLTTRON runs as a Docker service under the AEMS Compose project** that this guide installed. The `vcfg` procedure is **not used** today. The conceptual content of the installer guide — BACnet topology, thermostat configuration, agent purpose, configuration-file structure — remains correct. The configuration files themselves now live under [`aems-app/docker/volttron/setup/configs/`](../../../aems-app/docker/volttron/setup/configs/) and reload via `docker compose restart volttron`. A revision of the installer guide to reflect the Docker reality is planned.
+> **NOTE — Installer Guide Errata.** The existing *AEMS Building Installer Configuration User Guide* describes installing VOLTTRON as a standalone Linux service via the `vcfg` interactive configurator. In the current deployment, **VOLTTRON runs as a Docker service under the AEMS Compose project** that this guide installed. The `vcfg` procedure is **not used** today. The conceptual content of the installer guide — BACnet topology, thermostat configuration, agent purpose, configuration-file structure — remains correct. The configuration files themselves now live under [`aems-app/docker/volttron/setup/configs/`](../../../aems-app/docker/volttron/setup/configs/) and reload via `./restart-service.sh volttron`. A revision of the installer guide to reflect the Docker reality is planned.
 
 ## To the Owner Guide
 
@@ -1211,7 +1229,7 @@ Once you regain access to the repository checkout, update `aems-app/.env.secrets
 
 ```bash
 ./secrets.sh --force        # regenerates docker/secrets/*.txt from .env.secrets
-docker compose restart keycloak server
+./restart-service.sh keycloak server
 ```
 
 `--force` is appropriate here because the live rotation is already done and only the on-disk secret file needs to be re-materialized.
