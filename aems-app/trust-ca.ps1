@@ -1,4 +1,4 @@
-#
+﻿#
 # Install the mkcert CA from the running proxy container into the Windows
 # certificate trust store so that https://<APP_HOSTNAME> works without
 # warnings in Edge, Chrome, and other system-trust browsers.

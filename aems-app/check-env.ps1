@@ -1,4 +1,4 @@
-#
+﻿#
 # Validate consistency of .env, .env.secrets, and docker/secrets/ before deploying.
 #
 # Exit 0: all warnings only (raw dev state, env-only, or secrets mode fully in sync)

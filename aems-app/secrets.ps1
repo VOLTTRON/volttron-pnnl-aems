@@ -1,4 +1,4 @@
-#
+﻿#
 # Manage the secret pipeline: .env -> .env.secrets -> docker/secrets/*.txt.
 #
 # One entry point for every secret operation:

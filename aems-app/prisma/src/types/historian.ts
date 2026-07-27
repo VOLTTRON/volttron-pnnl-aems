@@ -256,6 +256,8 @@ export enum CalculationType {
  *   Decimal3 -> rounded to 3 decimal places
  *   Floor    -> Math.floor(value)
  *   Ceiling  -> Math.ceil(value)
+ *   Percent  -> Math.round(value * 100)  (for 0-1 normalized inputs;
+ *                                          values outside [0,1] are not clamped)
  */
 export enum MetricTransform {
   None = "none",
@@ -265,6 +267,7 @@ export enum MetricTransform {
   Decimal3 = "decimal3",
   Floor = "floor",
   Ceiling = "ceiling",
+  Percent = "percent",
 }
 
 /**

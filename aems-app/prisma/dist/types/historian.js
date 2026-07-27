@@ -81,6 +81,7 @@ var MetricTransform;
     MetricTransform["Decimal3"] = "decimal3";
     MetricTransform["Floor"] = "floor";
     MetricTransform["Ceiling"] = "ceiling";
+    MetricTransform["Percent"] = "percent";
 })(MetricTransform || (exports.MetricTransform = MetricTransform = {}));
 var MetricFormat;
 (function (MetricFormat) {

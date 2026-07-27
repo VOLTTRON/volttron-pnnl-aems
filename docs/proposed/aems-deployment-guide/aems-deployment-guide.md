@@ -618,6 +618,7 @@ Each metric entry may be either a **bare-string form** (`"topic-name"`, uses per
 | `decimal3` | Round to three decimal places. | Fine-grained sensor values. |
 | `floor` | Round down to the next integer. | Counts that must never report a fractional bin. |
 | `ceiling` | Round up to the next integer. | Ceilings on demand or capacity metrics. |
+| `percent` | Multiply by 100 and round to a whole number (`0.98346` → `98`). | Normalized 0-1 metrics that should render as percentages. Negatives and values above 100 are preserved (not clamped). |
 
 **`format`** — how the number is rendered as text in the dashboard.
 
@@ -628,11 +629,13 @@ Each metric entry may be either a **bare-string form** (`"topic-name"`, uses per
 | `compact` | Compact notation (`12345` → `12.3K`). | Headline KPIs in small spaces. |
 | `scientific` | Scientific notation (`12345` → `1.23e+4`). | Very small or very large dimensionless values. |
 
-**`prefix`, `suffix`** — verbatim strings placed before and after the rendered value. **No auto-spacing** is applied — include a leading space in `suffix` if you want one. Examples: `prefix: "$"`, `suffix: ""` renders as `"$12.34"`; `suffix: "%"` renders as `"12.34%"` (no space); `suffix: " mph"` renders as `"12.3 mph"` (one space). Percent is a suffix, not a format — values are **not** multiplied by 100.
+**`prefix`, `suffix`** — verbatim strings placed before and after the rendered value. **No auto-spacing** is applied — include a leading space in `suffix` if you want one. Examples: `prefix: "$"`, `suffix: ""` renders as `"$12.34"`; `suffix: "%"` renders as `"12.34%"` (no space); `suffix: " mph"` renders as `"12.3 mph"` (one space). Percent rendering has two shapes: metrics already emitted in `0-100` need only `suffix: "%"`; metrics emitted in `0-1` also need `transform: percent` to scale them.
 
 **Picking values by metric semantics.** A quick reference for common cases:
 
-- Continuous measurements (temperature, humidity, demand %) → `aggregation: mean`, `transform: decimal1`, `format: none`.
+- Continuous measurements with native units (temperature, wind speed) → `aggregation: mean`, `transform: decimal1`, `format: none`.
+- Continuous 0-100 percentages (humidity, demand emitted as `0-100`) → `aggregation: mean`, `transform: decimal1`, `suffix: "%"`.
+- Continuous 0-1 normalized percentages → `aggregation: mean`, `transform: percent`, `suffix: "%"`.
 - Peak-of-interest signals (wind gusts, demand kW peaks) → `aggregation: max`.
 - Counters, heartbeats, running totals → `aggregation: last`, `transform: integer`.
 - Period-accumulated values (precipitation per hour) → `aggregation: last`.
@@ -811,6 +814,7 @@ Every routine maintenance operation below is wrapped by a helper script under `a
 | Script | Purpose |
 |--------|---------|
 | `./start-services.sh` | Build images and bring the full stack up. Also used to apply image-baked config changes. |
+| `./stop-services.sh` | Stop the full stack. Preserves volumes. `--volumes` also wipes every volume (**destructive**; prompts unless `--force`). |
 | `./restart-service.sh <service>` | Restart one or more services in place. Non-destructive. Preserves volumes. |
 | `./reset-service.sh <service>` | **Destructive.** Stop the stack, delete the service's persistent volumes, bring the stack back up. Use only when a service's on-disk state is corrupt. |
 | `./backup.sh` | Trigger the backup sidecar manually (the scheduled run is normally sufficient). |
@@ -868,8 +872,8 @@ docker compose pull
 |--------|---------|------|
 | Reload after config edit | `./restart-service.sh <service>` | Non-destructive. Picks up new mounted-file content. |
 | Reset a single service's volume | `./reset-service.sh <service>` | **Destructive.** Wipes the service's volume(s). Use after a hostname change for `certs`, or to reset Keycloak realm state. |
-| Full stack stop | `docker compose down` | Keeps volumes. |
-| Full data wipe | `docker compose down -v` | **Destructive.** Destroys every volume, including `database-data` and `historian-data`. |
+| Full stack stop | `./stop-services.sh` | Keeps volumes. Use for a planned host reboot or hardware move. |
+| Full data wipe | `./stop-services.sh --volumes` | **Destructive.** Destroys every volume, including `database-data` and `historian-data`. Prompts unless `--force`. |
 
 ## Disk-Space Monitoring
 

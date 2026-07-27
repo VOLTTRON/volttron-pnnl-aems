@@ -1,4 +1,4 @@
-# This script connects to the database docker container and modifies a single user's role.
+﻿# This script connects to the database docker container and modifies a single user's role.
 # It takes two arguments: email and role. The role is trimmed, lowercased, and may contain spaces.
 # When KEYCLOAK_ADMIN and KEYCLOAK_ADMIN_PASSWORD are set it also syncs the realm-management
 # 'realm-admin' client role via kcadm.sh inside the Keycloak container.

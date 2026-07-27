@@ -129,7 +129,8 @@ export declare enum MetricTransform {
     Decimal2 = "decimal2",
     Decimal3 = "decimal3",
     Floor = "floor",
-    Ceiling = "ceiling"
+    Ceiling = "ceiling",
+    Percent = "percent"
 }
 export declare enum MetricFormat {
     None = "none",

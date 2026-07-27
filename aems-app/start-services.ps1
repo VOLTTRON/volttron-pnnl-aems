@@ -28,7 +28,7 @@ Write-Host "Checking environment/secrets configuration..." -ForegroundColor Blue
 
 & .\check-env.ps1
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Environment check failed — fix the issues above before starting services." -ForegroundColor Red
+    Write-Host "Environment check failed - fix the issues above before starting services." -ForegroundColor Red
     exit 1
 }
 
