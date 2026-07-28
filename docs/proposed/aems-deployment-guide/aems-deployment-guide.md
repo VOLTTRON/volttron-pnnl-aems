@@ -21,7 +21,7 @@ This guide is for the **administrator who installs and configures the AEMS softw
 
 ## How to Read This Guide
 
-The sections are ordered to be followed sequentially. This guide begins at DNS and TLS on a host that already has a supported Linux OS and Docker Compose v2 installed; if that is not yet true, complete the *AEMS Deployment Preparation Guide* first. All commands shown are bash on Linux — the AEMS stack runs on Linux and the helper scripts in `aems-app/` are bash (`.sh`).
+The sections are ordered to be followed sequentially. This guide begins at DNS and TLS on a host that already has a supported Linux OS and Docker Compose v2 installed; if that is not yet true, complete the *AEMS Deployment Preparation Guide* first. All commands shown are bash. The AEMS stack itself runs on Linux; the helper scripts in `aems-app/` ship as bash (`.sh`) with matching PowerShell (`.ps1`) copies for administrators on Windows using Docker Desktop or WSL2. Where this guide names a `.sh` script, the equivalent `.ps1` is next to it.
 
 ## Document Conventions
 
@@ -195,7 +195,7 @@ Open [`aems-app/.env`](../../../aems-app/.env) in your editor. The minimum requi
 
 | Variable | Required value |
 |----------|----------------|
-| `HOSTNAME` | Your FQDN (matches the DNS record configured in *DNS and TLS*). |
+| `APP_HOSTNAME` | Your FQDN (matches the DNS record configured in *DNS and TLS*). Named `APP_HOSTNAME` — not `HOSTNAME` — because bash exports a built-in `HOSTNAME` that would shadow a variable of that name at compose interpolation time. |
 | `ADMIN_EMAIL` | Your administrator email (also used for Let's Encrypt registration). |
 | `CERT_RESOLVER` | `letsencrypt`, or leave empty for self-signed / third-party. |
 | `COMPOSE_PROFILES` | Leave at the default `proxy,sso,redis,volttron,historian` unless you have a reason to deviate. |
@@ -210,11 +210,11 @@ NO_PROXY=*.example.com,127.0.0.1
 
 ## Site Identity
 
-`VOLTTRON_CAMPUS`, `VOLTTRON_BUILDING`, and `VOLTTRON_TIMEZONE` in `aems-app/.env` are the canonical site identity. They template-fill `aems-app/docker/volttron/setup/site.json` at container startup, and every historian topic is built as `{campus}/{building}/…`. Defaults are:
+`VOLTTRON_CAMPUS`, `VOLTTRON_BUILDING`, and `VOLTTRON_TIMEZONE` in `aems-app/.env` are the canonical site identity. They template-fill `aems-app/docker/volttron/setup/site.json` at container startup, and every historian topic is built as `{campus}/{building}/…`. Shipped defaults are the PNNL lab values — set them to yours before first launch:
 
 ```ini
 VOLTTRON_CAMPUS=PNNL
-VOLTTRON_BUILDING=Building1
+VOLTTRON_BUILDING=ROB
 VOLTTRON_TIMEZONE=America/Los_Angeles
 ```
 
@@ -231,7 +231,7 @@ Complete the step below that matches the strategy you picked in *DNS and TLS Pla
 Set the three variables in `aems-app/.env`:
 
 ```ini
-HOSTNAME=aems.example.com
+APP_HOSTNAME=aems.example.com
 ADMIN_EMAIL=admin@example.com
 CERT_RESOLVER=letsencrypt
 ```
@@ -254,7 +254,7 @@ Distribute `aems-ca.crt` to every operator workstation and import it as a truste
 
 ## Hostname Change After First Boot
 
-If you change `HOSTNAME` in `aems-app/.env` after the stack has booted at least once, both the generated certificates and the Keycloak realm's redirect URIs still reference the old name. Reset the affected services from `aems-app/`:
+If you change `APP_HOSTNAME` in `aems-app/.env` after the stack has booted at least once, both the generated certificates and the Keycloak realm's redirect URIs still reference the old name. Reset the affected services from `aems-app/`:
 
 ```bash
 ./reset-service.sh certs                # regenerate certs for the new hostname
@@ -268,23 +268,33 @@ If Keycloak login still fails afterwards, also reset `keycloak-db` — this wipe
 
 ## Generate `.env.secrets`
 
+`.env.secrets` is not shipped with the checkout — you generate it. `./secrets.sh` on a checkout that has no `.env.secrets` **bootstraps** the file from `.env`, seeding one line per key that carries the placeholder `SeT_tHiS_iN_0x3A-.env.secrets-` in `.env`. On this first run the script writes only the stub and exits — nothing under `docker/secrets/` is touched.
+
 ```bash
-cp .env.secrets.example .env.secrets
+./secrets.sh                # writes aems-app/.env.secrets and exits
 ```
 
-Open `.env.secrets` and replace every `your_*_here` placeholder with a strong, unique value. For opaque secrets, generate with `openssl rand -hex 32`. For administrator passwords (`KEYCLOAK_ADMIN_PASSWORD`), prefer a strong passphrase you can record in a password manager.
+Now open `aems-app/.env.secrets` and replace every empty or dummy value with a strong, unique one. For opaque secrets, generate with `openssl rand -hex 32`. For administrator passwords (`KEYCLOAK_ADMIN_PASSWORD`, `DATABASE_PASSWORD`), prefer a strong passphrase you can record in a password manager.
 
-> **WARNING.** Never commit `.env.secrets`. The file and the `docker/secrets/` directory it generates are already in `.gitignore`. Treat the file with the same care as your SSH private keys.
+> **WARNING.** Never commit `.env.secrets`. The file and the `docker/secrets/` directory it materializes are already in `.gitignore`. Treat `.env.secrets` with the same care as your SSH private keys.
 
 ## Materialize the Secret Files
 
-Run the secrets script to write per-secret files under `docker/secrets/` and generate `docker/.env.secrets.docker`:
+Re-run the secrets script. On the second run — with `.env.secrets` present and containing real values — it writes per-secret files under `aems-app/docker/secrets/*.txt` and generates `aems-app/docker/.env.secrets.docker`, the `--env-file` compose picks up on `up`:
 
 ```bash
 ./secrets.sh
 ```
 
-Re-run this command any time you edit `.env.secrets`.
+Re-run `./secrets.sh` any time you edit `.env.secrets`. If a corresponding running container already exists with an older secret, the script performs the credential-change SQL or `kcadm` call against the running container **before** overwriting the file so the two stay in lockstep. If the container is not running while a rotation is needed, the script refuses; start the stack first.
+
+> **NOTE — Windows / Git Bash.** Git Bash converts container-side POSIX paths passed to `docker exec` into Windows paths (`/opt/keycloak/...` becomes `C:/Program Files/Git/opt/keycloak/...` and the exec fails with `stat ... no such file or directory`). Prefix the rotation with `MSYS_NO_PATHCONV=1` (or run the sibling `./secrets.ps1` from PowerShell) on any Windows host:
+>
+> ```bash
+> MSYS_NO_PATHCONV=1 ./secrets.sh
+> ```
+>
+> Linux and macOS hosts are unaffected.
 
 ## Critical: Where to Run `docker compose` From
 
@@ -312,31 +322,34 @@ The first run pulls base images, builds the AEMS images locally, generates self-
 In a separate terminal:
 
 ```bash
-docker compose ps
+docker compose ps --all
 docker compose logs -f init certs database keycloak server
 ```
 
-A healthy stack, once boot completes, produces `docker compose ps` output that looks like this — one-shot containers show `Exited (0)`, long-running containers show `Up ... (healthy)`:
+Use `docker compose ps --all` (not the bare `docker compose ps`) so the one-shot `init`, `certs`, `seeders`, `grafana-setup`, and `volttron-setup` containers appear alongside the long-running services — Compose hides `Exited` containers from the default view. A healthy stack, once boot completes, produces output that looks like this: one-shot containers show `Exited (0)`, long-running containers show `Up ...`; some of the long-running containers also carry a `(healthy)` marker from their compose-defined healthcheck (`client`, `database`, `keycloak-db`, `server`, `services`, and `grafana` when the profile is enabled), while `proxy`, `keycloak`, `redis`, `backup`, `volttron`, and `historian` show plain `Up ...` because their healthchecks are advisory rather than gating:
 
 ```
-NAME              IMAGE                 STATUS
-aems-init         aems-init             Exited (0) 3 minutes ago
-aems-certs        aems-certs            Exited (0) 3 minutes ago
-aems-seeders      aems-seeders          Exited (0) 3 minutes ago
-aems-database     postgis/postgis:16    Up 3 minutes (healthy)
-aems-keycloak-db  postgres:16-alpine    Up 3 minutes (healthy)
-aems-keycloak     aems-keycloak         Up 3 minutes (healthy)
-aems-redis        redis:7-alpine        Up 3 minutes (healthy)
-aems-server       aems-server           Up 3 minutes (healthy)
-aems-services     aems-services         Up 3 minutes (healthy)
-aems-client       aems-client           Up 3 minutes (healthy)
-aems-backup       aems-backup           Up 3 minutes (healthy)
-aems-proxy        traefik:v3            Up 3 minutes (healthy)
-aems-volttron     aems-volttron         Up 3 minutes
-aems-historian    aems-historian        Up 3 minutes (healthy)
+NAME                  STATUS
+aems-init             Exited (0) 3 minutes ago
+aems-certs            Exited (0) 3 minutes ago
+aems-seeders          Exited (0) 3 minutes ago
+aems-volttron-setup   Exited (0) 3 minutes ago
+aems-database         Up 3 minutes (healthy)
+aems-keycloak-db      Up 3 minutes (healthy)
+aems-keycloak         Up 3 minutes
+aems-redis            Up 3 minutes
+aems-server           Up 3 minutes (healthy)
+aems-services         Up 3 minutes (healthy)
+aems-client           Up 3 minutes (healthy)
+aems-backup           Up 3 minutes
+aems-proxy            Up 3 minutes
+aems-volttron         Up 3 minutes
+aems-historian        Up 3 minutes
 ```
 
-Wait for `init` and `certs` to reach `Exited (0)`, and for `keycloak` and `server` to enter `Up ... (healthy)`. If either one-shot container exits with a **non-zero** code (`Exited (1)`, `Exited (137)`, etc.), inspect its log immediately — the stack will not recover on its own:
+The container names above assume the default `COMPOSE_PROJECT_NAME=aems` from `.env` — a different project name changes the prefix on every row.
+
+Wait for `init` and `certs` to reach `Exited (0)`, for `server` to enter `Up ... (healthy)`, and for `keycloak` to reach a steady `Up ...` (Keycloak's built-in healthcheck is not currently wired to Compose, so watch the log to confirm the realm import finished). If any one-shot container exits with a **non-zero** code (`Exited (1)`, `Exited (137)`, etc.), inspect its log immediately — the stack will not recover on its own:
 
 ```bash
 docker compose logs init | tail -50       # or: certs, seeders
@@ -701,7 +714,7 @@ The two common failure modes are (a) a typo in the station code — the NWS API 
 
 [emailer.config](../../../aems-app/docker/volttron/setup/configs/emailer.config) ships **disabled**: `smtp-username`, `smtp-password`, and `to-addresses` are empty. The agent loads but sends nothing.
 
-To activate it, set `VOLTTRON_SMTP_*` and `VOLTTRON_EMAIL_*` in [`aems-app/.env`](../../../aems-app/.env). `VOLTTRON_SMTP_PASSWORD` must be sourced from [`aems-app/.env.secrets`](../../../aems-app/.env.secrets.example) and propagated by `./secrets.sh` like every other credential — never paste a real SMTP password directly into `emailer.config` or `.env`.
+To activate it, set `VOLTTRON_SMTP_*` and `VOLTTRON_EMAIL_*` in [`aems-app/.env`](../../../aems-app/.env). `VOLTTRON_SMTP_PASSWORD` must be sourced from [`aems-app/.env.secrets`](../../../aems-app/.env.secrets) and propagated by `./secrets.sh` like every other credential — never paste a real SMTP password directly into `emailer.config` or `.env`.
 
 The `allow-frequency-minutes` setting (default 1440 = once per day) throttles duplicate alerts for the same condition. Lowering it makes the agent more noisy; raising it can mask repeated failures.
 
@@ -743,7 +756,7 @@ The publisher is configured automatically. On first boot of the `historian` prof
 - Adds primary keys to the `data` and `topics` tables if VOLTTRON has not yet created them (primary keys are required for logical replication to handle `UPDATE` operations).
 - Creates a `historian_pub` publication covering all tables in the historian database.
 
-No manual run is required. The replicator's password is `HISTORIAN_REPLICATOR_PASSWORD` in [`aems-app/.env.secrets`](../../../aems-app/.env.secrets.example); set it before first launch.
+No manual run is required. The replicator's password is `HISTORIAN_REPLICATOR_PASSWORD` in [`aems-app/.env.secrets`](../../../aems-app/.env.secrets); set it before first launch.
 
 What you **do** need to edit is [pg_hba.conf](../../../aems-app/docker/historian/pg_hba.conf). The shipped file allows replication from `0.0.0.0/0` (any IP) because the replicator role still requires the password and TLS. For production, narrow this to your subscriber's address:
 
@@ -762,7 +775,7 @@ The subscriber is a separate PostgreSQL instance — typically on another AEMS h
 
 - PostgreSQL 16+ installed on the subscriber host.
 - TCP reachability from subscriber → publisher on the port `HISTORIAN_REPLICATION_PORT` from the publisher's `.env` (default **6543**, not the PostgreSQL default 5432).
-- The publisher's `HISTORIAN_REPLICATOR_PASSWORD` value from `.env.secrets` and the publisher's `HOSTNAME`, communicated to whoever will run the subscriber-side setup.
+- The publisher's `HISTORIAN_REPLICATOR_PASSWORD` value from `.env.secrets` and the publisher's `APP_HOSTNAME`, communicated to whoever will run the subscriber-side setup.
 - Sufficient disk on the subscriber for the historian volume you expect (see *Historian Retention* above for growth estimates).
 
 The full subscriber-side procedure — `CREATE DATABASE`, schema DDL, `CREATE SUBSCRIPTION`, monitoring queries, pause / resume, retirement, and the catalog-DELETE break-glass — is in *Deep-Ops Reference → Subscriber-Side SQL Setup* at the end of this guide.
@@ -840,9 +853,12 @@ Run any wrapper with `-h` or `--help` for detailed usage. Wrappers that accept a
 
 ## Health Checks
 
+The two most useful spot checks are the AEMS UI root and the Keycloak realm-discovery endpoint. Both return `200` on a healthy stack; a `503` from the UI usually means a downstream service is still booting, and a `500` or `404` from the Keycloak URL means the realm import has not landed yet.
+
 ```bash
-curl -k https://<HOSTNAME>/api/health
-docker compose ps --format "table {{.Name}}\t{{.Status}}"
+curl -k -o /dev/null -s --max-time 10 -w "%{http_code}\n" https://<HOSTNAME>
+curl -k -o /dev/null -s --max-time 10 -w "%{http_code}\n" https://<HOSTNAME>/auth/sso/realms/default
+docker compose ps --all --format "table {{.Name}}\t{{.Status}}"
 ```
 
 ## Logs
@@ -894,7 +910,7 @@ docker image prune -a -f --filter "until=720h"   # remove images older than 30 d
 
 Walk this checklist before declaring the deployment production-ready.
 
-- [ ] `HOSTNAME` is a real DNS name. Never `localhost`.
+- [ ] `APP_HOSTNAME` is a real DNS name. Never `localhost`.
 - [ ] Every value in `.env.secrets` is unique and strong; `secrets.sh` re-run after every edit.
 - [ ] `CERT_RESOLVER=letsencrypt` with a real `ADMIN_EMAIL`, **or** a third-party cert is in place.
 - [ ] Host firewall exposes only 80/tcp and 443/tcp publicly; 22/tcp restricted to administrator source IPs; 6543/tcp restricted to known replication subscribers only; 47808/udp internal-only.
@@ -920,7 +936,7 @@ This catalog covers issues that surface during the deployment phase — bringing
 **Causes and fixes.**
 
 - Using self-signed mode and the CA has not been imported on the operator's browser. Extract the CA per *DNS and TLS → Self-Signed (Default)* and import it as a trusted root.
-- Hostname mismatch — the certificate's CN/SAN does not match the URL you are visiting. Confirm `HOSTNAME` in `.env` matches the URL exactly. Reset certs with `./reset-service.sh certs` after a hostname change.
+- Hostname mismatch — the certificate's CN/SAN does not match the URL you are visiting. Confirm `APP_HOSTNAME` in `.env` matches the URL exactly. Reset certs with `./reset-service.sh certs` after a hostname change.
 
 ## Site Unreachable
 
@@ -938,7 +954,7 @@ This catalog covers issues that surface during the deployment phase — bringing
 
 **Symptoms.** Repeated redirects between the AEMS UI and Keycloak, or an Internal Server Error from `/auth/sso/`.
 
-**Most common cause.** `HOSTNAME` was changed after first boot, so the Keycloak realm's redirect URIs no longer match. Two things can be misaligned after a hostname change — the TLS certificate the browser sees, or the redirect URIs baked into the Keycloak realm — so diagnose which one before you reset, because both `reset-service.sh` calls are destructive.
+**Most common cause.** `APP_HOSTNAME` was changed after first boot, so the Keycloak realm's redirect URIs no longer match. Two things can be misaligned after a hostname change — the TLS certificate the browser sees, or the redirect URIs baked into the Keycloak realm — so diagnose which one before you reset, because both `reset-service.sh` calls are destructive.
 
 **Diagnose.** Inspect the two logs — the Traefik proxy handles TLS termination and the Keycloak container handles the redirect flow. Look for cert-name-mismatch errors on the proxy side, and redirect-URI errors on the Keycloak side:
 
@@ -1066,7 +1082,7 @@ The subscriber is a separate PostgreSQL instance — typically on another AEMS h
 - PostgreSQL 16+ installed and running as the standard `postgres` superuser.
 - TCP reachability from subscriber → publisher on the port `HISTORIAN_REPLICATION_PORT` from the publisher's `.env` (default **6543**, not the PostgreSQL default 5432).
 - The publisher's `HISTORIAN_REPLICATOR_PASSWORD` value from `.env.secrets`.
-- The publisher's `HOSTNAME`.
+- The publisher's `APP_HOSTNAME`.
 - Sufficient disk on the subscriber for the historian volume you expect (see *Historian and VOLTTRON Configuration → Historian Retention* for growth estimates).
 
 **Step 1 — Create the subscriber database with the required schema.** Logical replication requires the target tables to exist and to carry the same primary keys as the publisher. Connect as `postgres`:
@@ -1116,7 +1132,7 @@ WITH (
 
 Placeholder substitution:
 
-- `<PUBLISHER_HOSTNAME>` — the `HOSTNAME` from the publisher's `.env`.
+- `<PUBLISHER_HOSTNAME>` — the `APP_HOSTNAME` from the publisher's `.env`.
 - `<HISTORIAN_REPLICATION_PORT>` — from the publisher's `.env` (default 6543).
 - `<HISTORIAN_REPLICATOR_PASSWORD>` — from the publisher's `.env.secrets`.
 - `sslmode=require` for production traffic over any network you don't fully trust; `sslmode=prefer` only on isolated internal LANs where the publisher uses a self-signed cert.
@@ -1168,11 +1184,11 @@ Direct catalog deletion leaves the publisher's replication slot orphaned — cle
 
 ## Resetting Wedged Replication
 
-If replication becomes stuck after a schema change or after manually deleting historian rows (subscriber lag climbs and never recovers), the historian ships a recovery script that drops and recreates the publication:
+If replication becomes stuck after a schema change or after manually deleting historian rows (subscriber lag climbs and never recovers), the repository ships a recovery script at `aems-app/docker/historian/fix-replication.sql` that drops and recreates the publication. The script is not baked into the running container — copy it in and apply it:
 
 ```bash
-docker compose exec historian psql -U historian -d historian \
-  -f /docker-entrypoint-initdb.d/fix-replication.sql
+docker compose cp docker/historian/fix-replication.sql historian:/tmp/fix-replication.sql
+docker compose exec historian psql -U historian -d historian -f /tmp/fix-replication.sql
 ```
 
 > **WARNING.** Running `fix-replication.sql` **interrupts every active subscriber**. Every downstream historian will need to re-initialize its subscription (see *Subscriber-Side SQL Setup* above). Use it only after confirming the wedge cannot be cleared by disabling and re-enabling the affected subscription.
@@ -1259,13 +1275,15 @@ All scripts live at the root of `aems-app/` and must be run from there.
 ## `aems-app/.env`
 
 ```ini
-HOSTNAME=aems.example.com
+APP_HOSTNAME=aems.example.com
 ADMIN_EMAIL=admin@example.com
 CERT_RESOLVER=letsencrypt
 COMPOSE_PROFILES=proxy,sso,redis,volttron,historian
 ```
 
 On memory-constrained hosts, keep `COMPOSE_PROFILES` at the recommended value above.
+
+> **NOTE.** The `.env` variable is `APP_HOSTNAME`, not `HOSTNAME` — bash exports a built-in `HOSTNAME` that would shadow a variable of that name when compose interpolates values at `up` time.
 
 ## `aems-app/.env.secrets`
 
@@ -1278,7 +1296,11 @@ REDIS_PASSWORD=<strong passphrase>
 KEYCLOAK_CLIENT_SECRET=<openssl rand -hex 32>
 KEYCLOAK_ADMIN_PASSWORD=<strong passphrase>
 KEYCLOAK_DATABASE_PASSWORD=<strong passphrase>
+HISTORIAN_DATABASE_PASSWORD=<strong passphrase>
+HISTORIAN_REPLICATOR_PASSWORD=<strong passphrase>
 ```
+
+The keys above cover the recommended `COMPOSE_PROFILES=proxy,sso,redis,volttron,historian` profile set. Additional keys — `KEYCLOAK_GRAFANA_CLIENT_SECRET`, `GRAFANA_*`, `BOOKSTACK_*`, `NOMINATIM_DATABASE_PASSWORD` — apply only when their corresponding (mostly deprecated) profiles are enabled. `./secrets.sh` writes a stub `.env.secrets` seeded with every key it detects in `.env`, so start from what the script generates rather than hand-typing this list.
 
 # Appendix C — Pandoc Build Instructions
 
