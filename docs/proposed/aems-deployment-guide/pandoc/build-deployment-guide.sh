@@ -10,7 +10,7 @@ cd "${REPO_ROOT}"
 SRC="docs/proposed/aems-deployment-guide/aems-deployment-guide.md"
 REF="docs/proposed/aems-deployment-guide/pandoc/aems-pnnl-reference.docx"
 FIGURES="docs/proposed/aems-deployment-guide/figures"
-OUT="AEMS Software Deployment Guide ($(date +%Y-%m-%d)).docx"
+OUT="AEMS Software Deployment Guide.docx"
 
 if ! command -v pandoc >/dev/null 2>&1; then
   echo "pandoc not found on PATH. Install pandoc and re-run." >&2
