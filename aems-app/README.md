@@ -2688,6 +2688,77 @@ Database user role management scripts for updating or removing user roles direct
 - Provides clear feedback on operation success/failure
 - Logs number of affected rows for verification
 
+#### `start-services.[ps1|sh]`
+
+Builds Docker images and starts every service in detached mode. Runs `check-env.[ps1|sh]` first and aborts on env/secrets validation failures.
+
+```bash
+./start-services.sh    # Linux/Mac
+.\start-services.ps1   # Windows
+```
+
+Prefer this wrapper over invoking `docker compose build && docker compose up -d` directly — a stale or inconsistent `.env`/`.env.secrets`/`docker/secrets/` chain will silently boot services with the wrong credentials otherwise.
+
+#### `stop-services.[ps1|sh]`
+
+Stops every service in the compose project. Non-destructive by default; add `--volumes` (or `-v`) to also delete every named volume in one call.
+
+```bash
+# Linux/Mac
+./stop-services.sh                  # Stop all services, keep volumes
+./stop-services.sh --volumes        # Stop and wipe every volume (prompts)
+./stop-services.sh --volumes --force  # Wipe without confirmation
+./stop-services.sh --dry-run        # Preview
+
+# Windows
+.\stop-services.ps1
+.\stop-services.ps1 --volumes
+```
+
+Options: `-v/--volumes` wipes every named volume; `-f/--force` skips the confirmation prompt (only meaningful with `--volumes`); `-n/--dry-run` previews without executing; `-h/--help` shows detailed usage.
+
+Use this over `docker compose down [-v]` — the wrapper adds a confirmation prompt for the destructive path and prints a next-step pointer to `start-services` after a clean stop.
+
+#### `restart-service.[ps1|sh]`
+
+Restarts one or more services in place. Preserves volumes and every other running service — this is the safe, non-destructive counterpart to `reset-service`.
+
+```bash
+# Linux/Mac
+./restart-service.sh                        # List all services
+./restart-service.sh server                 # Restart one service
+./restart-service.sh server database        # Restart multiple services
+./restart-service.sh server --dry-run       # Preview
+
+# Windows
+.\restart-service.ps1
+.\restart-service.ps1 server
+```
+
+Invoked with no arguments, lists every service the compose project defines. Options: `-n/--dry-run` previews; `-h/--help` shows detailed usage. Prints a `docker compose ps` status line for the restarted services on completion so you can confirm they came back healthy.
+
+Use this for reloading a service after editing a bind-mounted config file — no need to type raw `docker compose restart` commands.
+
+#### `reset-service.[ps1|sh]`
+
+**Destructive.** Stops the stack, deletes the specified service's persistent volumes, and brings the stack back up. Use only when a service's on-disk state is corrupt or needs a clean slate (e.g. regenerating certs after a hostname change, or wiping a Keycloak realm).
+
+```bash
+# Linux/Mac
+./reset-service.sh                            # List services with their volumes
+./reset-service.sh certs                      # Reset the certs service's volumes
+./reset-service.sh database grafana-db        # Reset multiple services
+./reset-service.sh keycloak --dry-run         # Preview
+./reset-service.sh grafana --force            # Skip confirmation prompt
+
+# Windows
+.\reset-service.ps1 certs
+```
+
+Options: `-f/--force` skips the confirmation prompt; `-n/--dry-run` previews; `-h/--help` shows detailed usage. Invoked with no arguments, lists every service and classifies each as *with persistent volumes* or *without*.
+
+To wipe **every** volume in the compose project in one call, use `./stop-services.sh --volumes` instead. To restart a service without touching its volumes, use `./restart-service.sh`.
+
 ### Backups
 
 Automated, encrypted backups of the full Docker Compose deployment are configured and driven entirely through the **Backups admin UI** (`/backups`). Policy, destinations, encryption keys, schedule, and the history of every run live in the database; implementation details are under [docker/backup/](./docker/backup/README.md).
@@ -3055,6 +3126,28 @@ docker compose up -d
 # Linux/Mac
 ./reset-service.sh certs
 ```
+
+**HSTS Lockout (ERR_CERT_AUTHORITY_INVALID with no "proceed anyway" option)**
+
+**Cause**: The browser cached a 1-year HSTS policy from a previous visit and now hard-blocks the connection, even if the cert error is gone.
+
+**Solution**:
+1. Clear the cached HSTS policy for your hostname in the browser:
+   - **Edge / Chrome**: navigate to `edge://net-internals/#hsts` or `chrome://net-internals/#hsts`, enter your hostname (e.g. `test.local`) under "Delete domain security policies", and click **Delete**
+   - **Firefox**: open `about:config`, search for `network.stricttransportsecurity.preloadlist`, then clear site data for the hostname in Settings → Privacy → Manage Data
+2. Restart the stack:
+   ```bash
+   docker compose down
+   docker compose up -d
+   ```
+3. To prevent recurrence, install the mkcert CA into your OS trust store so the browser never sees an untrusted-cert warning in the first place:
+   ```bash
+   # Windows (run as Administrator)
+   .\docker\proxy\trust-ca.ps1
+
+   # Linux/Mac
+   ./docker/proxy/trust-ca.sh
+   ```
 
 **Port Already in Use (port 3000)**
 
