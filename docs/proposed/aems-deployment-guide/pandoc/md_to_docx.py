@@ -29,8 +29,8 @@ from docx.shared import Pt, RGBColor
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SRC = REPO_ROOT / "docs" / "proposed" / "aems-deployment-guide" / "aems-deployment-guide.md"
-TEMPLATE = REPO_ROOT / "AEMS Building Installer Configuration User Guide (2025-06-26).docx"
-OUT_NAME = f"AEMS Software Deployment Guide ({date.today().isoformat()}).docx"
+TEMPLATE = REPO_ROOT / "docs" / "proposed" / "aems-deployment-guide" / "Report Template.docx"
+OUT_NAME = "AEMS Software Deployment Guide.docx"
 OUT = REPO_ROOT / OUT_NAME
 
 # Map our content "kinds" to PNNL named styles in the template.
