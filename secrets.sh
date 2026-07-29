@@ -13,20 +13,27 @@
 #      credential yet.
 #
 #   3. ROTATION (docker/secrets/<key>.txt exists with a value that differs
-#      from .env.secrets): run the credential-change SQL/kcadm command
-#      against the running container BEFORE overwriting the file, then
-#      restart the affected services. If the container isn't running,
-#      REFUSE — writing the file without rotating would leave the next
-#      boot unable to authenticate against the seeded data volume. Pass
-#      --force to override.
+#      from .env.secrets AND a live deployment exists): run the
+#      credential-change SQL/kcadm command against the running container
+#      BEFORE overwriting the file, then restart the affected services.
+#      If the container isn't running, REFUSE — writing the file without
+#      rotating would leave the next boot unable to authenticate against
+#      the seeded data volume. Pass --force to override.
 #
 #   4. NO-OP (values already match): silent skip.
+#
+#   5. RESIDUE (docker/secrets/<key>.txt differs from .env.secrets BUT
+#      no ${PROJECT}-* containers or ${PROJECT}_* volumes exist): treat
+#      the mismatched files as residue from a prior run, prompt to
+#      overwrite, and skip the rotation lane. --yes or --force
+#      auto-confirms the prompt.
 #
 # Usage:
 #   ./secrets.sh                # process every key in .env.secrets
 #   ./secrets.sh KEY1 KEY2 ...  # limit to named keys
 #   ./secrets.sh --dry-run      # print the plan without executing
 #   ./secrets.sh --force        # skip the rotation stage; just write files
+#   ./secrets.sh --yes          # auto-confirm residue overwrite
 #
 # Must be run from the repo root.
 
@@ -43,12 +50,14 @@ PLACEHOLDER="SeT_tHiS_iN_0x3A-.env.secrets-"
 # ── arg parsing ────────────────────────────────────────────────────────────────
 DRY_RUN=0
 FORCE=0
+YES=0
 EXPLICIT_KEYS=""
 
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
     --force)   FORCE=1 ;;
+    --yes|-y)  YES=1 ;;
     --*)       printf "Unknown flag: %s\n" "$arg" >&2; exit 1 ;;
     *)         EXPLICIT_KEYS="$EXPLICIT_KEYS $arg" ;;
   esac
@@ -93,6 +102,44 @@ project_name() {
 
 container_running() {
   docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^$1$"
+}
+
+# True iff any docker container (running or stopped) exists whose name
+# starts with "${1}-". Compose sets container names of the form
+# <project>-<service> when container_name uses ${COMPOSE_PROJECT_NAME}.
+project_has_containers() {
+  docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^$1-"
+}
+
+# Per-secret data volume: names the compose-declared volume that holds
+# seeded credentials for each rotation-capable secret. When the volume
+# is absent, overwriting the corresponding docker/secrets/*.txt file is
+# safe — no seeded state can be out of sync with the file.
+#
+# Keys without an entry here are either app-only (rotation via restart)
+# or read the credential from the compose command line (REDIS_PASSWORD).
+key_data_volume() {
+  case "$1" in
+    DATABASE_PASSWORD)                echo "database-data" ;;
+    KEYCLOAK_ADMIN_PASSWORD)          echo "keycloak-data" ;;
+    KEYCLOAK_DATABASE_PASSWORD)       echo "keycloak-data" ;;
+    KEYCLOAK_CLIENT_SECRET)           echo "keycloak-data" ;;
+    BOOKSTACK_KEYCLOAK_CLIENT_SECRET) echo "keycloak-data" ;;
+    NOMINATIM_DATABASE_PASSWORD)      echo "nominatim-data" ;;
+    BOOKSTACK_ROOT_PASSWORD)          echo "wiki-data" ;;
+    BOOKSTACK_DATABASE_PASSWORD)      echo "wiki-data" ;;
+    *) echo "" ;;
+  esac
+}
+
+# True iff a docker named volume exists on this host that would hold
+# seeded credentials for $2 under project prefix $1. Returns false for
+# keys with no volume dependency (they're safe to overwrite by
+# definition).
+key_data_volume_exists() {
+  vol=$(key_data_volume "$2")
+  [ -z "$vol" ] && return 1
+  docker volume ls --format '{{.Name}}' 2>/dev/null | grep -q "^$1_${vol}$"
 }
 
 # Read the currently-deployed value from disk (empty string if the file
@@ -256,6 +303,93 @@ if [ -n "$EXPLICIT_KEYS" ]; then
   KEYS_TO_CHECK="$EXPLICIT_KEYS"
 else
   KEYS_TO_CHECK=$(env_secret_keys)
+fi
+
+# ── residue check ─────────────────────────────────────────────────────────────
+# Per-key check: for each key whose docker/secrets/*.txt differs from
+# .env.secrets, is there ANY live state (running/stopped container or a
+# seeded data volume) that would make live rotation necessary? If not,
+# the file is residue from a prior run and can be safely overwritten.
+# Prompt once with the full list so the user can approve all at once.
+RESIDUE_KEYS=""
+for key in $KEYS_TO_CHECK; do
+  new_val=$(get_value "$SECRETS_FILE" "$key")
+  if [ -z "$new_val" ] || [ "$new_val" = "$PLACEHOLDER" ]; then
+    continue
+  fi
+  secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
+  secret_file="${SECRETS_DIR}/${secret_name}.txt"
+  if [ ! -f "$secret_file" ]; then
+    continue
+  fi
+  old_val=$(deployed_secret "$key")
+  if [ "$new_val" = "$old_val" ]; then
+    continue
+  fi
+
+  # Would be classified as a rotation. Check whether any live state
+  # would actually block it. Both container AND data volume absent =>
+  # the file is residue.
+  if project_has_containers "$PROJECT"; then
+    continue
+  fi
+  if key_data_volume_exists "$PROJECT" "$key"; then
+    continue
+  fi
+
+  RESIDUE_KEYS="$RESIDUE_KEYS $key"
+done
+
+if [ -n "$(printf '%s' "$RESIDUE_KEYS" | tr -d ' ')" ]; then
+  header "No live deployment detected for changed keys"
+  warn "The following docker/secrets/ files do not match ${SECRETS_FILE},"
+  warn "and neither their container nor their data volume exists:"
+  for key in $RESIDUE_KEYS; do
+    secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
+    warn "  ${secret_name}.txt"
+  done
+  printf "\n"
+  printf "These files are residue from a prior run. No live rotation is\n"
+  printf "needed — the new values will be honored on the next \`docker\n"
+  printf "compose up\`.\n\n"
+
+  confirmed=0
+  if [ "$DRY_RUN" = 1 ]; then
+    dry "Would prompt to overwrite residue files"
+    confirmed=1
+  elif [ "$YES" = 1 ] || [ "$FORCE" = 1 ]; then
+    info "Auto-confirmed (--yes / --force)"
+    confirmed=1
+  else
+    printf "Overwrite these files from %s? [y/N] " "$SECRETS_FILE"
+    read -r answer || answer=""
+    case "$answer" in
+      y|Y|yes|YES) confirmed=1 ;;
+    esac
+  fi
+
+  if [ "$confirmed" = 0 ]; then
+    printf "\n"
+    error "Aborted by user."
+    printf "Re-run with --yes to auto-confirm, or delete the residue files\n"
+    printf "manually and re-run.\n\n"
+    exit 1
+  fi
+
+  # Overwrite residue files in place so classification sees them as
+  # matching .env.secrets. Rotation lane will not fire for these keys.
+  if [ "$DRY_RUN" = 0 ]; then
+    overwritten=0
+    for key in $RESIDUE_KEYS; do
+      new_val=$(get_value "$SECRETS_FILE" "$key")
+      secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
+      secret_file="${SECRETS_DIR}/${secret_name}.txt"
+      echo "$new_val" > "$secret_file"
+      chmod 600 "$secret_file"
+      overwritten=$((overwritten + 1))
+    done
+    ok "Overwrote $overwritten residue file(s)"
+  fi
 fi
 
 # ── classify ──────────────────────────────────────────────────────────────────
@@ -569,18 +703,40 @@ elif [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
     esac
   done
 
-  # Any handler that couldn't reach its container aborts the whole run.
-  # This is the anti-footgun: we don't overwrite files unless every
-  # rotation succeeded.
+  # Any handler that couldn't reach its container prompts the user
+  # before we overwrite files. This is the anti-footgun: we don't
+  # overwrite unless the user explicitly acknowledges the risk.
   if [ "$ROTATION_ERRORS" -gt 0 ] && [ "$DRY_RUN" = 0 ]; then
-    header "Aborting"
-    error "$ROTATION_ERRORS rotation(s) could not be applied — nothing has been written."
+    header "Cannot rotate $ROTATION_ERRORS credential(s) live"
     printf "\n"
-    printf "Start the affected containers (docker compose up -d) and re-run,\n"
-    printf "OR pass --force to write the files anyway (you will need to wipe\n"
-    printf "the affected data volumes or apply the credential change manually\n"
-    printf "before the services can authenticate).\n\n"
-    exit 1
+    printf "Overwriting the files without rotating means any data volume\n"
+    printf "seeded with the old credential will no longer authenticate on\n"
+    printf "next boot — you will need to wipe the affected data volume(s)\n"
+    printf "or apply the credential change manually.\n\n"
+
+    overwrite=0
+    if [ "$YES" = 1 ] || [ "$FORCE" = 1 ]; then
+      info "Auto-confirmed (--yes / --force)"
+      overwrite=1
+    else
+      printf "Overwrite anyway (skip rotation)? [y/N] "
+      read -r answer || answer=""
+      case "$answer" in
+        y|Y|yes|YES) overwrite=1 ;;
+      esac
+    fi
+
+    if [ "$overwrite" = 0 ]; then
+      header "Aborting"
+      error "$ROTATION_ERRORS rotation(s) could not be applied — nothing has been written."
+      printf "\n"
+      printf "Start the affected containers (docker compose up -d) and re-run.\n\n"
+      exit 1
+    fi
+
+    warn "Skipping rotation for the failed key(s). Data volumes must be"
+    warn "wiped or credentials reconciled manually before services can auth."
+    mark_warn
   fi
 fi
 
