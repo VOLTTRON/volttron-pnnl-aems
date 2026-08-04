@@ -5,7 +5,7 @@ Next.js 14 (App Router) + React 18 + TypeScript + Blueprint.js + SCSS modules. C
 ## Layout
 
 - [client/src/app/](../../client/src/app/) — Next App Router tree. Route-per-folder with `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`, `template.tsx`.
-  - Feature routes: `about/`, `auth/`, `backups/`, `banners/`, `demo/`, `feedback/`, `logs/`, `users/`.
+  - Feature routes: `about/`, `auth/`, `backups/`, `banners/`, `demo/`, `feedback/`, `keycloak/`, `logs/`, `users/`.
   - [components/common/](../../client/src/app/components/common/) — shared UI (banner, echarts, file, loading, navbar, navigation, notice, notification, paging, palette, preferences, search, table, texticon, theme).
   - [components/providers/](../../client/src/app/components/providers/) — context providers (current user, GraphQL/Apollo, loading, logging, notification, preferences, routing, screen size).
   - [components/feedback/](../../client/src/app/components/feedback/) — feedback widget.
@@ -78,7 +78,7 @@ Key fields:
 | `parentId` | Parent route ID |
 | `path` | URL segment (`Dynamic` sentinel for `[param]` segments) |
 | `scope` | Required role (`"user"`, `"admin"`, `"super"`). Undefined = public |
-| `display` | `true` = always show in nav; `"admin"` = show only for admins; `false` = hide |
+| `display` | `true` = always show in nav; `"admin"` = show only for admins; `"keycloak"` = show only when Keycloak auth is enabled (detected via `useIsKeycloakEnabled`); `false` = hide |
 | `components` | Navbar/navigation components to render for this route |
 
 `isGranted(route, user)` calls `Role.granted(route.scope, user.role)` from `@local/common`. `NEXT_PUBLIC_HIDDEN_ROUTES` env var hides routes from navigation at build time (they still exist and are accessible).
@@ -96,6 +96,8 @@ What `server.cjs` does:
 
 ## Apollo + codegen
 
+Operation files under `client/src/queries/`: `account.graphql`, `backup.graphql`, `banner.graphql`, `comment.graphql`, `feedback.graphql`, `file.graphql`, `geography.graphql`, `keycloak.graphql`, `log.graphql`, `user.graphql`, and others. Add a new `.graphql` file per aggregate.
+
 ```
 client/src/queries/*.graphql        ← you edit these (operations)
 client/schema.graphql                ← copy of server's schema (regenerated, don't edit)
@@ -111,6 +113,26 @@ import { useUserQuery } from "@/graphql-codegen/..."
 The Apollo Client uses an HTTP + WebSocket split link: queries and mutations go over HTTP (credentials: include), subscriptions go over WebSocket (`graphql-ws`).
 
 **Don't use inline `gql` tagged templates** — the codegen path is the source of truth.
+
+## Keycloak-aware UI
+
+The `/keycloak` admin page ([client/src/app/keycloak/page.tsx](../../client/src/app/keycloak/page.tsx)) is gated to users holding the `keycloak` role. It provides:
+- A button linking to the Keycloak Admin Console.
+- Links to Keycloak Server Administration and Securing Applications documentation.
+- A User Role Management card: select any app user, view their current realm roles as tags, and click Assign/Revoke per role.
+- An Admin Console Access toggle: grants or revokes the `realm-admin` client role in Keycloak, giving the selected user direct Admin Console access via their SSO session.
+
+**`useIsKeycloakEnabled`** ([client/src/app/components/hooks/useIsKeycloakEnabled.ts](../../client/src/app/components/hooks/useIsKeycloakEnabled.ts)): fetches `/api/auth` once (module-level cache) and returns `true` if `keycloak` is in the enabled providers list. Used to conditionally render Keycloak-specific UI throughout the app.
+
+**`keycloakAdminUrl()`** ([client/src/utils/client.tsx](../../client/src/utils/client.tsx)): derives the Keycloak Admin Console URL from `NEXT_PUBLIC_KEYCLOAK_ISSUER_URL` or falls back to `NEXT_PUBLIC_KEYCLOAK_ADMIN_URL`.
+
+**`users/dialog.tsx` Keycloak-aware changes:** When Keycloak is enabled, the password field in the user create/update dialogs shows a helper note directing SSO users to manage their password in the Keycloak Admin Console. The `keycloak` role checkbox is hidden when Keycloak is not enabled.
+
+**Client env vars added for Keycloak admin:**
+
+| Var | Description | Default |
+|-----|-------------|---------|
+| `NEXT_PUBLIC_KEYCLOAK_ADMIN_URL` | Base path for the Keycloak Admin Console link | `/auth/sso/admin` |
 
 ## How to add a new page/route
 

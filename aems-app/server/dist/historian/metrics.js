@@ -470,6 +470,8 @@ function applyTransform(value, transform) {
             return Math.floor(value);
         case common_1.MetricTransform.Ceiling:
             return Math.ceil(value);
+        case common_1.MetricTransform.Percent:
+            return Math.round(value * 100);
     }
 }
 function generateDefaultTopicMapConfig() {

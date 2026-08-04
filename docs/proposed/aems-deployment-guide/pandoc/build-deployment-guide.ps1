@@ -9,7 +9,7 @@ Set-Location $RepoRoot
 $Src     = 'docs/proposed/aems-deployment-guide/aems-deployment-guide.md'
 $Ref     = 'docs/proposed/aems-deployment-guide/pandoc/aems-pnnl-reference.docx'
 $Figures = 'docs/proposed/aems-deployment-guide/figures'
-$Out     = "AEMS Software Deployment Guide ($(Get-Date -Format 'yyyy-MM-dd')).docx"
+$Out     = 'AEMS Software Deployment Guide.docx'
 
 if (-not (Get-Command pandoc -ErrorAction SilentlyContinue)) {
     Write-Error @'

@@ -132,7 +132,7 @@ services:
       - traefik.http.middlewares.client-security.headers.frameDeny=true
       - traefik.http.middlewares.client-security.headers.referrerPolicy=same-origin
       - traefik.http.middlewares.client-security.headers.sslRedirect=true
-      - traefik.http.middlewares.client-security.headers.stsSeconds=31536000
+      - traefik.http.middlewares.client-security.headers.stsSeconds=${STS_SECONDS:-0}
       - traefik.http.routers.client-http.entrypoints=web
       - traefik.http.routers.client-http.rule=Host(`${APP_HOSTNAME}`)
       - traefik.http.routers.client-http.middlewares=client-https
@@ -198,7 +198,7 @@ services:
       - traefik.http.middlewares.server-security.headers.frameDeny=true
       - traefik.http.middlewares.server-security.headers.referrerPolicy=same-origin
       - traefik.http.middlewares.server-security.headers.sslRedirect=true
-      - traefik.http.middlewares.server-security.headers.stsSeconds=31536000
+      - traefik.http.middlewares.server-security.headers.stsSeconds=${STS_SECONDS:-0}
       - traefik.http.routers.server-http.entrypoints=web
       - traefik.http.routers.server-http.rule=Host(`${APP_HOSTNAME}`)
       - traefik.http.routers.server-http.middlewares=server-https
@@ -522,7 +522,7 @@ services:
       - traefik.http.middlewares.keycloak-security.headers.frameDeny=false
       - traefik.http.middlewares.keycloak-security.headers.referrerPolicy=same-origin
       - traefik.http.middlewares.keycloak-security.headers.sslRedirect=true
-      - traefik.http.middlewares.keycloak-security.headers.stsSeconds=31536000
+      - traefik.http.middlewares.keycloak-security.headers.stsSeconds=${STS_SECONDS:-0}
       - traefik.http.routers.keycloak-http.entrypoints=web
       - traefik.http.routers.keycloak-http.rule=Host(`${APP_HOSTNAME}`) && (PathPrefix(`/auth/sso/js/`) || PathPrefix(`/auth/sso/realms/`) || PathPrefix(`/auth/sso/resources/`) || PathPrefix(`/auth/sso/robots.txt`))
       - traefik.http.routers.keycloak-http.middlewares=keycloak-https

@@ -29,8 +29,8 @@ from docx.shared import Pt, RGBColor
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SRC = REPO_ROOT / "docs" / "proposed" / "aems-deployment-guide" / "aems-deployment-guide.md"
-TEMPLATE = REPO_ROOT / "AEMS Building Installer Configuration User Guide (2025-06-26).docx"
-OUT_NAME = f"AEMS Software Deployment Guide ({date.today().isoformat()}).docx"
+TEMPLATE = REPO_ROOT / "docs" / "proposed" / "aems-deployment-guide" / "Report Template.docx"
+OUT_NAME = "AEMS Software Deployment Guide.docx"
 OUT = REPO_ROOT / OUT_NAME
 
 # Map our content "kinds" to PNNL named styles in the template.
@@ -499,6 +499,10 @@ def _patch_title_page(doc, meta):
     authors = authors_raw.replace("\\n", "\n")
 
     # PNNL named styles used on the cover. Map each to the replacement text.
+    # PNNLCoverSubtitle / PNNLTitlePageSubtitle are only patched when the
+    # frontmatter provides a subtitle — otherwise the template's placeholder
+    # ("Enter Subtitle Here (or delete)") is cleared so it does not leak
+    # into the rendered cover.
     style_replacements = {
         "PNNLCoverNumber": report_number,
         "PNNLCoverTitle": title,
@@ -506,10 +510,11 @@ def _patch_title_page(doc, meta):
         "PNNLCoverAuthors": authors,
         "PNNLCoverContract": contract,
         "PNNLTitlePageTitle": title,
+        "PNNLCoverSubtitle": subtitle,
+        "PNNLTitlePageSubtitle": subtitle,
     }
 
     body = doc.element.body
-    title_paras = []
     for p_el in body.iter(qn("w:p")):
         pPr = p_el.find(qn("w:pPr"))
         if pPr is None:
@@ -520,32 +525,6 @@ def _patch_title_page(doc, meta):
         style_val = pStyle.get(qn("w:val")) or ""
         if style_val in style_replacements:
             _replace_paragraph_text(p_el, style_replacements[style_val])
-            if style_val == "PNNLCoverTitle":
-                title_paras.append(p_el)
-
-    # Insert subtitle paragraph just after each cover-title paragraph
-    if subtitle:
-        for tp in title_paras:
-            new_p = OxmlElement("w:p")
-            npPr = OxmlElement("w:pPr")
-            npStyle = OxmlElement("w:pStyle")
-            # Reuse the PNNLCoverDate style for the subtitle so spacing /
-            # alignment / color match the rest of the cover block; the
-            # subtitle is rendered italic via run formatting below.
-            npStyle.set(qn("w:val"), "PNNLCoverDate")
-            npPr.append(npStyle)
-            new_p.append(npPr)
-            r = OxmlElement("w:r")
-            rPr = OxmlElement("w:rPr")
-            it = OxmlElement("w:i")
-            rPr.append(it)
-            r.append(rPr)
-            t = OxmlElement("w:t")
-            t.text = subtitle
-            t.set(qn("xml:space"), "preserve")
-            r.append(t)
-            new_p.append(r)
-            tp.addnext(new_p)
 
     # Also handle ordinary (non-SDT) paragraphs that still carry the old
     # title's text — belt and braces in case the template version differs.
@@ -936,13 +915,56 @@ def _shade_cell(cell, fill_hex):
 
 def render_list(doc, items, kind):
     style = PNNL_STYLES["bullet"] if kind == "ul" else PNNL_STYLES["number"]
+
+    # For ordered lists, allocate a fresh numId per list so numbering restarts
+    # at 1 for each new list. Without this override every ordered list picks
+    # up the single numId=35 on the "List Number" style and Word continues
+    # counting across the whole document.
+    num_id = None
+    if kind == "ol":
+        _NUMBERING_STATE["next_num_id"] += 1
+        num_id = _NUMBERING_STATE["next_num_id"]
+        _NUMBERING_STATE["ordered_num_ids"].append(num_id)
+
     for item in items:
         try:
             p = doc.add_paragraph(style=style)
         except KeyError:
             p = doc.add_paragraph()
             p.add_run("• " if kind == "ul" else "")
+
+        if num_id is not None:
+            _apply_num_id(p, num_id)
+
         add_inline(p, item)
+
+
+# Running state for numbered-list numId allocation. Reset at the start of
+# each build() call. next_num_id starts at 100 to stay well above any
+# numId defined in the template (the largest observed is 35).
+_NUMBERING_STATE = {
+    "next_num_id": 100,
+    "ordered_num_ids": [],  # list of allocated numIds; each becomes a fresh <w:num> in numbering.xml
+}
+
+
+def _apply_num_id(paragraph, num_id):
+    """Override the paragraph's numPr so Word uses `num_id` instead of the
+    style-inherited numId. Ensures each ordered list starts numbering at 1.
+    """
+    pPr = paragraph._p.get_or_add_pPr()
+    # Remove any existing numPr (from the style inheritance) before setting ours
+    existing = pPr.find(qn("w:numPr"))
+    if existing is not None:
+        pPr.remove(existing)
+    numPr = OxmlElement("w:numPr")
+    ilvl = OxmlElement("w:ilvl")
+    ilvl.set(qn("w:val"), "0")
+    numPr.append(ilvl)
+    n = OxmlElement("w:numId")
+    n.set(qn("w:val"), str(num_id))
+    numPr.append(n)
+    pPr.append(numPr)
 
 
 # Callout color palette. Each entry: (header_fill, body_fill, body_border)
@@ -1539,11 +1561,14 @@ def render_diagram(doc, name):
 def _patch_customxml_and_headers(docx_path, meta):
     """Patch parts of the .docx zip that python-docx does not write through:
 
-    - customXml/item6.xml stores the PNNL cover bindings (title, authors,
-      date, number). The visible cover-page paragraphs were patched in
-      _patch_title_page, but Word can re-render the bound content controls
-      from this customXml when fields are refreshed, so the values here
-      must match too.
+    - One of `customXml/itemN.xml` stores the PNNL cover bindings (title,
+      subtitle, authors, date, number) under the `PNNL_Template` XML
+      namespace. Which N varies by template revision (some use item6, this
+      template uses item7), so we detect it by scanning contents for the
+      `PNNL_Template` namespace rather than trusting a hardcoded filename.
+      The visible cover-page paragraphs were patched in _patch_title_page,
+      but Word re-renders the bound content controls from this customXml
+      when fields refresh, so the values here must match too.
     - word/header5.xml is a left-over template header that prints
       'PNNL-35747' at the top of certain page-section ranges. Replace with
       the new report number so the running head is consistent.
@@ -1559,9 +1584,9 @@ def _patch_customxml_and_headers(docx_path, meta):
     authors_raw = meta.get("authors", "Pacific Northwest National Laboratory")
     authors = authors_raw.replace("\\n", "\n")
 
-    # New customXml/item6.xml contents — preserves the PNNL_Template
-    # namespace + element structure expected by the cover content controls.
-    new_item6 = (
+    # Rebuilt PNNL cover-binding XML — namespace + element structure must
+    # match what the template's content controls expect.
+    new_pnnl_binding = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
         '<projectDoc xmlns="PNNL_Template">\n'
         '  <PNNL_Template>\n'
@@ -1578,6 +1603,70 @@ def _patch_customxml_and_headers(docx_path, meta):
         '</projectDoc>'
     )
 
+    # Find which customXml/itemN.xml carries the PNNL_Template namespace.
+    pnnl_binding_name = None
+    with zipfile.ZipFile(docx_path, "r") as zin:
+        for item in zin.infolist():
+            name = item.filename
+            if not (name.startswith("customXml/item") and name.endswith(".xml")):
+                continue
+            head = zin.read(name)[:2048].decode("utf-8", errors="replace")
+            if "PNNL_Template" in head:
+                pnnl_binding_name = name
+                break
+    if pnnl_binding_name is None:
+        print(
+            "warning: no PNNL_Template customXml part found; cover "
+            "content-control bindings will not be updated.",
+            file=sys.stderr,
+        )
+
+    # Build the numbering.xml additions for the ordered lists in this build.
+    #
+    # Ordered lists get their own numbering definition so each list restarts
+    # at 1. Two things must be done:
+    #
+    # 1. Inject a fresh <w:abstractNum> (abstractNumId=100) that is a stripped
+    #    clone of the template's List Number abstract — same decimal format,
+    #    same indentation, but with NO <w:pStyle> style link at level 0.
+    #    The style link is what caused the previous regression: reusing an
+    #    existing abstract that was bound to Heading1 (abstract 9) or
+    #    ListNumber (abstract 8) caused Word to apply <w:startOverride> to
+    #    those styles' running counters and to renumber chapter headings.
+    #    An unbound abstract is safe to override without side effects.
+    #
+    # 2. Inject one <w:num> per allocated numId, each referencing the new
+    #    abstractNumId=100 and each carrying its own
+    #    <w:lvlOverride><w:startOverride w:val="1"/></w:lvlOverride> so Word
+    #    actually restarts the counter for that list. Without startOverride,
+    #    a fresh numId still inherits the abstract's global counter and
+    #    numbering continues across lists.
+    new_abstract_xml = (
+        '<w:abstractNum w:abstractNumId="100">'
+        '<w:nsid w:val="00AE7100"/>'
+        '<w:multiLevelType w:val="singleLevel"/>'
+        '<w:tmpl w:val="00AE7100"/>'
+        '<w:lvl w:ilvl="0">'
+        '<w:start w:val="1"/>'
+        '<w:numFmt w:val="decimal"/>'
+        '<w:lvlText w:val="%1."/>'
+        '<w:lvlJc w:val="left"/>'
+        '<w:pPr><w:ind w:left="360" w:hanging="360"/></w:pPr>'
+        '</w:lvl>'
+        '</w:abstractNum>'
+    )
+
+    new_num_xml = "".join(
+        f'<w:num w:numId="{nid}">'
+        f'<w:abstractNumId w:val="100"/>'
+        f'<w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride>'
+        f'</w:num>'
+        for nid in _NUMBERING_STATE["ordered_num_ids"]
+    )
+    # Compose the numbering.xml insertion. abstractNum entries must precede
+    # <w:num> entries in the numbering part per the OOXML schema.
+    numbering_insertion = (new_abstract_xml + new_num_xml) if new_num_xml else ""
+
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".docx")
     os.close(tmp_fd)
     try:
@@ -1586,13 +1675,27 @@ def _patch_customxml_and_headers(docx_path, meta):
         ) as zout:
             for item in zin.infolist():
                 data = zin.read(item.filename)
-                if item.filename == "customXml/item6.xml":
-                    data = new_item6.encode("utf-8")
+                if item.filename == pnnl_binding_name:
+                    data = new_pnnl_binding.encode("utf-8")
                 elif item.filename.startswith("word/header") and item.filename.endswith(".xml"):
                     text = data.decode("utf-8", errors="replace")
                     if "PNNL-35747" in text:
                         text = text.replace("PNNL-35747", report_number)
                         data = text.encode("utf-8")
+                elif item.filename == "word/numbering.xml" and numbering_insertion:
+                    text = data.decode("utf-8", errors="replace")
+                    # <w:abstractNum> elements must precede <w:num> elements
+                    # per the OOXML schema. Insert the new abstract just
+                    # before the first existing <w:num>, and the new <w:num>
+                    # entries just before the closing </w:numbering>.
+                    first_num_idx = text.find("<w:num ")
+                    if first_num_idx > 0:
+                        text = text[:first_num_idx] + new_abstract_xml + text[first_num_idx:]
+                    else:
+                        # No existing <w:num> — put the abstract just before </w:numbering>
+                        text = text.replace("</w:numbering>", new_abstract_xml + "</w:numbering>")
+                    text = text.replace("</w:numbering>", new_num_xml + "</w:numbering>")
+                    data = text.encode("utf-8")
                 zout.writestr(item, data)
         os.replace(tmp_path, docx_path)
     finally:
@@ -1702,6 +1805,10 @@ def build():
     _SECTION_STATE["h2"] = 0
     _SECTION_STATE["h3"] = 0
     _SECTION_STATE["in_unnumbered_h1"] = False
+
+    # Reset ordered-list numbering allocation for this build.
+    _NUMBERING_STATE["next_num_id"] = 100
+    _NUMBERING_STATE["ordered_num_ids"] = []
 
     doc = clone_template_and_clear_body(meta)
 

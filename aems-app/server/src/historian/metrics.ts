@@ -630,6 +630,8 @@ export function applyTransform(value: number | null, transform: MetricTransform)
       return Math.floor(value);
     case MetricTransform.Ceiling:
       return Math.ceil(value);
+    case MetricTransform.Percent:
+      return Math.round(value * 100);
   }
 }
 

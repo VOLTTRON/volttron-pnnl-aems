@@ -1,4 +1,4 @@
-#
+﻿#
 # Manage the secret pipeline: .env -> .env.secrets -> docker/secrets/*.txt.
 #
 # One entry point for every secret operation:
@@ -12,26 +12,34 @@
 #      credential yet.
 #
 #   3. ROTATION (docker/secrets/<key>.txt exists with a value that differs
-#      from .env.secrets): run the credential-change SQL/kcadm command
-#      against the running container BEFORE overwriting the file, then
-#      restart the affected services. If the container isn't running,
-#      REFUSE - writing the file without rotating would leave the next
-#      boot unable to authenticate against the seeded data volume. Pass
-#      -Force to override.
+#      from .env.secrets AND a live deployment exists): run the
+#      credential-change SQL/kcadm command against the running container
+#      BEFORE overwriting the file, then restart the affected services.
+#      If the container isn't running, REFUSE - writing the file without
+#      rotating would leave the next boot unable to authenticate against
+#      the seeded data volume. Pass -Force to override.
 #
 #   4. NO-OP (values already match): silent skip.
+#
+#   5. RESIDUE (docker/secrets/<key>.txt differs from .env.secrets BUT
+#      no ${PROJECT}-* containers or ${PROJECT}_* volumes exist): treat
+#      the mismatched files as residue from a prior run, prompt to
+#      overwrite, and skip the rotation lane. -Yes or -Force
+#      auto-confirms the prompt.
 #
 # Usage:
 #   .\secrets.ps1                                # process every key
 #   .\secrets.ps1 KEY1 KEY2 ...                  # limit to named keys
 #   .\secrets.ps1 -DryRun                        # print plan without executing
 #   .\secrets.ps1 -Force                         # skip rotation; just write files
+#   .\secrets.ps1 -Yes                           # auto-confirm residue overwrite
 #
 # Must be run from the repo root.
 
 param(
   [switch]$DryRun,
   [switch]$Force,
+  [switch]$Yes,
   [Parameter(ValueFromRemainingArguments)]
   [string[]]$ExplicitKeys
 )
@@ -87,6 +95,47 @@ function Test-ContainerRunning {
     param([string]$Name)
     $running = docker ps --format '{{.Names}}' 2>$null
     return $running -contains $Name
+}
+
+# True iff any docker container (running or stopped) exists whose name
+# starts with "${Project}-". Compose sets container names of the form
+# <project>-<service> when container_name uses ${COMPOSE_PROJECT_NAME}.
+function Test-ProjectHasContainers {
+    param([string]$Project)
+    $names = docker ps -a --format '{{.Names}}' 2>$null
+    if (-not $names) { return $false }
+    return @($names | Where-Object { $_ -like "$Project-*" }).Count -gt 0
+}
+
+# Per-secret data volume: names the compose-declared volume that holds
+# seeded credentials for each rotation-capable secret. When the volume
+# is absent, overwriting the corresponding docker/secrets/*.txt file is
+# safe - no seeded state can be out of sync with the file.
+#
+# Keys without a volume entry are either app-only (rotation via restart)
+# or read the credential from the compose command line (REDIS_PASSWORD).
+$SECRET_DATA_VOLUME = @{
+    "DATABASE_PASSWORD"                = "database-data"
+    "KEYCLOAK_ADMIN_PASSWORD"          = "keycloak-data"
+    "KEYCLOAK_DATABASE_PASSWORD"       = "keycloak-data"
+    "KEYCLOAK_CLIENT_SECRET"           = "keycloak-data"
+    "BOOKSTACK_KEYCLOAK_CLIENT_SECRET" = "keycloak-data"
+    "NOMINATIM_DATABASE_PASSWORD"      = "nominatim-data"
+    "BOOKSTACK_ROOT_PASSWORD"          = "wiki-data"
+    "BOOKSTACK_DATABASE_PASSWORD"      = "wiki-data"
+}
+
+# True iff a docker named volume exists on this host that would hold
+# seeded credentials for $Key under this project prefix. Returns false
+# for keys with no volume dependency (they're safe to overwrite by
+# definition).
+function Test-KeyDataVolumeExists {
+    param([string]$Project, [string]$Key)
+    $vol = $SECRET_DATA_VOLUME[$Key]
+    if (-not $vol) { return $false }
+    $vols = docker volume ls --format '{{.Name}}' 2>$null
+    if (-not $vols) { return $false }
+    return $vols -contains "${Project}_${vol}"
 }
 
 # Read the currently-deployed value from disk. Returns '' if the file
@@ -260,6 +309,82 @@ if (-not (Test-Path $SECRETS_DIR)) {
 
 # Build the list of keys to process.
 $keysToCheck = if ($ExplicitKeys.Count -gt 0) { $ExplicitKeys } else { @(Get-EnvSecretKeys) }
+
+# ── residue check ─────────────────────────────────────────────────────────────
+# Per-key check: for each key whose docker/secrets/*.txt differs from
+# .env.secrets, is there ANY live state (running/stopped container or a
+# seeded data volume) that would make live rotation necessary? If not,
+# the file is residue from a prior run and can be safely overwritten.
+# Prompt once with the full list so the user can approve all at once.
+$residueKeys = [System.Collections.Generic.List[string]]::new()
+foreach ($key in $keysToCheck) {
+    $newVal = Get-EnvValue -File $SECRETS_FILE -Key $key
+    $newIsEmpty = [string]::IsNullOrEmpty($newVal) -or $newVal -eq $PLACEHOLDER
+    if ($newIsEmpty) { continue }
+
+    $secretName = $key.ToLower()
+    $secretFile = Join-Path $SECRETS_DIR "$secretName.txt"
+    if (-not (Test-Path $secretFile)) { continue }
+
+    $oldVal = Get-DeployedSecret -Key $key
+    if ($newVal -eq $oldVal) { continue }
+
+    # Would be classified as a rotation. Check whether any live state
+    # would actually block it. Both container AND volume absent => the
+    # file is residue.
+    if (Test-ProjectHasContainers -Project $PROJECT) { continue }
+    if (Test-KeyDataVolumeExists  -Project $PROJECT -Key $key) { continue }
+
+    $residueKeys.Add($key)
+}
+
+if ($residueKeys.Count -gt 0) {
+    Write-Hdr "No live deployment detected for changed keys"
+    Write-Warn "The following docker/secrets/ files do not match ${SECRETS_FILE},"
+    Write-Warn "and neither their container nor their data volume exists:"
+    foreach ($key in $residueKeys) {
+        Write-Warn "  $($key.ToLower()).txt"
+    }
+    Write-Host ""
+    Write-Host "These files are residue from a prior run. No live rotation is"
+    Write-Host "needed - the new values will be honored on the next ``docker"
+    Write-Host "compose up``."
+    Write-Host ""
+
+    $confirmed = $false
+    if ($DryRun) {
+        Write-Dry "Would prompt to overwrite residue files"
+        $confirmed = $true
+    } elseif ($Yes -or $Force) {
+        Write-Info "Auto-confirmed (-Yes / -Force)"
+        $confirmed = $true
+    } else {
+        $answer = Read-Host "Overwrite these files from ${SECRETS_FILE}? [y/N]"
+        if ($answer -match '^(y|yes)$') { $confirmed = $true }
+    }
+
+    if (-not $confirmed) {
+        Write-Host ""
+        Write-Err "Aborted by user."
+        Write-Host "Re-run with -Yes to auto-confirm, or delete the residue files"
+        Write-Host "manually and re-run."
+        Write-Host ""
+        exit 1
+    }
+
+    # Overwrite residue files in place so classification sees them as
+    # matching .env.secrets. Rotation lane will not fire for these keys.
+    if (-not $DryRun) {
+        foreach ($key in $residueKeys) {
+            $newVal     = Get-EnvValue -File $SECRETS_FILE -Key $key
+            $secretName = $key.ToLower()
+            $secretFile = Join-Path $SECRETS_DIR "$secretName.txt"
+            Set-Content -Path $secretFile -Value $newVal -NoNewline
+            Set-OwnerOnlyAcl -Path $secretFile
+        }
+        Write-Ok "Overwrote $($residueKeys.Count) residue file(s)"
+    }
+}
 
 # ── classify ──────────────────────────────────────────────────────────────────
 # For each key, decide the lane:
@@ -540,15 +665,35 @@ elseif ($Rotations.Count -gt 0) {
     }
 
     if ($rotationErrors -gt 0 -and -not $DryRun) {
-        Write-Hdr "Aborting"
-        Write-Err "$rotationErrors rotation(s) could not be applied - nothing has been written."
+        Write-Hdr "Cannot rotate $rotationErrors credential(s) live"
         Write-Host ""
-        Write-Host "Start the affected containers (docker compose up -d) and re-run,"
-        Write-Host "OR pass -Force to write the files anyway (you will need to wipe"
-        Write-Host "the affected data volumes or apply the credential change manually"
-        Write-Host "before the services can authenticate)."
+        Write-Host "Overwriting the files without rotating means any data volume"
+        Write-Host "seeded with the old credential will no longer authenticate on"
+        Write-Host "next boot - you will need to wipe the affected data volume(s)"
+        Write-Host "or apply the credential change manually."
         Write-Host ""
-        exit 1
+
+        $overwrite = $false
+        if ($Yes -or $Force) {
+            Write-Info "Auto-confirmed (-Yes / -Force)"
+            $overwrite = $true
+        } else {
+            $answer = Read-Host "Overwrite anyway (skip rotation)? [y/N]"
+            if ($answer -match '^(y|yes)$') { $overwrite = $true }
+        }
+
+        if (-not $overwrite) {
+            Write-Hdr "Aborting"
+            Write-Err "$rotationErrors rotation(s) could not be applied - nothing has been written."
+            Write-Host ""
+            Write-Host "Start the affected containers (docker compose up -d) and re-run."
+            Write-Host ""
+            exit 1
+        }
+
+        Write-Warn "Skipping rotation for the failed key(s). Data volumes must be"
+        Write-Warn "wiped or credentials reconciled manually before services can auth."
+        noteWarn
     }
 }
 
