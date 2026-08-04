@@ -240,7 +240,42 @@ Traefik will request a certificate on first launch through the ACME HTTP-01 chal
 
 ### Third-Party Certificate
 
-Leave `CERT_RESOLVER=` empty in `aems-app/.env` so Traefik does not attempt ACME. Copy the certificate chain and private key into `aems-app/docker/proxy/`, then edit `aems-app/docker/proxy/certs-traefik.yml` to point the `tls.certificates` list at the new filenames.
+Leave `CERT_RESOLVER=` empty in `aems-app/.env` so Traefik does not attempt ACME. Then run the certificate installer from `aems-app/`:
+
+**Linux / macOS:**
+
+```sh
+./install-third-party-cert.sh \
+  --cert /path/to/server.crt \
+  --key  /path/to/server.key \
+  [--ca-bundle /path/to/chain.crt] \
+  [--name my-domain]
+```
+
+**Windows** (PowerShell — no elevation required):
+
+```powershell
+.\install-third-party-cert.ps1 `
+  -Cert C:\path\to\server.crt `
+  -Key  C:\path\to\server.key `
+  [-CaBundle C:\path\to\chain.crt] `
+  [-Name my-domain]
+```
+
+The script:
+
+1. Verifies the certificate and private key match (via `openssl`, if available on `PATH`).
+2. Copies the files into the `${COMPOSE_PROJECT_NAME}_certs-data` Docker volume, which Traefik reads from `/etc/certs/`. The files are installed under a distinct slug (default `custom` → `custom.crt`, `custom.key`, optionally `custom-ca.crt`), so nothing collides with the self-signed `mkcert-*` files the certs init container generates on empty volumes.
+3. Rewrites `aems-app/docker/proxy/certs-traefik.yml` to reference the new filenames, keeping a timestamped backup at `certs-traefik.yml.bak.<UTC-timestamp>` next to the file.
+4. Restarts the proxy service and tails its logs so you can confirm the new certificate loaded.
+
+The certs-traefik.yml, when edited by the installer, is watched by Traefik and reloaded live; the proxy restart is a belt-and-braces step.
+
+Add `--dry-run` (PowerShell: `-DryRun`) to preview every action without touching anything. Add `--skip-restart` if you want to inspect the modified YAML before Traefik picks it up. Add `--force` (PowerShell: `-Force`) to rewrite a `certs-traefik.yml` that has been previously hand-edited — a timestamped backup is still written.
+
+Re-running the script with the same `--name` is safe: it detects the already-installed slug, refreshes the files inside the volume, leaves the YAML alone, and restarts the proxy. Use this pattern to rotate a renewed certificate.
+
+If the stack has never been started, the script pre-creates the `certs-data` volume and drops your files into it; the certificate will be picked up the first time you run `docker compose up -d`. There is no need to bring the stack up first.
 
 ### Self-Signed
 
