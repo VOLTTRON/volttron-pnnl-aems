@@ -150,6 +150,16 @@ VOLTTRON_LOCK_FILE="${SETUP_DIR}/.setup_complete"
 
 log_info "Starting Volttron AEMS Edge Setup (Volttron Only)"
 
+# Self-heal perms for deployments initialized before the tail chmod below
+# existed: the lock-file gate short-circuits the tail chmod on pre-fix
+# deployments, leaving the tree root-owned and unreadable by the consuming
+# UID-1000 aems-services container. Running an idempotent chmod here fixes
+# those hosts on next `docker compose up` without a volume wipe.
+if [[ -d "${OUTPUT_DIR}" ]]; then
+    log_info "Ensuring output tree is world-readable: ${OUTPUT_DIR}"
+    chmod -R a+rX "${OUTPUT_DIR}"
+fi
+
 # Check setup completion status
 VOLTTRON_COMPLETED=false
 

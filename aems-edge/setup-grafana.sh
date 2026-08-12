@@ -269,6 +269,17 @@ GRAFANA_LOCK_FILE="${SETUP_DIR}/.setup_complete"
 
 log_info "Starting Grafana AEMS Edge Setup (Grafana Only)"
 
+# Self-heal perms for deployments initialized before the chmod inside
+# run_grafana_dashboard_generation existed: the lock-file gate short-circuits
+# that chmod on pre-fix deployments, leaving the tree root-owned and
+# unreadable by the consuming UID-1000 aems-services/aems-server containers.
+# Running an idempotent chmod here fixes those hosts on next
+# `docker compose up` without a volume wipe.
+if [[ -d "${OUTPUT_DIR}" ]]; then
+    log_info "Ensuring output tree is world-readable: ${OUTPUT_DIR}"
+    chmod -R a+rX "${OUTPUT_DIR}"
+fi
+
 # Check setup completion status
 GRAFANA_COMPLETED=false
 
