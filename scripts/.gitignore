@@ -15,6 +15,9 @@ node_modules
 
 # testing
 coverage
+.auth/
+playwright-report/
+test-results/
 
 # production
 build

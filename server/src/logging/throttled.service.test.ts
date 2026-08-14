@@ -156,4 +156,124 @@ describe("ThrottledLoggerService", () => {
       expect(() => service.onModuleDestroy()).not.toThrow();
     });
   });
+
+  describe("optional logger methods — when wrapped logger lacks them", () => {
+    it("debug() is a no-op when wrappedLogger.debug is undefined", () => {
+      const noDebugLogger: LoggerService = { log: jest.fn(), error: jest.fn(), warn: jest.fn() };
+      const svc = new ThrottledLoggerService(noDebugLogger, makeConfig());
+      expect(() => svc.debug("msg")).not.toThrow();
+      svc.onModuleDestroy();
+    });
+
+    it("verbose() is a no-op when wrappedLogger.verbose is undefined", () => {
+      const noVerboseLogger: LoggerService = { log: jest.fn(), error: jest.fn(), warn: jest.fn() };
+      const svc = new ThrottledLoggerService(noVerboseLogger, makeConfig());
+      expect(() => svc.verbose("msg")).not.toThrow();
+      svc.onModuleDestroy();
+    });
+
+    it("fatal() is a no-op when wrappedLogger.fatal is undefined", () => {
+      const noFatalLogger: LoggerService = { log: jest.fn(), error: jest.fn(), warn: jest.fn() };
+      const svc = new ThrottledLoggerService(noFatalLogger, makeConfig());
+      expect(() => svc.fatal("msg")).not.toThrow();
+      svc.onModuleDestroy();
+    });
+
+    it("setLogLevels() is a no-op when wrappedLogger.setLogLevels is undefined", () => {
+      const noSetLevelsLogger: LoggerService = { log: jest.fn(), error: jest.fn(), warn: jest.fn() };
+      const svc = new ThrottledLoggerService(noSetLevelsLogger, makeConfig());
+      expect(() => svc.setLogLevels(["log"])).not.toThrow();
+      svc.onModuleDestroy();
+    });
+  });
+
+  describe("formatMessage — non-string message with count > 1", () => {
+    it("returns original object message unchanged when count > 1", () => {
+      const errMsg = new Error("boom");
+      service.error(errMsg, "SomeContext");
+      jest.advanceTimersByTime(11_000);
+      service.error(errMsg, "SomeContext");
+      // Second call is allowed after window; wrapped.error should be called twice
+      expect(wrapped.error).toHaveBeenCalledTimes(2);
+    });
+
+    it("appends occurrence count to string message after re-allow (count > 1 formatMessage)", () => {
+      service.log("frequent message");
+      // Suppress: call twice more within window
+      service.log("frequent message");
+      // Allow through after window
+      jest.advanceTimersByTime(11_000);
+      service.log("frequent message");
+      // The third allowed call's message should include count info
+      expect(wrapped.log).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("formatContext — non-string message with context, count > 1", () => {
+    it("formats context with count when message is non-string", () => {
+      const objMsg = { key: "value" };
+      service.log(objMsg, "MyContext");
+      // Suppress
+      service.log(objMsg, "MyContext");
+      jest.advanceTimersByTime(11_000);
+      // Allow again — should format context
+      service.log(objMsg, "MyContext");
+      expect(wrapped.log).toHaveBeenCalledTimes(2);
+    });
+
+    it("produces countInfo without prefix when context is undefined (no-context branch)", () => {
+      const objMsg = { err: "fail" };
+      // Call with no context but object message to hit the else branch in logWithThrottle
+      service.warn(objMsg);
+      service.warn(objMsg);
+      jest.advanceTimersByTime(11_000);
+      service.warn(objMsg);
+      expect(wrapped.warn).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("formatMessage — minutes > 1 time unit", () => {
+    it("displays minutes in the occurrence message for large debounce windows", () => {
+      const longWindowConfig = makeConfig(true, 120); // 2 minutes
+      const wrapped2 = makeWrappedLogger();
+      const svc = new ThrottledLoggerService(wrapped2, longWindowConfig);
+      svc.log("long-debounce message");
+      // Suppress within window
+      svc.log("long-debounce message");
+      // Advance past 2-minute window
+      jest.advanceTimersByTime(121_000);
+      svc.log("long-debounce message");
+      expect(wrapped2.log).toHaveBeenCalledTimes(2);
+      // The second logged call should mention minutes
+      const lastCall = (wrapped2.log as jest.Mock).mock.calls[1][0] as string;
+      expect(lastCall).toMatch(/minute/);
+      svc.onModuleDestroy();
+    });
+
+    it("displays minutes=1 singular form", () => {
+      const oneMinConfig = makeConfig(true, 60); // 1 minute exactly
+      const wrapped3 = makeWrappedLogger();
+      const svc = new ThrottledLoggerService(wrapped3, oneMinConfig);
+      svc.log("1-min message");
+      svc.log("1-min message");
+      jest.advanceTimersByTime(61_000);
+      svc.log("1-min message");
+      const lastCall = (wrapped3.log as jest.Mock).mock.calls[1][0] as string;
+      expect(lastCall).toMatch(/1 minute[^s]/);
+      svc.onModuleDestroy();
+    });
+  });
+
+  describe("cleanup() — removes old entries", () => {
+    it("removes entries that have exceeded the max age (2x debounce)", () => {
+      service.log("expiring message");
+      expect(service.getStats().cacheSize).toBe(1);
+      // Advance past 2 * 10s = 20s and trigger cleanup
+      jest.advanceTimersByTime(60_500); // trigger the cleanup interval
+      // Entry last seen > 20s ago
+      jest.advanceTimersByTime(20_500);
+      jest.advanceTimersByTime(60_500); // another cleanup interval fires
+      expect(service.getStats().cacheSize).toBe(0);
+    });
+  });
 });

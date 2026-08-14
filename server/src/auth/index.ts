@@ -51,7 +51,7 @@ export type Authorize<T extends Credentials, V extends Values<T>> = (
   | AuthResponse;
 
 const authRoles = (role: string) => {
-  const roles = role.split(/[, |]+/);
+  const roles = role.split(/[, |]+/).map((r) => r.trim()).filter(Boolean);
   return RoleType.values.reduce((a, v) => {
     a[v.enum] = v.granted(...roles) ?? false;
     return a;

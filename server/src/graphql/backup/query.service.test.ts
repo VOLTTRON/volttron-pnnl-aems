@@ -112,6 +112,23 @@ describe("BackupQuery", () => {
       expect(result).toEqual(policies);
     });
 
+    it("readBackupPolicies: passes provided where/orderBy/paging/distinct", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["readBackupPolicies"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
+      await resolve({}, null, {
+        where: { enabled: true },
+        orderBy: [{ createdAt: "desc" }],
+        paging: { take: 5, skip: 0 },
+        distinct: ["id"],
+      }, adminCtx);
+
+      expect(prisma.prisma.backupPolicy.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { enabled: true }, orderBy: [{ createdAt: "desc" }], take: 5 }),
+      );
+    });
+
     it("countBackupPolicies: returns count from prisma.backupPolicy.count", async () => {
       const prisma = makePrisma();
       (prisma.prisma.backupPolicy.count as jest.Mock).mockResolvedValue(2);
@@ -122,6 +139,70 @@ describe("BackupQuery", () => {
 
       expect(prisma.prisma.backupPolicy.count).toHaveBeenCalled();
       expect(result).toBe(2);
+    });
+
+    it("countBackupPolicies: passes where when provided", async () => {
+      const prisma = makePrisma();
+      (prisma.prisma.backupPolicy.count as jest.Mock).mockResolvedValue(1);
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["countBackupPolicies"] as (r: unknown, a: unknown, c: unknown) => Promise<number>;
+      await resolve(null, { where: { enabled: true } }, adminCtx);
+
+      expect(prisma.prisma.backupPolicy.count).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { enabled: true } }),
+      );
+    });
+
+    it("pageBackupPolicy: calls prisma.backupPolicy.findMany", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["pageBackupPolicy"] as (q: unknown, p: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: null }, adminCtx, null);
+      expect(prisma.prisma.backupPolicy.findMany).toHaveBeenCalled();
+    });
+
+    it("pageBackupPolicy: passes provided where", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["pageBackupPolicy"] as (q: unknown, p: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { enabled: true } }, adminCtx, null);
+      expect(prisma.prisma.backupPolicy.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { enabled: true } }),
+      );
+    });
+
+    it("readBackupPolicy: calls prisma.backupPolicy.findUniqueOrThrow", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["readBackupPolicy"] as (q: unknown, r: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { id: "bp1" } }, adminCtx, null);
+      expect(prisma.prisma.backupPolicy.findUniqueOrThrow).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "bp1" } }),
+      );
+    });
+
+    it("groupBackupPolicies: calls prisma.backupPolicy.groupBy with aggregate=null (no-aggregate branch)", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["groupBackupPolicies"] as (r: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      await resolve(null, { by: ["id"], where: null, aggregate: null }, adminCtx, null);
+      expect(prisma.prisma.backupPolicy.groupBy).toHaveBeenCalled();
+    });
+
+    it("groupBackupPolicies: passes where when provided", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["groupBackupPolicies"] as (r: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      await resolve(null, { by: ["id"], where: { enabled: true }, aggregate: null }, adminCtx, null);
+      expect(prisma.prisma.backupPolicy.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { enabled: true } }),
+      );
     });
   });
 
@@ -139,6 +220,23 @@ describe("BackupQuery", () => {
       expect(result).toEqual(destinations);
     });
 
+    it("readBackupDestinations: passes provided where/orderBy/paging/distinct", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["readBackupDestinations"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
+      await resolve({}, null, {
+        where: { enabled: true },
+        orderBy: [{ order: "asc" }],
+        paging: { take: 10, skip: 0 },
+        distinct: ["id"],
+      }, adminCtx);
+
+      expect(prisma.prisma.backupDestination.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { enabled: true }, orderBy: [{ order: "asc" }] }),
+      );
+    });
+
     it("countBackupDestinations: returns count from prisma.backupDestination.count", async () => {
       const prisma = makePrisma();
       (prisma.prisma.backupDestination.count as jest.Mock).mockResolvedValue(3);
@@ -149,6 +247,37 @@ describe("BackupQuery", () => {
 
       expect(prisma.prisma.backupDestination.count).toHaveBeenCalled();
       expect(result).toBe(3);
+    });
+
+    it("pageBackupDestination: calls prisma.backupDestination.findMany with provided where", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["pageBackupDestination"] as (q: unknown, p: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { enabled: true } }, adminCtx, null);
+      expect(prisma.prisma.backupDestination.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { enabled: true } }),
+      );
+    });
+
+    it("readBackupDestination: calls prisma.backupDestination.findUniqueOrThrow", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["readBackupDestination"] as (q: unknown, r: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { id: "bd1" } }, adminCtx, null);
+      expect(prisma.prisma.backupDestination.findUniqueOrThrow).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "bd1" } }),
+      );
+    });
+
+    it("groupBackupDestinations: calls prisma.backupDestination.groupBy", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["groupBackupDestinations"] as (r: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      await resolve(null, { by: ["id"], where: { enabled: true }, aggregate: null }, adminCtx, null);
+      expect(prisma.prisma.backupDestination.groupBy).toHaveBeenCalled();
     });
   });
 
@@ -166,6 +295,23 @@ describe("BackupQuery", () => {
       expect(result).toEqual(runs);
     });
 
+    it("readBackupRuns: passes provided where/orderBy/paging/distinct", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["readBackupRuns"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
+      await resolve({}, null, {
+        where: { cancelRequested: false },
+        orderBy: [{ startedAt: "desc" }],
+        paging: { take: 20 },
+        distinct: ["id"],
+      }, adminCtx);
+
+      expect(prisma.prisma.backupRun.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { cancelRequested: false }, orderBy: [{ startedAt: "desc" }] }),
+      );
+    });
+
     it("readBackupRun: calls prisma.backupRun.findUniqueOrThrow with where arg", async () => {
       const run = { id: "br1", status: "Running" };
       const prisma = makePrisma();
@@ -179,6 +325,36 @@ describe("BackupQuery", () => {
         expect.objectContaining({ where: { id: "br1" } }),
       );
       expect(result).toEqual(run);
+    });
+
+    it("pageBackupRun: calls prisma.backupRun.findMany with provided where", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["pageBackupRun"] as (q: unknown, p: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { cancelRequested: true } }, adminCtx, null);
+      expect(prisma.prisma.backupRun.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { cancelRequested: true } }),
+      );
+    });
+
+    it("countBackupRuns: calls prisma.backupRun.count and passes where", async () => {
+      const prisma = makePrisma();
+      (prisma.prisma.backupRun.count as jest.Mock).mockResolvedValue(5);
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["countBackupRuns"] as (r: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      const result = await resolve(null, { where: null }, adminCtx, null);
+      expect(result).toBe(5);
+    });
+
+    it("groupBackupRuns: calls prisma.backupRun.groupBy", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["groupBackupRuns"] as (r: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      await resolve(null, { by: ["id"], where: null, aggregate: null }, adminCtx, null);
+      expect(prisma.prisma.backupRun.groupBy).toHaveBeenCalled();
     });
   });
 
@@ -196,6 +372,23 @@ describe("BackupQuery", () => {
       expect(result).toEqual(keys);
     });
 
+    it("readBackupKeys: passes provided where/orderBy/paging/distinct", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["readBackupKeys"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
+      await resolve({}, null, {
+        where: { active: true },
+        orderBy: [{ createdAt: "asc" }],
+        paging: { take: 5 },
+        distinct: ["id"],
+      }, adminCtx);
+
+      expect(prisma.prisma.backupKey.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { active: true }, orderBy: [{ createdAt: "asc" }] }),
+      );
+    });
+
     it("readBackupKey: calls prisma.backupKey.findUniqueOrThrow with where arg", async () => {
       const key = { id: "bk1", active: true };
       const prisma = makePrisma();
@@ -209,6 +402,50 @@ describe("BackupQuery", () => {
         expect.objectContaining({ where: { id: "bk1" } }),
       );
       expect(result).toEqual(key);
+    });
+
+    it("pageBackupKey: calls prisma.backupKey.findMany with provided where", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["pageBackupKey"] as (q: unknown, p: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { active: true } }, adminCtx, null);
+      expect(prisma.prisma.backupKey.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { active: true } }),
+      );
+    });
+
+    it("countBackupKeys: calls prisma.backupKey.count", async () => {
+      const prisma = makePrisma();
+      (prisma.prisma.backupKey.count as jest.Mock).mockResolvedValue(2);
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["countBackupKeys"] as (r: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      const result = await resolve(null, { where: { active: true } }, adminCtx, null);
+      expect(result).toBe(2);
+    });
+
+    it("groupBackupKeys: calls prisma.backupKey.groupBy", async () => {
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), makeDiscoveryService());
+
+      const resolve = resolvers["groupBackupKeys"] as (r: unknown, a: unknown, c: unknown, i: unknown) => Promise<unknown>;
+      await resolve(null, { by: ["id"], where: { active: true }, aggregate: null }, adminCtx, null);
+      expect(prisma.prisma.backupKey.groupBy).toHaveBeenCalled();
+    });
+  });
+
+  describe("discoverBackupSources", () => {
+    it("calls backupDiscoveryService.discover and returns result", async () => {
+      const discoveryResult = { services: [{ name: "db" }], volumes: [], paths: [], envFiles: [] };
+      const discovery = makeDiscoveryService();
+      (discovery.discover as jest.Mock).mockResolvedValue(discoveryResult);
+      const prisma = makePrisma();
+      new BackupQuery(makeBuilder(), prisma, makeBackupObject(), makeUserQuery(), discovery);
+
+      const resolve = resolvers["discoverBackupSources"] as () => Promise<unknown>;
+      const result = await resolve();
+      expect(result).toEqual(discoveryResult);
     });
   });
 });

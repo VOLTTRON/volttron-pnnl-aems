@@ -8,7 +8,7 @@ const core_2 = require("@zxcvbn-ts/core");
 const zxcvbnCommonPackage = require("@zxcvbn-ts/language-common");
 const zxcvbnEnPackage = require("@zxcvbn-ts/language-en");
 const authRoles = (role) => {
-    const roles = role.split(/[, |]+/);
+    const roles = role.split(/[, |]+/).map((r) => r.trim()).filter(Boolean);
     return common_1.RoleType.values.reduce((a, v) => {
         a[v.enum] = v.granted(...roles) ?? false;
         return a;

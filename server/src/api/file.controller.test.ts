@@ -208,6 +208,80 @@ describe("FileController.download", () => {
   });
 });
 
+describe("FileController.upload — Prisma error branches", () => {
+  let module: TestingModule;
+  let controller: FileController;
+
+  afterEach(async () => {
+    await module.close();
+  });
+
+  it("handles P2002 duplicate key error (file already exists)", async () => {
+    const { PrismaClientKnownRequestError } = jest.requireActual<typeof import("@prisma/client/runtime/library")>(
+      "@prisma/client/runtime/library",
+    );
+    const p2002 = new PrismaClientKnownRequestError("Unique constraint failed", {
+      code: "P2002",
+      clientVersion: "5.0.0",
+    });
+    const prisma = makePrisma();
+    (prisma.prisma.file.create as jest.Mock).mockRejectedValueOnce(p2002);
+    module = await Test.createTestingModule({
+      controllers: [FileController],
+      providers: [
+        { provide: PrismaService, useValue: prisma },
+        { provide: AppConfigService.Key, useValue: makeConfig() },
+      ],
+    }).compile();
+    controller = module.get<FileController>(FileController);
+    const res = makeRes();
+    await controller.upload(makeUser(), res, [makeFile("dup.txt")]);
+    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { failed: string[] };
+    expect(jsonArg.failed).toContain("dup.txt");
+  });
+
+  it("handles P2003 foreign key error (user does not exist)", async () => {
+    const { PrismaClientKnownRequestError } = jest.requireActual<typeof import("@prisma/client/runtime/library")>(
+      "@prisma/client/runtime/library",
+    );
+    const p2003 = new PrismaClientKnownRequestError("Foreign key constraint failed", {
+      code: "P2003",
+      clientVersion: "5.0.0",
+    });
+    const prisma = makePrisma();
+    (prisma.prisma.file.create as jest.Mock).mockRejectedValueOnce(p2003);
+    module = await Test.createTestingModule({
+      controllers: [FileController],
+      providers: [
+        { provide: PrismaService, useValue: prisma },
+        { provide: AppConfigService.Key, useValue: makeConfig() },
+      ],
+    }).compile();
+    controller = module.get<FileController>(FileController);
+    const res = makeRes();
+    await controller.upload(makeUser(), res, [makeFile("nouser.txt")]);
+    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { failed: string[] };
+    expect(jsonArg.failed).toContain("nouser.txt");
+  });
+
+  it("handles generic non-Prisma write error with Error instance message", async () => {
+    mockWriteFile.mockRejectedValueOnce(new Error("ENOSPC"));
+    const prisma = makePrisma();
+    module = await Test.createTestingModule({
+      controllers: [FileController],
+      providers: [
+        { provide: PrismaService, useValue: prisma },
+        { provide: AppConfigService.Key, useValue: makeConfig() },
+      ],
+    }).compile();
+    controller = module.get<FileController>(FileController);
+    const res = makeRes();
+    await controller.upload(makeUser(), res, [makeFile("nospace.txt")]);
+    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { failed: string[] };
+    expect(jsonArg.failed).toContain("nospace.txt");
+  });
+});
+
 describe("cleanupPartialUploads (via failed upload path)", () => {
   it("calls prisma.file.delete when cleanup runs after partial failure", async () => {
     const prisma = makePrisma({ id: "f1", objectKey: "hashed-file.txt", mimeType: "text/plain" });

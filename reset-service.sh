@@ -4,7 +4,7 @@
 
 # Display help if -h or --help is present in arguments or no service is specified
 show_help() {
-    echo -e "\033[1;33mUsage: reset-service.sh [service-name...] [-f|--force] [-n|--dry-run] [-h|--help]\033[0m"
+    echo -e "\033[1;33mUsage: reset-service.sh [service-name...] [-f|--force] [-n|--dry-run] [-s|--include-shared] [-h|--help]\033[0m"
     echo ""
     echo "Reset one or more Docker Compose services by deleting their persistent volumes."
     echo ""
@@ -12,16 +12,19 @@ show_help() {
     echo "  service-name...        Name(s) of the service(s) to reset (optional - lists services if omitted)"
     echo ""
     echo "Options:"
-    echo "  -f, --force           Skip confirmation prompt"
-    echo "  -n, --dry-run         Show what would be done without actually doing it"
-    echo "  -h, --help            Show this help message"
+    echo "  -f, --force            Skip confirmation prompt"
+    echo "  -n, --dry-run          Show what would be done without actually doing it"
+    echo "  -s, --include-shared   Also delete volumes shared with services outside the reset target"
+    echo "                         (default: shared volumes are skipped to avoid breaking other services)"
+    echo "  -h, --help             Show this help message"
     echo ""
     echo "Examples:"
-    echo "  ./reset-service.sh                       # List all services with volumes"
-    echo "  ./reset-service.sh database              # Reset the database service"
-    echo "  ./reset-service.sh database grafana-db   # Reset multiple services"
-    echo "  ./reset-service.sh grafana --force       # Reset grafana without confirmation"
-    echo "  ./reset-service.sh keycloak-db --dry-run # Preview what would be reset"
+    echo "  ./reset-service.sh                             # List all services with volumes"
+    echo "  ./reset-service.sh database                    # Reset the database service"
+    echo "  ./reset-service.sh database grafana-db         # Reset multiple services"
+    echo "  ./reset-service.sh grafana --force             # Reset grafana without confirmation"
+    echo "  ./reset-service.sh keycloak-db --dry-run       # Preview what would be reset"
+    echo "  ./reset-service.sh certs --include-shared      # Reset certs including its shared volume"
     echo ""
     echo "Note: This will bring down ALL containers, remove the specified volumes, then bring everything back up."
     echo "Warning: This will permanently delete all data in the service's volumes!"
@@ -43,6 +46,7 @@ STARTING_PATH=$(pwd)
 SERVICE_NAMES=()
 FORCE=false
 DRY_RUN=false
+INCLUDE_SHARED=false
 
 for arg in "$@"; do
     case $arg in
@@ -51,6 +55,9 @@ for arg in "$@"; do
             ;;
         -n|--dry-run)
             DRY_RUN=true
+            ;;
+        -s|--include-shared)
+            INCLUDE_SHARED=true
             ;;
         -h|--help)
             show_help
@@ -100,27 +107,47 @@ list_services() {
     # Get list of all services
     local all_services=$(docker compose config --services 2>/dev/null)
     
-    # Check each service for volumes
+    # Check each service for volumes (single Python call — annotates shared volumes)
+    local compose_json
+    compose_json=$(docker compose config --format json 2>/dev/null)
     while IFS= read -r svc; do
         if [[ -n "$svc" ]]; then
-            local volumes=$(docker compose config --format json 2>/dev/null | \
+            local volumes
+            volumes=$(printf '%s' "$compose_json" | \
                 python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-service = data.get('services', {}).get('$svc', {})
-volumes = service.get('volumes', [])
-volume_names = []
-for vol in volumes:
+services = data.get('services', {}) or {}
+vol_to_services = {}
+for svc_name, svc in services.items():
+    for vol in svc.get('volumes', []) or []:
+        if isinstance(vol, dict):
+            source = vol.get('source', '')
+        else:
+            parts = vol.split(':')
+            source = parts[0] if parts else ''
+        if source and not source.startswith('.') and not source.startswith('/'):
+            vol_to_services.setdefault(source, []).append(svc_name)
+target = '$svc'
+seen = set()
+lines = []
+for vol in (services.get(target) or {}).get('volumes', []) or []:
     if isinstance(vol, dict):
         source = vol.get('source', '')
     else:
         parts = vol.split(':')
-        source = parts[0] if len(parts) > 0 else ''
-    if source and not source.startswith('.') and not source.startswith('/'):
-        volume_names.append(source)
-print('\n'.join(volume_names))
+        source = parts[0] if parts else ''
+    if not source or source.startswith('.') or source.startswith('/'):
+        continue
+    if source in seen:
+        continue
+    seen.add(source)
+    owners = vol_to_services.get(source, [])
+    others = sorted(s for s in owners if s != target)
+    lines.append(f'{source}\t{len(owners)}\t{\",\".join(others)}')
+print('\n'.join(lines))
 " 2>/dev/null || echo "")
-            
+
             if [[ -n "$volumes" ]]; then
                 services_with_volumes+=("$svc:$volumes")
             else
@@ -128,7 +155,7 @@ print('\n'.join(volume_names))
             fi
         fi
     done <<< "$all_services"
-    
+
     # Display services with volumes
     print_green "Services with persistent volumes:"
     echo ""
@@ -136,9 +163,13 @@ print('\n'.join(volume_names))
         local svc="${entry%%:*}"
         local vols="${entry#*:}"
         echo "  $svc"
-        echo "$vols" | while IFS= read -r vol; do
-            if [[ -n "$vol" ]]; then
-                echo "    - $vol"
+        echo "$vols" | while IFS=$'\t' read -r vol_name vol_count vol_others; do
+            if [[ -n "$vol_name" ]]; then
+                if [[ "$vol_count" -gt 1 ]]; then
+                    echo "    - $vol_name (shared with: $vol_others)"
+                else
+                    echo "    - $vol_name"
+                fi
             fi
         done
         echo ""
@@ -158,9 +189,10 @@ print('\n'.join(volume_names))
     echo "  ./reset-service.sh <service-name> [options]"
     echo ""
     echo "Options:"
-    echo "  -f, --force    Skip confirmation prompt"
-    echo "  -n, --dry-run  Preview changes without applying them"
-    echo "  -h, --help     Show detailed help message"
+    echo "  -f, --force             Skip confirmation prompt"
+    echo "  -n, --dry-run           Preview changes without applying them"
+    echo "  -s, --include-shared    Also delete volumes shared with other services"
+    echo "  -h, --help              Show detailed help message"
     echo ""
     echo "Example:"
     echo "  ./reset-service.sh database -n"
@@ -203,44 +235,76 @@ print_green "All services found"
 
 # Get the list of volumes used by all specified services
 print_cyan "Discovering volumes for specified services..."
-ALL_VOLUMES=""
-for SERVICE_NAME in "${SERVICE_NAMES[@]}"; do
-    SERVICE_VOLUMES=$(docker compose config --format json 2>/dev/null | \
-        python3 -c "
-import sys, json
+TARGETS_CSV=$(printf '%s\n' "${SERVICE_NAMES[@]}" | paste -sd, -)
+DISCOVERY_OUTPUT=$(docker compose config --format json 2>/dev/null | \
+    TARGETS="$TARGETS_CSV" python3 -c "
+import sys, json, os
 data = json.load(sys.stdin)
-service = data.get('services', {}).get('$SERVICE_NAME', {})
-volumes = service.get('volumes', [])
-volume_names = []
-for vol in volumes:
-    if isinstance(vol, dict):
-        source = vol.get('source', '')
-    else:
-        # Handle short syntax: 'source:target' or 'source:target:mode'
-        parts = vol.split(':')
-        source = parts[0] if len(parts) > 0 else ''
-    # Only include named volumes (not bind mounts with paths)
-    if source and not source.startswith('.') and not source.startswith('/'):
-        volume_names.append(source)
-print('\n'.join(volume_names))
-" 2>/dev/null || echo "")
-    
-    if [[ -n "$SERVICE_VOLUMES" ]]; then
-        if [[ -z "$ALL_VOLUMES" ]]; then
-            ALL_VOLUMES="$SERVICE_VOLUMES"
-        else
-            ALL_VOLUMES="$ALL_VOLUMES"$'\n'"$SERVICE_VOLUMES"
-        fi
-    fi
-done
+services = data.get('services', {}) or {}
+targets = [t for t in os.environ['TARGETS'].split(',') if t]
+target_set = set(targets)
 
-# Remove duplicate volumes
+# Build volume -> [services that mount it] across the entire compose config
+vol_to_services = {}
+for svc_name, svc in services.items():
+    for vol in svc.get('volumes', []) or []:
+        if isinstance(vol, dict):
+            source = vol.get('source', '')
+        else:
+            parts = vol.split(':')
+            source = parts[0] if parts else ''
+        if source and not source.startswith('.') and not source.startswith('/'):
+            vol_to_services.setdefault(source, []).append(svc_name)
+
+# Emit one row per unique named volume attached to any target service:
+#   source<TAB>external_owner_count<TAB>external_owners_csv
+seen = set()
+for target in targets:
+    for vol in (services.get(target) or {}).get('volumes', []) or []:
+        if isinstance(vol, dict):
+            source = vol.get('source', '')
+        else:
+            parts = vol.split(':')
+            source = parts[0] if parts else ''
+        if not source or source.startswith('.') or source.startswith('/'):
+            continue
+        if source in seen:
+            continue
+        seen.add(source)
+        owners = vol_to_services.get(source, [])
+        external = sorted(set(owners) - target_set)
+        print(f'{source}\t{len(external)}\t{\",\".join(external)}')
+" 2>/dev/null)
+
+ALL_VOLUMES=""
+SKIPPED_SHARED_COUNT=0
+while IFS=$'\t' read -r vol_name vol_ext_count vol_ext_others; do
+    if [[ -z "$vol_name" ]]; then
+        continue
+    fi
+    if [[ "$vol_ext_count" -gt 0 && "$INCLUDE_SHARED" != "true" ]]; then
+        print_yellow "Skipping shared volume: $vol_name (also mounted by: $vol_ext_others)"
+        SKIPPED_SHARED_COUNT=$((SKIPPED_SHARED_COUNT + 1))
+        continue
+    fi
+    if [[ -z "$ALL_VOLUMES" ]]; then
+        ALL_VOLUMES="$vol_name"
+    else
+        ALL_VOLUMES="$ALL_VOLUMES"$'\n'"$vol_name"
+    fi
+done <<< "$DISCOVERY_OUTPUT"
+
 VOLUMES=$(echo "$ALL_VOLUMES" | sort -u)
 
-# Check if any volumes were found
+# Check if any volumes remain after filtering
 if [[ -z "$VOLUMES" ]]; then
-    print_yellow "No persistent volumes found for the specified service(s)"
-    print_yellow "These services may only use bind mounts or no volumes at all"
+    if [[ "$SKIPPED_SHARED_COUNT" -gt 0 ]]; then
+        print_yellow "All discovered volumes are shared with other services and were skipped."
+        print_yellow "Pass -s / --include-shared to include them (this will affect the services listed above)."
+    else
+        print_yellow "No persistent volumes found for the specified service(s)"
+        print_yellow "These services may only use bind mounts or no volumes at all"
+    fi
     exit 0
 fi
 
@@ -251,6 +315,11 @@ echo "$VOLUMES" | while read -r vol; do
         echo "  - $vol"
     fi
 done
+
+if [[ "$SKIPPED_SHARED_COUNT" -gt 0 ]]; then
+    echo ""
+    print_yellow "Note: $SKIPPED_SHARED_COUNT shared volume(s) were skipped. Pass -s / --include-shared to include them."
+fi
 
 # Confirmation prompt (unless --force or --dry-run)
 if [[ "$FORCE" != "true" && "$DRY_RUN" != "true" ]]; then

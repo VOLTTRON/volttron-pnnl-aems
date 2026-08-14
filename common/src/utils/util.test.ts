@@ -503,6 +503,12 @@ describe("deepMerge", () => {
   it("skips undefined values in sources", () => {
     expect(deepMerge({ a: 1, b: 2 }, { b: undefined })).toEqual({ a: 1, b: 2 });
   });
+  it("treats null target as empty object", () => {
+    expect(deepMerge(null, { a: 1 })).toEqual({ a: 1 });
+  });
+  it("skips null/undefined sources", () => {
+    expect(deepMerge({ a: 1 }, null, undefined, { b: 2 })).toEqual({ a: 1, b: 2 });
+  });
 });
 
 describe("pick", () => {
@@ -674,6 +680,11 @@ describe("sortBy", () => {
   it("returns empty array for empty input", () => {
     expect(sortBy([], (v) => v)).toEqual([]);
   });
+  it("preserves order of equal elements across all iteratees", () => {
+    const items = [{ a: 1 }, { a: 1 }];
+    const result = sortBy(items, (v) => v.a);
+    expect(result).toEqual([{ a: 1 }, { a: 1 }]);
+  });
 });
 
 describe("max", () => {
@@ -748,5 +759,13 @@ describe("printEnvironment", () => {
     printEnvironment({ printable: (m) => messages.push(m) });
     const parsed = JSON.parse(messages[0]) as Record<string, string>;
     expect(parsed.PUBLIC_URL).toBe("https://example.com/path");
+  });
+
+  it("uses console.log when no options are provided", () => {
+    const spy = jest.spyOn(console, "log").mockImplementation(() => {});
+    process.env.DUMMY_KEY = "value";
+    printEnvironment();
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
   });
 });
