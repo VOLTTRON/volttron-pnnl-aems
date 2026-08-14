@@ -46,7 +46,7 @@ Never commit anything in [secrets/](secrets/) — already gitignored.
 ## Environment
 
 - Root [../.env](../.env) provides defaults and is auto-loaded by compose **only when compose is invoked from the repo root** (see previous section).
-- `docker/.env.secrets.docker` (if present) layers on for compose.
+- `docker/.env.secrets.docker` (if present) layers on for compose. It carries image `_FILE` variables (e.g. `POSTGRES_PASSWORD_FILE=/run/secrets/database_password`) and `<KEY>_SOURCE=./secrets/<key>.txt` pointers used by the top-level `secrets:` block for host-side file selection. Real secret values never live here — they stay in `docker/secrets/*.txt` and reach each container through the `/run/secrets/<name>` mount declared in the service's `secrets:` block.
 - Compose interpolates `${VAR}` from the shell's env — scripts like [../start-services.sh](../start-services.sh) load `.env` before invoking compose.
 - `COMPOSE_PROJECT_NAME` prefixes all container names — respect it when writing helper scripts.
 

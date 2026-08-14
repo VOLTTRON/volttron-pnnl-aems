@@ -323,6 +323,8 @@ Re-run the secrets script. On the second run — with `.env.secrets` present and
 
 Re-run `./secrets.sh` any time you edit `.env.secrets`. If a corresponding running container already exists with an older secret, the script performs the credential-change SQL or `kcadm` call against the running container **before** overwriting the file so the two stay in lockstep. If the container is not running while a rotation is needed, the script refuses; start the stack first.
 
+`aems-app/docker/.env.secrets.docker` carries image `_FILE` variables (`POSTGRES_PASSWORD_FILE=/run/secrets/database_password` and siblings) plus `<KEY>_SOURCE=./secrets/<key>.txt` pointers used by the top-level `secrets:` block to bind-mount the host file into `/run/secrets/`. Real secret values never live in this file. Every service that needs a secret — main-db, Keycloak, Nominatim, BookStack, historian, volttron-setup, grafana, grafana-setup — declares a `secrets:` block, and either the container image (Postgres `POSTGRES_PASSWORD_FILE`, Grafana `GF_*__FILE`) or a setup script (`aems-edge/setup-volttron.sh`, `aems-edge/setup-grafana.sh`, `docker/historian/setup-replication.sh`) reads the value from `/run/secrets/<name>` at container start.
+
 > **NOTE — Windows / Git Bash.** Git Bash converts container-side POSIX paths passed to `docker exec` into Windows paths (`/opt/keycloak/...` becomes `C:/Program Files/Git/opt/keycloak/...` and the exec fails with `stat ... no such file or directory`). Prefix the rotation with `MSYS_NO_PATHCONV=1` (or run the sibling `./secrets.ps1` from PowerShell) on any Windows host:
 >
 > ```bash
