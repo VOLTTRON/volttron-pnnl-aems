@@ -123,7 +123,7 @@ describe("UserMutation", () => {
     Object.keys(resolvers).forEach((k) => delete resolvers[k]);
   });
 
-  const mockCtx = { user: { roles: [] } };
+  const mockCtx = { user: { roles: [], authRoles: { admin: true } } };
 
   describe("createUser resolver", () => {
     it("calls prisma.user.create with args.create data", async () => {
@@ -159,7 +159,7 @@ describe("UserMutation", () => {
       makeAllDeps(prisma, sub);
       const resolve = resolvers["createUser"] as (q: unknown, r: unknown, args: unknown, ctx: unknown) => Promise<unknown>;
       await expect(
-        resolve({}, null, { create: { email: "a@b.com", role: "admin" } }, { user: { roles: [] } }),
+        resolve({}, null, { create: { email: "a@b.com", role: "admin" } }, { user: { roles: [], authRoles: { admin: true } } }),
       ).rejects.toThrow("permission");
     });
 
@@ -177,13 +177,14 @@ describe("UserMutation", () => {
         makeAccountQuery(),
         makeCommentQuery(),
         makeBannerQuery(),
+        makeUnitQuery(),
         makeAccountMutation(),
         makeCommentMutation(),
         makeBannerMutation(),
         keycloakAdmin,
       );
       const resolve = resolvers["createUser"] as (q: unknown, r: unknown, args: unknown, ctx: unknown) => Promise<unknown>;
-      await resolve({}, null, { create: { email: "kc@b.com", role: "keycloak" } }, { user: { roles: [{ name: "keycloak" }] } });
+      await resolve({}, null, { create: { email: "kc@b.com", role: "keycloak" } }, { user: { roles: [{ name: "keycloak" }], authRoles: { admin: true } } });
       // Allow the fire-and-forget syncAdminRole promise to settle
       await Promise.resolve();
       expect(keycloakAdmin.syncAdminRole).toHaveBeenCalledWith("u-kc", true);
@@ -226,7 +227,7 @@ describe("UserMutation", () => {
       (prisma.prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: "" });
       makeAllDeps(prisma, sub);
       const resolve = resolvers["updateUser"] as (q: unknown, r: unknown, args: unknown, ctx: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { id: "u1" }, update: { role: "" } }, { user: { roles: [] } });
+      await resolve({}, null, { where: { id: "u1" }, update: { role: "" } }, { user: { roles: [], authRoles: { admin: true } } });
       expect(prisma.prisma.user.findUnique).toHaveBeenCalled();
     });
 
@@ -236,7 +237,7 @@ describe("UserMutation", () => {
       (prisma.prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: "" });
       makeAllDeps(prisma, sub);
       const resolve = resolvers["updateUser"] as (q: unknown, r: unknown, args: unknown, ctx: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { id: "u1" }, update: { role: { set: "" } } }, { user: { roles: [] } });
+      await resolve({}, null, { where: { id: "u1" }, update: { role: { set: "" } } }, { user: { roles: [], authRoles: { admin: true } } });
       expect(prisma.prisma.user.findUnique).toHaveBeenCalled();
     });
 
@@ -255,13 +256,14 @@ describe("UserMutation", () => {
         makeAccountQuery(),
         makeCommentQuery(),
         makeBannerQuery(),
+        makeUnitQuery(),
         makeAccountMutation(),
         makeCommentMutation(),
         makeBannerMutation(),
         keycloakAdmin,
       );
       const resolve = resolvers["updateUser"] as (q: unknown, r: unknown, args: unknown, ctx: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { id: "u2" }, update: { role: "keycloak" } }, { user: { roles: [{ name: "keycloak" }] } });
+      await resolve({}, null, { where: { id: "u2" }, update: { role: "keycloak" } }, { user: { roles: [{ name: "keycloak" }], authRoles: { admin: true } } });
       await Promise.resolve();
       expect(keycloakAdmin.syncAdminRole).toHaveBeenCalledWith("u2", true);
     });
@@ -281,13 +283,14 @@ describe("UserMutation", () => {
         makeAccountQuery(),
         makeCommentQuery(),
         makeBannerQuery(),
+        makeUnitQuery(),
         makeAccountMutation(),
         makeCommentMutation(),
         makeBannerMutation(),
         keycloakAdmin,
       );
       const resolve = resolvers["updateUser"] as (q: unknown, r: unknown, args: unknown, ctx: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { id: "u3" }, update: { role: "" } }, { user: { roles: [{ name: "keycloak" }] } });
+      await resolve({}, null, { where: { id: "u3" }, update: { role: "" } }, { user: { roles: [{ name: "keycloak" }], authRoles: { admin: true } } });
       await Promise.resolve();
       expect(keycloakAdmin.syncAdminRole).toHaveBeenCalledWith("u3", false);
     });

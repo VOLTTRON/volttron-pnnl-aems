@@ -12,16 +12,16 @@ describe("staticRoutes", () => {
     expect(home?.data?.index).toBe(true);
   });
 
-  it("contains an 'about' route as a child of home", () => {
-    const about = staticRoutes.findNode("about");
-    expect(about?.data?.id).toBe("about");
-    expect(about?.data?.display).toBe(true);
+  it("contains a 'welcome' route as a child of home", () => {
+    const welcome = staticRoutes.findNode("welcome");
+    expect(welcome?.data?.id).toBe("welcome");
+    expect(welcome?.data?.display).toBe(true);
   });
 
   it("contains a 'demo' route scoped to user", () => {
     const demo = staticRoutes.findNode("demo");
     expect(demo?.data?.scope).toBe("user");
-    expect(demo?.data?.display).toBe(true);
+    expect(demo?.data?.display).toBe(false);
   });
 
   it("contains an 'admin' group route scoped to admin", () => {
@@ -58,7 +58,7 @@ describe("staticRoutes", () => {
     const ids = [...staticRoutes].map((n) => n.data?.id).filter(Boolean);
     expect(ids.length).toBeGreaterThan(5);
     expect(ids).toContain("home");
-    expect(ids).toContain("about");
+    expect(ids).toContain("welcome");
     expect(ids).toContain("users");
   });
 });

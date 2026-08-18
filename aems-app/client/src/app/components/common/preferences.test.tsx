@@ -47,20 +47,20 @@ describe("Preferences component", () => {
 
   it("shows the username input with current user name", () => {
     render(<Preferences handleClose={handleClose} />, { wrapper });
-    const input = screen.getByRole("textbox");
+    const input = screen.getByLabelText("Displayed Username");
     expect(input).toHaveValue("Alice");
   });
 
   it("updates the name field when user types", () => {
     render(<Preferences handleClose={handleClose} />, { wrapper });
-    const input = screen.getByRole("textbox");
+    const input = screen.getByLabelText("Displayed Username");
     fireEvent.change(input, { target: { value: "Bob" } });
     expect(input).toHaveValue("Bob");
   });
 
   it("clear button is present (icon-only minimal button in the input group)", () => {
     render(<Preferences handleClose={handleClose} />, { wrapper });
-    const input = screen.getByRole("textbox");
+    const input = screen.getByLabelText("Displayed Username");
     fireEvent.change(input, { target: { value: "Bob" } });
     // The clear button renders as a Blueprint minimal icon-only button without accessible text.
     // Verify at least one button exists alongside the input.
