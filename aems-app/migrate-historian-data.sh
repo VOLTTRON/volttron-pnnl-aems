@@ -55,6 +55,9 @@ KEEP_STAGING=false
 DUMP_FILE_OVERRIDE=""
 CHUNK_INTERVAL="1 month"
 WATCHDOG_PID=""
+HBA_MUTATED=false
+HBA_MUTATED_FILE=""
+MIGRATION_OK=false
 
 # Logging functions
 log_info() {
@@ -310,15 +313,27 @@ if [ -z "$SOURCE_TOPICS_COUNT" ] || [ -z "$SOURCE_DATA_COUNT" ]; then
         log_info "Detected location: $HBA_FILE"
     fi
 
-    # Backup the original file
-    docker exec "$SOURCE_CONTAINER" sh -c "cp '$HBA_FILE' '${HBA_FILE}.backup' 2>/dev/null || true"
+    # Backup the original file ONLY if a backup doesn't already exist.
+    # Overwriting an existing .backup with the already-mutated file would make
+    # the pristine original unrecoverable across script re-runs.
+    docker exec "$SOURCE_CONTAINER" sh -c "[ -f '${HBA_FILE}.backup' ] || cp '$HBA_FILE' '${HBA_FILE}.backup'"
 
-    # Prepend md5 authentication rules to the TOP of the file (takes precedence over existing rules)
-    log_info "Adding md5 authentication rules to pg_hba.conf..."
-    docker exec "$SOURCE_CONTAINER" sh -c "sed -i '1i# ==== Added by migration script for database access ====' '$HBA_FILE'"
-    docker exec "$SOURCE_CONTAINER" sh -c "sed -i '2ilocal all all md5' '$HBA_FILE'"
-    docker exec "$SOURCE_CONTAINER" sh -c "sed -i '3ihost all all all md5' '$HBA_FILE'"
-    docker exec "$SOURCE_CONTAINER" sh -c "sed -i '4i# ====================================================' '$HBA_FILE'"
+    # Track for cleanup(). Also remember HBA_FILE for the restore command.
+    HBA_MUTATED=true
+    HBA_MUTATED_FILE="$HBA_FILE"
+
+    # Prepend md5 authentication rules to the TOP of the file ONLY if not already
+    # present. Without the guard, re-running the script would stack duplicate
+    # blocks at the top of the file.
+    if ! docker exec "$SOURCE_CONTAINER" grep -q "==== Added by migration script for database access ====" "$HBA_FILE"; then
+        log_info "Adding md5 authentication rules to pg_hba.conf..."
+        docker exec "$SOURCE_CONTAINER" sh -c "sed -i '1i# ==== Added by migration script for database access ====' '$HBA_FILE'"
+        docker exec "$SOURCE_CONTAINER" sh -c "sed -i '2ilocal all all md5' '$HBA_FILE'"
+        docker exec "$SOURCE_CONTAINER" sh -c "sed -i '3ihost all all all md5' '$HBA_FILE'"
+        docker exec "$SOURCE_CONTAINER" sh -c "sed -i '4i# ====================================================' '$HBA_FILE'"
+    else
+        log_info "pg_hba.conf already patched by a prior run — leaving as-is."
+    fi
 
     # Restart the container to apply changes (more reliable than reload)
     log_info "Restarting container to apply pg_hba.conf changes..."
@@ -437,13 +452,34 @@ cleanup() {
         wait "$WATCHDOG_PID" 2>/dev/null || true
     fi
 
+    # Restore pg_hba.conf if we mutated it AND the migration completed cleanly.
+    # On an error / SIGINT exit, leave it in place so the operator can inspect —
+    # they can restore manually from ${HBA_FILE}.backup.
+    if [ "$HBA_MUTATED" = true ] && [ "$MIGRATION_OK" = true ] && [ -n "$HBA_MUTATED_FILE" ]; then
+        if docker exec "$SOURCE_CONTAINER" test -f "${HBA_MUTATED_FILE}.backup" 2>/dev/null; then
+            log_info "Restoring pg_hba.conf on source from backup..."
+            docker exec "$SOURCE_CONTAINER" sh -c "cp '${HBA_MUTATED_FILE}.backup' '$HBA_MUTATED_FILE'"
+            (cd docker && docker compose restart grafana-db) >> "$LOG_FILE" 2>&1 || true
+            log_success "pg_hba.conf restored"
+        fi
+    fi
+
     if [ "$KEEP_DUMP" = false ] && [ -z "$DUMP_FILE_OVERRIDE" ]; then
         log_info "Cleaning up temporary files..."
         rm -rf "$TEMP_DIR"
     else
         log_info "Preserving dump file at: $DUMP_FILE"
     fi
-    log_info "Staging schema 'migration_stage' is retained on the target. Re-run this script to resume from the first incomplete chunk."
+
+    # If exiting with a preserved dump (--keep-dump or --dump-file) and NOT after
+    # a successful migration, tell the operator the exact resume incantation.
+    if [ "$MIGRATION_OK" != true ] && [ -f "${DUMP_FILE:-/nonexistent}" ]; then
+        log_info "Staging schema 'migration_stage' is retained on the target."
+        log_info "To resume without re-dumping, run:"
+        log_info "  ./migrate-historian-data.sh --skip-export --dump-file $DUMP_FILE"
+    else
+        log_info "Staging schema 'migration_stage' is retained on the target. Re-run this script to resume from the first incomplete chunk."
+    fi
 }
 trap cleanup EXIT
 
@@ -500,6 +536,10 @@ if ! gzip -t "$DUMP_FILE" 2>> "$LOG_FILE"; then
     log_error "Dump file failed gzip integrity check: $DUMP_FILE"
     exit 1
 fi
+
+# Fingerprint the dump — used later to detect resumes against a different source.
+DUMP_FP=$(sha256sum "$DUMP_FILE" | awk '{print $1}')
+log_info "Dump fingerprint: ${DUMP_FP:0:16}..."
 
 # ---------------------------------------------------------------------------
 # Step 2: Prepare target database (schema, PKs, staging)
@@ -669,17 +709,30 @@ log_success "Target database prepared with all PRIMARY KEYs verified"
 # prior broken run of this script may have caused (topics_topic_id_seq reset
 # backward by a setval landmine in the old dump-and-replay path). No mutations.
 log_info "Step 2a: Pre-flight target integrity check..."
+# Only report the topics_topic_id_seq state if there IS an owned sequence.
+# VOLTTRON's SQLHistorian always uses SERIAL, but a manually-created schema
+# with INTEGER PK has no sequence — in that case there's nothing to repair.
 docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -t -c "
-SELECT
-    '  topics_topic_id_seq: current=' || last_value ||
-    ', max(topic_id)=' || (SELECT COALESCE(MAX(topic_id), 0) FROM public.topics) ||
-    ' -> ' ||
-    CASE
-        WHEN last_value < (SELECT COALESCE(MAX(topic_id), 0) FROM public.topics)
-        THEN 'BEHIND max(topic_id) — will be repaired in Step 2c'
-        ELSE 'ok'
-    END
-FROM public.topics_topic_id_seq;
+DO \$\$
+DECLARE
+    seq_name text;
+    seq_val  bigint;
+    max_id   bigint;
+BEGIN
+    seq_name := pg_get_serial_sequence('public.topics', 'topic_id');
+    IF seq_name IS NULL THEN
+        RAISE NOTICE '  topics.topic_id has no owned sequence — sequence repair will be skipped.';
+    ELSE
+        EXECUTE format('SELECT last_value FROM %s', seq_name) INTO seq_val;
+        SELECT COALESCE(MAX(topic_id), 0) INTO max_id FROM public.topics;
+        IF seq_val < max_id THEN
+            RAISE NOTICE '  topics_topic_id_seq: current=% max(topic_id)=% -> BEHIND max(topic_id) — will be repaired in Step 2c', seq_val, max_id;
+        ELSE
+            RAISE NOTICE '  topics_topic_id_seq: current=% max(topic_id)=% -> ok', seq_val, max_id;
+        END IF;
+    END IF;
+END
+\$\$;
 " 2>&1 | while IFS= read -r line; do
     if [[ "$line" =~ BEHIND ]]; then
         log_warning "$line"
@@ -713,6 +766,16 @@ CREATE TABLE IF NOT EXISTS migration_stage.topic_id_map (
     src_topic_id INTEGER PRIMARY KEY,
     dst_topic_id INTEGER NOT NULL
 );
+
+-- Metadata: dump fingerprint is stored here so a second run against a
+-- different source doesn't silently reuse stale `progress` rows (which would
+-- skip chunks whose chunk_start happens to match, dropping the new source's
+-- data for that window).
+CREATE TABLE IF NOT EXISTS migration_stage.metadata (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 EOF
 STAGE_STATUS=${PIPESTATUS[0]}
 
@@ -722,6 +785,42 @@ if [ "$STAGE_STATUS" -ne 0 ]; then
 fi
 log_success "Staging schema ready"
 
+# --- Fingerprint check: refuse to reuse progress rows from a different source. ---
+# If migration_stage.progress has rows AND migration_stage.metadata has a stored
+# dump_fingerprint that differs from the current dump's, this is an operator error
+# (pointing the script at a different source without dropping migration_stage).
+# Silently reusing the old progress would skip chunks whose chunk_start matches,
+# dropping the new source's data for that window. Refuse and exit.
+STORED_FP=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+    psql -U "$TARGET_USER" -d "$TARGET_DB" -tA -c \
+    "SELECT value FROM migration_stage.metadata WHERE key = 'dump_fingerprint';" 2>/dev/null | xargs)
+PROGRESS_COUNT=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+    psql -U "$TARGET_USER" -d "$TARGET_DB" -tA -c \
+    "SELECT count(*) FROM migration_stage.progress;" 2>/dev/null | xargs)
+
+if [ -n "$STORED_FP" ] && [ "$STORED_FP" != "$DUMP_FP" ] && [ "${PROGRESS_COUNT:-0}" -gt 0 ]; then
+    log_error "Fingerprint mismatch — this staging schema was populated from a different dump."
+    log_error "  Stored dump fingerprint: ${STORED_FP:0:16}..."
+    log_error "  Current dump fingerprint: ${DUMP_FP:0:16}..."
+    log_error "  Progress table has ${PROGRESS_COUNT} completed chunk(s) recorded for the OLD dump."
+    log_error ""
+    log_error "Continuing would silently skip chunks whose chunk_start happens to match, dropping"
+    log_error "data from the new source. To start fresh against this new source, drop the staging"
+    log_error "schema and re-run:"
+    log_error "  docker exec ${TARGET_CONTAINER} psql -U ${TARGET_USER} -d ${TARGET_DB} \\"
+    log_error "    -c 'DROP SCHEMA migration_stage CASCADE;'"
+    exit 1
+fi
+
+# Record (or refresh) the fingerprint for future re-runs against the same dump.
+docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+    psql -U "$TARGET_USER" -d "$TARGET_DB" -v ON_ERROR_STOP=1 -c "
+    INSERT INTO migration_stage.metadata (key, value)
+    VALUES ('dump_fingerprint', '$DUMP_FP')
+    ON CONFLICT (key) DO UPDATE
+        SET value      = EXCLUDED.value,
+            updated_at = now();" >> "$LOG_FILE" 2>&1
+
 # --- Step 2c: Pre-emptively advance topics_topic_id_seq past max(topic_id). ---
 # If a prior broken run's setval reset the sequence BEHIND max(topic_id), any
 # INSERT into public.topics in Step 3b would fail with a topic_id PK violation
@@ -730,17 +829,31 @@ log_success "Staging schema ready"
 # the sequence before any INSERT runs. GREATEST(current, max, 1) never winds
 # backward — safe alongside live VOLTTRON writers.
 log_info "Step 2c: Ensuring topics_topic_id_seq is ahead of max(topic_id)..."
+# Wrapped in a DO block so if the target has no owned sequence on topics.topic_id
+# (e.g. manually-created schema with INTEGER PK, not SERIAL), we log-and-skip
+# rather than aborting. Topics-merge in Step 3b assumes SERIAL-driven default —
+# if there's no sequence, the merge will fail loudly with a clearer error there.
 docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
     psql -U "$TARGET_USER" -d "$TARGET_DB" -v ON_ERROR_STOP=1 -c "
-    SELECT setval(
-        pg_get_serial_sequence('public.topics', 'topic_id'),
-        GREATEST(
-            (SELECT last_value FROM public.topics_topic_id_seq),
-            (SELECT COALESCE(MAX(topic_id), 0) FROM public.topics),
-            1
-        ),
-        true
-    );" >> "$LOG_FILE" 2>&1
+    DO \$\$
+    DECLARE
+        seq_name text := pg_get_serial_sequence('public.topics', 'topic_id');
+    BEGIN
+        IF seq_name IS NULL THEN
+            RAISE NOTICE 'No owned sequence on topics.topic_id — skipping repair. Step 3b topics-merge may need explicit topic_id values or a manually-attached sequence.';
+        ELSE
+            PERFORM setval(
+                seq_name,
+                GREATEST(
+                    (SELECT last_value FROM public.topics_topic_id_seq),
+                    (SELECT COALESCE(MAX(topic_id), 0) FROM public.topics),
+                    1
+                ),
+                true
+            );
+        END IF;
+    END
+    \$\$;" >> "$LOG_FILE" 2>&1
 log_success "Sequence ready"
 
 # ---------------------------------------------------------------------------
@@ -879,16 +992,20 @@ else
             psql -U "$TARGET_USER" -d "$TARGET_DB" -tA -c \
             "SELECT ('$CHUNK_START'::timestamp + interval '$CHUNK_INTERVAL')::text;" 2>/dev/null | xargs)
 
-        # Resume: skip if this chunk_start is already recorded as complete.
-        IS_DONE=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+        # Resume: skip if this chunk_start is already recorded with inserted > 0.
+        # We deliberately do NOT skip chunks with inserted=0 — a legitimate empty
+        # chunk (source has no rows in that window) will still be a fast no-op
+        # (ON CONFLICT DO NOTHING against 0 rows), and re-running it defensively
+        # covers the rare edge case where a prior SIGINT / crash left a
+        # partially-completed chunk marked with inserted=0 despite source having
+        # rows there. The re-run's second-INSERT-into-progress ON CONFLICT DO
+        # UPDATE will overwrite the stale count with the correct value.
+        PRIOR_INSERTED=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
             psql -U "$TARGET_USER" -d "$TARGET_DB" -tA -c \
-            "SELECT 1 FROM migration_stage.progress WHERE chunk_start = '$CHUNK_START' LIMIT 1;" 2>/dev/null | xargs)
+            "SELECT inserted FROM migration_stage.progress WHERE chunk_start = '$CHUNK_START';" 2>/dev/null | xargs)
 
-        if [ "$IS_DONE" = "1" ]; then
-            PRIOR_INSERTED=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
-                psql -U "$TARGET_USER" -d "$TARGET_DB" -tA -c \
-                "SELECT inserted FROM migration_stage.progress WHERE chunk_start = '$CHUNK_START';" 2>/dev/null | xargs)
-            CUMULATIVE_INSERTED=$((CUMULATIVE_INSERTED + ${PRIOR_INSERTED:-0}))
+        if [ -n "$PRIOR_INSERTED" ] && [ "$PRIOR_INSERTED" -gt 0 ]; then
+            CUMULATIVE_INSERTED=$((CUMULATIVE_INSERTED + PRIOR_INSERTED))
             log_info "  [$CHUNK_INDEX/$NUM_CHUNKS] Skip $CHUNK_START -> $CHUNK_END (already merged: $PRIOR_INSERTED rows)"
             continue
         fi
@@ -951,30 +1068,40 @@ log_success "Chunked merge completed"
 # writers. GREATEST(current, max) leaves an already-ahead sequence alone and
 # advances a behind sequence forward.
 log_info "Repairing topics_topic_id_seq if needed..."
-SEQ_BEFORE=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+# Only run the repair if topics.topic_id has an owned sequence. Manually-created
+# schemas with INTEGER PK don't have one and don't need a repair.
+SEQ_NAME=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
     psql -U "$TARGET_USER" -d "$TARGET_DB" -tA -c \
-    "SELECT last_value FROM public.topics_topic_id_seq;" 2>/dev/null | xargs)
+    "SELECT pg_get_serial_sequence('public.topics', 'topic_id');" 2>/dev/null | xargs)
 
-docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
-    psql -U "$TARGET_USER" -d "$TARGET_DB" -v ON_ERROR_STOP=1 -c "
-    SELECT setval(
-        pg_get_serial_sequence('public.topics', 'topic_id'),
-        GREATEST(
-            (SELECT last_value FROM public.topics_topic_id_seq),
-            (SELECT COALESCE(MAX(topic_id), 0) FROM public.topics),
-            1
-        ),
-        true
-    );" >> "$LOG_FILE" 2>&1
-
-SEQ_AFTER=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
-    psql -U "$TARGET_USER" -d "$TARGET_DB" -tA -c \
-    "SELECT last_value FROM public.topics_topic_id_seq;" 2>/dev/null | xargs)
-
-if [ "$SEQ_BEFORE" != "$SEQ_AFTER" ]; then
-    log_warning "Repaired topics_topic_id_seq from $SEQ_BEFORE to $SEQ_AFTER — VOLTTRON's next topic insert would have collided before this fix."
+if [ -z "$SEQ_NAME" ]; then
+    log_info "topics.topic_id has no owned sequence — skipping sequence repair."
 else
-    log_success "topics_topic_id_seq unchanged (at $SEQ_AFTER, ahead of max(topic_id) — safe)"
+    SEQ_BEFORE=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+        psql -U "$TARGET_USER" -d "$TARGET_DB" -tA -c \
+        "SELECT last_value FROM $SEQ_NAME;" 2>/dev/null | xargs)
+
+    docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+        psql -U "$TARGET_USER" -d "$TARGET_DB" -v ON_ERROR_STOP=1 -c "
+        SELECT setval(
+            '$SEQ_NAME',
+            GREATEST(
+                (SELECT last_value FROM $SEQ_NAME),
+                (SELECT COALESCE(MAX(topic_id), 0) FROM public.topics),
+                1
+            ),
+            true
+        );" >> "$LOG_FILE" 2>&1
+
+    SEQ_AFTER=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+        psql -U "$TARGET_USER" -d "$TARGET_DB" -tA -c \
+        "SELECT last_value FROM $SEQ_NAME;" 2>/dev/null | xargs)
+
+    if [ "$SEQ_BEFORE" != "$SEQ_AFTER" ]; then
+        log_warning "Repaired topics_topic_id_seq from $SEQ_BEFORE to $SEQ_AFTER — VOLTTRON's next topic insert would have collided before this fix."
+    else
+        log_success "topics_topic_id_seq unchanged (at $SEQ_AFTER, ahead of max(topic_id) — safe)"
+    fi
 fi
 
 # Create deferred secondary indexes on public.data now that the bulk load is done.
@@ -1017,6 +1144,10 @@ fi
 log_info "Optimizing target database..."
 docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" psql -U "$TARGET_USER" -d "$TARGET_DB" -c "ANALYZE topics; ANALYZE data;" > /dev/null 2>> "$LOG_FILE"
 log_success "Database optimized"
+
+# Mark migration as successful so cleanup() knows to restore pg_hba and to
+# suppress the "resume with --skip-export" hint.
+MIGRATION_OK=true
 
 # Final summary
 echo ""

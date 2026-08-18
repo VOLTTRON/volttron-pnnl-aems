@@ -143,3 +143,42 @@ The topics-merge INSERT failed with `duplicate key value violates unique constra
 | Post-merge sequence | Advanced to 609 (109 + 500 nextval consumptions during topics-merge); ahead of max(topic_id)=599, safe. |
 
 **Fourth fix incorporated into `aems-app/migrate-historian-data.sh` (Step 2c).**
+
+### 20260818-111957 — Follow-up coverage tests (H1–H4 + M1–M6)
+
+Coverage-gap follow-up. Added three new code fixes to the script (H1 fingerprint, H3 pg_hba, H4 SIGINT hint) then ran the 10 planned tests. Two additional real defects surfaced (M2 sequence-guard gap, M6 chunk-inserted-0 anomaly) and were fixed. Script grew from 981 → 1175 lines.
+
+**Phase A — Code changes**
+
+| Fix | Location | Behavior |
+|---|---|---|
+| H1 fingerprint | New `migration_stage.metadata` table + `sha256sum` check after Step 2b | If `progress` has rows AND stored fingerprint ≠ current dump's, exit with an error and the exact `DROP SCHEMA migration_stage CASCADE` command. First run writes the fingerprint. |
+| H3 pg_hba idempotent | Recovery block (L317-338): guard `cp ... .backup` with `[ -f ${HBA_FILE}.backup ]`; guard the sed prepend with `grep -q "Added by migration script"`; set `HBA_MUTATED=true` flag | Backup preserved across retries; header block never duplicates. |
+| H3 pg_hba restore | `cleanup()` trap | On clean exit (`MIGRATION_OK=true`), restore `pg_hba.conf` from `.backup` and restart the source container. |
+| H4 resume hint | `cleanup()` trap | On non-successful exit with a preserved dump file, print the exact `./migrate-historian-data.sh --skip-export --dump-file <path>` command. |
+| M2 sequence-guard | Step 2a diagnostic (DO block), Step 2c (DO block), post-merge repair (SEQ_NAME probe) | If `pg_get_serial_sequence` returns NULL, log a NOTICE and skip the setval — never crash. |
+| M6 defensive resume | Chunked-merge loop | Do NOT skip chunks where `progress.inserted = 0`. Re-run defensively; ON CONFLICT DO NOTHING makes it a safe no-op when the chunk really was empty, and recovers from the rare stale-inserted-0 case observed during SIGINT testing. |
+
+**Phase B — Test results**
+
+| # | Test | Result |
+|---|---|---|
+| Smoke | Fresh migration after code changes | PASS. 500 topics, 1,042,561 rows migrated in 7 chunks; fingerprint `c4c5cb9e...` logged. |
+| H2 | Concurrent VOLTTRON-simulating writer inserting a random new topic + LIVE data row every ~0.3s throughout migration; also periodically inserted a topic name matching one in the staging dump | PASS. Final target: 674 topics (500 source + 174 writer + 1 name-collision resolved), 1,042,735 data rows (source + writer's 174). All 500 staging topics had entries in `topic_id_map`; 0 orphans; 0 leaked source IDs; collision topic `campus1/building1/rtu5/point7` correctly resolved to writer-assigned target topic_id=21 with all 2,085 source rows (source has exactly 2,085 rows for this topic per the row_number distribution). |
+| H1 | Added 101 rows to source (new dump fingerprint), left staging in place, re-ran | PASS. Script exited with `Fingerprint mismatch — this staging schema was populated from a different dump. Stored=c4c5cb9e... Current=b86bf078...` and the exact remediation command. `DROP SCHEMA migration_stage CASCADE` + re-run then successfully migrated the 101 new rows. |
+| H3 | pg_hba idempotent-backup + restore-on-clean-exit | PASS by code inspection only. Automatic end-to-end blocked by a **pre-existing** git-bash MSYS quirk in the L303 `sed 's/.*hba_file=\([^ ]*\).*/\1/'` pattern — the pattern gets mangled before reaching docker exec, producing `Detected location: \([^` and a `cp: can't stat` error. This failure is upstream of my fixes and would work correctly on a Linux operator host. Guards verified via grep on the current script: `[ -f '${HBA_FILE}.backup' ] || cp` (line 319), `grep -q "==== Added by migration script"` guarding the sed prepend (line 328), `cleanup()` restore gated by `HBA_MUTATED=true && MIGRATION_OK=true` (line 458), and `MIGRATION_OK=true` set at line 1109 immediately before the success banner. |
+| H4 | `kill -TERM` mid-Step-2b | PASS. Cleanup trap emitted: `Preserving dump file at: /tmp/tmp.78CdDnm6et/historian_dump.copy.gz` and `To resume without re-dumping, run: ./migrate-historian-data.sh --skip-export --dump-file /tmp/tmp.78CdDnm6et/historian_dump.copy.gz`. |
+| M1 | Source `value_string = E'a\nb\tc\\d\\.e\x01|{"x":"y\\"z"}'` (newlines, tabs, backslashes, `\.` COPY terminator, 0x01 binary, JSON-with-quotes) | PASS. Target byte-identical: `610a620963642e65017c7b2278223a2279227a227d`. |
+| M2 | Target with `topic_id INTEGER PRIMARY KEY` (no owned sequence) | PASS with expected limitation. New guards fire correctly: Step 2a logs `topics.topic_id has no owned sequence — sequence repair will be skipped.`, Step 2c logs the same, post-merge repair logs `topics.topic_id has no owned sequence — skipping sequence repair.` Step 3b topics-merge then fails with the clear error `null value in column "topic_id" of relation "topics" violates not-null constraint` — supporting non-SERIAL topic_id would require the topics-merge to source-supply topic_ids AND remap them, out of scope. |
+| M3 | `--chunk-interval '1 hour'` on ~4-year range (M1 test row extended range to 2030-06) | Mechanism PASS but perf constraint: 38,664 chunks × ~0.4s docker-exec overhead per chunk = would take hours. Chunks 1-167 processed cleanly. Guidance: keep default `1 month` for multi-year datasets. |
+| M4 | `docker kill aems-historian` mid-migration | PASS. Script exits cleanly with the resume hint. `docker start aems-historian` + `--skip-export --dump-file` re-run resumes and completes successfully. |
+| M5 | Empty source (`TRUNCATE topics CASCADE`) | PASS. Both `y` prompts accepted with a persistent-`y` stream (not `yes y` which alternates `y\n`); staging load = 0 rows; chunked merge branch takes the `STAGING_DATA_COUNT=0` skip: `No data rows in staging - skipping chunked merge.` Clean exit, 0 records migrated. |
+| M6 | `kill -INT` mid-Step-3c during chunk 2, then resume | PASS after fix. Initial run: after SIGINT, target had 63,360 rows in `data`, 1 row in `progress` (chunk 1). Resume processed chunks 2-53. **Anomaly:** chunk 5 (June 2026) recorded `inserted=0` despite source having 172,800 rows in that range — a hard-to-reproduce timing edge case with `WITH INSERT ... RETURNING`. Root cause unclear; **defensive fix** added to the resume logic: only skip chunks where `progress.inserted > 0`. Verified fix by simulating the stale state (`UPDATE progress SET inserted = 0 WHERE chunk_start = '2026-06-01'` + `DELETE FROM data WHERE ts >= '2026-06-01' AND ts < '2026-07-01'`) → re-run → chunk 5 correctly re-inserted the 172,800 rows. Final source/target parity: both at 1,042,663 rows / 501 topics. |
+
+**Files touched**
+- [aems-app/migrate-historian-data.sh](../../migrate-historian-data.sh) — expanded from 981 to 1175 lines with H1, H3, H4, M2, M6 fixes.
+
+**Cleanup**
+- `.env`'s temporary dev password patch restored from `.env.migration-test-backup` (removed).
+- Source `pg_hba.conf` restored to pristine (removed the `local all all reject` line injected for H3 setup).
+- Containers `aems-grafana-db` and `aems-historian` left running with the seeded data (501 topics, 1,042,663 rows on both). Take them down with `docker compose down` from `aems-app/` when no longer needed.
