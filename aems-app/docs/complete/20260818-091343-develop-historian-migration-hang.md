@@ -106,3 +106,40 @@ Also refined the post-merge setval repair: original version unconditionally `set
 - `.env`'s temporary dev password patch was restored from `.env.migration-test-backup` (removed).
 - Containers `aems-grafana-db` and `aems-historian` left running with the seeded data (500 topics, 1,042,561 rows on both). Take them down with `docker compose down` from `aems-app/` when no longer needed.
 - The three testing test data (seeded source, migrated target) remain in their respective volumes.
+
+### 20260818-100520 — Divergent-topic_ids scenario test
+
+Explicit follow-up test to validate the failure mode most likely on real deployments where the old script left partial damage: target and source both hold rows with the same `topic_name`s but at **different `topic_id`s**, plus the old `setval` reset the sequence backward.
+
+**Setup on `aems-historian`:**
+- 10 pre-existing target topics at IDs 100-109 with topic_names `campus1/building1/rtu1/point{1..10}` — the same 10 topic_names exist in the source dump at source IDs 1-10 (namespace divergence).
+- 100 pre-existing target data rows for those topics:
+  - 50 rows at **overlap timestamps** — 5 exact `(topic_id=100, ts=2026-02-18 00:00, 02:05, 04:10, 06:15, 08:20)` collisions that also appear in the source dump for source topic 1, plus 45 rows on topics 101-109 at those same timestamps (which do NOT collide with source rows because source topics 2-10 have offset timestamps).
+  - 50 rows at **future timestamps** (2027-01-01..05) that don't overlap with any source data.
+- `topics_topic_id_seq` manually `setval`'d to 5 to simulate the old-script setval-corruption pattern (seq behind max=109).
+
+**First run — surfaced a fourth bug.**
+
+The topics-merge INSERT failed with `duplicate key value violates unique constraint "topics_pkey" DETAIL: Key (topic_id)=(100) already exists`. Root cause: with the sequence at 5 and target topics already at 100-109, the first `INSERT INTO topics (topic_name, metadata) SELECT ...` from staging fires `nextval()` for each row's `topic_id` DEFAULT — that returns 6, 7, ..., 105, 106, 107, 108, 109, then 110. IDs 100-109 hit `topic_id_pkey` collisions BEFORE the `ON CONFLICT (topic_name)` clause could evaluate (an `ON CONFLICT` clause only handles the constraint it names; other constraint violations still raise).
+
+**Fix:** Added a new **Step 2c — Ensure sequence is ahead of max(topic_id)** that runs the setval repair BEFORE any INSERT into `public.topics`. Uses `GREATEST(current, MAX(topic_id), 1)` so it only ever advances the sequence (never rewinds, safe alongside live VOLTTRON writers). The post-merge setval remains as belt-and-suspenders.
+
+**Second run — all checks pass:**
+
+| Check | Result |
+|---|---|
+| Sequence pre-flight | Correctly logged `topics_topic_id_seq: current=5, max(topic_id)=109 -> BEHIND max(topic_id) — will be repaired in Step 2c`. |
+| Step 2c pre-repair | Advanced sequence from 5 to 109 before topics-merge INSERT. |
+| Topics-merge success | 490 new topics inserted with IDs 110-599; 10 conflicts on topic_name correctly skipped; no `topic_id_pkey` violation. |
+| Chunk 1 (Feb 2026) | 63,355 rows — exactly 5 fewer than the clean test's 63,360, matching the 5 exact-timestamp overlaps for topic 100 correctly dropped by `ON CONFLICT (topic_id, ts) DO NOTHING`. |
+| Chunks 2-7 | Same row counts as clean test (no more overlaps). |
+| Target topics 100-109 preserved | All 10 pre-existing rows unchanged; metadata `{"origin":"pre-existing-target"}` intact. |
+| Overlap rows preserved | `SELECT value_string FROM data WHERE topic_id=100 AND ts BETWEEN '2026-02-18 00:00' AND '08:20'` returns `PRE_EXISTING_OVERLAP_100` for all 5 rows — the source's would-be `v=...` values correctly dropped. |
+| Future rows preserved | All 50 rows at 2027-01-01..05 present, `PRE_EXISTING_FUTURE_*` values intact. |
+| Remap correctness | `campus1/building1/rtu1/point1` has 2091 rows all under target's `topic_id=100` (5 pre-existing overlap + 2081 remapped from source's topic 1 + 5 pre-existing future); `point10` has 2096 rows under `topic_id=109` (source topic 10's timestamps don't collide with the overlap set, so all 2086 source rows land). |
+| No orphan rows | `SELECT count(*) FROM data d WHERE NOT EXISTS (SELECT 1 FROM topics t WHERE t.topic_id = d.topic_id)` → 0. |
+| No leaked source IDs | `SELECT count(*) FROM data WHERE topic_id BETWEEN 1 AND 10` → 0 — none of source's topic_id namespace bled through. |
+| Row-count arithmetic | Target before: 100. Target after: 1,042,656 = 100 (preserved) + 1,042,556 (source, less 5 collisions). ✓ |
+| Post-merge sequence | Advanced to 609 (109 + 500 nextval consumptions during topics-merge); ahead of max(topic_id)=599, safe. |
+
+**Fourth fix incorporated into `aems-app/migrate-historian-data.sh` (Step 2c).**

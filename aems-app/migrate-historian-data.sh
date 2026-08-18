@@ -676,7 +676,7 @@ SELECT
     ' -> ' ||
     CASE
         WHEN last_value < (SELECT COALESCE(MAX(topic_id), 0) FROM public.topics)
-        THEN 'BEHIND max(topic_id) — will be repaired post-merge'
+        THEN 'BEHIND max(topic_id) — will be repaired in Step 2c'
         ELSE 'ok'
     END
 FROM public.topics_topic_id_seq;
@@ -721,6 +721,27 @@ if [ "$STAGE_STATUS" -ne 0 ]; then
     exit 1
 fi
 log_success "Staging schema ready"
+
+# --- Step 2c: Pre-emptively advance topics_topic_id_seq past max(topic_id). ---
+# If a prior broken run's setval reset the sequence BEHIND max(topic_id), any
+# INSERT into public.topics in Step 3b would fail with a topic_id PK violation
+# (nextval() would return an already-in-use ID). Our ON CONFLICT (topic_name)
+# only catches topic_name collisions, not topic_id collisions, so we MUST fix
+# the sequence before any INSERT runs. GREATEST(current, max, 1) never winds
+# backward — safe alongside live VOLTTRON writers.
+log_info "Step 2c: Ensuring topics_topic_id_seq is ahead of max(topic_id)..."
+docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+    psql -U "$TARGET_USER" -d "$TARGET_DB" -v ON_ERROR_STOP=1 -c "
+    SELECT setval(
+        pg_get_serial_sequence('public.topics', 'topic_id'),
+        GREATEST(
+            (SELECT last_value FROM public.topics_topic_id_seq),
+            (SELECT COALESCE(MAX(topic_id), 0) FROM public.topics),
+            1
+        ),
+        true
+    );" >> "$LOG_FILE" 2>&1
+log_success "Sequence ready"
 
 # ---------------------------------------------------------------------------
 # Step 3: Load staging, then merge in chunks
