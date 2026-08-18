@@ -31,3 +31,8 @@ docker/backups/
 # other
 *.bat
 *.log
+
+# playwright
+scripts/.auth/
+scripts/playwright-report/
+scripts/test-results/

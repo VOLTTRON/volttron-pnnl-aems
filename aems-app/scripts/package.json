@@ -4,5 +4,13 @@
   "type": "module",
   "dependencies": {
     "playwright": "^1.49.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "verify": "node verify-browser.mjs"
   }
 }

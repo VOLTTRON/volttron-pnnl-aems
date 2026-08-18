@@ -654,6 +654,13 @@ describe("Color.toString overloads", () => {
     expect(c.toString(ColorType.HSL)).toBe("hsl(0, 0%, 50%)");
   });
 
+  it("HSL s computed via l > 0.5 branch (light color)", () => {
+    const c = new Color(255, 200, 100);
+    const hsl = c.toString(ColorType.HSL);
+    expect(hsl).toMatch(/^hsl\(/);
+    expect(hsl).not.toBe("hsl(0, 0%, 100%)");
+  });
+
   it("HSLA returns hsla() string", () => {
     const c = new Color(255, 0, 0);
     expect(c.toString(ColorType.HSLA)).toMatch(/^hsla\(/);
@@ -713,5 +720,48 @@ describe("Color constructor — named color branch", () => {
     const c = new Color("myred", "red");
     expect(c.name).toBe("myred");
     expect(c.hex).toBe("#ff0000");
+  });
+});
+
+describe("Color.build", () => {
+  it("constructs a Color from a JsonColor object", () => {
+    const c = Color.build({ name: "red", hex: "#ff0000" });
+    expect(c.name).toBe("red");
+    expect(c.hex).toBe("#ff0000");
+  });
+});
+
+describe("Color.parse — two-argument overload", () => {
+  it("parses rgb() with a name prefix", () => {
+    const c = Color.parse("mycolor", "rgb(255, 0, 0)");
+    expect(c.hex).toBe("#ff0000");
+  });
+
+  it("parses rgba() with a name prefix", () => {
+    const c = Color.parse("mycolor", "rgba(255, 0, 0, 0.5)");
+    expect(c.hex).toBe("#ff000080");
+  });
+
+  it("parses hsl() with a name prefix", () => {
+    const c = Color.parse("mycolor", "hsl(0, 100%, 50%)");
+    expect(c.hex).toBe("#ff0000");
+  });
+
+  it("parses hsla() with a name prefix", () => {
+    const c = Color.parse("mycolor", "hsla(0, 100%, 50%, 0.5)");
+    expect(c.hex).toBe("#ff000080");
+  });
+
+  it("parses hex with a name prefix", () => {
+    const c = Color.parse("mycolor", "#ff0000");
+    expect(c.name).toBe("mycolor");
+    expect(c.hex).toBe("#ff0000");
+  });
+});
+
+describe("colorize — getColorCode object without r/g/b fallback", () => {
+  it("returns empty string when color is an object missing r/g/b", () => {
+    const result = colorize("text", { color: { x: 1 } as any });
+    expect(result).toBe("text");
   });
 });

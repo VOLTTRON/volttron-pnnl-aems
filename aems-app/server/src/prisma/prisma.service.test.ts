@@ -463,4 +463,223 @@ describe("PrismaService", () => {
       expect(Object.getOwnPropertyDescriptor(prismaService, "prisma")).toBeDefined();
     });
   });
+
+  describe("constructor — datasource URL construction", () => {
+    const makeFullDbConfig = (overrides: Record<string, unknown> = {}) => ({
+      log: { prisma: { level: "" } },
+      database: {
+        host: "db-host",
+        port: 5432,
+        name: "mydb",
+        schema: "public",
+        username: "dbuser",
+        password: "s3cret",
+        ...overrides,
+      },
+      password: { validate: true, strength: 2 },
+    } as unknown as AppConfigService);
+
+    it("builds datasource URL from individual fields when all are provided", () => {
+      const config = makeFullDbConfig();
+      const svc = new PrismaService(config, mockPrismaClient);
+      expect(svc.prisma).toBeDefined();
+      expect(mockPrismaClient.$extends).toHaveBeenCalled();
+    });
+
+    it("uses supplied prisma client with a built datasource URL", () => {
+      const config = makeFullDbConfig();
+      config.log.prisma.level = "";
+      const svc = new PrismaService(config, mockPrismaClient);
+      expect(svc.prisma).toBeDefined();
+    });
+
+    it("skips datasource URL when host is missing", () => {
+      const config = makeFullDbConfig({ host: undefined });
+      const svc = new PrismaService(config, mockPrismaClient);
+      expect(svc.prisma).toBeDefined();
+    });
+
+    it("skips datasource URL when password is missing", () => {
+      const config = makeFullDbConfig({ password: undefined });
+      const svc = new PrismaService(config, mockPrismaClient);
+      expect(svc.prisma).toBeDefined();
+    });
+
+    it("enables query logging when log level is set and no prisma client provided", () => {
+      const config = makeFullDbConfig();
+      config.log.prisma.level = "debug";
+      const svc = new PrismaService(config);
+      expect(svc.prisma).toBeDefined();
+    });
+  });
+
+  describe("extendPrisma — $extends interceptor (upsert and createMany/updateMany paths)", () => {
+    it("exercises upsert path: hashes create.password and update.password", () => {
+      let capturedInterceptor: ((args: { operation: string; args: any; query: (a: any) => any }) => any) | null = null;
+
+      const mockPrismaWithCapture = {
+        $extends: jest.fn((ext: any) => {
+          capturedInterceptor = ext.query?.user?.$allOperations;
+          return mockPrismaWithCapture;
+        }),
+      } as unknown as PrismaClient;
+
+      const config = {
+        log: { prisma: { level: "" } },
+        database: {},
+        password: { validate: true, strength: 0 },
+      } as unknown as AppConfigService;
+
+      new PrismaService(config, mockPrismaWithCapture);
+
+      mockCheckPassword.mockReturnValue(createZxcvbnResult({ score: 3 }));
+      mockHashSync.mockReturnValue("hashed");
+
+      expect(capturedInterceptor).not.toBeNull();
+      const query = jest.fn().mockResolvedValue({});
+      capturedInterceptor!({
+        operation: "upsert",
+        args: { create: { password: "plaintext" }, update: { password: "other" } },
+        query,
+      });
+      expect(mockHashSync).toHaveBeenCalledTimes(2);
+    });
+
+    it("exercises upsert path: skips hashing when password is not a string", () => {
+      let capturedInterceptor: ((args: { operation: string; args: any; query: (a: any) => any }) => any) | null = null;
+
+      const mockPrismaWithCapture = {
+        $extends: jest.fn((ext: any) => {
+          capturedInterceptor = ext.query?.user?.$allOperations;
+          return mockPrismaWithCapture;
+        }),
+      } as unknown as PrismaClient;
+
+      const config = {
+        log: { prisma: { level: "" } },
+        database: {},
+        password: { validate: true, strength: 0 },
+      } as unknown as AppConfigService;
+
+      new PrismaService(config, mockPrismaWithCapture);
+      const query = jest.fn().mockResolvedValue({});
+      capturedInterceptor!({
+        operation: "upsert",
+        args: { create: { password: undefined }, update: { password: undefined } },
+        query,
+      });
+      expect(mockHashSync).not.toHaveBeenCalled();
+    });
+
+    it("exercises createMany/updateMany with array args.data", () => {
+      let capturedInterceptor: ((args: { operation: string; args: any; query: (a: any) => any }) => any) | null = null;
+
+      const mockPrismaWithCapture = {
+        $extends: jest.fn((ext: any) => {
+          capturedInterceptor = ext.query?.user?.$allOperations;
+          return mockPrismaWithCapture;
+        }),
+      } as unknown as PrismaClient;
+
+      const config = {
+        log: { prisma: { level: "" } },
+        database: {},
+        password: { validate: true, strength: 0 },
+      } as unknown as AppConfigService;
+
+      new PrismaService(config, mockPrismaWithCapture);
+      mockCheckPassword.mockReturnValue(createZxcvbnResult({ score: 3 }));
+      mockHashSync.mockReturnValue("hashed");
+
+      const query = jest.fn().mockResolvedValue({});
+      capturedInterceptor!({
+        operation: "createMany",
+        args: { data: [{ password: "plain1" }, { name: "no-password" }, { password: "plain2" }] },
+        query,
+      });
+      expect(mockHashSync).toHaveBeenCalledTimes(2);
+    });
+
+    it("exercises createMany/updateMany with non-array args.data", () => {
+      let capturedInterceptor: ((args: { operation: string; args: any; query: (a: any) => any }) => any) | null = null;
+
+      const mockPrismaWithCapture = {
+        $extends: jest.fn((ext: any) => {
+          capturedInterceptor = ext.query?.user?.$allOperations;
+          return mockPrismaWithCapture;
+        }),
+      } as unknown as PrismaClient;
+
+      const config = {
+        log: { prisma: { level: "" } },
+        database: {},
+        password: { validate: true, strength: 0 },
+      } as unknown as AppConfigService;
+
+      new PrismaService(config, mockPrismaWithCapture);
+      mockCheckPassword.mockReturnValue(createZxcvbnResult({ score: 3 }));
+      mockHashSync.mockReturnValue("hashed");
+
+      const query = jest.fn().mockResolvedValue({});
+      capturedInterceptor!({
+        operation: "updateMany",
+        args: { data: { password: "bulk-plain" } },
+        query,
+      });
+      expect(mockHashSync).toHaveBeenCalledTimes(1);
+    });
+
+    it("exercises updateMany with non-array args.data and no password field", () => {
+      let capturedInterceptor: ((args: { operation: string; args: any; query: (a: any) => any }) => any) | null = null;
+
+      const mockPrismaWithCapture = {
+        $extends: jest.fn((ext: any) => {
+          capturedInterceptor = ext.query?.user?.$allOperations;
+          return mockPrismaWithCapture;
+        }),
+      } as unknown as PrismaClient;
+
+      const config = {
+        log: { prisma: { level: "" } },
+        database: {},
+        password: { validate: false, strength: 0 },
+      } as unknown as AppConfigService;
+
+      new PrismaService(config, mockPrismaWithCapture);
+      const query = jest.fn().mockResolvedValue({});
+      capturedInterceptor!({
+        operation: "updateMany",
+        args: { data: { name: "no-password" } },
+        query,
+      });
+      expect(mockHashSync).not.toHaveBeenCalled();
+    });
+
+    it("exercises default case (read operations pass through without hashing)", () => {
+      let capturedInterceptor: ((args: { operation: string; args: any; query: (a: any) => any }) => any) | null = null;
+
+      const mockPrismaWithCapture = {
+        $extends: jest.fn((ext: any) => {
+          capturedInterceptor = ext.query?.user?.$allOperations;
+          return mockPrismaWithCapture;
+        }),
+      } as unknown as PrismaClient;
+
+      const config = {
+        log: { prisma: { level: "" } },
+        database: {},
+        password: { validate: true, strength: 0 },
+      } as unknown as AppConfigService;
+
+      new PrismaService(config, mockPrismaWithCapture);
+      const query = jest.fn().mockResolvedValue({});
+      capturedInterceptor!({
+        operation: "findMany",
+        args: {},
+        query,
+      });
+      expect(query).toHaveBeenCalledWith({});
+      expect(mockHashSync).not.toHaveBeenCalled();
+    });
+  });
 });

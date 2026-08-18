@@ -1,9 +1,13 @@
 # This script builds and starts all Docker Compose services.
 # It runs 'docker compose build' followed by 'docker compose up -d' to start services in detached mode.
 
-# Display help if -h or --help is present in arguments
-if ($args -contains "-h" -or $args -contains "--help") {
-    Write-Host "Usage: start-services.ps1 [-h|--help]" -ForegroundColor Yellow
+param(
+    [switch]$NoBuild,
+    [switch]$Help
+)
+
+if ($Help -or $args -contains "-h" -or $args -contains "--help") {
+    Write-Host "Usage: start-services.ps1 [OPTIONS]" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Build and start all Docker Compose services in detached mode."
     Write-Host ""
@@ -12,10 +16,12 @@ if ($args -contains "-h" -or $args -contains "--help") {
     Write-Host "  2. Starts services in detached mode using 'docker compose up -d'"
     Write-Host ""
     Write-Host "Options:"
-    Write-Host "  -h, --help            Show this help message"
+    Write-Host "  -NoBuild              Skip 'docker compose build' (use existing images)"
+    Write-Host "  -Help                 Show this help message"
     Write-Host ""
     Write-Host "Examples:"
     Write-Host "  .\start-services.ps1              # Build and start all services"
+    Write-Host "  .\start-services.ps1 -NoBuild     # Start without rebuilding images"
     Write-Host ""
     Write-Host "Note: This script must be run from the aems-app directory."
     exit 0
@@ -36,20 +42,24 @@ Write-Host "Building and starting Docker Compose services..." -ForegroundColor B
 
 try {
     # Build Docker images
-    Write-Host "Building Docker images..." -ForegroundColor Cyan
-    docker compose build
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Docker build failed with exit code: $LASTEXITCODE" -ForegroundColor Red
-        Write-Host "Possible causes:" -ForegroundColor Yellow
-        Write-Host "  - Invalid docker-compose.yml syntax" -ForegroundColor Yellow
-        Write-Host "  - Missing Dockerfile in service directory" -ForegroundColor Yellow
-        Write-Host "  - Build context issues or missing files" -ForegroundColor Yellow
-        Write-Host "  - Docker daemon not running" -ForegroundColor Yellow
-        throw "Docker compose build failed"
+    if (-not $NoBuild) {
+        Write-Host "Building Docker images..." -ForegroundColor Cyan
+        docker compose build
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Docker build failed with exit code: $LASTEXITCODE" -ForegroundColor Red
+            Write-Host "Possible causes:" -ForegroundColor Yellow
+            Write-Host "  - Invalid docker-compose.yml syntax" -ForegroundColor Yellow
+            Write-Host "  - Missing Dockerfile in service directory" -ForegroundColor Yellow
+            Write-Host "  - Build context issues or missing files" -ForegroundColor Yellow
+            Write-Host "  - Docker daemon not running" -ForegroundColor Yellow
+            throw "Docker compose build failed"
+        }
+
+        Write-Host "Docker images built successfully!" -ForegroundColor Green
+    } else {
+        Write-Host "Skipping image build (-NoBuild)." -ForegroundColor Cyan
     }
-    
-    Write-Host "Docker images built successfully!" -ForegroundColor Green
     
     # Start services in detached mode
     Write-Host "Starting services in detached mode..." -ForegroundColor Cyan

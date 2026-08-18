@@ -199,6 +199,13 @@ describe("isAncestor", () => {
 
     expect(node.isAncestor(notAncestor)).toEqual(false);
   });
+
+  it("should return false when checking if a node is an ancestor of itself", () => {
+    const tree = buildTree(items);
+    const node = throwIfFalsy(tree.findNode(5));
+
+    expect(node.isAncestor(node)).toEqual(false);
+  });
 });
 
 describe("iterator", () => {
