@@ -8,6 +8,18 @@ echo "================================================"
 echo "Setting up PostgreSQL Logical Replication"
 echo "================================================"
 
+# The docker secret is the authoritative source. Compose mounts it via
+# the historian service's `secrets: [historian_replicator_password]`.
+if [ -s "/run/secrets/historian_replicator_password" ]; then
+    REPLICATOR_PASSWORD="$(cat /run/secrets/historian_replicator_password)"
+fi
+
+if [ -z "${REPLICATOR_PASSWORD}" ]; then
+    echo "ERROR: REPLICATOR_PASSWORD is empty. Ensure secrets.sh has been run"
+    echo "       and the historian_replicator_password secret is mounted."
+    exit 1
+fi
+
 # Wait for PostgreSQL to be ready
 until pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}"; do
   echo "Waiting for PostgreSQL to be ready..."

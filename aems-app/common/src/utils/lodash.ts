@@ -722,7 +722,7 @@ export function memoize<T extends (...args: any[]) => any>(
   return ((...args: Parameters<T>) => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const key = resolver ? resolver(...args) : args[0];
-     
+
     if (cache.has(key)) return cache.get(key);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const result = fn(...args);

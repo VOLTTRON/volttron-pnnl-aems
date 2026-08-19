@@ -90,6 +90,13 @@ describe("constants.NormalizationType", () => {
     it("( ,Concatenate) is true", () => {
       expect(NormalizationType.allowed("", "Concatenate")).toEqual(true);
     });
+    it("Letters.allowed() is always true — empty unallowed list", () => {
+      expect(NormalizationType.Letters.allowed("Lowercase")).toEqual(true);
+      expect(NormalizationType.Letters.allowed("Uppercase")).toEqual(true);
+    });
+    it("Numbers.allowed() is always true — empty unallowed list", () => {
+      expect(NormalizationType.Numbers.allowed("Lowercase")).toEqual(true);
+    });
   });
 
   describe("NormalizationType.process()", () => {

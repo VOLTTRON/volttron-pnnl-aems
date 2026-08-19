@@ -165,5 +165,156 @@ describe("KeycloakPassportService", () => {
         expect.objectContaining({ data: expect.objectContaining({ access_token: "new-access-token" }) }),
       );
     });
+
+    it("sets emailVerified to null when email_verified is false (update path)", async () => {
+      const unverifiedProfile = { ...PROFILE, email_verified: false };
+      const prisma = makePrisma({ ...USER_ROW });
+      const updatedUser = { ...USER_ROW, emailVerified: null, accounts: [{ id: "acct-1" }] };
+      (prisma.prisma.user.update as jest.Mock).mockResolvedValue(updatedUser);
+      (prisma.prisma.account.update as jest.Mock).mockResolvedValue({ id: "acct-1", user: updatedUser });
+      const service = new KeycloakPassportService(makeAuthService(), makeConfig(), prisma, makeSubscription(), makeJwt());
+      await service.validate("token", "refresh", unverifiedProfile as any);
+      expect(prisma.prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ emailVerified: null }) }),
+      );
+    });
+
+    it("sets emailVerified to null when email_verified is false (create path)", async () => {
+      const unverifiedProfile = { ...PROFILE, email_verified: false };
+      const prisma = makePrisma(null);
+      const newUser = { ...USER_ROW, emailVerified: null, accounts: [] };
+      (prisma.prisma.user.create as jest.Mock).mockResolvedValue(newUser);
+      (prisma.prisma.account.create as jest.Mock).mockResolvedValue({
+        id: "acct-new",
+        user: { ...newUser, accounts: [{ id: "acct-new" }] },
+      });
+      const service = new KeycloakPassportService(makeAuthService(), makeConfig(), prisma, makeSubscription(), makeJwt());
+      await service.validate("token", "refresh", unverifiedProfile as any);
+      expect(prisma.prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ emailVerified: null }) }),
+      );
+    });
+
+    it("includes role in user update when passRoles is true", async () => {
+      const staleUser = { ...USER_ROW, name: "Old Name" };
+      const prisma = makePrisma(staleUser);
+      const updatedUser = { ...USER_ROW, accounts: [{ id: "acct-1" }] };
+      (prisma.prisma.user.update as jest.Mock).mockResolvedValue(updatedUser);
+      (prisma.prisma.account.update as jest.Mock).mockResolvedValue({ id: "acct-1", user: updatedUser });
+      const config = makeConfig({
+        keycloak: {
+          authUrl: "https://kc/auth",
+          tokenUrl: "https://kc/token",
+          callbackUrl: "https://app/callback",
+          clientId: "client-id",
+          clientSecret: "secret",
+          scope: "openid",
+          checks: ["pkce"],
+          passRoles: true,
+          defaultRole: "user",
+          userinfoUrl: "https://kc/userinfo",
+          issuerUrl: "https://kc",
+          wellKnownUrl: "https://kc/.well-known",
+        },
+      });
+      const service = new KeycloakPassportService(makeAuthService(), config, prisma, makeSubscription(), makeJwt());
+      await service.validate("token", "refresh", PROFILE as any);
+      expect(prisma.prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ role: expect.any(String) }) }),
+      );
+    });
+
+    it("includes role in user create when passRoles is true", async () => {
+      const prisma = makePrisma(null);
+      const newUser = { ...USER_ROW, accounts: [] };
+      (prisma.prisma.user.create as jest.Mock).mockResolvedValue(newUser);
+      (prisma.prisma.account.create as jest.Mock).mockResolvedValue({
+        id: "acct-pr",
+        user: { ...newUser, accounts: [{ id: "acct-pr" }] },
+      });
+      const config = makeConfig({
+        keycloak: {
+          authUrl: "https://kc/auth",
+          tokenUrl: "https://kc/token",
+          callbackUrl: "https://app/callback",
+          clientId: "client-id",
+          clientSecret: "secret",
+          scope: "openid",
+          checks: ["pkce"],
+          passRoles: true,
+          defaultRole: "user",
+          userinfoUrl: "https://kc/userinfo",
+          issuerUrl: "https://kc",
+          wellKnownUrl: "https://kc/.well-known",
+        },
+      });
+      const service = new KeycloakPassportService(makeAuthService(), config, prisma, makeSubscription(), makeJwt());
+      await service.validate("token", "refresh", PROFILE as any);
+      expect(prisma.prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ role: expect.any(String) }) }),
+      );
+    });
+
+    it("uses profile.sub as id when profile.id is absent", async () => {
+      const noIdProfile = { ...PROFILE, id: undefined };
+      const prisma = makePrisma(null);
+      const newUser = { ...USER_ROW, accounts: [] };
+      (prisma.prisma.user.create as jest.Mock).mockResolvedValue(newUser);
+      (prisma.prisma.account.create as jest.Mock).mockResolvedValue({
+        id: "acct-sub",
+        user: { ...newUser, accounts: [{ id: "acct-sub" }] },
+      });
+      const service = new KeycloakPassportService(makeAuthService(), makeConfig(), prisma, makeSubscription(), makeJwt());
+      const user = await service.validate("token", "refresh", noIdProfile as any);
+      expect(user).toBeDefined();
+      expect(prisma.prisma.user.create).toHaveBeenCalled();
+    });
+
+    it("falls back to token email/name when profile lacks them", async () => {
+      const partialProfile = { id: "kc-sub-2", sub: "kc-sub-2", email_verified: true };
+      const jwt = makeJwt();
+      (jwt.decode as jest.Mock).mockReturnValue({
+        realm_access: { roles: ["user"] },
+        email: "from@token.com",
+        name: "Token Name",
+      });
+      const prisma = makePrisma(null);
+      const newUser = { ...USER_ROW, email: "from@token.com", name: "Token Name", accounts: [] };
+      (prisma.prisma.user.create as jest.Mock).mockResolvedValue(newUser);
+      (prisma.prisma.account.create as jest.Mock).mockResolvedValue({
+        id: "acct-tok",
+        user: { ...newUser, accounts: [{ id: "acct-tok" }] },
+      });
+      const service = new KeycloakPassportService(makeAuthService(), makeConfig(), prisma, makeSubscription(), jwt);
+      const user = await service.validate("token", "refresh", partialProfile as any);
+      expect(user).toBeDefined();
+      expect(prisma.prisma.user.create).toHaveBeenCalled();
+    });
+
+    it("falls back to userinfo endpoint when profile and token both lack email/name", async () => {
+      const partialProfile = { id: "kc-sub-3", sub: "kc-sub-3", email_verified: true };
+      const jwt = makeJwt();
+      (jwt.decode as jest.Mock).mockReturnValue({ realm_access: { roles: [] } });
+      const mockFetch = jest.fn().mockResolvedValue({
+        json: jest.fn().mockResolvedValue({ email: "userinfo@example.com", name: "Userinfo Name" }),
+      });
+      const originalFetch = global.fetch;
+      global.fetch = mockFetch as unknown as typeof fetch;
+      try {
+        const prisma = makePrisma(null);
+        const newUser = { ...USER_ROW, email: "userinfo@example.com", name: "Userinfo Name", accounts: [] };
+        (prisma.prisma.user.create as jest.Mock).mockResolvedValue(newUser);
+        (prisma.prisma.account.create as jest.Mock).mockResolvedValue({
+          id: "acct-ui",
+          user: { ...newUser, accounts: [{ id: "acct-ui" }] },
+        });
+        const service = new KeycloakPassportService(makeAuthService(), makeConfig(), prisma, makeSubscription(), jwt);
+        const user = await service.validate("token", "refresh", partialProfile as any);
+        expect(user).toBeDefined();
+        expect(mockFetch).toHaveBeenCalled();
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
   });
 });

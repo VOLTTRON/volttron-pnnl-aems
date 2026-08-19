@@ -3,26 +3,33 @@
 # This script builds and starts all Docker Compose services.
 # It runs 'docker compose build' followed by 'docker compose up -d' to start services in detached mode.
 
-# Display help if -h or --help is present in arguments
+NO_BUILD=false
+
 for arg in "$@"; do
-    if [[ "$arg" == "-h" || "$arg" == "--help" ]]; then
-        echo -e "\033[1;33mUsage: start-services.sh [-h|--help]\033[0m"
-        echo ""
-        echo "Build and start all Docker Compose services in detached mode."
-        echo ""
-        echo "This script performs the following actions:"
-        echo "  1. Builds Docker images using 'docker compose build'"
-        echo "  2. Starts services in detached mode using 'docker compose up -d'"
-        echo ""
-        echo "Options:"
-        echo "  -h, --help            Show this help message"
-        echo ""
-        echo "Examples:"
-        echo "  ./start-services.sh              # Build and start all services"
-        echo ""
-        echo "Note: This script must be run from the aems-app directory."
-        exit 0
-    fi
+    case "$arg" in
+        -h|--help)
+            echo -e "\033[1;33mUsage: start-services.sh [OPTIONS]\033[0m"
+            echo ""
+            echo "Build and start all Docker Compose services in detached mode."
+            echo ""
+            echo "This script performs the following actions:"
+            echo "  1. Builds Docker images using 'docker compose build'"
+            echo "  2. Starts services in detached mode using 'docker compose up -d'"
+            echo ""
+            echo "Options:"
+            echo "  --no-build            Skip 'docker compose build' (use existing images)"
+            echo "  -h, --help            Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  ./start-services.sh              # Build and start all services"
+            echo "  ./start-services.sh --no-build   # Start without rebuilding images"
+            echo ""
+            echo "Note: This script must be run from the aems-app directory."
+            exit 0
+            ;;
+        --no-build) NO_BUILD=true ;;
+        *) echo -e "\033[1;31mUnknown option: $arg\033[0m"; echo "Use -h for help"; exit 1 ;;
+    esac
 done
 
 # Store the starting path
@@ -71,18 +78,21 @@ fi
 print_blue "Building and starting Docker Compose services..."
 
 # Build Docker images
-print_cyan "Building Docker images..."
-if ! docker compose build; then
-    print_red "Docker build failed"
-    print_yellow "Possible causes:"
-    print_yellow "  - Invalid docker-compose.yml syntax"
-    print_yellow "  - Missing Dockerfile in service directory"
-    print_yellow "  - Build context issues or missing files"
-    print_yellow "  - Docker daemon not running"
-    exit 1
+if [ "$NO_BUILD" = false ]; then
+    print_cyan "Building Docker images..."
+    if ! docker compose build; then
+        print_red "Docker build failed"
+        print_yellow "Possible causes:"
+        print_yellow "  - Invalid docker-compose.yml syntax"
+        print_yellow "  - Missing Dockerfile in service directory"
+        print_yellow "  - Build context issues or missing files"
+        print_yellow "  - Docker daemon not running"
+        exit 1
+    fi
+    print_green "Docker images built successfully!"
+else
+    print_cyan "Skipping image build (--no-build)."
 fi
-
-print_green "Docker images built successfully!"
 
 # Start services in detached mode
 print_cyan "Starting services in detached mode..."

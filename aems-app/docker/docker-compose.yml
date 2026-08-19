@@ -35,6 +35,14 @@ secrets:
     file: ${BOOKSTACK_KEYCLOAK_CLIENT_SECRET_SOURCE:-./secrets/.placeholder}
   worker_token:
     file: ${WORKER_TOKEN_SOURCE:-./secrets/.placeholder}
+  historian_database_password:
+    file: ${HISTORIAN_DATABASE_PASSWORD_SOURCE:-./secrets/.placeholder}
+  historian_replicator_password:
+    file: ${HISTORIAN_REPLICATOR_PASSWORD_SOURCE:-./secrets/.placeholder}
+  grafana_admin_password:
+    file: ${GRAFANA_ADMIN_PASSWORD_SOURCE:-./secrets/.placeholder}
+  keycloak_grafana_client_secret:
+    file: ${KEYCLOAK_GRAFANA_CLIENT_SECRET_SOURCE:-./secrets/.placeholder}
 
 # NOTE: The backup encryption keypair is NOT declared as a docker secret
 # because docker secrets require the source file to exist before compose
@@ -650,6 +658,10 @@ services:
       - SETUP_MODE=grafana
     env_file:
       - .env.grafana
+    secrets:
+      - historian_database_password
+      - grafana_admin_password
+      - keycloak_admin_password
     hostname: grafana-setup
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
     profiles:
@@ -708,6 +720,9 @@ services:
     profiles:
       - grafana
     restart: unless-stopped
+    secrets:
+      - grafana_admin_password
+      - keycloak_grafana_client_secret
     user: root
     volumes:
       - grafana-cache:/var/lib/grafana
@@ -742,10 +757,20 @@ services:
     env_file:
       - .env.historian
     environment:
-      - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-      - POSTGRES_PASSWORD=${HISTORIAN_DATABASE_PASSWORD}
-      - TEST_HISTORIAN_HOST=${TEST_HISTORIAN_HOST:-}
-      - TEST_HISTORIAN_PASSWORD=${TEST_HISTORIAN_PASSWORD:-}
+      # Same `${VAR-fallback}` / `_FILE` pair as the main database service.
+      # When secrets.sh has been run, .env.secrets.docker blanks
+      # POSTGRES_PASSWORD (via the shared footer) and sets
+      # HISTORIAN_DATABASE_PASSWORD_FILE — the postgres image then reads
+      # from /run/secrets/historian_database_password. Without secrets,
+      # POSTGRES_PASSWORD falls back to the .env value.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-${HISTORIAN_DATABASE_PASSWORD}}
+      POSTGRES_PASSWORD_FILE: ${HISTORIAN_DATABASE_PASSWORD_FILE:-}
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
+      TEST_HISTORIAN_HOST: ${TEST_HISTORIAN_HOST:-}
+      TEST_HISTORIAN_PASSWORD: ${TEST_HISTORIAN_PASSWORD:-}
+    secrets:
+      - historian_database_password
+      - historian_replicator_password
     hostname: historian
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/historian:${TAG}
     ports:
@@ -772,6 +797,8 @@ services:
       - SETUP_MODE=volttron
     env_file:
       - .env.volttron
+    secrets:
+      - historian_database_password
     hostname: volttron-setup
     network_mode: host
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}

@@ -136,6 +136,12 @@ NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS:-${NUM_CONFIGS:-"1"}}
 HISTORIAN_DB_NAME=${HISTORIAN_DB_NAME:-""}
 HISTORIAN_DB_USER=${HISTORIAN_DB_USER:-""}
 HISTORIAN_DB_PASSWORD=${HISTORIAN_DB_PASSWORD:-""}
+# The docker secret is the authoritative source when present.
+# aems-app/docker/docker-compose.yml mounts it at this path via the
+# volttron-setup service's `secrets: [historian_database_password]`.
+if [[ -s "/run/secrets/historian_database_password" ]]; then
+    HISTORIAN_DB_PASSWORD="$(cat /run/secrets/historian_database_password)"
+fi
 HISTORIAN_DB_HOST=${HISTORIAN_DB_HOST:-""}
 HISTORIAN_DB_PORT=${HISTORIAN_DB_PORT:-""}
 

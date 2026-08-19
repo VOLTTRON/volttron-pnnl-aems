@@ -215,6 +215,11 @@ NOMINATIM_POSTGRES_PASSWORD_FILE=/run/secrets/nominatim_database_password
 MYSQL_ROOT_PASSWORD_FILE=/run/secrets/bookstack_root_password
 MYSQL_PASSWORD_FILE=/run/secrets/bookstack_database_password
 
+# Historian database. Interpolated by the historian service's
+# ``POSTGRES_PASSWORD_FILE: `${HISTORIAN_DATABASE_PASSWORD_FILE:-}`` so
+# the main-db name above doesn't leak into the historian container.
+HISTORIAN_DATABASE_PASSWORD_FILE=/run/secrets/historian_database_password
+
 # Compose top-level ``secrets:`` entries interpolate <KEY>_SOURCE to pick
 # the host-side file. When unset, compose falls back to the tracked
 # empty ``docker/secrets/.placeholder``. The lines below (one per key in
