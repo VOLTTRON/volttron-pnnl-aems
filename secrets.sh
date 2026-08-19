@@ -95,6 +95,40 @@ env_secret_keys() {
   grep -F "=$PLACEHOLDER" "$ENV_FILE" | sed 's/=.*//'
 }
 
+# Returns key names for every variable in .env whose name ends in
+# _PASSWORD, _SECRET, _TOKEN, or _KEY and whose value is non-empty and
+# not the placeholder. These are secrets that belong in .env.secrets but
+# were set directly in .env (misplaced secrets).
+env_misplaced_keys() {
+  grep -v '^\s*#' "$ENV_FILE" \
+    | grep -iE '^[A-Za-z_][A-Za-z0-9_]*_(PASSWORD|SECRET|TOKEN|KEY)=' \
+    | while read -r line; do
+        key="${line%%=*}"
+        val="${line#*=}"
+        if [ -n "$val" ] && [ "$val" != "$PLACEHOLDER" ]; then
+          echo "$key"
+        fi
+      done
+}
+
+# Write KEY=VALUE into FILE, replacing an existing entry or appending a
+# new one. Line-by-line rewrite so special characters in VALUE are safe.
+update_secrets_entry() {
+  file="$1"; key="$2"; value="$3"
+  if grep -q "^${key}=" "$file" 2>/dev/null; then
+    tmp="${file}.tmp$$"
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in
+        "${key}="*) printf '%s=%s\n' "$key" "$value" ;;
+        *)          printf '%s\n' "$line" ;;
+      esac
+    done < "$file" > "$tmp"
+    mv "$tmp" "$file"
+  else
+    printf '%s=%s\n' "$key" "$value" >> "$file"
+  fi
+}
+
 project_name() {
   val=$(get_value "$ENV_FILE" "COMPOSE_PROJECT_NAME")
   printf '%s' "${val:-skeleton}"
@@ -236,9 +270,24 @@ if [ ! -f "$SECRETS_FILE" ]; then
   echo "No $SECRETS_FILE found — bootstrapping from $ENV_FILE."
 
   secret_keys=$(env_secret_keys)
+  misplaced_keys=$(env_misplaced_keys)
 
-  if [ -z "$secret_keys" ]; then
-    error "No secret keys found in $ENV_FILE (expected values of '$PLACEHOLDER')."
+  # Warn about and merge in any misplaced secrets found in .env
+  if [ -n "$misplaced_keys" ]; then
+    header "WARNING: Secret values found in $ENV_FILE"
+    for key in $misplaced_keys; do
+      warn "  $key has a real value in $ENV_FILE — it belongs in $SECRETS_FILE"
+    done
+    warn "Migrating those values into $SECRETS_FILE."
+    warn "Reset them to the placeholder in $ENV_FILE when possible."
+    mark_warn
+    for key in $misplaced_keys; do
+      case " $secret_keys " in *" $key "*) ;; *) secret_keys="${secret_keys} ${key}" ;; esac
+    done
+  fi
+
+  if [ -z "$(printf '%s' "$secret_keys" | tr -d ' ')" ]; then
+    error "No secret keys found in $ENV_FILE (expected values of '$PLACEHOLDER' or credential-named keys with real values)."
     exit 1
   fi
 
@@ -261,7 +310,12 @@ if [ ! -f "$SECRETS_FILE" ]; then
     printf '# key preserved alongside any existing values.\n'
     printf '\n'
     for key in $secret_keys; do
-      printf '%s=\n' "$key"
+      env_val=$(get_value "$ENV_FILE" "$key")
+      if [ -n "$env_val" ] && [ "$env_val" != "$PLACEHOLDER" ]; then
+        printf '%s=%s\n' "$key" "$env_val"
+      else
+        printf '%s=\n' "$key"
+      fi
     done
   } > "$SECRETS_FILE"
 
@@ -273,16 +327,23 @@ if [ ! -f "$SECRETS_FILE" ]; then
   # auto-create missing files as directories, corrupting future secret mounts.
   : > "$SECRETS_ENV_FILE"
 
-  count=$(printf '%s\n' "$secret_keys" | wc -l | tr -d ' ')
-  echo
-  echo "Wrote $count stub entries to $SECRETS_FILE."
-  echo
-  echo "Next steps:"
-  echo "  1. Edit $SECRETS_FILE and fill in real values for each key."
-  echo "  2. Re-run ./secrets.sh to generate docker/secrets/*.txt and"
-  echo "     docker/.env.secrets.docker."
-  echo
-  exit 0
+  blank_count=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=$' "$SECRETS_FILE" | wc -l | tr -d ' ')
+  count=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$SECRETS_FILE" | wc -l | tr -d ' ')
+
+  if [ "$blank_count" -gt 0 ]; then
+    echo
+    echo "Wrote $count stub entries to $SECRETS_FILE."
+    [ -n "$misplaced_keys" ] && echo "Some entries were pre-populated from $ENV_FILE values."
+    echo
+    echo "Next steps:"
+    echo "  1. Edit $SECRETS_FILE and fill in the $blank_count remaining blank entries."
+    echo "  2. Re-run ./secrets.sh to generate docker/secrets/*.txt and"
+    echo "     docker/.env.secrets.docker."
+    echo
+    exit 0
+  fi
+
+  info "All secrets pre-populated from $ENV_FILE — proceeding with deployment."
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -303,6 +364,39 @@ if [ -n "$EXPLICIT_KEYS" ]; then
   KEYS_TO_CHECK="$EXPLICIT_KEYS"
 else
   KEYS_TO_CHECK=$(env_secret_keys)
+fi
+
+# ── misplaced-secret migration ─────────────────────────────────────────────────
+# Scan .env for credential-named keys with real values that are absent or
+# blank in .env.secrets. Warn and migrate them so the deploy pass can write
+# their docker/secrets/*.txt files. Only runs when not filtering by explicit
+# keys (full runs only — targeted single-key reruns skip this).
+if [ -z "$EXPLICIT_KEYS" ]; then
+  _misplaced=$(env_misplaced_keys)
+  if [ -n "$_misplaced" ]; then
+    _migrated=0
+    for key in $_misplaced; do
+      secrets_val=$(get_value "$SECRETS_FILE" "$key")
+      if [ -z "$secrets_val" ] || [ "$secrets_val" = "$PLACEHOLDER" ]; then
+        env_val=$(get_value "$ENV_FILE" "$key")
+        warn "$key: real value found in $ENV_FILE but missing from $SECRETS_FILE — migrating"
+        warn "  Reset $key in $ENV_FILE to the placeholder when convenient."
+        mark_warn
+        if [ "$DRY_RUN" = 0 ]; then
+          update_secrets_entry "$SECRETS_FILE" "$key" "$env_val"
+        else
+          dry "Would migrate $key from $ENV_FILE into $SECRETS_FILE"
+        fi
+        _migrated=$((_migrated + 1))
+      fi
+      # Always add to KEYS_TO_CHECK so .txt files get written even when
+      # .env.secrets was already populated (e.g. by the bootstrap fall-through).
+      case " $KEYS_TO_CHECK " in *" $key "*) ;; *) KEYS_TO_CHECK="$KEYS_TO_CHECK $key" ;; esac
+    done
+    if [ "$_migrated" -gt 0 ] && [ "$DRY_RUN" = 0 ]; then
+      info "Migrated $_migrated key(s) into $SECRETS_FILE"
+    fi
+  fi
 fi
 
 # ── residue check ─────────────────────────────────────────────────────────────
