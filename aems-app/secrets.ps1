@@ -86,6 +86,37 @@ function Get-EnvSecretKeys {
     }
 }
 
+# Returns objects with Key and Value for every variable in .env whose name
+# ends in _PASSWORD, _SECRET, _TOKEN, or _KEY and whose value is non-empty
+# and not the placeholder. These are misplaced secrets that belong in .env.secrets.
+function Get-MisplacedKeys {
+    Get-Content $ENV_FILE | ForEach-Object {
+        if ($_ -notmatch '^\s*#' -and
+            $_ -match '^([A-Za-z_][A-Za-z0-9_]*_(PASSWORD|SECRET|TOKEN|KEY))=(.+)$') {
+            $key = $matches[1]; $val = $matches[3]
+            if ($val -and $val -ne $PLACEHOLDER) {
+                [PSCustomObject]@{ Key = $key; Value = $val }
+            }
+        }
+    }
+}
+
+# Write Key=Value into File, replacing an existing entry or appending a new
+# one. Line-by-line rewrite so special characters in Value are safe.
+function Update-SecretsEntry {
+    param([string]$File, [string]$Key, [string]$Value)
+    $lines   = Get-Content $File -Encoding UTF8
+    $updated = $false
+    $result  = @()
+    foreach ($line in $lines) {
+        if ($line -match "^${Key}=") { $result += "${Key}=${Value}"; $updated = $true }
+        else                         { $result += $line }
+    }
+    if (-not $updated) { $result += "${Key}=${Value}" }
+    Set-Content -Path $File -Value $result -Encoding UTF8
+    Set-OwnerOnlyAcl -Path $File
+}
+
 function Get-ProjectName {
     $val = Get-EnvValue -File $ENV_FILE -Key "COMPOSE_PROJECT_NAME"
     if ($val) { $val } else { "skeleton" }
@@ -247,10 +278,25 @@ if (-not (Test-Path $ENV_FILE)) {
 if (-not (Test-Path $SECRETS_FILE)) {
     Write-Host "No $SECRETS_FILE found - bootstrapping from $ENV_FILE."
 
-    $secretKeys = @(Get-EnvSecretKeys)
+    $secretKeys    = [System.Collections.Generic.List[string]]@(Get-EnvSecretKeys)
+    $misplacedKeys = @(Get-MisplacedKeys)
+
+    # Warn about and merge in any misplaced secrets found in .env
+    if ($misplacedKeys.Count -gt 0) {
+        Write-Hdr "WARNING: Secret values found in $ENV_FILE"
+        foreach ($mp in $misplacedKeys) {
+            Write-Warn "  $($mp.Key) has a real value in $ENV_FILE - it belongs in $SECRETS_FILE"
+        }
+        Write-Warn "Migrating those values into $SECRETS_FILE."
+        Write-Warn "Reset them to the placeholder in $ENV_FILE when possible."
+        noteWarn
+        foreach ($mp in $misplacedKeys) {
+            if (-not $secretKeys.Contains($mp.Key)) { $secretKeys.Add($mp.Key) }
+        }
+    }
 
     if ($secretKeys.Count -eq 0) {
-        Write-Err "No secret keys found in $ENV_FILE (expected values of '$PLACEHOLDER')."
+        Write-Err "No secret keys found in $ENV_FILE (expected values of '$PLACEHOLDER' or credential-named keys with real values)."
         exit 1
     }
 
@@ -274,8 +320,12 @@ if (-not (Test-Path $SECRETS_FILE)) {
 
 "@
 
-    # One `KEY=` line per secret, empty value so the user MUST fill it in.
-    $body = ($secretKeys | ForEach-Object { "$_=" }) -join "`n"
+    # Pre-fill misplaced secrets; leave placeholder-declared ones blank.
+    $body = ($secretKeys | ForEach-Object {
+        $envVal = Get-EnvValue -File $ENV_FILE -Key $_
+        if ($envVal -and $envVal -ne $PLACEHOLDER) { "${_}=${envVal}" }
+        else { "${_}=" }
+    }) -join "`n"
 
     Set-Content -Path $SECRETS_FILE -Value ($header + $body) -NoNewline
     Set-OwnerOnlyAcl -Path $SECRETS_FILE
@@ -286,15 +336,22 @@ if (-not (Test-Path $SECRETS_FILE)) {
     # auto-create missing files as directories, corrupting future secret mounts.
     Set-Content -Path $SECRETS_ENV_FILE -Value '' -NoNewline
 
-    Write-Host ""
-    Write-Host "Wrote $($secretKeys.Count) stub entries to $SECRETS_FILE."
-    Write-Host ""
-    Write-Host "Next steps:"
-    Write-Host "  1. Edit $SECRETS_FILE and fill in real values for each key."
-    Write-Host "  2. Re-run .\secrets.ps1 to generate docker/secrets/*.txt and"
-    Write-Host "     docker/.env.secrets.docker."
-    Write-Host ""
-    exit 0
+    $blankCount = (Get-Content $SECRETS_FILE | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=$' }).Count
+
+    if ($blankCount -gt 0) {
+        Write-Host ""
+        Write-Host "Wrote $($secretKeys.Count) stub entries to $SECRETS_FILE."
+        if ($misplacedKeys.Count -gt 0) { Write-Host "Some entries were pre-populated from $ENV_FILE values." }
+        Write-Host ""
+        Write-Host "Next steps:"
+        Write-Host "  1. Edit $SECRETS_FILE and fill in the $blankCount remaining blank entries."
+        Write-Host "  2. Re-run .\secrets.ps1 to generate docker/secrets/*.txt and"
+        Write-Host "     docker/.env.secrets.docker."
+        Write-Host ""
+        exit 0
+    }
+
+    Write-Info "All secrets pre-populated from $ENV_FILE - proceeding with deployment."
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -314,6 +371,35 @@ if (-not (Test-Path $SECRETS_DIR)) {
 
 # Build the list of keys to process.
 $keysToCheck = if ($ExplicitKeys.Count -gt 0) { $ExplicitKeys } else { @(Get-EnvSecretKeys) }
+
+# ── misplaced-secret migration ─────────────────────────────────────────────────
+# Scan .env for credential-named keys with real values that are absent or
+# blank in .env.secrets. Warn and migrate them so the deploy pass can write
+# their docker/secrets/*.txt files. Only runs on full (non-explicit-key) runs.
+if ($ExplicitKeys.Count -eq 0) {
+    $misplacedKeys = @(Get-MisplacedKeys)
+    $migratedCount = 0
+    foreach ($mp in $misplacedKeys) {
+        $secretsVal = Get-EnvValue -File $SECRETS_FILE -Key $mp.Key
+        if ([string]::IsNullOrEmpty($secretsVal) -or $secretsVal -eq $PLACEHOLDER) {
+            Write-Warn "$($mp.Key): real value found in $ENV_FILE but missing from $SECRETS_FILE - migrating"
+            Write-Warn "  Reset $($mp.Key) in $ENV_FILE to the placeholder when convenient."
+            noteWarn
+            if (-not $DryRun) {
+                Update-SecretsEntry -File $SECRETS_FILE -Key $mp.Key -Value $mp.Value
+            } else {
+                Write-Dry "Would migrate $($mp.Key) from $ENV_FILE into $SECRETS_FILE"
+            }
+            $migratedCount++
+        }
+        # Always add to keysToCheck so .txt files get written even when
+        # .env.secrets was already populated (e.g. by the bootstrap fall-through).
+        if ($keysToCheck -notcontains $mp.Key) { $keysToCheck += $mp.Key }
+    }
+    if ($migratedCount -gt 0 -and -not $DryRun) {
+        Write-Info "Migrated $migratedCount key(s) into $SECRETS_FILE"
+    }
+}
 
 # ── residue check ─────────────────────────────────────────────────────────────
 # Per-key check: for each key whose docker/secrets/*.txt differs from
