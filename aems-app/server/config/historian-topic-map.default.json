@@ -44,7 +44,7 @@
     "WindChill":                { "topic": "windChill",                     "aggregation": "mean", "transform": "decimal1", "suffix": "°F" }
   },
   "meterMetrics": {
-    "Power":  { "topic": "WholeBuildingPower", "aggregation": "mean", "transform": "decimal2", "format": "thousands", "suffix": " W" },
+    "Power":  { "topic": "WholeBuildingPower", "aggregation": "mean", "transform": "decimal2", "format": "thousands", "suffix": " kW" },
     "Demand": { "topic": "Demand",             "aggregation": "max",  "transform": "decimal2", "format": "thousands", "suffix": " W" }
   }
 }

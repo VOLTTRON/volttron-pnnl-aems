@@ -61,10 +61,15 @@ export interface HistorianDataPoint {
     system: string;
     metric: UnitMetric | WeatherMetric | MeterMetric;
 }
+export interface HistorianAggregationSeries {
+    aggregation: MetricAggregation;
+    data: HistorianDataPoint[];
+}
 export interface HistorianTimeSeries {
     system: string;
     metric: UnitMetric | WeatherMetric | MeterMetric;
     data: HistorianDataPoint[];
+    aggregations?: HistorianAggregationSeries[];
     metadata: HistorianQueryMetadata;
 }
 export interface HistorianAggregate {
@@ -112,7 +117,9 @@ export declare enum MetricAggregation {
     Max = "max",
     Mean = "mean",
     Mode = "mode",
+    Q1 = "q1",
     Median = "median",
+    Q3 = "q3",
     Sum = "sum",
     Count = "count",
     First = "first",

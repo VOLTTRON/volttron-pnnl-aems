@@ -1646,6 +1646,21 @@ enum MeterMetric {
   Power
 }
 
+"""Per-bin aggregation used when collapsing raw historian samples"""
+enum MetricAggregation {
+  Count
+  First
+  Last
+  Max
+  Mean
+  Median
+  Min
+  Mode
+  Q1
+  Q3
+  Sum
+}
+
 enum ModeType {
   dark
   light
@@ -2160,7 +2175,22 @@ type Query {
   historianMeterCurrentValue(building: String!, campus: String!, metric: MeterMetric!): HistorianMetricCurrent
 
   """Get time series data for a meter metric"""
-  historianMeterTimeSeries(building: String!, campus: String!, endTime: DateTime!, metric: MeterMetric!, startTime: DateTime!): HistorianTimeSeries
+  historianMeterTimeSeries(
+    """
+    Extra per-bucket aggregations (e.g. [Min, Q1, Median, Q3, Max] for a boxplot). Ignored when result is raw.
+    """
+    aggregations: [MetricAggregation!]
+    building: String!
+    campus: String!
+    endTime: DateTime!
+    metric: MeterMetric!
+
+    """
+    Override the raw-vs-binned threshold for this call (e.g. '7d', '48h'). Ranges at or below stay raw.
+    """
+    rawThreshold: String
+    startTime: DateTime!
+  ): HistorianTimeSeries
 
   """
   Get data for multiple systems with the same unit metric (for comparison charts)

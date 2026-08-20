@@ -291,7 +291,7 @@ exports.DefaultWeatherMetricSuffixes = {
     [common_1.WeatherMetric.WindChill]: "°F",
 };
 exports.DefaultMeterMetricSuffixes = {
-    [common_1.MeterMetric.Power]: " W",
+    [common_1.MeterMetric.Power]: " kW",
     [common_1.MeterMetric.Demand]: " W",
 };
 exports.DefaultUnitMetricPrefixes = Object.fromEntries(Object.values(common_1.UnitMetric).map((m) => [m, ""]));
@@ -388,7 +388,7 @@ exports.MeterMetricInfo = {
         topic: common_1.MeterMetric.Power,
         category: "meter",
         description: "Whole building power consumption",
-        unit: "W",
+        unit: "kW",
     },
     [common_1.MeterMetric.Demand]: {
         topic: common_1.MeterMetric.Demand,
@@ -546,8 +546,12 @@ function aggregationSql(aggregation, valueExpr, tsExpr = "ts") {
             return `COUNT(${valueExpr})`;
         case common_1.MetricAggregation.Mode:
             return `mode() WITHIN GROUP (ORDER BY ${valueExpr})`;
+        case common_1.MetricAggregation.Q1:
+            return `percentile_cont(0.25) WITHIN GROUP (ORDER BY ${valueExpr})`;
         case common_1.MetricAggregation.Median:
             return `percentile_cont(0.5) WITHIN GROUP (ORDER BY ${valueExpr})`;
+        case common_1.MetricAggregation.Q3:
+            return `percentile_cont(0.75) WITHIN GROUP (ORDER BY ${valueExpr})`;
         case common_1.MetricAggregation.First:
             return `(array_agg(${valueExpr} ORDER BY ${tsExpr} ASC) FILTER (WHERE ${valueExpr} IS NOT NULL))[1]`;
         case common_1.MetricAggregation.Last:

@@ -1,0 +1,17 @@
+.card {
+  padding: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 0 8px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+}

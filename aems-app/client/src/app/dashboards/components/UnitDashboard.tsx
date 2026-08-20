@@ -8,7 +8,6 @@ import {
   HistorianWeatherTimeSeriesDocument,
   UnitMetric,
   WeatherMetric,
-  HistorianMeterTimeSeriesDocument,
 } from "@/graphql-codegen/graphql";
 import { ECharts } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
@@ -20,7 +19,7 @@ import { Palettes } from "@/utils/palette";
 import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
 import { useMetricColors } from "@/utils/metricColors";
 import { makeValueFormatter } from "@/utils/historianFormat";
-import { MeterMetric } from "@local/prisma";
+import { BuildingPowerChart } from "./BuildingPowerChart";
 
 interface Unit {
   name?: string | null;
@@ -401,17 +400,6 @@ export function UnitDashboard({
     },
   });
 
-  // Power data - using meter data
-  const { data: powerData, loading: powerLoading } = useQuery(HistorianMeterTimeSeriesDocument, {
-    variables: {
-      campus: unitCampus,
-      building: unitBuilding,
-      metric: MeterMetric.Power,
-      startTime,
-      endTime,
-    },
-  });
-
   // Compute cooling stage series (sum of first and second stage)
   const coolingStageSeriesData = React.useMemo(() => {
     const first = firstStageCoolingSeries?.historianUnitTimeSeries?.data || [];
@@ -523,17 +511,18 @@ export function UnitDashboard({
 
   // Each chart issues its own historian query, but they share the same
   // start/end time so the bin mode/width is consistent. Pull the first
-  // binning record we can find off any of the time-series results.
+  // binning record we can find off any of the time-series results. Building
+  // Power runs on its own binning threshold via BuildingPowerChart and reports
+  // its state through its own control, so it's not consulted here.
   const binningInfo = React.useMemo(
     () =>
       pickBinningInfo(
         zoneTempSeries?.historianUnitTimeSeries,
         outdoorTempSeries?.historianWeatherTimeSeries,
         occupancyCommandSeries?.historianUnitTimeSeries,
-        powerData?.historianMeterTimeSeries,
         heatingSetpointSeries?.historianUnitTimeSeries,
       ),
-    [zoneTempSeries, outdoorTempSeries, occupancyCommandSeries, powerData, heatingSetpointSeries],
+    [zoneTempSeries, outdoorTempSeries, occupancyCommandSeries, heatingSetpointSeries],
   );
 
   return (
@@ -1298,82 +1287,13 @@ export function UnitDashboard({
       </div>
 
       <div className={styles.grid}>
-        <Card className={styles.chartCard} style={{ height: "400px" }}>
-          {
-            <ECharts
-              loading={powerLoading}
-              option={{
-                animation: false,
-                title: { text: "Building Power" },
-                backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
-                tooltip: {
-                  trigger: "axis",
-                  renderMode: "richText",
-                  appendToBody: true,
-                  axisPointer: {
-                    animation: false,
-                  },
-                },
-                legend: { bottom: 0, show: true },
-                dataZoom: [
-                  {
-                    type: "slider",
-                    realtime: false,
-                    xAxisIndex: 0,
-                    start: 0,
-                    end: 100,
-                    bottom: 60,
-                    height: 20,
-                  },
-                  {
-                    type: "inside",
-                    xAxisIndex: 0,
-                    start: 0,
-                    end: 100,
-                  },
-                ],
-                grid: { top: 60, right: 60, bottom: 110, left: 60 },
-                xAxis: { type: "time", min: startTime, max: endTime },
-                yAxis: {
-                  type: "value",
-                  name: "Power (W)",
-                  position: "left",
-                  nameTextStyle: { align: "left" },
-                  scale: true,
-                  ...paddedRange(),
-                },
-                series: powerData?.historianMeterTimeSeries
-                  ? (() => {
-                      const formatPower = makeValueFormatter(powerData.historianMeterTimeSeries.metadata, {
-                        includeAggregation: true,
-                      });
-                      return [
-                        {
-                          name: "Building Power",
-                          type: "line",
-                          smooth: true,
-                          sampling: "lttb" as const,
-                          showSymbol: false,
-                          itemStyle: { color: secondaryPalette.secondary.hex },
-                          lineStyle: { color: secondaryPalette.secondary.hex, width: 1.5 },
-                          tooltip: { valueFormatter: formatPower },
-                          data:
-                            powerData.historianMeterTimeSeries.data?.map((point: any) => [
-                              point.timestamp,
-                              point.value,
-                            ]) || [],
-                        },
-                      ];
-                    })()
-                  : [],
-              }}
-              style={{ height: "380px" }}
-              theme={mode}
-              showLegendToggle
-              showDataZoomTools
-            />
-          }
-        </Card>
+        <BuildingPowerChart
+          campus={unitCampus}
+          building={unitBuilding}
+          startTime={startTime}
+          endTime={endTime}
+          mode={mode}
+        />
       </div>
     </div>
   );
