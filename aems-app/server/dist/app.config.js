@@ -60,6 +60,9 @@ class AppConfigService {
         }
     }
     loadHistorianTopicMap(configPath) {
+        if (this.instanceName === "Schema") {
+            return undefined;
+        }
         if (!configPath) {
             this.logger.debug("No HISTORIAN_CONFIG_MAPPING_PATH specified, using default topic mapping");
             return undefined;

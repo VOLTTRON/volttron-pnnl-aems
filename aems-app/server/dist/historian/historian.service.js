@@ -62,6 +62,9 @@ let HistorianService = HistorianService_1 = class HistorianService {
         });
     }
     async onModuleInit() {
+        if (this.configService.instanceName === "Schema") {
+            return;
+        }
         try {
             const client = await this.pool.connect();
             client.release();
