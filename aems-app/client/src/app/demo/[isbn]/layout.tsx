@@ -2,6 +2,7 @@
 
 import { Suspense, useContext, useEffect } from "react";
 import { RouteContext } from "@/app/components/providers";
+import { LocalLoading } from "@/app/components/common";
 import { findBook } from "../books";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -15,5 +16,5 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
   }, [resolvers, addResolver]);
 
-  return <Suspense>{children}</Suspense>;
+  return <Suspense fallback={<LocalLoading />}>{children}</Suspense>;
 }

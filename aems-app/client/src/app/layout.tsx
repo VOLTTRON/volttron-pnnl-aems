@@ -2,7 +2,7 @@
 
 import "./index.css";
 
-import { Banner, GlobalLoading, Notification, Theme } from "./components/common";
+import { Banner, GlobalLoading, LocalLoading, Notification, Theme } from "./components/common";
 import {
   ConfigProvider,
   CurrentProvider,
@@ -33,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                           <ConfigProvider>
                             <CurrentProvider>
                               <Theme>
-                                <Suspense>
+                                <Suspense fallback={<LocalLoading />}>
                                   {children}
                                   <Banner />
                                   <Notification />

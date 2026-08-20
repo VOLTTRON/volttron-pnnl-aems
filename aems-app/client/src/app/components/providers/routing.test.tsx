@@ -190,6 +190,24 @@ describe("RouteProvider", () => {
     expect(result.current.resolvers["book"]).toBe(resolver);
   });
 
+  it("concurrent addResolver calls both register without overwriting", () => {
+    // Regression: addResolver previously closed over stale `resolvers` state.
+    // When two layout effects called addResolver in the same React batch (both
+    // capturing resolvers = {}), the second spread overwrote the first, leaving
+    // only one resolver registered and the other breadcrumb stuck at "...".
+    const resolverA = jest.fn(async () => "A");
+    const resolverB = jest.fn(async () => "B");
+    const { result } = renderHook(() => useContext(RouteContext), { wrapper });
+
+    act(() => {
+      result.current.addResolver!("book", resolverA);
+      result.current.addResolver!("chapter", resolverB);
+    });
+
+    expect(result.current.resolvers).toHaveProperty("book");
+    expect(result.current.resolvers).toHaveProperty("chapter");
+  });
+
   it("removeResolver unregisters a resolver", () => {
     const { result } = renderHook(() => useContext(RouteContext), { wrapper });
     const resolver = jest.fn(async () => "resolved");
