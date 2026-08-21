@@ -1301,7 +1301,7 @@ All scripts live at the root of `aems-app/` and must be run from there.
 | `./reset-service.sh` | **Destructive.** Stop, delete the named service's volumes, restart. |
 | `./secrets.sh` | Generate per-secret files from `.env.secrets`. |
 | `./update-user-role.sh` | Grant or clear an application role on a user by email. |
-| `./migrate-historian-data.sh` | One-shot migration of legacy telemetry into the historian. |
+| `./migrate-historian-data.sh` | One-shot migration of legacy telemetry into the historian. Also supports `--dedup-only` for standalone repair of a target with duplicate `topic_name` rows from an earlier pre-batch run. |
 | `./backup-restore.sh` | Break-glass restore from an encrypted backup archive. |
 | `./backup.sh` | Internal. Do not invoke directly. |
 | `./build.sh` | Build the monorepo modules in dependency order. Source-tree builds only. |

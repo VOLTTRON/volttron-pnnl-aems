@@ -49,6 +49,7 @@ TARGET_PASSWORD="${HISTORIAN_DATABASE_PASSWORD}"
 LOG_FILE="migration-$(date +%Y%m%d-%H%M%S).log"
 DRY_RUN=false
 VERIFY_ONLY=false
+DEDUP_ONLY=false
 SKIP_EXPORT=false
 KEEP_DUMP=false
 KEEP_STAGING=false
@@ -96,6 +97,11 @@ Options:
     --target-db NAME          Target database name (default: historian)
     --dry-run                 Show what would be done without making changes
     --verify-only             Only verify current state, don't migrate
+    --dedup-only              Run only the topic deduplication step (Step 2d) against the
+                              target database, then exit. Skips export, staging load, and
+                              chunked merge. Useful for repairing a target that was corrupted
+                              by an earlier pre-batch migration run (duplicate topic_name
+                              rows in public.topics). Mutually exclusive with --verify-only.
     --skip-export             Reuse an existing dump file instead of running pg_dump again.
                               Combined with --dump-file, lets you resume after an aborted load
                               without re-dumping the source.
@@ -121,6 +127,9 @@ Examples:
 
     # Verify state without migrating
     ./migrate-historian-data.sh --verify-only
+
+    # Repair duplicate topic_name rows on a corrupted target (no migration)
+    ./migrate-historian-data.sh --dedup-only
 
     # Dry run to see what would happen
     ./migrate-historian-data.sh --dry-run
@@ -173,6 +182,10 @@ while [[ $# -gt 0 ]]; do
             VERIFY_ONLY=true
             shift
             ;;
+        --dedup-only)
+            DEDUP_ONLY=true
+            shift
+            ;;
         --skip-export)
             SKIP_EXPORT=true
             shift
@@ -212,6 +225,13 @@ if ! [[ "$CHUNK_INTERVAL" =~ ^[0-9]+\ (year|years|month|months|week|weeks|day|da
     exit 1
 fi
 
+# --dedup-only and --verify-only are mutually exclusive: the first mutates the target
+# to consolidate duplicates; the second is strictly read-only.
+if [ "$DEDUP_ONLY" = true ] && [ "$VERIFY_ONLY" = true ]; then
+    log_error "--dedup-only and --verify-only cannot be combined"
+    exit 1
+fi
+
 # Banner
 echo ""
 echo "=============================================="
@@ -242,6 +262,9 @@ fi
 if [ "$VERIFY_ONLY" = true ]; then
     log_info "  Mode: VERIFY ONLY"
 fi
+if [ "$DEDUP_ONLY" = true ]; then
+    log_info "  Mode: DEDUP ONLY (Step 2d, no export/merge)"
+fi
 if [ "$SKIP_EXPORT" = true ]; then
     log_info "  Skip export: yes"
 fi
@@ -256,14 +279,18 @@ echo ""
 # Pre-flight checks
 log_info "Running pre-flight checks..."
 
-# Check if source container exists and is running
-if ! docker ps --format '{{.Names}}' | grep -q "^${SOURCE_CONTAINER}$"; then
-    log_error "Source container '$SOURCE_CONTAINER' is not running"
-    log_info "Available containers:"
-    docker ps --format '  - {{.Names}}'
-    exit 1
+# Source container is only needed when we're going to dump from it. In --dedup-only
+# mode we operate exclusively on the target, so grafana-db does not need to be up.
+if [ "$DEDUP_ONLY" != true ]; then
+    # Check if source container exists and is running
+    if ! docker ps --format '{{.Names}}' | grep -q "^${SOURCE_CONTAINER}$"; then
+        log_error "Source container '$SOURCE_CONTAINER' is not running"
+        log_info "Available containers:"
+        docker ps --format '  - {{.Names}}'
+        exit 1
+    fi
+    log_success "Source container is running"
 fi
-log_success "Source container is running"
 
 # Check if target container exists and is running
 if ! docker ps --format '{{.Names}}' | grep -q "^${TARGET_CONTAINER}$"; then
@@ -274,13 +301,15 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${TARGET_CONTAINER}$"; then
 fi
 log_success "Target container is running"
 
-# Check source database connectivity
-log_info "Testing source database connectivity..."
-if ! docker exec "$SOURCE_CONTAINER" pg_isready -U "$SOURCE_USER" -d "$SOURCE_DB" > /dev/null 2>&1; then
-    log_error "Cannot connect to source database"
-    exit 1
+if [ "$DEDUP_ONLY" != true ]; then
+    # Check source database connectivity
+    log_info "Testing source database connectivity..."
+    if ! docker exec "$SOURCE_CONTAINER" pg_isready -U "$SOURCE_USER" -d "$SOURCE_DB" > /dev/null 2>&1; then
+        log_error "Cannot connect to source database"
+        exit 1
+    fi
+    log_success "Source database is accessible"
 fi
-log_success "Source database is accessible"
 
 # Check target database connectivity
 log_info "Testing target database connectivity..."
@@ -289,6 +318,8 @@ if ! docker exec "$TARGET_CONTAINER" pg_isready -U "$TARGET_USER" -d "$TARGET_DB
     exit 1
 fi
 log_success "Target database is accessible"
+
+if [ "$DEDUP_ONLY" != true ]; then
 
 echo ""
 log_info "Getting source database statistics..."
@@ -387,6 +418,8 @@ if [ -n "$SOURCE_MIN_TS" ] && [ -n "$SOURCE_MAX_TS" ]; then
     log_info "  Time range: $SOURCE_MIN_TS to $SOURCE_MAX_TS"
 fi
 
+fi  # end: source-stats block skipped in --dedup-only
+
 echo ""
 log_info "Getting target database statistics..."
 
@@ -405,8 +438,10 @@ if [ "$VERIFY_ONLY" = true ]; then
     exit 0
 fi
 
-# If dry-run mode, show what would happen
-if [ "$DRY_RUN" = true ]; then
+# If dry-run mode without --dedup-only, show what would happen and exit.
+# When both --dry-run and --dedup-only are set, we fall through to Step 2d which
+# does its own DRY_RUN report and returns before mutating anything.
+if [ "$DRY_RUN" = true ] && [ "$DEDUP_ONLY" != true ]; then
     echo ""
     log_info "DRY RUN: Would migrate:"
     log_info "  Topics: $SOURCE_TOPICS_COUNT records"
@@ -418,17 +453,34 @@ fi
 
 # Confirm with user
 echo ""
-log_warning "Ready to migrate data from $SOURCE_CONTAINER to $TARGET_CONTAINER"
-log_info "This will:"
-log_info "  1. Export data from source (COPY format, gzip-compressed)"
-log_info "  2. Prepare target: ensure schema, primary keys, staging tables"
-log_info "  3. Load into staging, then merge in $CHUNK_INTERVAL chunks with resumable progress"
-log_info "  Duplicate rows on (topic_id, ts) are skipped; existing target data is preserved."
-read -p "Proceed with migration? (y/N): " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    log_info "Migration cancelled by user"
-    exit 0
+if [ "$DEDUP_ONLY" = true ]; then
+    log_warning "Ready to deduplicate topics on $TARGET_CONTAINER"
+    log_info "This will:"
+    log_info "  1. Consolidate duplicate topic_name rows onto MIN(topic_id) per name"
+    log_info "  2. Rewrite public.data.topic_id from duplicates -> canonical"
+    log_info "  3. Drop data rows that would collide on (canonical_id, ts) with existing rows"
+    log_info "  4. Delete non-canonical public.topics rows"
+    log_info "  5. Re-add UNIQUE(topic_name) constraint if missing"
+    log_info "  All in one transaction with SHARE ROW EXCLUSIVE lock on public.topics."
+    read -p "Proceed with deduplication? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log_info "Deduplication cancelled by user"
+        exit 0
+    fi
+else
+    log_warning "Ready to migrate data from $SOURCE_CONTAINER to $TARGET_CONTAINER"
+    log_info "This will:"
+    log_info "  1. Export data from source (COPY format, gzip-compressed)"
+    log_info "  2. Prepare target: ensure schema, primary keys, staging tables"
+    log_info "  3. Load into staging, then merge in $CHUNK_INTERVAL chunks with resumable progress"
+    log_info "  Duplicate rows on (topic_id, ts) are skipped; existing target data is preserved."
+    read -p "Proceed with migration? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log_info "Migration cancelled by user"
+        exit 0
+    fi
 fi
 
 # Perform migration
@@ -473,12 +525,15 @@ cleanup() {
 
     # If exiting with a preserved dump (--keep-dump or --dump-file) and NOT after
     # a successful migration, tell the operator the exact resume incantation.
-    if [ "$MIGRATION_OK" != true ] && [ -f "${DUMP_FILE:-/nonexistent}" ]; then
-        log_info "Staging schema 'migration_stage' is retained on the target."
-        log_info "To resume without re-dumping, run:"
-        log_info "  ./migrate-historian-data.sh --skip-export --dump-file $DUMP_FILE"
-    else
-        log_info "Staging schema 'migration_stage' is retained on the target. Re-run this script to resume from the first incomplete chunk."
+    # In --dedup-only mode we never touch the staging schema, so skip both hints.
+    if [ "$DEDUP_ONLY" != true ]; then
+        if [ "$MIGRATION_OK" != true ] && [ -f "${DUMP_FILE:-/nonexistent}" ]; then
+            log_info "Staging schema 'migration_stage' is retained on the target."
+            log_info "To resume without re-dumping, run:"
+            log_info "  ./migrate-historian-data.sh --skip-export --dump-file $DUMP_FILE"
+        else
+            log_info "Staging schema 'migration_stage' is retained on the target. Re-run this script to resume from the first incomplete chunk."
+        fi
     fi
 }
 trap cleanup EXIT
@@ -486,6 +541,9 @@ trap cleanup EXIT
 # ---------------------------------------------------------------------------
 # Step 1: Export
 # ---------------------------------------------------------------------------
+if [ "$DEDUP_ONLY" = true ]; then
+    log_info "Step 1/3: Skipped (--dedup-only, no source dump needed)"
+else
 log_info "Step 1/3: Exporting data from source database..."
 if [ "$SKIP_EXPORT" = true ] && [ -f "$DUMP_FILE" ]; then
     DUMP_SIZE=$(du -h "$DUMP_FILE" | cut -f1)
@@ -540,6 +598,8 @@ fi
 # Fingerprint the dump — used later to detect resumes against a different source.
 DUMP_FP=$(sha256sum "$DUMP_FILE" | awk '{print $1}')
 log_info "Dump fingerprint: ${DUMP_FP:0:16}..."
+
+fi  # end: Step 1 (export) skipped in --dedup-only
 
 # ---------------------------------------------------------------------------
 # Step 2: Prepare target database (schema, PKs, staging)
@@ -741,6 +801,11 @@ END
     fi
 done
 
+# In --dedup-only mode, skip the staging schema, fingerprint, and sequence advance —
+# they exist purely to support the streaming staging load + chunked merge. Step 2d
+# below runs directly on public.topics / public.data and needs none of them.
+if [ "$DEDUP_ONLY" != true ]; then
+
 # --- Step 2b: Create migration staging schema ---
 log_info "Step 2b: Creating staging schema (unlogged, safe to re-run)..."
 docker exec -i -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
@@ -855,6 +920,187 @@ docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
     END
     \$\$;" >> "$LOG_FILE" 2>&1
 log_success "Sequence ready"
+
+fi  # end: Steps 2b/2c (staging schema, fingerprint, sequence advance) skipped in --dedup-only
+
+# ---------------------------------------------------------------------------
+# Step 2d: Topic deduplication (repair a target with duplicate topic_name rows)
+# ---------------------------------------------------------------------------
+# Detects and consolidates duplicate topic_name rows on public.topics. Canonical =
+# MIN(topic_id) per topic_name. Rewrites public.data.topic_id from dups to canonical;
+# on (canonical_id, ts) PK collisions, drops the duplicate data row (matches the
+# ON CONFLICT (topic_id, ts) DO NOTHING policy used in Step 3c). Deletes non-canonical
+# topics rows and re-adds UNIQUE(topic_name) if missing.
+#
+# Runs on every migration. When there are no duplicates and the unique constraint
+# is present, it is a cheap GROUP BY + pg_constraint lookup and returns immediately.
+# This gates Step 3b's public.topics-join-USING(topic_name) against cartesian rows
+# on a corrupted target.
+log_info "Step 2d: Checking for duplicate topic_name rows on public.topics..."
+
+DEDUP_DUP_GROUPS=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+    psql -U "$TARGET_USER" -d "$TARGET_DB" -tA -c "
+    SELECT count(*) FROM (
+        SELECT 1 FROM public.topics
+        GROUP BY topic_name HAVING count(*) > 1
+    ) g;" 2>/dev/null | xargs)
+
+DEDUP_HAS_UNIQUE=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+    psql -U "$TARGET_USER" -d "$TARGET_DB" -tA -c "
+    SELECT count(*) FROM pg_constraint c
+    JOIN pg_class     t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE n.nspname='public' AND t.relname='topics' AND c.contype='u'
+      AND c.conkey = ARRAY[
+          (SELECT attnum FROM pg_attribute
+            WHERE attrelid='public.topics'::regclass
+              AND attname='topic_name')
+      ]::int2[];" 2>/dev/null | xargs)
+
+if [ "${DEDUP_DUP_GROUPS:-0}" = "0" ] && [ "${DEDUP_HAS_UNIQUE:-0}" = "1" ]; then
+    log_success "No duplicate topic_name groups and UNIQUE(topic_name) present — nothing to do."
+else
+    if [ "${DEDUP_DUP_GROUPS:-0}" != "0" ]; then
+        log_warning "Detected ${DEDUP_DUP_GROUPS} duplicate topic_name group(s) on public.topics."
+    fi
+    if [ "${DEDUP_HAS_UNIQUE:-0}" != "1" ]; then
+        log_warning "UNIQUE(topic_name) constraint is missing on public.topics — will be added after dedup."
+    fi
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "DRY RUN: would consolidate duplicates onto MIN(topic_id) per topic_name,"
+        log_info "        rewrite public.data.topic_id accordingly, drop PK-colliding data rows,"
+        log_info "        delete non-canonical public.topics rows, and re-add UNIQUE(topic_name)."
+    else
+        DEDUP_SQL_OUTPUT="$TEMP_DIR/dedup_step_2d.out"
+        docker exec -i -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+            psql -U "$TARGET_USER" -d "$TARGET_DB" -v ON_ERROR_STOP=1 <<'EOF' > "$DEDUP_SQL_OUTPUT" 2>&1
+BEGIN;
+
+-- SHARE ROW EXCLUSIVE conflicts with RowExclusiveLock (VOLTTRON's INSERT INTO topics)
+-- so concurrent topic inserts queue behind us and vice versa. AccessShareLock (reads)
+-- is compatible, so SELECTs from topics continue. public.data is NOT table-locked;
+-- VOLTTRON continues writing samples throughout — only per-row locks on rewritten
+-- or deleted data rows.
+LOCK TABLE public.topics IN SHARE ROW EXCLUSIVE MODE;
+
+-- Snapshot duplicates. Canonical = MIN(topic_id) per topic_name — deterministic,
+-- stable across re-runs, and preserves the oldest ID (most likely still cached
+-- in VOLTTRON's in-process resolveTopicId map). The outer WHERE keeps only the
+-- non-canonical rows (the ones we'll eliminate) — a plain WHERE on the inner
+-- SELECT would filter before the window is computed, so this must be a subquery.
+-- Kept as one statement so psql emits only a single command tag (SELECT N) —
+-- the summary parser downstream relies on the DELETE/UPDATE/DELETE ordering.
+CREATE TEMP TABLE _dup_map ON COMMIT DROP AS
+SELECT dup_id, canonical_id, topic_name
+FROM (
+    SELECT topic_id AS dup_id,
+           min(topic_id) OVER (PARTITION BY topic_name) AS canonical_id,
+           topic_name
+    FROM public.topics
+    WHERE topic_name IN (
+        SELECT topic_name FROM public.topics
+        GROUP BY topic_name HAVING count(*) > 1
+    )
+) sub
+WHERE dup_id <> canonical_id;
+CREATE INDEX ON _dup_map (dup_id);
+
+-- Data-row collisions FIRST: where a canonical (topic_id, ts) row already exists,
+-- keep the canonical and drop the duplicate. Ordering matters — doing this before
+-- the UPDATE guarantees no PK violation on data_pkey when the UPDATE runs.
+DELETE FROM public.data
+WHERE ctid IN (
+    SELECT d.ctid
+    FROM public.data d
+    JOIN _dup_map m ON m.dup_id = d.topic_id
+    WHERE EXISTS (
+        SELECT 1 FROM public.data c
+         WHERE c.topic_id = m.canonical_id AND c.ts = d.ts
+    )
+);
+
+-- Remaining duplicate rows: safe to rewrite to canonical topic_id.
+UPDATE public.data d
+   SET topic_id = m.canonical_id
+  FROM _dup_map m
+ WHERE d.topic_id = m.dup_id;
+
+-- Now no data row references the non-canonical topic ids: safe to delete them.
+DELETE FROM public.topics t
+USING _dup_map m
+WHERE t.topic_id = m.dup_id;
+
+-- Re-add UNIQUE(topic_name) if it was dropped (which is how duplicates crept in
+-- on the corrupted prod DB). pg_constraint lookup keeps this idempotent.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint c
+        JOIN pg_class     t ON t.oid = c.conrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        WHERE n.nspname = 'public' AND t.relname = 'topics' AND c.contype = 'u'
+          AND c.conkey = ARRAY[
+              (SELECT attnum FROM pg_attribute
+                WHERE attrelid = 'public.topics'::regclass
+                  AND attname = 'topic_name')
+          ]::int2[]
+    ) THEN
+        ALTER TABLE public.topics
+          ADD CONSTRAINT topics_topic_name_key UNIQUE (topic_name);
+        RAISE NOTICE 'Added UNIQUE constraint topics_topic_name_key.';
+    END IF;
+END $$;
+
+COMMIT;
+EOF
+        DEDUP_STATUS=$?
+        cat "$DEDUP_SQL_OUTPUT" >> "$LOG_FILE"
+        if [ "$DEDUP_STATUS" -ne 0 ]; then
+            log_error "Step 2d dedup transaction failed - check $LOG_FILE and $DEDUP_SQL_OUTPUT"
+            exit 1
+        fi
+
+        # psql prints one command tag per mutating statement, in order:
+        # (1) "DELETE N"  — data rows dropped due to PK collision at canonical
+        # (2) "UPDATE N"  — data rows rewritten from dup -> canonical
+        # (3) "DELETE N"  — non-canonical topics rows removed
+        DEDUP_TAGS=$(awk '/^(DELETE|UPDATE) [0-9]+$/' "$DEDUP_SQL_OUTPUT")
+        DEDUP_DATA_CONFLICTS=$(printf '%s\n' "$DEDUP_TAGS" | awk 'NR==1 {print $2}')
+        DEDUP_DATA_REWRITTEN=$(printf '%s\n' "$DEDUP_TAGS" | awk 'NR==2 {print $2}')
+        DEDUP_TOPICS_REMOVED=$(printf '%s\n' "$DEDUP_TAGS" | awk 'NR==3 {print $2}')
+
+        log_info "Dedup summary:"
+        log_info "  Duplicate groups processed:      ${DEDUP_DUP_GROUPS:-0}"
+        log_info "  data rows rewritten (UPDATE):    ${DEDUP_DATA_REWRITTEN:-0}"
+        log_info "  data rows dropped as PK dupe:    ${DEDUP_DATA_CONFLICTS:-0}"
+        log_info "  topics rows removed:             ${DEDUP_TOPICS_REMOVED:-0}"
+
+        # Post-check: must be zero duplicates now. Any residual means the txn didn't
+        # cover all cases (shouldn't happen), or a concurrent VOLTTRON insert landed
+        # between COMMIT and this check — either way, abort so the operator sees it.
+        DEDUP_RESIDUAL=$(docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+            psql -U "$TARGET_USER" -d "$TARGET_DB" -tA -c "
+            SELECT count(*) FROM (
+                SELECT 1 FROM public.topics GROUP BY topic_name HAVING count(*) > 1
+            ) g;" 2>/dev/null | xargs)
+        if [ "${DEDUP_RESIDUAL:-0}" != "0" ]; then
+            log_error "Step 2d finished but ${DEDUP_RESIDUAL} duplicate group(s) remain — aborting."
+            exit 1
+        fi
+
+        log_success "Step 2d complete: public.topics deduplicated, UNIQUE(topic_name) verified."
+    fi
+fi
+
+# --dedup-only stops here. Suppress the resume hint from cleanup() by marking
+# the run successful — there's no dump file to point at anyway.
+if [ "$DEDUP_ONLY" = true ]; then
+    MIGRATION_OK=true
+    echo ""
+    log_success "Dedup-only run finished."
+    exit 0
+fi
 
 # ---------------------------------------------------------------------------
 # Step 3: Load staging, then merge in chunks
