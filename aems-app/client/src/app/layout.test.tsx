@@ -16,6 +16,7 @@ jest.mock("./components/common", () => ({
 }));
 
 jest.mock("./components/providers", () => ({
+  ConfigProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   CurrentProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   GraphqlProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   RouteProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
