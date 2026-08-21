@@ -292,6 +292,13 @@ class AppConfigService {
                     .map((f) => f.trim())
                     .filter(Boolean),
             },
+            synthetic: {
+                seed: process.env.SYNTHETIC_SEED ?? "aems-demo",
+                historianDays: parseInt(process.env.SYNTHETIC_HISTORIAN_DAYS ?? "90"),
+                tickSeconds: parseInt(process.env.SYNTHETIC_TICK_SECONDS ?? "60"),
+                campusPrefix: process.env.SYNTHETIC_CAMPUS_PREFIX ?? "DEMO_",
+                ticker: (0, common_1.parseBoolean)(process.env.SYNTHETIC_TICKER),
+            },
         };
         this.volttron = {
             ca: process.env.VOLTTRON_CA ? this.readFile((0, node_path_1.resolve)(__dirname, process.env.VOLTTRON_CA ?? "")) : "",

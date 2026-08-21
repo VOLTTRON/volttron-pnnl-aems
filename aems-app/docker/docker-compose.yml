@@ -315,6 +315,37 @@ services:
     volumes:
       - ./seed/:/app/seed/:ro
 
+  # Generates synthetic dev-only topology and historian data in place of
+  # replicating production. Opted in via the `synth` compose profile. Runs
+  # backfill once (idempotent via a Seed marker row), then keeps ticking
+  # so live dashboards animate. Never enabled in production.
+  synth-worker:
+    container_name: ${COMPOSE_PROJECT_NAME}-synth-worker
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      database:
+        condition: service_started
+      historian:
+        condition: service_started
+    env_file:
+      - .env.synth-worker
+    secrets:
+      - session_secret
+      - jwt_secret
+      - database_password
+      - historian_database_password
+      - redis_password
+      - keycloak_client_secret
+      - worker_token
+    hostname: synth-worker
+    image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/server:${TAG}
+    profiles:
+      - synth
+    restart: unless-stopped
+    volumes:
+      - ./historian/historian-topic-map.json:/app/config/historian-topic-map.json:ro
+
   # Runs relational database migrations on startup
   init:
     build:

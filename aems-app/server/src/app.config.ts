@@ -236,6 +236,13 @@ export class AppConfigService {
       ilcPaths: string[];
       thermostatPaths: string[];
     };
+    synthetic: {
+      seed: string;
+      historianDays: number;
+      tickSeconds: number;
+      campusPrefix: string;
+      ticker: boolean;
+    };
   };
   volttron: {
     ca: string;
@@ -515,6 +522,13 @@ export class AppConfigService {
           .split(",")
           .map((f) => f.trim())
           .filter(Boolean),
+      },
+      synthetic: {
+        seed: process.env.SYNTHETIC_SEED ?? "aems-demo",
+        historianDays: parseInt(process.env.SYNTHETIC_HISTORIAN_DAYS ?? "90"),
+        tickSeconds: parseInt(process.env.SYNTHETIC_TICK_SECONDS ?? "60"),
+        campusPrefix: process.env.SYNTHETIC_CAMPUS_PREFIX ?? "DEMO_",
+        ticker: parseBoolean(process.env.SYNTHETIC_TICKER),
       },
     };
     this.volttron = {

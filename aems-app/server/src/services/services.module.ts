@@ -13,6 +13,10 @@ import { ConfigService } from "./config/config.service";
 import { ControlService } from "./control/control.service";
 import { SetupService } from "./setup/setup.service";
 import { SubscriptionModule } from "@/subscription/subscription.module";
+import { SyntheticService } from "./synthetic/synthetic.service";
+import { SyntheticTickerService } from "./synthetic/synthetic-ticker.service";
+import { SyntheticTopologyService } from "./synthetic/topology.service";
+import { SyntheticHistorianWriter } from "./synthetic/historian.writer";
 
 @Module({
   imports: [ScheduleModule.forRoot(), PrismaModule, SubscriptionModule],
@@ -29,6 +33,10 @@ import { SubscriptionModule } from "@/subscription/subscription.module";
     BackupDiscoveryService,
     BackupSubscriptionPublisher,
     BackupArchiveService,
+    SyntheticTopologyService,
+    SyntheticHistorianWriter,
+    SyntheticService,
+    SyntheticTickerService,
   ],
   exports: [BackupDiscoveryService, BackupSubscriptionPublisher, BackupArchiveService],
 })
