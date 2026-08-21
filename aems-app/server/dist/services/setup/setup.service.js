@@ -292,10 +292,13 @@ let SetupService = SetupService_1 = class SetupService extends __1.BaseService {
             })
                 .catch((error) => this.logger.warn(`Failed to look for thermostat unit "${name}":`, error));
         }
+        const synthPrefix = this.configService.service.synthetic.campusPrefix;
+        const isSynthetic = (row) => Boolean(synthPrefix) &&
+            (row.campus?.startsWith(synthPrefix) === true || row.name?.startsWith(synthPrefix) === true);
         await this.prismaService.prisma.unit
             .findMany()
             .then(async (values) => {
-            const remove = (0, lodash_1.difference)(values.map((v) => v?.name).filter((v) => v), units.map((v) => v?.name).filter((v) => v)).filter(common_1.typeofNonNullable);
+            const remove = (0, lodash_1.difference)(values.filter((v) => !isSynthetic(v)).map((v) => v?.name).filter((v) => v), units.map((v) => v?.name).filter((v) => v)).filter(common_1.typeofNonNullable);
             for (const name of remove) {
                 this.logger.log(`Removing thermostat unit "${name}" from the database.`);
                 await this.prismaService.prisma.unit.deleteMany({ where: { name } });
@@ -349,7 +352,7 @@ let SetupService = SetupService_1 = class SetupService extends __1.BaseService {
                 }
             }
         }
-        const removeControls = (0, lodash_1.difference)(controls?.map((v) => v?.name).filter((v) => v) ?? [], configs.map((c) => c.control)).filter((v) => v);
+        const removeControls = (0, lodash_1.difference)(controls?.filter((v) => !isSynthetic(v)).map((v) => v?.name).filter((v) => v) ?? [], configs.map((c) => c.control)).filter((v) => v);
         if (!(0, lodash_1.isEmpty)(removeControls)) {
             this.logger.log(`Deleting control${removeControls.length === 1 ? "" : "s"} (ILC) ${removeControls.map((v) => `"${v}"`).join(", ")}.`);
             await this.prismaService.prisma.control.deleteMany({ where: { name: { in: removeControls } } });

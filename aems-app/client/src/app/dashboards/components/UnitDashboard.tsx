@@ -1288,11 +1288,13 @@ export function UnitDashboard({
 
       <div className={styles.grid}>
         <BuildingPowerChart
+          className={styles.chartCard}
           campus={unitCampus}
           building={unitBuilding}
           startTime={startTime}
           endTime={endTime}
           mode={mode}
+          height="530px"
         />
       </div>
     </div>

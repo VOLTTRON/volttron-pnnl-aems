@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Card, Colors, SegmentedControl } from "@blueprintjs/core";
+import clsx from "clsx";
 import { useQuery } from "@apollo/client";
 import {
   HistorianMeterTimeSeriesDocument,
@@ -24,6 +25,12 @@ interface BuildingPowerChartProps {
   endTime: string;
   mode: "light" | "dark";
   height?: string;
+  /**
+   * Extra class applied to the outer Card. Parent dashboards pass their own
+   * `chartCard` module class so the card picks up parent grid placement
+   * (e.g. `grid-column: span 2` on SiteDashboard's 2-column timeline grid).
+   */
+  className?: string;
 }
 
 // Threshold below which the server returns raw historian samples (no binning).
@@ -65,6 +72,7 @@ export function BuildingPowerChart({
   endTime,
   mode,
   height = "380px",
+  className,
 }: BuildingPowerChartProps) {
   const [rawViz, setRawViz] = React.useState<RawViz>("raw");
   const [binnedViz, setBinnedViz] = React.useState<BinnedViz>("line");
@@ -283,7 +291,7 @@ export function BuildingPowerChart({
   ];
 
   return (
-    <Card className={styles.card} style={{ height: "auto" }}>
+    <Card className={clsx(styles.card, className)}>
       <div className={styles.header}>
         <div className={styles.title}>Building Power</div>
         {isRaw ? (

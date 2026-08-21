@@ -1,5 +1,7 @@
 .card {
-  padding: 12px;
+  // Sizing (width/height/padding/grid-placement) is intentionally left to the
+  // parent dashboard's `chartCard` class, forwarded via the `className` prop.
+  // This class exists only as an anchor for the inner header layout below.
 }
 
 .header {

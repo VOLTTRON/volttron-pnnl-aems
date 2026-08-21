@@ -84,3 +84,26 @@ docker compose exec historian psql -U historian -d historian -c "SELECT count(*)
 | Server | pass   | `yarn check` exits 0. New module compiles cleanly.           |
 | Client | pass   | `yarn check` exits 0. No client changes required.            |
 | Docker | pass   | Compose file edits are additive; profile-gated to `synth`.   |
+
+## Runtime verification (2026-08-21 afternoon)
+
+First live run of `docker compose --profile synth up -d` surfaced two issues; both fixed in a follow-up pass.
+
+**Issue A — `SetupService` deletes `DEMO_` rows.** The `services` container's `SetupService.task()` (`@Timeout(1000)`) reads ILC/thermostat template files and calls `unit.deleteMany` + `control.deleteMany` on anything not listed. Every `DEMO_` unit and control was wiped within a second of the synth-worker's upsert.
+- **Fix:** `aems-app/server/src/services/setup/setup.service.ts` — filter `values` (Unit set) and `controls` (Control set) to exclude rows whose `campus` or `name` starts with `configService.service.synthetic.campusPrefix` before computing the `difference()` removal set. Two-line change plus the `isSynthetic` helper.
+
+**Issue B — Historian password auth fails.** `AppConfigService` read `process.env.HISTORIAN_PASSWORD ?? ""` directly, which returned the raw `.env` placeholder `SeT_tHiS_iN_0x3A-…-` inside the container. Docker secrets for the historian DB are mounted at `/run/secrets/historian_database_password` but never consulted. Pre-existing bug — the main `server` and `services` containers were also silently failing to connect to the historian.
+- **Fix:** `aems-app/server/src/app.config.ts` line 416 — `password: readSecret("HISTORIAN_PASSWORD", "")` (was direct env read). `readSecret` supports Docker secrets, `_FILE` env pointers, then direct env, then default.
+- **Config:** `aems-app/docker/.env.synth-worker` sets `HISTORIAN_PASSWORD_FILE=/run/secrets/historian_database_password` so `readSecret`'s priority-2 finds the mounted secret. The `historian_database_password` docker secret was already in the `synth-worker` service's `secrets:` list, so no compose changes were needed. The main `server` / `services` containers still lack this env pointer — they can be fixed in a follow-up to unlock historian reads there too.
+
+After both fixes, backfill on a real Docker stack produced:
+
+| Metric                                | Result |
+| ------------------------------------- | ------ |
+| DEMO Units in Prisma DB               | 18     |
+| DEMO Controls in Prisma DB            | 6      |
+| Historian topics under `DEMO_`        | 174    |
+| Historian data rows                   | 22,550,400 |
+| Backfill wall time (6 buildings)      | ~14 min |
+| Ticker registry loaded                | 174 topics |
+| `SetupService` deletes of DEMO rows   | 0 (post-fix) |

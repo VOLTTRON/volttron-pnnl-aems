@@ -750,11 +750,13 @@ export function SiteDashboard({
         </Card>
 
         <BuildingPowerChart
+          className={styles.chartCard}
           campus={campus}
           building={building}
           startTime={startTime}
           endTime={endTime}
           mode={mode}
+          height="330px"
         />
       </div>
     </div>
