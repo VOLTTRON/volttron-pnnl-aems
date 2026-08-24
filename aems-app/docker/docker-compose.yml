@@ -186,6 +186,7 @@ services:
       - session_secret
       - jwt_secret
       - database_password
+      - historian_database_password
       - redis_password
       - keycloak_client_secret
       - keycloak_admin_password
@@ -266,6 +267,7 @@ services:
       - session_secret
       - jwt_secret
       - database_password
+      - historian_database_password
       - redis_password
       - keycloak_client_secret
       - keycloak_admin_password
@@ -286,6 +288,7 @@ services:
       - certs-data:/certs/:ro
       - grafana-setup:/app/grafana/:ro
       - ./volttron/setup/:/app/volttron/:ro
+      - ./historian/historian-topic-map.json:/app/config/historian-topic-map.json:ro
 
     # Runs application seeders
   seeders:

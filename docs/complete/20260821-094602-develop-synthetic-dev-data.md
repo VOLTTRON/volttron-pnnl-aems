@@ -94,7 +94,13 @@ First live run of `docker compose --profile synth up -d` surfaced two issues; bo
 
 **Issue B — Historian password auth fails.** `AppConfigService` read `process.env.HISTORIAN_PASSWORD ?? ""` directly, which returned the raw `.env` placeholder `SeT_tHiS_iN_0x3A-…-` inside the container. Docker secrets for the historian DB are mounted at `/run/secrets/historian_database_password` but never consulted. Pre-existing bug — the main `server` and `services` containers were also silently failing to connect to the historian.
 - **Fix:** `aems-app/server/src/app.config.ts` line 416 — `password: readSecret("HISTORIAN_PASSWORD", "")` (was direct env read). `readSecret` supports Docker secrets, `_FILE` env pointers, then direct env, then default.
-- **Config:** `aems-app/docker/.env.synth-worker` sets `HISTORIAN_PASSWORD_FILE=/run/secrets/historian_database_password` so `readSecret`'s priority-2 finds the mounted secret. The `historian_database_password` docker secret was already in the `synth-worker` service's `secrets:` list, so no compose changes were needed. The main `server` / `services` containers still lack this env pointer — they can be fixed in a follow-up to unlock historian reads there too.
+- **Config:** `aems-app/docker/.env.synth-worker`, `.env.server`, and `.env.services` all set `HISTORIAN_PASSWORD_FILE=/run/secrets/historian_database_password` so `readSecret`'s priority-2 finds the mounted secret. `docker-compose.yml` adds `historian_database_password` to the `secrets:` block of `server`, `services`, and `synth-worker`.
+
+**Issue C — Client SSR crash on dashboard routes.** `aems-client` returned HTTP 500 for `/dashboards/[campus]/[building]/[unit]` pages with `Cannot find module '@prisma/client'`. Next.js standalone output preserved the portal symlink at `/app/client/node_modules/@prisma/client → ../../../prisma/node_modules/@prisma/client`, but the runner stage never copied `/app/prisma/` so the symlink was dangling. Pre-existing image bug.
+- **Fix:** `aems-app/client/Dockerfile` runner stage — added `COPY --from=builder /app/prisma /app/prisma`, mirroring the same line in `aems-app/server/Dockerfile`. SSR route now returns 200; `docker logs aems-client` shows zero MODULE_NOT_FOUND after rebuild.
+
+**Issue D — `aems-services` missing historian topic-map mount.** Logged `ENOENT` when reading `/app/config/historian-topic-map.json`.
+- **Fix:** `docker-compose.yml` — added `./historian/historian-topic-map.json:/app/config/historian-topic-map.json:ro` to the `services` block's `volumes:`.
 
 After both fixes, backfill on a real Docker stack produced:
 
