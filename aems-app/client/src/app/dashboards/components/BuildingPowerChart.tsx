@@ -36,8 +36,16 @@ interface BuildingPowerChartProps {
 // regardless of the global HISTORIAN_BINNING_START env setting.
 const RAW_THRESHOLD = "7d";
 
-type RawViz = "raw" | "15m" | "30m" | "all";
-type BinnedViz = "line" | "range" | "boxplot";
+const MS_15M = 15 * 60_000;
+const MS_30M = 30 * 60_000;
+
+const BOXPLOT_AGGREGATIONS: MetricAggregation[] = [
+  MetricAggregation.Min,
+  MetricAggregation.Q1,
+  MetricAggregation.Median,
+  MetricAggregation.Q3,
+  MetricAggregation.Max,
+];
 
 interface AggregationSeries {
   aggregation: MetricAggregation;
@@ -49,57 +57,14 @@ interface DataPoint {
   value: number | null;
 }
 
-// The aggregation set the server needs to satisfy each binned viz option.
-// Kept outside the component so referential identity stays stable across renders.
-const BINNED_AGGREGATIONS: Record<BinnedViz, MetricAggregation[] | undefined> = {
-  line: undefined,
-  range: [MetricAggregation.Min, MetricAggregation.Max],
-  boxplot: [
-    MetricAggregation.Min,
-    MetricAggregation.Q1,
-    MetricAggregation.Median,
-    MetricAggregation.Q3,
-    MetricAggregation.Max,
-  ],
-};
+// Toolbox icon (filled path — ECharts renders paths as filled shapes) for
+// the boxplot toggle. Flips iconStyle.color between muted "off" and accent
+// "on" to signal state. Follows the same shape as SiteDashboard's rollup
+// toggle.
+const BOXPLOT_ICON =
+  "path://M11,3H13V7H11Z M7,7H17V17H7Z M11,17H13V21H11Z M3,11H7V13H3Z M17,11H21V13H17Z";
 
-// Toolbox icons (24x24 viewBox). Kept as `path://<svg d>` strings, matching
-// the existing `buildRollupToolboxFeature` pattern in SiteDashboard.tsx. Each
-// icon depicts the CURRENT state — clicking cycles to the next state.
-const VIZ_ICON: Record<BinnedViz, string> = {
-  line: "path://M3,17L9,11L13,15L21,7",
-  range:
-    "path://M3,15L9,10L13,12L21,6L21,10L13,16L9,14L3,19Z",
-  boxplot:
-    "path://M12,3V6M12,18V21M8,6H16V18H8V6M4,12H8M16,12H20",
-};
-
-const RAW_ICON: Record<RawViz, string> = {
-  raw: "path://M3,17L9,11L13,15L21,7",
-  "15m": "path://M2,12H5M7,12H10M12,12H15M17,12H20",
-  "30m":
-    "path://M2,10H5M7,10H10M12,10H15M17,10H20M2,14H5M7,14H10M12,14H15M17,14H20",
-  all: "path://M3,7H21M3,12H21M3,17H21",
-};
-
-const nextBinned = (v: BinnedViz): BinnedViz =>
-  v === "line" ? "range" : v === "range" ? "boxplot" : "line";
-
-const nextRaw = (v: RawViz): RawViz =>
-  v === "raw" ? "15m" : v === "15m" ? "30m" : v === "30m" ? "all" : "raw";
-
-const BINNED_LABEL: Record<BinnedViz, string> = {
-  line: "Line",
-  range: "Range",
-  boxplot: "Boxplot",
-};
-
-const RAW_LABEL: Record<RawViz, string> = {
-  raw: "Raw only",
-  "15m": "Raw + 15m avg",
-  "30m": "Raw + 30m avg",
-  all: "Raw + 15m + 30m",
-};
+const OFF_COLOR = "#8f99a8";
 
 export function BuildingPowerChart({
   campus,
@@ -110,8 +75,7 @@ export function BuildingPowerChart({
   height = "380px",
   className,
 }: BuildingPowerChartProps) {
-  const [rawViz, setRawViz] = React.useState<RawViz>("raw");
-  const [binnedViz, setBinnedViz] = React.useState<BinnedViz>("line");
+  const [boxplotOn, setBoxplotOn] = React.useState(false);
 
   // Palette lookup mirrors the parent dashboards so the meter color stays consistent.
   const { preferences } = React.useContext(PreferencesContext);
@@ -128,7 +92,9 @@ export function BuildingPowerChart({
       startTime,
       endTime,
       rawThreshold: RAW_THRESHOLD,
-      aggregations: BINNED_AGGREGATIONS[binnedViz],
+      // Only ask the server for quartile aggregations when boxplot is toggled
+      // on; the server ignores the arg entirely in raw mode.
+      aggregations: boxplotOn ? BOXPLOT_AGGREGATIONS : undefined,
     },
   });
 
@@ -142,11 +108,23 @@ export function BuildingPowerChart({
 
   const binning = pickBinningInfo(data?.historianMeterTimeSeries);
   const isRaw = binning?.mode !== "binned";
+  const binMs = binning?.intervalMs ?? 0;
+
+  // Rolling-average overlays are always rendered when the current bucketing
+  // makes them meaningful (window > bin size). In raw mode both windows are
+  // always meaningful; in binned mode they degenerate to a no-op once the
+  // bin size catches up, so we simply omit them from the chart at that point.
+  // Users can further hide/show them via the built-in legend toggle.
+  const show15m = isRaw || binMs < MS_15M;
+  const show30m = isRaw || binMs < MS_30M;
+  // Boxplot needs quartile aggregations, which the server only computes when
+  // binning. In raw mode there are no aggregates to draw a distribution from.
+  const canShowBoxplot = !isRaw;
+  const effectiveBoxplot = boxplotOn && canShowBoxplot;
 
   const primaryColor = secondaryPalette.secondary.hex;
   const rollingColor15 = tertiaryPalette.secondary.hex;
   const rollingColor30 = tertiaryPalette.tertiary.hex;
-  const bandColor = secondaryPalette.quaternary.hex;
 
   const formatPower = React.useMemo(
     () =>
@@ -156,185 +134,121 @@ export function BuildingPowerChart({
     [series?.metadata],
   );
 
-  const rawPoints = React.useMemo<DataPoint[]>(() => series?.data ?? [], [series?.data]);
+  const primaryPoints = React.useMemo<DataPoint[]>(() => series?.data ?? [], [series?.data]);
 
   const echartsSeries = React.useMemo(() => {
     if (!series?.data) return [];
 
-    if (isRaw) {
-      const primary = {
-        name: "Building Power",
-        type: "line" as const,
-        smooth: true,
-        sampling: "lttb" as const,
-        showSymbol: false,
-        itemStyle: { color: primaryColor },
-        lineStyle: { color: primaryColor, width: 1.5 },
-        tooltip: { valueFormatter: formatPower },
-        data: rawPoints.map((p) => [p.timestamp, p.value]),
-      };
-      const overlays: unknown[] = [];
-      const show15 = rawViz === "15m" || rawViz === "all";
-      const show30 = rawViz === "30m" || rawViz === "all";
-      if (show15) {
-        overlays.push({
-          name: "15m avg",
-          type: "line",
-          smooth: false,
-          showSymbol: false,
-          itemStyle: { color: rollingColor15 },
-          lineStyle: { color: rollingColor15, width: 1.5, type: "dashed" as const },
-          tooltip: { valueFormatter: formatPower },
-          data: rollingAverage(rawPoints, 15 * 60_000).map((p) => [
-            p.timestamp.toISOString(),
-            p.value,
-          ]),
-        });
+    if (effectiveBoxplot) {
+      const aggByName = new Map<MetricAggregation, DataPoint[]>();
+      for (const s of series.aggregations ?? []) {
+        aggByName.set(s.aggregation, s.data);
       }
-      if (show30) {
-        overlays.push({
-          name: "30m avg",
-          type: "line",
-          smooth: false,
-          showSymbol: false,
-          itemStyle: { color: rollingColor30 },
-          lineStyle: { color: rollingColor30, width: 2, type: "dashed" as const },
-          tooltip: { valueFormatter: formatPower },
-          data: rollingAverage(rawPoints, 30 * 60_000).map((p) => [
-            p.timestamp.toISOString(),
-            p.value,
-          ]),
-        });
-      }
-      return [primary, ...overlays];
-    }
-
-    // Binned mode. Look up requested aggregations by name.
-    const aggByName = new Map<MetricAggregation, DataPoint[]>();
-    for (const s of series.aggregations ?? []) {
-      aggByName.set(s.aggregation, s.data);
-    }
-    const meanPoints = rawPoints;
-
-    if (binnedViz === "line") {
-      return [
-        {
-          name: "Building Power",
-          type: "line" as const,
-          smooth: true,
-          sampling: "lttb" as const,
-          showSymbol: false,
-          itemStyle: { color: primaryColor },
-          lineStyle: { color: primaryColor, width: 1.5 },
-          tooltip: { valueFormatter: formatPower },
-          data: meanPoints.map((p) => [p.timestamp, p.value]),
-        },
-      ];
-    }
-
-    if (binnedViz === "range") {
       const min = aggByName.get(MetricAggregation.Min) ?? [];
+      const q1 = aggByName.get(MetricAggregation.Q1) ?? [];
+      const median = aggByName.get(MetricAggregation.Median) ?? [];
+      const q3 = aggByName.get(MetricAggregation.Q3) ?? [];
       const max = aggByName.get(MetricAggregation.Max) ?? [];
-      // ECharts confidence-band pattern: draw an invisible line at "min" and a
-      // stacked filled line at "max - min", so the fill runs between them.
-      const spans = min.map((p, i) => {
-        const mv = p.value;
-        const xv = max[i]?.value;
-        return [p.timestamp, typeof mv === "number" && typeof xv === "number" ? xv - mv : null];
-      });
+      const boxData = min
+        .map((p, i) => {
+          const values = [p.value, q1[i]?.value, median[i]?.value, q3[i]?.value, max[i]?.value];
+          if (values.some((v) => typeof v !== "number")) return null;
+          const t = new Date(p.timestamp).getTime();
+          return [t, ...(values as number[])];
+        })
+        .filter((row): row is number[] => row !== null);
       return [
         {
-          name: "Min",
-          type: "line" as const,
-          stack: "range" as const,
-          symbol: "none" as const,
-          lineStyle: { opacity: 0 },
-          itemStyle: { color: bandColor },
-          data: min.map((p) => [p.timestamp, p.value]),
-        },
-        {
-          name: "Range",
-          type: "line" as const,
-          stack: "range" as const,
-          symbol: "none" as const,
-          lineStyle: { opacity: 0 },
-          areaStyle: { color: bandColor, opacity: 0.3 },
-          tooltip: { show: false },
-          data: spans,
-        },
-        {
-          name: "Mean",
-          type: "line" as const,
-          smooth: true,
-          sampling: "lttb" as const,
-          showSymbol: false,
-          itemStyle: { color: primaryColor },
-          lineStyle: { color: primaryColor, width: 1.5 },
-          tooltip: { valueFormatter: formatPower },
-          data: meanPoints.map((p) => [p.timestamp, p.value]),
+          name: "Distribution",
+          type: "boxplot" as const,
+          // On a time xAxis, echarts needs to be told which column indices map
+          // to x and to the 5 boxplot dimensions. Without this, it treats the
+          // whole row as a boxplot value and renders nothing.
+          encode: { x: 0, y: [1, 2, 3, 4, 5], tooltip: [1, 2, 3, 4, 5] },
+          boxWidth: [4, 30],
+          itemStyle: { color: primaryColor, borderColor: primaryColor },
+          data: boxData,
         },
       ];
     }
 
-    // boxplot
-    const min = aggByName.get(MetricAggregation.Min) ?? [];
-    const q1 = aggByName.get(MetricAggregation.Q1) ?? [];
-    const median = aggByName.get(MetricAggregation.Median) ?? [];
-    const q3 = aggByName.get(MetricAggregation.Q3) ?? [];
-    const max = aggByName.get(MetricAggregation.Max) ?? [];
-    const boxData = min
-      .map((p, i) => {
-        const values = [p.value, q1[i]?.value, median[i]?.value, q3[i]?.value, max[i]?.value];
-        if (values.some((v) => typeof v !== "number")) return null;
-        return [p.timestamp, ...values];
-      })
-      .filter((row): row is Array<string | number> => row !== null);
-    return [
-      {
-        name: "Building Power",
-        type: "boxplot" as const,
-        itemStyle: { color: primaryColor, borderColor: primaryColor },
-        tooltip: {
-          valueFormatter: (v: unknown) => formatPower(v),
-        },
-        data: boxData,
-      },
-    ];
+    const primary = {
+      name: "Building Power",
+      type: "line" as const,
+      smooth: true,
+      sampling: "lttb" as const,
+      showSymbol: false,
+      itemStyle: { color: primaryColor },
+      lineStyle: { color: primaryColor, width: 1.5 },
+      tooltip: { valueFormatter: formatPower },
+      data: primaryPoints.map((p) => [p.timestamp, p.value]),
+    };
+    const overlays: unknown[] = [];
+    if (show15m) {
+      overlays.push({
+        name: "15m avg",
+        type: "line",
+        smooth: false,
+        showSymbol: false,
+        itemStyle: { color: rollingColor15 },
+        lineStyle: { color: rollingColor15, width: 1.5, type: "dashed" as const },
+        tooltip: { valueFormatter: formatPower },
+        data: rollingAverage(primaryPoints, MS_15M).map((p) => [
+          p.timestamp.toISOString(),
+          p.value,
+        ]),
+      });
+    }
+    if (show30m) {
+      overlays.push({
+        name: "30m avg",
+        type: "line",
+        smooth: false,
+        showSymbol: false,
+        itemStyle: { color: rollingColor30 },
+        lineStyle: { color: rollingColor30, width: 2, type: "dashed" as const },
+        tooltip: { valueFormatter: formatPower },
+        data: rollingAverage(primaryPoints, MS_30M).map((p) => [
+          p.timestamp.toISOString(),
+          p.value,
+        ]),
+      });
+    }
+    return [primary, ...overlays];
   }, [
     series,
-    isRaw,
-    rawViz,
-    binnedViz,
-    rawPoints,
+    effectiveBoxplot,
+    show15m,
+    show30m,
+    primaryPoints,
     formatPower,
     primaryColor,
     rollingColor15,
     rollingColor30,
-    bandColor,
   ]);
 
-  // Cycling toolbox toggle — one button per mode, following the same pattern
-  // as SiteDashboard's rollup toggle. Only the button for the currently
-  // active mode (raw vs binned) is included. Uses the functional setter form
-  // so the click handler can capture the correct successor even when ECharts
-  // holds an older option reference internally.
-  const vizToolboxFeature = isRaw
-    ? {
-        myRawViz: {
-          show: true,
-          title: `${RAW_LABEL[rawViz]} — click to cycle`,
-          icon: RAW_ICON[rawViz],
-          onclick: () => setRawViz((prev) => nextRaw(prev)),
-        },
-      }
-    : {
-        myBinnedViz: {
-          show: true,
-          title: `${BINNED_LABEL[binnedViz]} — click to cycle`,
-          icon: VIZ_ICON[binnedViz],
-          onclick: () => setBinnedViz((prev) => nextBinned(prev)),
-        },
-      };
+  // The only toolbox toggle we surface is boxplot — it swaps the whole chart
+  // rendering between line and box-and-whisker, which is a mode change users
+  // can't get to through the built-in legend. The rolling-average overlays
+  // are rendered by default (whenever their window is meaningful) and can be
+  // hidden per-series via the legend toggle in the wrapper's toolbox.
+  interface CustomToolboxFeature {
+    show: boolean;
+    title: string;
+    icon: string;
+    iconStyle: { color: string };
+    onclick: () => void;
+  }
+  const vizToolboxFeature: Record<string, CustomToolboxFeature> = {};
+  if (canShowBoxplot) {
+    vizToolboxFeature.myBoxplot = {
+      show: true,
+      title: boxplotOn ? "Hide distribution boxplot" : "Show distribution boxplot",
+      icon: BOXPLOT_ICON,
+      iconStyle: { color: boxplotOn ? primaryColor : OFF_COLOR },
+      onclick: () => setBoxplotOn((prev) => !prev),
+    };
+  }
 
   return (
     <Card className={className}>
@@ -382,10 +296,10 @@ export function BuildingPowerChart({
           series: echartsSeries as never,
         }}
         // `replaceMerge` forces ECharts to wholesale replace the series and
-        // toolbox on each render instead of index-merging them into the previous
-        // option. Without this, switching from a single line to a boxplot (or
-        // to 3 stacked lines) merges old series properties into new positions
-        // and the chart never actually reflects the new mode.
+        // toolbox on each render instead of index-merging them into the
+        // previous option. Without this, switching between line/boxplot or
+        // toggling an overlay merges stale properties into new series slots
+        // and the chart never actually reflects the new state.
         settings={{ replaceMerge: ["series", "toolbox"] }}
         style={{ height }}
         theme={mode}
