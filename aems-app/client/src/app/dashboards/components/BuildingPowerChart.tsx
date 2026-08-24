@@ -140,15 +140,20 @@ export function BuildingPowerChart({
     if (!series?.data) return [];
 
     if (effectiveBoxplot) {
-      const aggByName = new Map<MetricAggregation, DataPoint[]>();
+      // The server serializes the TS enum VALUE (lowercase, "q1") inside
+      // this scalar payload, while the client codegen enum uses the GraphQL
+      // NAME ("Q1"). Compare on a canonical lowercase form so lookups match
+      // regardless of which side any given identifier comes from.
+      const canon = (a: string) => a.toLowerCase();
+      const aggByName = new Map<string, DataPoint[]>();
       for (const s of series.aggregations ?? []) {
-        aggByName.set(s.aggregation, s.data);
+        aggByName.set(canon(s.aggregation as unknown as string), s.data);
       }
-      const min = aggByName.get(MetricAggregation.Min) ?? [];
-      const q1 = aggByName.get(MetricAggregation.Q1) ?? [];
-      const median = aggByName.get(MetricAggregation.Median) ?? [];
-      const q3 = aggByName.get(MetricAggregation.Q3) ?? [];
-      const max = aggByName.get(MetricAggregation.Max) ?? [];
+      const min = aggByName.get(canon(MetricAggregation.Min)) ?? [];
+      const q1 = aggByName.get(canon(MetricAggregation.Q1)) ?? [];
+      const median = aggByName.get(canon(MetricAggregation.Median)) ?? [];
+      const q3 = aggByName.get(canon(MetricAggregation.Q3)) ?? [];
+      const max = aggByName.get(canon(MetricAggregation.Max)) ?? [];
       const boxData = min
         .map((p, i) => {
           const values = [p.value, q1[i]?.value, median[i]?.value, q3[i]?.value, max[i]?.value];
