@@ -6,6 +6,8 @@ export declare class SyntheticHistorianWriter implements OnModuleDestroy {
     constructor(configService: AppConfigService);
     onModuleDestroy(): Promise<void>;
     ensureTopics(topicNames: string[]): Promise<Map<string, number>>;
+    topicHasData(topicId: number, olderThanMs?: number): Promise<boolean>;
+    clearRange(topicId: number, start: Date, end: Date): Promise<number>;
     copyTopic(topicId: number, samples: Iterable<[Date, number]>): Promise<number>;
     private encodeSamples;
     tickInsert(ts: Date, values: [number, number][]): Promise<void>;

@@ -187,7 +187,7 @@ class AppConfigService {
             port: parseInt(process.env.HISTORIAN_PORT ?? "5432"),
             name: process.env.HISTORIAN_NAME ?? "historian",
             username: process.env.HISTORIAN_USER ?? "historian",
-            password: (0, readSecret_1.readSecret)("HISTORIAN_PASSWORD", ""),
+            password: (0, readSecret_1.readSecret)("HISTORIAN_DATABASE_PASSWORD", ""),
             replicationPort: parseInt(process.env.HISTORIAN_REPLICATION_PORT ?? "5543"),
             configMappingPath: process.env.HISTORIAN_CONFIG_MAPPING_PATH || undefined,
             topicMap: this.loadHistorianTopicMap(process.env.HISTORIAN_CONFIG_MAPPING_PATH),

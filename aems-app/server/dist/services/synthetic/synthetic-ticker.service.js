@@ -37,8 +37,13 @@ let SyntheticTickerService = SyntheticTickerService_1 = class SyntheticTickerSer
         if (this.configService.instanceName === "Schema")
             return;
         const intervalMs = Math.max(MIN_TICK_MS, tickSeconds * 1_000);
-        this.logger.log(`Synthetic ticker enabled: every ${intervalMs / 1000}s`);
-        setTimeout(() => this.scheduleNext(intervalMs), 5_000);
+        this.logger.log(`Synthetic ticker armed: every ${intervalMs / 1000}s (waiting for backfill to complete)...`);
+        void this.synthetic.backfillReady.then(() => {
+            if (this.stopped)
+                return;
+            this.logger.log(`Synthetic ticker started.`);
+            this.scheduleNext(intervalMs);
+        });
     }
     onModuleDestroy() {
         this.stopped = true;

@@ -1,8 +1,7 @@
 "use client";
 
 import React from "react";
-import { Card, Colors, SegmentedControl } from "@blueprintjs/core";
-import clsx from "clsx";
+import { Card, Colors } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
 import {
   HistorianMeterTimeSeriesDocument,
@@ -16,7 +15,6 @@ import { rollingAverage } from "@/utils/rollingAverage";
 import { Palettes } from "@/utils/palette";
 import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
 import { pickBinningInfo } from "./BinningCallout";
-import styles from "./BuildingPowerChart.module.scss";
 
 interface BuildingPowerChartProps {
   campus: string;
@@ -63,6 +61,44 @@ const BINNED_AGGREGATIONS: Record<BinnedViz, MetricAggregation[] | undefined> = 
     MetricAggregation.Q3,
     MetricAggregation.Max,
   ],
+};
+
+// Toolbox icons (24x24 viewBox). Kept as `path://<svg d>` strings, matching
+// the existing `buildRollupToolboxFeature` pattern in SiteDashboard.tsx. Each
+// icon depicts the CURRENT state — clicking cycles to the next state.
+const VIZ_ICON: Record<BinnedViz, string> = {
+  line: "path://M3,17L9,11L13,15L21,7",
+  range:
+    "path://M3,15L9,10L13,12L21,6L21,10L13,16L9,14L3,19Z",
+  boxplot:
+    "path://M12,3V6M12,18V21M8,6H16V18H8V6M4,12H8M16,12H20",
+};
+
+const RAW_ICON: Record<RawViz, string> = {
+  raw: "path://M3,17L9,11L13,15L21,7",
+  "15m": "path://M2,12H5M7,12H10M12,12H15M17,12H20",
+  "30m":
+    "path://M2,10H5M7,10H10M12,10H15M17,10H20M2,14H5M7,14H10M12,14H15M17,14H20",
+  all: "path://M3,7H21M3,12H21M3,17H21",
+};
+
+const nextBinned = (v: BinnedViz): BinnedViz =>
+  v === "line" ? "range" : v === "range" ? "boxplot" : "line";
+
+const nextRaw = (v: RawViz): RawViz =>
+  v === "raw" ? "15m" : v === "15m" ? "30m" : v === "30m" ? "all" : "raw";
+
+const BINNED_LABEL: Record<BinnedViz, string> = {
+  line: "Line",
+  range: "Range",
+  boxplot: "Boxplot",
+};
+
+const RAW_LABEL: Record<RawViz, string> = {
+  raw: "Raw only",
+  "15m": "Raw + 15m avg",
+  "30m": "Raw + 30m avg",
+  all: "Raw + 15m + 30m",
 };
 
 export function BuildingPowerChart({
@@ -277,44 +313,38 @@ export function BuildingPowerChart({
     bandColor,
   ]);
 
-  // Segmented-control options are mode-dependent.
-  const rawOptions = [
-    { label: "Raw", value: "raw" },
-    { label: "+ 15m", value: "15m" },
-    { label: "+ 30m", value: "30m" },
-    { label: "All", value: "all" },
-  ];
-  const binnedOptions = [
-    { label: "Line", value: "line" },
-    { label: "Range", value: "range" },
-    { label: "Boxplot", value: "boxplot" },
-  ];
+  // Cycling toolbox toggle — one button per mode, following the same pattern
+  // as SiteDashboard's rollup toggle. Only the button for the currently
+  // active mode (raw vs binned) is included. Uses the functional setter form
+  // so the click handler can capture the correct successor even when ECharts
+  // holds an older option reference internally.
+  const vizToolboxFeature = isRaw
+    ? {
+        myRawViz: {
+          show: true,
+          title: `${RAW_LABEL[rawViz]} — click to cycle`,
+          icon: RAW_ICON[rawViz],
+          onclick: () => setRawViz((prev) => nextRaw(prev)),
+        },
+      }
+    : {
+        myBinnedViz: {
+          show: true,
+          title: `${BINNED_LABEL[binnedViz]} — click to cycle`,
+          icon: VIZ_ICON[binnedViz],
+          onclick: () => setBinnedViz((prev) => nextBinned(prev)),
+        },
+      };
 
   return (
-    <Card className={clsx(styles.card, className)}>
-      <div className={styles.header}>
-        <div className={styles.title}>Building Power</div>
-        {isRaw ? (
-          <SegmentedControl
-            small
-            options={rawOptions}
-            value={rawViz}
-            onValueChange={(v) => setRawViz(v as RawViz)}
-          />
-        ) : (
-          <SegmentedControl
-            small
-            options={binnedOptions}
-            value={binnedViz}
-            onValueChange={(v) => setBinnedViz(v as BinnedViz)}
-          />
-        )}
-      </div>
+    <Card className={className}>
       <ECharts
         loading={loading}
         option={{
           animation: false,
+          title: { text: "Building Power" },
           backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+          toolbox: { feature: vizToolboxFeature },
           tooltip: {
             trigger: "axis",
             renderMode: "richText",
@@ -339,7 +369,7 @@ export function BuildingPowerChart({
               end: 100,
             },
           ],
-          grid: { top: 30, right: 60, bottom: 110, left: 60 },
+          grid: { top: 60, right: 60, bottom: 110, left: 60 },
           xAxis: { type: "time", min: startTime, max: endTime },
           yAxis: {
             type: "value",
@@ -351,6 +381,12 @@ export function BuildingPowerChart({
           },
           series: echartsSeries as never,
         }}
+        // `replaceMerge` forces ECharts to wholesale replace the series and
+        // toolbox on each render instead of index-merging them into the previous
+        // option. Without this, switching from a single line to a boxplot (or
+        // to 3 stacked lines) merges old series properties into new positions
+        // and the chart never actually reflects the new mode.
+        settings={{ replaceMerge: ["series", "toolbox"] }}
         style={{ height }}
         theme={mode}
         showLegendToggle

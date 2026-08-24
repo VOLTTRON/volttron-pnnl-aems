@@ -24,13 +24,21 @@ const historian_writer_1 = require("./historian.writer");
 const curves_1 = require("./curves");
 const UNIT_METRICS = [
     "ZoneTemperature",
+    "ZoneHumidity",
     "OutdoorAirTemperature",
     "OccupiedCoolingSetPoint",
     "OccupiedHeatingSetPoint",
+    "UnoccupiedCoolingSetPoint",
+    "UnoccupiedHeatingSetPoint",
     "CoolingDemand",
     "HeatingDemand",
     "SupplyFanStatus",
     "FirstStageCooling",
+    "SecondStageCooling",
+    "FirstStageHeating",
+    "AuxiliaryHeatCommand",
+    "ReversingValve",
+    "OccupancyCommand",
 ];
 const WEATHER_METRICS = [
     { key: "airTemperature", topic: "air_temperature" },
@@ -48,20 +56,22 @@ let SyntheticService = SyntheticService_1 = class SyntheticService extends __1.B
         this.topologyService = topologyService;
         this.writer = writer;
         this.logger = new common_1.Logger(SyntheticService_1.name);
+        this.backfillReady = new Promise((resolve) => {
+            this.resolveBackfillReady = resolve;
+        });
     }
     async execute() {
-        await super.execute();
+        try {
+            await super.execute();
+        }
+        finally {
+            this.resolveBackfillReady();
+        }
     }
     async task() {
         const { seed, historianDays } = this.configService.service.synthetic;
         this.logger.log(`Running synthetic seeder (seed=${seed}, days=${historianDays})...`);
         const { units, buildings } = await this.topologyService.apply();
-        const marker = `synthetic:backfill:${seed}:${historianDays}`;
-        const existing = await this.prismaService.prisma.seed.findUnique({ where: { filename: marker } });
-        if (existing) {
-            this.logger.log(`Backfill marker ${marker} exists — skipping historian backfill.`);
-            return;
-        }
         const topicNames = this.buildTopicNames(units, buildings);
         const topicIds = await this.writer.ensureTopics(topicNames);
         this.logger.log(`Historian topics ready: ${topicIds.size}`);
@@ -69,12 +79,7 @@ let SyntheticService = SyntheticService_1 = class SyntheticService extends __1.B
         end.setUTCSeconds(0, 0);
         const start = new Date(end.getTime() - historianDays * 86_400_000);
         const total = await this.backfill({ units, buildings, topicIds }, start, end);
-        this.logger.log(`Historian backfill complete: ${total.toLocaleString()} rows.`);
-        await this.prismaService.prisma.seed.upsert({
-            where: { filename: marker },
-            create: { filename: marker, timestamp: new Date() },
-            update: { timestamp: new Date() },
-        });
+        this.logger.log(`Historian backfill complete: ${total.toLocaleString()} rows written this run.`);
     }
     buildTopicNames(units, buildings) {
         const names = [];
@@ -98,22 +103,33 @@ let SyntheticService = SyntheticService_1 = class SyntheticService extends __1.B
         const startMs = start.getTime();
         const endMs = end.getTime();
         let total = 0;
+        let skipped = 0;
+        const runCopy = async (topicId, iter) => {
+            if (await this.writer.topicHasData(topicId)) {
+                skipped++;
+                return 0;
+            }
+            await this.writer.clearRange(topicId, start, end);
+            return this.writer.copyTopic(topicId, iter);
+        };
         for (const b of buildings) {
             const buildingSeed = (0, curves_1.seedFor)("weather", b.campus, b.building);
             const buildingUnits = units.filter((u) => u.campus === b.campus && u.building === b.building);
+            const buildingTotalBefore = total;
+            const buildingSkippedBefore = skipped;
             for (const m of WEATHER_METRICS) {
                 const topicId = topicIds.get(`${b.campus}/${b.building}/weather/${m.topic}`);
                 if (topicId === undefined)
                     continue;
                 const iter = this.iterateWeather(b, buildingSeed, m.key, startMs, endMs);
-                total += await this.writer.copyTopic(topicId, iter);
+                total += await runCopy(topicId, iter);
             }
             for (const metric of METER_METRICS) {
                 const topicId = topicIds.get(`${b.campus}/${b.building}/meter/${metric}`);
                 if (topicId === undefined)
                     continue;
                 const iter = this.iterateMeter(b, buildingSeed, buildingUnits.length, metric, startMs, endMs);
-                total += await this.writer.copyTopic(topicId, iter);
+                total += await runCopy(topicId, iter);
             }
             for (const u of buildingUnits) {
                 const unitSeed = (0, curves_1.seedFor)("unit", u.campus, u.building, u.system);
@@ -122,11 +138,15 @@ let SyntheticService = SyntheticService_1 = class SyntheticService extends __1.B
                     if (topicId === undefined)
                         continue;
                     const iter = this.iterateUnit(b, buildingSeed, u, unitSeed, metric, startMs, endMs);
-                    total += await this.writer.copyTopic(topicId, iter);
+                    total += await runCopy(topicId, iter);
                 }
             }
-            this.logger.log(`Backfilled building ${b.campus}/${b.building} (running total ${total.toLocaleString()} rows).`);
+            const filledThisBuilding = total - buildingTotalBefore;
+            const skippedThisBuilding = skipped - buildingSkippedBefore;
+            this.logger.log(`Backfilled ${b.campus}/${b.building}: ${filledThisBuilding.toLocaleString()} new rows, ${skippedThisBuilding} topics already had data.`);
         }
+        if (skipped > 0)
+            this.logger.log(`Total topics skipped (already populated): ${skipped}.`);
         return total;
     }
     *iterateWeather(b, buildingSeed, key, startMs, endMs) {

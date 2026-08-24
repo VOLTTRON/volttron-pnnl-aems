@@ -17,6 +17,8 @@ export declare class SyntheticService extends BaseService {
     private readonly topologyService;
     private readonly writer;
     private readonly logger;
+    readonly backfillReady: Promise<void>;
+    private resolveBackfillReady;
     constructor(configService: AppConfigService, prismaService: PrismaService, topologyService: SyntheticTopologyService, writer: SyntheticHistorianWriter);
     execute(): Promise<void>;
     task(): Promise<void>;

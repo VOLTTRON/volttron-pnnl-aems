@@ -191,6 +191,22 @@ let SyntheticTopologyService = SyntheticTopologyService_1 = class SyntheticTopol
             }
         }
         this.logger.log(`Topology upserted: ${units.length} units across ${buildings.length} buildings.`);
+        const seededUserIds = ["1", "2", "3"];
+        const unitRefs = units.map((u) => ({ id: u.id }));
+        let connectedUsers = 0;
+        for (const userId of seededUserIds) {
+            try {
+                await prisma.user.update({
+                    where: { id: userId },
+                    data: { units: { connect: unitRefs } },
+                });
+                connectedUsers++;
+            }
+            catch (err) {
+                this.logger.warn(`Skipped ACL wiring for user ${userId}: ${err instanceof Error ? err.message : String(err)}`);
+            }
+        }
+        this.logger.log(`Connected ${connectedUsers} seeded users to ${units.length} DEMO units.`);
         return { units, buildings };
     }
 };

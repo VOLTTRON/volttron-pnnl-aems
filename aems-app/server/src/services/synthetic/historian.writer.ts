@@ -56,6 +56,33 @@ export class SyntheticHistorianWriter implements OnModuleDestroy {
   }
 
   /**
+   * True iff `data` has any row for this topic older than `olderThan` ms
+   * before now. Distinguishes real backfill (rows are days-to-months old)
+   * from just-inserted ticker samples (seconds-to-minutes old) so a topic
+   * that only has stray ticker rows still gets its full 90-day backfill.
+   */
+  async topicHasData(topicId: number, olderThanMs = 60 * 60 * 1000): Promise<boolean> {
+    const { rows } = await this.pool.query<{ exists: boolean }>(
+      `SELECT EXISTS (SELECT 1 FROM data WHERE topic_id = $1 AND ts < NOW() - ($2::int * INTERVAL '1 millisecond')) AS exists`,
+      [topicId, olderThanMs],
+    );
+    return rows[0]?.exists === true;
+  }
+
+  /**
+   * Delete any rows in the given window for one topic. Used before a
+   * `copyTopic` re-fill so raw COPY (no ON CONFLICT) can't PK-conflict on
+   * a handful of ticker-inserted rows that snuck in first.
+   */
+  async clearRange(topicId: number, start: Date, end: Date): Promise<number> {
+    const { rowCount } = await this.pool.query(
+      `DELETE FROM data WHERE topic_id = $1 AND ts >= $2 AND ts <= $3`,
+      [topicId, start.toISOString(), end.toISOString()],
+    );
+    return rowCount ?? 0;
+  }
+
+  /**
    * COPY-stream one topic's samples. `samples` yields `[Date, number]` pairs
    * ordered by ts. Uses `COPY ... FROM STDIN` for order-of-magnitude speed
    * over batched INSERT at 100k+ rows per topic.

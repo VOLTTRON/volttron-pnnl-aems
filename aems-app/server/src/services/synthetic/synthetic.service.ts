@@ -17,13 +17,21 @@ import {
 
 const UNIT_METRICS: (keyof UnitSample)[] = [
   "ZoneTemperature",
+  "ZoneHumidity",
   "OutdoorAirTemperature",
   "OccupiedCoolingSetPoint",
   "OccupiedHeatingSetPoint",
+  "UnoccupiedCoolingSetPoint",
+  "UnoccupiedHeatingSetPoint",
   "CoolingDemand",
   "HeatingDemand",
   "SupplyFanStatus",
   "FirstStageCooling",
+  "SecondStageCooling",
+  "FirstStageHeating",
+  "AuxiliaryHeatCommand",
+  "ReversingValve",
+  "OccupancyCommand",
 ];
 const WEATHER_METRICS: { key: keyof Weather; topic: string }[] = [
   { key: "airTemperature", topic: "air_temperature" },
@@ -46,6 +54,10 @@ export interface TopicRegistry {
 export class SyntheticService extends BaseService {
   private readonly logger = new Logger(SyntheticService.name);
 
+  /** Resolves once task() has finished (or is skipped because gating turned it off). */
+  readonly backfillReady: Promise<void>;
+  private resolveBackfillReady!: () => void;
+
   constructor(
     @Inject(AppConfigService.Key) private readonly configService: AppConfigService,
     private readonly prismaService: PrismaService,
@@ -53,11 +65,25 @@ export class SyntheticService extends BaseService {
     private readonly writer: SyntheticHistorianWriter,
   ) {
     super("synth", configService);
+    this.backfillReady = new Promise<void>((resolve) => {
+      this.resolveBackfillReady = resolve;
+    });
   }
 
   @Timeout(1000)
   async execute(): Promise<void> {
-    await super.execute();
+    // Nest's schedule invokes this decorated method more than once (once
+    // for the decorated subclass and once via the inherited base). We
+    // only want to signal backfill-complete after the invocation that
+    // actually ran task() — the redundant call sees running=true and
+    // schedule() returns false.
+    if (!(this as unknown as { schedule: () => boolean }).schedule()) return;
+    try {
+      await this.task();
+    } finally {
+      (this as unknown as { running: boolean }).running = false;
+      this.resolveBackfillReady();
+    }
   }
 
   async task(): Promise<void> {
@@ -65,13 +91,6 @@ export class SyntheticService extends BaseService {
     this.logger.log(`Running synthetic seeder (seed=${seed}, days=${historianDays})...`);
 
     const { units, buildings } = await this.topologyService.apply();
-    const marker = `synthetic:backfill:${seed}:${historianDays}`;
-
-    const existing = await this.prismaService.prisma.seed.findUnique({ where: { filename: marker } });
-    if (existing) {
-      this.logger.log(`Backfill marker ${marker} exists — skipping historian backfill.`);
-      return;
-    }
 
     const topicNames = this.buildTopicNames(units, buildings);
     const topicIds = await this.writer.ensureTopics(topicNames);
@@ -82,13 +101,7 @@ export class SyntheticService extends BaseService {
     const start = new Date(end.getTime() - historianDays * 86_400_000);
 
     const total = await this.backfill({ units, buildings, topicIds }, start, end);
-    this.logger.log(`Historian backfill complete: ${total.toLocaleString()} rows.`);
-
-    await this.prismaService.prisma.seed.upsert({
-      where: { filename: marker },
-      create: { filename: marker, timestamp: new Date() },
-      update: { timestamp: new Date() },
-    });
+    this.logger.log(`Historian backfill complete: ${total.toLocaleString()} rows written this run.`);
   }
 
   buildTopicNames(
@@ -117,23 +130,35 @@ export class SyntheticService extends BaseService {
     const startMs = start.getTime();
     const endMs = end.getTime();
     let total = 0;
+    let skipped = 0;
+
+    const runCopy = async (topicId: number, iter: Iterable<[Date, number]>): Promise<number> => {
+      if (await this.writer.topicHasData(topicId)) {
+        skipped++;
+        return 0;
+      }
+      await this.writer.clearRange(topicId, start, end);
+      return this.writer.copyTopic(topicId, iter);
+    };
 
     for (const b of buildings) {
       const buildingSeed = seedFor("weather", b.campus, b.building);
       const buildingUnits = units.filter((u) => u.campus === b.campus && u.building === b.building);
+      const buildingTotalBefore = total;
+      const buildingSkippedBefore = skipped;
 
       for (const m of WEATHER_METRICS) {
         const topicId = topicIds.get(`${b.campus}/${b.building}/weather/${m.topic}`);
         if (topicId === undefined) continue;
         const iter = this.iterateWeather(b, buildingSeed, m.key, startMs, endMs);
-        total += await this.writer.copyTopic(topicId, iter);
+        total += await runCopy(topicId, iter);
       }
 
       for (const metric of METER_METRICS) {
         const topicId = topicIds.get(`${b.campus}/${b.building}/meter/${metric}`);
         if (topicId === undefined) continue;
         const iter = this.iterateMeter(b, buildingSeed, buildingUnits.length, metric, startMs, endMs);
-        total += await this.writer.copyTopic(topicId, iter);
+        total += await runCopy(topicId, iter);
       }
 
       for (const u of buildingUnits) {
@@ -142,11 +167,16 @@ export class SyntheticService extends BaseService {
           const topicId = topicIds.get(`${u.campus}/${u.building}/${u.system}/${metric}`);
           if (topicId === undefined) continue;
           const iter = this.iterateUnit(b, buildingSeed, u, unitSeed, metric, startMs, endMs);
-          total += await this.writer.copyTopic(topicId, iter);
+          total += await runCopy(topicId, iter);
         }
       }
-      this.logger.log(`Backfilled building ${b.campus}/${b.building} (running total ${total.toLocaleString()} rows).`);
+      const filledThisBuilding = total - buildingTotalBefore;
+      const skippedThisBuilding = skipped - buildingSkippedBefore;
+      this.logger.log(
+        `Backfilled ${b.campus}/${b.building}: ${filledThisBuilding.toLocaleString()} new rows, ${skippedThisBuilding} topics already had data.`,
+      );
     }
+    if (skipped > 0) this.logger.log(`Total topics skipped (already populated): ${skipped}.`);
     return total;
   }
 

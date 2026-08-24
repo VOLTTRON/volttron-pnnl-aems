@@ -60,6 +60,14 @@ let SyntheticHistorianWriter = SyntheticHistorianWriter_1 = class SyntheticHisto
             client.release();
         }
     }
+    async topicHasData(topicId, olderThanMs = 60 * 60 * 1000) {
+        const { rows } = await this.pool.query(`SELECT EXISTS (SELECT 1 FROM data WHERE topic_id = $1 AND ts < NOW() - ($2::int * INTERVAL '1 millisecond')) AS exists`, [topicId, olderThanMs]);
+        return rows[0]?.exists === true;
+    }
+    async clearRange(topicId, start, end) {
+        const { rowCount } = await this.pool.query(`DELETE FROM data WHERE topic_id = $1 AND ts >= $2 AND ts <= $3`, [topicId, start.toISOString(), end.toISOString()]);
+        return rowCount ?? 0;
+    }
     async copyTopic(topicId, samples) {
         const client = await this.pool.connect();
         let count = 0;

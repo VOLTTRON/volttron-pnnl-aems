@@ -9,13 +9,21 @@ export interface UnitConfig {
 }
 export interface UnitSample {
     ZoneTemperature: number;
+    ZoneHumidity: number;
     OutdoorAirTemperature: number;
     OccupiedCoolingSetPoint: number;
     OccupiedHeatingSetPoint: number;
+    UnoccupiedCoolingSetPoint: number;
+    UnoccupiedHeatingSetPoint: number;
     CoolingDemand: number;
     HeatingDemand: number;
     SupplyFanStatus: number;
     FirstStageCooling: number;
+    SecondStageCooling: number;
+    FirstStageHeating: number;
+    AuxiliaryHeatCommand: number;
+    ReversingValve: number;
+    OccupancyCommand: number;
 }
 export interface MeterSample {
     WholeBuildingPower: number;

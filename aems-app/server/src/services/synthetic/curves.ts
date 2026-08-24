@@ -57,13 +57,21 @@ export interface UnitConfig {
 
 export interface UnitSample {
   ZoneTemperature: number;
+  ZoneHumidity: number;
   OutdoorAirTemperature: number;
   OccupiedCoolingSetPoint: number;
   OccupiedHeatingSetPoint: number;
+  UnoccupiedCoolingSetPoint: number;
+  UnoccupiedHeatingSetPoint: number;
   CoolingDemand: number;
   HeatingDemand: number;
   SupplyFanStatus: number;
   FirstStageCooling: number;
+  SecondStageCooling: number;
+  FirstStageHeating: number;
+  AuxiliaryHeatCommand: number;
+  ReversingValve: number;
+  OccupancyCommand: number;
 }
 
 export interface MeterSample {
@@ -106,22 +114,35 @@ export const unitAt = (
 
   const oatLoad = Math.max(0, weather.airTemperature - setpoint) / 20;
   const fanOn = occupied || oatLoad > 0.2 ? 1 : 0;
-  const stage1 = weather.airTemperature > setpoint + 2 ? 1 : 0;
+  const stage1Cool = weather.airTemperature > setpoint + 2 ? 1 : 0;
+  const stage2Cool = weather.airTemperature > setpoint + 5 ? 1 : 0;
+  const stage1Heat = weather.airTemperature < heatSetpoint - 2 ? 1 : 0;
+  const auxHeat = weather.airTemperature < heatSetpoint - 8 ? 1 : 0;
+  const reversing = weather.airTemperature < heatSetpoint ? 1 : 0;
+  const zoneHumidity = Math.max(20, Math.min(60, 35 + gaussian(rand, 0, 5)));
 
   const zoneTemperature =
     setpoint +
-    (stage1 ? -0.6 : 0) +
+    (stage1Cool ? -0.6 : 0) +
     (occupied ? gaussian(rand, 0, 0.4) : gaussian(rand, 0.5, 0.6));
 
   return {
     ZoneTemperature: round1(zoneTemperature),
+    ZoneHumidity: round1(zoneHumidity),
     OutdoorAirTemperature: round1(weather.airTemperature),
-    OccupiedCoolingSetPoint: setpoint,
-    OccupiedHeatingSetPoint: heatSetpoint,
+    OccupiedCoolingSetPoint: config.coolingSetpoint,
+    OccupiedHeatingSetPoint: config.heatingSetpoint,
+    UnoccupiedCoolingSetPoint: config.coolingSetpoint + 4,
+    UnoccupiedHeatingSetPoint: config.heatingSetpoint - 4,
     CoolingDemand: round1(oatLoad + (fanOn ? 0.3 : 0) + gaussian(rand, 0, 0.05)),
     HeatingDemand: round1(Math.max(0, (heatSetpoint - weather.airTemperature) / 30) + gaussian(rand, 0, 0.05)),
     SupplyFanStatus: fanOn,
-    FirstStageCooling: stage1,
+    FirstStageCooling: stage1Cool,
+    SecondStageCooling: stage2Cool,
+    FirstStageHeating: stage1Heat,
+    AuxiliaryHeatCommand: auxHeat,
+    ReversingValve: reversing,
+    OccupancyCommand: occupied ? 1 : 0,
   };
 };
 
