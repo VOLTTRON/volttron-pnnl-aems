@@ -86,11 +86,11 @@ export function BuildingPowerChart({
   const outerEndMs = React.useMemo(() => new Date(endTime).getTime(), [endTime]);
 
   // Queried range = what the server call is currently for. Starts equal to
-  // the outer range; while boxplot is on, zooming via the dataZoom slider
-  // narrows this range so the server rebins the visible slice into its full
-  // bucket budget — giving constant sample density at any zoom depth. Line
-  // mode leaves this at the outer range so zoom stays a pure client-side
-  // axis contraction with no network round-trip.
+  // the outer range and narrows as the user zooms via the dataZoom slider —
+  // both in line mode and in boxplot mode. In boxplot mode this keeps
+  // sample density constant at any zoom depth; in line mode it gives the
+  // primary series higher resolution as the user zooms in, which the raw-
+  // threshold and default binning already handle nicely on the server.
   const [queriedRange, setQueriedRange] = React.useState<{ startMs: number; endMs: number }>({
     startMs: outerStartMs,
     endMs: outerEndMs,
@@ -98,13 +98,6 @@ export function BuildingPowerChart({
   React.useEffect(() => {
     setQueriedRange({ startMs: outerStartMs, endMs: outerEndMs });
   }, [outerStartMs, outerEndMs]);
-  // Turning boxplot off wipes any zoom refinement so line mode always renders
-  // over the full outer range, matching user expectation after toggling off.
-  React.useEffect(() => {
-    if (!boxplotOn) {
-      setQueriedRange({ startMs: outerStartMs, endMs: outerEndMs });
-    }
-  }, [boxplotOn, outerStartMs, outerEndMs]);
 
   const queriedStartIso = React.useMemo(
     () => new Date(queriedRange.startMs).toISOString(),
@@ -227,14 +220,11 @@ export function BuildingPowerChart({
   const handleDataZoom = React.useCallback(
     (range: { startMs: number; endMs: number }) => {
       setVisibleRange(range);
-      // Only refetch in boxplot mode. Line-mode zoom is a purely visual
-      // axis contraction, and refetching per drag would introduce spurious
-      // network latency for a case that doesn't need it.
-      if (boxplotOn) {
-        setQueriedRange(range);
-      }
+      // Refetch on every zoom (both line and boxplot modes). Debounced
+      // inside the ECharts wrapper, so a drag fires exactly one refetch.
+      setQueriedRange(range);
     },
-    [boxplotOn],
+    [],
   );
 
   const resetZoom = React.useCallback(() => {
@@ -332,10 +322,10 @@ export function BuildingPowerChart({
   ]);
 
   // Toolbox toggles. Boxplot swaps the whole chart rendering; reset-zoom is
-  // only offered when the query is narrower than the outer picked range and
-  // boxplot is on (line mode zooms are client-side and reset by the
-  // built-in slider). Both follow the same shape as SiteDashboard's rollup
-  // toggle so styling stays consistent.
+  // offered whenever the current query is narrower than the outer picked
+  // range — dragging the slider back to 0-100 works too, but this is a
+  // one-click shortcut. Both follow the same shape as SiteDashboard's
+  // rollup toggle so styling stays consistent.
   interface CustomToolboxFeature {
     show: boolean;
     title: string;
@@ -353,7 +343,7 @@ export function BuildingPowerChart({
       onclick: () => setBoxplotOn((prev) => !prev),
     };
   }
-  if (boxplotOn && isZoomed) {
+  if (isZoomed) {
     vizToolboxFeature.myResetZoom = {
       show: true,
       title: "Reset zoom",
