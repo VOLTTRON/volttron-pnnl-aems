@@ -3,15 +3,13 @@
 import React from "react";
 import { Card, Colors } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
-import {
-  HistorianMeterTimeSeriesDocument,
-  MetricAggregation,
-} from "@/graphql-codegen/graphql";
+import { HistorianMeterTimeSeriesDocument } from "@/graphql-codegen/graphql";
 import { MeterMetric } from "@local/common";
 import { ECharts } from "@/app/components/common/echarts";
 import { paddedRange } from "../utils/chartAxis";
 import { makeValueFormatter } from "@/utils/historianFormat";
 import { rollingAverage } from "@/utils/rollingAverage";
+import { bucketize } from "@/utils/bucketize";
 import { Palettes } from "@/utils/palette";
 import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
 import { pickBinningInfo } from "./BinningCallout";
@@ -39,30 +37,28 @@ const RAW_THRESHOLD = "7d";
 const MS_15M = 15 * 60_000;
 const MS_30M = 30 * 60_000;
 
-const BOXPLOT_AGGREGATIONS: MetricAggregation[] = [
-  MetricAggregation.Min,
-  MetricAggregation.Q1,
-  MetricAggregation.Median,
-  MetricAggregation.Q3,
-  MetricAggregation.Max,
-];
-
-interface AggregationSeries {
-  aggregation: MetricAggregation;
-  data: Array<{ timestamp: string; value: number | null }>;
-}
+// Target one box per ~32 px of chart width. Clamped so very narrow / very wide
+// layouts stay reasonable. Kept as a constant so we can adjust density in one
+// place if the visual review wants tighter or looser boxes.
+const BOX_PIXEL_TARGET = 32;
+const MIN_BOXES = 6;
+const MAX_BOXES = 120;
+const DEFAULT_BOXES_UNTIL_MEASURED = 40;
+// Match the boxplot util's default so density-cap math and the utility's
+// per-bucket filter use the same threshold.
+const MIN_SAMPLES_PER_BOX = 3;
+const RESIZE_DEBOUNCE_MS = 150;
 
 interface DataPoint {
   timestamp: string;
   value: number | null;
 }
 
-// Toolbox icon (filled path — ECharts renders paths as filled shapes) for
-// the boxplot toggle. Flips iconStyle.color between muted "off" and accent
-// "on" to signal state. Follows the same shape as SiteDashboard's rollup
-// toggle.
 const BOXPLOT_ICON =
   "path://M11,3H13V7H11Z M7,7H17V17H7Z M11,17H13V21H11Z M3,11H7V13H3Z M17,11H21V13H17Z";
+// Undo / reset-zoom glyph: an anticlockwise curved arrow.
+const RESET_ZOOM_ICON =
+  "path://M12,5V1L7,6L12,11V7C15.31,7 18,9.69 18,13S15.31,19 12,19S6,16.31 6,13H4C4,17.42 7.58,21 12,21S20,17.42 20,13S16.42,5 12,5Z";
 
 const OFF_COLOR = "#8f99a8";
 
@@ -84,29 +80,66 @@ export function BuildingPowerChart({
   const secondaryPalette = Palettes.getPalette(palette2 || "Desert Oasis");
   const tertiaryPalette = Palettes.getPalette(palette3 || "Pastel Dreams");
 
-  const { data, loading } = useQuery(HistorianMeterTimeSeriesDocument, {
+  // Outer range = the dashboard's TimeRangeSelector picked window. Stable
+  // identity per-prop-change; used as the reset target for zoom.
+  const outerStartMs = React.useMemo(() => new Date(startTime).getTime(), [startTime]);
+  const outerEndMs = React.useMemo(() => new Date(endTime).getTime(), [endTime]);
+
+  // Queried range = what the server call is currently for. Starts equal to
+  // the outer range; while boxplot is on, zooming via the dataZoom slider
+  // narrows this range so the server rebins the visible slice into its full
+  // bucket budget — giving constant sample density at any zoom depth. Line
+  // mode leaves this at the outer range so zoom stays a pure client-side
+  // axis contraction with no network round-trip.
+  const [queriedRange, setQueriedRange] = React.useState<{ startMs: number; endMs: number }>({
+    startMs: outerStartMs,
+    endMs: outerEndMs,
+  });
+  React.useEffect(() => {
+    setQueriedRange({ startMs: outerStartMs, endMs: outerEndMs });
+  }, [outerStartMs, outerEndMs]);
+  // Turning boxplot off wipes any zoom refinement so line mode always renders
+  // over the full outer range, matching user expectation after toggling off.
+  React.useEffect(() => {
+    if (!boxplotOn) {
+      setQueriedRange({ startMs: outerStartMs, endMs: outerEndMs });
+    }
+  }, [boxplotOn, outerStartMs, outerEndMs]);
+
+  const queriedStartIso = React.useMemo(
+    () => new Date(queriedRange.startMs).toISOString(),
+    [queriedRange.startMs],
+  );
+  const queriedEndIso = React.useMemo(
+    () => new Date(queriedRange.endMs).toISOString(),
+    [queriedRange.endMs],
+  );
+  const isZoomed =
+    queriedRange.startMs !== outerStartMs || queriedRange.endMs !== outerEndMs;
+
+  const { data, previousData, loading } = useQuery(HistorianMeterTimeSeriesDocument, {
     variables: {
       campus,
       building,
       metric: MeterMetric.Power,
-      startTime,
-      endTime,
+      startTime: queriedStartIso,
+      endTime: queriedEndIso,
       rawThreshold: RAW_THRESHOLD,
-      // Only ask the server for quartile aggregations when boxplot is toggled
-      // on; the server ignores the arg entirely in raw mode.
-      aggregations: boxplotOn ? BOXPLOT_AGGREGATIONS : undefined,
     },
   });
 
-  const series = data?.historianMeterTimeSeries as
+  // Fall back on the previous fetch's response while a refetch is in flight
+  // so the chart doesn't flash empty between zoom-triggered queries. Once the
+  // new data arrives `data` becomes defined and `previousData` is ignored.
+  const activeResponse = data ?? previousData;
+  const series = activeResponse?.historianMeterTimeSeries as
     | {
         data?: DataPoint[];
-        aggregations?: AggregationSeries[] | null;
         metadata?: Parameters<typeof makeValueFormatter>[0];
       }
     | undefined;
 
-  const binning = pickBinningInfo(data?.historianMeterTimeSeries);
+  const binning = pickBinningInfo(activeResponse?.historianMeterTimeSeries);
   const isRaw = binning?.mode !== "binned";
   const binMs = binning?.intervalMs ?? 0;
 
@@ -117,8 +150,8 @@ export function BuildingPowerChart({
   // Users can further hide/show them via the built-in legend toggle.
   const show15m = isRaw || binMs < MS_15M;
   const show30m = isRaw || binMs < MS_30M;
-  // Boxplot needs quartile aggregations, which the server only computes when
-  // binning. In raw mode there are no aggregates to draw a distribution from.
+  // Boxplot is only meaningful in binned mode. In raw mode the primary line
+  // already shows all samples; there's no aggregation to summarize.
   const canShowBoxplot = !isRaw;
   const effectiveBoxplot = boxplotOn && canShowBoxplot;
 
@@ -136,32 +169,95 @@ export function BuildingPowerChart({
 
   const primaryPoints = React.useMemo<DataPoint[]>(() => series?.data ?? [], [series?.data]);
 
+  // Visible x-range within the queried data — narrowed by the dataZoom slider.
+  // Used to bound the client-side bucketize call. Reset to the queried range
+  // whenever we refetch.
+  const [visibleRange, setVisibleRange] = React.useState<{ startMs: number; endMs: number }>({
+    startMs: queriedRange.startMs,
+    endMs: queriedRange.endMs,
+  });
+  React.useEffect(() => {
+    setVisibleRange({ startMs: queriedRange.startMs, endMs: queriedRange.endMs });
+  }, [queriedRange.startMs, queriedRange.endMs]);
+
+  // Chart width in CSS pixels, observed on the outer container so the
+  // boxplot density scales with the card's actual rendered width. The
+  // ResizeObserver fires on every frame during a window drag, so trail-
+  // debounce updates to the same rate as onDataZoom.
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [chartWidth, setChartWidth] = React.useState(0);
+  React.useEffect(() => {
+    const node = containerRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setChartWidth(w), RESIZE_DEBOUNCE_MS);
+    });
+    ro.observe(node);
+    return () => {
+      if (timer) clearTimeout(timer);
+      ro.disconnect();
+    };
+  }, []);
+
+  // Count samples in the currently-visible slice so the density safety net
+  // can prevent rendering flat empty boxes when a refetch is in flight or
+  // when the historian genuinely has almost no data.
+  const visibleSampleCount = React.useMemo(() => {
+    let count = 0;
+    for (const p of primaryPoints) {
+      const t = new Date(p.timestamp).getTime();
+      if (t >= visibleRange.startMs && t <= visibleRange.endMs && p.value !== null) count++;
+    }
+    return count;
+  }, [primaryPoints, visibleRange.startMs, visibleRange.endMs]);
+
+  const widthBasedBoxes = chartWidth > 0
+    ? Math.max(MIN_BOXES, Math.min(MAX_BOXES, Math.floor(chartWidth / BOX_PIXEL_TARGET)))
+    : DEFAULT_BOXES_UNTIL_MEASURED;
+  // Cap by data density so each box has at least MIN_SAMPLES_PER_BOX samples
+  // on average. When the query is refetching for a narrower window, the
+  // pre-fetch data may briefly be thin — the cap keeps the boxplot from
+  // flickering to empty during those moments.
+  const densityCap = Math.max(1, Math.floor(visibleSampleCount / MIN_SAMPLES_PER_BOX));
+  const targetBoxes = Math.max(1, Math.min(widthBasedBoxes, densityCap));
+
+  const handleDataZoom = React.useCallback(
+    (range: { startMs: number; endMs: number }) => {
+      setVisibleRange(range);
+      // Only refetch in boxplot mode. Line-mode zoom is a purely visual
+      // axis contraction, and refetching per drag would introduce spurious
+      // network latency for a case that doesn't need it.
+      if (boxplotOn) {
+        setQueriedRange(range);
+      }
+    },
+    [boxplotOn],
+  );
+
+  const resetZoom = React.useCallback(() => {
+    setQueriedRange({ startMs: outerStartMs, endMs: outerEndMs });
+  }, [outerStartMs, outerEndMs]);
+
   const echartsSeries = React.useMemo(() => {
     if (!series?.data) return [];
 
     if (effectiveBoxplot) {
-      // The server serializes the TS enum VALUE (lowercase, "q1") inside
-      // this scalar payload, while the client codegen enum uses the GraphQL
-      // NAME ("Q1"). Compare on a canonical lowercase form so lookups match
-      // regardless of which side any given identifier comes from.
-      const canon = (a: string) => a.toLowerCase();
-      const aggByName = new Map<string, DataPoint[]>();
-      for (const s of series.aggregations ?? []) {
-        aggByName.set(canon(s.aggregation as unknown as string), s.data);
-      }
-      const min = aggByName.get(canon(MetricAggregation.Min)) ?? [];
-      const q1 = aggByName.get(canon(MetricAggregation.Q1)) ?? [];
-      const median = aggByName.get(canon(MetricAggregation.Median)) ?? [];
-      const q3 = aggByName.get(canon(MetricAggregation.Q3)) ?? [];
-      const max = aggByName.get(canon(MetricAggregation.Max)) ?? [];
-      const boxData = min
-        .map((p, i) => {
-          const values = [p.value, q1[i]?.value, median[i]?.value, q3[i]?.value, max[i]?.value];
-          if (values.some((v) => typeof v !== "number")) return null;
-          const t = new Date(p.timestamp).getTime();
-          return [t, ...(values as number[])];
-        })
-        .filter((row): row is number[] => row !== null);
+      // Bin client-side over whatever the server sent for the current
+      // queried range. In binned mode this is technically the distribution
+      // of sub-bin means within each display box — a legitimate rollup
+      // view, and the reason we refetch on zoom is so the server always
+      // provides fresh, tightly-bucketed sub-samples for the visible slice.
+      const buckets = bucketize(
+        primaryPoints,
+        visibleRange.startMs,
+        visibleRange.endMs,
+        targetBoxes,
+        MIN_SAMPLES_PER_BOX,
+      );
+      const boxData = buckets.map((b) => [b.midMs, b.min, b.q1, b.median, b.q3, b.max]);
       return [
         {
           name: "Distribution",
@@ -223,6 +319,9 @@ export function BuildingPowerChart({
   }, [
     series,
     effectiveBoxplot,
+    visibleRange.startMs,
+    visibleRange.endMs,
+    targetBoxes,
     show15m,
     show30m,
     primaryPoints,
@@ -232,11 +331,11 @@ export function BuildingPowerChart({
     rollingColor30,
   ]);
 
-  // The only toolbox toggle we surface is boxplot — it swaps the whole chart
-  // rendering between line and box-and-whisker, which is a mode change users
-  // can't get to through the built-in legend. The rolling-average overlays
-  // are rendered by default (whenever their window is meaningful) and can be
-  // hidden per-series via the legend toggle in the wrapper's toolbox.
+  // Toolbox toggles. Boxplot swaps the whole chart rendering; reset-zoom is
+  // only offered when the query is narrower than the outer picked range and
+  // boxplot is on (line mode zooms are client-side and reset by the
+  // built-in slider). Both follow the same shape as SiteDashboard's rollup
+  // toggle so styling stays consistent.
   interface CustomToolboxFeature {
     show: boolean;
     title: string;
@@ -254,63 +353,82 @@ export function BuildingPowerChart({
       onclick: () => setBoxplotOn((prev) => !prev),
     };
   }
+  if (boxplotOn && isZoomed) {
+    vizToolboxFeature.myResetZoom = {
+      show: true,
+      title: "Reset zoom",
+      icon: RESET_ZOOM_ICON,
+      iconStyle: { color: primaryColor },
+      onclick: resetZoom,
+    };
+  }
 
   return (
     <Card className={className}>
-      <ECharts
-        loading={loading}
-        option={{
-          animation: false,
-          title: { text: "Building Power" },
-          backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
-          toolbox: { feature: vizToolboxFeature },
-          tooltip: {
-            trigger: "axis",
-            renderMode: "richText",
-            appendToBody: true,
-            axisPointer: { animation: false },
-          },
-          legend: { bottom: 0, show: true },
-          dataZoom: [
-            {
-              type: "slider",
-              realtime: false,
-              xAxisIndex: 0,
-              start: 0,
-              end: 100,
-              bottom: 60,
-              height: 20,
+      <div ref={containerRef}>
+        <ECharts
+          loading={loading}
+          option={{
+            animation: false,
+            title: { text: "Building Power" },
+            backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
+            toolbox: { feature: vizToolboxFeature },
+            tooltip: {
+              trigger: "axis",
+              renderMode: "richText",
+              appendToBody: true,
+              axisPointer: { animation: false },
             },
-            {
-              type: "inside",
-              xAxisIndex: 0,
-              start: 0,
-              end: 100,
+            legend: { bottom: 0, show: true },
+            dataZoom: [
+              {
+                type: "slider",
+                realtime: false,
+                xAxisIndex: 0,
+                start: 0,
+                end: 100,
+                bottom: 60,
+                height: 20,
+              },
+              {
+                type: "inside",
+                xAxisIndex: 0,
+                start: 0,
+                end: 100,
+              },
+            ],
+            grid: { top: 60, right: 60, bottom: 110, left: 60 },
+            // xAxis is pinned to the outer picked range so the dataZoom
+            // slider always represents the full window. Widening the slider
+            // past the current query naturally fires onDataZoom with the
+            // new visible range, and the refetch below fills in the extra
+            // data. Data outside the current queriedRange simply doesn't
+            // exist yet in the response — the plot area shows only the
+            // slider's selected slice, so the chart still reads full.
+            xAxis: { type: "time", min: startTime, max: endTime },
+            yAxis: {
+              type: "value",
+              name: "Power (kW)",
+              position: "left",
+              nameTextStyle: { align: "left" },
+              scale: true,
+              ...paddedRange(),
             },
-          ],
-          grid: { top: 60, right: 60, bottom: 110, left: 60 },
-          xAxis: { type: "time", min: startTime, max: endTime },
-          yAxis: {
-            type: "value",
-            name: "Power (kW)",
-            position: "left",
-            nameTextStyle: { align: "left" },
-            scale: true,
-            ...paddedRange(),
-          },
-          series: echartsSeries as never,
-        }}
-        // `replaceMerge` forces ECharts to wholesale replace the series and
-        // toolbox on each render instead of index-merging them into the
-        // previous option. Without this, switching between line/boxplot or
-        // toggling an overlay merges stale properties into new series slots
-        // and the chart never actually reflects the new state.
-        settings={{ replaceMerge: ["series", "toolbox"] }}
-        style={{ height }}
-        theme={mode}
-        showLegendToggle
-        showDataZoomTools
-      />
+            series: echartsSeries as never,
+          }}
+          // `replaceMerge` forces ECharts to wholesale replace the series and
+          // toolbox on each render instead of index-merging them into the
+          // previous option. Without this, switching between line/boxplot or
+          // toggling an overlay merges stale properties into new series slots
+          // and the chart never actually reflects the new state.
+          settings={{ replaceMerge: ["series", "toolbox"] }}
+          style={{ height }}
+          theme={mode}
+          showLegendToggle
+          showDataZoomTools
+          onDataZoom={handleDataZoom}
+        />
+      </div>
     </Card>
   );
 }
