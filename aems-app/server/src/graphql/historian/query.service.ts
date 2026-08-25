@@ -14,6 +14,7 @@ export class HistorianQuery {
       WeatherMetric: WeatherMetricEnum,
       MeterMetric: MeterMetricEnum,
       AggregationType: AggregationTypeEnum,
+      MetricAggregation: MetricAggregationEnum,
     } = historianObject;
 
     // ========================================================================
@@ -314,6 +315,15 @@ export class HistorianQuery {
           metric: t.arg({ type: MeterMetricEnum, required: true }),
           startTime: t.arg({ type: builder.DateTime, required: true }),
           endTime: t.arg({ type: builder.DateTime, required: true }),
+          rawThreshold: t.arg.string({
+            description:
+              "Override the raw-vs-binned threshold for this call (e.g. '7d', '48h'). Ranges at or below stay raw.",
+          }),
+          aggregations: t.arg({
+            type: [MetricAggregationEnum],
+            description:
+              "Extra per-bucket aggregations (e.g. [Min, Q1, Median, Q3, Max] for a boxplot). Ignored when result is raw.",
+          }),
         },
         resolve: async (_root, args, ctx, _info) => {
           const accessControl = await historianService.filterHistorianAccess(
@@ -324,9 +334,9 @@ export class HistorianQuery {
           );
 
           if (accessControl.allowedSystems.length === 0) {
-            return { 
-              system: "meter", 
-              metric: args.metric, 
+            return {
+              system: "meter",
+              metric: args.metric,
               data: [],
               metadata: {
                 topics: {},
@@ -341,6 +351,10 @@ export class HistorianQuery {
             args.metric,
             args.startTime,
             args.endTime,
+            {
+              rawThreshold: args.rawThreshold ?? undefined,
+              aggregations: args.aggregations ?? undefined,
+            },
           );
         },
       }),

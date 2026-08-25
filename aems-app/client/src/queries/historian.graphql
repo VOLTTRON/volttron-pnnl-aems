@@ -67,6 +67,8 @@ query HistorianMeterTimeSeries(
   $metric: MeterMetric!
   $startTime: DateTime!
   $endTime: DateTime!
+  $rawThreshold: String
+  $aggregations: [MetricAggregation!]
 ) {
   historianMeterTimeSeries(
     campus: $campus
@@ -74,6 +76,8 @@ query HistorianMeterTimeSeries(
     metric: $metric
     startTime: $startTime
     endTime: $endTime
+    rawThreshold: $rawThreshold
+    aggregations: $aggregations
   )
 }
 

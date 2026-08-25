@@ -37,6 +37,10 @@ let HistorianObject = class HistorianObject {
             name: "MeterMetric",
             description: "Available metrics for meter data (building-level power/demand)",
         });
+        this.MetricAggregation = builder.enumType(common_2.MetricAggregation, {
+            name: "MetricAggregation",
+            description: "Per-bin aggregation used when collapsing raw historian samples",
+        });
         this.HistorianDataPoint = builder.addScalarType("HistorianDataPoint", new graphql_1.GraphQLScalarType({ name: "HistorianDataPoint" }));
         this.HistorianTimeSeries = builder.addScalarType("HistorianTimeSeries", new graphql_1.GraphQLScalarType({ name: "HistorianTimeSeries" }));
         this.HistorianAggregate = builder.addScalarType("HistorianAggregate", new graphql_1.GraphQLScalarType({ name: "HistorianAggregate" }));

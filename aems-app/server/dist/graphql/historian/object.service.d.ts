@@ -1,5 +1,5 @@
 import { SchemaBuilderService } from "../builder.service";
-import { AggregationType, CalculationType, HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianAggregateResult, HistorianMetricCurrent, HistorianMultiSystemData, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, UnitMetric, WeatherMetric, MeterMetric } from "@local/common";
+import { AggregationType, CalculationType, HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianAggregateResult, HistorianMetricCurrent, HistorianMultiSystemData, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, UnitMetric, WeatherMetric, MeterMetric, MetricAggregation } from "@local/common";
 export declare class HistorianObject {
     readonly HistorianDataPoint: PothosSchemaTypes.ScalarRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -97,5 +97,11 @@ export declare class HistorianObject {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
     }>, import("@pothos/core").ValuesFromEnum<typeof MeterMetric>, import("@pothos/core").ValuesFromEnum<typeof MeterMetric>>;
+    readonly MetricAggregation: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
+        Context: import("..").Context;
+        AuthScopes: import("../../auth").AuthRoles;
+        PrismaTypes: import("@local/prisma/dist/pothos").default;
+        Scalars: import("..").Scalars;
+    }>, import("@pothos/core").ValuesFromEnum<typeof MetricAggregation>, import("@pothos/core").ValuesFromEnum<typeof MetricAggregation>>;
     constructor(builder: SchemaBuilderService);
 }

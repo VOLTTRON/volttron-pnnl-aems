@@ -22,6 +22,10 @@ const config_service_1 = require("./config/config.service");
 const control_service_1 = require("./control/control.service");
 const setup_service_1 = require("./setup/setup.service");
 const subscription_module_1 = require("../subscription/subscription.module");
+const synthetic_service_1 = require("./synthetic/synthetic.service");
+const synthetic_ticker_service_1 = require("./synthetic/synthetic-ticker.service");
+const topology_service_1 = require("./synthetic/topology.service");
+const historian_writer_1 = require("./synthetic/historian.writer");
 let ServicesModule = class ServicesModule {
 };
 exports.ServicesModule = ServicesModule;
@@ -41,6 +45,10 @@ exports.ServicesModule = ServicesModule = __decorate([
             backup_discovery_service_1.BackupDiscoveryService,
             backup_publisher_service_1.BackupSubscriptionPublisher,
             backup_archive_service_1.BackupArchiveService,
+            topology_service_1.SyntheticTopologyService,
+            historian_writer_1.SyntheticHistorianWriter,
+            synthetic_service_1.SyntheticService,
+            synthetic_ticker_service_1.SyntheticTickerService,
         ],
         exports: [backup_discovery_service_1.BackupDiscoveryService, backup_publisher_service_1.BackupSubscriptionPublisher, backup_archive_service_1.BackupArchiveService],
     })

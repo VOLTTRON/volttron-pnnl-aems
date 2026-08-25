@@ -1,7 +1,7 @@
 import { OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
-import { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianAggregateResult, HistorianMetricCurrent, HistorianQueryMetadata, HistorianMultiSystemData, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, SystemPublishingStatus, HistorianMultiSystemRanges, UnitMetric, WeatherMetric, MeterMetric } from "@local/common";
+import { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianAggregateResult, HistorianMetricCurrent, HistorianQueryMetadata, HistorianMultiSystemData, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, SystemPublishingStatus, HistorianMultiSystemRanges, UnitMetric, WeatherMetric, MeterMetric, MetricAggregation } from "@local/common";
 export { HistorianDataPoint, HistorianTimeSeries, HistorianAggregate, HistorianAggregateResult, HistorianMetricCurrent, HistorianQueryMetadata, HistorianMultiSystemData, AggregationType, CalculationType, HistorianReplicationInfo, PublisherInfo, SubscriberSetupSql, MonitoringSql, ReplicationSlot, SystemPublishingStatus, UnitMetric, WeatherMetric, MeterMetric, };
 export interface SystemAccess {
     campus: string;
@@ -31,7 +31,10 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     getUnitAggregated(campus: string, building: string, system: string, metric: UnitMetric, startTime: Date, endTime: Date, interval: string, aggregation: AggregationType): Promise<HistorianAggregateResult>;
     getWeatherAggregated(campus: string, building: string, metric: WeatherMetric, startTime: Date, endTime: Date, interval: string, aggregation: AggregationType): Promise<HistorianAggregateResult>;
     getMeterCurrentValue(campus: string, building: string, metric: MeterMetric): Promise<HistorianMetricCurrent | null>;
-    getMeterTimeSeries(campus: string, building: string, metric: MeterMetric, startTime: Date, endTime: Date): Promise<HistorianTimeSeries>;
+    getMeterTimeSeries(campus: string, building: string, metric: MeterMetric, startTime: Date, endTime: Date, opts?: {
+        rawThreshold?: string;
+        aggregations?: MetricAggregation[];
+    }): Promise<HistorianTimeSeries>;
     getMeterAggregated(campus: string, building: string, metric: MeterMetric, startTime: Date, endTime: Date, interval: string, aggregation: AggregationType): Promise<HistorianAggregateResult>;
     getMultiSystemUnit(campus: string, building: string, systems: string[], deniedSystems: string[], metric: UnitMetric, startTime: Date, endTime: Date, interval?: string): Promise<HistorianMultiSystemData[]>;
     getMultiSystemUnitRanges(campus: string, building: string, systems: string[], deniedSystems: string[], metric: UnitMetric, startTime: Date, endTime: Date): Promise<HistorianMultiSystemRanges[]>;

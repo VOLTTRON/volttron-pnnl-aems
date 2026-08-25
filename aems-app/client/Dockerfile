@@ -117,6 +117,15 @@ RUN mkdir .next
 COPY --from=builder /app/client/.next/standalone ./
 COPY --from=builder /app/client/.next/static ./.next/static
 
+# @prisma/client is a portal-linked workspace dep; Next.js standalone
+# tracing follows the symlink but doesn't materialize the target under
+# .next/standalone (portals are treated as externals). SSR pages that
+# `require('@prisma/client')` fail at runtime unless the portal target
+# is present. Bring in the built prisma module so the symlink at
+# /app/client/node_modules/@prisma/client (preserved by standalone)
+# resolves.
+COPY --from=builder /app/prisma /app/prisma
+
 RUN chown -R node:node /app/client
 USER node
 

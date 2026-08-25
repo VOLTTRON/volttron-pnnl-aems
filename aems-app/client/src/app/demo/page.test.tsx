@@ -68,11 +68,8 @@ describe("Demo page", () => {
     mockFindBooks.mockResolvedValue([mockBook]);
   });
 
-  it("renders without crashing", async () => {
-    await act(async () => {
-      const { container } = renderPage();
-      expect(container).toBeDefined();
-    });
+  it("renders without crashing", () => {
+    expect(() => renderPage()).not.toThrow();
   });
 
   it("renders all section headings", async () => {

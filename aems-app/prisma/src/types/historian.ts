@@ -150,10 +150,16 @@ export interface HistorianDataPoint {
   metric: UnitMetric | WeatherMetric | MeterMetric;
 }
 
+export interface HistorianAggregationSeries {
+  aggregation: MetricAggregation;
+  data: HistorianDataPoint[];
+}
+
 export interface HistorianTimeSeries {
   system: string;
   metric: UnitMetric | WeatherMetric | MeterMetric;
   data: HistorianDataPoint[];
+  aggregations?: HistorianAggregationSeries[];
   metadata: HistorianQueryMetadata;
 }
 
@@ -224,7 +230,9 @@ export enum AggregationType {
  *
  *   Min/Max/Mean/Sum/Count -> MIN/MAX/AVG/SUM/COUNT
  *   Mode                   -> mode() WITHIN GROUP (ORDER BY value)
- *   Median                 -> percentile_cont(0.5) WITHIN GROUP (ORDER BY value)
+ *   Q1                     -> percentile_cont(0.25) WITHIN GROUP (ORDER BY value)
+ *   Median                 -> percentile_cont(0.5)  WITHIN GROUP (ORDER BY value)
+ *   Q3                     -> percentile_cont(0.75) WITHIN GROUP (ORDER BY value)
  *   First/Last             -> earliest/latest non-null sample in the bucket
  */
 export enum MetricAggregation {
@@ -232,7 +240,9 @@ export enum MetricAggregation {
   Max = "max",
   Mean = "mean",
   Mode = "mode",
+  Q1 = "q1",
   Median = "median",
+  Q3 = "q3",
   Sum = "sum",
   Count = "count",
   First = "first",
