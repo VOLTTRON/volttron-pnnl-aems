@@ -38,6 +38,8 @@ export const DefaultPreferences: Preferences = {
   paletteWarm: "Red", // Warm: heating-related colors
   paletteCool: "Blue", // Cool: cooling-related colors
   paletteGradient: "Turquoise", // Gradient: gradient-based metrics
+  timezone: "browser",
+  // Set default values for additional client-only preferences here
 };
 
 export const isPreferences = (preferences: any): preferences is Preferences => {
