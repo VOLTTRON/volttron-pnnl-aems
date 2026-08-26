@@ -13,14 +13,7 @@ import {
 import { DateInput3, TimePrecision } from "@blueprintjs/datetime2";
 import { useMutation } from "@apollo/client";
 import { Term } from "@/utils/client";
-import { LoadingContext, LoadingType, PreferencesContext } from "../components/providers";
-
-function useTimezoneForPicker(): string | undefined {
-  const { preferences } = useContext(PreferencesContext);
-  const tz = preferences?.timezone;
-  if (!tz || tz === "none") return undefined;
-  return tz === "browser" ? Intl.DateTimeFormat().resolvedOptions().timeZone : tz;
-}
+import { LoadingContext, LoadingType, useResolvedTimezone } from "../components/providers";
 
 export function CreateBanner({
   open,
@@ -36,7 +29,7 @@ export function CreateBanner({
   const [expiration, setExpiration] = useState("");
 
   const { createLoading, clearLoading } = useContext(LoadingContext);
-  const pickerTimezone = useTimezoneForPicker();
+  const pickerTimezone = useResolvedTimezone();
 
   const [createBanner] = useMutation(CreateBannerDocument, {
     refetchQueries: [ReadBannersDocument],
@@ -122,7 +115,7 @@ export function UpdateBanner({
   const [expiration, setExpiration] = useState(banner?.expiration ?? new Date().toISOString());
 
   const { createLoading, clearLoading } = useContext(LoadingContext);
-  const pickerTimezone = useTimezoneForPicker();
+  const pickerTimezone = useResolvedTimezone();
 
   const [updateBanner] = useMutation(UpdateBannerDocument, {
     refetchQueries: [ReadBannersDocument],

@@ -242,6 +242,7 @@ export class AppConfigService {
     mocked: boolean;
     campus: string;
     building: string;
+    timezone: string;
   };
   grafana: {
     path: string;
@@ -519,6 +520,7 @@ export class AppConfigService {
       mocked: parseBoolean(process.env.VOLTTRON_MOCKED),
       campus: process.env.VOLTTRON_CAMPUS ?? "",
       building: process.env.VOLTTRON_BUILDING ?? "",
+      timezone: process.env.VOLTTRON_TIMEZONE ?? "",
     };
     this.grafana = {
       path: process.env.GRAFANA_PATH ?? "/gdb",

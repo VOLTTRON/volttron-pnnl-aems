@@ -1,7 +1,7 @@
 import { UpdateDialog } from "@/app/dialog";
 import { IconNames } from "@blueprintjs/icons";
 import { useContext, useMemo, useState } from "react";
-import { compilePreferences, CurrentContext, PreferencesContext, ClientPreferences } from "../providers";
+import { compilePreferences, ConfigContext, CurrentContext, PreferencesContext, ClientPreferences } from "../providers";
 import { Button, FormGroup, HTMLSelect, InputGroup } from "@blueprintjs/core";
 import { Palette, Palettes } from "@/utils/palette";
 import { PaletteFilter, PalettePicker } from "./palette";
@@ -12,10 +12,11 @@ const BasePalettes = Palettes.getPalettes({});
 export function Preferences({ handleClose }: { handleClose: () => void }) {
   const { current, updateCurrent } = useContext(CurrentContext);
   const { preferences, setPreferences } = useContext(PreferencesContext);
+  const { config } = useContext(ConfigContext);
   const currentName = current?.preferences?.name || current?.name || "";
   const currentPrefs = compilePreferences(preferences, current?.preferences);
 
-  const currentTimezone = current?.preferences?.timezone ?? preferences?.timezone ?? "browser";
+  const currentTimezone = current?.preferences?.timezone ?? preferences?.timezone ?? "location";
 
   const [name, setName] = useState(currentName);
   const [timezone, setTimezone] = useState(currentTimezone);
@@ -46,11 +47,15 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
 
   const timezoneOptions = useMemo(
     () => [
+      {
+        value: "location",
+        label: config?.location ? `Site (${config.location})` : "Site (Volttron)",
+      },
       { value: "browser", label: "Browser (auto-detect)" },
       { value: "none", label: "None (as stored)" },
       ...Intl.supportedValuesOf("timeZone").map((tz) => ({ value: tz, label: tz })),
     ],
-    [],
+    [config?.location],
   );
 
   const handleUpdate = async () => {

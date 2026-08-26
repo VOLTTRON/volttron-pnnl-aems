@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useCallback, useEffect } from "react";
+import { createContext, useCallback, useContext, useEffect } from "react";
 import { deepMerge, omit } from "@local/common";
 import { useState } from "react";
 import { SensitivePreferences } from "./current";
+import { ConfigContext } from "./config";
 import { Mode, Preferences as PrismaPreferences } from "@local/prisma";
 
 export interface ClientPreferences {
@@ -38,9 +39,42 @@ export const DefaultPreferences: Preferences = {
   paletteWarm: "Red", // Warm: heating-related colors
   paletteCool: "Blue", // Cool: cooling-related colors
   paletteGradient: "Turquoise", // Gradient: gradient-based metrics
-  timezone: "browser",
+  timezone: "location",
   // Set default values for additional client-only preferences here
 };
+
+// Sentinel value for `preferences.timezone` meaning "use the server-configured
+// site timezone" (resolved at render time via ConfigContext.config.location).
+export const TIMEZONE_LOCATION = "location";
+// Sentinel meaning "use the browser's local timezone via Intl".
+export const TIMEZONE_BROWSER = "browser";
+// Sentinel meaning "no timezone conversion — render in the host locale".
+export const TIMEZONE_NONE = "none";
+
+/**
+ * Resolve `preferences.timezone` to a concrete IANA timezone name, or
+ * `undefined` to signal "let the host locale decide (no timeZone option)".
+ *
+ * Sentinel values:
+ * - "none"     → undefined (host locale, no tz conversion)
+ * - "browser"  → the browser's local zone via Intl
+ * - "location" → the server-configured site timezone from ConfigContext.
+ *                Falls back to the browser zone when the server has no value
+ *                (empty `VOLTTRON_TIMEZONE`) so rendering never breaks.
+ * - anything else (specific IANA) → returned verbatim
+ * - unset      → treated as "location" so fresh users see site-local time
+ */
+export function useResolvedTimezone(): string | undefined {
+  const { preferences } = useContext(PreferencesContext);
+  const { config } = useContext(ConfigContext);
+  const tz = preferences?.timezone ?? TIMEZONE_LOCATION;
+  if (tz === TIMEZONE_NONE) return undefined;
+  if (tz === TIMEZONE_BROWSER) return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (tz === TIMEZONE_LOCATION) {
+    return config?.location || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  }
+  return tz;
+}
 
 export const isPreferences = (preferences: any): preferences is Preferences => {
   return (

@@ -5,8 +5,8 @@ import { formatDate } from "@/utils/date";
 import { xor } from "@local/common";
 import { Alignment, Button, ButtonGroup, HTMLTable, HTMLTableProps, Intent } from "@blueprintjs/core";
 import { IconName, IconNames } from "@blueprintjs/icons";
-import { MouseEvent, useContext } from "react";
-import { PreferencesContext } from "../providers";
+import { MouseEvent } from "react";
+import { useResolvedTimezone } from "../providers";
 import styles from "./page.module.scss";
 
 export type ColumnType = "string" | "date" | "term" | "element";
@@ -62,7 +62,7 @@ export function Table<T extends {}>({
   setSelected?: (selected: { rows?: number[]; cells?: [number, number][]; rowKeys?: T[typeof rowKey][] }) => void;
   tableProps?: HTMLTableProps;
 }) {
-  const { preferences } = useContext(PreferencesContext);
+  const resolvedTz = useResolvedTimezone();
 
   function handleSelect(row: number, col: number, rowKeys?: T[typeof rowKey]) {
     onSelected?.(row, col, rowKeys);
@@ -78,7 +78,7 @@ export function Table<T extends {}>({
       case "term":
         return renderTerm(row, field);
       case "date":
-        return formatDate(row[field] as string, preferences?.timezone);
+        return formatDate(row[field] as string, resolvedTz);
       case "string":
         return row[field] as string;
       case "element":

@@ -10,14 +10,14 @@ import {
   WeatherMetric,
   HistorianMeterTimeSeriesDocument,
 } from "@/graphql-codegen/graphql";
-import { ECharts } from "@/app/components/common/echarts";
+import { ECharts, makeTimeAxisFormatter } from "@/app/components/common/echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
 import { BinningCallout, pickBinningInfo } from "./BinningCallout";
 import { paddedRange } from "../utils/chartAxis";
 import styles from "./UnitDashboard.module.scss";
 import { Palettes } from "@/utils/palette";
-import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
+import { compilePreferences, PreferencesContext, CurrentContext, useResolvedTimezone } from "@/app/components/providers";
 import { useMetricColors } from "@/utils/metricColors";
 import { makeValueFormatter } from "@/utils/historianFormat";
 import { MeterMetric } from "@local/prisma";
@@ -74,6 +74,8 @@ export function UnitDashboard({
   // Get user palette preferences
   const { preferences } = React.useContext(PreferencesContext);
   const { current } = React.useContext(CurrentContext);
+  const resolvedTz = useResolvedTimezone();
+  const timeAxisFormatter = React.useMemo(() => makeTimeAxisFormatter(resolvedTz), [resolvedTz]);
   const { palette1, palette2, palette3, paletteWarm, paletteCool, paletteGradient } = compilePreferences(
     preferences,
     current?.preferences,
@@ -1078,7 +1080,7 @@ export function UnitDashboard({
                   },
                 ],
                 grid: { top: 60, right: 40, bottom: 110, left: 40 },
-                xAxis: { type: "time", min: startTime, max: endTime },
+                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter } },
                 yAxis: [
                   {
                     type: "value",
@@ -1333,7 +1335,7 @@ export function UnitDashboard({
                   },
                 ],
                 grid: { top: 60, right: 60, bottom: 110, left: 60 },
-                xAxis: { type: "time", min: startTime, max: endTime },
+                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter } },
                 yAxis: {
                   type: "value",
                   name: "Power (W)",

@@ -13,7 +13,7 @@ import {
   Pre,
   Tag,
 } from "@blueprintjs/core";
-import React, { useCallback, useContext, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { IconName } from "@blueprintjs/icons";
 import {
   ReadBackupDestinationsDocument,
@@ -40,7 +40,7 @@ import { useMutation, useQuery } from "@apollo/client";
 import { Term } from "@/utils/client";
 import { formatDate } from "@/utils/date";
 import { ConfirmDialog, CreateDialog, DeleteDialog, UpdateDialog, ViewDialog } from "../dialog";
-import { PreferencesContext } from "../components/providers";
+import { useResolvedTimezone } from "../components/providers";
 import styles from "./page.module.scss";
 
 export type BackupDestination = NonNullable<ReadBackupDestinationsQuery["readBackupDestinations"]>[0];
@@ -454,7 +454,7 @@ export function ViewRun({
   const detail = data?.readBackupRun;
   const [archiveToDelete, setArchiveToDelete] = useState<BackupRunDestination | undefined>(undefined);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const { preferences } = useContext(PreferencesContext);
+  const resolvedTz = useResolvedTimezone();
   return (
     <ViewDialog
       title={`Backup Run ${run?.id ?? ""}`}
@@ -495,19 +495,19 @@ export function ViewRun({
                 <td>
                   <strong>Started</strong>
                 </td>
-                <td>{detail.startedAt ? formatDate(detail.startedAt, preferences?.timezone) : "—"}</td>
+                <td>{detail.startedAt ? formatDate(detail.startedAt, resolvedTz) : "—"}</td>
               </tr>
               <tr>
                 <td>
                   <strong>Finished</strong>
                 </td>
-                <td>{detail.finishedAt ? formatDate(detail.finishedAt, preferences?.timezone) : "—"}</td>
+                <td>{detail.finishedAt ? formatDate(detail.finishedAt, resolvedTz) : "—"}</td>
               </tr>
               <tr>
                 <td>
                   <strong>Heartbeat</strong>
                 </td>
-                <td>{detail.heartbeatAt ? formatDate(detail.heartbeatAt, preferences?.timezone) : "—"}</td>
+                <td>{detail.heartbeatAt ? formatDate(detail.heartbeatAt, resolvedTz) : "—"}</td>
               </tr>
               <tr>
                 <td>
@@ -595,7 +595,7 @@ export function ViewRun({
                     <AvailabilityTag availability={d.availability} />
                     {d.archiveDeletedAt ? (
                       <small style={{ marginLeft: 8, opacity: 0.7 }}>
-                        {formatDate(d.archiveDeletedAt, preferences?.timezone)}
+                        {formatDate(d.archiveDeletedAt, resolvedTz)}
                       </small>
                     ) : null}
                   </td>

@@ -19,8 +19,8 @@ import styles from "./page.module.scss";
 import { useMutation, useQuery } from "@apollo/client";
 import { FilePreviews } from "../components/common/file";
 import { formatDate } from "@/utils/date";
-import { PreferencesContext } from "../components/providers";
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useResolvedTimezone } from "../components/providers";
+import { useEffect, useMemo, useState } from "react";
 
 interface IViewFeedbackProps {
   open: boolean;
@@ -30,7 +30,7 @@ interface IViewFeedbackProps {
 }
 
 export function ViewFeedback({ open, setOpen, icon, feedback }: IViewFeedbackProps) {
-  const { preferences } = useContext(PreferencesContext);
+  const resolvedTz = useResolvedTimezone();
   const [status, setStatus] = useState<IStatusItem>(
     () => feedbackStatusList.find((item) => item.type === feedback?.status) || feedbackStatusList[0],
   );
@@ -119,8 +119,8 @@ export function ViewFeedback({ open, setOpen, icon, feedback }: IViewFeedbackPro
                 <SelectAssignee assignee={assignee} setAssignee={setAssignee} />
               </div>
               <div className={styles.time}>
-                <span>Last updated on {feedback.updatedAt ? formatDate(feedback.updatedAt, preferences?.timezone) : "—"}</span>
-                <span>Created on {feedback.createdAt ? formatDate(feedback.createdAt, preferences?.timezone) : "—"}</span>
+                <span>Last updated on {feedback.updatedAt ? formatDate(feedback.updatedAt, resolvedTz) : "—"}</span>
+                <span>Created on {feedback.createdAt ? formatDate(feedback.createdAt, resolvedTz) : "—"}</span>
               </div>
             </div>
           </div>

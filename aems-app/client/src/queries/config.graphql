@@ -2,5 +2,6 @@ query ReadConfig {
   readConfig {
     serviceOverride
     holidaySchedule
+    location
   }
 }

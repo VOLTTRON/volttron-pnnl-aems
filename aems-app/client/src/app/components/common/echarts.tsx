@@ -162,6 +162,24 @@ export interface ReactEChartsProps {
   showDataZoomTools?: boolean;
 }
 
+/**
+ * Build an ECharts `axisLabel.formatter` that renders a time-axis tick in the
+ * caller-resolved IANA timezone. `undefined` falls through to the browser's
+ * default rendering (`toLocaleString()` without a timeZone).
+ *
+ * ECharts calls the formatter with the raw ms timestamp when the axis type is
+ * `"time"`, so this is the minimal wiring needed to make chart tick labels
+ * respect the user's timezone preference.
+ */
+export function makeTimeAxisFormatter(timezone: string | undefined) {
+  return (value: number | string | Date) => {
+    const d = value instanceof Date ? value : new Date(value as string | number);
+    return timezone
+      ? d.toLocaleString(undefined, { timeZone: timezone, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+      : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+}
+
 export function ECharts({
   option,
   style,
