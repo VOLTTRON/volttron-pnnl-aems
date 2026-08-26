@@ -188,9 +188,9 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
 
   const addResolver = useCallback(
     (id: string, resolver: RouteResolver) => {
-      setResolvers({ ...resolvers, [id]: resolver });
+      setResolvers((prev) => ({ ...prev, [id]: resolver }));
     },
-    [resolvers, setResolvers],
+    [setResolvers],
   );
 
   const removeResolver = useCallback(

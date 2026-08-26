@@ -24,6 +24,7 @@ export const PreferencesContext = createContext<{
 export const DefaultPreferences: Preferences = {
   theme: "default",
   mode: Mode.Light,
+  timezone: "browser",
   // Set default values for additional client-only preferences here
 };
 

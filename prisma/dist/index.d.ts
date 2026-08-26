@@ -72,6 +72,7 @@ export interface Preferences {
     theme: string;
     mode: Mode;
     name: string;
+    timezone?: string;
 }
 export declare enum Mode {
     Light = "light",
