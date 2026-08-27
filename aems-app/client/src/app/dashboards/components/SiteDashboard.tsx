@@ -543,7 +543,7 @@ export function SiteDashboard({
                   },
                 ],
                 grid: { top: 40, right: 40, bottom: 110, left: chartLeftMargin + 20 },
-                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter } },
+                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter, hideOverlap: true } },
                 yAxis: {
                   type: "category",
                   data: optimizedSystemNames,
@@ -630,7 +630,7 @@ export function SiteDashboard({
                   },
                 ],
                 grid: { top: 40, right: 40, bottom: 110, left: chartLeftMargin + 20 },
-                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter } },
+                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter, hideOverlap: true } },
                 yAxis: {
                   type: "category",
                   data: optimizedSystemNames,
@@ -692,7 +692,7 @@ export function SiteDashboard({
                   },
                 ],
                 grid: { top: 60, right: 40, bottom: 110, left: 40 },
-                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter } },
+                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter, hideOverlap: true } },
                 yAxis: {
                   type: "value",
                   name: "Temperature (°F)",

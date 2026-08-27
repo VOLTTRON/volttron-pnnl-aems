@@ -1069,7 +1069,7 @@ export function UnitDashboard({
                   },
                 ],
                 grid: { top: 60, right: 40, bottom: 110, left: 40 },
-                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter } },
+                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter, hideOverlap: true } },
                 yAxis: [
                   {
                     type: "value",
