@@ -6,7 +6,9 @@ import { useQuery } from "@apollo/client";
 import {
   HistorianMultiSystemUnitDocument,
   HistorianSetpointErrorDocument,
+  HistorianSiteAggregateUnitDocument,
   HistorianWeatherTimeSeriesDocument,
+  MetricAggregation,
   ReadUnitsQuery,
   UnitMetric,
   WeatherMetric,
@@ -195,6 +197,36 @@ export function SiteDashboard({
     },
     skip: unitSystems.length === 0,
   });
+
+  // Only include RTU outdoor sensors that actually have data — an empty
+  // series still shows up in the legend otherwise, and the user asked to
+  // hide those.
+  const reportingOutdoorSystems = React.useMemo(() => {
+    return (
+      outdoorTempData?.historianMultiSystemUnit?.filter(
+        (s: any) => Array.isArray(s?.data) && s.data.some((p: any) => p?.value != null),
+      ) ?? []
+    );
+  }, [outdoorTempData]);
+
+  // Site median across RTU outdoor temp sensors — only meaningful once 2+ RTUs
+  // are reporting, otherwise the "median" is just the single reading.
+  const enableSiteMedian = reportingOutdoorSystems.length >= 2;
+  const { data: siteMedianOutdoorData, loading: siteMedianOutdoorLoading } = useQuery(
+    HistorianSiteAggregateUnitDocument,
+    {
+      variables: {
+        campus: campus,
+        building: building,
+        systems: unitSystems,
+        metric: UnitMetric.OutdoorAirTemperature,
+        crossSystemAggregation: MetricAggregation.Median,
+        startTime,
+        endTime,
+      },
+      skip: !enableSiteMedian,
+    },
+  );
 
   const unknownState = {
     label: "Missing Data",
@@ -660,7 +692,7 @@ export function SiteDashboard({
         <Card className={styles.chartCard}>
           {
             <ECharts
-              loading={weatherLoading || outdoorTempLoading}
+              loading={weatherLoading || outdoorTempLoading || siteMedianOutdoorLoading}
               option={{
                 animation: false,
                 title: { text: "Outdoor Temperature" },
@@ -707,7 +739,8 @@ export function SiteDashboard({
                   // and binning labels are driven by the historian
                   // topic-map config rather than hard-coded constants.
                   const fmt = (metadata: any) => makeValueFormatter(metadata, { includeAggregation: true });
-                  const outdoorMetadata = outdoorTempData?.historianMultiSystemUnit?.[0]?.metadata;
+                  const outdoorMetadata = reportingOutdoorSystems[0]?.metadata;
+                  const siteMedianSeries = siteMedianOutdoorData?.historianSiteAggregateUnit;
                   return [
                     // Weather station outdoor temperature
                     ...(weatherData?.historianWeatherTimeSeries
@@ -729,8 +762,30 @@ export function SiteDashboard({
                           },
                         ]
                       : []),
-                    // Unit sensor outdoor temperatures — each system gets a unique pool color
-                    ...(outdoorTempData?.historianMultiSystemUnit?.map((systemData: any) => ({
+                    // Site median across RTU outdoor sensors — only when 2+ RTUs report.
+                    // Rendered thicker/dashed so it reads as an aggregate rather than a per-RTU line.
+                    ...(enableSiteMedian && siteMedianSeries
+                      ? [
+                          {
+                            name: "Site Median",
+                            type: "line" as const,
+                            smooth: true,
+                            sampling: "lttb" as const,
+                            showSymbol: false,
+                            itemStyle: { color: metricColors[UnitMetric.OutdoorAirTemperature] },
+                            lineStyle: {
+                              color: metricColors[UnitMetric.OutdoorAirTemperature],
+                              type: "dashed" as const,
+                              width: 2.5,
+                            },
+                            tooltip: { valueFormatter: fmt(siteMedianSeries.metadata) },
+                            data:
+                              siteMedianSeries.data?.map((point: any) => [point.timestamp, point.value]) || [],
+                          },
+                        ]
+                      : []),
+                    // Unit sensor outdoor temperatures — one line per RTU that has data
+                    ...reportingOutdoorSystems.map((systemData: any) => ({
                       name: `${systemData.system} Sensor`,
                       type: "line" as const,
                       smooth: true,
@@ -740,7 +795,7 @@ export function SiteDashboard({
                       lineStyle: { color: getUnitColor(systemData.system), width: 1.5 },
                       tooltip: { valueFormatter: fmt(systemData.metadata ?? outdoorMetadata) },
                       data: systemData.data?.map((point: any) => [point.timestamp, point.value]) || [],
-                    })) || []),
+                    })),
                   ];
                 })(),
               }}

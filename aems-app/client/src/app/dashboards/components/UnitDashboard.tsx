@@ -4,8 +4,12 @@ import React from "react";
 import { Card, Spinner } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
 import {
+  HistorianSiteAggregateUnitDocument,
   HistorianUnitTimeSeriesDocument,
   HistorianWeatherTimeSeriesDocument,
+  MetricAggregation,
+  ReadUnitsInfoDocument,
+  StringFilterMode,
   UnitMetric,
   WeatherMetric,
 } from "@/graphql-codegen/graphql";
@@ -311,6 +315,82 @@ export function UnitDashboard({
       endTime,
     },
   });
+  // RTU's own outdoor-air-temperature sensor — the preferred source when
+  // reporting. Falls back to site median, then weather station.
+  const { data: unitOwnOutdoorSeries } = useQuery(HistorianUnitTimeSeriesDocument, {
+    variables: {
+      campus: unitCampus,
+      building: unitBuilding,
+      system: unitSystem,
+      metric: UnitMetric.OutdoorAirTemperature,
+      startTime,
+      endTime,
+    },
+    skip: !unitSystem,
+  });
+  // Sibling systems on the same site (for site-median fallback). We only need
+  // system names, so ReadUnitsInfo (light payload) is enough.
+  const { data: siteUnitsData } = useQuery(ReadUnitsInfoDocument, {
+    variables: {
+      where: {
+        campus: { equals: unitCampus, mode: StringFilterMode.Insensitive },
+        building: { equals: unitBuilding, mode: StringFilterMode.Insensitive },
+      },
+    },
+    skip: !unitCampus || !unitBuilding,
+  });
+  const siteSystems = React.useMemo(
+    () =>
+      (siteUnitsData?.readUnits ?? [])
+        .map((u) => u.system)
+        .filter((s): s is string => typeof s === "string" && s.length > 0),
+    [siteUnitsData],
+  );
+  const { data: siteMedianOutdoorSeries } = useQuery(HistorianSiteAggregateUnitDocument, {
+    variables: {
+      campus: unitCampus,
+      building: unitBuilding,
+      systems: siteSystems,
+      metric: UnitMetric.OutdoorAirTemperature,
+      crossSystemAggregation: MetricAggregation.Median,
+      excludeSystem: unitSystem,
+      startTime,
+      endTime,
+    },
+    // Need at least one sibling system for a meaningful median.
+    skip: siteSystems.filter((s) => s.toLowerCase() !== unitSystem.toLowerCase()).length < 1,
+  });
+  // Pick the best outdoor-temp source, in priority order. The chosen label
+  // appears on both the gauge heading and the chart legend so the user can
+  // tell which reading they're seeing.
+  const outdoorTempSource = React.useMemo(() => {
+    const hasData = (data: readonly any[] | undefined | null): boolean =>
+      Array.isArray(data) && data.some((p: any) => p?.value != null);
+    const ownData = unitOwnOutdoorSeries?.historianUnitTimeSeries?.data;
+    if (hasData(ownData)) {
+      return {
+        source: "unit" as const,
+        label: "Outdoor Air Temperature",
+        data: ownData ?? [],
+        metadata: unitOwnOutdoorSeries?.historianUnitTimeSeries?.metadata,
+      };
+    }
+    const siteData = siteMedianOutdoorSeries?.historianSiteAggregateUnit?.data;
+    if (hasData(siteData)) {
+      return {
+        source: "siteMedian" as const,
+        label: "Site Median Outdoor Air Temperature",
+        data: siteData ?? [],
+        metadata: siteMedianOutdoorSeries?.historianSiteAggregateUnit?.metadata,
+      };
+    }
+    return {
+      source: "weatherStation" as const,
+      label: "Weather Station Air Temperature",
+      data: outdoorTempSeries?.historianWeatherTimeSeries?.data ?? [],
+      metadata: outdoorTempSeries?.historianWeatherTimeSeries?.metadata,
+    };
+  }, [unitOwnOutdoorSeries, siteMedianOutdoorSeries, outdoorTempSeries]);
   const { data: occupancyCommandSeries } = useQuery(HistorianUnitTimeSeriesDocument, {
     variables: {
       campus: unitCampus,
@@ -424,12 +504,19 @@ export function UnitDashboard({
       .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
   }, [firstStageCoolingSeries, secondStageCoolingSeries]);
 
-  // Extract gauge values from time series data (value at end of time range)
+  // Extract gauge values from time series data (value at end of time range).
+  // Uses the effective outdoor-temp source (own RTU sensor → site median →
+  // weather station).
   const outdoorTempValue = React.useMemo(() => {
-    const data = outdoorTempSeries?.historianWeatherTimeSeries?.data;
+    const data = outdoorTempSource.data;
     if (!data || data.length === 0) return null;
-    return data[data.length - 1]?.value ?? null;
-  }, [outdoorTempSeries]);
+    // Prefer the last non-null value so an empty tail doesn't collapse to N/A.
+    for (let i = data.length - 1; i >= 0; i--) {
+      const v = (data[i] as any)?.value;
+      if (v != null) return v;
+    }
+    return null;
+  }, [outdoorTempSource]);
 
   const zoneHumidityValue = React.useMemo(() => {
     const data = zoneHumiditySeries?.historianUnitTimeSeries?.data;
@@ -539,7 +626,7 @@ export function UnitDashboard({
 
       <div className={styles.gauges}>
         <Card className={styles.gauge}>
-          <h4>Outdoor Air Temperature</h4>
+          <h4>{outdoorTempSource.label}</h4>
           {outdoorTempValue === null ? (
             <div
               style={{
@@ -1119,7 +1206,7 @@ export function UnitDashboard({
                   const seriesMap = new Map<SeriesIndex, any>();
 
                   seriesMap.set(SeriesIndex.OccupancyCommand, {
-                    name: "OccupancyCommand",
+                    name: "Occupancy Command",
                     type: "line",
                     yAxisIndex: YAxisIndex.Status,
                     step: "end",
@@ -1134,7 +1221,7 @@ export function UnitDashboard({
                   });
 
                   seriesMap.set(SeriesIndex.SupplyFanStatus, {
-                    name: "SupplyFanStatus",
+                    name: "Supply Fan Status",
                     type: "line",
                     yAxisIndex: YAxisIndex.Status,
                     step: "end",
@@ -1147,7 +1234,7 @@ export function UnitDashboard({
                   });
 
                   seriesMap.set(SeriesIndex.FirstStageHeating, {
-                    name: "FirstStageHeating",
+                    name: "First Stage Heating",
                     type: "line",
                     yAxisIndex: YAxisIndex.Status,
                     step: "end",
@@ -1162,7 +1249,7 @@ export function UnitDashboard({
                   });
 
                   seriesMap.set(SeriesIndex.CoolingStage, {
-                    name: "CoolingStage",
+                    name: "Cooling Stage",
                     type: "line",
                     yAxisIndex: YAxisIndex.Status,
                     step: "end",
@@ -1175,7 +1262,7 @@ export function UnitDashboard({
                   });
 
                   seriesMap.set(SeriesIndex.ZoneTemperature, {
-                    name: "ZoneTemperature",
+                    name: "Zone Temperature",
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
@@ -1187,21 +1274,19 @@ export function UnitDashboard({
                   });
 
                   seriesMap.set(SeriesIndex.OutdoorAirTemperature, {
-                    name: "OutdoorAirTemperature",
+                    name: outdoorTempSource.label,
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
                     showSymbol: false,
                     lineStyle: { width: 1.5 },
-                    tooltip: { valueFormatter: fmt(outdoorTempSeries?.historianWeatherTimeSeries?.metadata) },
-                    data:
-                      outdoorTempSeries?.historianWeatherTimeSeries?.data?.map((p: any) => [p.timestamp, p.value]) ||
-                      [],
+                    tooltip: { valueFormatter: fmt(outdoorTempSource.metadata) },
+                    data: outdoorTempSource.data.map((p: any) => [p.timestamp, p.value]),
                     color: metricColors[UnitMetric.OutdoorAirTemperature],
                   });
 
                   seriesMap.set(SeriesIndex.OccupiedHeatingSetPoint, {
-                    name: "OccupiedHeatingSetPoint",
+                    name: "Occupied Heating Setpoint",
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
@@ -1215,7 +1300,7 @@ export function UnitDashboard({
                   });
 
                   seriesMap.set(SeriesIndex.OccupiedCoolingSetPoint, {
-                    name: "OccupiedCoolingSetPoint",
+                    name: "Occupied Cooling Setpoint",
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
@@ -1229,7 +1314,7 @@ export function UnitDashboard({
                   });
 
                   seriesMap.set(SeriesIndex.UnoccupiedHeatingSetPoint, {
-                    name: "UnoccupiedHeatingSetPoint",
+                    name: "Unoccupied Heating Setpoint",
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
@@ -1245,7 +1330,7 @@ export function UnitDashboard({
                   });
 
                   seriesMap.set(SeriesIndex.UnoccupiedCoolingSetPoint, {
-                    name: "UnoccupiedCoolingSetPoint",
+                    name: "Unoccupied Cooling Setpoint",
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",
@@ -1261,7 +1346,7 @@ export function UnitDashboard({
                   });
 
                   seriesMap.set(SeriesIndex.ZoneHumidity, {
-                    name: "ZoneHumidity",
+                    name: "Zone Humidity",
                     type: "line",
                     yAxisIndex: YAxisIndex.TemperatureHumidity,
                     sampling: "lttb",

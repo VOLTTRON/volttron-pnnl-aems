@@ -166,6 +166,34 @@ query HistorianMultiSystemUnit(
   )
 }
 
+# Site-wide aggregate of a unit metric across all systems (two-level
+# aggregation: bucket per topic, then aggregate across topics per bucket)
+query HistorianSiteAggregateUnit(
+  $campus: String!
+  $building: String!
+  $systems: [String!]!
+  $metric: UnitMetric!
+  $startTime: DateTime!
+  $endTime: DateTime!
+  $crossSystemAggregation: MetricAggregation!
+  $bucketAggregation: MetricAggregation
+  $interval: String
+  $excludeSystem: String
+) {
+  historianSiteAggregateUnit(
+    campus: $campus
+    building: $building
+    systems: $systems
+    metric: $metric
+    startTime: $startTime
+    endTime: $endTime
+    crossSystemAggregation: $crossSystemAggregation
+    bucketAggregation: $bucketAggregation
+    interval: $interval
+    excludeSystem: $excludeSystem
+  )
+}
+
 # Calculated metrics
 query HistorianSetpointError(
   $campus: String!

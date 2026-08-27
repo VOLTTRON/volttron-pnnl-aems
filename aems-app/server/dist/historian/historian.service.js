@@ -811,6 +811,103 @@ let HistorianService = HistorianService_1 = class HistorianService {
         });
         return results;
     }
+    async getSiteAggregateUnit(campus, building, systems, metric, startTime, endTime, crossSystemAggregation, bucketAggregation, interval, excludeSystem) {
+        const errors = [];
+        const topics = {};
+        const entry = (0, metrics_1.resolveUnitMetricEntry)(metric, this.configService.historian.topicMap);
+        const effectiveBucketAgg = bucketAggregation ?? entry.aggregation;
+        const includedSystems = excludeSystem
+            ? systems.filter((s) => s.toLowerCase() !== excludeSystem.toLowerCase())
+            : [...systems];
+        const systemTopics = {};
+        includedSystems.forEach((sys) => {
+            const path = (0, metrics_1.buildUnitTopicPath)(campus, building, sys, metric, this.configService.historian.topicMap);
+            systemTopics[sys] = path;
+            topics[`${sys}.${metric}`] = path;
+        });
+        const resolved = this.resolveBucketing(startTime, endTime, interval ?? undefined);
+        const bucketing = resolved.mode === "binned"
+            ? resolved
+            : { mode: "binned", ...this.deriveBucketInterval(startTime, endTime) };
+        const binning = HistorianService_1.buildBinningInfo(bucketing);
+        const displayMeta = HistorianService_1.displayMetadata(entry);
+        const system = "site";
+        if (includedSystems.length === 0) {
+            errors.push("No systems available for site aggregation");
+            return {
+                system,
+                metric,
+                data: [],
+                metadata: { topics, errors, binning, aggregation: effectiveBucketAgg, ...displayMeta },
+            };
+        }
+        try {
+            const pathToId = await this.resolveTopicIds(Object.values(systemTopics));
+            const topicIds = Array.from(pathToId.values());
+            if (topicIds.length === 0) {
+                errors.push(`No topics found for site aggregation in ${campus}/${building} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+                return {
+                    system,
+                    metric,
+                    data: [],
+                    metadata: { topics, errors, binning, aggregation: effectiveBucketAgg, ...displayMeta },
+                };
+            }
+            const valueExpr = `CAST(NULLIF(value_string, 'null') AS double precision)`;
+            const query = `
+        WITH per_topic AS (
+          SELECT
+            date_bin($4::interval, ts, $1::timestamptz) AS timestamp,
+            topic_id,
+            ${(0, metrics_1.aggregationSql)(effectiveBucketAgg, valueExpr)} AS value
+          FROM data
+          WHERE topic_id = ANY($3::int[])
+            AND ts >= $1
+            AND ts <= $2
+          GROUP BY 1, 2
+        )
+        SELECT
+          timestamp,
+          ${(0, metrics_1.aggregationSql)(crossSystemAggregation, "value", "timestamp")} AS value
+        FROM per_topic
+        WHERE value IS NOT NULL
+        GROUP BY timestamp
+        ORDER BY timestamp
+      `;
+            const result = await this.pool.query(query, [
+                startTime,
+                endTime,
+                topicIds,
+                bucketing.sql,
+            ]);
+            if (result.rows.length === 0) {
+                errors.push(`No data found for site aggregation in ${campus}/${building} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+            }
+            const data = result.rows.map((row) => ({
+                timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+                value: (0, metrics_1.applyTransform)(HistorianService_1.toNumber(row.value), entry.transform),
+                system,
+                metric,
+            }));
+            return {
+                system,
+                metric,
+                data,
+                metadata: {
+                    topics,
+                    errors,
+                    binning,
+                    aggregation: effectiveBucketAgg,
+                    ...displayMeta,
+                },
+            };
+        }
+        catch (error) {
+            this.logger.error("Error fetching site aggregate data", error);
+            errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
+            throw error;
+        }
+    }
     async getMultiSystemUnitRanges(campus, building, systems, deniedSystems, metric, startTime, endTime) {
         if (systems.length === 0 && deniedSystems.length === 0) {
             return [];
