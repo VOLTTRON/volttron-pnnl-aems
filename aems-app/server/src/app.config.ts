@@ -236,6 +236,13 @@ export class AppConfigService {
       ilcPaths: string[];
       thermostatPaths: string[];
     };
+    synthetic: {
+      seed: string;
+      historianDays: number;
+      tickSeconds: number;
+      campusPrefix: string;
+      ticker: boolean;
+    };
   };
   volttron: {
     ca: string;
@@ -279,6 +286,9 @@ export class AppConfigService {
   }
 
   private loadHistorianTopicMap(configPath?: string): Partial<HistorianTopicMapConfig> | undefined {
+    if (this.instanceName === "Schema") {
+      return undefined;
+    }
     if (!configPath) {
       this.logger.debug("No HISTORIAN_CONFIG_MAPPING_PATH specified, using default topic mapping");
       return undefined;
@@ -404,7 +414,7 @@ export class AppConfigService {
       port: parseInt(process.env.HISTORIAN_PORT ?? "5432"),
       name: process.env.HISTORIAN_NAME ?? "historian",
       username: process.env.HISTORIAN_USER ?? "historian",
-      password: process.env.HISTORIAN_PASSWORD ?? "",
+      password: readSecret("HISTORIAN_DATABASE_PASSWORD", ""),
       replicationPort: parseInt(process.env.HISTORIAN_REPLICATION_PORT ?? "5543"),
       configMappingPath: process.env.HISTORIAN_CONFIG_MAPPING_PATH || undefined,
       topicMap: this.loadHistorianTopicMap(process.env.HISTORIAN_CONFIG_MAPPING_PATH),
@@ -513,6 +523,13 @@ export class AppConfigService {
           .split(",")
           .map((f) => f.trim())
           .filter(Boolean),
+      },
+      synthetic: {
+        seed: process.env.SYNTHETIC_SEED ?? "aems-demo",
+        historianDays: parseInt(process.env.SYNTHETIC_HISTORIAN_DAYS ?? "90"),
+        tickSeconds: parseInt(process.env.SYNTHETIC_TICK_SECONDS ?? "60"),
+        campusPrefix: process.env.SYNTHETIC_CAMPUS_PREFIX ?? "DEMO_",
+        ticker: parseBoolean(process.env.SYNTHETIC_TICKER),
       },
     };
     this.volttron = {

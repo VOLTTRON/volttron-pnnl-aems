@@ -167,6 +167,13 @@ export declare class AppConfigService {
             ilcPaths: string[];
             thermostatPaths: string[];
         };
+        synthetic: {
+            seed: string;
+            historianDays: number;
+            tickSeconds: number;
+            campusPrefix: string;
+            ticker: boolean;
+        };
     };
     volttron: {
         ca: string;

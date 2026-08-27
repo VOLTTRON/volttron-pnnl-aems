@@ -62,6 +62,9 @@ let HistorianService = HistorianService_1 = class HistorianService {
         });
     }
     async onModuleInit() {
+        if (this.configService.instanceName === "Schema") {
+            return;
+        }
         try {
             const client = await this.pool.connect();
             client.release();
@@ -513,7 +516,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
             throw error;
         }
     }
-    async getMeterTimeSeries(campus, building, metric, startTime, endTime) {
+    async getMeterTimeSeries(campus, building, metric, startTime, endTime, opts) {
         const errors = [];
         const topics = {};
         const entry = (0, metrics_1.resolveMeterMetricEntry)(metric, this.configService.historian.topicMap);
@@ -530,18 +533,22 @@ let HistorianService = HistorianService_1 = class HistorianService {
                     metadata: { topics, errors, ...HistorianService_1.displayMetadata(entry) },
                 };
             }
-            const bucketing = this.resolveBucketing(startTime, endTime);
+            const bucketing = this.resolveBucketing(startTime, endTime, undefined, opts?.rawThreshold);
             const { aggregation } = entry;
             const numericValueExpr = `CASE
         WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
           THEN value_string::double precision
         ELSE NULL
       END`;
+            const extraAggs = bucketing.mode === "binned" && opts?.aggregations?.length ? opts.aggregations : [];
+            const extraSelects = extraAggs
+                .map((agg, i) => `, ${(0, metrics_1.aggregationSql)(agg, numericValueExpr)} AS agg_${i}`)
+                .join("");
             const result = bucketing.mode === "binned"
                 ? await this.pool.query(`
           SELECT
             date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
-            ${(0, metrics_1.aggregationSql)(aggregation, numericValueExpr)} AS value
+            ${(0, metrics_1.aggregationSql)(aggregation, numericValueExpr)} AS value${extraSelects}
           FROM data
           WHERE topic_id = $1
             AND ts >= $2
@@ -568,10 +575,22 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 system: "meter",
                 metric,
             }));
+            const aggregations = extraAggs.length
+                ? extraAggs.map((agg, i) => ({
+                    aggregation: agg,
+                    data: result.rows.map((row) => ({
+                        timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+                        value: (0, metrics_1.applyTransform)(HistorianService_1.toNumber(row[`agg_${i}`]), entry.transform),
+                        system: "meter",
+                        metric,
+                    })),
+                }))
+                : undefined;
             return {
                 system: "meter",
                 metric,
                 data,
+                aggregations,
                 metadata: {
                     topics,
                     errors,
@@ -1270,13 +1289,15 @@ let HistorianService = HistorianService_1 = class HistorianService {
             return base;
         return { sql: `${flooredSec} seconds`, ms: flooredSec * 1000 };
     }
-    resolveBucketing(startTime, endTime, clientInterval) {
+    resolveBucketing(startTime, endTime, clientInterval, rawThresholdOverride) {
         if (clientInterval) {
             const parsed = HistorianService_1.parseClientInterval(clientInterval);
             return { mode: "binned", sql: parsed.sql, ms: parsed.ms };
         }
-        const { start, unit } = this.configService.historian.binning;
-        const thresholdMs = Math.max(0, start) * HistorianService_1.msPerDurationUnit(unit);
+        const thresholdMs = rawThresholdOverride
+            ? Math.max(0, HistorianService_1.parseClientInterval(rawThresholdOverride).ms)
+            : Math.max(0, this.configService.historian.binning.start) *
+                HistorianService_1.msPerDurationUnit(this.configService.historian.binning.unit);
         const rangeMs = Math.max(0, endTime.getTime() - startTime.getTime());
         if (thresholdMs > 0 && rangeMs <= thresholdMs) {
             return { mode: "raw" };

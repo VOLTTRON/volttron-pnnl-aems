@@ -18,6 +18,7 @@ import {
   UnitMetric,
   WeatherMetric,
   MeterMetric,
+  MetricAggregation,
 } from "@local/common";
 import { GraphQLScalarType } from "graphql";
 
@@ -40,6 +41,7 @@ export class HistorianObject {
   readonly UnitMetric;
   readonly WeatherMetric;
   readonly MeterMetric;
+  readonly MetricAggregation;
 
   constructor(builder: SchemaBuilderService) {
     // Enum types
@@ -66,6 +68,11 @@ export class HistorianObject {
     this.MeterMetric = builder.enumType(MeterMetric, {
       name: "MeterMetric",
       description: "Available metrics for meter data (building-level power/demand)",
+    });
+
+    this.MetricAggregation = builder.enumType(MetricAggregation, {
+      name: "MetricAggregation",
+      description: "Per-bin aggregation used when collapsing raw historian samples",
     });
 
     // Object types

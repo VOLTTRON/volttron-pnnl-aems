@@ -73,6 +73,42 @@ function preserveInteractiveState(chart: ECharts, incoming: EChartsOption): ECha
   return out as EChartsOption;
 }
 
+// Given a dataZoom config entry and the surrounding option, return the
+// current visible x-range in Unix milliseconds. Prefers explicit
+// startValue/endValue (set by the user or by dispatchAction), falls back to
+// applying the start/end percentages against the xAxis min/max extent.
+// Returns null when nothing usable is present.
+function resolveVisibleRange(
+  dz: { startValue?: number | string; endValue?: number | string; start?: number; end?: number },
+  option: { xAxis?: { min?: number | string; max?: number | string } | Array<{ min?: number | string; max?: number | string }> },
+): { startMs: number; endMs: number } | null {
+  const toMs = (v: unknown): number | null => {
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string") {
+      const t = new Date(v).getTime();
+      return Number.isFinite(t) ? t : null;
+    }
+    if (v instanceof Date) return v.getTime();
+    return null;
+  };
+  const svMs = toMs(dz.startValue);
+  const evMs = toMs(dz.endValue);
+  if (svMs !== null && evMs !== null && evMs > svMs) {
+    return { startMs: svMs, endMs: evMs };
+  }
+  const xAxis = Array.isArray(option.xAxis) ? option.xAxis[0] : option.xAxis;
+  const axisMin = toMs(xAxis?.min);
+  const axisMax = toMs(xAxis?.max);
+  const start = typeof dz.start === "number" ? dz.start : 0;
+  const end = typeof dz.end === "number" ? dz.end : 100;
+  if (axisMin === null || axisMax === null || axisMax <= axisMin) return null;
+  const span = axisMax - axisMin;
+  return {
+    startMs: axisMin + (span * start) / 100,
+    endMs: axisMin + (span * end) / 100,
+  };
+}
+
 function readLiveLegendState(chart: ECharts): { state: LegendState; names: string[] } {
   const opt: any = chart.getOption?.();
   const names = getLegendNames(opt);
@@ -160,6 +196,14 @@ export interface ReactEChartsProps {
   theme?: "light" | "dark" | Mode;
   showLegendToggle?: boolean;
   showDataZoomTools?: boolean;
+  /**
+   * Fires when the user changes the visible x-axis range via the built-in
+   * dataZoom slider or wheel/pan. The callback is invoked with the visible
+   * range in Unix milliseconds and is trailing-debounced at 150ms so
+   * downstream state updates fire once per gesture, not per animation frame.
+   * Requires the chart's xAxis to be a time axis.
+   */
+  onDataZoom?: (range: { startMs: number; endMs: number }) => void;
 }
 
 /**
@@ -180,6 +224,8 @@ export function makeTimeAxisFormatter(timezone: string | undefined) {
   };
 }
 
+const DATA_ZOOM_DEBOUNCE_MS = 150;
+
 export function ECharts({
   option,
   style,
@@ -188,9 +234,18 @@ export function ECharts({
   theme,
   showLegendToggle,
   showDataZoomTools,
+  onDataZoom,
 }: ReactEChartsProps): React.ReactNode {
   const chartRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<LegendState>("all");
+  // Keep the latest callback in a ref so the effect below can register the
+  // datazoom listener once and read the current function on each fire —
+  // avoids re-registering the listener every time a parent's inline arrow
+  // function reference changes.
+  const onDataZoomRef = useRef(onDataZoom);
+  useEffect(() => {
+    onDataZoomRef.current = onDataZoom;
+  }, [onDataZoom]);
 
   useEffect(() => {
     let chart: ECharts | undefined;
@@ -245,10 +300,43 @@ export function ECharts({
         for (const ev of legendEvents) chart?.off(ev, handler);
       };
     }
+    // Trailing-debounced datazoom listener. Reads current start/end from
+    // the live option after each fire (ECharts's own dataZoom state is the
+    // source of truth once the user has interacted). Falls back to computing
+    // from start/end percentages when the slider config uses those instead
+    // of startValue/endValue.
+    let dzTimer: ReturnType<typeof setTimeout> | undefined;
+    let detachDataZoomListener: (() => void) | undefined;
+    if (chart) {
+      const emit = () => {
+        const cb = onDataZoomRef.current;
+        if (!cb) return;
+        const node = chartRef.current;
+        if (!node) return;
+        const c = getInstanceByDom(node);
+        if (!c) return;
+        const opt: any = c.getOption?.();
+        const dzRaw = opt?.dataZoom;
+        const dz = Array.isArray(dzRaw) ? dzRaw[0] : dzRaw;
+        if (!dz) return;
+        const range = resolveVisibleRange(dz, opt);
+        if (range) cb(range);
+      };
+      const handler = () => {
+        if (dzTimer) clearTimeout(dzTimer);
+        dzTimer = setTimeout(emit, DATA_ZOOM_DEBOUNCE_MS);
+      };
+      chart.on("datazoom", handler);
+      detachDataZoomListener = () => {
+        if (dzTimer) clearTimeout(dzTimer);
+        chart?.off("datazoom", handler);
+      };
+    }
     if (typeof window !== "undefined") {
       window.addEventListener("resize", resizeChart);
       return () => {
         detachLegendListener?.();
+        detachDataZoomListener?.();
         chart?.dispose();
         window.removeEventListener("resize", resizeChart);
       };

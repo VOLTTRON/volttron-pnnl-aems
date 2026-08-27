@@ -377,7 +377,7 @@ export const DefaultWeatherMetricSuffixes: Record<WeatherMetric, string> = {
 };
 
 export const DefaultMeterMetricSuffixes: Record<MeterMetric, string> = {
-  [MeterMetric.Power]: " W",
+  [MeterMetric.Power]: " kW",
   [MeterMetric.Demand]: " W",
 };
 
@@ -495,7 +495,7 @@ export const MeterMetricInfo: Record<MeterMetric, MetricInfo> = {
     topic: MeterMetric.Power,
     category: "meter",
     description: "Whole building power consumption",
-    unit: "W",
+    unit: "kW",
   },
   [MeterMetric.Demand]: {
     topic: MeterMetric.Demand,
@@ -795,8 +795,12 @@ export function aggregationSql(
       return `COUNT(${valueExpr})`;
     case MetricAggregation.Mode:
       return `mode() WITHIN GROUP (ORDER BY ${valueExpr})`;
+    case MetricAggregation.Q1:
+      return `percentile_cont(0.25) WITHIN GROUP (ORDER BY ${valueExpr})`;
     case MetricAggregation.Median:
       return `percentile_cont(0.5) WITHIN GROUP (ORDER BY ${valueExpr})`;
+    case MetricAggregation.Q3:
+      return `percentile_cont(0.75) WITHIN GROUP (ORDER BY ${valueExpr})`;
     case MetricAggregation.First:
       return `(array_agg(${valueExpr} ORDER BY ${tsExpr} ASC) FILTER (WHERE ${valueExpr} IS NOT NULL))[1]`;
     case MetricAggregation.Last:

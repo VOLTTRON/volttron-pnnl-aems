@@ -123,6 +123,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
+    if (this.configService.instanceName === "Schema") {
+      return;
+    }
     try {
       const client = await this.pool.connect();
       client.release();
@@ -759,6 +762,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     metric: MeterMetric,
     startTime: Date,
     endTime: Date,
+    opts?: { rawThreshold?: string; aggregations?: MetricAggregation[] },
   ): Promise<HistorianTimeSeries> {
     const errors: string[] = [];
     const topics: Record<string, string> = {};
@@ -779,7 +783,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         };
       }
 
-      const bucketing = this.resolveBucketing(startTime, endTime);
+      const bucketing = this.resolveBucketing(startTime, endTime, undefined, opts?.rawThreshold);
       const { aggregation } = entry;
       const numericValueExpr = `CASE
         WHEN value_string ~ '^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$'
@@ -787,13 +791,23 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         ELSE NULL
       END`;
 
+      const extraAggs =
+        bucketing.mode === "binned" && opts?.aggregations?.length ? opts.aggregations : [];
+      const extraSelects = extraAggs
+        .map((agg, i) => `, ${aggregationSql(agg, numericValueExpr)} AS agg_${i}`)
+        .join("");
+
+      type BinnedRow = { timestamp: Date | string; value: number | string | null } & {
+        [aggKey: `agg_${number}`]: number | string | null;
+      };
+
       const result =
         bucketing.mode === "binned"
-          ? await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(
+          ? await this.pool.query<BinnedRow>(
               `
           SELECT
             date_bin($4::interval, ts, $2::timestamptz) AS timestamp,
-            ${aggregationSql(aggregation, numericValueExpr)} AS value
+            ${aggregationSql(aggregation, numericValueExpr)} AS value${extraSelects}
           FROM data
           WHERE topic_id = $1
             AND ts >= $2
@@ -828,10 +842,23 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         metric,
       }));
 
+      const aggregations = extraAggs.length
+        ? extraAggs.map((agg, i) => ({
+            aggregation: agg,
+            data: (result.rows as BinnedRow[]).map((row) => ({
+              timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+              value: applyTransform(HistorianService.toNumber(row[`agg_${i}`]), entry.transform),
+              system: "meter",
+              metric,
+            })),
+          }))
+        : undefined;
+
       return {
         system: "meter",
         metric,
         data,
+        aggregations,
         metadata: {
           topics,
           errors,
@@ -1739,13 +1766,16 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     startTime: Date,
     endTime: Date,
     clientInterval?: string,
+    rawThresholdOverride?: string,
   ): { mode: "binned"; sql: string; ms: number } | { mode: "raw" } {
     if (clientInterval) {
       const parsed = HistorianService.parseClientInterval(clientInterval);
       return { mode: "binned", sql: parsed.sql, ms: parsed.ms };
     }
-    const { start, unit } = this.configService.historian.binning;
-    const thresholdMs = Math.max(0, start) * HistorianService.msPerDurationUnit(unit);
+    const thresholdMs = rawThresholdOverride
+      ? Math.max(0, HistorianService.parseClientInterval(rawThresholdOverride).ms)
+      : Math.max(0, this.configService.historian.binning.start) *
+        HistorianService.msPerDurationUnit(this.configService.historian.binning.unit);
     const rangeMs = Math.max(0, endTime.getTime() - startTime.getTime());
     if (thresholdMs > 0 && rangeMs <= thresholdMs) {
       return { mode: "raw" };
