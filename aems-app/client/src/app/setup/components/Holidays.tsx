@@ -12,6 +12,7 @@ import {
   typeofObject,
 } from "@local/common";
 import { HolidayType, ReadUnitQuery } from "@/graphql-codegen/graphql";
+import { formatDate as formatDateWithTz, LEAP_YEAR } from "@/utils/date";
 import styles from "../page.module.scss";
 
 type UnitType = NonNullable<ReadUnitQuery["readUnit"]>;
@@ -26,17 +27,9 @@ interface HolidaysProps {
 
 const holidayOrder = HolidayList.values.map((a) => a.label);
 
-const minDate = new Date("2024-01-01");
-minDate.setFullYear(2024, 0, 1);
-
-const maxDate = new Date("2024-12-31");
-maxDate.setFullYear(2024, 11, 31);
-
-const dateFactory = () => {
-  const date = new Date("2024-01-01");
-  date.setFullYear(2024, 0, 1);
-  return date;
-};
+const minDate = new Date(LEAP_YEAR, 0, 1);
+const maxDate = new Date(LEAP_YEAR, 11, 31);
+const dateFactory = () => new Date(LEAP_YEAR, 0, 1);
 
 function CreateHoliday({
   unit,
@@ -52,9 +45,7 @@ function CreateHoliday({
   const [observance, setObservance] = useState("");
   const [open, setOpen] = useState(false);
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
-  };
+  const formatDate = (date: Date) => formatDateWithTz(date, undefined, { month: "long", day: "numeric" });
 
   return (
     <div className={styles.createHolidayForm}>

@@ -61,10 +61,13 @@ let SyntheticService = SyntheticService_1 = class SyntheticService extends __1.B
         });
     }
     async execute() {
+        if (!this.schedule())
+            return;
         try {
-            await super.execute();
+            await this.task();
         }
         finally {
+            this.running = false;
             this.resolveBackfillReady();
         }
     }

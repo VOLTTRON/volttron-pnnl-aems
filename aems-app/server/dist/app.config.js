@@ -305,6 +305,7 @@ class AppConfigService {
             mocked: (0, common_1.parseBoolean)(process.env.VOLTTRON_MOCKED),
             campus: process.env.VOLTTRON_CAMPUS ?? "",
             building: process.env.VOLTTRON_BUILDING ?? "",
+            timezone: process.env.VOLTTRON_TIMEZONE ?? "",
         };
         this.grafana = {
             path: process.env.GRAFANA_PATH ?? "/gdb",

@@ -180,6 +180,7 @@ export declare class AppConfigService {
         mocked: boolean;
         campus: string;
         building: string;
+        timezone: string;
     };
     grafana: {
         path: string;

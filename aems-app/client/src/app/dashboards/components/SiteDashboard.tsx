@@ -11,7 +11,7 @@ import {
   UnitMetric,
   WeatherMetric,
 } from "@/graphql-codegen/graphql";
-import { ECharts } from "@/app/components/common/echarts";
+import { ECharts, makeTimeAxisFormatter } from "@/app/components/common/echarts";
 import { graphic } from "echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
@@ -21,7 +21,8 @@ import styles from "./SiteDashboard.module.scss";
 import { typeofString } from "@local/common";
 import { BuildingPowerChart } from "./BuildingPowerChart";
 import { Palettes } from "@/utils/palette";
-import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
+import { compilePreferences, PreferencesContext, CurrentContext, useResolvedTimezone } from "@/app/components/providers";
+import { formatDate } from "@/utils/date";
 import { optimizeSystemNames } from "@/utils/systemNameOptimizer";
 import { useMetricColors } from "@/utils/metricColors";
 import { makeValueFormatter } from "@/utils/historianFormat";
@@ -82,6 +83,8 @@ export function SiteDashboard({
   // Get user palette preferences
   const { preferences } = React.useContext(PreferencesContext);
   const { current } = React.useContext(CurrentContext);
+  const resolvedTz = useResolvedTimezone();
+  const timeAxisFormatter = React.useMemo(() => makeTimeAxisFormatter(resolvedTz), [resolvedTz]);
   const { palette1, palette2, palette3, paletteWarm, paletteCool } = compilePreferences(
     preferences,
     current?.preferences,
@@ -291,7 +294,7 @@ export function SiteDashboard({
     const start = new Date(segmentStart);
     const end = new Date(segmentEnd);
     const validRange = !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime());
-    const fmt = (d: Date) => d.toLocaleString();
+    const fmt = (d: Date) => formatDate(d, resolvedTz);
     const marker = typeof params?.marker === "string" ? params.marker : "";
     const lines = [`${marker}<strong>${systemName}</strong> — ${formatLabel(label, raw)}`];
     if (validRange) {
@@ -540,7 +543,7 @@ export function SiteDashboard({
                   },
                 ],
                 grid: { top: 40, right: 40, bottom: 110, left: chartLeftMargin + 20 },
-                xAxis: { type: "time", min: startTime, max: endTime },
+                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter, hideOverlap: true } },
                 yAxis: {
                   type: "category",
                   data: optimizedSystemNames,
@@ -627,7 +630,7 @@ export function SiteDashboard({
                   },
                 ],
                 grid: { top: 40, right: 40, bottom: 110, left: chartLeftMargin + 20 },
-                xAxis: { type: "time", min: startTime, max: endTime },
+                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter, hideOverlap: true } },
                 yAxis: {
                   type: "category",
                   data: optimizedSystemNames,
@@ -689,7 +692,7 @@ export function SiteDashboard({
                   },
                 ],
                 grid: { top: 60, right: 40, bottom: 110, left: 40 },
-                xAxis: { type: "time", min: startTime, max: endTime },
+                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter, hideOverlap: true } },
                 yAxis: {
                   type: "value",
                   name: "Temperature (°F)",

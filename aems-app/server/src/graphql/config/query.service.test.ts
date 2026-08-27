@@ -7,6 +7,7 @@ const resolvers: Record<string, () => unknown> = {};
 function makeBuilder(): SchemaBuilderService {
   const mockT = {
     exposeBoolean: jest.fn((field: string) => field),
+    exposeString: jest.fn((field: string) => field),
   };
   const objectRefImplementer = {
     implement: jest.fn((opts: any) => {
@@ -23,9 +24,10 @@ function makeBuilder(): SchemaBuilderService {
   } as unknown as SchemaBuilderService;
 }
 
-function makeConfigService(serviceOverride: boolean, holidaySchedule: boolean): AppConfigService {
+function makeConfigService(serviceOverride: boolean, holidaySchedule: boolean, timezone = ""): AppConfigService {
   return {
     service: { config: { serviceOverride, holidaySchedule } },
+    volttron: { timezone },
   } as unknown as AppConfigService;
 }
 
@@ -41,12 +43,20 @@ describe("ConfigQuery", () => {
   });
 
   it("readConfig returns the whitelisted config flags", () => {
-    new ConfigQuery(makeBuilder(), makeConfigService(true, false));
-    expect(resolvers["readConfig"]()).toEqual({ serviceOverride: true, holidaySchedule: false });
+    new ConfigQuery(makeBuilder(), makeConfigService(true, false, "America/Los_Angeles"));
+    expect(resolvers["readConfig"]()).toEqual({
+      serviceOverride: true,
+      holidaySchedule: false,
+      location: "America/Los_Angeles",
+    });
   });
 
   it("readConfig reflects different config values", () => {
     new ConfigQuery(makeBuilder(), makeConfigService(false, true));
-    expect(resolvers["readConfig"]()).toEqual({ serviceOverride: false, holidaySchedule: true });
+    expect(resolvers["readConfig"]()).toEqual({
+      serviceOverride: false,
+      holidaySchedule: true,
+      location: "",
+    });
   });
 });
