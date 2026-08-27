@@ -45,18 +45,15 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
     currentName !== name ||
     currentTimezone !== timezone;
 
-  const timezoneOptions = useMemo(
-    () => [
-      {
-        value: "location",
-        label: config?.location ? `Site (${config.location})` : "Site (Volttron)",
-      },
+  const timezoneOptions = useMemo(() => {
+    const siteTz = config?.location || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return [
+      { value: "location", label: `Site (${siteTz})` },
       { value: "browser", label: "Browser (auto-detect)" },
       { value: "none", label: "None (as stored)" },
       ...Intl.supportedValuesOf("timeZone").map((tz) => ({ value: tz, label: tz })),
-    ],
-    [config?.location],
-  );
+    ];
+  }, [config?.location]);
 
   const handleUpdate = async () => {
     const serverPreferences = {

@@ -227,6 +227,7 @@ export function TimeRangeSelector({ onApply }: TimeRangeSelectorProps) {
           placeholder={getFromPlaceholder()}
           closeOnSelection={false}
           timezone={resolvedTz}
+          showTimezoneSelect={false}
         />
       </FormGroup>
 
@@ -240,6 +241,7 @@ export function TimeRangeSelector({ onApply }: TimeRangeSelectorProps) {
           placeholder="Current Time"
           closeOnSelection={false}
           timezone={resolvedTz}
+          showTimezoneSelect={false}
         />
       </FormGroup>
 
