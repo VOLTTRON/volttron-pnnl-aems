@@ -31,7 +31,7 @@ export function NavbarLeft() {
   const breadcrumbs = items.map((v, i) => ({
     text: v.name,
     icon: v.icon,
-    onClick: callback(findPath(items.slice(0, i + 1))),
+    onClick: v.index && !v.fallback ? undefined : callback(findPath(items.slice(0, i + 1))),
   }));
 
   return (
