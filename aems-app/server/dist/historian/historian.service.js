@@ -838,7 +838,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 system,
                 metric,
                 data: [],
-                metadata: { topics, errors, binning, aggregation: effectiveBucketAgg, ...displayMeta },
+                metadata: { topics, errors, binning, aggregation: crossSystemAggregation, ...displayMeta },
             };
         }
         try {
@@ -850,7 +850,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                     system,
                     metric,
                     data: [],
-                    metadata: { topics, errors, binning, aggregation: effectiveBucketAgg, ...displayMeta },
+                    metadata: { topics, errors, binning, aggregation: crossSystemAggregation, ...displayMeta },
                 };
             }
             const valueExpr = `CAST(NULLIF(value_string, 'null') AS double precision)`;
@@ -897,7 +897,7 @@ let HistorianService = HistorianService_1 = class HistorianService {
                     topics,
                     errors,
                     binning,
-                    aggregation: effectiveBucketAgg,
+                    aggregation: crossSystemAggregation,
                     ...displayMeta,
                 },
             };

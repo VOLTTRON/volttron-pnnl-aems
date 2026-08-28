@@ -287,6 +287,17 @@ let HistorianQuery = class HistorianQuery {
             resolve: async (_root, args, ctx, _info) => {
                 const accessControl = await historianService.filterHistorianAccess(ctx.user, args.campus, args.building, args.systems);
                 const allowedSystems = accessControl.allowedSystems.map((s) => s.system);
+                if (allowedSystems.length === 0) {
+                    return {
+                        system: "site",
+                        metric: args.metric,
+                        data: [],
+                        metadata: {
+                            topics: {},
+                            errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}`],
+                        },
+                    };
+                }
                 return historianService.getSiteAggregateUnit(args.campus, args.building, allowedSystems, args.metric, args.startTime, args.endTime, args.crossSystemAggregation, args.bucketAggregation ?? undefined, args.interval ?? undefined, args.excludeSystem ?? undefined);
             },
         }));

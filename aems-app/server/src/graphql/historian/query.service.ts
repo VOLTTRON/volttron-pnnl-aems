@@ -482,6 +482,18 @@ export class HistorianQuery {
 
           const allowedSystems = accessControl.allowedSystems.map((s) => s.system);
 
+          if (allowedSystems.length === 0) {
+            return {
+              system: "site",
+              metric: args.metric,
+              data: [],
+              metadata: {
+                topics: {},
+                errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}`],
+              },
+            };
+          }
+
           return historianService.getSiteAggregateUnit(
             args.campus,
             args.building,

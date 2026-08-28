@@ -317,17 +317,20 @@ export function UnitDashboard({
   });
   // RTU's own outdoor-air-temperature sensor — the preferred source when
   // reporting. Falls back to site median, then weather station.
-  const { data: unitOwnOutdoorSeries } = useQuery(HistorianUnitTimeSeriesDocument, {
-    variables: {
-      campus: unitCampus,
-      building: unitBuilding,
-      system: unitSystem,
-      metric: UnitMetric.OutdoorAirTemperature,
-      startTime,
-      endTime,
+  const { data: unitOwnOutdoorSeries, loading: unitOwnOutdoorLoading } = useQuery(
+    HistorianUnitTimeSeriesDocument,
+    {
+      variables: {
+        campus: unitCampus,
+        building: unitBuilding,
+        system: unitSystem,
+        metric: UnitMetric.OutdoorAirTemperature,
+        startTime,
+        endTime,
+      },
+      skip: !unitSystem,
     },
-    skip: !unitSystem,
-  });
+  );
   // Sibling systems on the same site (for site-median fallback). We only need
   // system names, so ReadUnitsInfo (light payload) is enough.
   const { data: siteUnitsData } = useQuery(ReadUnitsInfoDocument, {
@@ -346,27 +349,48 @@ export function UnitDashboard({
         .filter((s): s is string => typeof s === "string" && s.length > 0),
     [siteUnitsData],
   );
-  const { data: siteMedianOutdoorSeries } = useQuery(HistorianSiteAggregateUnitDocument, {
-    variables: {
-      campus: unitCampus,
-      building: unitBuilding,
-      systems: siteSystems,
-      metric: UnitMetric.OutdoorAirTemperature,
-      crossSystemAggregation: MetricAggregation.Median,
-      excludeSystem: unitSystem,
-      startTime,
-      endTime,
+  const siteSiblingSystems = React.useMemo(
+    () => siteSystems.filter((s) => s.toLowerCase() !== unitSystem.toLowerCase()),
+    [siteSystems, unitSystem],
+  );
+  const siteMedianSkipped = siteSiblingSystems.length < 1;
+  const { data: siteMedianOutdoorSeries, loading: siteMedianOutdoorLoading } = useQuery(
+    HistorianSiteAggregateUnitDocument,
+    {
+      variables: {
+        campus: unitCampus,
+        building: unitBuilding,
+        systems: siteSystems,
+        metric: UnitMetric.OutdoorAirTemperature,
+        crossSystemAggregation: MetricAggregation.Median,
+        excludeSystem: unitSystem,
+        startTime,
+        endTime,
+      },
+      // Need at least one sibling system for a meaningful median.
+      skip: siteMedianSkipped,
     },
-    // Need at least one sibling system for a meaningful median.
-    skip: siteSystems.filter((s) => s.toLowerCase() !== unitSystem.toLowerCase()).length < 1,
-  });
+  );
   // Pick the best outdoor-temp source, in priority order. The chosen label
   // appears on both the gauge heading and the chart legend so the user can
-  // tell which reading they're seeing.
+  // tell which reading they're seeing. We only fall through past a tier once
+  // that tier has finished loading (or is skipped) — otherwise the label
+  // would flicker as slower queries settle.
   const outdoorTempSource = React.useMemo(() => {
     const hasData = (data: readonly any[] | undefined | null): boolean =>
       Array.isArray(data) && data.some((p: any) => p?.value != null);
     const ownData = unitOwnOutdoorSeries?.historianUnitTimeSeries?.data;
+    const ownSkipped = !unitSystem;
+    // Wait on the own query before falling through — otherwise we could
+    // briefly promote weather-station data during load.
+    if (!ownSkipped && unitOwnOutdoorLoading && !hasData(ownData)) {
+      return {
+        source: "unit" as const,
+        label: "Outdoor Air Temperature",
+        data: [] as any[],
+        metadata: unitOwnOutdoorSeries?.historianUnitTimeSeries?.metadata,
+      };
+    }
     if (hasData(ownData)) {
       return {
         source: "unit" as const,
@@ -376,6 +400,14 @@ export function UnitDashboard({
       };
     }
     const siteData = siteMedianOutdoorSeries?.historianSiteAggregateUnit?.data;
+    if (!siteMedianSkipped && siteMedianOutdoorLoading && !hasData(siteData)) {
+      return {
+        source: "siteMedian" as const,
+        label: "Site Median Outdoor Air Temperature",
+        data: [] as any[],
+        metadata: siteMedianOutdoorSeries?.historianSiteAggregateUnit?.metadata,
+      };
+    }
     if (hasData(siteData)) {
       return {
         source: "siteMedian" as const,
@@ -390,7 +422,15 @@ export function UnitDashboard({
       data: outdoorTempSeries?.historianWeatherTimeSeries?.data ?? [],
       metadata: outdoorTempSeries?.historianWeatherTimeSeries?.metadata,
     };
-  }, [unitOwnOutdoorSeries, siteMedianOutdoorSeries, outdoorTempSeries]);
+  }, [
+    unitOwnOutdoorSeries,
+    unitOwnOutdoorLoading,
+    siteMedianOutdoorSeries,
+    siteMedianOutdoorLoading,
+    siteMedianSkipped,
+    outdoorTempSeries,
+    unitSystem,
+  ]);
   const { data: occupancyCommandSeries } = useQuery(HistorianUnitTimeSeriesDocument, {
     variables: {
       campus: unitCampus,

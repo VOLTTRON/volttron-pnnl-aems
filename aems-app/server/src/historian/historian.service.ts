@@ -1195,7 +1195,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         system,
         metric,
         data: [],
-        metadata: { topics, errors, binning, aggregation: effectiveBucketAgg, ...displayMeta },
+        metadata: { topics, errors, binning, aggregation: crossSystemAggregation, ...displayMeta },
       };
     }
 
@@ -1210,7 +1210,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           system,
           metric,
           data: [],
-          metadata: { topics, errors, binning, aggregation: effectiveBucketAgg, ...displayMeta },
+          metadata: { topics, errors, binning, aggregation: crossSystemAggregation, ...displayMeta },
         };
       }
 
@@ -1263,7 +1263,7 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
           topics,
           errors,
           binning,
-          aggregation: effectiveBucketAgg,
+          aggregation: crossSystemAggregation,
           ...displayMeta,
         },
       };
