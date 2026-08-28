@@ -201,6 +201,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.services.server.loadbalancer.server.port=3000
+      - traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https,wss
       - traefik.http.middlewares.server-security.headers.browserXssFilter=true
       - traefik.http.middlewares.server-security.headers.contentTypeNosniff=true
       - traefik.http.middlewares.server-security.headers.forceSTSHeader=true
@@ -214,7 +215,7 @@ services:
       - traefik.http.middlewares.server-https.redirectscheme.scheme=https
       - traefik.http.routers.server.entrypoints=websecure
       - traefik.http.routers.server.rule=Host(`${APP_HOSTNAME}`) && (PathPrefix(`/authjs`) || PathPrefix(`/graphql`) || PathPrefix(`/api`) || PathPrefix(`/ext`))
-      - traefik.http.routers.server.middlewares=server-security
+      - traefik.http.routers.server.middlewares=server-security,sslheader
       - traefik.http.routers.server.tls=true
       - traefik.http.routers.server.tls.certresolver=${CERT_RESOLVER}
     read_only: true
