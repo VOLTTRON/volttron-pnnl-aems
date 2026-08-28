@@ -1144,6 +1144,137 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Aggregate one unit metric across all systems on a site into a single
+   * time series. Two-level SQL: bucket per topic with `bucketAggregation`
+   * (defaults to the metric's mapping default), then aggregate across topics
+   * per bucket with `crossSystemAggregation`. Optional `excludeSystem` drops
+   * one system (case-insensitive) — used by the RTU dashboard so its own
+   * sensor doesn't skew the site median.
+   */
+  async getSiteAggregateUnit(
+    campus: string,
+    building: string,
+    systems: string[],
+    metric: UnitMetric,
+    startTime: Date,
+    endTime: Date,
+    crossSystemAggregation: MetricAggregation,
+    bucketAggregation?: MetricAggregation,
+    interval?: string,
+    excludeSystem?: string,
+  ): Promise<HistorianTimeSeries> {
+    const errors: string[] = [];
+    const topics: Record<string, string> = {};
+
+    const entry = resolveUnitMetricEntry(metric, this.configService.historian.topicMap);
+    const effectiveBucketAgg = bucketAggregation ?? entry.aggregation;
+
+    const includedSystems = excludeSystem
+      ? systems.filter((s) => s.toLowerCase() !== excludeSystem.toLowerCase())
+      : [...systems];
+    const systemTopics: Record<string, string> = {};
+    includedSystems.forEach((sys) => {
+      const path = buildUnitTopicPath(campus, building, sys, metric, this.configService.historian.topicMap);
+      systemTopics[sys] = path;
+      topics[`${sys}.${metric}`] = path;
+    });
+
+    // Cross-system aggregation requires aligned timestamps, so always bin.
+    const resolved = this.resolveBucketing(startTime, endTime, interval ?? undefined);
+    const bucketing =
+      resolved.mode === "binned"
+        ? resolved
+        : { mode: "binned" as const, ...this.deriveBucketInterval(startTime, endTime) };
+    const binning = HistorianService.buildBinningInfo(bucketing);
+    const displayMeta = HistorianService.displayMetadata(entry);
+    const system = "site";
+
+    if (includedSystems.length === 0) {
+      errors.push("No systems available for site aggregation");
+      return {
+        system,
+        metric,
+        data: [],
+        metadata: { topics, errors, binning, aggregation: crossSystemAggregation, ...displayMeta },
+      };
+    }
+
+    try {
+      const pathToId = await this.resolveTopicIds(Object.values(systemTopics));
+      const topicIds = Array.from(pathToId.values());
+      if (topicIds.length === 0) {
+        errors.push(
+          `No topics found for site aggregation in ${campus}/${building} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`,
+        );
+        return {
+          system,
+          metric,
+          data: [],
+          metadata: { topics, errors, binning, aggregation: crossSystemAggregation, ...displayMeta },
+        };
+      }
+
+      const valueExpr = `CAST(NULLIF(value_string, 'null') AS double precision)`;
+      const query = `
+        WITH per_topic AS (
+          SELECT
+            date_bin($4::interval, ts, $1::timestamptz) AS timestamp,
+            topic_id,
+            ${aggregationSql(effectiveBucketAgg, valueExpr)} AS value
+          FROM data
+          WHERE topic_id = ANY($3::int[])
+            AND ts >= $1
+            AND ts <= $2
+          GROUP BY 1, 2
+        )
+        SELECT
+          timestamp,
+          ${aggregationSql(crossSystemAggregation, "value", "timestamp")} AS value
+        FROM per_topic
+        WHERE value IS NOT NULL
+        GROUP BY timestamp
+        ORDER BY timestamp
+      `;
+      const result = await this.pool.query<{ timestamp: Date | string; value: number | string | null }>(query, [
+        startTime,
+        endTime,
+        topicIds,
+        bucketing.sql,
+      ]);
+
+      if (result.rows.length === 0) {
+        errors.push(
+          `No data found for site aggregation in ${campus}/${building} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`,
+        );
+      }
+
+      const data: HistorianDataPoint[] = result.rows.map((row) => ({
+        timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+        value: applyTransform(HistorianService.toNumber(row.value), entry.transform),
+        system,
+        metric,
+      }));
+
+      return {
+        system,
+        metric,
+        data,
+        metadata: {
+          topics,
+          errors,
+          binning,
+          aggregation: crossSystemAggregation,
+          ...displayMeta,
+        },
+      };
+    } catch (error) {
+      this.logger.error("Error fetching site aggregate data", error);
+      errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  /**
    * Get multi-system data as ranges (optimized for timeline visualizations)
    * Consolidates consecutive identical values into ranges to reduce data transfer
    */

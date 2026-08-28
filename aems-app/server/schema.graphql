@@ -2215,6 +2215,26 @@ type Query {
   """Calculate setpoint error (zone temp - setpoint) for a system"""
   historianSetpointError(building: String!, campus: String!, endTime: DateTime!, startTime: DateTime!, system: String!): HistorianTimeSeries
 
+  """
+  Aggregate a unit metric across all systems on a site into a single time series (two-level bucketing: per-topic bucket, then across-topic aggregation)
+  """
+  historianSiteAggregateUnit(
+    bucketAggregation: MetricAggregation
+    building: String!
+    campus: String!
+    crossSystemAggregation: MetricAggregation!
+    endTime: DateTime!
+
+    """Optional system to exclude from aggregation (case-insensitive)"""
+    excludeSystem: String
+
+    """Optional time interval for grouping"""
+    interval: String
+    metric: UnitMetric!
+    startTime: DateTime!
+    systems: [String!]!
+  ): HistorianTimeSeries
+
   """Get aggregated data for a unit metric"""
   historianUnitAggregated(
     aggregation: AggregationType!
