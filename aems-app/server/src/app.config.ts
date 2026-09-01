@@ -182,6 +182,7 @@ export class AppConfigService {
       start: number;
       unit: ReturnType<typeof toDurationUnit>;
       setpointErrorMinBucket?: string;
+      setpointErrorThresholdPadding: number;
     };
   };
   ext: Record<string, ExtConfig>;
@@ -423,6 +424,7 @@ export class AppConfigService {
         start: parseInt(process.env.HISTORIAN_BINNING_START ?? "48"),
         unit: toDurationUnit(process.env.HISTORIAN_BINNING_UNIT ?? "hours"),
         setpointErrorMinBucket: process.env.HISTORIAN_SETPOINT_ERROR_MIN_BUCKET || undefined,
+        setpointErrorThresholdPadding: parseFloat(process.env.HISTORIAN_SETPOINT_ERROR_THRESHOLD_PADDING ?? "0"),
       },
     };
     this.ext = Object.entries(process.env)

@@ -23,7 +23,13 @@ import styles from "./SiteDashboard.module.scss";
 import { typeofString } from "@local/common";
 import { BuildingPowerChart } from "./BuildingPowerChart";
 import { Palettes } from "@/utils/palette";
-import { compilePreferences, PreferencesContext, CurrentContext, useResolvedTimezone } from "@/app/components/providers";
+import {
+  compilePreferences,
+  PreferencesContext,
+  CurrentContext,
+  ConfigContext,
+  useResolvedTimezone,
+} from "@/app/components/providers";
 import { formatDate } from "@/utils/date";
 import { optimizeSystemNames } from "@/utils/systemNameOptimizer";
 import { useMetricColors } from "@/utils/metricColors";
@@ -85,6 +91,8 @@ export function SiteDashboard({
   // Get user palette preferences
   const { preferences } = React.useContext(PreferencesContext);
   const { current } = React.useContext(CurrentContext);
+  const { config } = React.useContext(ConfigContext);
+  const setpointErrorPadding = config?.setpointErrorThresholdPadding ?? 0;
   const resolvedTz = useResolvedTimezone();
   const timeAxisFormatter = React.useMemo(() => makeTimeAxisFormatter(resolvedTz), [resolvedTz]);
   const { palette1, palette2, palette3, paletteWarm, paletteCool } = compilePreferences(
@@ -247,10 +255,11 @@ export function SiteDashboard({
     return unknownState;
   };
 
-  // Setpoint error bins. The server forces any zone temp inside the
-  // deadband [heat, cool] to a raw error of exactly 0, so Optimal is the
-  // single value 0. Remaining bins span 1°F outward from the deadband
-  // boundary in each direction.
+  // Zone comfort bins. The server forces any zone temp inside the deadband
+  // [heat, cool] to a raw error of exactly 0, so at padding=0 Optimal is the
+  // single value 0. The deployment-wide padding widens Optimal to
+  // |error| <= padding and pushes each outer boundary outward by the same
+  // amount, so a system doesn't churn between bins on sub-degree noise.
   const setpointErrorBins: Array<{ label: string; color: string }> = [
     { label: "Very Cold", color: primaryPalette.primary.hex },
     { label: "Cold", color: primaryPalette.secondary.hex },
@@ -260,15 +269,21 @@ export function SiteDashboard({
     { label: "Warm", color: secondaryPalette.secondary.hex },
     { label: "Very Warm", color: secondaryPalette.primary.hex },
   ];
+  const optimalThreshold = setpointErrorPadding;
+  const slightThreshold = 1 + setpointErrorPadding;
+  const outerThreshold = 2 + setpointErrorPadding;
   const getSetpointErrorState = (errorValue: number | null | undefined) => {
     if (errorValue == null || !Number.isFinite(errorValue)) return unknownState;
-    if (errorValue === 0) return setpointErrorBins[3];
-    if (errorValue < -2) return setpointErrorBins[0];
-    if (errorValue < -1) return setpointErrorBins[1];
-    if (errorValue < 0) return setpointErrorBins[2];
-    if (errorValue <= 1) return setpointErrorBins[4];
-    if (errorValue <= 2) return setpointErrorBins[5];
-    return setpointErrorBins[6];
+    const abs = errorValue < 0 ? -errorValue : errorValue;
+    if (abs <= optimalThreshold) return setpointErrorBins[3];
+    if (errorValue < 0) {
+      if (abs > outerThreshold) return setpointErrorBins[0];
+      if (abs > slightThreshold) return setpointErrorBins[1];
+      return setpointErrorBins[2];
+    }
+    if (abs > outerThreshold) return setpointErrorBins[6];
+    if (abs > slightThreshold) return setpointErrorBins[5];
+    return setpointErrorBins[4];
   };
 
   // Format a duration in ms using the highest-level unit (and the next one
@@ -617,7 +632,7 @@ export function SiteDashboard({
               loading={setpointErrorLoading}
               option={{
                 animation: false,
-                title: { text: "Occupancy Setpoint Error" },
+                title: { text: "Zone Comfort" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 toolbox: {
                   feature: buildRollupToolboxFeature(setpointRolledUp, () =>

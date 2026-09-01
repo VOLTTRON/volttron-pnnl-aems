@@ -11,12 +11,18 @@ export class ConfigQuery {
     @Inject(AppConfigService.Key) configService: AppConfigService,
   ) {
     const ServerConfigRef = builder
-      .objectRef<{ serviceOverride: boolean; holidaySchedule: boolean; location: string }>("ServerConfig")
+      .objectRef<{
+        serviceOverride: boolean;
+        holidaySchedule: boolean;
+        location: string;
+        setpointErrorThresholdPadding: number;
+      }>("ServerConfig")
       .implement({
         fields: (t) => ({
           serviceOverride: t.exposeBoolean("serviceOverride"),
           holidaySchedule: t.exposeBoolean("holidaySchedule"),
           location: t.exposeString("location"),
+          setpointErrorThresholdPadding: t.exposeFloat("setpointErrorThresholdPadding"),
         }),
       });
 
@@ -28,6 +34,7 @@ export class ConfigQuery {
           serviceOverride: configService.service.config.serviceOverride,
           holidaySchedule: configService.service.config.holidaySchedule,
           location: configService.volttron.timezone,
+          setpointErrorThresholdPadding: configService.historian.binning.setpointErrorThresholdPadding,
         }),
       }),
     );

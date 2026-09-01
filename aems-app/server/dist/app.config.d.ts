@@ -120,6 +120,7 @@ export declare class AppConfigService {
             start: number;
             unit: ReturnType<typeof toDurationUnit>;
             setpointErrorMinBucket?: string;
+            setpointErrorThresholdPadding: number;
         };
     };
     ext: Record<string, ExtConfig>;
