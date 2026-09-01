@@ -92,7 +92,7 @@ export class SyntheticHistorianWriter implements OnModuleDestroy {
     let count = 0;
     try {
       const stream = client.query(copyFrom(`COPY data (ts, topic_id, value_string) FROM STDIN`));
-      const source = Readable.from(this.encodeSamples(topicId, samples, (n) => count++));
+      const source = Readable.from(this.encodeSamples(topicId, samples, () => count++));
       await pipeline(source, stream);
     } finally {
       client.release();

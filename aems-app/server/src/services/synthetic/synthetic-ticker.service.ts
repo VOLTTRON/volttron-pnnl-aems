@@ -19,7 +19,7 @@ export class SyntheticTickerService implements OnModuleInit, OnModuleDestroy {
     private readonly synthetic: SyntheticService,
   ) {}
 
-  async onModuleInit(): Promise<void> {
+  onModuleInit(): void {
     const { ticker, tickSeconds } = this.configService.service.synthetic;
     if (!ticker) return;
     if (this.configService.instanceName === "Schema") return;
@@ -67,7 +67,7 @@ export class SyntheticTickerService implements OnModuleInit, OnModuleDestroy {
 
       const ts = new Date();
       ts.setSeconds(0, 0);
-      const values = await this.synthetic.collectTickValues(this.registry, ts);
+      const values = this.synthetic.collectTickValues(this.registry, ts);
       await this.writer.tickInsert(ts, values);
     } catch (err) {
       this.logger.warn(`Synthetic tick failed: ${err instanceof Error ? err.message : String(err)}`);

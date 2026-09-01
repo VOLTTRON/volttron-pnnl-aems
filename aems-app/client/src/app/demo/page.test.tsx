@@ -69,7 +69,9 @@ describe("Demo page", () => {
   });
 
   it("renders without crashing", async () => {
-    renderPage();
+    await act(async () => {
+      renderPage();
+    });
     await waitFor(() => expect(mockFindBooks).toHaveBeenCalled());
   });
 
