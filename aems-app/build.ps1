@@ -94,6 +94,17 @@ try {
     }
     else {
         Write-Host "Prisma: Applying migrations..." -ForegroundColor Blue
+        # Prisma reads DATABASE_URL from process.env first and only falls back
+        # to prisma/.env if that variable is unset. If the caller's shell has
+        # DATABASE_URL set to anything else (a leftover from docker compose,
+        # a previous script, or a system-wide env), prisma fails validation
+        # with P1012 "URL must start with the protocol postgresql://" before
+        # ever reading .env. Unset the ambient values so migrate:deploy
+        # always reads the workspace .env authoritatively.
+        $PrevDatabaseUrl = $env:DATABASE_URL
+        $PrevDirectUrl = $env:DIRECT_URL
+        Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+        Remove-Item Env:DIRECT_URL -ErrorAction SilentlyContinue
         try {
             yarn migrate:deploy
             Write-Host "Prisma: Migrations applied successfully!" -ForegroundColor Green
@@ -101,6 +112,10 @@ try {
         catch {
             Write-Host "Prisma: Migration failed with error: $($_.Exception.Message)" -ForegroundColor Yellow
             # Continue with the build process even if migrations fail
+        }
+        finally {
+            if ($null -ne $PrevDatabaseUrl) { $env:DATABASE_URL = $PrevDatabaseUrl }
+            if ($null -ne $PrevDirectUrl) { $env:DIRECT_URL = $PrevDirectUrl }
         }
     }
 

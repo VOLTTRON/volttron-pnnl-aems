@@ -55,7 +55,14 @@ Also updated caniuse-lite via `npx update-browserslist-db@latest` to silence the
 
 Full `./build.sh` runs end-to-end with no errors, no warnings from our code (only Node's own `NODE_TLS_REJECT_UNAUTHORIZED` breadcrumb, which is user local-dev config, not something we control). All workspaces pass `yarn check`, `yarn lint`, and `yarn test`.
 
+### Pass 4 — DATABASE_URL protocol error (user reported still occurring)
+
+Initially assumed the DATABASE_URL P1012 error was a one-off shell override. User reported it still fires during `build.ps1`. Reproduced by setting `DATABASE_URL='junk-from-shell'` in the shell env — Prisma's dotenv only fills in values NOT already in `process.env`, so any ambient `DATABASE_URL` short-circuits `prisma/.env` and fails schema validation.
+
+Root cause: `process.env` takes precedence over `.env` in Prisma's config loader. If the caller's shell has `DATABASE_URL` set to anything invalid (docker compose leftover, previous script, system-wide env), `prisma migrate deploy` fails before ever reading the workspace `.env`.
+
+Fix: unset `DATABASE_URL` (and `DIRECT_URL` for good measure) around the `yarn migrate:deploy` call in [aems-app/build.ps1](aems-app/build.ps1) (via `Remove-Item Env:...` + `try/finally` restore) and in [aems-app/build.sh](aems-app/build.sh) (via a subshell `unset` — the caller's env is untouched). Verified: with `DATABASE_URL='junk-from-shell'` set in the ambient PowerShell env, `.\build.ps1 -d` now completes successfully and applies migrations; the ambient value is preserved after the script exits.
+
 ## Notes on issues not fixed
 
-- **Prisma migration `DATABASE_URL` protocol error** in the original build log — could not reproduce in this session (`yarn migrate:deploy` from `prisma/` connected fine). Almost certainly a transient shell env override on that specific run; not a code defect.
 - **`NODE_TLS_REJECT_UNAUTHORIZED='0'` warning** — set intentionally by `client/.env.local` for local dev against self-signed certs. Node prints the warning any time the flag is 0; suppressing it would require disabling the local-dev workflow. Left as-is.

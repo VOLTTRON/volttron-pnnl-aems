@@ -145,7 +145,15 @@ if [[ "$SKIP_MIGRATIONS" == "true" ]]; then
     print_yellow "Prisma: Skipping migrations as requested."
 else
     print_blue "Prisma: Applying migrations..."
-    if yarn migrate:deploy; then
+    # Prisma reads DATABASE_URL from process.env first and only falls back to
+    # prisma/.env if that variable is unset. If the caller's shell has
+    # DATABASE_URL set to anything else (a leftover from docker compose, a
+    # previous script, or a system-wide env), prisma fails validation with
+    # P1012 "URL must start with the protocol postgresql://" before ever
+    # reading .env. Run migrate:deploy in a subshell with DATABASE_URL /
+    # DIRECT_URL unset so it always reads the workspace .env authoritatively;
+    # the caller's environment is untouched.
+    if (unset DATABASE_URL DIRECT_URL && yarn migrate:deploy); then
         print_green "Prisma: Migrations applied successfully!"
     else
         print_yellow "Prisma: Migration failed, but continuing with build process..."
