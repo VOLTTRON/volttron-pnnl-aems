@@ -30,6 +30,6 @@ export declare class SyntheticService extends BaseService {
     private iterateWeather;
     private iterateMeter;
     private iterateUnit;
-    collectTickValues(registry: TopicRegistry, ts: Date): Promise<[number, number][]>;
+    collectTickValues(registry: TopicRegistry, ts: Date): [number, number][];
     loadRegistry(): Promise<TopicRegistry | null>;
 }

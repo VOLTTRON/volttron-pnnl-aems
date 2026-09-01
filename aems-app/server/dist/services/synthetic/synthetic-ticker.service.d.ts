@@ -12,7 +12,7 @@ export declare class SyntheticTickerService implements OnModuleInit, OnModuleDes
     private busy;
     private stopped;
     constructor(configService: AppConfigService, writer: SyntheticHistorianWriter, synthetic: SyntheticService);
-    onModuleInit(): Promise<void>;
+    onModuleInit(): void;
     onModuleDestroy(): void;
     private scheduleNext;
     private runTick;

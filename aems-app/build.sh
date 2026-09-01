@@ -92,6 +92,25 @@ clean_portal_links() {
     fi
 }
 
+# Refresh ./node_modules/.prisma/client from the prisma workspace's freshly
+# generated copy. Node runs each downstream workspace with
+# --preserve-symlinks (set via NODE_OPTIONS in that workspace's .env), which
+# means `require('.prisma/client/default')` from the portalled @prisma/client
+# entry resolves against THIS workspace's node_modules rather than following
+# the portal back to prisma/. Without this refresh, a stale local copy shadows
+# the freshly generated one and downstream code crashes on symbols added since
+# it was last generated — e.g. `Object.values(BackupDestinationType)` throws
+# "Cannot convert undefined or null to object" during schema compile.
+sync_prisma_client() {
+    local target="./node_modules/.prisma"
+    local source="${STARTING_PATH}/prisma/node_modules/.prisma/client"
+    if [[ -d "$source" ]]; then
+        rm -rf "$target/client"
+        mkdir -p "$target"
+        cp -R "$source" "$target/client"
+    fi
+}
+
 # Set up error handling
 set -e
 trap on_failure ERR
@@ -152,6 +171,8 @@ if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
     yarn install
 fi
 
+sync_prisma_client
+
 print_cyan "Common: Building module..."
 yarn build
 
@@ -176,6 +197,8 @@ if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
     yarn install
 fi
 
+sync_prisma_client
+
 print_cyan "Server: Building module..."
 yarn build
 
@@ -199,6 +222,8 @@ if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
     clean_portal_links
     yarn install
 fi
+
+sync_prisma_client
 
 print_cyan "Client: Building module..."
 yarn build

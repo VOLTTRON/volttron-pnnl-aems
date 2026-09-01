@@ -44,6 +44,29 @@ function Clear-PortalLinks {
     }
 }
 
+# Refresh ./node_modules/.prisma/client from the prisma workspace's freshly
+# generated copy. Node runs each downstream workspace with
+# --preserve-symlinks (set via NODE_OPTIONS in that workspace's .env), which
+# means `require('.prisma/client/default')` from the portalled @prisma/client
+# entry resolves against THIS workspace's node_modules rather than following
+# the portal back to prisma/. Without this refresh, a stale local copy shadows
+# the freshly generated one and downstream code crashes on symbols added since
+# it was last generated — e.g. `Object.values(BackupDestinationType)` throws
+# "Cannot convert undefined or null to object" during schema compile.
+function Sync-PrismaClient {
+    $Target = "./node_modules/.prisma"
+    $Source = Join-Path $StartingPath "prisma/node_modules/.prisma/client"
+    if (Test-Path -Path $Source -PathType Container) {
+        if (Test-Path -Path "$Target/client") {
+            Remove-Item -Recurse -Force "$Target/client"
+        }
+        if (-not (Test-Path -Path $Target)) {
+            New-Item -ItemType Directory -Path $Target | Out-Null
+        }
+        Copy-Item -Recurse -Force $Source "$Target/client"
+    }
+}
+
 Write-Host "Updating dependencies and building all modules in the monorepo..." -ForegroundColor Blue
 
 try {
@@ -96,6 +119,7 @@ try {
         Clear-PortalLinks
         yarn install
     }
+    Sync-PrismaClient
     Write-Host "Common: Building module..." -ForegroundColor Cyan
     yarn build
     Write-Host "Common: Build completed successfully!" -ForegroundColor Green
@@ -115,6 +139,7 @@ try {
         Clear-PortalLinks
         yarn install
     }
+    Sync-PrismaClient
     Write-Host "Server: Building module..." -ForegroundColor Cyan
     yarn build
     Write-Host "Server: Build completed successfully!" -ForegroundColor Green
@@ -134,6 +159,7 @@ try {
         Clear-PortalLinks
         yarn install
     }
+    Sync-PrismaClient
     Write-Host "Client: Building module..." -ForegroundColor Cyan
     yarn build
     Write-Host "Client: Build completed successfully!" -ForegroundColor Green
