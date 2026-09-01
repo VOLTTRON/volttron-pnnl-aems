@@ -69,9 +69,8 @@ describe("Demo page", () => {
   });
 
   it("renders without crashing", async () => {
-    await act(async () => {
-      renderPage();
-    });
+    renderPage();
+    await waitFor(() => expect(mockFindBooks).toHaveBeenCalled());
   });
 
   it("renders all section headings", async () => {

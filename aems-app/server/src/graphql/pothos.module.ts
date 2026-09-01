@@ -42,9 +42,6 @@ export class PothosGraphQLModule {
         "graphql-ws": {
           path: "/graphql",
         },
-        "subscriptions-transport-ws": {
-          path: "/graphql",
-        },
       },
     });
 
@@ -78,7 +75,9 @@ export class PothosGraphQLModule {
           driver: PothosApolloDriverWrapper,
           imports: [AuthModule, FrameworkModule.register()],
           inject: [WebSocketAuthService, AppConfigService.Key],
-          useFactory: (wsAuthService: WebSocketAuthService, configService: AppConfigService) => ({
+          useFactory: (wsAuthService: WebSocketAuthService, configService: AppConfigService) => {
+            const wsLogger = new InfoLogger(`${PothosGraphQLModule.name}:ws`);
+            return ({
             context: ({
               req,
               extra,
@@ -111,71 +110,40 @@ export class PothosGraphQLModule {
               "graphql-ws": {
                 path: "/graphql",
                 onConnect: async (context: any) => {
-                  // CRITICAL: This is where we properly authenticate WebSocket connections
-                  // This runs during the connection_init phase, BEFORE any subscriptions are created
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                   const { extra } = context;
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                   const request = extra?.request as IncomingMessage | undefined;
 
-                  if (request) {
-                    try {
-                      // Authenticate the WebSocket connection
-                      const user = await wsAuthService.authenticateWebSocket(request as Request);
-
-                      // Store user on the socket for later context access
-                      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                      if (extra?.socket) {
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                        extra.socket.user = user;
-                      }
-
-                      // Also store on request for fallback
-                      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                      (request as any).user = user;
-
-                      return true; // Allow connection
-                    } catch (error) {
-                      console.error("WebSocket authentication error in onConnect:", error);
-                      return false;
-                    }
+                  if (!request) {
+                    wsLogger.warn("Rejecting WS connect: no upgrade request on extra");
+                    return false;
                   }
 
-                  return false;
-                },
-              },
-              "subscriptions-transport-ws": {
-                path: "/graphql",
-                onConnect: async (_connectionParams: any, _websocket: any, context: any) => {
-                  // Legacy protocol support with same authentication logic
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                  const request = context?.request as IncomingMessage | undefined;
-
-                  if (request) {
-                    try {
-                      const user = await wsAuthService.authenticateWebSocket(request as Request);
+                  try {
+                    const user = await wsAuthService.authenticateWebSocket(request as Request);
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    if (extra?.socket) {
                       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                      (request as any).user = user;
-                      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                      if (context?.socket) {
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                        context.socket.user = user;
-                      }
-                      return { user }; // Return connection context
-                    } catch (error) {
-                      console.error("WebSocket authentication error in onConnect (legacy):", error);
-                      return false;
+                      extra.socket.user = user;
                     }
+                    (request as any).user = user;
+                    // Anonymous connects are allowed here; per-subscription scope-auth
+                    // enforces authentication at operation time.
+                    wsLogger.log(user ? `WS connect: user=${(user as any).id ?? "?"}` : "WS connect: anonymous");
+                    return true;
+                  } catch (error) {
+                    wsLogger.warn(`WS authenticateWebSocket threw: ${(error as Error)?.message ?? error}`);
+                    return false;
                   }
-
-                  return false;
                 },
               },
             },
             ...Object.fromEntries(
               Object.entries(moduleOptionsFactory(configService)).filter(([k]) => !["sortSchema", "autoSchemaFile", "subscriptions"].includes(k))
             ),
-          }),
+          });
+          },
         }),
       ],
     };
