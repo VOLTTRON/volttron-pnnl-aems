@@ -100,11 +100,10 @@ if [[ "$DRY_RUN" != "true" && "$FORCE" != "true" ]]; then
     fi
 fi
 
-# Invoke the image-baked repair script
-DOCKER_ARGS=(exec -i "$TARGET_CONTAINER" /usr/local/bin/repair-replication.sh)
-if [[ "$DRY_RUN" == "true" ]]; then
-    DOCKER_ARGS+=(--dry-run)
-fi
+# Disable Git-Bash / MSYS automatic POSIX-to-Windows path conversion so
+# in-container absolute paths like /usr/local/bin/... are not rewritten to
+# C:/Program Files/Git/usr/local/bin/... before docker exec sees them.
+export MSYS_NO_PATHCONV=1
 
 # Fall back to a helpful message if the image predates the baked-in script.
 if ! docker exec "$TARGET_CONTAINER" test -x /usr/local/bin/repair-replication.sh 2>/dev/null; then
@@ -114,6 +113,11 @@ if ! docker exec "$TARGET_CONTAINER" test -x /usr/local/bin/repair-replication.s
     exit 1
 fi
 
-docker "${DOCKER_ARGS[@]}"
+# Invoke the image-baked repair script
+if [[ "$DRY_RUN" == "true" ]]; then
+    docker exec -i "$TARGET_CONTAINER" /usr/local/bin/repair-replication.sh --dry-run
+else
+    docker exec -i "$TARGET_CONTAINER" /usr/local/bin/repair-replication.sh
+fi
 
 print_green "Done."

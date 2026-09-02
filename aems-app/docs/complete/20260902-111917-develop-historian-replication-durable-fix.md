@@ -59,9 +59,31 @@ Entries appended below as each layer completes or fails.
   - "Resetting Wedged Replication" rewritten to split publisher-side (`repair-historian-replication.sh`) from subscriber-side (`fix-replication.sql`) recovery, and corrected the incorrect claim that `fix-replication.sql` recreates the publication.
 - [aems-app/README.md](../../../README.md): troubleshooting section (publication does not exist / no tables published / `schema "..." does not exist`) rewritten to point at the new repair wrapper.
 
+### 20260902 — End-to-end testing in local dev environment
+
+Rebuilt the historian image and exercised the full flow against a running container.
+
+**Bugs found and fixed during testing:**
+
+1. **`repair-replication.sh` had no way to authenticate to psql inside the container.** `pg_hba.conf` requires `scram-sha-256` even for local socket connections as the `historian` user (only `postgres` has `local peer` auth), so `psql -U ${POSTGRES_USER}` failed with `password authentication failed`. Fix: source the mounted `/run/secrets/historian_database_password` into `PGPASSWORD` at the top of the script, with a `POSTGRES_PASSWORD` env fallback.
+
+2. **User-facing wrapper broke on Git Bash / MSYS.** `docker exec $CT test -x /usr/local/bin/repair-replication.sh` gets its container-side path rewritten to `C:/Program Files/Git/usr/local/bin/...` before docker sees it, so the presence check always fails and the wrapper aborts with a misleading "script missing" message. Fix: `export MSYS_NO_PATHCONV=1` in the wrapper before invoking docker exec.
+
+**Test results:**
+
+- **Broken deployment simulation.** Started with a pre-existing volume that had `historian_pub` as `FOR ALL TABLES` and a leaked `migration_stage` schema (3 tables visible in `pg_publication_tables`, 2 additional UNLOGGED tables skipped from the view but still present as objects). `./repair-historian-replication.sh --dry-run` correctly reported: `puballtables=true`, `5 tables in publication (3 non-public)`, `migration_stage: present`. `./repair-historian-replication.sh --yes` rebuilt the publication (post-state: `puballtables=f`, 2 tables in publication, both `public`), dropped `migration_stage` (5 cascaded object drops), re-applied grants, no orphan slots.
+
+- **Idempotency.** Re-ran `--dry-run` on the healthy deployment: reported `publication scope already correct — no publication change`. Re-ran the full repair with `--yes`: state unchanged, no publication rebuild, `migration_stage` still absent. Safe as a routine operator action.
+
+- **Fresh init.** Removed the `aems_historian-data` volume and recreated the container. `setup-replication.sh` ran during init and produced a publication with `puballtables=false`, `pg_publication_namespace` covering `public`, and zero tables (VOLTTRON hadn't populated `data`/`topics` yet — this is the expected "empty publication" state, distinct from the broken "empty publication" case).
+
+- **Leak resistance.** On the fresh instance, created `public.topics`, `public.data`, and `migration_stage.foo`. Publication auto-included both public tables and correctly excluded `migration_stage.foo`. Confirms the durable fix by construction.
+
+- **Auto-drop SQL.** Executed the `DROP SCHEMA IF EXISTS migration_stage CASCADE` statement that `migrate-historian-data.sh` will run on success against a container with `migration_stage.foo`: dropped cleanly with a `NOTICE: drop cascades to table migration_stage.foo`.
+
 ### 20260902 — Complete
 
-All plan items applied. Server `yarn check` passes. No prisma/common/client/graphql changes; no migrations. Log file moved to `docs/complete/`.
+All plan items applied and tested end-to-end in the local Docker dev environment. Server `yarn check` passes. No prisma/common/client/graphql changes; no migrations. Log file moved to `docs/complete/`.
 
 Deferred / separate concerns noted (not implemented):
 - Adding a Traefik-level `ipAllowList` middleware to [aems-app/docker/proxy/historian-tcp.yml](../../docker/proxy/historian-tcp.yml) so the recommended proxy path actually enforces subscriber CIDR restrictions. The deployment guide now warns operators that pg_hba edits are inoperative on this path; the durable fix is a separate task.

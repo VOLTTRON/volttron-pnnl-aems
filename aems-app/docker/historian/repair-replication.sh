@@ -59,6 +59,18 @@ pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null 2>&1 || {
     exit 1
 }
 
+# Load the database password from the mounted secret so psql can authenticate.
+# pg_hba.conf requires scram-sha-256 even for local socket connections as the
+# historian user (only 'postgres' has local peer auth).
+if [ -s "/run/secrets/historian_database_password" ]; then
+    export PGPASSWORD="$(cat /run/secrets/historian_database_password)"
+elif [ -n "${POSTGRES_PASSWORD:-}" ]; then
+    export PGPASSWORD="${POSTGRES_PASSWORD}"
+else
+    echo "ERROR: no database password available (/run/secrets/historian_database_password missing and POSTGRES_PASSWORD unset)." >&2
+    exit 1
+fi
+
 # --- Diagnose current state --------------------------------------------------
 
 DIAG=$(psql -X -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -tA <<'SQL'
