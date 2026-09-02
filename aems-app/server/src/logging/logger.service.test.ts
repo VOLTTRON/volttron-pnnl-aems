@@ -3,11 +3,6 @@ import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
 import { AppLoggerService } from "./logging.service";
 
-// Silence ConsoleLogger output during tests
-jest.spyOn(console, "log").mockImplementation(() => {});
-jest.spyOn(console, "warn").mockImplementation(() => {});
-jest.spyOn(console, "error").mockImplementation(() => {});
-
 function makeConfig(): AppConfigService {
   return {
     log: {
@@ -71,11 +66,14 @@ describe("PrismaLogger", () => {
     );
   });
 
-  it("does not throw when the database write fails", async () => {
+  it("does not throw when the database write fails, and logs the failure to console.error", async () => {
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const prisma = makePrisma();
-    (prisma.prisma.log.create as jest.Mock).mockRejectedValue(new Error("DB down"));
+    const dbError = new Error("DB down");
+    (prisma.prisma.log.create as jest.Mock).mockRejectedValue(dbError);
     const logger = new PrismaLogger(makeConfig(), prisma, makeLoggerService());
     expect(() => logger.log("message")).not.toThrow();
     await new Promise((r) => setTimeout(r, 20));
+    expect(consoleErrorSpy).toHaveBeenCalledWith("Failed to log to database", dbError);
   });
 });
