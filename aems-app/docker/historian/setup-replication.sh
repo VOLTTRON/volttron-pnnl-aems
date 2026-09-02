@@ -98,11 +98,13 @@ psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" 
     END
     \$\$;
 
-    -- Create publication for all tables in the database
+    -- Create publication scoped to the public schema. Excludes staging schemas
+    -- (e.g. migration_stage from migrate-historian-data.sh) that would otherwise
+    -- break subscriber initial-sync with "schema does not exist" errors.
     DO \$\$
     BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'historian_pub') THEN
-            CREATE PUBLICATION historian_pub FOR ALL TABLES;
+            CREATE PUBLICATION historian_pub FOR TABLES IN SCHEMA public;
         END IF;
     END
     \$\$;

@@ -2432,43 +2432,6 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private async ensureTablesInPublication(): Promise<void> {
-    try {
-      const tableCheckQuery = `
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-          AND table_name IN ('data', 'topics')
-      `;
-      const tableResult = await this.pool.query<{ table_name: string }>(tableCheckQuery);
-      const existingTables = tableResult.rows.map((row) => row.table_name);
-
-      if (existingTables.length === 0) {
-        this.logger.debug("No historian tables exist yet");
-        return;
-      }
-
-      const pubTablesQuery = `
-        SELECT tablename 
-        FROM pg_publication_tables 
-        WHERE pubname = 'historian_pub'
-      `;
-      const pubTablesResult = await this.pool.query<{ tablename: string }>(pubTablesQuery);
-      const publishedTables = pubTablesResult.rows.map((row) => row.tablename);
-
-      const missingTables = existingTables.filter((table) => !publishedTables.includes(table));
-
-      if (missingTables.length > 0) {
-        for (const table of missingTables) {
-          const addTableQuery = `ALTER PUBLICATION historian_pub ADD TABLE ${table}`;
-          await this.pool.query(addTableQuery);
-        }
-      }
-    } catch (error) {
-      this.logger.error("Error ensuring tables in publication", error);
-    }
-  }
-
   async getSystemPublishingStatus(): Promise<SystemPublishingStatus[]> {
     try {
       const validCampuses = new Set(["PNNL", "CAMPUS2", "CAMPUS3"]);
@@ -2546,8 +2509,6 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 
   async getReplicationInfo(): Promise<HistorianReplicationInfo> {
     try {
-      await this.ensureTablesInPublication();
-
       const pubQuery = `
         SELECT 
           p.pubname,

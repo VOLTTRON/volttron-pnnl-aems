@@ -34,6 +34,10 @@ jest.mock("../components/common/map", () => ({
   GeographyPicker: () => null,
 }));
 
+// Load the page (and its transitive imports) once at file scope so ts-jest transformation
+// and coverage instrumentation happen during setup, not inside the first `it`'s timeout budget.
+import Page from "./page";
+
 const mockCreateLoading = jest.fn();
 const mockClearLoading = jest.fn();
 const mockCreateNotification = jest.fn();
@@ -50,7 +54,6 @@ const mockBook = {
 };
 
 function renderPage() {
-  const Page = require("./page").default;
   return render(
     <LoadingContext.Provider
       value={{ createLoading: mockCreateLoading, clearLoading: mockClearLoading }}

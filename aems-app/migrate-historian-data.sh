@@ -143,9 +143,10 @@ Examples:
 RESUMABILITY:
   Progress is checkpointed per chunk in migration_stage.progress on the target.
   Ctrl-C at any time is safe; re-run the script (with --skip-export --dump-file to
-  avoid re-dumping) to pick up from the first incomplete chunk. The staging schema
-  is intentionally NOT dropped on exit; drop it manually once you're happy with
-  the migration (the script prints the command at the end).
+  avoid re-dumping) to pick up from the first incomplete chunk. On an incomplete
+  run the staging schema is retained so a resume can find its progress checkpoints.
+  On a successful run, the staging schema is dropped automatically at the end
+  (opt out with --keep-staging).
 
 AFTER MIGRATION:
   Once migration is complete and verified, both services can continue running.
@@ -523,11 +524,13 @@ cleanup() {
         log_info "Preserving dump file at: $DUMP_FILE"
     fi
 
-    # If exiting with a preserved dump (--keep-dump or --dump-file) and NOT after
-    # a successful migration, tell the operator the exact resume incantation.
-    # In --dedup-only mode we never touch the staging schema, so skip both hints.
-    if [ "$DEDUP_ONLY" != true ]; then
-        if [ "$MIGRATION_OK" != true ] && [ -f "${DUMP_FILE:-/nonexistent}" ]; then
+    # If exiting BEFORE a successful migration, the staging schema is intentionally
+    # retained so the operator can resume. Tell them the resume incantation.
+    # In --dedup-only mode we never touch the staging schema, so skip the hint.
+    # After a successful migration the schema is dropped in the success path, so
+    # skip the hint there too.
+    if [ "$DEDUP_ONLY" != true ] && [ "$MIGRATION_OK" != true ]; then
+        if [ -f "${DUMP_FILE:-/nonexistent}" ]; then
             log_info "Staging schema 'migration_stage' is retained on the target."
             log_info "To resume without re-dumping, run:"
             log_info "  ./migrate-historian-data.sh --skip-export --dump-file $DUMP_FILE"
@@ -1409,7 +1412,19 @@ log_info "  Records migrated: $DATA_INSERTED data records, $TOPICS_INSERTED topi
 
 if [ "$KEEP_STAGING" = false ]; then
     echo ""
-    log_info "To reclaim staging space (only after you've verified the migration):"
+    log_info "Dropping staging schema 'migration_stage' on target..."
+    if docker exec -e PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}" "$TARGET_CONTAINER" \
+        psql -U "$TARGET_USER" -d "$TARGET_DB" -v ON_ERROR_STOP=1 \
+        -c "DROP SCHEMA IF EXISTS migration_stage CASCADE;" >> "$LOG_FILE" 2>&1; then
+        log_success "Staging schema dropped"
+    else
+        log_warning "Failed to drop staging schema — drop it manually:"
+        log_warning "  docker exec ${TARGET_CONTAINER} psql -U ${TARGET_USER} -d ${TARGET_DB} \\"
+        log_warning "    -c 'DROP SCHEMA migration_stage CASCADE;'"
+    fi
+else
+    echo ""
+    log_info "--keep-staging: retaining schema 'migration_stage'. Drop it manually when ready:"
     log_info "  docker exec ${TARGET_CONTAINER} psql -U ${TARGET_USER} -d ${TARGET_DB} \\"
     log_info "    -c 'DROP SCHEMA migration_stage CASCADE;'"
 fi

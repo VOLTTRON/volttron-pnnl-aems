@@ -1774,23 +1774,25 @@ WITH (
 
 #### Troubleshooting
 
-**Publication Does Not Exist:**
+**Publication Does Not Exist / Publication Has No Tables / `schema "..." does not exist`:**
 
-If you receive: `WARNING: publication "historian_pub" does not exist on the publisher`
+If you receive any of these on the subscriber:
 
-**Cause:** The publication is created automatically during initial database setup. If your historian database existed before replication support was added, the initialization script was never executed.
+- `WARNING: publication "historian_pub" does not exist on the publisher`
+- `pg_publication_tables` on the publisher returns zero rows for `historian_pub`
+- `ERROR: schema "migration_stage" does not exist (SQL state 3F000)` (or another stray schema) during `CREATE SUBSCRIPTION`
 
-**Solution:**
+**Cause:** The publication is created automatically during initial database setup, but only on fresh `historian-data` volumes. Deployments upgraded in place from before replication support may have no publication; deployments where `migrate-historian-data.sh` ran and left a `migration_stage` schema behind may have a publication that has been mis-scoped to `FOR ALL TABLES` and now leaks staging tables into subscriber initial-sync.
+
+**Solution:** Run the publisher-side repair wrapper from the `aems-app/` directory:
+
 ```bash
-# Verify if publication exists on publisher
-docker exec -it aems-historian psql -U historian -d historian -c "SELECT * FROM pg_publication;"
-
-# If missing, create it manually
-docker exec -it aems-historian psql -U historian -d historian -c "CREATE PUBLICATION historian_pub FOR ALL TABLES;"
-
-# Verify the subscription is now working
-psql -U postgres -d historian -c "SELECT * FROM pg_stat_subscription WHERE subname = 'historian_sub';"
+cd aems-app
+./repair-historian-replication.sh --dry-run   # report current state
+./repair-historian-replication.sh             # apply repair
 ```
+
+It is idempotent — safe on a healthy deployment. Actions inside the historian container: drop `migration_stage` if present, rebuild `historian_pub` as `FOR TABLES IN SCHEMA public` if scope is wrong, re-apply replicator grants and primary-key constraints. After a rebuild, downstream subscribers must drop and recreate their subscriptions.
 
 **Connection Issues:**
 

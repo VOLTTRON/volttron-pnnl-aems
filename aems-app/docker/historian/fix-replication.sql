@@ -1,10 +1,18 @@
 -- ================================================
--- Fix PostgreSQL Logical Replication Issues
+-- Fix PostgreSQL Logical Replication Issues (SUBSCRIBER-side)
 -- ================================================
--- This script fixes the replication error by ensuring the topics table
--- has a PRIMARY KEY and cleaning up the failed subscription.
+-- This script fixes subscriber-side replication issues by ensuring topics
+-- and data have PRIMARY KEYs and cleaning up failed subscriptions.
 --
--- Run this script on the SUBSCRIBER database where the error is occurring.
+-- SCOPE: Run this on the SUBSCRIBER database. It does NOT touch the
+-- publisher's PUBLICATION — despite older docs that said otherwise, this
+-- script never issues DROP/CREATE PUBLICATION.
+--
+-- For PUBLISHER-side issues (missing / empty / FOR ALL TABLES publication,
+-- leaked migration_stage schema) run the publisher-side repair instead:
+--     ./aems-app/repair-historian-replication.sh
+-- which invokes /usr/local/bin/repair-replication.sh inside the historian
+-- container.
 -- ================================================
 
 -- Step 1: Add PRIMARY KEY to topics table if it doesn't exist

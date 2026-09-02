@@ -791,7 +791,7 @@ The publisher is configured automatically. On first boot of the `historian` prof
 
 - Creates a `replicator` Postgres role with read-only `SELECT` grants (no `SUPERUSER`, no `CREATEDB`, no `CREATEROLE`).
 - Adds primary keys to the `data` and `topics` tables if VOLTTRON has not yet created them (primary keys are required for logical replication to handle `UPDATE` operations).
-- Creates a `historian_pub` publication covering all tables in the historian database.
+- Creates a `historian_pub` publication scoped to the `public` schema (VOLTTRON's `data` and `topics`, and any future public-schema tables). Non-public schemas — including staging schemas left behind by `migrate-historian-data.sh` — are deliberately excluded so they cannot break subscriber initial-sync.
 
 No manual run is required. The replicator's password is `HISTORIAN_REPLICATOR_PASSWORD` in [`aems-app/.env.secrets`](../../../aems-app/.env.secrets); set it before first launch.
 
@@ -803,6 +803,8 @@ hostssl historian       replicator      <SUBSCRIBER_IP>/32       scram-sha-256
 ```
 
 `pg_hba.conf` is baked into the historian image, so apply the edit and rebuild with `./start-services.sh`. Also expose the replication port (default `6543/tcp`) on the host firewall to the subscriber IP only; host-firewall configuration is out of scope for this guide.
+
+> **Caveat: `pg_hba.conf` IP restrictions do not apply on the proxy path.** Subscribers connect through Traefik on `HISTORIAN_REPLICATION_PORT` with TLS passthrough. The PostgreSQL backend sees Traefik's Docker-network address (`172.16.0.0/12`) as the client, not the real subscriber IP, and matches the `hostssl replication replicator 172.16.0.0/12` line ahead of any narrowed `0.0.0.0/0` rule. The `pg_hba.conf` edit above only hardens the direct-publish path (`HISTORIAN_DB_PORT`). For real IP-based enforcement over the recommended proxy path, restrict access at the host firewall / cloud security group on `HISTORIAN_REPLICATION_PORT`.
 
 ### Subscriber Side (Remote Host)
 
@@ -1221,14 +1223,26 @@ Direct catalog deletion leaves the publisher's replication slot orphaned — cle
 
 ## Resetting Wedged Replication
 
-If replication becomes stuck after a schema change or after manually deleting historian rows (subscriber lag climbs and never recovers), the repository ships a recovery script at `aems-app/docker/historian/fix-replication.sql` that drops and recreates the publication. The script is not baked into the running container — copy it in and apply it:
+Two failure modes have distinct recovery paths.
+
+**Publisher-side issues** — subscriber reports `ERROR: schema "..." does not exist` on `CREATE SUBSCRIPTION`, or `historian_pub` is missing / covers zero tables / was left as `FOR ALL TABLES` and has picked up stray schemas (`migration_stage`, etc.). Run the publisher-side repair wrapper from the `aems-app/` directory:
 
 ```bash
-docker compose cp docker/historian/fix-replication.sql historian:/tmp/fix-replication.sql
-docker compose exec historian psql -U historian -d historian -f /tmp/fix-replication.sql
+cd aems-app
+./repair-historian-replication.sh --dry-run   # report current state
+./repair-historian-replication.sh             # apply repair
 ```
 
-> **WARNING.** Running `fix-replication.sql` **interrupts every active subscriber**. Every downstream historian will need to re-initialize its subscription (see *Subscriber-Side SQL Setup* above). Use it only after confirming the wedge cannot be cleared by disabling and re-enabling the affected subscription.
+The wrapper invokes the image-baked `/usr/local/bin/repair-replication.sh` inside the historian container. It is idempotent — safe to run against a healthy deployment. Actions: drop `migration_stage` if present, rebuild `historian_pub` as `FOR TABLES IN SCHEMA public` if scope is wrong, re-apply replicator grants and primary-key constraints, print the resulting publication and slot state.
+
+> **WARNING.** Rebuilding the publication **interrupts every active subscriber**. Every downstream historian will need to drop and re-create its subscription (see *Subscriber-Side SQL Setup* above). The dry-run flag reports whether a rebuild will actually happen.
+
+**Subscriber-side issues** — a specific subscription is stuck (missing PKs, subscription-state wedged, worker died). The repository ships `aems-app/docker/historian/fix-replication.sql` for subscriber-side recovery. It adds missing primary keys on `data` / `topics` and drops any `aems_%_sub` subscriptions so they can be recreated. It does **not** touch the publisher's publication. Copy it into the subscriber container and apply it there:
+
+```bash
+docker compose cp aems-app/docker/historian/fix-replication.sql <subscriber-container>:/tmp/fix-replication.sql
+docker compose exec <subscriber-container> psql -U <subscriber-user> -d <subscriber-db> -f /tmp/fix-replication.sql
+```
 
 ## Direct kcadm Recovery
 
