@@ -62,11 +62,16 @@ Subscriber connection:
   --subscriber-sslmode MODE     Default: prefer
 
 Behavior:
+  --subscription-name NAME      Default: historian_sub
+  --slot-name NAME              Default: historian_sub_slot
+                                Use different names when a publisher hosts
+                                multiple subscribers.
   --chunk-interval INTERVAL     Backfill chunk width. Default: '1 week'.
                                 Shrink on unreliable links.
   --start-ts TIMESTAMP          Override backfill window start
                                 (default: MIN(ts) on publisher).
   --skip-schema                 Assume public.data/topics already exist.
+  --skip-subscription           Do not create the subscription (backfill only).
   --verify-only                 Skip DDL/subscription/backfill, only compare counts.
   --dry-run                     Report actions without executing.
   -y, --yes                     Skip interactive confirmation.
@@ -96,9 +101,12 @@ SUB_PW=""
 SUB_PW_FILE=""
 SUB_SSLMODE="prefer"
 
+SUB_NAME="historian_sub"
+SLOT_NAME="historian_sub_slot"
 CHUNK_INTERVAL="1 week"
 START_TS=""
 SKIP_SCHEMA=false
+SKIP_SUBSCRIPTION=false
 VERIFY_ONLY=false
 DRY_RUN=false
 FORCE=false
@@ -120,9 +128,12 @@ while [[ $# -gt 0 ]]; do
         --subscriber-password)      SUB_PW="$2"; shift 2 ;;
         --subscriber-password-file) SUB_PW_FILE="$2"; shift 2 ;;
         --subscriber-sslmode)       SUB_SSLMODE="$2"; shift 2 ;;
+        --subscription-name) SUB_NAME="$2"; shift 2 ;;
+        --slot-name)         SLOT_NAME="$2"; shift 2 ;;
         --chunk-interval)  CHUNK_INTERVAL="$2"; shift 2 ;;
         --start-ts)        START_TS="$2"; shift 2 ;;
         --skip-schema)     SKIP_SCHEMA=true; shift ;;
+        --skip-subscription) SKIP_SUBSCRIPTION=true; shift ;;
         --verify-only)     VERIFY_ONLY=true; shift ;;
         --dry-run)         DRY_RUN=true; shift ;;
         -y|--yes)          FORCE=true; shift ;;
@@ -271,9 +282,13 @@ if [ "$SKIP_SCHEMA" = false ]; then
         if [ "$DRY_RUN" = true ]; then
             log_dry "pg_dump --schema-only -t public.data -t public.topics ... | subscriber psql"
         else
+            # --no-owner / --no-privileges: the subscriber typically doesn't
+            # have the publisher's roles (e.g. 'historian'), so strip
+            # ownership / GRANT statements from the dumped DDL.
             PGPASSWORD="$PUB_PW" pg_dump \
                 -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d "$PUB_DB" \
-                --schema-only -t public.data -t public.topics -t public.topics_topic_id_seq \
+                --schema-only --no-owner --no-privileges \
+                -t public.data -t public.topics -t public.topics_topic_id_seq \
                 | PGPASSWORD="$SUB_PW" psql \
                     -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" \
                     -v ON_ERROR_STOP=1
@@ -316,48 +331,71 @@ fi
 log_success "topics copied"
 
 # ------- STEP 3: SUBSCRIPTION (copy_data=false) --------
-log_info "Step 3: creating/verifying subscription 'historian_sub' with copy_data=false..."
-SUB_EXISTS=$(subscriber_psql -tA -c "SELECT count(*) FROM pg_subscription WHERE subname='historian_sub'")
-if [ "$SUB_EXISTS" = "1" ]; then
-    log_info "Subscription 'historian_sub' already exists — leaving it in place."
-    # Check if the publisher-side slot has been invalidated. If so, we need
-    # to drop + recreate for the re-init flow.
-    SLOT_STATUS=$(publisher_psql -tA -c "SELECT wal_status FROM pg_replication_slots WHERE slot_name='historian_sub_slot'" | xargs)
-    if [ "$SLOT_STATUS" = "lost" ]; then
-        log_warning "Publisher slot historian_sub_slot is invalidated (wal_status=lost)."
-        log_warning "Dropping and recreating the subscription. Historical rows are preserved on the subscriber."
-        if [ "$DRY_RUN" = false ]; then
-            subscriber_psql <<'SQL'
-ALTER SUBSCRIPTION historian_sub DISABLE;
-ALTER SUBSCRIPTION historian_sub SET (slot_name = NONE);
-DROP SUBSCRIPTION historian_sub;
+if [ "$SKIP_SUBSCRIPTION" = true ]; then
+    log_info "Step 3: --skip-subscription, not touching pg_subscription"
+else
+    log_info "Step 3: creating/verifying subscription '$SUB_NAME' with copy_data=false..."
+    SUB_EXISTS=$(subscriber_psql -tA -c "SELECT count(*) FROM pg_subscription WHERE subname='$SUB_NAME'")
+    if [ "$SUB_EXISTS" = "1" ]; then
+        # Check the publisher-side slot: healthy ('reserved'/'extended'), lost
+        # ('unreserved'/'lost'), or missing (empty result). A subscription
+        # whose slot is either lost or missing cannot make progress; re-init.
+        SLOT_STATUS=$(publisher_psql -tA -c "SELECT wal_status FROM pg_replication_slots WHERE slot_name='$SLOT_NAME'" | xargs)
+        case "$SLOT_STATUS" in
+            reserved|extended)
+                log_info "Subscription '$SUB_NAME' already exists and slot is healthy — leaving in place."
+                ;;
+            lost|unreserved)
+                log_warning "Publisher slot $SLOT_NAME is invalidated (wal_status=$SLOT_STATUS)."
+                log_warning "Dropping and recreating the subscription. Historical rows are preserved on the subscriber."
+                if [ "$DRY_RUN" = false ]; then
+                    subscriber_psql <<SQL
+ALTER SUBSCRIPTION $SUB_NAME DISABLE;
+ALTER SUBSCRIPTION $SUB_NAME SET (slot_name = NONE);
+DROP SUBSCRIPTION $SUB_NAME;
 SQL
-            # Drop the invalidated slot on the publisher
-            publisher_psql -c "SELECT pg_drop_replication_slot('historian_sub_slot');" || true
-            SUB_EXISTS=0
-        fi
+                    publisher_psql -c "SELECT pg_drop_replication_slot('$SLOT_NAME');" || true
+                    SUB_EXISTS=0
+                fi
+                ;;
+            "")
+                log_warning "Subscription '$SUB_NAME' exists on subscriber but slot $SLOT_NAME is missing on publisher."
+                log_warning "Dropping and recreating the subscription. Historical rows are preserved."
+                if [ "$DRY_RUN" = false ]; then
+                    subscriber_psql <<SQL
+ALTER SUBSCRIPTION $SUB_NAME DISABLE;
+ALTER SUBSCRIPTION $SUB_NAME SET (slot_name = NONE);
+DROP SUBSCRIPTION $SUB_NAME;
+SQL
+                    SUB_EXISTS=0
+                fi
+                ;;
+            *)
+                log_info "Subscription '$SUB_NAME' already exists; slot state '$SLOT_STATUS' — leaving in place."
+                ;;
+        esac
     fi
-fi
 
-if [ "$SUB_EXISTS" != "1" ]; then
-    CONN_STR="host=$PUB_HOST port=$PUB_PORT dbname=$PUB_DB user=$PUB_USER password=$PUB_PW sslmode=$PUB_SSLMODE"
-    if [ "$DRY_RUN" = true ]; then
-        log_dry "CREATE SUBSCRIPTION historian_sub CONNECTION '<...>' PUBLICATION historian_pub WITH (copy_data=false, create_slot=true, enabled=true, slot_name='historian_sub_slot');"
-    else
-        subscriber_psql <<SQL
-CREATE SUBSCRIPTION historian_sub
+    if [ "$SUB_EXISTS" != "1" ]; then
+        CONN_STR="host=$PUB_HOST port=$PUB_PORT dbname=$PUB_DB user=$PUB_USER password=$PUB_PW sslmode=$PUB_SSLMODE"
+        if [ "$DRY_RUN" = true ]; then
+            log_dry "CREATE SUBSCRIPTION $SUB_NAME CONNECTION '<...>' PUBLICATION historian_pub WITH (copy_data=false, create_slot=true, enabled=true, slot_name='$SLOT_NAME');"
+        else
+            subscriber_psql <<SQL
+CREATE SUBSCRIPTION $SUB_NAME
 CONNECTION '$CONN_STR'
 PUBLICATION historian_pub
 WITH (
     copy_data   = false,
     create_slot = true,
     enabled     = true,
-    slot_name   = 'historian_sub_slot',
+    slot_name   = '$SLOT_NAME',
     streaming   = 'on'
 );
 SQL
+        fi
+        log_success "Subscription created (streaming from now)"
     fi
-    log_success "Subscription created (streaming from now)"
 fi
 
 # ------- STEP 4: PROGRESS TABLE --------
@@ -383,78 +421,99 @@ fi
 END_TS=$(publisher_psql -tA -c "SELECT NOW()::text" | xargs)
 log_info "Backfill window: [$START_TS, $END_TS) in chunks of $CHUNK_INTERVAL"
 
-# Iterate chunks. Use the publisher for chunk-boundary arithmetic (has generate_series).
-CHUNKS=$(publisher_psql -tA -c "SELECT to_char(gs, 'YYYY-MM-DD HH24:MI:SS')
+# Compute chunk boundaries on the publisher (one per line). We iterate on
+# newlines rather than shell word-splitting because timestamps contain spaces.
+CHUNKS_FILE="$(mktemp)"
+trap 'rm -f "$CHUNKS_FILE"' EXIT
+publisher_psql -tA >"$CHUNKS_FILE" <<SQL
+SELECT to_char(gs, 'YYYY-MM-DD HH24:MI:SS')
 FROM generate_series('$START_TS'::timestamp, '$END_TS'::timestamp, '$CHUNK_INTERVAL'::interval) AS gs
-ORDER BY gs;")
+UNION ALL
+SELECT to_char('$END_TS'::timestamp, 'YYYY-MM-DD HH24:MI:SS')
+ORDER BY 1;
+SQL
 
-CHUNK_COUNT=$(echo "$CHUNKS" | grep -cv '^$' || true)
+# Read all boundaries into an array (newline-delimited, spaces allowed within
+# each entry). Deduplicate consecutive equal boundaries (the union above adds
+# END_TS explicitly, which may coincide with the last generate_series value).
+BOUNDS=()
+LAST=""
+while IFS= read -r line; do
+    line="${line%%[[:space:]]}"
+    [ -z "$line" ] && continue
+    [ "$line" = "$LAST" ] && continue
+    BOUNDS+=("$line")
+    LAST="$line"
+done <"$CHUNKS_FILE"
+
+CHUNK_COUNT=$((${#BOUNDS[@]} - 1))
+[ "$CHUNK_COUNT" -lt 0 ] && CHUNK_COUNT=0
 log_info "Will process up to $CHUNK_COUNT chunks"
 
-CHUNK_IDX=0
-PREV_TS=""
-for TS in $CHUNKS; do
-    if [ -z "$PREV_TS" ]; then
-        PREV_TS="$TS"
+for (( i=0; i<CHUNK_COUNT; i++ )); do
+    CHUNK_IDX=$((i + 1))
+    CHUNK_START="${BOUNDS[$i]}"
+    CHUNK_END="${BOUNDS[$((i + 1))]}"
+
+    if [ "$DRY_RUN" = true ]; then
+        log_info "[$CHUNK_IDX/$CHUNK_COUNT] $CHUNK_START -> $CHUNK_END"
+        log_dry "  COPY data rows in window and INSERT ... ON CONFLICT DO NOTHING"
         continue
     fi
-    CHUNK_IDX=$((CHUNK_IDX + 1))
-    CHUNK_START="$PREV_TS"
-    CHUNK_END="$TS"
 
     # Skip if this chunk already completed
     DONE=$(subscriber_psql -tA -c "SELECT count(*) FROM public.backfill_progress WHERE chunk_start = '$CHUNK_START'::timestamp" | xargs)
     if [ "$DONE" = "1" ]; then
         log_info "[$CHUNK_IDX/$CHUNK_COUNT] $CHUNK_START -> $CHUNK_END  (skip: already completed)"
-        PREV_TS="$TS"
         continue
     fi
 
     log_info "[$CHUNK_IDX/$CHUNK_COUNT] $CHUNK_START -> $CHUNK_END"
-    if [ "$DRY_RUN" = true ]; then
-        log_dry "  COPY data rows in window and INSERT ... ON CONFLICT DO NOTHING"
-        PREV_TS="$TS"
-        continue
-    fi
 
-    # Stage-and-merge to make ON CONFLICT work with COPY (which doesn't support it)
-    subscriber_psql -c "CREATE TEMP TABLE IF NOT EXISTS backfill_stage (LIKE public.data);" >/dev/null 2>&1 || true
+    # Stage-and-merge in a persistent staging table (dropped after merge).
+    # Using a real (non-TEMP) table lets us pipe COPY from a separate psql
+    # invocation on the publisher into a psql invocation on the subscriber.
+    subscriber_psql -c "DROP TABLE IF EXISTS public.backfill_stage; CREATE UNLOGGED TABLE public.backfill_stage (LIKE public.data);" >/dev/null
 
-    # Retryable: if the pipe fails, we bail and let the operator re-run
+    # Retryable: if the pipe fails, we bail and let the operator re-run.
     if ! PGPASSWORD="$PUB_PW" psql \
             -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d "$PUB_DB" \
             -v ON_ERROR_STOP=1 \
             -c "\copy (SELECT topic_id, ts, value_string FROM public.data WHERE ts >= '$CHUNK_START'::timestamp AND ts < '$CHUNK_END'::timestamp) TO STDOUT" \
         | PGPASSWORD="$SUB_PW" psql \
             -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" \
-            -v ON_ERROR_STOP=1 <<SQL
-BEGIN;
-CREATE TEMP TABLE backfill_stage (LIKE public.data) ON COMMIT DROP;
-\copy public.backfill_stage (topic_id, ts, value_string) FROM STDIN
-COMMIT;
-SQL
+            -v ON_ERROR_STOP=1 \
+            -c "\copy public.backfill_stage (topic_id, ts, value_string) FROM STDIN"
     then
         log_warning "  chunk failed — re-run the script to retry from here"
+        subscriber_psql -c "DROP TABLE IF EXISTS public.backfill_stage;" >/dev/null 2>&1 || true
         exit 3
     fi
 
-    # Merge stage into public.data and checkpoint progress in one transaction
-    INSERTED=$(subscriber_psql -tA <<SQL | tail -1 | xargs
-BEGIN;
-WITH ins AS (
+    # Merge stage into public.data and checkpoint progress in one transaction.
+    # Use a plain SELECT (no BEGIN/COMMIT) so the RETURNING value is the only
+    # thing that psql prints — otherwise `tail -1` picks up "COMMIT" instead.
+    INSERTED=$(subscriber_psql -tA <<SQL
+WITH stage_count AS (
+    SELECT count(*)::bigint AS n FROM public.backfill_stage
+),
+ins AS (
     INSERT INTO public.data (topic_id, ts, value_string)
     SELECT topic_id, ts, value_string FROM public.backfill_stage
     ON CONFLICT (topic_id, ts) DO NOTHING
     RETURNING 1
+),
+prog AS (
+    INSERT INTO public.backfill_progress (chunk_start, chunk_end, inserted)
+    VALUES ('$CHUNK_START'::timestamp, '$CHUNK_END'::timestamp, (SELECT count(*) FROM ins))
+    RETURNING chunk_start
 )
-INSERT INTO public.backfill_progress (chunk_start, chunk_end, inserted)
-VALUES ('$CHUNK_START'::timestamp, '$CHUNK_END'::timestamp, (SELECT count(*) FROM ins));
-SELECT count(*) FROM public.backfill_stage;
-COMMIT;
+SELECT n FROM stage_count, prog;
 SQL
 )
-    log_success "  chunk merged (~$INSERTED rows scanned)"
-    PREV_TS="$TS"
+    INSERTED=$(printf '%s' "$INSERTED" | tr -d ' ')
+    subscriber_psql -c "DROP TABLE IF EXISTS public.backfill_stage;" >/dev/null 2>&1 || true
+    log_success "  chunk merged (${INSERTED} rows scanned)"
 done
 
 # ------- STEP 6: VERIFY --------

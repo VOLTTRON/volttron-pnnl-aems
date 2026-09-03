@@ -57,6 +57,39 @@ Progress log created. Plan is inline; no design doc in `docs/proposed/`.
 4. `./repair-historian-replication.sh --dry-run` on the healthy deployment: reports "publication scope already correct — no publication change" and takes no action. Regression check per plan §Verification.8 passes — repair scripts still work on production historians. ✅
 5. `yarn check` passes cleanly in `common/` (already built), `server/`, and `client/`. ✅
 
+### 20260903 — Full end-to-end test with a second subscriber
+
+Second test pass with a real subscriber Postgres container (`test-subscriber`, `postgres:16-alpine`, on the `aems_default` docker network) alongside the user's existing pgAdmin subscriber. All test scenarios pass; several bugs surfaced by testing were fixed inline.
+
+**Bugs surfaced by testing and fixed:**
+
+- `pg_dump` in Step 1 emitted `OWNER TO historian` statements that failed on the subscriber (which doesn't have that role). Added `--no-owner --no-privileges`.
+- The chunk loop iterated with shell word-splitting on `$CHUNKS`, splitting timestamps like `2026-09-02 16:00:00` into two "chunks". Rewrote to iterate on newlines with a `mapfile`-style loop; also aligned dedup logic between generate_series and the explicit END_TS boundary.
+- Stage table was `CREATE TEMP TABLE` in a separate psql invocation, then referenced in a subsequent one — the temp table doesn't survive across invocations. Switched to a real (unlogged) `public.backfill_stage` table that's created/dropped by explicit statements, letting the `psql | psql` pipe flow correctly.
+- The `INSERTED` display was catching `COMMIT` from psql output. Rewrote the merge SQL as a single CTE with `RETURNING`, and used `tr -d ' '` to trim.
+- Re-init detection only fired on `wal_status='lost'`. Broadened to also detect `unreserved` and slot-entirely-missing (empty result) — the latter is what happens when `pg_drop_replication_slot()` runs against an invalidated slot.
+
+**New script flags added to support multi-subscriber deployments and testing:**
+
+- `--subscription-name` (default: `historian_sub`)
+- `--slot-name` (default: `historian_sub_slot`)
+- `--skip-subscription` (backfill-only mode)
+
+**Test scenarios verified:**
+
+| Scenario | Method | Result |
+|---|---|---|
+| Dry-run | `--dry-run --yes` | Correctly reports plan without writes ✅ |
+| Fresh provisioning | Empty subscriber → run script with `--start-ts` 24h back | Schema cloned, 332 topics COPY'd, subscription created with `copy_data=false`, 7 chunks backfilled at ~76K rows each = 453K total rows ✅ |
+| Live streaming | Check `pg_stat_replication` + `srsubstate` on both sides | `state=streaming`, both `topics` and `data` at `srsubstate='r'`, publisher and subscriber `max(ts)` match ✅ |
+| Idempotency (fixed start-ts) | Re-run with same `--start-ts '2026-09-02 12:00:00'` | All 8 chunks reported `skip: already completed`; no new writes ✅ |
+| Interrupt-and-resume | `DELETE FROM backfill_progress` for one chunk, re-run | Only the deleted chunk re-executed; others skipped ✅ |
+| Auto-resume after outage | `docker stop test-subscriber` for 30s, restart, observe catch-up | Subscriber `max(ts)` matched publisher within ~10s; slot `active=true, wal_status=reserved`; no operator action needed ✅ |
+| Slot-loss re-init | `pg_terminate_backend` + `pg_drop_replication_slot` on publisher, re-run script | Script detected slot missing, dropped subscription cleanly, recreated with `copy_data=false`, backfill idempotent (row count preserved through the re-init); new slot healthy `wal_status=reserved` ✅ |
+| Existing subscriber isolation | Ran all tests while user's `historian_sub` was streaming | User's subscription unaffected (still `streaming`, slot `reserved`); test used distinct names to avoid collision ✅ |
+
+Test subscriber and its orphan slot cleaned up at end. User's `historian_sub_slot` remains the only slot on the publisher, active and streaming.
+
 ### 20260903 — Complete
 
-All plan items applied and verified. Progress log moved to `docs/complete/`.
+All plan items applied AND end-to-end tested with a full second subscriber alongside the user's existing pgAdmin subscriber. Bugs found by testing were fixed inline. Progress log moved to `docs/complete/`.
