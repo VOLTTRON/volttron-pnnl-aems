@@ -2788,11 +2788,24 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
 CONNECTION 'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}'
 PUBLICATION historian_pub
 WITH (
-    copy_data = true,
+    copy_data = false,
     create_slot = true,
     enabled = true,
     slot_name = 'historian_sub_slot'
-);`;
+);
+-- copy_data=false: streaming starts NOW; use the backfill command below to
+-- fill historical data. Safe over unreliable / cellular links because the
+-- backfill runs in resumable chunked transactions rather than a single
+-- multi-GB COPY that would roll back on any network drop.`;
+
+      const backfillCommand = `# Run on the subscriber host (requires psql on PATH).
+# Fills historical data in resumable chunked transactions.
+./aems-app/subscribe-historian.sh \\
+    --publisher-host {{HOSTNAME}} \\
+    --publisher-port ${replicationPort} \\
+    --subscriber-host <your-subscriber-host> \\
+    --subscriber-user <your-subscriber-user>
+# Add --dry-run first to preview; --verify-only after to check convergence.`;
 
       const checkSchemaMatchSql = `-- On subscriber: Compare table structures
 SELECT 
@@ -2851,6 +2864,7 @@ WHERE subname = 'historian_sub';`;
           createConstraintsSql,
           createIndexesSql,
           createSubscriptionTemplate,
+          backfillCommand,
         },
         monitoringSql: {
           checkSchemaMatchSql,

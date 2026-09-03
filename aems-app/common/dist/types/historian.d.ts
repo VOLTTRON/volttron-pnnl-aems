@@ -17,6 +17,7 @@ export interface SubscriberSetupSql {
     createConstraintsSql: string;
     createIndexesSql: string;
     createSubscriptionTemplate: string;
+    backfillCommand: string;
 }
 export interface MonitoringSql {
     checkSchemaMatchSql: string;

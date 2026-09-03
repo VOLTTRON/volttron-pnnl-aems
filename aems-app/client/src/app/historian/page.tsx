@@ -109,6 +109,7 @@ export default function HistorianPage() {
   // Replace hostname placeholder with current browser hostname
   const hostname = typeof window !== "undefined" ? window.location.hostname : "YOUR_HOSTNAME";
   const finalSubscriptionTemplate = subscriberSetupSql.createSubscriptionTemplate.replace("{{HOSTNAME}}", hostname);
+  const finalBackfillCommand = (subscriberSetupSql.backfillCommand ?? "").replace(/\{\{HOSTNAME\}\}/g, hostname);
 
   return (
     <div className={styles.pageContainer}>
@@ -289,6 +290,8 @@ export default function HistorianPage() {
                   </ul>
                   <div style={{ marginTop: "10px", fontSize: "13px" }}>
                     The hostname and port have been automatically populated based on your current environment.
+                    <br />
+                    <strong>copy_data=false</strong> streams from now on — historical rows are filled by step 5.
                   </div>
                 </Callout>
                 <pre
@@ -303,6 +306,44 @@ export default function HistorianPage() {
                   {finalSubscriptionTemplate}
                 </pre>
               </Card>
+
+              {finalBackfillCommand && (
+                <Card elevation={Elevation.TWO}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "10px",
+                    }}
+                  >
+                    <H5>5. Backfill Historical Data</H5>
+                    <Button
+                      icon={IconNames.DUPLICATE}
+                      text="Copy"
+                      onClick={() => copyToClipboard(finalBackfillCommand)}
+                      small
+                    />
+                  </div>
+                  <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "10px" }}>
+                    Step 4 creates the subscription with <code>copy_data=false</code> — live streaming begins
+                    immediately, but historical rows must be filled separately. Run this wrapper on the subscriber
+                    host to fill them in resumable chunked transactions. Safe over unreliable / cellular links; safe
+                    to interrupt and re-run.
+                  </Callout>
+                  <pre
+                    style={{
+                      padding: "15px",
+                      borderRadius: "3px",
+                      overflow: "auto",
+                      fontSize: "12px",
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    {finalBackfillCommand}
+                  </pre>
+                </Card>
+              )}
             </div>
           }
         />

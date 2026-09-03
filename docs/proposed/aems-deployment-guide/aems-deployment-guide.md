@@ -825,6 +825,18 @@ The full subscriber-side procedure — `CREATE DATABASE`, schema DDL, `CREATE SU
 
 If replication becomes stuck after a schema change or after manually deleting historian rows (subscriber lag climbs and never recovers), see *Deep-Ops Reference → Resetting Wedged Replication* at the end of this guide. The recovery command interrupts every active subscriber, so coordinate before running it.
 
+### Long Outages: Subscriber Offline for Days
+
+Once streaming has started, PG's slot mechanism preserves the missed WAL and resumes automatically on reconnect — no data loss, no operator action, up to the publisher's WAL retention limit. The historian's shipped `postgresql.conf` sets `max_slot_wal_keep_size = 10 GB` (~50 days at typical VOLTTRON WAL rates of 100–200 MB/day) so a subscriber that's been offline for a few days on a cellular connection reconnects and streams the gap without intervention.
+
+If the outage exceeds the retention window, the publisher invalidates the slot (`pg_replication_slots.wal_status='lost'`, log line `LOG:  invalidating slot "historian_sub_slot" because its restart_lsn … exceeds max_slot_wal_keep_size`). The subscriber then loops on `could not receive data from WAL stream: … has already been removed`. Recovery is idempotent:
+
+```bash
+./aems-app/subscribe-historian.sh --publisher-host <PUBLISHER_HOSTNAME>
+```
+
+The wrapper detects `wal_status='lost'`, drops the invalidated slot + subscription, recreates the subscription with `copy_data=false`, and backfills the gap window via chunked `INSERT … ON CONFLICT DO NOTHING`. Existing subscriber rows are preserved; only the missing window is filled.
+
 # Stack Topology Reference
 
 ## Services
@@ -1155,14 +1167,14 @@ CREATE INDEX IF NOT EXISTS idx_data_ts ON data(ts);
 
 The primary key on `(topic_id, ts)` is **mandatory** — without it, PostgreSQL rejects any `UPDATE` streamed by logical replication with a "cannot update table because it does not have a replica identity" error.
 
-**Step 2 — Create the subscription.** In the same `psql` session:
+**Step 2 — Create the subscription with `copy_data=false`.** In the same `psql` session:
 
 ```sql
 CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host=<PUBLISHER_HOSTNAME> port=<HISTORIAN_REPLICATION_PORT> dbname=historian user=replicator password=<HISTORIAN_REPLICATOR_PASSWORD> sslmode=require'
 PUBLICATION historian_pub
 WITH (
-    copy_data   = true,
+    copy_data   = false,
     create_slot = true,
     enabled     = true,
     slot_name   = 'historian_sub_slot'
@@ -1176,7 +1188,20 @@ Placeholder substitution:
 - `<HISTORIAN_REPLICATOR_PASSWORD>` — from the publisher's `.env.secrets`.
 - `sslmode=require` for production traffic over any network you don't fully trust; `sslmode=prefer` only on isolated internal LANs where the publisher uses a self-signed cert.
 
-**Step 3 — Verify initial sync and monitor lag.**
+**Why `copy_data=false`.** PG's initial COPY (`copy_data=true`) runs as a **single transaction** on the subscriber — any interruption rolls back to zero rows and starts over. Production subscribers frequently sit behind unreliable Verizon cellular links; a growing multi-GB `data` table cannot complete a single-transaction initial COPY over cellular. `copy_data=false` starts live streaming from the publisher's current LSN immediately (small, quick), and historical rows are filled by a resumable chunked backfill in Step 3.
+
+**Step 3 — Backfill historical rows.** Run this on the subscriber host (needs `psql` on PATH; from an AEMS repo checkout is easiest, but any machine with network access to both endpoints works):
+
+```bash
+./aems-app/subscribe-historian.sh \
+    --publisher-host <PUBLISHER_HOSTNAME> \
+    --publisher-port <HISTORIAN_REPLICATION_PORT> \
+    --subscriber-host <SUBSCRIBER_HOSTNAME>
+```
+
+The wrapper chunks the `public.data` copy by time window (default 1 week per chunk), checkpoints progress in `public.backfill_progress` on the subscriber, and merges each chunk under `INSERT … ON CONFLICT (topic_id, ts) DO NOTHING` so live streaming and backfill coexist without duplicates. Any network drop mid-chunk rolls back just that one chunk; the next invocation resumes at the first incomplete `chunk_start`. Safe to Ctrl-C. Use `--verify-only` to check convergence.
+
+**Step 4 — Verify subscription and monitor lag.**
 
 ```sql
 SELECT subname, subenabled, pid FROM pg_stat_subscription;
@@ -1186,7 +1211,7 @@ SELECT subname AS subscription, latest_end_lsn, latest_end_time,
 FROM pg_stat_subscription;
 ```
 
-`copy_data = true` performs an initial one-shot bulk copy of every existing row; steady-state streaming replication follows automatically. Table-sync state can be inspected with `SELECT srsubstate FROM pg_subscription_rel` — `i` initializing, `d` copying, `s` synchronized, `r` ready.
+Table-sync state can be inspected with `SELECT srsubstate FROM pg_subscription_rel` — `i` initializing, `d` copying, `s` synchronized, `r` ready. With `copy_data=false`, the initial state transitions directly to `r` (ready / streaming) with no `d`-copy phase — that phase is what `subscribe-historian.sh` replaces.
 
 **Pause and resume.**
 

@@ -1286,7 +1286,7 @@ The AEMS historian database can be replicated to remote offsite locations for ba
 └───────────────────────────────┼────────────────────────────┘
                                 │
                      TLS Encrypted Connection
-                       (Port 5432 by default)
+                (Port 6543 by default — HISTORIAN_REPLICATION_PORT)
                                 │
 ┌───────────────────────────────▼────────────────────────────┐
 │                    Remote Offsite Location                 │
@@ -1306,7 +1306,7 @@ The AEMS historian database can be replicated to remote offsite locations for ba
 - ✅ AEMS application running with Docker Compose
 - ✅ Traefik proxy enabled (`proxy` profile)
 - ✅ Historian database container running (`volttron` profile)
-- ✅ Port 5432 accessible from subscriber location
+- ✅ Port `HISTORIAN_REPLICATION_PORT` (default `6543`) accessible from subscriber location
 - ✅ Firewall configured to allow incoming connections
 
 **Subscriber (Remote Site):**
@@ -1410,22 +1410,25 @@ psql -U postgres -d historian
 ```
 
 ```sql
--- Create the subscription
+-- Create the subscription. copy_data=false starts live streaming from NOW;
+-- historical rows are filled by aems-app/subscribe-historian.sh (see below).
+-- copy_data=true is unsafe over unreliable / cellular links because its
+-- single-transaction initial COPY rolls back on any network drop.
 CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
 PUBLICATION historian_pub
 WITH (
-    copy_data = true,           -- Copy existing data
+    copy_data   = false,        -- stream from now; backfill via wrapper
     create_slot = true,         -- Create replication slot
-    enabled = true,             -- Enable immediately
-    slot_name = 'historian_sub_slot'
+    enabled     = true,         -- Enable immediately
+    slot_name   = 'historian_sub_slot'
 );
 
 -- Verify subscription was created
 SELECT * FROM pg_subscription WHERE subname = 'historian_sub';
 
 -- Check subscription status
-SELECT 
+SELECT
     subname AS subscription_name,
     pid AS worker_pid,
     received_lsn,
@@ -1433,6 +1436,17 @@ SELECT
     latest_end_time
 FROM pg_stat_subscription;
 ```
+
+Then, on the subscriber host with `psql` and network access to both endpoints, backfill historical data:
+
+```bash
+./aems-app/subscribe-historian.sh \
+    --publisher-host YOUR_PUBLISHER_HOSTNAME \
+    --publisher-port YOUR_HISTORIAN_REPLICATION_PORT \
+    --subscriber-host localhost
+```
+
+The wrapper is idempotent — safe to interrupt and re-run. Progress is checkpointed per chunk in `public.backfill_progress`.
 
 **Note:** If you receive a warning `WARNING: publication "historian_pub" does not exist on the publisher`, see the [Troubleshooting](#troubleshooting) section below for the solution.
 
@@ -1765,12 +1779,13 @@ CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host=172.31.32.1 port=6543 dbname=historian user=replicator password=your_password sslmode=prefer'
 PUBLICATION historian_pub
 WITH (
-    copy_data = true,
+    copy_data   = false,
     create_slot = true,
-    enabled = true,
-    slot_name = 'historian_sub_slot'
+    enabled     = true,
+    slot_name   = 'historian_sub_slot'
 );
 ```
+Then backfill historical rows with `./aems-app/subscribe-historian.sh --publisher-sslmode prefer …`.
 
 #### Troubleshooting
 
@@ -1813,8 +1828,8 @@ For a full password rotation, edit `.env.secrets` and run `./secrets.sh` — the
 **Connection Issues:**
 
 ```bash
-# Test network connectivity
-telnet YOUR_PUBLISHER_HOSTNAME 5432
+# Test network connectivity (default replication port is 6543 via Traefik).
+telnet YOUR_PUBLISHER_HOSTNAME 6543
 
 # Check Traefik is running
 docker ps | grep proxy
@@ -1988,15 +2003,16 @@ psql -U postgres -d historian
 ```
 
 ```sql
--- Recreate subscription with fresh configuration
+-- Recreate subscription with fresh configuration. copy_data=false starts
+-- live streaming from NOW; historical rows are filled by the wrapper below.
 CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
 PUBLICATION historian_pub
 WITH (
-    copy_data = true,
+    copy_data   = false,
     create_slot = true,
-    enabled = true,
-    slot_name = 'historian_sub_slot'
+    enabled     = true,
+    slot_name   = 'historian_sub_slot'
 );
 
 -- Verify subscription is working
@@ -2006,10 +2022,16 @@ SELECT subname, subenabled, pid FROM pg_stat_subscription;
 \q
 ```
 
+Then fill historical rows in resumable chunks:
+
+```bash
+./aems-app/subscribe-historian.sh --publisher-host YOUR_PUBLISHER_HOSTNAME
+```
+
 **Important Notes:**
-- Dropping a subscription will delete all tracking data and require a full re-sync
-- If `copy_data = true`, all data will be copied again from the publisher
-- Ensure the publisher's replication slot is cleaned up to avoid WAL bloat
+- Dropping a subscription deletes all tracking data on the subscriber but preserves already-replicated rows in `public.data` / `public.topics` (idempotent under `ON CONFLICT DO NOTHING`).
+- `copy_data=false` means live streaming resumes immediately; run `subscribe-historian.sh` to backfill historical rows in resumable chunks — safe over cellular / unstable links.
+- Ensure the publisher's replication slot is cleaned up to avoid WAL bloat.
 - Monitor the initial sync progress as it may take time for large databases
 
 ### Historian Topic Mapping
