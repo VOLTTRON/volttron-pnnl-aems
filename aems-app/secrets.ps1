@@ -150,10 +150,15 @@ $SECRET_DATA_VOLUME = @{
     "KEYCLOAK_ADMIN_PASSWORD"          = "keycloak-data"
     "KEYCLOAK_DATABASE_PASSWORD"       = "keycloak-data"
     "KEYCLOAK_CLIENT_SECRET"           = "keycloak-data"
+    "KEYCLOAK_GRAFANA_CLIENT_SECRET"   = "keycloak-data"
     "BOOKSTACK_KEYCLOAK_CLIENT_SECRET" = "keycloak-data"
     "NOMINATIM_DATABASE_PASSWORD"      = "nominatim-data"
     "BOOKSTACK_ROOT_PASSWORD"          = "wiki-data"
     "BOOKSTACK_DATABASE_PASSWORD"      = "wiki-data"
+    "HISTORIAN_DATABASE_PASSWORD"      = "historian-data"
+    "HISTORIAN_REPLICATOR_PASSWORD"    = "historian-data"
+    "GRAFANA_ADMIN_PASSWORD"           = "grafana-data"
+    "GRAFANA_DATABASE_PASSWORD"        = "grafana-data"
 }
 
 # True iff a docker named volume exists on this host that would hold
@@ -562,18 +567,32 @@ if ($FreshWrites.Count -eq 0 -and $Rotations.Count -eq 0) {
 
 $RestartServices = [System.Collections.Generic.List[string]]::new()
 
-# Postgres ALTER ROLE - via socket auth inside the container, no current
-# password needed. Returns $true on success, $false if the container is
-# down (caller aborts).
+# Postgres ALTER ROLE. When OldPw is omitted, assumes socket auth works
+# without a password (POSIX peer or the default `trust` pg_hba shipped by
+# the postgres image). When provided, authenticates via PGPASSWORD - needed
+# for containers with a hardened pg_hba (e.g. the historian, whose local
+# socket requires scram-sha-256 for non-postgres users). Returns $true on
+# success, $false if the container is down.
 function Invoke-PgRotate {
-    param([string]$Container, [string]$DbUser, [string]$NewPw, [string]$CallerKey)
+    param(
+        [string]$Container,
+        [string]$DbUser,
+        [string]$NewPw,
+        [string]$CallerKey,
+        [string]$OldPw = ""
+    )
     if (-not (Test-ContainerRunning $Container)) {
         Write-Err "${CallerKey}: container $Container is not running"
         return $false
     }
-    $escaped = $NewPw -replace "'", "''"
+    $escapedNew = $NewPw -replace "'", "''"
     Write-Info "ALTER ROLE $DbUser in $Container"
-    Invoke-OrDry "docker exec '$Container' psql -U '$DbUser' -c `"ALTER ROLE \`"${DbUser}\`" WITH PASSWORD '${escaped}';`""
+    if (-not [string]::IsNullOrEmpty($OldPw)) {
+        $escapedOld = $OldPw -replace "'", "'\''"
+        Invoke-OrDry "docker exec -e PGPASSWORD='$escapedOld' '$Container' psql -U '$DbUser' -c `"ALTER ROLE \`"${DbUser}\`" WITH PASSWORD '${escapedNew}';`""
+    } else {
+        Invoke-OrDry "docker exec '$Container' psql -U '$DbUser' -c `"ALTER ROLE \`"${DbUser}\`" WITH PASSWORD '${escapedNew}';`""
+    }
     return $true
 }
 
@@ -748,6 +767,80 @@ elseif ($Rotations.Count -gt 0) {
                 if ($key -eq "BOOKSTACK_SESSION_SECRET") { $RestartServices.Add("wiki")   }
             }
 
+            "HISTORIAN_DATABASE_PASSWORD" {
+                $histContainer = "${PROJECT}-historian"
+                # historian's pg_hba requires scram-sha-256 for local socket
+                # auth as the `historian` user, so authenticate with the
+                # current password before ALTER.
+                if (-not (Invoke-PgRotate -Container $histContainer -DbUser "historian" -NewPw $newVal -CallerKey $key -OldPw $oldVal)) {
+                    $rotationErrors++
+                }
+                $RestartServices.Add("historian")
+                # volttron-setup's fingerprint check will re-run and regenerate
+                # historian.config from the new mounted secret; volttron picks
+                # it up on --force-recreate (see the restart pass below).
+                $RestartServices.Add("volttron-setup")
+                $RestartServices.Add("volttron")
+                $RestartServices.Add("server")
+                $RestartServices.Add("services")
+                $RestartServices.Add("synth-worker")
+            }
+
+            "HISTORIAN_REPLICATOR_PASSWORD" {
+                $histContainer = "${PROJECT}-historian"
+                if (-not (Invoke-PgRotate -Container $histContainer -DbUser "replicator" -NewPw $newVal -CallerKey $key -OldPw $oldVal)) {
+                    $rotationErrors++
+                }
+                $RestartServices.Add("historian")
+                # No in-stack consumers: subscribers are external and manage
+                # their own CONNECTION strings for the historian_sub
+                # subscription.
+            }
+
+            "GRAFANA_DATABASE_PASSWORD" {
+                $gdContainer = "${PROJECT}-grafana-db"
+                if (-not (Invoke-PgRotate -Container $gdContainer -DbUser "grafana" -NewPw $newVal -CallerKey $key)) {
+                    $rotationErrors++
+                }
+                $RestartServices.Add("grafana-db")
+                $RestartServices.Add("grafana")
+            }
+
+            "GRAFANA_ADMIN_PASSWORD" {
+                $grafanaContainer = "${PROJECT}-grafana"
+                # grafana-cli supports resetting the admin password without
+                # the current one, so no OldPw needed.
+                if (-not (Test-ContainerRunning $grafanaContainer)) {
+                    Write-Err "${key}: container $grafanaContainer is not running"
+                    $rotationErrors++
+                } else {
+                    $escaped = $newVal -replace "'", "'\''"
+                    Write-Info "Resetting Grafana admin password"
+                    Invoke-OrDry "docker exec '$grafanaContainer' grafana-cli admin reset-admin-password '$escaped'"
+                }
+                $RestartServices.Add("grafana")
+            }
+
+            "KEYCLOAK_GRAFANA_CLIENT_SECRET" {
+                if (-not (Test-ContainerRunning $KC_CONTAINER)) {
+                    Write-Err "${key}: container $KC_CONTAINER is not running"
+                    $rotationErrors++
+                } else {
+                    if (-not $KC_AUTHED) {
+                        $kcAdminPw = Get-DeployedSecret -Key "KEYCLOAK_ADMIN_PASSWORD"
+                        if ([string]::IsNullOrEmpty($kcAdminPw)) {
+                            $kcAdminPw = Get-EnvValue -File $SECRETS_FILE -Key "KEYCLOAK_ADMIN_PASSWORD"
+                        }
+                        Invoke-OrDry "docker exec '$KC_CONTAINER' /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080/auth/sso --realm master --user '$KC_ADMIN' --password '$kcAdminPw'"
+                        $KC_AUTHED = $true
+                    }
+                    $escaped = $newVal -replace "'", "\'"
+                    Write-Info "Updating Keycloak grafana-oauth client secret"
+                    Invoke-OrDry "docker exec '$KC_CONTAINER' sh -c `"/opt/keycloak/bin/kcadm.sh get clients -r default --fields id,clientId | grep -B1 '\`"clientId\`" : \`"grafana-oauth\`"' | grep id | sed 's/.*: \`"//;s/\`".*//' | xargs -I{} /opt/keycloak/bin/kcadm.sh update clients/{} -r default -s secret='$escaped'`""
+                }
+                $RestartServices.Add("grafana")
+            }
+
             default {
                 Write-Warn "${key}: no rotation handler defined - file will be updated, but you may need to restart or reconcile services manually"
                 noteWarn
@@ -856,12 +949,34 @@ if ($toRestart.Count -gt 0) {
     Write-Hdr "Restarting affected services: $($toRestart -join ', ')"
     foreach ($svc in $toRestart) {
         $container = "${PROJECT}-${svc}"
-        if (Test-ContainerRunning $container) {
-            Write-Info "Restarting $svc"
-            Invoke-OrDry "docker compose restart $svc"
-            Write-Ok "$svc restarted"
-        } else {
-            Write-Warn "$svc is not running - skipping restart"
+        switch ($svc) {
+            "volttron" {
+                # `docker compose restart` reuses the same container, so
+                # anything in the writable layer (e.g. ~/.volttron/agents/)
+                # survives with its stale cached configs. Force-recreate so
+                # bootstart.sh re-runs setup-platform.py and reinstalls agents
+                # from the freshly generated historian.config on the bind
+                # mount.
+                Write-Info "Recreating $svc (--force-recreate)"
+                Invoke-OrDry "docker compose up -d --force-recreate $svc"
+                Write-Ok "$svc recreated"
+            }
+            "volttron-setup" {
+                # volttron-setup is `restart: no`; re-invoke via up -d so it
+                # runs once and detects the fingerprint change.
+                Write-Info "Re-running $svc"
+                Invoke-OrDry "docker compose up -d $svc"
+                Write-Ok "$svc re-run"
+            }
+            default {
+                if (Test-ContainerRunning $container) {
+                    Write-Info "Restarting $svc"
+                    Invoke-OrDry "docker compose restart $svc"
+                    Write-Ok "$svc restarted"
+                } else {
+                    Write-Warn "$svc is not running - skipping restart"
+                }
+            }
         }
     }
 }

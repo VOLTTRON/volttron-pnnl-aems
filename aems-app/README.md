@@ -1794,6 +1794,22 @@ cd aems-app
 
 It is idempotent — safe on a healthy deployment. Actions inside the historian container: drop `migration_stage` if present, rebuild `historian_pub` as `FOR TABLES IN SCHEMA public` if scope is wrong, re-apply replicator grants and primary-key constraints. After a rebuild, downstream subscribers must drop and recreate their subscriptions.
 
+**`password authentication failed for user "historian"` in VOLTTRON logs:**
+
+Symptom: `docker logs aems-volttron | grep -i historian` shows repeated `FATAL:  password authentication failed for user "historian"`. VOLTTRON's SQLHistorian never manages to connect, so `public.data` / `public.topics` never get created and `pg_publication_tables` is empty even though `historian_pub` exists.
+
+**Cause:** VOLTTRON's cached SQLHistorian config in `~/.volttron/agents/<uuid>/sqlhistorianagent-*/…/config` (inside the container writable layer) diverges from the historian PG role's current password. This can happen after a `./reset-service.sh historian` alone (historian re-inits with the current secret, but volttron-setup's `.setup_complete` sentinel on the `volttron-setup` volume keeps VOLTTRON pinned to the old cached value), or after any out-of-band secret change that didn't go through `./secrets.sh`.
+
+**Solution:** The fingerprint check in `setup-volttron.sh` should self-heal on the next `docker compose up -d`. If for some reason it doesn't (e.g. the mounted secret file hasn't changed but the Postgres role's password has, drifting the other direction), force a full regen:
+
+```bash
+cd aems-app
+./reset-service.sh volttron-setup
+docker compose up -d --force-recreate volttron-setup volttron
+```
+
+For a full password rotation, edit `.env.secrets` and run `./secrets.sh` — the new HISTORIAN_DATABASE_PASSWORD handler will ALTER the role, update the secret file, and recreate volttron so everything stays in sync.
+
 **Connection Issues:**
 
 ```bash

@@ -108,3 +108,15 @@ Every service's `secrets:` list resolves to the correct `source:`/`target:` moun
 
 **Recovery for the existing broken deployment** (documented in the deployment guide's Materialize section): rebuild affected images (`docker compose build historian volttron-setup grafana-setup grafana`), run `./secrets.sh`, `./check-env.sh`, then `./reset-service.sh historian` to drop the placeholder-seeded Postgres volume before `./start-services.sh`.
 
+---
+
+## 2026-09-03 — Post-fix note: `./reset-service.sh historian` alone was NOT sufficient
+
+The 2026-08-14 recovery step above claimed "volttron-setup regenerates `docker/volttron/setup/configs/historian.config` on next up." That was only true on a **first-ever** deployment — on any deployment where volttron-setup had already run once, its `.setup_complete` sentinel on the `volttron-setup` docker volume gated all subsequent runs, and the cached password inside VOLTTRON's SQLHistorian `dist-info/config` never got re-read. Wiping only `historian-data` (via `./reset-service.sh historian`) re-initialised the Postgres role with whatever value was currently in `docker/secrets/historian_database_password.txt`, while VOLTTRON kept using the pre-existing cached password — hence the classic `password authentication failed for user "historian"` after any secret rotation or historian volume wipe.
+
+Fixed in a follow-up (see `aems-app/docs/complete/20260903-*-develop-historian-volttron-rotation-parity.md`):
+
+1. **`aems-edge/setup-volttron.sh`** now fingerprints the mounted historian secret (`sha256sum /run/secrets/historian_database_password`) alongside the sentinel, and invalidates the sentinel when the fingerprint drifts. First run writes both files; subsequent runs compare fingerprints and re-run setup if changed. This closes the "sentinel outlives its input" gap.
+2. **`aems-app/secrets.sh` / `.ps1`** gained the missing live-rotation handlers for `HISTORIAN_DATABASE_PASSWORD`, `HISTORIAN_REPLICATOR_PASSWORD`, `GRAFANA_DATABASE_PASSWORD`, `GRAFANA_ADMIN_PASSWORD`, and `KEYCLOAK_GRAFANA_CLIENT_SECRET`. Historian rotations now `ALTER ROLE historian` inside the running container (authenticated with the old password because historian's `pg_hba.conf` forces `scram-sha-256` for local socket auth), then queue restarts for historian + volttron-setup + volttron + server + services + synth-worker. The volttron restart is a `docker compose up -d --force-recreate` (not `docker compose restart`) so `~/.volttron/agents/` is regenerated from the fresh `historian.config`.
+3. Post-fix, `./reset-service.sh historian` alone is sufficient again — the fingerprint drift on next `up -d` invalidates the sentinel automatically. Rotations via `./secrets.sh` handle the same divergence end-to-end without any manual sentinel clearing.
+

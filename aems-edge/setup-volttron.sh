@@ -166,14 +166,31 @@ if [[ -d "${OUTPUT_DIR}" ]]; then
     chmod -R a+rX "${OUTPUT_DIR}"
 fi
 
+# Fingerprint the historian secret so we can detect drift after a rotation
+# or a historian-volume wipe. If it changes underneath us, the sentinel is
+# invalidated and setup re-runs so historian.config picks up the current value.
+HISTORIAN_SECRET_FILE="/run/secrets/historian_database_password"
+compute_historian_fp() {
+    if [[ -s "${HISTORIAN_SECRET_FILE}" ]]; then
+        sha256sum "${HISTORIAN_SECRET_FILE}" | awk '{print $1}'
+    fi
+}
+
 # Check setup completion status
 VOLTTRON_COMPLETED=false
 
-# Check if Volttron setup is already completed
+# Check if Volttron setup is already completed AND the historian secret
+# hasn't changed since it ran.
 if [[ -f "${VOLTTRON_LOCK_FILE}" ]]; then
     log_info "Volttron setup lock file found at: ${VOLTTRON_LOCK_FILE}"
-    VOLTTRON_COMPLETED=true
-    log_info "Volttron setup already completed - nothing to do"
+    stored_fp=$(cat "${VOLTTRON_LOCK_FILE}.fingerprint" 2>/dev/null || true)
+    current_fp=$(compute_historian_fp)
+    if [[ -n "${stored_fp}" && "${stored_fp}" == "${current_fp}" ]]; then
+        VOLTTRON_COMPLETED=true
+        log_info "Historian secret fingerprint unchanged - nothing to do"
+    else
+        log_info "Historian secret changed since last setup - regenerating configs"
+    fi
 fi
 
 # Exit if Volttron is already completed
@@ -411,6 +428,9 @@ echo "Prefix: ${VOLTTRON_PREFIX}" >> "${VOLTTRON_LOCK_FILE}"
 echo "Gateway Address: ${VOLTTRON_GATEWAY_ADDRESS}" >> "${VOLTTRON_LOCK_FILE}"
 echo "Timezone: ${VOLTTRON_TIMEZONE}" >> "${VOLTTRON_LOCK_FILE}"
 echo "Number of Configs: ${NUM_CONFIGS}" >> "${VOLTTRON_LOCK_FILE}"
+
+# Fingerprint the historian secret so the sentinel gate can detect drift.
+compute_historian_fp > "${VOLTTRON_LOCK_FILE}.fingerprint"
 
 if [[ $? -eq 0 ]]; then
     log_success "Volttron setup completed and lock file created"

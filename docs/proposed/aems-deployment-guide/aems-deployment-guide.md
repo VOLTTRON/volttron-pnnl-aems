@@ -1244,6 +1244,22 @@ docker compose cp aems-app/docker/historian/fix-replication.sql <subscriber-cont
 docker compose exec <subscriber-container> psql -U <subscriber-user> -d <subscriber-db> -f /tmp/fix-replication.sql
 ```
 
+## Historian Password Recovery
+
+Symptom: VOLTTRON logs `FATAL:  password authentication failed for user "historian"` in a repeating loop, no `public.data` / `public.topics` tables exist on the historian, `pg_publication_tables WHERE pubname='historian_pub'` returns zero rows even though the publication itself is present.
+
+Cause: VOLTTRON's SQLHistorian agent caches the historian password once when `setup-volttron.sh` runs, then a `.setup_complete` sentinel on the `volttron-setup` docker volume prevents re-runs. If the historian PG role's password changed underneath it — most commonly from a `./reset-service.sh historian` after the operator populated `.env.secrets` (which re-initialises the Postgres role from `/run/secrets/historian_database_password`) — the two diverge and every SQLHistorian connection attempt fails.
+
+The `sha256sum`-fingerprint check in `setup-volttron.sh` (2026-09-03 fix) auto-heals this on the next `docker compose up -d`: it compares the current mounted secret against the fingerprint stored alongside `.setup_complete` and invalidates the sentinel on drift. If for any reason the fingerprint gate doesn't fire (out-of-band Postgres `ALTER ROLE` that didn't touch the mounted file, corrupted fingerprint file, image predates the fix), force a full regen:
+
+```bash
+cd aems-app
+./reset-service.sh volttron-setup
+docker compose up -d --force-recreate volttron-setup volttron
+```
+
+For a real rotation — new password value on both sides — edit `.env.secrets` and run `./secrets.sh`. The `HISTORIAN_DATABASE_PASSWORD` handler (added 2026-09-03) will `ALTER ROLE historian` inside the running container (authenticated with the old password), overwrite the mounted secret, and force-recreate volttron-setup + volttron so the fingerprint check picks up the new value and VOLTTRON's cached config is regenerated. Same path applies to `HISTORIAN_REPLICATOR_PASSWORD`.
+
 ## Direct kcadm Recovery
 
 Use these commands only when the Keycloak Admin Console UI is unreachable **and** the repository checkout with `update-user-role.sh` / `secrets.sh` is unavailable — for example when triaging from a bare operator workstation with only `docker` access to the host. In normal operation, use the UI walkthroughs in *Keycloak Administration* and the `secrets.sh` rotation path.
