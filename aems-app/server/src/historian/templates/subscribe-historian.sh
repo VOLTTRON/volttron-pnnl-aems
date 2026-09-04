@@ -10,7 +10,7 @@
 #   3. Creates a logical subscription with copy_data=false — streaming begins
 #      from the publisher's current LSN immediately.
 #   4. Chunked resumable backfill of public.data via `INSERT … ON CONFLICT
-#      DO NOTHING`, checkpointed per chunk in public.backfill_progress on
+#      DO NOTHING`, checkpointed per chunk in backfill.progress on
 #      the subscriber. Survives arbitrary network drops.
 #   5. If the publisher's slot has been invalidated (wal_status='lost' or
 #      slot missing), auto-detects and re-creates the subscription; existing
@@ -67,7 +67,9 @@ Behavior:
   -h, --help                    Show this message
 
 The script is idempotent: safe to interrupt (Ctrl-C) and re-run. Progress is
-tracked in public.backfill_progress on the subscriber.
+tracked in backfill.progress on the subscriber. After the first successful run,
+the script's parameters are persisted in backfill.config so a re-run with only
+credentials is enough to resume.
 HELP
     exit 0
 }
@@ -292,11 +294,21 @@ SQL
     fi
 fi
 
-# ------- STEP 4: PROGRESS TABLE --------
-log_info "Step 4: preparing backfill progress table..."
+# ------- STEP 4: BACKFILL SCHEMA + CONFIG (persist for resume) --------
+log_info "Step 4: preparing backfill schema (progress + config)..."
 if [ "$DRY_RUN" = false ]; then
     subscriber_psql <<'SQL'
-CREATE TABLE IF NOT EXISTS public.backfill_progress (
+CREATE SCHEMA IF NOT EXISTS backfill;
+CREATE TABLE IF NOT EXISTS backfill.config (
+    id             integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    publisher_conn text NOT NULL,       -- host/port/user/db/sslmode; NO password
+    start_ts       timestamp NOT NULL,
+    end_ts         timestamp NOT NULL,
+    chunk_interval interval  NOT NULL DEFAULT '1 week',
+    created_at     timestamptz NOT NULL DEFAULT now(),
+    updated_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS backfill.progress (
     chunk_start  timestamp PRIMARY KEY,
     chunk_end    timestamp NOT NULL,
     inserted     bigint,
@@ -305,13 +317,47 @@ CREATE TABLE IF NOT EXISTS public.backfill_progress (
 SQL
 fi
 
+# Read existing config (if any). CFG_* variables are empty when no row exists.
+CFG_HAS=$(subscriber_psql -tA -c "SELECT count(*) FROM backfill.config WHERE id=1" 2>/dev/null | xargs)
+if [ "$CFG_HAS" = "1" ]; then
+    CFG_START=$(subscriber_psql -tA -c "SELECT to_char(start_ts, 'YYYY-MM-DD HH24:MI:SS') FROM backfill.config WHERE id=1" | xargs)
+    CFG_END=$(subscriber_psql -tA -c "SELECT to_char(end_ts, 'YYYY-MM-DD HH24:MI:SS') FROM backfill.config WHERE id=1" | xargs)
+    CFG_INTERVAL=$(subscriber_psql -tA -c "SELECT chunk_interval::text FROM backfill.config WHERE id=1" | xargs)
+    log_info "Existing backfill.config found: start=$CFG_START end=$CFG_END interval=$CFG_INTERVAL"
+    # CLI flags override; otherwise use persisted config.
+    [ -z "$START_TS" ] && START_TS="$CFG_START"
+fi
+
 # ------- STEP 5: CHUNKED BACKFILL --------
 log_info "Step 5: chunked backfill of public.data..."
 if [ -z "$START_TS" ]; then
     START_TS=$(publisher_psql -tA -c "SELECT COALESCE(MIN(ts), NOW())::text FROM public.data" | xargs)
 fi
-END_TS=$(publisher_psql -tA -c "SELECT NOW()::text" | xargs)
+if [ "$CFG_HAS" = "1" ] && [ -n "$CFG_END" ]; then
+    END_TS="$CFG_END"                                       # keep the persisted horizon fixed
+else
+    END_TS=$(publisher_psql -tA -c "SELECT NOW()::text" | xargs)
+fi
+if [ "$CFG_HAS" = "1" ] && [ -n "$CFG_INTERVAL" ] && [ "$CHUNK_INTERVAL" = "1 week" ]; then
+    # Use persisted chunk_interval unless the operator explicitly changed it via --chunk-interval.
+    CHUNK_INTERVAL="$CFG_INTERVAL"
+fi
 log_info "Backfill window: [$START_TS, $END_TS) in chunks of $CHUNK_INTERVAL"
+
+# Persist config so future invocations can resume with only credentials.
+if [ "$DRY_RUN" = false ]; then
+    STORE_CONN="host=$PUB_HOST port=$PUB_PORT dbname=$PUB_DB user=$PUB_USER sslmode=$PUB_SSLMODE"
+    subscriber_psql <<SQL >/dev/null
+INSERT INTO backfill.config (id, publisher_conn, start_ts, end_ts, chunk_interval)
+VALUES (1, '$STORE_CONN', '$START_TS'::timestamp, '$END_TS'::timestamp, '$CHUNK_INTERVAL'::interval)
+ON CONFLICT (id) DO UPDATE
+  SET publisher_conn = EXCLUDED.publisher_conn,
+      start_ts       = EXCLUDED.start_ts,
+      end_ts         = EXCLUDED.end_ts,
+      chunk_interval = EXCLUDED.chunk_interval,
+      updated_at     = now();
+SQL
+fi
 
 CHUNKS_FILE="$(mktemp)"
 trap 'rm -f "$CHUNKS_FILE"' EXIT
@@ -346,34 +392,34 @@ for (( i=0; i<CHUNK_COUNT; i++ )); do
         continue
     fi
 
-    DONE=$(subscriber_psql -tA -c "SELECT count(*) FROM public.backfill_progress WHERE chunk_start = '$CHUNK_START'::timestamp" | xargs)
+    DONE=$(subscriber_psql -tA -c "SELECT count(*) FROM backfill.progress WHERE chunk_start = '$CHUNK_START'::timestamp" | xargs)
     if [ "$DONE" = "1" ]; then
         log_info "[$CHUNK_IDX/$CHUNK_COUNT] $CHUNK_START -> $CHUNK_END  (skip: already completed)"
         continue
     fi
     log_info "[$CHUNK_IDX/$CHUNK_COUNT] $CHUNK_START -> $CHUNK_END"
 
-    subscriber_psql -c "DROP TABLE IF EXISTS public.backfill_stage; CREATE UNLOGGED TABLE public.backfill_stage (LIKE public.data);" >/dev/null
+    subscriber_psql -c "DROP TABLE IF EXISTS backfill.stage; CREATE UNLOGGED TABLE backfill.stage (LIKE public.data);" >/dev/null
 
     if ! PGPASSWORD="$PUB_PW" psql -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d "$PUB_DB" \
             -v ON_ERROR_STOP=1 \
             -c "\copy (SELECT topic_id, ts, value_string FROM public.data WHERE ts >= '$CHUNK_START'::timestamp AND ts < '$CHUNK_END'::timestamp) TO STDOUT" \
-        | subscriber_psql -c "\copy public.backfill_stage (topic_id, ts, value_string) FROM STDIN"
+        | subscriber_psql -c "\copy backfill.stage (topic_id, ts, value_string) FROM STDIN"
     then
         log_warning "  chunk failed — re-run the script to retry from here"
-        subscriber_psql -c "DROP TABLE IF EXISTS public.backfill_stage;" >/dev/null 2>&1 || true
+        subscriber_psql -c "DROP TABLE IF EXISTS backfill.stage;" >/dev/null 2>&1 || true
         exit 3
     fi
 
     INSERTED=$(subscriber_psql -tA <<SQL
-WITH stage_count AS (SELECT count(*)::bigint AS n FROM public.backfill_stage),
+WITH stage_count AS (SELECT count(*)::bigint AS n FROM backfill.stage),
 ins AS (
     INSERT INTO public.data (topic_id, ts, value_string)
-    SELECT topic_id, ts, value_string FROM public.backfill_stage
+    SELECT topic_id, ts, value_string FROM backfill.stage
     ON CONFLICT (topic_id, ts) DO NOTHING RETURNING 1
 ),
 prog AS (
-    INSERT INTO public.backfill_progress (chunk_start, chunk_end, inserted)
+    INSERT INTO backfill.progress (chunk_start, chunk_end, inserted)
     VALUES ('$CHUNK_START'::timestamp, '$CHUNK_END'::timestamp, (SELECT count(*) FROM ins))
     RETURNING chunk_start
 )
@@ -381,7 +427,7 @@ SELECT n FROM stage_count, prog;
 SQL
 )
     INSERTED=$(printf '%s' "$INSERTED" | tr -d ' ')
-    subscriber_psql -c "DROP TABLE IF EXISTS public.backfill_stage;" >/dev/null 2>&1 || true
+    subscriber_psql -c "DROP TABLE IF EXISTS backfill.stage;" >/dev/null 2>&1 || true
     log_success "  chunk merged (${INSERTED} rows scanned)"
 done
 

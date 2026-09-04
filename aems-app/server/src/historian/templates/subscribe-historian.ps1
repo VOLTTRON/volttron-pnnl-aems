@@ -227,11 +227,21 @@ WITH (copy_data=false, create_slot=true, enabled=true, slot_name='$SlotName', st
     }
 }
 
-# STEP 4: progress table
-Write-Info "Step 4: progress table..."
+# STEP 4: backfill schema + config (persist for resume)
+Write-Info "Step 4: preparing backfill schema (progress + config)..."
 if (-not $DryRun) {
     Invoke-SubPsql -Args @() -Stdin @'
-CREATE TABLE IF NOT EXISTS public.backfill_progress (
+CREATE SCHEMA IF NOT EXISTS backfill;
+CREATE TABLE IF NOT EXISTS backfill.config (
+    id             integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    publisher_conn text NOT NULL,
+    start_ts       timestamp NOT NULL,
+    end_ts         timestamp NOT NULL,
+    chunk_interval interval  NOT NULL DEFAULT '1 week',
+    created_at     timestamptz NOT NULL DEFAULT now(),
+    updated_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS backfill.progress (
     chunk_start  timestamp PRIMARY KEY,
     chunk_end    timestamp NOT NULL,
     inserted     bigint,
@@ -240,13 +250,43 @@ CREATE TABLE IF NOT EXISTS public.backfill_progress (
 '@
 }
 
+# Read existing config (persisted from a prior run, if any).
+$cfgHas = (Get-SubValue "SELECT count(*) FROM backfill.config WHERE id=1").Trim()
+if ($cfgHas -eq "1") {
+    $cfgStart    = (Get-SubValue "SELECT to_char(start_ts, 'YYYY-MM-DD HH24:MI:SS') FROM backfill.config WHERE id=1").Trim()
+    $cfgEnd      = (Get-SubValue "SELECT to_char(end_ts, 'YYYY-MM-DD HH24:MI:SS') FROM backfill.config WHERE id=1").Trim()
+    $cfgInterval = (Get-SubValue "SELECT chunk_interval::text FROM backfill.config WHERE id=1").Trim()
+    Write-Info "Existing backfill.config found: start=$cfgStart end=$cfgEnd interval=$cfgInterval"
+    if (-not $StartTs)                              { $StartTs = $cfgStart }
+    if ($ChunkInterval -eq "1 week" -and $cfgInterval) { $ChunkInterval = $cfgInterval }
+}
+
 # STEP 5: chunked backfill
 Write-Info "Step 5: chunked backfill of public.data..."
 if (-not $StartTs) {
     $StartTs = (Get-PubValue "SELECT COALESCE(MIN(ts), NOW())::text FROM public.data").Trim()
 }
-$EndTs = (Get-PubValue "SELECT NOW()::text").Trim()
+if ($cfgHas -eq "1" -and $cfgEnd) {
+    $EndTs = $cfgEnd
+} else {
+    $EndTs = (Get-PubValue "SELECT NOW()::text").Trim()
+}
 Write-Info "Backfill window: [$StartTs, $EndTs) in chunks of $ChunkInterval"
+
+# Persist config so future invocations can resume with only credentials.
+if (-not $DryRun) {
+    $storeConn = "host=$PublisherHost port=$PublisherPort dbname=$PublisherDb user=$PublisherUser sslmode=$PublisherSslmode"
+    Invoke-SubPsql -Args @() -Stdin @"
+INSERT INTO backfill.config (id, publisher_conn, start_ts, end_ts, chunk_interval)
+VALUES (1, '$storeConn', '$StartTs'::timestamp, '$EndTs'::timestamp, '$ChunkInterval'::interval)
+ON CONFLICT (id) DO UPDATE
+  SET publisher_conn = EXCLUDED.publisher_conn,
+      start_ts       = EXCLUDED.start_ts,
+      end_ts         = EXCLUDED.end_ts,
+      chunk_interval = EXCLUDED.chunk_interval,
+      updated_at     = now();
+"@ | Out-Null
+}
 
 $chunkQuery = @"
 SELECT to_char(gs, 'YYYY-MM-DD HH24:MI:SS')
@@ -271,14 +311,14 @@ for ($i = 0; $i -lt $chunkCount; $i++) {
         Write-Dry "  COPY data rows in window and INSERT ... ON CONFLICT DO NOTHING"
         continue
     }
-    $done = Get-SubValue "SELECT count(*) FROM public.backfill_progress WHERE chunk_start = '$cs'::timestamp"
+    $done = Get-SubValue "SELECT count(*) FROM backfill.progress WHERE chunk_start = '$cs'::timestamp"
     if ($done -eq "1") {
         Write-Info "[$idx/$chunkCount] $cs -> $ce  (skip: already completed)"
         continue
     }
     Write-Info "[$idx/$chunkCount] $cs -> $ce"
 
-    Invoke-SubPsql -Args @("-c", "DROP TABLE IF EXISTS public.backfill_stage; CREATE UNLOGGED TABLE public.backfill_stage (LIKE public.data);") | Out-Null
+    Invoke-SubPsql -Args @("-c", "DROP TABLE IF EXISTS backfill.stage; CREATE UNLOGGED TABLE backfill.stage (LIKE public.data);") | Out-Null
 
     $env:PGPASSWORD = $PublisherPassword
     $pipe = & psql -h $PublisherHost -p $PublisherPort -U $PublisherUser -d $PublisherDb `
@@ -294,7 +334,7 @@ for ($i = 0; $i -lt $chunkCount; $i++) {
     $env:PGPASSWORD = $SubscriberPassword
     $pipe | & psql -h $SubscriberHost -p $SubscriberPort -U $SubscriberUser -d $SubscriberDb `
         -v ON_ERROR_STOP=1 --set=sslmode=$SubscriberSslmode `
-        -c "\copy public.backfill_stage (topic_id, ts, value_string) FROM STDIN"
+        -c "\copy backfill.stage (topic_id, ts, value_string) FROM STDIN"
     Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
 
     if ($LASTEXITCODE -ne 0) {
@@ -303,20 +343,20 @@ for ($i = 0; $i -lt $chunkCount; $i++) {
     }
 
     $insertedRaw = Invoke-SubPsql -Args @("-tA") -Stdin @"
-WITH stage_count AS (SELECT count(*)::bigint AS n FROM public.backfill_stage),
+WITH stage_count AS (SELECT count(*)::bigint AS n FROM backfill.stage),
 ins AS (
     INSERT INTO public.data (topic_id, ts, value_string)
-    SELECT topic_id, ts, value_string FROM public.backfill_stage
+    SELECT topic_id, ts, value_string FROM backfill.stage
     ON CONFLICT (topic_id, ts) DO NOTHING RETURNING 1
 ),
 prog AS (
-    INSERT INTO public.backfill_progress (chunk_start, chunk_end, inserted)
+    INSERT INTO backfill.progress (chunk_start, chunk_end, inserted)
     VALUES ('$cs'::timestamp, '$ce'::timestamp, (SELECT count(*) FROM ins))
     RETURNING chunk_start
 )
 SELECT n FROM stage_count, prog;
 "@
-    Invoke-SubPsql -Args @("-c", "DROP TABLE IF EXISTS public.backfill_stage;") | Out-Null
+    Invoke-SubPsql -Args @("-c", "DROP TABLE IF EXISTS backfill.stage;") | Out-Null
     $inserted = ($insertedRaw -split "`n" | Select-Object -Last 1).Trim()
     Write-Ok "  chunk merged ($inserted rows scanned)"
 }

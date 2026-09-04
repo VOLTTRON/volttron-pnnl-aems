@@ -2833,45 +2833,109 @@ WITH (
       const backfillProcedureSql = `-- Enable dblink so we can pull from the publisher inside a stored procedure.
 CREATE EXTENSION IF NOT EXISTS dblink;
 
--- Progress table for resumability (per-chunk checkpoints).
-CREATE TABLE IF NOT EXISTS public.backfill_progress (
+-- Dedicated schema for backfill bookkeeping. Kept off 'public' so it can never
+-- leak into a FOR TABLES IN SCHEMA public publication or be replicated by a
+-- cascaded topology. Safe to leave in place after backfill completes.
+CREATE SCHEMA IF NOT EXISTS backfill;
+
+-- Persistent config — populated on first run; a zero-override re-CALL resumes.
+CREATE TABLE IF NOT EXISTS backfill.config (
+    id             integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    publisher_conn text NOT NULL,       -- host/port/user/db/sslmode; NO password
+    start_ts       timestamp NOT NULL,
+    end_ts         timestamp NOT NULL,  -- captured on first run; fixed thereafter
+    chunk_interval interval  NOT NULL DEFAULT '1 week',
+    created_at     timestamptz NOT NULL DEFAULT now(),
+    updated_at     timestamptz NOT NULL DEFAULT now()
+);
+
+-- Per-chunk checkpoint table.
+CREATE TABLE IF NOT EXISTS backfill.progress (
     chunk_start  timestamp PRIMARY KEY,
     chunk_end    timestamp NOT NULL,
     inserted     bigint,
     completed_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Chunked resumable backfill. Per-chunk COMMIT (only allowed inside CALLed
--- procedures) means cellular disconnects only lose the in-flight chunk;
--- the next CALL resumes at the first incomplete chunk_start.
-CREATE OR REPLACE PROCEDURE public.run_backfill(
-    publisher_conn text,
-    start_ts       timestamp,
-    end_ts         timestamp DEFAULT NULL,
-    chunk_interval interval DEFAULT '1 week'
+-- Pending-chunks view for operator visibility: SELECT count(*) FROM backfill.pending;
+CREATE OR REPLACE VIEW backfill.pending AS
+SELECT gs::timestamp AS chunk_start,
+       LEAST(gs + cfg.chunk_interval, cfg.end_ts)::timestamp AS chunk_end
+FROM (SELECT * FROM backfill.config WHERE id = 1) AS cfg,
+     generate_series(cfg.start_ts, cfg.end_ts - '1 microsecond'::interval, cfg.chunk_interval) AS gs
+WHERE NOT EXISTS (
+    SELECT 1 FROM backfill.progress p WHERE p.chunk_start = gs::timestamp
+);
+
+-- Resumable backfill. First positional arg is the (transient) publisher password.
+-- Any non-null overrides UPSERT into backfill.config; a zero-override call reads
+-- config and resumes. Per-chunk COMMIT so cellular disconnects only lose the
+-- in-flight chunk.
+CREATE OR REPLACE PROCEDURE backfill.run_backfill(
+    publisher_password text,
+    publisher_conn     text      DEFAULT NULL,
+    start_ts           timestamp DEFAULT NULL,
+    end_ts             timestamp DEFAULT NULL,
+    chunk_interval     interval  DEFAULT NULL
 ) LANGUAGE plpgsql AS $BODY$
+#variable_conflict use_variable
 DECLARE
-    cs      timestamp := start_ts;
-    ce      timestamp;
-    stop_ts timestamp := COALESCE(end_ts, NOW()::timestamp);
+    cfg backfill.config%ROWTYPE;
+    effective_conn text;
+    cs timestamp;
+    ce timestamp;
 BEGIN
-    WHILE cs < stop_ts LOOP
-        ce := LEAST(cs + chunk_interval, stop_ts);
-        IF NOT EXISTS (SELECT 1 FROM public.backfill_progress WHERE chunk_start = cs) THEN
+    IF publisher_password IS NULL THEN
+        RAISE EXCEPTION 'publisher_password is required (transient; not persisted)';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM backfill.config WHERE id = 1) THEN
+        IF publisher_conn IS NULL OR start_ts IS NULL THEN
+            RAISE EXCEPTION 'First-time run requires publisher_conn and start_ts';
+        END IF;
+        INSERT INTO backfill.config (id, publisher_conn, start_ts, end_ts, chunk_interval)
+        VALUES (
+            1,
+            publisher_conn,
+            start_ts,
+            COALESCE(end_ts, NOW()::timestamp),
+            COALESCE(chunk_interval, '1 week'::interval)
+        );
+    ELSE
+        UPDATE backfill.config c SET
+            publisher_conn = COALESCE(publisher_conn, c.publisher_conn),
+            start_ts       = COALESCE(start_ts,       c.start_ts),
+            end_ts         = COALESCE(end_ts,         c.end_ts),
+            chunk_interval = COALESCE(chunk_interval, c.chunk_interval),
+            updated_at     = now()
+        WHERE c.id = 1;
+    END IF;
+
+    SELECT * INTO cfg FROM backfill.config WHERE id = 1;
+    effective_conn := cfg.publisher_conn || ' password=' || publisher_password;
+
+    RAISE NOTICE 'Backfill window: [%, %) chunk=%. Pending: %',
+        cfg.start_ts, cfg.end_ts, cfg.chunk_interval,
+        (SELECT count(*) FROM backfill.pending);
+
+    cs := cfg.start_ts;
+    WHILE cs < cfg.end_ts LOOP
+        ce := LEAST(cs + cfg.chunk_interval, cfg.end_ts);
+        IF NOT EXISTS (SELECT 1 FROM backfill.progress WHERE chunk_start = cs) THEN
             RAISE NOTICE '[chunk] % -> %', cs, ce;
-            DROP TABLE IF EXISTS _backfill_stage;
-            CREATE UNLOGGED TABLE _backfill_stage (topic_id integer, ts timestamp, value_string text);
+            DROP TABLE IF EXISTS backfill.stage;
+            CREATE UNLOGGED TABLE backfill.stage (topic_id integer, ts timestamp, value_string text);
             EXECUTE format(
-                'INSERT INTO _backfill_stage SELECT * FROM dblink(%L, %L) AS t(topic_id integer, ts timestamp, value_string text)',
-                publisher_conn,
+                'INSERT INTO backfill.stage SELECT * FROM dblink(%L, %L) AS t(topic_id integer, ts timestamp, value_string text)',
+                effective_conn,
                 format('SELECT topic_id, ts, value_string FROM public.data WHERE ts >= %L AND ts < %L', cs, ce)
             );
             INSERT INTO public.data (topic_id, ts, value_string)
-            SELECT topic_id, ts, value_string FROM _backfill_stage
+            SELECT topic_id, ts, value_string FROM backfill.stage
             ON CONFLICT (topic_id, ts) DO NOTHING;
-            INSERT INTO public.backfill_progress (chunk_start, chunk_end, inserted)
-            VALUES (cs, ce, (SELECT count(*) FROM _backfill_stage));
-            DROP TABLE _backfill_stage;
+            INSERT INTO backfill.progress (chunk_start, chunk_end, inserted)
+            VALUES (cs, ce, (SELECT count(*) FROM backfill.stage));
+            DROP TABLE backfill.stage;
             COMMIT;
         END IF;
         cs := ce;
@@ -2887,12 +2951,22 @@ SELECT * FROM dblink(
 ON CONFLICT (topic_id) DO UPDATE
   SET topic_name = EXCLUDED.topic_name, metadata = EXCLUDED.metadata;
 
--- Invoke. Edit start_ts to the earliest publisher timestamp you care about
--- (see MIN(ts) on publisher). Re-CALL to resume after any disconnect.
-CALL public.run_backfill(
-    'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}',
-    '2026-01-01 00:00:00'::timestamp
-);`;
+-- FIRST RUN — configures backfill.config and processes chunks. Edit start_ts
+-- to the earliest publisher timestamp you care about (see MIN(ts) on publisher).
+CALL backfill.run_backfill(
+    publisher_password := 'YOUR_REPLICATOR_PASSWORD',
+    publisher_conn     := 'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator sslmode=${sslMode}',
+    start_ts           := '2026-01-01 00:00:00'::timestamp
+);
+
+-- RESUME (subsequent calls) — reads persisted config; only the transient
+-- password is required. Re-run at any time; completed chunks are skipped.
+-- CALL backfill.run_backfill(publisher_password := 'YOUR_REPLICATOR_PASSWORD');
+
+-- OPERATOR VISIBILITY
+--   SELECT * FROM backfill.config;              -- current run parameters
+--   SELECT count(*) FROM backfill.pending;      -- chunks remaining
+--   SELECT * FROM backfill.progress ORDER BY chunk_start DESC LIMIT 10;`;
 
       // -------- Path B (bash + PowerShell one-liners) --------
       // Env-var contract shared across both shells:

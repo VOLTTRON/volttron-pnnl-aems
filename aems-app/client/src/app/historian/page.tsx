@@ -100,6 +100,76 @@ export default function HistorianPage() {
     URL.revokeObjectURL(url);
   };
 
+  // Wrap a SQL block into a shell command that runs it via psql against
+  // either the subscriber or the publisher. Same env-var contract as the
+  // Subscriber Setup tab so operators only set them once.
+  const sqlToShell = (sql: string, target: "sub" | "pub", shell: "bash" | "powershell"): string => {
+    const H = target === "sub" ? "SUB_HOST" : "PUB_HOST";
+    const P = target === "sub" ? "SUB_PORT" : "PUB_PORT";
+    const U = target === "sub" ? "SUB_USER" : "PUB_USER";
+    const DB = target === "sub" ? "$SUB_DB" : "historian";
+    const PW = target === "sub" ? "SUB_PASSWORD" : "PUB_PASSWORD";
+    if (shell === "bash") {
+      return `PGPASSWORD="$${PW}" psql -h "$${H}" -p "$${P}" -U "$${U}" -d "${DB}" \\
+  -v ON_ERROR_STOP=1 <<'SQL'
+${sql}
+SQL`;
+    }
+    // PowerShell
+    const pwDb = target === "sub" ? "$env:SUB_DB" : "historian";
+    return `$env:PGPASSWORD = $env:${PW}
+@'
+${sql}
+'@ | & psql -h $env:${H} -p $env:${P} -U $env:${U} -d ${pwDb} -v ON_ERROR_STOP=1
+Remove-Item Env:PGPASSWORD`;
+  };
+
+  // Static SQL used by the Subscription Removal tab (matches the copy-button
+  // strings from before).
+  const dropSubscriptionSql = `-- On subscriber: Drop the subscription
+DROP SUBSCRIPTION IF EXISTS historian_sub;`;
+  const dropSlotSql = `-- On publisher: Drop the replication slot
+SELECT pg_drop_replication_slot('historian_sub_slot');`;
+  const dropTablesSql = `-- On subscriber: Drop replicated tables
+DROP TABLE IF EXISTS data CASCADE;
+DROP TABLE IF EXISTS topics CASCADE;`;
+  const dropBackfillSql = `-- On subscriber: Drop the backfill schema
+-- Safe to keep between backfill sessions; drop only if you don't intend to
+-- re-run backfill from this subscriber. Removes: backfill.config, backfill.progress,
+-- backfill.pending view, and the run_backfill procedure.
+DROP SCHEMA IF EXISTS backfill CASCADE;`;
+  const dropMigrationStageSql = `-- On publisher: Drop the migration staging schema
+-- Only relevant if migrate-historian-data.sh ever ran against this historian
+-- and left the staging schema behind. Safe to keep; safe to drop after the
+-- migration is verified.
+DROP SCHEMA IF EXISTS migration_stage CASCADE;`;
+
+  // Env-var preambles for tabs that use shell forms — bash and PowerShell
+  // versions. Publisher preambles reference `hostname` lazily via a factory
+  // so this declaration doesn't require `hostname` to exist yet.
+  const subShPreamble = `# Subscriber connection env vars — set once, reuse across all cards.
+export SUB_HOST=YOUR_SUBSCRIBER_HOSTNAME
+export SUB_PORT=5432
+export SUB_USER=YOUR_SUBSCRIBER_USER
+export SUB_DB=historian
+export SUB_PASSWORD=YOUR_SUBSCRIBER_PASSWORD`;
+  const subPs1Preamble = `# Subscriber connection env vars — set once, reuse across all cards.
+$env:SUB_HOST     = "YOUR_SUBSCRIBER_HOSTNAME"
+$env:SUB_PORT     = "5432"
+$env:SUB_USER     = "YOUR_SUBSCRIBER_USER"
+$env:SUB_DB       = "historian"
+$env:SUB_PASSWORD = "YOUR_SUBSCRIBER_PASSWORD"`;
+  const pubShPreamble = (h: string) => `# Publisher connection env vars.
+export PUB_HOST=${h}
+export PUB_PORT=6543
+export PUB_USER=replicator
+export PUB_PASSWORD=YOUR_REPLICATOR_PASSWORD`;
+  const pubPs1Preamble = (h: string) => `# Publisher connection env vars.
+$env:PUB_HOST     = "${h}"
+$env:PUB_PORT     = "6543"
+$env:PUB_USER     = "replicator"
+$env:PUB_PASSWORD = "YOUR_REPLICATOR_PASSWORD"`;
+
   if (loading) {
     return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "400px" }}>
@@ -257,6 +327,105 @@ export default function HistorianPage() {
           }
         />
 
+        {/* Historian Status Tab */}
+        <Tab
+          id="historian-status"
+          title="Historian Status"
+          panel={
+            <div className={styles.tabPanel}>
+              <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "20px" }}>
+                Monitor which units are actively publishing data to the historian database. Status updates every time
+                this page is loaded.
+              </Callout>
+
+              {systemPublishingStatus && systemPublishingStatus.length > 0 ? (
+                <>
+                  <ControlGroup style={{ marginBottom: "10px" }}>
+                    <div style={{ flex: 1 }} />
+                    <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
+                    <Search
+                      value={search}
+                      onValueChange={setSearch}
+                      placeholder="Search campus, building, system, or status..."
+                    />
+                  </ControlGroup>
+
+                  <Card elevation={Elevation.TWO}>
+                    <Table
+                      rowKey="topic"
+                      rows={paginatedUnits}
+                      columns={[
+                        { field: "campus", label: "Campus", type: "term" },
+                        { field: "building", label: "Building", type: "term" },
+                        {
+                          field: "system",
+                          label: "System",
+                          type: "term",
+                        },
+                        {
+                          field: "metric",
+                          label: "Metric",
+                          type: "term",
+                        },
+                        { field: "lastPublished", label: "Last Published", type: "date" },
+                        {
+                          field: "minutesAgo",
+                          label: "Time Ago",
+                          renderer: (col, row, value) => `${value} minute${value !== 1 ? "s" : ""} ago`,
+                        },
+                        {
+                          field: "status",
+                          label: "Status",
+                          renderer: (col, row, value) => {
+                            const statusIntent =
+                              value === "active" ? Intent.SUCCESS : value === "stale" ? Intent.WARNING : Intent.DANGER;
+
+                            const statusText = value === "active" ? "Active" : value === "stale" ? "Stale" : "Inactive";
+
+                            return (
+                              <span
+                                className={`bp5-tag bp5-intent-${statusIntent === Intent.SUCCESS ? "success" : statusIntent === Intent.WARNING ? "warning" : "danger"}`}
+                              >
+                                {statusText}
+                              </span>
+                            );
+                          },
+                        },
+                      ]}
+                      sort={sort}
+                      setSort={setSort}
+                    />
+                    <div style={{ marginTop: "15px", fontSize: "13px", color: "#5C7080" }}>
+                      <strong>Status Legend:</strong>
+                      <ul style={{ marginTop: "5px", marginBottom: "0" }}>
+                        <li>
+                          <strong>Active:</strong> Data received within the last 5 minutes
+                        </li>
+                        <li>
+                          <strong>Stale:</strong> Data received 5-60 minutes ago
+                        </li>
+                        <li>
+                          <strong>Inactive:</strong> No data received in over 60 minutes
+                        </li>
+                      </ul>
+                    </div>
+                  </Card>
+
+                  <ControlGroup style={{ marginTop: "10px" }}>
+                    <div style={{ flex: 1 }} />
+                    <Paging length={filteredUnits.length} paging={paging} setPaging={setPaging} />
+                  </ControlGroup>
+                </>
+              ) : (
+                <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN}>
+                  No system publishing data available. Systems will appear here once they start publishing data to the
+                  historian database.
+                </Callout>
+              )}
+            </div>
+          }
+        />
+
         {/* Subscriber Setup Tab */}
         <Tab
           id="subscriber"
@@ -379,225 +548,100 @@ export default function HistorianPage() {
                 data. Use with caution as these operations are <strong>destructive</strong> and cannot be undone.
               </Callout>
 
-              <Card elevation={Elevation.TWO} style={{ marginBottom: "20px" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                  }}
+              <Card elevation={Elevation.TWO} className={styles.cardSpacing}>
+                <RadioGroup
+                  label="Path"
+                  inline
+                  selectedValue={setupPath}
+                  onChange={(e) => setSetupPath((e.target as HTMLInputElement).value as "sql" | "shell")}
                 >
-                  <H5>Drop Subscription</H5>
-                  <Button
-                    icon={IconNames.DUPLICATE}
-                    text="Copy"
-                    onClick={() =>
-                      copyToClipboard(
-                        "-- On subscriber: Drop the subscription\nDROP SUBSCRIPTION IF EXISTS historian_sub;",
-                      )
+                  <Radio label="Pure SQL (pgAdmin / psql)" value="sql" />
+                  <Radio label="Shell commands (psql on PATH)" value="shell" />
+                </RadioGroup>
+                {setupPath === "shell" && (
+                  <RadioGroup
+                    label="Operating system"
+                    inline
+                    selectedValue={setupShell}
+                    onChange={(e) =>
+                      setSetupShell((e.target as HTMLInputElement).value as "bash" | "powershell")
                     }
-                    small
-                  />
-                </div>
-                <p style={{ marginBottom: "10px", fontSize: "13px" }}>
-                  Run this command on the <strong>subscriber database</strong> to remove the subscription.
-                </p>
-                <pre
-                  style={{
-                    padding: "15px",
-                    borderRadius: "3px",
-                    overflow: "auto",
-                    fontSize: "12px",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {`-- On subscriber: Drop the subscription
-DROP SUBSCRIPTION IF EXISTS historian_sub;`}
-                </pre>
+                  >
+                    <Radio label="Linux / macOS (bash)" value="bash" />
+                    <Radio label="Windows (PowerShell)" value="powershell" />
+                  </RadioGroup>
+                )}
               </Card>
 
-              <Card elevation={Elevation.TWO} style={{ marginBottom: "20px" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <H5>Drop Replication Slot (Publisher)</H5>
-                  <Button
-                    icon={IconNames.DUPLICATE}
-                    text="Copy"
-                    onClick={() =>
-                      copyToClipboard(
-                        "-- On publisher: Drop the replication slot\nSELECT pg_drop_replication_slot('historian_sub_slot');",
-                      )
-                    }
-                    small
-                  />
-                </div>
-                <p style={{ marginBottom: "10px", fontSize: "13px" }}>
-                  <strong>Optional:</strong> Run this command on the <strong>publisher database</strong> to remove the
-                  replication slot if it was not automatically cleaned up.
-                </p>
-                <pre
-                  style={{
-                    padding: "15px",
-                    borderRadius: "3px",
-                    overflow: "auto",
-                    fontSize: "12px",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {`-- On publisher: Drop the replication slot
-SELECT pg_drop_replication_slot('historian_sub_slot');`}
-                </pre>
-              </Card>
-
-              <Card elevation={Elevation.TWO}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <H5>Drop Replicated Tables</H5>
-                  <Button
-                    icon={IconNames.DUPLICATE}
-                    text="Copy"
-                    onClick={() =>
-                      copyToClipboard(
-                        "-- On subscriber: Drop replicated tables\nDROP TABLE IF EXISTS data CASCADE;\nDROP TABLE IF EXISTS topics CASCADE;",
-                      )
-                    }
-                    small
-                  />
-                </div>
-                <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN} style={{ marginBottom: "10px" }}>
-                  <strong>Caution:</strong> This will permanently delete all replicated data on the subscriber. Only run
-                  this if you want to completely remove the replicated tables.
-                </Callout>
-                <p style={{ marginBottom: "10px", fontSize: "13px" }}>
-                  <strong>Optional:</strong> Run these commands on the <strong>subscriber database</strong> to remove
-                  the replicated tables.
-                </p>
-                <pre
-                  style={{
-                    padding: "15px",
-                    borderRadius: "3px",
-                    overflow: "auto",
-                    fontSize: "12px",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {`-- On subscriber: Drop replicated tables
-DROP TABLE IF EXISTS data CASCADE;
-DROP TABLE IF EXISTS topics CASCADE;`}
-                </pre>
-              </Card>
-            </div>
-          }
-        />
-
-        {/* Historian Status Tab */}
-        <Tab
-          id="historian-status"
-          title="Historian Status"
-          panel={
-            <div className={styles.tabPanel}>
-              <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "20px" }}>
-                Monitor which units are actively publishing data to the historian database. Status updates every time
-                this page is loaded.
-              </Callout>
-
-              {systemPublishingStatus && systemPublishingStatus.length > 0 ? (
-                <>
-                  <ControlGroup style={{ marginBottom: "10px" }}>
-                    <div style={{ flex: 1 }} />
-                    <Button loading={loading} icon={IconNames.REFRESH} onClick={() => refetch()} />
-                    <Search
-                      value={search}
-                      onValueChange={setSearch}
-                      placeholder="Search campus, building, system, or status..."
-                    />
-                  </ControlGroup>
-
-                  <Card elevation={Elevation.TWO}>
-                    <Table
-                      rowKey="topic"
-                      rows={paginatedUnits}
-                      columns={[
-                        { field: "campus", label: "Campus", type: "term" },
-                        { field: "building", label: "Building", type: "term" },
-                        {
-                          field: "system",
-                          label: "System",
-                          type: "term",
-                        },
-                        {
-                          field: "metric",
-                          label: "Metric",
-                          type: "term",
-                        },
-                        { field: "lastPublished", label: "Last Published", type: "date" },
-                        {
-                          field: "minutesAgo",
-                          label: "Time Ago",
-                          renderer: (col, row, value) => `${value} minute${value !== 1 ? "s" : ""} ago`,
-                        },
-                        {
-                          field: "status",
-                          label: "Status",
-                          renderer: (col, row, value) => {
-                            const statusIntent =
-                              value === "active" ? Intent.SUCCESS : value === "stale" ? Intent.WARNING : Intent.DANGER;
-
-                            const statusText = value === "active" ? "Active" : value === "stale" ? "Stale" : "Inactive";
-
-                            return (
-                              <span
-                                className={`bp5-tag bp5-intent-${statusIntent === Intent.SUCCESS ? "success" : statusIntent === Intent.WARNING ? "warning" : "danger"}`}
-                              >
-                                {statusText}
-                              </span>
-                            );
-                          },
-                        },
-                      ]}
-                      sort={sort}
-                      setSort={setSort}
-                    />
-                    <div style={{ marginTop: "15px", fontSize: "13px", color: "#5C7080" }}>
-                      <strong>Status Legend:</strong>
-                      <ul style={{ marginTop: "5px", marginBottom: "0" }}>
-                        <li>
-                          <strong>Active:</strong> Data received within the last 5 minutes
-                        </li>
-                        <li>
-                          <strong>Stale:</strong> Data received 5-60 minutes ago
-                        </li>
-                        <li>
-                          <strong>Inactive:</strong> No data received in over 60 minutes
-                        </li>
-                      </ul>
-                    </div>
-                  </Card>
-
-                  <ControlGroup style={{ marginTop: "10px" }}>
-                    <div style={{ flex: 1 }} />
-                    <Paging length={filteredUnits.length} paging={paging} setPaging={setPaging} />
-                  </ControlGroup>
-                </>
-              ) : (
-                <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN}>
-                  No system publishing data available. Systems will appear here once they start publishing data to the
-                  historian database.
-                </Callout>
+              {setupPath === "shell" && (
+                <Card elevation={Elevation.TWO} className={styles.cardSpacing}>
+                  <div className={styles.flexHeader}>
+                    <H5>Env-var setup (paste once)</H5>
+                    <ControlGroup>
+                      <Button
+                        icon={IconNames.DUPLICATE}
+                        text="Copy"
+                        onClick={() =>
+                          copyToClipboard(
+                            (shellIsBash ? subShPreamble : subPs1Preamble) +
+                              "\n\n" +
+                              (shellIsBash ? pubShPreamble(hostname) : pubPs1Preamble(hostname)),
+                          )
+                        }
+                        small
+                      />
+                    </ControlGroup>
+                  </div>
+                  <pre className={styles.codeBlockWithMaxHeight}>
+                    {(shellIsBash ? subShPreamble : subPs1Preamble) +
+                      "\n\n" +
+                      (shellIsBash ? pubShPreamble(hostname) : pubPs1Preamble(hostname))}
+                  </pre>
+                </Card>
               )}
+
+              {[
+                { title: "Drop Subscription", target: "sub" as const, sql: dropSubscriptionSql, danger: false,
+                  hint: "Run on the subscriber database to remove the subscription." },
+                { title: "Drop Replication Slot (Publisher)", target: "pub" as const, sql: dropSlotSql, danger: false,
+                  hint: "Optional. Run on the publisher database if the slot was not automatically cleaned up." },
+                { title: "Drop Replicated Tables", target: "sub" as const, sql: dropTablesSql, danger: true,
+                  hint: "Optional. Deletes all replicated data on the subscriber — irreversible." },
+                { title: "Drop Backfill Schema (Subscriber)", target: "sub" as const, sql: dropBackfillSql, danger: false,
+                  hint: "Optional. Removes backfill bookkeeping (config, progress, staging). Safe to keep between backfill sessions." },
+                { title: "Drop Migration Staging (Publisher)", target: "pub" as const, sql: dropMigrationStageSql, danger: false,
+                  hint: "Optional. Only if migrate-historian-data.sh ever ran against this historian and left the staging schema behind." },
+              ].map((card, i) => {
+                const content = setupPath === "sql" ? card.sql : sqlToShell(card.sql, card.target, setupShell);
+                const file = `${card.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.${shellExt}`;
+                return (
+                  <Card key={`rm-${i}`} elevation={Elevation.TWO} className={styles.cardSpacing}>
+                    <div className={styles.flexHeader}>
+                      <H5>{card.title}</H5>
+                      <ControlGroup>
+                        <Button icon={IconNames.DUPLICATE} text="Copy" onClick={() => copyToClipboard(content)} small />
+                        {setupPath === "shell" && (
+                          <Button
+                            icon={IconNames.DOWNLOAD}
+                            text={`Download .${shellExt}`}
+                            onClick={() => downloadAs(content, file, shellMime)}
+                            small
+                          />
+                        )}
+                      </ControlGroup>
+                    </div>
+                    {card.danger && (
+                      <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN} style={{ marginBottom: "10px" }}>
+                        <strong>Caution:</strong> {card.hint}
+                      </Callout>
+                    )}
+                    {!card.danger && (
+                      <p style={{ marginBottom: "10px", fontSize: "13px" }}>{card.hint}</p>
+                    )}
+                    <pre className={styles.codeBlockWithMaxHeight}>{content}</pre>
+                  </Card>
+                );
+              })}
             </div>
           }
         />
@@ -609,128 +653,80 @@ DROP TABLE IF EXISTS topics CASCADE;`}
           panel={
             <div className={styles.tabPanel}>
               <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "20px" }}>
-                Use these queries to monitor replication health and troubleshoot issues.
+                Use these queries to monitor replication health and troubleshoot issues. All four run against the
+                subscriber.
               </Callout>
 
-              <Card elevation={Elevation.TWO} style={{ marginBottom: "20px" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                  }}
+              <Card elevation={Elevation.TWO} className={styles.cardSpacing}>
+                <RadioGroup
+                  label="Path"
+                  inline
+                  selectedValue={setupPath}
+                  onChange={(e) => setSetupPath((e.target as HTMLInputElement).value as "sql" | "shell")}
                 >
-                  <H5>Check Schema Match</H5>
-                  <Button
-                    icon={IconNames.DUPLICATE}
-                    text="Copy"
-                    onClick={() => copyToClipboard(monitoringSql.checkSchemaMatchSql)}
-                    small
-                  />
-                </div>
-                <pre
-                  style={{
-                    padding: "15px",
-                    borderRadius: "3px",
-                    overflow: "auto",
-                    fontSize: "12px",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {monitoringSql.checkSchemaMatchSql}
-                </pre>
+                  <Radio label="Pure SQL (pgAdmin / psql)" value="sql" />
+                  <Radio label="Shell commands (psql on PATH)" value="shell" />
+                </RadioGroup>
+                {setupPath === "shell" && (
+                  <RadioGroup
+                    label="Operating system"
+                    inline
+                    selectedValue={setupShell}
+                    onChange={(e) =>
+                      setSetupShell((e.target as HTMLInputElement).value as "bash" | "powershell")
+                    }
+                  >
+                    <Radio label="Linux / macOS (bash)" value="bash" />
+                    <Radio label="Windows (PowerShell)" value="powershell" />
+                  </RadioGroup>
+                )}
               </Card>
 
-              <Card elevation={Elevation.TWO} style={{ marginBottom: "20px" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <H5>Check Replication Lag</H5>
-                  <Button
-                    icon={IconNames.DUPLICATE}
-                    text="Copy"
-                    onClick={() => copyToClipboard(monitoringSql.checkReplicationLagSql)}
-                    small
-                  />
-                </div>
-                <pre
-                  style={{
-                    padding: "15px",
-                    borderRadius: "3px",
-                    overflow: "auto",
-                    fontSize: "12px",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {monitoringSql.checkReplicationLagSql}
-                </pre>
-              </Card>
+              {setupPath === "shell" && (
+                <Card elevation={Elevation.TWO} className={styles.cardSpacing}>
+                  <div className={styles.flexHeader}>
+                    <H5>Env-var setup (paste once)</H5>
+                    <Button
+                      icon={IconNames.DUPLICATE}
+                      text="Copy"
+                      onClick={() => copyToClipboard(shellIsBash ? subShPreamble : subPs1Preamble)}
+                      small
+                    />
+                  </div>
+                  <pre className={styles.codeBlockWithMaxHeight}>
+                    {shellIsBash ? subShPreamble : subPs1Preamble}
+                  </pre>
+                </Card>
+              )}
 
-              <Card elevation={Elevation.TWO} style={{ marginBottom: "20px" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <H5>Check Subscription Status</H5>
-                  <Button
-                    icon={IconNames.DUPLICATE}
-                    text="Copy"
-                    onClick={() => copyToClipboard(monitoringSql.checkSubscriptionStatusSql)}
-                    small
-                  />
-                </div>
-                <pre
-                  style={{
-                    padding: "15px",
-                    borderRadius: "3px",
-                    overflow: "auto",
-                    fontSize: "12px",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {monitoringSql.checkSubscriptionStatusSql}
-                </pre>
-              </Card>
-
-              <Card elevation={Elevation.TWO}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <H5>Check Sync Errors</H5>
-                  <Button
-                    icon={IconNames.DUPLICATE}
-                    text="Copy"
-                    onClick={() => copyToClipboard(monitoringSql.checkSyncErrorsSql)}
-                    small
-                  />
-                </div>
-                <pre
-                  style={{
-                    padding: "15px",
-                    borderRadius: "3px",
-                    overflow: "auto",
-                    fontSize: "12px",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {monitoringSql.checkSyncErrorsSql}
-                </pre>
-              </Card>
+              {[
+                { title: "Check Schema Match", sql: monitoringSql.checkSchemaMatchSql },
+                { title: "Check Replication Lag", sql: monitoringSql.checkReplicationLagSql },
+                { title: "Check Subscription Status", sql: monitoringSql.checkSubscriptionStatusSql },
+                { title: "Check Sync Errors", sql: monitoringSql.checkSyncErrorsSql },
+              ].map((card, i) => {
+                const content = setupPath === "sql" ? card.sql : sqlToShell(card.sql, "sub", setupShell);
+                const file = `${card.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.${shellExt}`;
+                return (
+                  <Card key={`mon-${i}`} elevation={Elevation.TWO} className={styles.cardSpacing}>
+                    <div className={styles.flexHeader}>
+                      <H5>{card.title}</H5>
+                      <ControlGroup>
+                        <Button icon={IconNames.DUPLICATE} text="Copy" onClick={() => copyToClipboard(content)} small />
+                        {setupPath === "shell" && (
+                          <Button
+                            icon={IconNames.DOWNLOAD}
+                            text={`Download .${shellExt}`}
+                            onClick={() => downloadAs(content, file, shellMime)}
+                            small
+                          />
+                        )}
+                      </ControlGroup>
+                    </div>
+                    <pre className={styles.codeBlockWithMaxHeight}>{content}</pre>
+                  </Card>
+                );
+              })}
             </div>
           }
         />

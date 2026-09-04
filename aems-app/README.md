@@ -1442,7 +1442,7 @@ Then backfill historical data. Everything you need is on the `/historian` page o
 - **Pure SQL** — copy-paste blocks from Cards 1-5 into pgAdmin / psql attached to your subscriber PostgreSQL. Card 5 is a stored procedure using `dblink` with per-chunk `COMMIT`, resumable across cellular disconnects — re-`CALL` to pick up from the first incomplete chunk.
 - **Shell / PowerShell commands** — same five steps as bash one-liners (Linux/macOS) or PowerShell (Windows). Every card has Copy and Download buttons. Card 5 is a full standalone script (`subscribe-historian.sh` or `.ps1`) that encapsulates the resumable chunk loop; needs only `psql` and `pg_dump` on PATH.
 
-The subscriber can be any PostgreSQL 16+ instance — bare Postgres, no AEMS software required. Both paths are idempotent: interruption is safe, re-running skips completed chunks via `public.backfill_progress` and merges under `INSERT … ON CONFLICT DO NOTHING`.
+The subscriber can be any PostgreSQL 16+ instance — bare Postgres, no AEMS software required. Both paths are idempotent: interruption is safe, re-running skips completed chunks via `backfill.progress` (in a dedicated `backfill` schema, off `public`) and merges under `INSERT … ON CONFLICT DO NOTHING`. Path A also persists a single-row `backfill.config` so `CALL backfill.run_backfill(publisher_password := 'PW');` alone is enough to resume; Path B reads `backfill.config` as defaults so `--start-ts` isn't required on re-runs.
 
 **Note:** If you receive a warning `WARNING: publication "historian_pub" does not exist on the publisher`, see the [Troubleshooting](#troubleshooting) section below for the solution.
 
