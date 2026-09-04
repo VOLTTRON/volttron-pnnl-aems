@@ -496,7 +496,30 @@ $env:PUB_PASSWORD = "YOUR_REPLICATOR_PASSWORD"`;
                       <pre className={styles.codeBlockWithMaxHeight}>{card.content}</pre>
                     </Card>
                   ))
-                : shellCards.map((card, i) => (
+                : [
+                    <Card key="sh-env" elevation={Elevation.TWO} className={styles.cardSpacing}>
+                      <div className={styles.flexHeader}>
+                        <H5>Env-var setup (paste once)</H5>
+                        <Button
+                          icon={IconNames.DUPLICATE}
+                          text="Copy"
+                          onClick={() =>
+                            copyToClipboard(
+                              (shellIsBash ? subShPreamble : subPs1Preamble) +
+                                "\n\n" +
+                                (shellIsBash ? pubShPreamble(hostname) : pubPs1Preamble(hostname)),
+                            )
+                          }
+                          small
+                        />
+                      </div>
+                      <pre className={styles.codeBlockWithMaxHeight}>
+                        {(shellIsBash ? subShPreamble : subPs1Preamble) +
+                          "\n\n" +
+                          (shellIsBash ? pubShPreamble(hostname) : pubPs1Preamble(hostname))}
+                      </pre>
+                    </Card>,
+                    ...shellCards.map((card, i) => (
                     <Card key={`sh-${i}`} elevation={Elevation.TWO} className={styles.cardSpacing}>
                       <div className={styles.flexHeader}>
                         <H5>{card.title}</H5>
@@ -532,7 +555,8 @@ $env:PUB_PASSWORD = "YOUR_REPLICATOR_PASSWORD"`;
                       )}
                       <pre className={styles.codeBlockWithMaxHeight}>{card.content}</pre>
                     </Card>
-                  ))}
+                    )),
+                  ]}
             </div>
           }
         />

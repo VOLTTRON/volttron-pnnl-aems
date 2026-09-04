@@ -2294,17 +2294,13 @@ $env:SUB_PORT     = "5432"
 $env:SUB_USER     = "YOUR_SUBSCRIBER_USER"
 $env:SUB_DB       = "historian"
 $env:SUB_PASSWORD = "YOUR_SUBSCRIBER_PASSWORD"`;
-            const createTablesCmdSh = `${shPreamble}
-
-PGPASSWORD="$PUB_PASSWORD" pg_dump \\
+            const createTablesCmdSh = `PGPASSWORD="$PUB_PASSWORD" pg_dump \\
     -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d historian \\
     --schema-only --no-owner --no-privileges \\
     -t public.data -t public.topics -t public.topics_topic_id_seq \\
   | PGPASSWORD="$SUB_PASSWORD" psql \\
     -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1`;
-            const createTablesCmdPs1 = `${ps1Preamble}
-
-$env:PGPASSWORD = $env:PUB_PASSWORD
+            const createTablesCmdPs1 = `$env:PGPASSWORD = $env:PUB_PASSWORD
 $ddl = & pg_dump -h $env:PUB_HOST -p $env:PUB_PORT -U $env:PUB_USER -d historian \`
     --schema-only --no-owner --no-privileges \`
     -t public.data -t public.topics -t public.topics_topic_id_seq
