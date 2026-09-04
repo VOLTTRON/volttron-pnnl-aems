@@ -1437,16 +1437,12 @@ SELECT
 FROM pg_stat_subscription;
 ```
 
-Then, on the subscriber host with `psql` and network access to both endpoints, backfill historical data:
+Then backfill historical data. Everything you need is on the `/historian` page of your running publisher deployment (`https://<PUBLISHER_HOSTNAME>/historian` → Subscriber Setup tab). It offers two parallel paths:
 
-```bash
-./aems-app/subscribe-historian.sh \
-    --publisher-host YOUR_PUBLISHER_HOSTNAME \
-    --publisher-port YOUR_HISTORIAN_REPLICATION_PORT \
-    --subscriber-host localhost
-```
+- **Pure SQL** — copy-paste blocks from Cards 1-5 into pgAdmin / psql attached to your subscriber PostgreSQL. Card 5 is a stored procedure using `dblink` with per-chunk `COMMIT`, resumable across cellular disconnects — re-`CALL` to pick up from the first incomplete chunk.
+- **Shell / PowerShell commands** — same five steps as bash one-liners (Linux/macOS) or PowerShell (Windows). Every card has Copy and Download buttons. Card 5 is a full standalone script (`subscribe-historian.sh` or `.ps1`) that encapsulates the resumable chunk loop; needs only `psql` and `pg_dump` on PATH.
 
-The wrapper is idempotent — safe to interrupt and re-run. Progress is checkpointed per chunk in `public.backfill_progress`.
+The subscriber can be any PostgreSQL 16+ instance — bare Postgres, no AEMS software required. Both paths are idempotent: interruption is safe, re-running skips completed chunks via `public.backfill_progress` and merges under `INSERT … ON CONFLICT DO NOTHING`.
 
 **Note:** If you receive a warning `WARNING: publication "historian_pub" does not exist on the publisher`, see the [Troubleshooting](#troubleshooting) section below for the solution.
 
@@ -1785,7 +1781,7 @@ WITH (
     slot_name   = 'historian_sub_slot'
 );
 ```
-Then backfill historical rows with `./aems-app/subscribe-historian.sh --publisher-sslmode prefer …`.
+Then backfill historical rows using the two-path recipe on the publisher's `/historian` page (pure SQL via pgAdmin, or download a `.sh` / `.ps1` from Card 5 to run against `psql` on your machine).
 
 #### Troubleshooting
 
@@ -2024,9 +2020,7 @@ SELECT subname, subenabled, pid FROM pg_stat_subscription;
 
 Then fill historical rows in resumable chunks:
 
-```bash
-./aems-app/subscribe-historian.sh --publisher-host YOUR_PUBLISHER_HOSTNAME
-```
+See the publisher's `/historian` page (Subscriber Setup tab) — Card 5 offers both a pure-SQL recovery via `CALL public.run_backfill(...)` and a Download button for `subscribe-historian.sh` / `.ps1` that will detect the invalidated slot, drop + recreate the subscription, and backfill the gap.
 
 **Important Notes:**
 - Dropping a subscription deletes all tracking data on the subscriber but preserves already-replicated rows in `public.data` / `public.topics` (idempotent under `ON CONFLICT DO NOTHING`).

@@ -5,6 +5,8 @@ import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
 import * as tls from "tls";
 import * as https from "https";
+import * as fs from "fs";
+import * as path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
 
@@ -88,6 +90,13 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   private logger = new Logger(HistorianService.name);
   private pool: Pool;
 
+  // Standalone subscribe-historian scripts served by getReplicationInfo() for
+  // the /historian UI's Path B (bash / PowerShell) Card 5. Loaded once, from
+  // dist/historian/templates/ (nest-cli assets entry). Contain {{HOSTNAME}}
+  // etc. placeholders that are substituted at request time.
+  private readonly subscribeHistorianShTemplate: string;
+  private readonly subscribeHistorianPs1Template: string;
+
   constructor(
     @Inject(AppConfigService.Key) private configService: AppConfigService,
     private readonly prismaService: PrismaService,
@@ -120,6 +129,28 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     this.pool.on("error", (err) => {
       this.logger.error("Unexpected error on idle historian database client", err);
     });
+
+    // Load subscribe-historian script templates once. Assets ship next to the
+    // compiled JS via nest-cli.json's assets entry; __dirname points at
+    // dist/historian/ at runtime.
+    const templatesDir = path.join(__dirname, "templates");
+    try {
+      this.subscribeHistorianShTemplate = fs.readFileSync(
+        path.join(templatesDir, "subscribe-historian.sh"),
+        "utf8",
+      );
+      this.subscribeHistorianPs1Template = fs.readFileSync(
+        path.join(templatesDir, "subscribe-historian.ps1"),
+        "utf8",
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Could not load subscribe-historian templates from ${templatesDir}: ${(err as Error).message}. ` +
+          `Path B script fields will be empty on the /historian page.`,
+      );
+      this.subscribeHistorianShTemplate = "";
+      this.subscribeHistorianPs1Template = "";
+    }
   }
 
   async onModuleInit() {
@@ -2784,7 +2815,9 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
       const sslMode = isSelfSigned ? "prefer" : "require";
 
       const replicationPort = this.configService.historian.replicationPort;
-      const createSubscriptionTemplate = `CREATE SUBSCRIPTION historian_sub
+
+      // -------- Path A (SQL) --------
+      const createSubscriptionSql = `CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}'
 PUBLICATION historian_pub
 WITH (
@@ -2793,19 +2826,175 @@ WITH (
     enabled = true,
     slot_name = 'historian_sub_slot'
 );
--- copy_data=false: streaming starts NOW; use the backfill command below to
--- fill historical data. Safe over unreliable / cellular links because the
--- backfill runs in resumable chunked transactions rather than a single
--- multi-GB COPY that would roll back on any network drop.`;
+-- copy_data=false: streaming starts NOW; run the backfill procedure in the
+-- next card to fill historical data. Resumable across cellular disconnects
+-- because the procedure per-chunk COMMITs.`;
 
-      const backfillCommand = `# Run on the subscriber host (requires psql on PATH).
-# Fills historical data in resumable chunked transactions.
-./aems-app/subscribe-historian.sh \\
-    --publisher-host {{HOSTNAME}} \\
-    --publisher-port ${replicationPort} \\
-    --subscriber-host <your-subscriber-host> \\
-    --subscriber-user <your-subscriber-user>
-# Add --dry-run first to preview; --verify-only after to check convergence.`;
+      const backfillProcedureSql = `-- Enable dblink so we can pull from the publisher inside a stored procedure.
+CREATE EXTENSION IF NOT EXISTS dblink;
+
+-- Progress table for resumability (per-chunk checkpoints).
+CREATE TABLE IF NOT EXISTS public.backfill_progress (
+    chunk_start  timestamp PRIMARY KEY,
+    chunk_end    timestamp NOT NULL,
+    inserted     bigint,
+    completed_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Chunked resumable backfill. Per-chunk COMMIT (only allowed inside CALLed
+-- procedures) means cellular disconnects only lose the in-flight chunk;
+-- the next CALL resumes at the first incomplete chunk_start.
+CREATE OR REPLACE PROCEDURE public.run_backfill(
+    publisher_conn text,
+    start_ts       timestamp,
+    end_ts         timestamp DEFAULT NULL,
+    chunk_interval interval DEFAULT '1 week'
+) LANGUAGE plpgsql AS $BODY$
+DECLARE
+    cs      timestamp := start_ts;
+    ce      timestamp;
+    stop_ts timestamp := COALESCE(end_ts, NOW()::timestamp);
+BEGIN
+    WHILE cs < stop_ts LOOP
+        ce := LEAST(cs + chunk_interval, stop_ts);
+        IF NOT EXISTS (SELECT 1 FROM public.backfill_progress WHERE chunk_start = cs) THEN
+            RAISE NOTICE '[chunk] % -> %', cs, ce;
+            DROP TABLE IF EXISTS _backfill_stage;
+            CREATE UNLOGGED TABLE _backfill_stage (topic_id integer, ts timestamp, value_string text);
+            EXECUTE format(
+                'INSERT INTO _backfill_stage SELECT * FROM dblink(%L, %L) AS t(topic_id integer, ts timestamp, value_string text)',
+                publisher_conn,
+                format('SELECT topic_id, ts, value_string FROM public.data WHERE ts >= %L AND ts < %L', cs, ce)
+            );
+            INSERT INTO public.data (topic_id, ts, value_string)
+            SELECT topic_id, ts, value_string FROM _backfill_stage
+            ON CONFLICT (topic_id, ts) DO NOTHING;
+            INSERT INTO public.backfill_progress (chunk_start, chunk_end, inserted)
+            VALUES (cs, ce, (SELECT count(*) FROM _backfill_stage));
+            DROP TABLE _backfill_stage;
+            COMMIT;
+        END IF;
+        cs := ce;
+    END LOOP;
+END $BODY$;
+
+-- Backfill topics (small; single one-shot merge).
+INSERT INTO public.topics (topic_id, topic_name, metadata)
+SELECT * FROM dblink(
+    'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}',
+    'SELECT topic_id, topic_name, metadata FROM public.topics'
+) AS t(topic_id integer, topic_name text, metadata text)
+ON CONFLICT (topic_id) DO UPDATE
+  SET topic_name = EXCLUDED.topic_name, metadata = EXCLUDED.metadata;
+
+-- Invoke. Edit start_ts to the earliest publisher timestamp you care about
+-- (see MIN(ts) on publisher). Re-CALL to resume after any disconnect.
+CALL public.run_backfill(
+    'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}',
+    '2026-01-01 00:00:00'::timestamp
+);`;
+
+      // -------- Path B (bash + PowerShell one-liners) --------
+      // Env-var contract shared across both shells:
+      //   PUB_HOST, PUB_PORT, PUB_USER, PUB_PASSWORD
+      //   SUB_HOST, SUB_PORT, SUB_USER, SUB_DB, SUB_PASSWORD
+      const shPreamble = `# Set these once (replace placeholders with real values), then paste
+# each step below. Cards 1-4 are one-liners; Card 5 (backfill) is the
+# resumable script — download the .sh from Card 5 for that.
+export PUB_HOST={{HOSTNAME}}
+export PUB_PORT=${replicationPort}
+export PUB_USER=replicator
+export PUB_PASSWORD=YOUR_REPLICATOR_PASSWORD
+export SUB_HOST=YOUR_SUBSCRIBER_HOSTNAME
+export SUB_PORT=5432
+export SUB_USER=YOUR_SUBSCRIBER_USER
+export SUB_DB=historian
+export SUB_PASSWORD=YOUR_SUBSCRIBER_PASSWORD`;
+
+      const ps1Preamble = `# Set these once (replace placeholders with real values), then paste
+# each step below. Cards 1-4 are one-liners; Card 5 (backfill) is the
+# resumable script — download the .ps1 from Card 5 for that.
+$env:PUB_HOST     = "{{HOSTNAME}}"
+$env:PUB_PORT     = "${replicationPort}"
+$env:PUB_USER     = "replicator"
+$env:PUB_PASSWORD = "YOUR_REPLICATOR_PASSWORD"
+$env:SUB_HOST     = "YOUR_SUBSCRIBER_HOSTNAME"
+$env:SUB_PORT     = "5432"
+$env:SUB_USER     = "YOUR_SUBSCRIBER_USER"
+$env:SUB_DB       = "historian"
+$env:SUB_PASSWORD = "YOUR_SUBSCRIBER_PASSWORD"`;
+
+      const createTablesCmdSh = `${shPreamble}
+
+PGPASSWORD="$PUB_PASSWORD" pg_dump \\
+    -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d historian \\
+    --schema-only --no-owner --no-privileges \\
+    -t public.data -t public.topics -t public.topics_topic_id_seq \\
+  | PGPASSWORD="$SUB_PASSWORD" psql \\
+    -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1`;
+
+      const createTablesCmdPs1 = `${ps1Preamble}
+
+$env:PGPASSWORD = $env:PUB_PASSWORD
+$ddl = & pg_dump -h $env:PUB_HOST -p $env:PUB_PORT -U $env:PUB_USER -d historian \`
+    --schema-only --no-owner --no-privileges \`
+    -t public.data -t public.topics -t public.topics_topic_id_seq
+$env:PGPASSWORD = $env:SUB_PASSWORD
+$ddl | & psql -h $env:SUB_HOST -p $env:SUB_PORT -U $env:SUB_USER -d $env:SUB_DB -v ON_ERROR_STOP=1
+Remove-Item Env:PGPASSWORD`;
+
+      const heredocConstraints = `ALTER TABLE public.topics ADD PRIMARY KEY (topic_id);
+ALTER TABLE public.data   ADD PRIMARY KEY (topic_id, ts);`;
+
+      const createConstraintsCmdSh = `PGPASSWORD="$SUB_PASSWORD" psql \\
+    -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1 <<'SQL'
+${heredocConstraints}
+SQL`;
+
+      const createConstraintsCmdPs1 = `$env:PGPASSWORD = $env:SUB_PASSWORD
+@'
+${heredocConstraints}
+'@ | & psql -h $env:SUB_HOST -p $env:SUB_PORT -U $env:SUB_USER -d $env:SUB_DB -v ON_ERROR_STOP=1
+Remove-Item Env:PGPASSWORD`;
+
+      // Indexes: reuse the server-emitted createIndexesSql content inside a heredoc.
+      const createIndexesCmdSh = `PGPASSWORD="$SUB_PASSWORD" psql \\
+    -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1 <<'SQL'
+${createIndexesSql}
+SQL`;
+
+      const createIndexesCmdPs1 = `$env:PGPASSWORD = $env:SUB_PASSWORD
+@'
+${createIndexesSql}
+'@ | & psql -h $env:SUB_HOST -p $env:SUB_PORT -U $env:SUB_USER -d $env:SUB_DB -v ON_ERROR_STOP=1
+Remove-Item Env:PGPASSWORD`;
+
+      const createSubscriptionCmdSh = `PGPASSWORD="$SUB_PASSWORD" psql \\
+    -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1 <<SQL
+CREATE SUBSCRIPTION historian_sub
+CONNECTION 'host=$PUB_HOST port=$PUB_PORT dbname=historian user=$PUB_USER password=$PUB_PASSWORD sslmode=${sslMode}'
+PUBLICATION historian_pub
+WITH (copy_data=false, create_slot=true, enabled=true, slot_name='historian_sub_slot');
+SQL`;
+
+      const createSubscriptionCmdPs1 = `$env:PGPASSWORD = $env:SUB_PASSWORD
+@"
+CREATE SUBSCRIPTION historian_sub
+CONNECTION 'host=$($env:PUB_HOST) port=$($env:PUB_PORT) dbname=historian user=$($env:PUB_USER) password=$($env:PUB_PASSWORD) sslmode=${sslMode}'
+PUBLICATION historian_pub
+WITH (copy_data=false, create_slot=true, enabled=true, slot_name='historian_sub_slot');
+"@ | & psql -h $env:SUB_HOST -p $env:SUB_PORT -U $env:SUB_USER -d $env:SUB_DB -v ON_ERROR_STOP=1
+Remove-Item Env:PGPASSWORD`;
+
+      // Card 5 Path B: full standalone scripts from templates (substituted).
+      const linuxScript = this.subscribeHistorianShTemplate
+        .replace(/\{\{HOSTNAME\}\}/g, "{{HOSTNAME}}")
+        .replace(/\{\{PORT\}\}/g, String(replicationPort))
+        .replace(/\{\{SSLMODE\}\}/g, sslMode);
+      const windowsScript = this.subscribeHistorianPs1Template
+        .replace(/\{\{HOSTNAME\}\}/g, "{{HOSTNAME}}")
+        .replace(/\{\{PORT\}\}/g, String(replicationPort))
+        .replace(/\{\{SSLMODE\}\}/g, sslMode);
 
       const checkSchemaMatchSql = `-- On subscriber: Compare table structures
 SELECT 
@@ -2860,11 +3049,24 @@ WHERE subname = 'historian_sub';`;
           replicationSlots,
         },
         subscriberSetupSql: {
+          // Path A
           createTablesSql,
           createConstraintsSql,
           createIndexesSql,
-          createSubscriptionTemplate,
-          backfillCommand,
+          createSubscriptionSql,
+          backfillProcedureSql,
+          // Path B (bash)
+          createTablesCmdSh,
+          createConstraintsCmdSh,
+          createIndexesCmdSh,
+          createSubscriptionCmdSh,
+          linuxScript,
+          // Path B (PowerShell)
+          createTablesCmdPs1,
+          createConstraintsCmdPs1,
+          createIndexesCmdPs1,
+          createSubscriptionCmdPs1,
+          windowsScript,
         },
         monitoringSql: {
           checkSchemaMatchSql,

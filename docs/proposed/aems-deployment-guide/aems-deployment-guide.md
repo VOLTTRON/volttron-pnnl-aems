@@ -812,8 +812,9 @@ The subscriber is a separate PostgreSQL instance — typically on another AEMS h
 
 **Prerequisites the sysadmin owns before subscriber setup begins:**
 
-- PostgreSQL 16+ installed on the subscriber host.
-- TCP reachability from subscriber → publisher on the port `HISTORIAN_REPLICATION_PORT` from the publisher's `.env` (default **6543**, not the PostgreSQL default 5432).
+- **A PostgreSQL 16+ instance on the subscriber host.** Bare Postgres — no AEMS software, no Docker, no repo checkout is required on the subscriber machine.
+- **Access to the publisher's `/historian` page** (`https://<PUBLISHER_HOSTNAME>/historian`, Subscriber Setup tab). The page auto-generates everything the operator needs, offering two parallel paths: pure SQL for pgAdmin / psql users, or downloadable shell scripts (Linux/macOS `.sh` or Windows `.ps1`) for operators who prefer running commands on their own host.
+- TCP reachability from the subscriber → publisher on the port `HISTORIAN_REPLICATION_PORT` from the publisher's `.env` (default **6543**, not the PostgreSQL default 5432).
 - The publisher's `HISTORIAN_REPLICATOR_PASSWORD` value from `.env.secrets` and the publisher's `APP_HOSTNAME`, communicated to whoever will run the subscriber-side setup.
 - Sufficient disk on the subscriber for the historian volume you expect (see *Historian Retention* above for growth estimates).
 
@@ -829,11 +830,10 @@ If replication becomes stuck after a schema change or after manually deleting hi
 
 Once streaming has started, PG's slot mechanism preserves the missed WAL and resumes automatically on reconnect — no data loss, no operator action, up to the publisher's WAL retention limit. The historian's shipped `postgresql.conf` sets `max_slot_wal_keep_size = 10 GB` (~50 days at typical VOLTTRON WAL rates of 100–200 MB/day) so a subscriber that's been offline for a few days on a cellular connection reconnects and streams the gap without intervention.
 
-If the outage exceeds the retention window, the publisher invalidates the slot (`pg_replication_slots.wal_status='lost'`, log line `LOG:  invalidating slot "historian_sub_slot" because its restart_lsn … exceeds max_slot_wal_keep_size`). The subscriber then loops on `could not receive data from WAL stream: … has already been removed`. Recovery is idempotent:
+If the outage exceeds the retention window, the publisher invalidates the slot (`pg_replication_slots.wal_status='lost'`, log line `LOG:  invalidating slot "historian_sub_slot" because its restart_lsn … exceeds max_slot_wal_keep_size`). The subscriber then loops on `could not receive data from WAL stream: … has already been removed`. Recovery is idempotent through either path on the publisher's `/historian` page:
 
-```bash
-./aems-app/subscribe-historian.sh --publisher-host <PUBLISHER_HOSTNAME>
-```
+- **Path A**: re-`CALL public.run_backfill(...)` from pgAdmin — the procedure skips completed chunks via `public.backfill_progress` and merges under `ON CONFLICT DO NOTHING`. Drop the invalidated subscription first (`DROP SUBSCRIPTION historian_sub;`) then re-run Card 4's `CREATE SUBSCRIPTION` with `copy_data=false`.
+- **Path B**: download and re-run the Card 5 script (`subscribe-historian.sh` or `.ps1`); it auto-detects `wal_status='lost'` and re-creates the subscription itself before backfilling the gap.
 
 The wrapper detects `wal_status='lost'`, drops the invalidated slot + subscription, recreates the subscription with `copy_data=false`, and backfills the gap window via chunked `INSERT … ON CONFLICT DO NOTHING`. Existing subscriber rows are preserved; only the missing window is filled.
 
@@ -1130,11 +1130,12 @@ The subscriber is a separate PostgreSQL instance — typically on another AEMS h
 
 **Prerequisites on the subscriber host:**
 
-- PostgreSQL 16+ installed and running as the standard `postgres` superuser.
-- TCP reachability from subscriber → publisher on the port `HISTORIAN_REPLICATION_PORT` from the publisher's `.env` (default **6543**, not the PostgreSQL default 5432).
-- The publisher's `HISTORIAN_REPLICATOR_PASSWORD` value from `.env.secrets`.
-- The publisher's `APP_HOSTNAME`.
-- Sufficient disk on the subscriber for the historian volume you expect (see *Historian and VOLTTRON Configuration → Historian Retention* for growth estimates).
+- **PostgreSQL 16+ installed and running.** Bare Postgres — no AEMS software, no Docker.
+- TCP reachability to the publisher's `HISTORIAN_REPLICATION_PORT` (default **6543**).
+- Sufficient disk for the historian volume you expect (see *Historian and VOLTTRON Configuration → Historian Retention* for growth estimates).
+- Publisher hostname (`APP_HOSTNAME`) and the `HISTORIAN_REPLICATOR_PASSWORD` value from the publisher's `.env.secrets`.
+
+**Where the operator sits**: at the publisher's `/historian` page in a browser, plus either pgAdmin/psql attached to their subscriber (Path A) or a shell with `psql` and `pg_dump` on PATH (Path B). No AEMS repo checkout, no Docker, and no software installed on the subscriber host beyond PostgreSQL itself.
 
 **Step 1 — Create the subscriber database with the required schema.** Logical replication requires the target tables to exist and to carry the same primary keys as the publisher. Connect as `postgres`:
 
@@ -1190,16 +1191,14 @@ Placeholder substitution:
 
 **Why `copy_data=false`.** PG's initial COPY (`copy_data=true`) runs as a **single transaction** on the subscriber — any interruption rolls back to zero rows and starts over. Production subscribers frequently sit behind unreliable Verizon cellular links; a growing multi-GB `data` table cannot complete a single-transaction initial COPY over cellular. `copy_data=false` starts live streaming from the publisher's current LSN immediately (small, quick), and historical rows are filled by a resumable chunked backfill in Step 3.
 
-**Step 3 — Backfill historical rows.** Run this on the subscriber host (needs `psql` on PATH; from an AEMS repo checkout is easiest, but any machine with network access to both endpoints works):
+**Step 3 — Backfill historical rows.** Everything the operator needs is on the publisher's `/historian` page (Subscriber Setup tab). Two paths, whichever fits the operator's toolset:
 
-```bash
-./aems-app/subscribe-historian.sh \
-    --publisher-host <PUBLISHER_HOSTNAME> \
-    --publisher-port <HISTORIAN_REPLICATION_PORT> \
-    --subscriber-host <SUBSCRIBER_HOSTNAME>
-```
+- **Path A — Pure SQL** (pgAdmin / psql attached to the subscriber). Copy Card 5's SQL block, edit the `start_ts` and password placeholder, run. Card 5 creates a stored procedure using `dblink` that pulls chunk-by-chunk from the publisher and per-chunk `COMMIT`s — cellular disconnects only cost the in-flight chunk. Re-`CALL` to resume. `dblink` ships with any standard PostgreSQL install (part of `postgres-contrib`); the `CREATE EXTENSION` at the top requires SUPERUSER, same as `CREATE SUBSCRIPTION` already does.
+- **Path B — Shell / PowerShell**. Card 5 offers a Download button for the full standalone script (`subscribe-historian.sh` on Linux/macOS, `subscribe-historian.ps1` on Windows). Save it, run `./subscribe-historian.sh --help` (or `.\subscribe-historian.ps1 -Help`), then invoke it with `--publisher-host`, `--subscriber-host`, credentials, and an optional `--start-ts`. Same idempotent chunk loop, checkpointed in `public.backfill_progress`.
 
-The wrapper chunks the `public.data` copy by time window (default 1 week per chunk), checkpoints progress in `public.backfill_progress` on the subscriber, and merges each chunk under `INSERT … ON CONFLICT (topic_id, ts) DO NOTHING` so live streaming and backfill coexist without duplicates. Any network drop mid-chunk rolls back just that one chunk; the next invocation resumes at the first incomplete `chunk_start`. Safe to Ctrl-C. Use `--verify-only` to check convergence.
+Either path is idempotent: interruption is safe, re-running skips completed chunks and merges under `INSERT … ON CONFLICT DO NOTHING`.
+
+The worker chunks the `public.data` copy by time window (default 1 week per chunk), checkpoints progress in `public.backfill_progress` on the subscriber, and merges each chunk under `INSERT … ON CONFLICT (topic_id, ts) DO NOTHING` so live streaming and backfill coexist without duplicates. Any network drop mid-chunk rolls back just that one chunk; the next invocation resumes at the first incomplete `chunk_start`. Safe to Ctrl-C. Use `--verify-only` to check convergence.
 
 **Step 4 — Verify subscription and monitor lag.**
 

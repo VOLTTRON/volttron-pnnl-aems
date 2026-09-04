@@ -11,6 +11,8 @@ import {
   H5,
   Intent,
   NonIdealState,
+  Radio,
+  RadioGroup,
   Spinner,
   Tab,
   Tabs,
@@ -52,6 +54,9 @@ export default function HistorianPage() {
     },
   });
   const [activeTab, setActiveTab] = useState("publisher");
+  // Subscriber Setup tab: which path (SQL vs shell) and, for shell, which OS.
+  const [setupPath, setSetupPath] = useState<"sql" | "shell">("sql");
+  const [setupShell, setSetupShell] = useState<"bash" | "powershell">("bash");
 
   // Memoized filtered unit data using the filter utility
   const filteredUnits = useMemo(() => {
@@ -82,6 +87,19 @@ export default function HistorianPage() {
     }
   };
 
+  // Trigger a browser download of arbitrary text content as a named file.
+  const downloadAs = (text: string, filename: string, mime = "text/plain") => {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) {
     return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "400px" }}>
@@ -106,10 +124,53 @@ export default function HistorianPage() {
 
   const { publisherInfo, subscriberSetupSql, monitoringSql, systemPublishingStatus } = data.historianReplicationInfo;
 
-  // Replace hostname placeholder with current browser hostname
+  // Replace {{HOSTNAME}} placeholder in every subscriber-setup string with the
+  // publisher's public hostname (this browser's — the /historian page is
+  // served from the publisher, so this matches).
   const hostname = typeof window !== "undefined" ? window.location.hostname : "YOUR_HOSTNAME";
-  const finalSubscriptionTemplate = subscriberSetupSql.createSubscriptionTemplate.replace("{{HOSTNAME}}", hostname);
-  const finalBackfillCommand = (subscriberSetupSql.backfillCommand ?? "").replace(/\{\{HOSTNAME\}\}/g, hostname);
+  const sub = subscriberSetupSql;
+  const sub_ = (s: string | null | undefined) => (s ?? "").replace(/\{\{HOSTNAME\}\}/g, hostname);
+
+  // Path A (SQL) card contents
+  const sqlCards = [
+    { title: "1. Create tables on subscriber", content: sub_(sub.createTablesSql) },
+    { title: "2. Add primary keys", content: sub_(sub.createConstraintsSql) },
+    { title: "3. Add indexes", content: sub_(sub.createIndexesSql) },
+    { title: "4. Create subscription", content: sub_(sub.createSubscriptionSql) },
+    { title: "5. Backfill historical rows", content: sub_(sub.backfillProcedureSql) },
+  ];
+
+  // Path B (shell) card contents — a per-OS view.
+  const shellIsBash = setupShell === "bash";
+  const shellExt = shellIsBash ? "sh" : "ps1";
+  const shellMime = shellIsBash ? "application/x-sh" : "application/x-powershell";
+  const shellCards = [
+    {
+      title: "1. Create tables on subscriber",
+      content: sub_(shellIsBash ? sub.createTablesCmdSh : sub.createTablesCmdPs1),
+      file: `step-1-create-tables.${shellExt}`,
+    },
+    {
+      title: "2. Add primary keys",
+      content: sub_(shellIsBash ? sub.createConstraintsCmdSh : sub.createConstraintsCmdPs1),
+      file: `step-2-primary-keys.${shellExt}`,
+    },
+    {
+      title: "3. Add indexes",
+      content: sub_(shellIsBash ? sub.createIndexesCmdSh : sub.createIndexesCmdPs1),
+      file: `step-3-indexes.${shellExt}`,
+    },
+    {
+      title: "4. Create subscription",
+      content: sub_(shellIsBash ? sub.createSubscriptionCmdSh : sub.createSubscriptionCmdPs1),
+      file: `step-4-subscription.${shellExt}`,
+    },
+    {
+      title: "5. Backfill historical rows (full standalone script)",
+      content: sub_(shellIsBash ? sub.linuxScript : sub.windowsScript),
+      file: `subscribe-historian.${shellExt}`,
+    },
+  ];
 
   return (
     <div className={styles.pageContainer}>
@@ -203,147 +264,106 @@ export default function HistorianPage() {
           panel={
             <div className={styles.tabPanel}>
               <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} className={styles.calloutSpacing}>
-                Run these SQL commands on your <strong>subscriber database</strong> to set up replication.
+                Choose one. <strong>Pure SQL</strong> works entirely within pgAdmin / psql attached to your
+                subscriber&apos;s PostgreSQL 16+ — no other tools needed.{" "}
+                <strong>Shell / PowerShell commands</strong> run on any machine with <code>psql</code> and{" "}
+                <code>pg_dump</code> on PATH (the subscriber&apos;s host, an admin box, wherever). Every step
+                exists in both forms; whichever path you pick, walk the same five cards below.
               </Callout>
 
               <Card elevation={Elevation.TWO} className={styles.cardSpacing}>
-                <div className={styles.flexHeader}>
-                  <H5>1. Create Tables</H5>
-                  <Button
-                    icon={IconNames.DUPLICATE}
-                    text="Copy"
-                    onClick={() => copyToClipboard(subscriberSetupSql.createTablesSql)}
-                    small
-                  />
-                </div>
-                <pre className={styles.codeBlockWithMaxHeight}>{subscriberSetupSql.createTablesSql}</pre>
-              </Card>
-
-              <Card elevation={Elevation.TWO} className={styles.cardSpacing}>
-                <div className={styles.flexHeader}>
-                  <H5>2. Create Primary Keys</H5>
-                  <Button
-                    icon={IconNames.DUPLICATE}
-                    text="Copy"
-                    onClick={() => copyToClipboard(subscriberSetupSql.createConstraintsSql)}
-                    small
-                  />
-                </div>
-                <pre className={styles.codeBlock}>{subscriberSetupSql.createConstraintsSql}</pre>
-              </Card>
-
-              {subscriberSetupSql.createIndexesSql && (
-                <Card elevation={Elevation.TWO} style={{ marginBottom: "20px" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    <H5>3. Create Indexes</H5>
-                    <Button
-                      icon={IconNames.DUPLICATE}
-                      text="Copy"
-                      onClick={() => copyToClipboard(subscriberSetupSql.createIndexesSql)}
-                      small
-                    />
-                  </div>
-                  <pre
-                    style={{
-                      padding: "15px",
-                      borderRadius: "3px",
-                      overflow: "auto",
-                      fontSize: "12px",
-                      fontFamily: "monospace",
-                    }}
-                  >
-                    {subscriberSetupSql.createIndexesSql}
-                  </pre>
-                </Card>
-              )}
-
-              <Card elevation={Elevation.TWO}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                  }}
+                <RadioGroup
+                  label="Path"
+                  inline
+                  selectedValue={setupPath}
+                  onChange={(e) => setSetupPath((e.target as HTMLInputElement).value as "sql" | "shell")}
                 >
-                  <H5>4. Create Subscription</H5>
-                  <Button
-                    icon={IconNames.DUPLICATE}
-                    text="Copy"
-                    onClick={() => copyToClipboard(finalSubscriptionTemplate)}
-                    small
-                  />
-                </div>
-                <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN} style={{ marginBottom: "10px" }}>
-                  <strong>Important:</strong> Replace the password placeholder with your actual replicator password:
-                  <ul style={{ marginTop: "5px", marginBottom: "0" }}>
-                    <li>
-                      <code>YOUR_REPLICATOR_PASSWORD</code>
-                    </li>
-                  </ul>
-                  <div style={{ marginTop: "10px", fontSize: "13px" }}>
-                    The hostname and port have been automatically populated based on your current environment.
-                    <br />
-                    <strong>copy_data=false</strong> streams from now on — historical rows are filled by step 5.
-                  </div>
-                </Callout>
-                <pre
-                  style={{
-                    padding: "15px",
-                    borderRadius: "3px",
-                    overflow: "auto",
-                    fontSize: "12px",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {finalSubscriptionTemplate}
-                </pre>
+                  <Radio label="Pure SQL (pgAdmin / psql)" value="sql" />
+                  <Radio label="Shell commands (psql on PATH)" value="shell" />
+                </RadioGroup>
+                {setupPath === "shell" && (
+                  <RadioGroup
+                    label="Operating system"
+                    inline
+                    selectedValue={setupShell}
+                    onChange={(e) =>
+                      setSetupShell((e.target as HTMLInputElement).value as "bash" | "powershell")
+                    }
+                  >
+                    <Radio label="Linux / macOS (bash)" value="bash" />
+                    <Radio label="Windows (PowerShell)" value="powershell" />
+                  </RadioGroup>
+                )}
               </Card>
 
-              {finalBackfillCommand && (
-                <Card elevation={Elevation.TWO}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    <H5>5. Backfill Historical Data</H5>
-                    <Button
-                      icon={IconNames.DUPLICATE}
-                      text="Copy"
-                      onClick={() => copyToClipboard(finalBackfillCommand)}
-                      small
-                    />
-                  </div>
-                  <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "10px" }}>
-                    Step 4 creates the subscription with <code>copy_data=false</code> — live streaming begins
-                    immediately, but historical rows must be filled separately. Run this wrapper on the subscriber
-                    host to fill them in resumable chunked transactions. Safe over unreliable / cellular links; safe
-                    to interrupt and re-run.
-                  </Callout>
-                  <pre
-                    style={{
-                      padding: "15px",
-                      borderRadius: "3px",
-                      overflow: "auto",
-                      fontSize: "12px",
-                      fontFamily: "monospace",
-                    }}
-                  >
-                    {finalBackfillCommand}
-                  </pre>
-                </Card>
-              )}
+              {setupPath === "sql"
+                ? sqlCards.map((card, i) => (
+                    <Card key={`sql-${i}`} elevation={Elevation.TWO} className={styles.cardSpacing}>
+                      <div className={styles.flexHeader}>
+                        <H5>{card.title}</H5>
+                        <Button
+                          icon={IconNames.DUPLICATE}
+                          text="Copy"
+                          onClick={() => copyToClipboard(card.content)}
+                          small
+                        />
+                      </div>
+                      {i === 3 && (
+                        <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN} style={{ marginBottom: "10px" }}>
+                          Replace <code>YOUR_REPLICATOR_PASSWORD</code>. Hostname and port are pre-filled.{" "}
+                          <strong>copy_data=false</strong> streams from now — Card 5 fills historical rows.
+                        </Callout>
+                      )}
+                      {i === 4 && (
+                        <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "10px" }}>
+                          Requires the <code>dblink</code> extension (ships with any standard PostgreSQL install as
+                          part of <code>postgres-contrib</code>). Per-chunk <code>COMMIT</code> means cellular
+                          disconnects only lose the in-flight chunk — <strong>re-CALL</strong> to resume from the
+                          first incomplete <code>chunk_start</code>. Idempotent via{" "}
+                          <code>ON CONFLICT (topic_id, ts) DO NOTHING</code>. Edit the <code>start_ts</code> and
+                          password before running.
+                        </Callout>
+                      )}
+                      <pre className={styles.codeBlockWithMaxHeight}>{card.content}</pre>
+                    </Card>
+                  ))
+                : shellCards.map((card, i) => (
+                    <Card key={`sh-${i}`} elevation={Elevation.TWO} className={styles.cardSpacing}>
+                      <div className={styles.flexHeader}>
+                        <H5>{card.title}</H5>
+                        <ControlGroup>
+                          <Button
+                            icon={IconNames.DUPLICATE}
+                            text="Copy"
+                            onClick={() => copyToClipboard(card.content)}
+                            small
+                          />
+                          <Button
+                            icon={IconNames.DOWNLOAD}
+                            text={`Download .${shellExt}`}
+                            onClick={() => downloadAs(card.content, card.file, shellMime)}
+                            small
+                          />
+                        </ControlGroup>
+                      </div>
+                      {i === 0 && (
+                        <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "10px" }}>
+                          Requires <code>psql</code> and <code>pg_dump</code> on PATH. Set the env vars at the top
+                          (they&apos;re reused across cards), then paste the command. Same env-var names in bash and
+                          PowerShell — swap OS on the selector above.
+                        </Callout>
+                      )}
+                      {i === 4 && (
+                        <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "10px" }}>
+                          Full standalone script. Encapsulates all five steps plus a resumable chunked backfill
+                          (checkpointed per chunk in <code>public.backfill_progress</code>). Safe over cellular
+                          links; safe to interrupt (Ctrl-C) and re-run. Download it and run{" "}
+                          <code>./{card.file} --help</code>.
+                        </Callout>
+                      )}
+                      <pre className={styles.codeBlockWithMaxHeight}>{card.content}</pre>
+                    </Card>
+                  ))}
             </div>
           }
         />

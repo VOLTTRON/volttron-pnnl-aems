@@ -16,8 +16,18 @@ export interface SubscriberSetupSql {
     createTablesSql: string;
     createConstraintsSql: string;
     createIndexesSql: string;
-    createSubscriptionTemplate: string;
-    backfillCommand: string;
+    createSubscriptionSql: string;
+    backfillProcedureSql: string;
+    createTablesCmdSh: string;
+    createConstraintsCmdSh: string;
+    createIndexesCmdSh: string;
+    createSubscriptionCmdSh: string;
+    linuxScript: string;
+    createTablesCmdPs1: string;
+    createConstraintsCmdPs1: string;
+    createIndexesCmdPs1: string;
+    createSubscriptionCmdPs1: string;
+    windowsScript: string;
 }
 export interface MonitoringSql {
     checkSchemaMatchSql: string;
