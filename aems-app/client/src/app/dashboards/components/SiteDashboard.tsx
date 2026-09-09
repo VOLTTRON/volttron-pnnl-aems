@@ -269,6 +269,10 @@ export function SiteDashboard({
     { label: "Warm", color: secondaryPalette.secondary.hex },
     { label: "Very Warm", color: secondaryPalette.primary.hex },
   ];
+  // The server pre-quantizes error values via the ZoneTemperature metric
+  // transform (decimal1), so what arrives here is already at display precision.
+  // Classifier compares directly against padded boundaries with no additional
+  // rounding required.
   const optimalThreshold = setpointErrorPadding;
   const slightThreshold = 1 + setpointErrorPadding;
   const outerThreshold = 2 + setpointErrorPadding;

@@ -2377,9 +2377,10 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
         unoccCool,
       });
 
+      const tempEntry = resolveUnitMetricEntry(tempMetric, topicMap);
       const data: HistorianDataPoint[] = series.map((pt) => ({
         timestamp: new Date(pt.bucketMs),
-        value: pt.value,
+        value: applyTransform(pt.value, tempEntry.transform),
         system,
         metric: tempMetric,
       }));

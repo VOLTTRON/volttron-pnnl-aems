@@ -1744,9 +1744,10 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 unoccHeat,
                 unoccCool,
             });
+            const tempEntry = (0, metrics_1.resolveUnitMetricEntry)(tempMetric, topicMap);
             const data = series.map((pt) => ({
                 timestamp: new Date(pt.bucketMs),
-                value: pt.value,
+                value: (0, metrics_1.applyTransform)(pt.value, tempEntry.transform),
                 system,
                 metric: tempMetric,
             }));
