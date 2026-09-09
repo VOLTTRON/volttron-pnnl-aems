@@ -2972,33 +2972,10 @@ CALL backfill.run_backfill(
       // Env-var contract shared across both shells:
       //   PUB_HOST, PUB_PORT, PUB_USER, PUB_PASSWORD
       //   SUB_HOST, SUB_PORT, SUB_USER, SUB_DB, SUB_PASSWORD
-      const shPreamble = `# Set these once (replace placeholders with real values), then paste
-# each step below. Cards 1-4 are one-liners; Card 5 (backfill) is the
-# resumable script — download the .sh from Card 5 for that.
-export PUB_HOST={{HOSTNAME}}
-export PUB_PORT=${replicationPort}
-export PUB_USER=replicator
-export PUB_PASSWORD=YOUR_REPLICATOR_PASSWORD
-export SUB_HOST=YOUR_SUBSCRIBER_HOSTNAME
-export SUB_PORT=5432
-export SUB_USER=YOUR_SUBSCRIBER_USER
-export SUB_DB=historian
-export SUB_PASSWORD=YOUR_SUBSCRIBER_PASSWORD`;
-
-      const ps1Preamble = `# Set these once (replace placeholders with real values), then paste
-# each step below. Cards 1-4 are one-liners; Card 5 (backfill) is the
-# resumable script — download the .ps1 from Card 5 for that.
-$env:PUB_HOST     = "{{HOSTNAME}}"
-$env:PUB_PORT     = "${replicationPort}"
-$env:PUB_USER     = "replicator"
-$env:PUB_PASSWORD = "YOUR_REPLICATOR_PASSWORD"
-$env:SUB_HOST     = "YOUR_SUBSCRIBER_HOSTNAME"
-$env:SUB_PORT     = "5432"
-$env:SUB_USER     = "YOUR_SUBSCRIBER_USER"
-$env:SUB_DB       = "historian"
-$env:SUB_PASSWORD = "YOUR_SUBSCRIBER_PASSWORD"`;
-
-      // Env-var preamble is rendered once at the top of the Subscriber Setup
+      // The client renders the env-var preamble at the top of the Subscriber
+      // Setup Path B panel (same as it does on Subscription Removal and
+      // Monitoring). Card 1's server-emitted string therefore starts directly
+      // with the pg_dump | psql pipe — no preamble prefix.
       // Path B panel by the client (matching Subscription Removal + Monitoring),
       // so Card 1 no longer duplicates it.
       const createTablesCmdSh = `PGPASSWORD="$PUB_PASSWORD" pg_dump \\
