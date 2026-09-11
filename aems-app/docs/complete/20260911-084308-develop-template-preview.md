@@ -49,3 +49,21 @@ Design plan: `C:\Users\d3x573\.claude\plans\i-need-a-plan-nested-star.md` (no de
 ## Remaining verification (post-implementation)
 
 - Bring up the stack (`docker compose up -d` from [aems-app/](../..)) and click through **Admin → Templates** in the browser as an admin. Confirm the four tabs render valid JSON matching a spot-check of the running ILC agent's config.
+
+### 20260911-105200 — refresh-templates admin script
+- Edited templates on the host don't reach the running server automatically. The templates are baked into the `volttron-setup` image at build time via `COPY . .` in [aems-edge/Dockerfile](../../../aems-edge/Dockerfile) and then dropped into the shared `./docker/volttron/setup/templates/` directory by [aems-edge/setup-volttron.sh:387-391](../../../aems-edge/setup-volttron.sh#L387-L391) when the setup container runs. Since `volttron-setup` is `restart: no` and completes once per compose lifecycle, host edits are invisible to the server until the image is rebuilt and the container reruns.
+- Added [aems-app/refresh-templates.sh](../../refresh-templates.sh) + [aems-app/refresh-templates.ps1](../../refresh-templates.ps1) modeled on the existing `restart-service.*` / `reset-service.*` admin scripts. The scripts run `docker compose build volttron-setup` followed by `docker compose up -d --no-deps --force-recreate volttron-setup`, then poll the container until it exits successfully and list the refreshed `./docker/volttron/setup/templates/` contents so the admin can confirm the new state. Supports `-h/--help` and `-n/--dry-run`.
+- No other services are stopped: `aems-server` picks up the new files on the next `previewControlTemplates` call via its read-only bind mount at `/app/volttron/`; `aems-services` picks them up on its next 10 s ILC cron tick. The `volttron` platform container mounts `./volttron/setup/configs/`, not `templates/`, so it doesn't need a restart.
+- Documented the flow in [aems-app/docker/CLAUDE.md](../../docker/CLAUDE.md) under the "Workflow" bullets, and added a short pointer sentence to the Admin → Templates page description so admins know where the source files are and which script to run.
+
+### 20260911-104200 — Per-file error context in renderControlTemplates
+- Previously a bad JSON file or a bad `_type: ...` expression bubbled up to the admin page as a raw `SyntaxError`/expression error with no indication of *which* of the four template files caused it. Wrapped `JSON.parse` and `transformTemplate` in [server/src/utils/render-control-templates.ts](../../server/src/utils/render-control-templates.ts) so the thrown Error now names the failing file and the phase (parse vs render), e.g. `Failed to parse template file "config.json": Unexpected token } in JSON at position 42`.
+- Apollo Server has no `formatError` masking configured (checked [server/src/graphql/builder.service.ts](../../server/src/graphql/builder.service.ts)), so the server message reaches the client verbatim. The client already renders `preview.error.message` in a `NonIdealState` on the templates page and toasts it via `onError` — no client changes needed.
+- `yarn check` in server green.
+
+### 20260911-103610 — Dropdown granularity: unit → building
+- Templates render at the Control (building) level, not per-unit — the unit dropdown made the picker N×larger than the underlying rendered output. Switched the picker to a building granularity.
+- Client changes:
+  - [client/src/queries/control.graphql](../../client/src/queries/control.graphql): added `name`, `campus`, `building` to the `ReadControls` query selection.
+  - [client/src/app/templates/page.tsx](../../client/src/app/templates/page.tsx): now queries `ReadControlsDocument` (ordered by `label`), derives a `BuildingOption` per Control from `Control.campus` / `Control.building` (falling back to `units[0]` if either is unset), and passes the selected `controlId` directly to `previewControlTemplates`. Removed the unit-picker + "unit has no control" callout; download filenames still use `${basename}-${campus}-${building}.json`.
+- `yarn compile:graphql` + `yarn check` in client both green.

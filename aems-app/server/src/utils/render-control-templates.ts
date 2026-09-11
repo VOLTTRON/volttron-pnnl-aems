@@ -30,10 +30,22 @@ export async function renderControlTemplates(
   const data: Record<string, unknown> = {};
   for (const file of await getConfigFiles(existing, ".json", logger)) {
     const key = basename(file, extname(file));
+    const filename = basename(file);
     const text = await readFile(resolve(file), "utf-8");
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const template = JSON.parse(text);
-    data[key] = transformTemplate(template, control);
+    let template: unknown;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      template = JSON.parse(text);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to parse template file "${filename}": ${reason}`);
+    }
+    try {
+      data[key] = transformTemplate(template, control);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to render template "${filename}": ${reason}`);
+    }
   }
   return data;
 }

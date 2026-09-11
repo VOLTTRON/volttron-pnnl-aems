@@ -22,35 +22,65 @@ import { useContext, useMemo, useState } from "react";
 import {
   OrderBy,
   PreviewControlTemplatesDocument,
-  ReadUnitsDocument,
-  ReadUnitsQuery,
+  ReadControlsDocument,
+  ReadControlsQuery,
 } from "@/graphql-codegen/graphql";
 import { NotificationContext, NotificationType } from "../components/providers";
 import styles from "./page.module.scss";
 
-type UnitRow = NonNullable<ReadUnitsQuery["readUnits"]>[number];
+type ControlRow = NonNullable<ReadControlsQuery["readControls"]>[number];
+type BuildingOption = {
+  controlId: string;
+  campus: string;
+  building: string;
+  label: string;
+};
 
 const TEMPLATE_ORDER = ["config", "control_config", "criteria_config", "pairwise_criteria"] as const;
 
 export default function TemplatesPage() {
   const { createNotification } = useContext(NotificationContext);
-  const [selectedUnitId, setSelectedUnitId] = useState<string>("");
+  const [selectedControlId, setSelectedControlId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<string>(TEMPLATE_ORDER[0]);
 
-  const unitsQuery = useQuery(ReadUnitsDocument, {
-    variables: { orderBy: [{ campus: OrderBy.Asc }, { building: OrderBy.Asc }, { system: OrderBy.Asc }] },
+  const controlsQuery = useQuery(ReadControlsDocument, {
+    variables: { orderBy: [{ label: OrderBy.Asc }] },
     onError(error) {
       createNotification?.(error.message, NotificationType.Error);
     },
   });
 
-  const units: UnitRow[] = useMemo(() => unitsQuery.data?.readUnits ?? [], [unitsQuery.data]);
-  const selectedUnit = useMemo(() => units.find((u) => u.id === selectedUnitId), [units, selectedUnitId]);
-  const controlId = selectedUnit?.controlId ?? undefined;
+  const controls: ControlRow[] = useMemo(() => controlsQuery.data?.readControls ?? [], [controlsQuery.data]);
+
+  const buildings: BuildingOption[] = useMemo(() => {
+    const opts: BuildingOption[] = [];
+    for (const control of controls) {
+      if (typeof control.id !== "string") continue;
+      const campus = control.campus ?? control.units?.[0]?.campus ?? "";
+      const building = control.building ?? control.units?.[0]?.building ?? "";
+      opts.push({
+        controlId: control.id,
+        campus,
+        building,
+        label: control.label ?? control.name ?? `${campus} / ${building}`,
+      });
+    }
+    opts.sort((a, b) => {
+      const cmp = a.campus.localeCompare(b.campus);
+      if (cmp !== 0) return cmp;
+      return a.building.localeCompare(b.building);
+    });
+    return opts;
+  }, [controls]);
+
+  const selectedBuilding = useMemo(
+    () => buildings.find((b) => b.controlId === selectedControlId),
+    [buildings, selectedControlId],
+  );
 
   const preview = useQuery(PreviewControlTemplatesDocument, {
-    variables: { where: { id: controlId ?? "" } },
-    skip: !controlId,
+    variables: { where: { id: selectedControlId } },
+    skip: !selectedControlId,
     fetchPolicy: "cache-and-network",
     onError(error) {
       createNotification?.(error.message, NotificationType.Error);
@@ -82,7 +112,7 @@ export default function TemplatesPage() {
   };
 
   const filenameFor = (basename: string): string => {
-    const parts = [basename, selectedUnit?.campus, selectedUnit?.building].filter(Boolean).join("-");
+    const parts = [basename, selectedBuilding?.campus, selectedBuilding?.building].filter(Boolean).join("-");
     return `${parts || basename}.json`;
   };
 
@@ -115,47 +145,42 @@ export default function TemplatesPage() {
     <div className={styles.pageContainer}>
       <H3>ILC Configuration Templates</H3>
       <p className={styles.pageDescription}>
-        Pick a unit to see the rendered ILC configuration templates that would be pushed to the VOLTTRON ILC agent for
-        the unit&apos;s control. Templates are rendered against the control&apos;s current units and can be downloaded
-        for verification.
+        Pick a building to see the rendered ILC configuration templates that would be pushed to the VOLTTRON ILC agent
+        for that building&apos;s control. Templates are rendered against the control&apos;s current units and can be
+        downloaded for verification. To edit the source templates, modify the files under{" "}
+        <code>aems-edge/configurations/templates/</code> and run <code>./refresh-templates.sh</code> (or the{" "}
+        <code>.ps1</code>) from <code>aems-app/</code>.
       </p>
 
       <Card elevation={Elevation.TWO} className={styles.cardSpacing}>
-        <FormGroup label="Unit" labelFor="template-unit-select">
-          {unitsQuery.loading && units.length === 0 ? (
+        <FormGroup label="Building" labelFor="template-building-select">
+          {controlsQuery.loading && buildings.length === 0 ? (
             <Spinner size={20} />
           ) : (
             <HTMLSelect
-              id="template-unit-select"
-              value={selectedUnitId}
-              onChange={(e) => setSelectedUnitId(e.target.value)}
+              id="template-building-select"
+              value={selectedControlId}
+              onChange={(e) => setSelectedControlId(e.target.value)}
               fill
             >
-              <option value="">— Select a unit —</option>
-              {units
-                .filter((u): u is UnitRow & { id: string } => typeof u.id === "string")
-                .map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.campus} / {u.building} / {u.system} ({u.label})
-                  </option>
-                ))}
+              <option value="">— Select a building —</option>
+              {buildings.map((b) => (
+                <option key={b.controlId} value={b.controlId}>
+                  {b.campus} / {b.building} ({b.label})
+                </option>
+              ))}
             </HTMLSelect>
           )}
         </FormGroup>
-        {selectedUnit && !controlId && (
-          <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN}>
-            The selected unit is not attached to a control, so it has no templates to render.
-          </Callout>
-        )}
       </Card>
 
-      {controlId && preview.loading && !rendered && (
+      {selectedControlId && preview.loading && !rendered && (
         <div style={{ display: "flex", justifyContent: "center", padding: 40 }}>
           <Spinner size={40} />
         </div>
       )}
 
-      {controlId && preview.error && !rendered && (
+      {selectedControlId && preview.error && !rendered && (
         <NonIdealState
           icon={IconNames.ERROR}
           title="Error rendering templates"
@@ -171,9 +196,9 @@ export default function TemplatesPage() {
         </Tabs>
       )}
 
-      {!selectedUnitId && (
+      {!selectedControlId && (
         <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN}>
-          Select a unit above to render its control&apos;s ILC templates.
+          Select a building above to render its control&apos;s ILC templates.
         </Callout>
       )}
     </div>
