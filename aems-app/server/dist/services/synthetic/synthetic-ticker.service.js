@@ -30,7 +30,7 @@ let SyntheticTickerService = SyntheticTickerService_1 = class SyntheticTickerSer
         this.busy = false;
         this.stopped = false;
     }
-    async onModuleInit() {
+    onModuleInit() {
         const { ticker, tickSeconds } = this.configService.service.synthetic;
         if (!ticker)
             return;
@@ -74,7 +74,7 @@ let SyntheticTickerService = SyntheticTickerService_1 = class SyntheticTickerSer
             }
             const ts = new Date();
             ts.setSeconds(0, 0);
-            const values = await this.synthetic.collectTickValues(this.registry, ts);
+            const values = this.synthetic.collectTickValues(this.registry, ts);
             await this.writer.tickInsert(ts, values);
         }
         catch (err) {

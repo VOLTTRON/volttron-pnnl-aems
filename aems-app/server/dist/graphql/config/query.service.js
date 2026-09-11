@@ -26,6 +26,7 @@ let ConfigQuery = class ConfigQuery {
                 serviceOverride: t.exposeBoolean("serviceOverride"),
                 holidaySchedule: t.exposeBoolean("holidaySchedule"),
                 location: t.exposeString("location"),
+                setpointErrorThresholdPadding: t.exposeFloat("setpointErrorThresholdPadding"),
             }),
         });
         builder.queryField("readConfig", (t) => t.field({
@@ -35,6 +36,7 @@ let ConfigQuery = class ConfigQuery {
                 serviceOverride: configService.service.config.serviceOverride,
                 holidaySchedule: configService.service.config.holidaySchedule,
                 location: configService.volttron.timezone,
+                setpointErrorThresholdPadding: configService.historian.binning.setpointErrorThresholdPadding,
             }),
         }));
     }

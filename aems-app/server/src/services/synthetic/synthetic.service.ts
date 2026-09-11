@@ -224,7 +224,7 @@ export class SyntheticService extends BaseService {
     }
   }
 
-  async collectTickValues(registry: TopicRegistry, ts: Date): Promise<[number, number][]> {
+  collectTickValues(registry: TopicRegistry, ts: Date): [number, number][] {
     const values: [number, number][] = [];
     const { units, buildings, topicIds } = registry;
     for (const b of buildings) {

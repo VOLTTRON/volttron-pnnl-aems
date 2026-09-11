@@ -1,12 +1,28 @@
 #!/bin/bash
 # PostgreSQL Logical Replication Subscriber Setup Script
-# This script configures the local historian database as a subscriber to a remote historian
+#
+# ⚠️  TEST-ONLY — UNSAFE FOR PRODUCTION SUBSCRIBERS ⚠️
+#
+# This script configures the local historian container as a subscriber via
+# CREATE SUBSCRIPTION ... WITH (copy_data=true), which is a single transaction
+# on the subscriber side. Any interruption (network drop, container restart)
+# rolls back to zero rows and starts over. Production deployments over
+# unreliable links (e.g. Verizon cellular) will never complete initial sync.
+#
+# For production or any non-test subscriber, use `aems-app/subscribe-historian.sh`
+# on the subscriber host instead — it creates the subscription with
+# copy_data=false and runs a resumable chunked backfill.
+#
+# This script remains for the local Docker-only test-subscriber flow gated by
+# `TEST_HISTORIAN_HOST` in `aems-app/docker/.env.historian`.
 
 set -e
 
 echo "================================================"
-echo "Historian Replication Subscriber Setup"
+echo "Historian Replication Subscriber Setup (TEST-ONLY)"
 echo "================================================"
+echo "WARNING: this path uses copy_data=true and is unsafe for production."
+echo "         For production subscribers, use aems-app/subscribe-historian.sh"
 
 # Validate required environment variables
 if [ -z "${TEST_HISTORIAN_HOST}" ]; then
@@ -38,13 +54,12 @@ TEST_HISTORIAN_DB="${TEST_HISTORIAN_DB:-historian}"
 POSTGRES_DB="${POSTGRES_DB:-historian}"
 POSTGRES_USER="${POSTGRES_USER:-historian}"
 
-# Get username and sanitize for PostgreSQL identifier use
-USERNAME_RAW="${USER:-${USERNAME:-unknown}}"
-USERNAME_CLEAN=$(echo "${USERNAME_RAW}" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_')
-
-# Create unique subscription and slot names based on username
-TEST_SUBSCRIPTION_NAME="aems_${USERNAME_CLEAN}_sub"
-TEST_SLOT_NAME="aems_${USERNAME_CLEAN}_slot"
+# Use the canonical subscription/slot names that agree with the client
+# /historian UI, the deployment guide, and repair scripts. The old per-user
+# names (aems_${USERNAME}_sub / aems_${USERNAME}_slot) diverged from
+# everything else and confused operators.
+TEST_SUBSCRIPTION_NAME="historian_sub"
+TEST_SLOT_NAME="historian_sub_slot"
 
 echo "Configuration:"
 echo "  Source Host: ${TEST_HISTORIAN_HOST}"
@@ -53,7 +68,6 @@ echo "  Source DB: ${TEST_HISTORIAN_DB}"
 echo "  Source User: ${TEST_HISTORIAN_USER}"
 echo "  Subscription Name: ${TEST_SUBSCRIPTION_NAME}"
 echo "  Slot Name: ${TEST_SLOT_NAME}"
-echo "  Username: ${USERNAME_CLEAN}"
 echo ""
 
 # Wait for local PostgreSQL to be ready
@@ -382,8 +396,9 @@ echo "Creating subscription to source historian..."
 echo "This may take a few minutes for initial data sync..."
 echo ""
 
-# Build connection string
-CONN_STRING="host=${TEST_HISTORIAN_HOST} port=${TEST_HISTORIAN_PORT} dbname=${TEST_HISTORIAN_DB} user=${TEST_HISTORIAN_USER} password=${TEST_HISTORIAN_PASSWORD}"
+# Build connection string. sslmode=require agrees with the other subscriber
+# setup surfaces (README, deployment guide, client /historian UI).
+CONN_STRING="host=${TEST_HISTORIAN_HOST} port=${TEST_HISTORIAN_PORT} dbname=${TEST_HISTORIAN_DB} user=${TEST_HISTORIAN_USER} password=${TEST_HISTORIAN_PASSWORD} sslmode=require"
 
 psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<-EOSQL
     -- Create subscription

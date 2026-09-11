@@ -73,7 +73,7 @@ let SyntheticHistorianWriter = SyntheticHistorianWriter_1 = class SyntheticHisto
         let count = 0;
         try {
             const stream = client.query((0, pg_copy_streams_1.from)(`COPY data (ts, topic_id, value_string) FROM STDIN`));
-            const source = node_stream_1.Readable.from(this.encodeSamples(topicId, samples, (n) => count++));
+            const source = node_stream_1.Readable.from(this.encodeSamples(topicId, samples, () => count++));
             await (0, promises_1.pipeline)(source, stream);
         }
         finally {

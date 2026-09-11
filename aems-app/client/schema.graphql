@@ -2837,6 +2837,7 @@ type ServerConfig {
   holidaySchedule: Boolean
   location: String
   serviceOverride: Boolean
+  setpointErrorThresholdPadding: Float
 }
 
 type Setpoint {

@@ -3,5 +3,6 @@ query ReadConfig {
     serviceOverride
     holidaySchedule
     location
+    setpointErrorThresholdPadding
   }
 }

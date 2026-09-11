@@ -127,9 +127,11 @@ export class PothosGraphQLModule {
                       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                       extra.socket.user = user;
                     }
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                     (request as any).user = user;
                     // Anonymous connects are allowed here; per-subscription scope-auth
                     // enforces authentication at operation time.
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                     wsLogger.log(user ? `WS connect: user=${(user as any).id ?? "?"}` : "WS connect: anonymous");
                     return true;
                   } catch (error) {

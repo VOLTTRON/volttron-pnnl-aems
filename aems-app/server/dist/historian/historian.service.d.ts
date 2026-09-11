@@ -16,6 +16,8 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     private readonly prismaService;
     private logger;
     private pool;
+    private readonly subscribeHistorianShTemplate;
+    private readonly subscribeHistorianPs1Template;
     constructor(configService: AppConfigService, prismaService: PrismaService);
     onModuleInit(): Promise<void>;
     onModuleDestroy(): Promise<void>;
@@ -61,7 +63,6 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     private static collapseErrorSeriesToRanges;
     calculateSetpointError(campus: string, building: string, system: string, startTime: Date, endTime: Date): Promise<HistorianTimeSeries>;
     private isProxyCertificateSelfSigned;
-    private ensureTablesInPublication;
     getSystemPublishingStatus(): Promise<SystemPublishingStatus[]>;
     getReplicationInfo(): Promise<HistorianReplicationInfo>;
 }

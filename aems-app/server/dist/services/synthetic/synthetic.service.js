@@ -172,7 +172,7 @@ let SyntheticService = SyntheticService_1 = class SyntheticService extends __1.B
             yield [ts, (0, curves_1.unitAt)(ts, unitSeed, w, UNIT_CONFIG)[key]];
         }
     }
-    async collectTickValues(registry, ts) {
+    collectTickValues(registry, ts) {
         const values = [];
         const { units, buildings, topicIds } = registry;
         for (const b of buildings) {

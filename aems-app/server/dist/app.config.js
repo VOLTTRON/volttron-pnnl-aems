@@ -196,6 +196,7 @@ class AppConfigService {
                 start: parseInt(process.env.HISTORIAN_BINNING_START ?? "48"),
                 unit: toDurationUnit(process.env.HISTORIAN_BINNING_UNIT ?? "hours"),
                 setpointErrorMinBucket: process.env.HISTORIAN_SETPOINT_ERROR_MIN_BUCKET || undefined,
+                setpointErrorThresholdPadding: parseFloat(process.env.HISTORIAN_SETPOINT_ERROR_THRESHOLD_PADDING ?? "0"),
             },
         };
         this.ext = Object.entries(process.env)
@@ -301,7 +302,9 @@ class AppConfigService {
             },
         };
         this.volttron = {
-            ca: process.env.VOLTTRON_CA ? this.readFile((0, node_path_1.resolve)(__dirname, process.env.VOLTTRON_CA ?? "")) : "",
+            ca: this.instanceName !== "Schema" && process.env.VOLTTRON_CA
+                ? this.readFile((0, node_path_1.resolve)(__dirname, process.env.VOLTTRON_CA))
+                : "",
             mocked: (0, common_1.parseBoolean)(process.env.VOLTTRON_MOCKED),
             campus: process.env.VOLTTRON_CAMPUS ?? "",
             building: process.env.VOLTTRON_BUILDING ?? "",
