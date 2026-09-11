@@ -2,6 +2,7 @@ import { ControlQuery } from "./query.service";
 import { SchemaBuilderService } from "../builder.service";
 import { ControlObject } from "./object.service";
 import { PrismaService } from "@/prisma/prisma.service";
+import { AppConfigService } from "@/app.config";
 
 const resolvers: Record<string, (...args: unknown[]) => unknown> = {};
 
@@ -22,6 +23,7 @@ function makeBuilder(): SchemaBuilderService {
     DateTimeFilter: "DateTimeFilter",
     PagingInput: "PagingInput",
     ModelStage: "ModelStage",
+    Json: "Json",
     prismaWhereUnique: jest.fn(() => "whereUnique"),
     prismaWhere: jest.fn(() => "where"),
     prismaOrderBy: jest.fn(() => "orderBy"),
@@ -32,6 +34,12 @@ function makeBuilder(): SchemaBuilderService {
       resolvers[name] = opts.resolve;
     }),
   } as unknown as SchemaBuilderService;
+}
+
+function makeConfig(templatePaths: string[] = []): AppConfigService {
+  return {
+    service: { control: { templatePaths } },
+  } as unknown as AppConfigService;
 }
 
 function makeControlObject(): ControlObject {
@@ -58,16 +66,16 @@ describe("ControlQuery", () => {
   });
 
   it("registers all expected query fields", () => {
-    new ControlQuery(makeBuilder(), makePrisma(), makeControlObject());
+    new ControlQuery(makeBuilder(), makePrisma(), makeControlObject(), makeConfig());
     expect(Object.keys(resolvers).sort()).toEqual(
-      ["countControls", "groupControls", "pageControl", "readControl", "readControls"].sort(),
+      ["countControls", "groupControls", "pageControl", "previewControlTemplates", "readControl", "readControls"].sort(),
     );
   });
 
   it("readControls calls prisma.control.findMany", async () => {
     const data = [{ id: "ctrl1", name: "Building-A" }];
     const prisma = makePrisma(data);
-    new ControlQuery(makeBuilder(), prisma, makeControlObject());
+    new ControlQuery(makeBuilder(), prisma, makeControlObject(), makeConfig());
     const result = await resolvers["readControls"]({}, null, { where: null, orderBy: null, paging: null, distinct: null });
     expect(result).toEqual(data);
   });
@@ -76,7 +84,7 @@ describe("ControlQuery", () => {
     const data = { id: "ctrl1" };
     const prisma = makePrisma();
     (prisma.prisma.control.findUniqueOrThrow as jest.Mock).mockResolvedValue(data);
-    new ControlQuery(makeBuilder(), prisma, makeControlObject());
+    new ControlQuery(makeBuilder(), prisma, makeControlObject(), makeConfig());
     const result = await resolvers["readControl"]({}, null, { where: { id: "ctrl1" } });
     expect(result).toEqual(data);
   });
@@ -84,21 +92,21 @@ describe("ControlQuery", () => {
   it("countControls returns the prisma count value", async () => {
     const prisma = makePrisma();
     (prisma.prisma.control.count as jest.Mock).mockResolvedValue(2);
-    new ControlQuery(makeBuilder(), prisma, makeControlObject());
+    new ControlQuery(makeBuilder(), prisma, makeControlObject(), makeConfig());
     const result = await resolvers["countControls"](null, { where: null });
     expect(result).toBe(2);
   });
 
   it("groupControls calls prisma.control.groupBy", async () => {
     const prisma = makePrisma();
-    new ControlQuery(makeBuilder(), prisma, makeControlObject());
+    new ControlQuery(makeBuilder(), prisma, makeControlObject(), makeConfig());
     await resolvers["groupControls"](null, { by: ["campus"], where: null, aggregate: null });
     expect(prisma.prisma.control.groupBy).toHaveBeenCalledWith(expect.objectContaining({ by: ["campus"] }));
   });
 
   it("pageControl calls findMany with where", async () => {
     const prisma = makePrisma();
-    new ControlQuery(makeBuilder(), prisma, makeControlObject());
+    new ControlQuery(makeBuilder(), prisma, makeControlObject(), makeConfig());
     await resolvers["pageControl"]({}, null, { where: { peakLoadExclude: { equals: true } } });
     expect(prisma.prisma.control.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { peakLoadExclude: { equals: true } } }),

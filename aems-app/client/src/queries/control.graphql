@@ -111,6 +111,10 @@ query ReadControls(
   }
 }
 
+query PreviewControlTemplates($where: ControlUniqueFilter!) {
+  previewControlTemplates(where: $where)
+}
+
 mutation CreateControl($create: ControlCreateInput!) {
   createControl(create: $create) {
     id

@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ControlQuery = void 0;
 const common_1 = require("@nestjs/common");
@@ -16,8 +19,10 @@ const builder_service_1 = require("../builder.service");
 const pothos_decorator_1 = require("../pothos.decorator");
 const prisma_service_1 = require("../../prisma/prisma.service");
 const graphql_1 = require("graphql");
+const app_config_1 = require("../../app.config");
+const render_control_templates_1 = require("../../utils/render-control-templates");
 let ControlQuery = class ControlQuery {
-    constructor(builder, prismaService, controlObject) {
+    constructor(builder, prismaService, controlObject, configService) {
         const { StringFilter, BooleanFilter, DateTimeFilter, PagingInput } = builder;
         const { ControlFields } = controlObject;
         this.ControlAggregate = builder.inputType("ControlAggregate", {
@@ -145,6 +150,41 @@ let ControlQuery = class ControlQuery {
                 });
             },
         }));
+        builder.queryField("previewControlTemplates", (t) => t.field({
+            description: "Render the ILC configuration templates for a control against its current units.",
+            authScopes: { admin: true },
+            type: builder.Json,
+            args: {
+                where: t.arg({ type: ControlWhereUnique, required: true }),
+            },
+            resolve: async (_root, args, _ctx, _info) => {
+                const control = await prismaService.prisma.control.findUniqueOrThrow({
+                    where: args.where,
+                    include: {
+                        units: {
+                            include: {
+                                configuration: {
+                                    include: {
+                                        setpoint: true,
+                                        mondaySchedule: true,
+                                        tuesdaySchedule: true,
+                                        wednesdaySchedule: true,
+                                        thursdaySchedule: true,
+                                        fridaySchedule: true,
+                                        saturdaySchedule: true,
+                                        sundaySchedule: true,
+                                        holidaySchedule: true,
+                                        holidays: true,
+                                        occupancies: { include: { schedule: true } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                });
+                return (0, render_control_templates_1.renderControlTemplates)(control, configService.service.control.templatePaths);
+            },
+        }));
         builder.queryField("groupControls", (t) => t.field({
             description: "Group a list of controls.",
             authScopes: { user: true },
@@ -172,6 +212,10 @@ exports.ControlQuery = ControlQuery;
 exports.ControlQuery = ControlQuery = __decorate([
     (0, common_1.Injectable)(),
     (0, pothos_decorator_1.PothosQuery)(),
-    __metadata("design:paramtypes", [builder_service_1.SchemaBuilderService, prisma_service_1.PrismaService, object_service_1.ControlObject])
+    __param(3, (0, common_1.Inject)(app_config_1.AppConfigService.Key)),
+    __metadata("design:paramtypes", [builder_service_1.SchemaBuilderService,
+        prisma_service_1.PrismaService,
+        object_service_1.ControlObject,
+        app_config_1.AppConfigService])
 ], ControlQuery);
 //# sourceMappingURL=query.service.js.map
