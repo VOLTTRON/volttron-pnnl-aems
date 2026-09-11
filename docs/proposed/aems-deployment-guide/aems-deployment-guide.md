@@ -791,7 +791,7 @@ The publisher is configured automatically. On first boot of the `historian` prof
 
 - Creates a `replicator` Postgres role with read-only `SELECT` grants (no `SUPERUSER`, no `CREATEDB`, no `CREATEROLE`).
 - Adds primary keys to the `data` and `topics` tables if VOLTTRON has not yet created them (primary keys are required for logical replication to handle `UPDATE` operations).
-- Creates a `historian_pub` publication covering all tables in the historian database.
+- Creates a `historian_pub` publication scoped to the `public` schema (VOLTTRON's `data` and `topics`, and any future public-schema tables). Non-public schemas — including staging schemas left behind by `migrate-historian-data.sh` — are deliberately excluded so they cannot break subscriber initial-sync.
 
 No manual run is required. The replicator's password is `HISTORIAN_REPLICATOR_PASSWORD` in [`aems-app/.env.secrets`](../../../aems-app/.env.secrets); set it before first launch.
 
@@ -804,14 +804,17 @@ hostssl historian       replicator      <SUBSCRIBER_IP>/32       scram-sha-256
 
 `pg_hba.conf` is baked into the historian image, so apply the edit and rebuild with `./start-services.sh`. Also expose the replication port (default `6543/tcp`) on the host firewall to the subscriber IP only; host-firewall configuration is out of scope for this guide.
 
+> **Caveat: `pg_hba.conf` IP restrictions do not apply on the proxy path.** Subscribers connect through Traefik on `HISTORIAN_REPLICATION_PORT` with TLS passthrough. The PostgreSQL backend sees Traefik's Docker-network address (`172.16.0.0/12`) as the client, not the real subscriber IP, and matches the `hostssl replication replicator 172.16.0.0/12` line ahead of any narrowed `0.0.0.0/0` rule. The `pg_hba.conf` edit above only hardens the direct-publish path (`HISTORIAN_DB_PORT`). For real IP-based enforcement over the recommended proxy path, restrict access at the host firewall / cloud security group on `HISTORIAN_REPLICATION_PORT`.
+
 ### Subscriber Side (Remote Host)
 
 The subscriber is a separate PostgreSQL instance — typically on another AEMS host or an analytics warehouse — that pulls telemetry from the publisher via PostgreSQL logical replication. The subscriber-side setup is a series of `psql` commands (create database, define schema, create subscription, verify lag) that goes beyond routine deployment operations.
 
 **Prerequisites the sysadmin owns before subscriber setup begins:**
 
-- PostgreSQL 16+ installed on the subscriber host.
-- TCP reachability from subscriber → publisher on the port `HISTORIAN_REPLICATION_PORT` from the publisher's `.env` (default **6543**, not the PostgreSQL default 5432).
+- **A PostgreSQL 16+ instance on the subscriber host.** Bare Postgres — no AEMS software, no Docker, no repo checkout is required on the subscriber machine.
+- **Access to the publisher's `/historian` page** (`https://<PUBLISHER_HOSTNAME>/historian`, Subscriber Setup tab). The page auto-generates everything the operator needs, offering two parallel paths: pure SQL for pgAdmin / psql users, or downloadable shell scripts (Linux/macOS `.sh` or Windows `.ps1`) for operators who prefer running commands on their own host.
+- TCP reachability from the subscriber → publisher on the port `HISTORIAN_REPLICATION_PORT` from the publisher's `.env` (default **6543**, not the PostgreSQL default 5432).
 - The publisher's `HISTORIAN_REPLICATOR_PASSWORD` value from `.env.secrets` and the publisher's `APP_HOSTNAME`, communicated to whoever will run the subscriber-side setup.
 - Sufficient disk on the subscriber for the historian volume you expect (see *Historian Retention* above for growth estimates).
 
@@ -822,6 +825,17 @@ The full subscriber-side procedure — `CREATE DATABASE`, schema DDL, `CREATE SU
 ### Break-Glass: Resetting Wedged Replication
 
 If replication becomes stuck after a schema change or after manually deleting historian rows (subscriber lag climbs and never recovers), see *Deep-Ops Reference → Resetting Wedged Replication* at the end of this guide. The recovery command interrupts every active subscriber, so coordinate before running it.
+
+### Long Outages: Subscriber Offline for Days
+
+Once streaming has started, PG's slot mechanism preserves the missed WAL and resumes automatically on reconnect — no data loss, no operator action, up to the publisher's WAL retention limit. The historian's shipped `postgresql.conf` sets `max_slot_wal_keep_size = 10 GB` (~50 days at typical VOLTTRON WAL rates of 100–200 MB/day) so a subscriber that's been offline for a few days on a cellular connection reconnects and streams the gap without intervention.
+
+If the outage exceeds the retention window, the publisher invalidates the slot (`pg_replication_slots.wal_status='lost'`, log line `LOG:  invalidating slot "historian_sub_slot" because its restart_lsn … exceeds max_slot_wal_keep_size`). The subscriber then loops on `could not receive data from WAL stream: … has already been removed`. Recovery is idempotent through either path on the publisher's `/historian` page:
+
+- **Path A**: re-`CALL backfill.run_backfill(publisher_password := '...')` from pgAdmin — the procedure reads its persisted parameters from `backfill.config`, skips completed chunks via `backfill.progress`, and merges under `ON CONFLICT DO NOTHING`. Drop the invalidated subscription first (`DROP SUBSCRIPTION historian_sub;`) then re-run Card 4's `CREATE SUBSCRIPTION` with `copy_data=false`.
+- **Path B**: download and re-run the Card 5 script (`subscribe-historian.sh` or `.ps1`); it auto-detects `wal_status='lost'` and re-creates the subscription itself before backfilling the gap.
+
+The wrapper detects `wal_status='lost'`, drops the invalidated slot + subscription, recreates the subscription with `copy_data=false`, and backfills the gap window via chunked `INSERT … ON CONFLICT DO NOTHING`. Existing subscriber rows are preserved; only the missing window is filled.
 
 # Stack Topology Reference
 
@@ -1116,11 +1130,12 @@ The subscriber is a separate PostgreSQL instance — typically on another AEMS h
 
 **Prerequisites on the subscriber host:**
 
-- PostgreSQL 16+ installed and running as the standard `postgres` superuser.
-- TCP reachability from subscriber → publisher on the port `HISTORIAN_REPLICATION_PORT` from the publisher's `.env` (default **6543**, not the PostgreSQL default 5432).
-- The publisher's `HISTORIAN_REPLICATOR_PASSWORD` value from `.env.secrets`.
-- The publisher's `APP_HOSTNAME`.
-- Sufficient disk on the subscriber for the historian volume you expect (see *Historian and VOLTTRON Configuration → Historian Retention* for growth estimates).
+- **PostgreSQL 16+ installed and running.** Bare Postgres — no AEMS software, no Docker.
+- TCP reachability to the publisher's `HISTORIAN_REPLICATION_PORT` (default **6543**).
+- Sufficient disk for the historian volume you expect (see *Historian and VOLTTRON Configuration → Historian Retention* for growth estimates).
+- Publisher hostname (`APP_HOSTNAME`) and the `HISTORIAN_REPLICATOR_PASSWORD` value from the publisher's `.env.secrets`.
+
+**Where the operator sits**: at the publisher's `/historian` page in a browser, plus either pgAdmin/psql attached to their subscriber (Path A) or a shell with `psql` and `pg_dump` on PATH (Path B). No AEMS repo checkout, no Docker, and no software installed on the subscriber host beyond PostgreSQL itself.
 
 **Step 1 — Create the subscriber database with the required schema.** Logical replication requires the target tables to exist and to carry the same primary keys as the publisher. Connect as `postgres`:
 
@@ -1153,14 +1168,14 @@ CREATE INDEX IF NOT EXISTS idx_data_ts ON data(ts);
 
 The primary key on `(topic_id, ts)` is **mandatory** — without it, PostgreSQL rejects any `UPDATE` streamed by logical replication with a "cannot update table because it does not have a replica identity" error.
 
-**Step 2 — Create the subscription.** In the same `psql` session:
+**Step 2 — Create the subscription with `copy_data=false`.** In the same `psql` session:
 
 ```sql
 CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host=<PUBLISHER_HOSTNAME> port=<HISTORIAN_REPLICATION_PORT> dbname=historian user=replicator password=<HISTORIAN_REPLICATOR_PASSWORD> sslmode=require'
 PUBLICATION historian_pub
 WITH (
-    copy_data   = true,
+    copy_data   = false,
     create_slot = true,
     enabled     = true,
     slot_name   = 'historian_sub_slot'
@@ -1174,7 +1189,18 @@ Placeholder substitution:
 - `<HISTORIAN_REPLICATOR_PASSWORD>` — from the publisher's `.env.secrets`.
 - `sslmode=require` for production traffic over any network you don't fully trust; `sslmode=prefer` only on isolated internal LANs where the publisher uses a self-signed cert.
 
-**Step 3 — Verify initial sync and monitor lag.**
+**Why `copy_data=false`.** PG's initial COPY (`copy_data=true`) runs as a **single transaction** on the subscriber — any interruption rolls back to zero rows and starts over. Production subscribers frequently sit behind unreliable Verizon cellular links; a growing multi-GB `data` table cannot complete a single-transaction initial COPY over cellular. `copy_data=false` starts live streaming from the publisher's current LSN immediately (small, quick), and historical rows are filled by a resumable chunked backfill in Step 3.
+
+**Step 3 — Backfill historical rows.** Everything the operator needs is on the publisher's `/historian` page (Subscriber Setup tab). Two paths, whichever fits the operator's toolset:
+
+- **Path A — Pure SQL** (pgAdmin / psql attached to the subscriber). Copy Card 5's SQL block, edit the `start_ts` and password placeholder, run. Card 5 creates a stored procedure using `dblink` that pulls chunk-by-chunk from the publisher and per-chunk `COMMIT`s — cellular disconnects only cost the in-flight chunk. Re-`CALL` to resume. `dblink` ships with any standard PostgreSQL install (part of `postgres-contrib`); the `CREATE EXTENSION` at the top requires SUPERUSER, same as `CREATE SUBSCRIPTION` already does.
+- **Path B — Shell / PowerShell**. Card 5 offers a Download button for the full standalone script (`subscribe-historian.sh` on Linux/macOS, `subscribe-historian.ps1` on Windows). Save it, run `./subscribe-historian.sh --help` (or `.\subscribe-historian.ps1 -Help`), then invoke it with `--publisher-host`, `--subscriber-host`, credentials, and an optional `--start-ts`. Same idempotent chunk loop, checkpointed in `backfill.progress` (dedicated schema, off `public`). The script also writes `backfill.config` on first run so subsequent invocations only need credentials — the persisted `start_ts` / `end_ts` / `chunk_interval` are reused automatically.
+
+Either path is idempotent: interruption is safe, re-running skips completed chunks and merges under `INSERT … ON CONFLICT DO NOTHING`.
+
+The worker chunks the `public.data` copy by time window (default 1 week per chunk), checkpoints progress in `backfill.progress` on the subscriber (dedicated schema, off `public`), and merges each chunk under `INSERT … ON CONFLICT (topic_id, ts) DO NOTHING` so live streaming and backfill coexist without duplicates. First-run parameters (`start_ts`, `end_ts`, `chunk_interval`, publisher host/port/user/sslmode — never the password) are persisted in `backfill.config`; a re-run needs only credentials to resume. Any network drop mid-chunk rolls back just that one chunk; the next invocation resumes at the first incomplete `chunk_start`. Safe to Ctrl-C. Use `--verify-only` to check convergence.
+
+**Step 4 — Verify subscription and monitor lag.**
 
 ```sql
 SELECT subname, subenabled, pid FROM pg_stat_subscription;
@@ -1184,7 +1210,7 @@ SELECT subname AS subscription, latest_end_lsn, latest_end_time,
 FROM pg_stat_subscription;
 ```
 
-`copy_data = true` performs an initial one-shot bulk copy of every existing row; steady-state streaming replication follows automatically. Table-sync state can be inspected with `SELECT srsubstate FROM pg_subscription_rel` — `i` initializing, `d` copying, `s` synchronized, `r` ready.
+Table-sync state can be inspected with `SELECT srsubstate FROM pg_subscription_rel` — `i` initializing, `d` copying, `s` synchronized, `r` ready. With `copy_data=false`, the initial state transitions directly to `r` (ready / streaming) with no `d`-copy phase — that phase is what `subscribe-historian.sh` replaces.
 
 **Pause and resume.**
 
@@ -1221,14 +1247,42 @@ Direct catalog deletion leaves the publisher's replication slot orphaned — cle
 
 ## Resetting Wedged Replication
 
-If replication becomes stuck after a schema change or after manually deleting historian rows (subscriber lag climbs and never recovers), the repository ships a recovery script at `aems-app/docker/historian/fix-replication.sql` that drops and recreates the publication. The script is not baked into the running container — copy it in and apply it:
+Two failure modes have distinct recovery paths.
+
+**Publisher-side issues** — subscriber reports `ERROR: schema "..." does not exist` on `CREATE SUBSCRIPTION`, or `historian_pub` is missing / covers zero tables / was left as `FOR ALL TABLES` and has picked up stray schemas (`migration_stage`, etc.). Run the publisher-side repair wrapper from the `aems-app/` directory:
 
 ```bash
-docker compose cp docker/historian/fix-replication.sql historian:/tmp/fix-replication.sql
-docker compose exec historian psql -U historian -d historian -f /tmp/fix-replication.sql
+cd aems-app
+./repair-historian-replication.sh --dry-run   # report current state
+./repair-historian-replication.sh             # apply repair
 ```
 
-> **WARNING.** Running `fix-replication.sql` **interrupts every active subscriber**. Every downstream historian will need to re-initialize its subscription (see *Subscriber-Side SQL Setup* above). Use it only after confirming the wedge cannot be cleared by disabling and re-enabling the affected subscription.
+The wrapper invokes the image-baked `/usr/local/bin/repair-replication.sh` inside the historian container. It is idempotent — safe to run against a healthy deployment. Actions: drop `migration_stage` if present, rebuild `historian_pub` as `FOR TABLES IN SCHEMA public` if scope is wrong, re-apply replicator grants and primary-key constraints, print the resulting publication and slot state.
+
+> **WARNING.** Rebuilding the publication **interrupts every active subscriber**. Every downstream historian will need to drop and re-create its subscription (see *Subscriber-Side SQL Setup* above). The dry-run flag reports whether a rebuild will actually happen.
+
+**Subscriber-side issues** — a specific subscription is stuck (missing PKs, subscription-state wedged, worker died). The repository ships `aems-app/docker/historian/fix-replication.sql` for subscriber-side recovery. It adds missing primary keys on `data` / `topics` and drops any `aems_%_sub` subscriptions so they can be recreated. It does **not** touch the publisher's publication. Copy it into the subscriber container and apply it there:
+
+```bash
+docker compose cp aems-app/docker/historian/fix-replication.sql <subscriber-container>:/tmp/fix-replication.sql
+docker compose exec <subscriber-container> psql -U <subscriber-user> -d <subscriber-db> -f /tmp/fix-replication.sql
+```
+
+## Historian Password Recovery
+
+Symptom: VOLTTRON logs `FATAL:  password authentication failed for user "historian"` in a repeating loop, no `public.data` / `public.topics` tables exist on the historian, `pg_publication_tables WHERE pubname='historian_pub'` returns zero rows even though the publication itself is present.
+
+Cause: VOLTTRON's SQLHistorian agent caches the historian password once when `setup-volttron.sh` runs, then a `.setup_complete` sentinel on the `volttron-setup` docker volume prevents re-runs. If the historian PG role's password changed underneath it — most commonly from a `./reset-service.sh historian` after the operator populated `.env.secrets` (which re-initialises the Postgres role from `/run/secrets/historian_database_password`) — the two diverge and every SQLHistorian connection attempt fails.
+
+The `sha256sum`-fingerprint check in `setup-volttron.sh` (2026-09-03 fix) auto-heals this on the next `docker compose up -d`: it compares the current mounted secret against the fingerprint stored alongside `.setup_complete` and invalidates the sentinel on drift. If for any reason the fingerprint gate doesn't fire (out-of-band Postgres `ALTER ROLE` that didn't touch the mounted file, corrupted fingerprint file, image predates the fix), force a full regen:
+
+```bash
+cd aems-app
+./reset-service.sh volttron-setup
+docker compose up -d --force-recreate volttron-setup volttron
+```
+
+For a real rotation — new password value on both sides — edit `.env.secrets` and run `./secrets.sh`. The `HISTORIAN_DATABASE_PASSWORD` handler (added 2026-09-03) will `ALTER ROLE historian` inside the running container (authenticated with the old password), overwrite the mounted secret, and force-recreate volttron-setup + volttron so the fingerprint check picks up the new value and VOLTTRON's cached config is regenerated. Same path applies to `HISTORIAN_REPLICATOR_PASSWORD`.
 
 ## Direct kcadm Recovery
 

@@ -24,11 +24,26 @@ export function GraphqlProvider({ children }: { children: React.ReactNode }) {
       uri: `${location.protocol}//${location.host}${process.env.NEXT_PUBLIC_GRAPHQL_API || "/graphql"}`,
       credentials: "include",
     });
+    const wsUrl = `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}${
+      process.env.NEXT_PUBLIC_GRAPHQL_WS || "/graphql"
+    }`;
     const wsLink = new GraphQLWsLink(
       createClient({
-        url: `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}${
-          process.env.NEXT_PUBLIC_GRAPHQL_WS || "/graphql"
-        }`,
+        url: wsUrl,
+        connectionParams: async () => ({}),
+        retryAttempts: Infinity,
+        shouldRetry: () => true,
+        on: {
+          connected: () => console.info(`[graphql-ws] connected ${wsUrl}`),
+          closed: (event) => {
+            const e = event as { code?: number; reason?: string } | undefined;
+            console.warn(`[graphql-ws] closed code=${e?.code ?? "?"} reason=${e?.reason ?? ""}`);
+          },
+          error: (error) => {
+            const msg = error instanceof Error ? error.message : String(error);
+            console.warn(`[graphql-ws] error ${msg}`);
+          },
+        },
       }),
     );
     const splitLink = split(

@@ -1,5 +1,5 @@
 include:
   - path: ./docker/docker-compose.yml
-    project_directory: ./docker/
     env_file:
+      - ./.env
       - ./docker/.env.secrets.docker

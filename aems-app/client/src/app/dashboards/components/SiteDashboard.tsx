@@ -6,12 +6,14 @@ import { useQuery } from "@apollo/client";
 import {
   HistorianMultiSystemUnitDocument,
   HistorianSetpointErrorDocument,
+  HistorianSiteAggregateUnitDocument,
   HistorianWeatherTimeSeriesDocument,
+  MetricAggregation,
   ReadUnitsQuery,
   UnitMetric,
   WeatherMetric,
 } from "@/graphql-codegen/graphql";
-import { ECharts } from "@/app/components/common/echarts";
+import { ECharts, makeTimeAxisFormatter } from "@/app/components/common/echarts";
 import { graphic } from "echarts";
 import { Colors } from "@blueprintjs/core";
 import { TimeRangeSelector } from "./TimeRangeSelector";
@@ -21,7 +23,14 @@ import styles from "./SiteDashboard.module.scss";
 import { typeofString } from "@local/common";
 import { BuildingPowerChart } from "./BuildingPowerChart";
 import { Palettes } from "@/utils/palette";
-import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
+import {
+  compilePreferences,
+  PreferencesContext,
+  CurrentContext,
+  ConfigContext,
+  useResolvedTimezone,
+} from "@/app/components/providers";
+import { formatDate } from "@/utils/date";
 import { optimizeSystemNames } from "@/utils/systemNameOptimizer";
 import { useMetricColors } from "@/utils/metricColors";
 import { makeValueFormatter } from "@/utils/historianFormat";
@@ -82,6 +91,10 @@ export function SiteDashboard({
   // Get user palette preferences
   const { preferences } = React.useContext(PreferencesContext);
   const { current } = React.useContext(CurrentContext);
+  const { config } = React.useContext(ConfigContext);
+  const setpointErrorPadding = config?.setpointErrorThresholdPadding ?? 0;
+  const resolvedTz = useResolvedTimezone();
+  const timeAxisFormatter = React.useMemo(() => makeTimeAxisFormatter(resolvedTz), [resolvedTz]);
   const { palette1, palette2, palette3, paletteWarm, paletteCool } = compilePreferences(
     preferences,
     current?.preferences,
@@ -193,6 +206,36 @@ export function SiteDashboard({
     skip: unitSystems.length === 0,
   });
 
+  // Only include RTU outdoor sensors that actually have data — an empty
+  // series still shows up in the legend otherwise, and the user asked to
+  // hide those.
+  const reportingOutdoorSystems = React.useMemo(() => {
+    return (
+      outdoorTempData?.historianMultiSystemUnit?.filter(
+        (s: any) => Array.isArray(s?.data) && s.data.some((p: any) => p?.value != null),
+      ) ?? []
+    );
+  }, [outdoorTempData]);
+
+  // Site median across RTU outdoor temp sensors — only meaningful once 2+ RTUs
+  // are reporting, otherwise the "median" is just the single reading.
+  const enableSiteMedian = reportingOutdoorSystems.length >= 2;
+  const { data: siteMedianOutdoorData, loading: siteMedianOutdoorLoading } = useQuery(
+    HistorianSiteAggregateUnitDocument,
+    {
+      variables: {
+        campus: campus,
+        building: building,
+        systems: unitSystems,
+        metric: UnitMetric.OutdoorAirTemperature,
+        crossSystemAggregation: MetricAggregation.Median,
+        startTime,
+        endTime,
+      },
+      skip: !enableSiteMedian,
+    },
+  );
+
   const unknownState = {
     label: "Missing Data",
     color: mode === "dark" ? Colors.DARK_GRAY4 : Colors.LIGHT_GRAY3,
@@ -212,10 +255,11 @@ export function SiteDashboard({
     return unknownState;
   };
 
-  // Setpoint error bins. The server forces any zone temp inside the
-  // deadband [heat, cool] to a raw error of exactly 0, so Optimal is the
-  // single value 0. Remaining bins span 1°F outward from the deadband
-  // boundary in each direction.
+  // Zone comfort bins. The server forces any zone temp inside the deadband
+  // [heat, cool] to a raw error of exactly 0, so at padding=0 Optimal is the
+  // single value 0. The deployment-wide padding widens Optimal to
+  // |error| <= padding and pushes each outer boundary outward by the same
+  // amount, so a system doesn't churn between bins on sub-degree noise.
   const setpointErrorBins: Array<{ label: string; color: string }> = [
     { label: "Very Cold", color: primaryPalette.primary.hex },
     { label: "Cold", color: primaryPalette.secondary.hex },
@@ -225,15 +269,25 @@ export function SiteDashboard({
     { label: "Warm", color: secondaryPalette.secondary.hex },
     { label: "Very Warm", color: secondaryPalette.primary.hex },
   ];
+  // The server pre-quantizes error values via the ZoneTemperature metric
+  // transform (decimal1), so what arrives here is already at display precision.
+  // Classifier compares directly against padded boundaries with no additional
+  // rounding required.
+  const optimalThreshold = setpointErrorPadding;
+  const slightThreshold = 1 + setpointErrorPadding;
+  const outerThreshold = 2 + setpointErrorPadding;
   const getSetpointErrorState = (errorValue: number | null | undefined) => {
     if (errorValue == null || !Number.isFinite(errorValue)) return unknownState;
-    if (errorValue === 0) return setpointErrorBins[3];
-    if (errorValue < -2) return setpointErrorBins[0];
-    if (errorValue < -1) return setpointErrorBins[1];
-    if (errorValue < 0) return setpointErrorBins[2];
-    if (errorValue <= 1) return setpointErrorBins[4];
-    if (errorValue <= 2) return setpointErrorBins[5];
-    return setpointErrorBins[6];
+    const abs = errorValue < 0 ? -errorValue : errorValue;
+    if (abs <= optimalThreshold) return setpointErrorBins[3];
+    if (errorValue < 0) {
+      if (abs > outerThreshold) return setpointErrorBins[0];
+      if (abs > slightThreshold) return setpointErrorBins[1];
+      return setpointErrorBins[2];
+    }
+    if (abs > outerThreshold) return setpointErrorBins[6];
+    if (abs > slightThreshold) return setpointErrorBins[5];
+    return setpointErrorBins[4];
   };
 
   // Format a duration in ms using the highest-level unit (and the next one
@@ -291,7 +345,7 @@ export function SiteDashboard({
     const start = new Date(segmentStart);
     const end = new Date(segmentEnd);
     const validRange = !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime());
-    const fmt = (d: Date) => d.toLocaleString();
+    const fmt = (d: Date) => formatDate(d, resolvedTz);
     const marker = typeof params?.marker === "string" ? params.marker : "";
     const lines = [`${marker}<strong>${systemName}</strong> — ${formatLabel(label, raw)}`];
     if (validRange) {
@@ -540,7 +594,7 @@ export function SiteDashboard({
                   },
                 ],
                 grid: { top: 40, right: 40, bottom: 110, left: chartLeftMargin + 20 },
-                xAxis: { type: "time", min: startTime, max: endTime },
+                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter, hideOverlap: true } },
                 yAxis: {
                   type: "category",
                   data: optimizedSystemNames,
@@ -582,7 +636,7 @@ export function SiteDashboard({
               loading={setpointErrorLoading}
               option={{
                 animation: false,
-                title: { text: "Occupancy Setpoint Error" },
+                title: { text: "Zone Comfort" },
                 backgroundColor: mode === "dark" ? Colors.DARK_GRAY2 : Colors.WHITE,
                 toolbox: {
                   feature: buildRollupToolboxFeature(setpointRolledUp, () =>
@@ -627,7 +681,7 @@ export function SiteDashboard({
                   },
                 ],
                 grid: { top: 40, right: 40, bottom: 110, left: chartLeftMargin + 20 },
-                xAxis: { type: "time", min: startTime, max: endTime },
+                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter, hideOverlap: true } },
                 yAxis: {
                   type: "category",
                   data: optimizedSystemNames,
@@ -657,7 +711,7 @@ export function SiteDashboard({
         <Card className={styles.chartCard}>
           {
             <ECharts
-              loading={weatherLoading || outdoorTempLoading}
+              loading={weatherLoading || outdoorTempLoading || siteMedianOutdoorLoading}
               option={{
                 animation: false,
                 title: { text: "Outdoor Temperature" },
@@ -689,7 +743,7 @@ export function SiteDashboard({
                   },
                 ],
                 grid: { top: 60, right: 40, bottom: 110, left: 40 },
-                xAxis: { type: "time", min: startTime, max: endTime },
+                xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter, hideOverlap: true } },
                 yAxis: {
                   type: "value",
                   name: "Temperature (°F)",
@@ -704,7 +758,8 @@ export function SiteDashboard({
                   // and binning labels are driven by the historian
                   // topic-map config rather than hard-coded constants.
                   const fmt = (metadata: any) => makeValueFormatter(metadata, { includeAggregation: true });
-                  const outdoorMetadata = outdoorTempData?.historianMultiSystemUnit?.[0]?.metadata;
+                  const outdoorMetadata = reportingOutdoorSystems[0]?.metadata;
+                  const siteMedianSeries = siteMedianOutdoorData?.historianSiteAggregateUnit;
                   return [
                     // Weather station outdoor temperature
                     ...(weatherData?.historianWeatherTimeSeries
@@ -726,8 +781,30 @@ export function SiteDashboard({
                           },
                         ]
                       : []),
-                    // Unit sensor outdoor temperatures — each system gets a unique pool color
-                    ...(outdoorTempData?.historianMultiSystemUnit?.map((systemData: any) => ({
+                    // Site median across RTU outdoor sensors — only when 2+ RTUs report.
+                    // Rendered thicker/dashed so it reads as an aggregate rather than a per-RTU line.
+                    ...(enableSiteMedian && siteMedianSeries
+                      ? [
+                          {
+                            name: "Site Median",
+                            type: "line" as const,
+                            smooth: true,
+                            sampling: "lttb" as const,
+                            showSymbol: false,
+                            itemStyle: { color: metricColors[UnitMetric.OutdoorAirTemperature] },
+                            lineStyle: {
+                              color: metricColors[UnitMetric.OutdoorAirTemperature],
+                              type: "dashed" as const,
+                              width: 2.5,
+                            },
+                            tooltip: { valueFormatter: fmt(siteMedianSeries.metadata) },
+                            data:
+                              siteMedianSeries.data?.map((point: any) => [point.timestamp, point.value]) || [],
+                          },
+                        ]
+                      : []),
+                    // Unit sensor outdoor temperatures — one line per RTU that has data
+                    ...reportingOutdoorSystems.map((systemData: any) => ({
                       name: `${systemData.system} Sensor`,
                       type: "line" as const,
                       smooth: true,
@@ -737,7 +814,7 @@ export function SiteDashboard({
                       lineStyle: { color: getUnitColor(systemData.system), width: 1.5 },
                       tooltip: { valueFormatter: fmt(systemData.metadata ?? outdoorMetadata) },
                       data: systemData.data?.map((point: any) => [point.timestamp, point.value]) || [],
-                    })) || []),
+                    })),
                   ];
                 })(),
               }}

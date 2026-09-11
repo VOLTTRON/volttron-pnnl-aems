@@ -158,10 +158,15 @@ key_data_volume() {
     KEYCLOAK_ADMIN_PASSWORD)          echo "keycloak-data" ;;
     KEYCLOAK_DATABASE_PASSWORD)       echo "keycloak-data" ;;
     KEYCLOAK_CLIENT_SECRET)           echo "keycloak-data" ;;
+    KEYCLOAK_GRAFANA_CLIENT_SECRET)   echo "keycloak-data" ;;
     BOOKSTACK_KEYCLOAK_CLIENT_SECRET) echo "keycloak-data" ;;
     NOMINATIM_DATABASE_PASSWORD)      echo "nominatim-data" ;;
     BOOKSTACK_ROOT_PASSWORD)          echo "wiki-data" ;;
     BOOKSTACK_DATABASE_PASSWORD)      echo "wiki-data" ;;
+    HISTORIAN_DATABASE_PASSWORD)      echo "historian-data" ;;
+    HISTORIAN_REPLICATOR_PASSWORD)    echo "historian-data" ;;
+    GRAFANA_ADMIN_PASSWORD)           echo "grafana-data" ;;
+    GRAFANA_DATABASE_PASSWORD)        echo "grafana-data" ;;
     *) echo "" ;;
   esac
 }
@@ -591,17 +596,25 @@ queue_restart() {
   RESTART_SERVICES="$RESTART_SERVICES $1"
 }
 
-# Postgres ALTER ROLE — usable via socket auth (POSIX peer inside the
-# container), so we don't need the current password.
+# Postgres ALTER ROLE. When the fifth arg (current password) is omitted,
+# assumes socket auth works without a password (POSIX peer or the default
+# `trust` pg_hba shipped by the postgres image). When provided, authenticates
+# via PGPASSWORD — needed for containers with a hardened pg_hba (e.g. the
+# historian, whose local socket requires scram-sha-256 for non-postgres users).
 rotate_pg() {
-  container="$1"; db_user="$2"; new_pw="$3"; caller_key="$4"
+  container="$1"; db_user="$2"; new_pw="$3"; caller_key="$4"; old_pw="${5:-}"
   if ! container_running "$container"; then
     error "$caller_key: container $container is not running"
     return 1
   fi
-  escaped=$(printf '%s' "$new_pw" | sed "s/'/''/g")
+  escaped_new=$(printf '%s' "$new_pw" | sed "s/'/''/g")
   info "ALTER ROLE $db_user in $container"
-  run_or_dry "docker exec '$container' psql -U '$db_user' -c \"ALTER ROLE \\\"${db_user}\\\" WITH PASSWORD '${escaped}';\""
+  if [ -n "$old_pw" ]; then
+    escaped_old=$(printf '%s' "$old_pw" | sed "s/'/'\\\\''/g")
+    run_or_dry "docker exec -e PGPASSWORD='${escaped_old}' '$container' psql -U '$db_user' -c \"ALTER ROLE \\\"${db_user}\\\" WITH PASSWORD '${escaped_new}';\""
+  else
+    run_or_dry "docker exec '$container' psql -U '$db_user' -c \"ALTER ROLE \\\"${db_user}\\\" WITH PASSWORD '${escaped_new}';\""
+  fi
 }
 
 # MariaDB ALTER USER — needs the current root password (from deployed file).
@@ -792,6 +805,82 @@ elif [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
         [ "$key" = "BOOKSTACK_SESSION_SECRET" ] && queue_restart "wiki"
         ;;
 
+      HISTORIAN_DATABASE_PASSWORD)
+        HIST_CONTAINER="${PROJECT}-historian"
+        # historian's pg_hba requires scram-sha-256 for local socket auth
+        # as the `historian` user, so authenticate with the current password.
+        rotate_pg "$HIST_CONTAINER" "historian" "$new_val" "$key" "$old_val" \
+          || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
+        queue_restart "historian"
+        # volttron-setup's fingerprint check will re-run and regenerate
+        # historian.config from the new mounted secret; volttron picks it up
+        # on --force-recreate (see the restart pass below).
+        queue_restart "volttron-setup"
+        queue_restart "volttron"
+        queue_restart "server"
+        queue_restart "services"
+        queue_restart "synth-worker"
+        ;;
+
+      HISTORIAN_REPLICATOR_PASSWORD)
+        HIST_CONTAINER="${PROJECT}-historian"
+        rotate_pg "$HIST_CONTAINER" "replicator" "$new_val" "$key" "$old_val" \
+          || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
+        queue_restart "historian"
+        # No in-stack consumers: subscribers are external and manage their
+        # own CONNECTION strings for the historian_sub subscription.
+        ;;
+
+      GRAFANA_DATABASE_PASSWORD)
+        GD_CONTAINER="${PROJECT}-grafana-db"
+        rotate_pg "$GD_CONTAINER" "grafana" "$new_val" "$key" \
+          || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
+        queue_restart "grafana-db"
+        queue_restart "grafana"
+        ;;
+
+      GRAFANA_ADMIN_PASSWORD)
+        GRAFANA_CONTAINER="${PROJECT}-grafana"
+        # grafana-cli supports resetting the admin password without the
+        # current one, so no old_val needed.
+        if ! container_running "$GRAFANA_CONTAINER"; then
+          error "$key: container $GRAFANA_CONTAINER is not running"
+          ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
+        else
+          escaped=$(printf '%s' "$new_val" | sed "s/'/'\\\\''/g")
+          info "Resetting Grafana admin password"
+          run_or_dry "docker exec '$GRAFANA_CONTAINER' grafana-cli admin reset-admin-password '${escaped}'"
+        fi
+        queue_restart "grafana"
+        ;;
+
+      KEYCLOAK_GRAFANA_CLIENT_SECRET)
+        if ! container_running "$KC_CONTAINER"; then
+          error "$key: container $KC_CONTAINER is not running"
+          ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
+        else
+          if [ "$KC_AUTHED" = 0 ]; then
+            KC_ADMIN_PW=$(deployed_secret "KEYCLOAK_ADMIN_PASSWORD")
+            [ -z "$KC_ADMIN_PW" ] && KC_ADMIN_PW=$(get_value "$SECRETS_FILE" "KEYCLOAK_ADMIN_PASSWORD")
+            run_or_dry "docker exec '$KC_CONTAINER' /opt/keycloak/bin/kcadm.sh config credentials \
+              --server http://localhost:8080/auth/sso \
+              --realm master \
+              --user '${KC_ADMIN}' \
+              --password '${KC_ADMIN_PW}'"
+            KC_AUTHED=1
+          fi
+          escaped=$(printf '%s' "$new_val" | sed "s/'/\\\\'/g")
+          info "Updating Keycloak grafana-oauth client secret"
+          run_or_dry "docker exec '$KC_CONTAINER' sh -c \
+            \"/opt/keycloak/bin/kcadm.sh get clients -r default --fields id,clientId \
+              | grep -B1 '\\\"clientId\\\" : \\\"grafana-oauth\\\"' \
+              | grep id \
+              | sed 's/.*: \\\"//;s/\\\".*//' \
+              | xargs -I{} /opt/keycloak/bin/kcadm.sh update clients/{} -r default -s secret='${escaped}'\""
+        fi
+        queue_restart "grafana"
+        ;;
+
       *)
         # Unknown key — write the file but flag it so the operator knows
         # no live rotation ran. Preserves back-compat for keys added to
@@ -918,13 +1007,34 @@ if [ -n "$(printf '%s' "$RESTART_SERVICES" | tr -d ' ')" ]; then
   header "Restarting affected services: $RESTART_SERVICES"
   for svc in $RESTART_SERVICES; do
     container="${PROJECT}-${svc}"
-    if container_running "$container"; then
-      info "Restarting $svc"
-      run_or_dry "docker compose restart $svc"
-      ok "$svc restarted"
-    else
-      warn "$svc is not running — skipping restart"
-    fi
+    case "$svc" in
+      volttron)
+        # `docker compose restart` reuses the same container, so anything
+        # in the writable layer (e.g. ~/.volttron/agents/) survives with its
+        # stale cached configs. Force-recreate so bootstart.sh re-runs
+        # setup-platform.py and reinstalls agents from the freshly generated
+        # historian.config on the bind mount.
+        info "Recreating $svc (--force-recreate)"
+        run_or_dry "docker compose up -d --force-recreate $svc"
+        ok "$svc recreated"
+        ;;
+      volttron-setup)
+        # volttron-setup is `restart: no`; re-invoke via up -d so it runs
+        # once and detects the fingerprint change.
+        info "Re-running $svc"
+        run_or_dry "docker compose up -d $svc"
+        ok "$svc re-run"
+        ;;
+      *)
+        if container_running "$container"; then
+          info "Restarting $svc"
+          run_or_dry "docker compose restart $svc"
+          ok "$svc restarted"
+        else
+          warn "$svc is not running — skipping restart"
+        fi
+        ;;
+    esac
   done
 fi
 

@@ -182,6 +182,7 @@ export class AppConfigService {
       start: number;
       unit: ReturnType<typeof toDurationUnit>;
       setpointErrorMinBucket?: string;
+      setpointErrorThresholdPadding: number;
     };
   };
   ext: Record<string, ExtConfig>;
@@ -249,6 +250,7 @@ export class AppConfigService {
     mocked: boolean;
     campus: string;
     building: string;
+    timezone: string;
   };
   grafana: {
     path: string;
@@ -422,6 +424,7 @@ export class AppConfigService {
         start: parseInt(process.env.HISTORIAN_BINNING_START ?? "48"),
         unit: toDurationUnit(process.env.HISTORIAN_BINNING_UNIT ?? "hours"),
         setpointErrorMinBucket: process.env.HISTORIAN_SETPOINT_ERROR_MIN_BUCKET || undefined,
+        setpointErrorThresholdPadding: parseFloat(process.env.HISTORIAN_SETPOINT_ERROR_THRESHOLD_PADDING ?? "0"),
       },
     };
     this.ext = Object.entries(process.env)
@@ -532,10 +535,14 @@ export class AppConfigService {
       },
     };
     this.volttron = {
-      ca: process.env.VOLTTRON_CA ? this.readFile(resolve(__dirname, process.env.VOLTTRON_CA ?? "")) : "",
+      ca:
+        this.instanceName !== "Schema" && process.env.VOLTTRON_CA
+          ? this.readFile(resolve(__dirname, process.env.VOLTTRON_CA))
+          : "",
       mocked: parseBoolean(process.env.VOLTTRON_MOCKED),
       campus: process.env.VOLTTRON_CAMPUS ?? "",
       building: process.env.VOLTTRON_BUILDING ?? "",
+      timezone: process.env.VOLTTRON_TIMEZONE ?? "",
     };
     this.grafana = {
       path: process.env.GRAFANA_PATH ?? "/gdb",

@@ -20,6 +20,8 @@ const common_2 = require("@nestjs/common");
 const app_config_1 = require("../app.config");
 const prisma_service_1 = require("../prisma/prisma.service");
 const https = require("https");
+const fs = require("fs");
+const path = require("path");
 const child_process_1 = require("child_process");
 const util_1 = require("util");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
@@ -60,6 +62,17 @@ let HistorianService = HistorianService_1 = class HistorianService {
         this.pool.on("error", (err) => {
             this.logger.error("Unexpected error on idle historian database client", err);
         });
+        const templatesDir = path.join(__dirname, "templates");
+        try {
+            this.subscribeHistorianShTemplate = fs.readFileSync(path.join(templatesDir, "subscribe-historian.sh"), "utf8");
+            this.subscribeHistorianPs1Template = fs.readFileSync(path.join(templatesDir, "subscribe-historian.ps1"), "utf8");
+        }
+        catch (err) {
+            this.logger.warn(`Could not load subscribe-historian templates from ${templatesDir}: ${err.message}. ` +
+                `Path B script fields will be empty on the /historian page.`);
+            this.subscribeHistorianShTemplate = "";
+            this.subscribeHistorianPs1Template = "";
+        }
     }
     async onModuleInit() {
         if (this.configService.instanceName === "Schema") {
@@ -810,6 +823,103 @@ let HistorianService = HistorianService_1 = class HistorianService {
             });
         });
         return results;
+    }
+    async getSiteAggregateUnit(campus, building, systems, metric, startTime, endTime, crossSystemAggregation, bucketAggregation, interval, excludeSystem) {
+        const errors = [];
+        const topics = {};
+        const entry = (0, metrics_1.resolveUnitMetricEntry)(metric, this.configService.historian.topicMap);
+        const effectiveBucketAgg = bucketAggregation ?? entry.aggregation;
+        const includedSystems = excludeSystem
+            ? systems.filter((s) => s.toLowerCase() !== excludeSystem.toLowerCase())
+            : [...systems];
+        const systemTopics = {};
+        includedSystems.forEach((sys) => {
+            const path = (0, metrics_1.buildUnitTopicPath)(campus, building, sys, metric, this.configService.historian.topicMap);
+            systemTopics[sys] = path;
+            topics[`${sys}.${metric}`] = path;
+        });
+        const resolved = this.resolveBucketing(startTime, endTime, interval ?? undefined);
+        const bucketing = resolved.mode === "binned"
+            ? resolved
+            : { mode: "binned", ...this.deriveBucketInterval(startTime, endTime) };
+        const binning = HistorianService_1.buildBinningInfo(bucketing);
+        const displayMeta = HistorianService_1.displayMetadata(entry);
+        const system = "site";
+        if (includedSystems.length === 0) {
+            errors.push("No systems available for site aggregation");
+            return {
+                system,
+                metric,
+                data: [],
+                metadata: { topics, errors, binning, aggregation: crossSystemAggregation, ...displayMeta },
+            };
+        }
+        try {
+            const pathToId = await this.resolveTopicIds(Object.values(systemTopics));
+            const topicIds = Array.from(pathToId.values());
+            if (topicIds.length === 0) {
+                errors.push(`No topics found for site aggregation in ${campus}/${building} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+                return {
+                    system,
+                    metric,
+                    data: [],
+                    metadata: { topics, errors, binning, aggregation: crossSystemAggregation, ...displayMeta },
+                };
+            }
+            const valueExpr = `CAST(NULLIF(value_string, 'null') AS double precision)`;
+            const query = `
+        WITH per_topic AS (
+          SELECT
+            date_bin($4::interval, ts, $1::timestamptz) AS timestamp,
+            topic_id,
+            ${(0, metrics_1.aggregationSql)(effectiveBucketAgg, valueExpr)} AS value
+          FROM data
+          WHERE topic_id = ANY($3::int[])
+            AND ts >= $1
+            AND ts <= $2
+          GROUP BY 1, 2
+        )
+        SELECT
+          timestamp,
+          ${(0, metrics_1.aggregationSql)(crossSystemAggregation, "value", "timestamp")} AS value
+        FROM per_topic
+        WHERE value IS NOT NULL
+        GROUP BY timestamp
+        ORDER BY timestamp
+      `;
+            const result = await this.pool.query(query, [
+                startTime,
+                endTime,
+                topicIds,
+                bucketing.sql,
+            ]);
+            if (result.rows.length === 0) {
+                errors.push(`No data found for site aggregation in ${campus}/${building} in time range ${startTime.toISOString()} to ${endTime.toISOString()}`);
+            }
+            const data = result.rows.map((row) => ({
+                timestamp: row.timestamp instanceof Date ? row.timestamp : new Date(row.timestamp),
+                value: (0, metrics_1.applyTransform)(HistorianService_1.toNumber(row.value), entry.transform),
+                system,
+                metric,
+            }));
+            return {
+                system,
+                metric,
+                data,
+                metadata: {
+                    topics,
+                    errors,
+                    binning,
+                    aggregation: crossSystemAggregation,
+                    ...displayMeta,
+                },
+            };
+        }
+        catch (error) {
+            this.logger.error("Error fetching site aggregate data", error);
+            errors.push(`Query error: ${error instanceof Error ? error.message : String(error)}`);
+            throw error;
+        }
     }
     async getMultiSystemUnitRanges(campus, building, systems, deniedSystems, metric, startTime, endTime) {
         if (systems.length === 0 && deniedSystems.length === 0) {
@@ -1634,9 +1744,10 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 unoccHeat,
                 unoccCool,
             });
+            const tempEntry = (0, metrics_1.resolveUnitMetricEntry)(tempMetric, topicMap);
             const data = series.map((pt) => ({
                 timestamp: new Date(pt.bucketMs),
-                value: pt.value,
+                value: (0, metrics_1.applyTransform)(pt.value, tempEntry.transform),
                 system,
                 metric: tempMetric,
             }));
@@ -1703,39 +1814,6 @@ let HistorianService = HistorianService_1 = class HistorianService {
             });
             req.end();
         });
-    }
-    async ensureTablesInPublication() {
-        try {
-            const tableCheckQuery = `
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-          AND table_name IN ('data', 'topics')
-      `;
-            const tableResult = await this.pool.query(tableCheckQuery);
-            const existingTables = tableResult.rows.map((row) => row.table_name);
-            if (existingTables.length === 0) {
-                this.logger.debug("No historian tables exist yet");
-                return;
-            }
-            const pubTablesQuery = `
-        SELECT tablename 
-        FROM pg_publication_tables 
-        WHERE pubname = 'historian_pub'
-      `;
-            const pubTablesResult = await this.pool.query(pubTablesQuery);
-            const publishedTables = pubTablesResult.rows.map((row) => row.tablename);
-            const missingTables = existingTables.filter((table) => !publishedTables.includes(table));
-            if (missingTables.length > 0) {
-                for (const table of missingTables) {
-                    const addTableQuery = `ALTER PUBLICATION historian_pub ADD TABLE ${table}`;
-                    await this.pool.query(addTableQuery);
-                }
-            }
-        }
-        catch (error) {
-            this.logger.error("Error ensuring tables in publication", error);
-        }
     }
     async getSystemPublishingStatus() {
         try {
@@ -1807,7 +1885,6 @@ let HistorianService = HistorianService_1 = class HistorianService {
     }
     async getReplicationInfo() {
         try {
-            await this.ensureTablesInPublication();
             const pubQuery = `
         SELECT 
           p.pubname,
@@ -2045,15 +2122,211 @@ let HistorianService = HistorianService_1 = class HistorianService {
             const isSelfSigned = await this.isProxyCertificateSelfSigned();
             const sslMode = isSelfSigned ? "prefer" : "require";
             const replicationPort = this.configService.historian.replicationPort;
-            const createSubscriptionTemplate = `CREATE SUBSCRIPTION historian_sub
+            const createSubscriptionSql = `CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}'
 PUBLICATION historian_pub
 WITH (
-    copy_data = true,
+    copy_data = false,
     create_slot = true,
     enabled = true,
     slot_name = 'historian_sub_slot'
-);`;
+);
+-- copy_data=false: streaming starts NOW; run the backfill procedure in the
+-- next card to fill historical data. Resumable across cellular disconnects
+-- because the procedure per-chunk COMMITs.`;
+            const backfillProcedureSql = `-- Enable dblink so we can pull from the publisher inside a stored procedure.
+CREATE EXTENSION IF NOT EXISTS dblink;
+
+-- Dedicated schema for backfill bookkeeping. Kept off 'public' so it can never
+-- leak into a FOR TABLES IN SCHEMA public publication or be replicated by a
+-- cascaded topology. Safe to leave in place after backfill completes.
+CREATE SCHEMA IF NOT EXISTS backfill;
+
+-- Persistent config — populated on first run; a zero-override re-CALL resumes.
+CREATE TABLE IF NOT EXISTS backfill.config (
+    id             integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    publisher_conn text NOT NULL,       -- host/port/user/db/sslmode; NO password
+    start_ts       timestamp NOT NULL,
+    end_ts         timestamp NOT NULL,  -- captured on first run; fixed thereafter
+    chunk_interval interval  NOT NULL DEFAULT '1 week',
+    created_at     timestamptz NOT NULL DEFAULT now(),
+    updated_at     timestamptz NOT NULL DEFAULT now()
+);
+
+-- Per-chunk checkpoint table.
+CREATE TABLE IF NOT EXISTS backfill.progress (
+    chunk_start  timestamp PRIMARY KEY,
+    chunk_end    timestamp NOT NULL,
+    inserted     bigint,
+    completed_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Pending-chunks view for operator visibility: SELECT count(*) FROM backfill.pending;
+CREATE OR REPLACE VIEW backfill.pending AS
+SELECT gs::timestamp AS chunk_start,
+       LEAST(gs + cfg.chunk_interval, cfg.end_ts)::timestamp AS chunk_end
+FROM (SELECT * FROM backfill.config WHERE id = 1) AS cfg,
+     generate_series(cfg.start_ts, cfg.end_ts - '1 microsecond'::interval, cfg.chunk_interval) AS gs
+WHERE NOT EXISTS (
+    SELECT 1 FROM backfill.progress p WHERE p.chunk_start = gs::timestamp
+);
+
+-- Resumable backfill. First positional arg is the (transient) publisher password.
+-- Any non-null overrides UPSERT into backfill.config; a zero-override call reads
+-- config and resumes. Per-chunk COMMIT so cellular disconnects only lose the
+-- in-flight chunk.
+CREATE OR REPLACE PROCEDURE backfill.run_backfill(
+    publisher_password text,
+    publisher_conn     text      DEFAULT NULL,
+    start_ts           timestamp DEFAULT NULL,
+    end_ts             timestamp DEFAULT NULL,
+    chunk_interval     interval  DEFAULT NULL
+) LANGUAGE plpgsql AS $BODY$
+#variable_conflict use_variable
+DECLARE
+    cfg backfill.config%ROWTYPE;
+    effective_conn text;
+    cs timestamp;
+    ce timestamp;
+BEGIN
+    IF publisher_password IS NULL THEN
+        RAISE EXCEPTION 'publisher_password is required (transient; not persisted)';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM backfill.config WHERE id = 1) THEN
+        IF publisher_conn IS NULL OR start_ts IS NULL THEN
+            RAISE EXCEPTION 'First-time run requires publisher_conn and start_ts';
+        END IF;
+        INSERT INTO backfill.config (id, publisher_conn, start_ts, end_ts, chunk_interval)
+        VALUES (
+            1,
+            publisher_conn,
+            start_ts,
+            COALESCE(end_ts, NOW()::timestamp),
+            COALESCE(chunk_interval, '1 week'::interval)
+        );
+    ELSE
+        UPDATE backfill.config c SET
+            publisher_conn = COALESCE(publisher_conn, c.publisher_conn),
+            start_ts       = COALESCE(start_ts,       c.start_ts),
+            end_ts         = COALESCE(end_ts,         c.end_ts),
+            chunk_interval = COALESCE(chunk_interval, c.chunk_interval),
+            updated_at     = now()
+        WHERE c.id = 1;
+    END IF;
+
+    SELECT * INTO cfg FROM backfill.config WHERE id = 1;
+    effective_conn := cfg.publisher_conn || ' password=' || publisher_password;
+
+    RAISE NOTICE 'Backfill window: [%, %) chunk=%. Pending: %',
+        cfg.start_ts, cfg.end_ts, cfg.chunk_interval,
+        (SELECT count(*) FROM backfill.pending);
+
+    cs := cfg.start_ts;
+    WHILE cs < cfg.end_ts LOOP
+        ce := LEAST(cs + cfg.chunk_interval, cfg.end_ts);
+        IF NOT EXISTS (SELECT 1 FROM backfill.progress WHERE chunk_start = cs) THEN
+            RAISE NOTICE '[chunk] % -> %', cs, ce;
+            DROP TABLE IF EXISTS backfill.stage;
+            CREATE UNLOGGED TABLE backfill.stage (topic_id integer, ts timestamp, value_string text);
+            EXECUTE format(
+                'INSERT INTO backfill.stage SELECT * FROM dblink(%L, %L) AS t(topic_id integer, ts timestamp, value_string text)',
+                effective_conn,
+                format('SELECT topic_id, ts, value_string FROM public.data WHERE ts >= %L AND ts < %L', cs, ce)
+            );
+            INSERT INTO public.data (topic_id, ts, value_string)
+            SELECT topic_id, ts, value_string FROM backfill.stage
+            ON CONFLICT (topic_id, ts) DO NOTHING;
+            INSERT INTO backfill.progress (chunk_start, chunk_end, inserted)
+            VALUES (cs, ce, (SELECT count(*) FROM backfill.stage));
+            DROP TABLE backfill.stage;
+            COMMIT;
+        END IF;
+        cs := ce;
+    END LOOP;
+END $BODY$;
+
+-- Backfill topics (small; single one-shot merge).
+INSERT INTO public.topics (topic_id, topic_name, metadata)
+SELECT * FROM dblink(
+    'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}',
+    'SELECT topic_id, topic_name, metadata FROM public.topics'
+) AS t(topic_id integer, topic_name text, metadata text)
+ON CONFLICT (topic_id) DO UPDATE
+  SET topic_name = EXCLUDED.topic_name, metadata = EXCLUDED.metadata;
+
+-- FIRST RUN — configures backfill.config and processes chunks. Edit start_ts
+-- to the earliest publisher timestamp you care about (see MIN(ts) on publisher).
+CALL backfill.run_backfill(
+    publisher_password := 'YOUR_REPLICATOR_PASSWORD',
+    publisher_conn     := 'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator sslmode=${sslMode}',
+    start_ts           := '2026-01-01 00:00:00'::timestamp
+);
+
+-- RESUME (subsequent calls) — reads persisted config; only the transient
+-- password is required. Re-run at any time; completed chunks are skipped.
+-- CALL backfill.run_backfill(publisher_password := 'YOUR_REPLICATOR_PASSWORD');
+
+-- OPERATOR VISIBILITY
+--   SELECT * FROM backfill.config;              -- current run parameters
+--   SELECT count(*) FROM backfill.pending;      -- chunks remaining
+--   SELECT * FROM backfill.progress ORDER BY chunk_start DESC LIMIT 10;`;
+            const createTablesCmdSh = `PGPASSWORD="$PUB_PASSWORD" pg_dump \\
+    -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d historian \\
+    --schema-only --no-owner --no-privileges \\
+    -t public.data -t public.topics -t public.topics_topic_id_seq \\
+  | PGPASSWORD="$SUB_PASSWORD" psql \\
+    -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1`;
+            const createTablesCmdPs1 = `$env:PGPASSWORD = $env:PUB_PASSWORD
+$ddl = & pg_dump -h $env:PUB_HOST -p $env:PUB_PORT -U $env:PUB_USER -d historian \`
+    --schema-only --no-owner --no-privileges \`
+    -t public.data -t public.topics -t public.topics_topic_id_seq
+$env:PGPASSWORD = $env:SUB_PASSWORD
+$ddl | & psql -h $env:SUB_HOST -p $env:SUB_PORT -U $env:SUB_USER -d $env:SUB_DB -v ON_ERROR_STOP=1
+Remove-Item Env:PGPASSWORD`;
+            const heredocConstraints = `ALTER TABLE public.topics ADD PRIMARY KEY (topic_id);
+ALTER TABLE public.data   ADD PRIMARY KEY (topic_id, ts);`;
+            const createConstraintsCmdSh = `PGPASSWORD="$SUB_PASSWORD" psql \\
+    -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1 <<'SQL'
+${heredocConstraints}
+SQL`;
+            const createConstraintsCmdPs1 = `$env:PGPASSWORD = $env:SUB_PASSWORD
+@'
+${heredocConstraints}
+'@ | & psql -h $env:SUB_HOST -p $env:SUB_PORT -U $env:SUB_USER -d $env:SUB_DB -v ON_ERROR_STOP=1
+Remove-Item Env:PGPASSWORD`;
+            const createIndexesCmdSh = `PGPASSWORD="$SUB_PASSWORD" psql \\
+    -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1 <<'SQL'
+${createIndexesSql}
+SQL`;
+            const createIndexesCmdPs1 = `$env:PGPASSWORD = $env:SUB_PASSWORD
+@'
+${createIndexesSql}
+'@ | & psql -h $env:SUB_HOST -p $env:SUB_PORT -U $env:SUB_USER -d $env:SUB_DB -v ON_ERROR_STOP=1
+Remove-Item Env:PGPASSWORD`;
+            const createSubscriptionCmdSh = `PGPASSWORD="$SUB_PASSWORD" psql \\
+    -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1 <<SQL
+CREATE SUBSCRIPTION historian_sub
+CONNECTION 'host=$PUB_HOST port=$PUB_PORT dbname=historian user=$PUB_USER password=$PUB_PASSWORD sslmode=${sslMode}'
+PUBLICATION historian_pub
+WITH (copy_data=false, create_slot=true, enabled=true, slot_name='historian_sub_slot');
+SQL`;
+            const createSubscriptionCmdPs1 = `$env:PGPASSWORD = $env:SUB_PASSWORD
+@"
+CREATE SUBSCRIPTION historian_sub
+CONNECTION 'host=$($env:PUB_HOST) port=$($env:PUB_PORT) dbname=historian user=$($env:PUB_USER) password=$($env:PUB_PASSWORD) sslmode=${sslMode}'
+PUBLICATION historian_pub
+WITH (copy_data=false, create_slot=true, enabled=true, slot_name='historian_sub_slot');
+"@ | & psql -h $env:SUB_HOST -p $env:SUB_PORT -U $env:SUB_USER -d $env:SUB_DB -v ON_ERROR_STOP=1
+Remove-Item Env:PGPASSWORD`;
+            const linuxScript = this.subscribeHistorianShTemplate
+                .replace(/\{\{HOSTNAME\}\}/g, "{{HOSTNAME}}")
+                .replace(/\{\{PORT\}\}/g, String(replicationPort))
+                .replace(/\{\{SSLMODE\}\}/g, sslMode);
+            const windowsScript = this.subscribeHistorianPs1Template
+                .replace(/\{\{HOSTNAME\}\}/g, "{{HOSTNAME}}")
+                .replace(/\{\{PORT\}\}/g, String(replicationPort))
+                .replace(/\{\{SSLMODE\}\}/g, sslMode);
             const checkSchemaMatchSql = `-- On subscriber: Compare table structures
 SELECT 
     table_name,
@@ -2105,7 +2378,18 @@ WHERE subname = 'historian_sub';`;
                     createTablesSql,
                     createConstraintsSql,
                     createIndexesSql,
-                    createSubscriptionTemplate,
+                    createSubscriptionSql,
+                    backfillProcedureSql,
+                    createTablesCmdSh,
+                    createConstraintsCmdSh,
+                    createIndexesCmdSh,
+                    createSubscriptionCmdSh,
+                    linuxScript,
+                    createTablesCmdPs1,
+                    createConstraintsCmdPs1,
+                    createIndexesCmdPs1,
+                    createSubscriptionCmdPs1,
+                    windowsScript,
                 },
                 monitoringSql: {
                     checkSchemaMatchSql,

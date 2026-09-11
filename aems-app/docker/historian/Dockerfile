@@ -11,9 +11,13 @@ COPY docker-entrypoint-wrapper.sh /usr/local/bin/docker-entrypoint-wrapper.sh
 # Copy replication setup script
 COPY setup-replication.sh /docker-entrypoint-initdb.d/setup-replication.sh
 
+# Copy operator-invoked repair script (NOT in initdb.d — must not run on fresh init)
+COPY repair-replication.sh /usr/local/bin/repair-replication.sh
+
 # Ensure scripts are executable and configs have proper permissions
 RUN chmod 755 /usr/local/bin/docker-entrypoint-wrapper.sh && \
     chmod 755 /docker-entrypoint-initdb.d/setup-replication.sh && \
+    chmod 755 /usr/local/bin/repair-replication.sh && \
     chmod 644 /etc/postgresql/postgresql.conf && \
     chmod 644 /etc/postgresql/pg_hba.conf
 

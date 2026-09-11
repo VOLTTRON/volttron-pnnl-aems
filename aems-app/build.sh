@@ -92,6 +92,25 @@ clean_portal_links() {
     fi
 }
 
+# Refresh ./node_modules/.prisma/client from the prisma workspace's freshly
+# generated copy. Node runs each downstream workspace with
+# --preserve-symlinks (set via NODE_OPTIONS in that workspace's .env), which
+# means `require('.prisma/client/default')` from the portalled @prisma/client
+# entry resolves against THIS workspace's node_modules rather than following
+# the portal back to prisma/. Without this refresh, a stale local copy shadows
+# the freshly generated one and downstream code crashes on symbols added since
+# it was last generated — e.g. `Object.values(BackupDestinationType)` throws
+# "Cannot convert undefined or null to object" during schema compile.
+sync_prisma_client() {
+    local target="./node_modules/.prisma"
+    local source="${STARTING_PATH}/prisma/node_modules/.prisma/client"
+    if [[ -d "$source" ]]; then
+        rm -rf "$target/client"
+        mkdir -p "$target"
+        cp -R "$source" "$target/client"
+    fi
+}
+
 # Set up error handling
 set -e
 trap on_failure ERR
@@ -126,7 +145,15 @@ if [[ "$SKIP_MIGRATIONS" == "true" ]]; then
     print_yellow "Prisma: Skipping migrations as requested."
 else
     print_blue "Prisma: Applying migrations..."
-    if yarn migrate:deploy; then
+    # Prisma reads DATABASE_URL from process.env first and only falls back to
+    # prisma/.env if that variable is unset. If the caller's shell has
+    # DATABASE_URL set to anything else (a leftover from docker compose, a
+    # previous script, or a system-wide env), prisma fails validation with
+    # P1012 "URL must start with the protocol postgresql://" before ever
+    # reading .env. Run migrate:deploy in a subshell with DATABASE_URL /
+    # DIRECT_URL unset so it always reads the workspace .env authoritatively;
+    # the caller's environment is untouched.
+    if (unset DATABASE_URL DIRECT_URL && yarn migrate:deploy); then
         print_green "Prisma: Migrations applied successfully!"
     else
         print_yellow "Prisma: Migration failed, but continuing with build process..."
@@ -152,6 +179,8 @@ if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
     yarn install
 fi
 
+sync_prisma_client
+
 print_cyan "Common: Building module..."
 yarn build
 
@@ -176,6 +205,8 @@ if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
     yarn install
 fi
 
+sync_prisma_client
+
 print_cyan "Server: Building module..."
 yarn build
 
@@ -199,6 +230,8 @@ if [[ "$SKIP_DEPENDENCIES" != "true" ]]; then
     clean_portal_links
     yarn install
 fi
+
+sync_prisma_client
 
 print_cyan "Client: Building module..."
 yarn build

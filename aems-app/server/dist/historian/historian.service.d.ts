@@ -16,6 +16,8 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     private readonly prismaService;
     private logger;
     private pool;
+    private readonly subscribeHistorianShTemplate;
+    private readonly subscribeHistorianPs1Template;
     constructor(configService: AppConfigService, prismaService: PrismaService);
     onModuleInit(): Promise<void>;
     onModuleDestroy(): Promise<void>;
@@ -37,6 +39,7 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     }): Promise<HistorianTimeSeries>;
     getMeterAggregated(campus: string, building: string, metric: MeterMetric, startTime: Date, endTime: Date, interval: string, aggregation: AggregationType): Promise<HistorianAggregateResult>;
     getMultiSystemUnit(campus: string, building: string, systems: string[], deniedSystems: string[], metric: UnitMetric, startTime: Date, endTime: Date, interval?: string): Promise<HistorianMultiSystemData[]>;
+    getSiteAggregateUnit(campus: string, building: string, systems: string[], metric: UnitMetric, startTime: Date, endTime: Date, crossSystemAggregation: MetricAggregation, bucketAggregation?: MetricAggregation, interval?: string, excludeSystem?: string): Promise<HistorianTimeSeries>;
     getMultiSystemUnitRanges(campus: string, building: string, systems: string[], deniedSystems: string[], metric: UnitMetric, startTime: Date, endTime: Date): Promise<HistorianMultiSystemRanges[]>;
     getMultiSystemSetpointErrorRanges(campus: string, building: string, systems: string[], deniedSystems: string[], startTime: Date, endTime: Date): Promise<HistorianMultiSystemRanges[]>;
     private static readonly NICE_BUCKET_SECONDS;
@@ -60,7 +63,6 @@ export declare class HistorianService implements OnModuleInit, OnModuleDestroy {
     private static collapseErrorSeriesToRanges;
     calculateSetpointError(campus: string, building: string, system: string, startTime: Date, endTime: Date): Promise<HistorianTimeSeries>;
     private isProxyCertificateSelfSigned;
-    private ensureTablesInPublication;
     getSystemPublishingStatus(): Promise<SystemPublishingStatus[]>;
     getReplicationInfo(): Promise<HistorianReplicationInfo>;
 }

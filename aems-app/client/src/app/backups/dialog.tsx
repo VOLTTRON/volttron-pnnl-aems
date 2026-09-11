@@ -38,7 +38,9 @@ import {
 } from "@/graphql-codegen/graphql";
 import { useMutation, useQuery } from "@apollo/client";
 import { Term } from "@/utils/client";
+import { formatDate } from "@/utils/date";
 import { ConfirmDialog, CreateDialog, DeleteDialog, UpdateDialog, ViewDialog } from "../dialog";
+import { useResolvedTimezone } from "../components/providers";
 import styles from "./page.module.scss";
 
 export type BackupDestination = NonNullable<ReadBackupDestinationsQuery["readBackupDestinations"]>[0];
@@ -452,6 +454,7 @@ export function ViewRun({
   const detail = data?.readBackupRun;
   const [archiveToDelete, setArchiveToDelete] = useState<BackupRunDestination | undefined>(undefined);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const resolvedTz = useResolvedTimezone();
   return (
     <ViewDialog
       title={`Backup Run ${run?.id ?? ""}`}
@@ -492,19 +495,19 @@ export function ViewRun({
                 <td>
                   <strong>Started</strong>
                 </td>
-                <td>{detail.startedAt ? new Date(detail.startedAt).toLocaleString() : "—"}</td>
+                <td>{detail.startedAt ? formatDate(detail.startedAt, resolvedTz) : "—"}</td>
               </tr>
               <tr>
                 <td>
                   <strong>Finished</strong>
                 </td>
-                <td>{detail.finishedAt ? new Date(detail.finishedAt).toLocaleString() : "—"}</td>
+                <td>{detail.finishedAt ? formatDate(detail.finishedAt, resolvedTz) : "—"}</td>
               </tr>
               <tr>
                 <td>
                   <strong>Heartbeat</strong>
                 </td>
-                <td>{detail.heartbeatAt ? new Date(detail.heartbeatAt).toLocaleString() : "—"}</td>
+                <td>{detail.heartbeatAt ? formatDate(detail.heartbeatAt, resolvedTz) : "—"}</td>
               </tr>
               <tr>
                 <td>
@@ -592,7 +595,7 @@ export function ViewRun({
                     <AvailabilityTag availability={d.availability} />
                     {d.archiveDeletedAt ? (
                       <small style={{ marginLeft: 8, opacity: 0.7 }}>
-                        {new Date(d.archiveDeletedAt).toLocaleString()}
+                        {formatDate(d.archiveDeletedAt, resolvedTz)}
                       </small>
                     ) : null}
                   </td>

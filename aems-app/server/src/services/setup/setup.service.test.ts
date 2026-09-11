@@ -12,7 +12,10 @@ import { getConfigFiles } from "@/utils/file";
 function makeConfig(): AppConfigService {
   return {
     instanceType: "setup",
-    service: { setup: { thermostatPaths: [], ilcPaths: [] } },
+    service: {
+      setup: { thermostatPaths: [], ilcPaths: [] },
+      synthetic: { campusPrefix: "DEMO_" },
+    },
   } as unknown as AppConfigService;
 }
 

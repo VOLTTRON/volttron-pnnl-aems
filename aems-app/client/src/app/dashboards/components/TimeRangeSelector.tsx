@@ -9,7 +9,9 @@ import {
   DefaultPreferences,
   PreferencesContext,
   getStoredPreferences,
+  useResolvedTimezone,
 } from "@/app/components/providers";
+import { formatDate as formatDateWithTz } from "@/utils/date";
 import styles from "./TimeRangeSelector.module.scss";
 
 interface TimeRangeSelectorProps {
@@ -29,6 +31,7 @@ function resolveInitialPreset(): string {
 
 export function TimeRangeSelector({ onApply }: TimeRangeSelectorProps) {
   const { preferences, setPreferences } = useContext(PreferencesContext);
+  const resolvedTz = useResolvedTimezone();
 
   const initialPreset = resolveInitialPreset();
   const initialFromDate = calculateFromDateForPreset(initialPreset);
@@ -197,7 +200,7 @@ export function TimeRangeSelector({ onApply }: TimeRangeSelectorProps) {
 
   const formatDate = (date: Date | null): string => {
     if (!date) return "";
-    return date.toLocaleString();
+    return formatDateWithTz(date, resolvedTz);
   };
 
   const parseDate = (str: string): Date | null => {
@@ -223,6 +226,8 @@ export function TimeRangeSelector({ onApply }: TimeRangeSelectorProps) {
           fill={false}
           placeholder={getFromPlaceholder()}
           closeOnSelection={false}
+          timezone={resolvedTz}
+          showTimezoneSelect={false}
         />
       </FormGroup>
 
@@ -235,6 +240,8 @@ export function TimeRangeSelector({ onApply }: TimeRangeSelectorProps) {
           disabled={localUseCurrentTime}
           placeholder="Current Time"
           closeOnSelection={false}
+          timezone={resolvedTz}
+          showTimezoneSelect={false}
         />
       </FormGroup>
 

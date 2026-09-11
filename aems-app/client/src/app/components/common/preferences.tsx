@@ -1,8 +1,8 @@
 import { UpdateDialog } from "@/app/dialog";
 import { IconNames } from "@blueprintjs/icons";
-import { useContext, useState } from "react";
-import { compilePreferences, CurrentContext, PreferencesContext, ClientPreferences } from "../providers";
-import { Button, FormGroup, InputGroup } from "@blueprintjs/core";
+import { useContext, useMemo, useState } from "react";
+import { compilePreferences, ConfigContext, CurrentContext, PreferencesContext, ClientPreferences } from "../providers";
+import { Button, FormGroup, HTMLSelect, InputGroup } from "@blueprintjs/core";
 import { Palette, Palettes } from "@/utils/palette";
 import { PaletteFilter, PalettePicker } from "./palette";
 
@@ -11,11 +11,15 @@ const BasePalettes = Palettes.getPalettes({});
 
 export function Preferences({ handleClose }: { handleClose: () => void }) {
   const { current, updateCurrent } = useContext(CurrentContext);
-  const { preferences } = useContext(PreferencesContext);
+  const { preferences, setPreferences } = useContext(PreferencesContext);
+  const { config } = useContext(ConfigContext);
   const currentName = current?.preferences?.name || current?.name || "";
   const currentPrefs = compilePreferences(preferences, current?.preferences);
 
+  const currentTimezone = current?.preferences?.timezone ?? preferences?.timezone ?? "location";
+
   const [name, setName] = useState(currentName);
+  const [timezone, setTimezone] = useState(currentTimezone);
   const [palettes, setPalettes] = useState<Palettes>(Palettes.getPalettes({}));
   const [palette1, setPalette1] = useState<Palette>(Palettes.getPalette(currentPrefs.palette1 || "Radiant Harmony"));
   const [palette2, setPalette2] = useState<Palette>(Palettes.getPalette(currentPrefs.palette2 || "Desert Oasis"));
@@ -37,11 +41,24 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
     currentPrefs.palette3 !== palette3.name ||
     currentPrefs.paletteWarm !== paletteWarm.name ||
     currentPrefs.paletteCool !== paletteCool.name ||
-    currentPrefs.paletteGradient !== paletteGradient.name;
+    currentPrefs.paletteGradient !== paletteGradient.name ||
+    currentName !== name ||
+    currentTimezone !== timezone;
+
+  const timezoneOptions = useMemo(() => {
+    const siteTz = config?.location || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return [
+      { value: "location", label: `Site (${siteTz})` },
+      { value: "browser", label: "Browser (auto-detect)" },
+      { value: "none", label: "None (as stored)" },
+      ...Intl.supportedValuesOf("timeZone").map((tz) => ({ value: tz, label: tz })),
+    ];
+  }, [config?.location]);
 
   const handleUpdate = async () => {
     const serverPreferences = {
       name: name,
+      timezone: timezone,
     };
     const clientPreferences: ClientPreferences = {
       palette1: palette1.name,
@@ -51,9 +68,9 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
       paletteCool: paletteCool.name,
       paletteGradient: paletteGradient.name,
     };
-    await updateCurrent?.({
-      preferences: compilePreferences(preferences, current?.preferences, serverPreferences, clientPreferences),
-    });
+    const payload = compilePreferences(preferences, current?.preferences, serverPreferences, clientPreferences);
+    setPreferences?.(payload);
+    await updateCurrent?.({ preferences: payload });
     handleClose();
   };
 
@@ -101,6 +118,15 @@ export function Preferences({ handleClose }: { handleClose: () => void }) {
 
       <FormGroup label="Gradient Chart Palette" helperText="Used for gradient metrics">
         <PalettePicker palettes={palettes} palette={paletteGradient} onChange={setPaletteGradient} />
+      </FormGroup>
+      <FormGroup label="Timezone" labelFor="timezone">
+        <HTMLSelect
+          id="timezone"
+          value={timezone}
+          onChange={(e) => setTimezone(e.target.value)}
+          options={timezoneOptions}
+          fill
+        />
       </FormGroup>
     </UpdateDialog>
   );

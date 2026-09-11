@@ -3,6 +3,7 @@ import { IconNames } from "@blueprintjs/icons";
 import { HolidayType, ReadUnitQuery } from "@/graphql-codegen/graphql";
 import { DeepPartial, ObservanceType } from "@local/common";
 import { cloneDeep, merge } from "@local/common/dist/utils/lodash";
+import { formatDate as formatDateWithTz, LEAP_YEAR } from "@/utils/date";
 
 export type HolidayCreateDelete = NonNullable<NonNullable<UnitType["configuration"]>["holidays"]>[number] & {
   action?: "create" | "delete";
@@ -29,8 +30,8 @@ export function Holiday({ id, unit, editing, setEditing, readOnly }: HolidayProp
 
   const formatDate = (month: number, day: number) => {
     try {
-      const date = new Date(2024, month - 1, day);
-      return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+      const date = new Date(LEAP_YEAR, month - 1, day);
+      return formatDateWithTz(date, undefined, { month: "long", day: "numeric" });
     } catch {
       return `${month}/${day}`;
     }

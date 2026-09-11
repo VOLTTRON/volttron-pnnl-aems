@@ -29,7 +29,24 @@ let WebSocketAuthService = WebSocketAuthService_1 = class WebSocketAuthService {
     }
     async authenticateWebSocket(request) {
         try {
-            const response = {};
+            const noop = () => stub;
+            const stub = {
+                setHeader: noop,
+                getHeader: () => undefined,
+                removeHeader: noop,
+                status: noop,
+                sendStatus: noop,
+                send: noop,
+                json: noop,
+                end: noop,
+                cookie: noop,
+                clearCookie: noop,
+                set: noop,
+                header: noop,
+                headersSent: false,
+                writable: false,
+            };
+            const response = stub;
             const next = () => { };
             switch (this.configService.auth.framework) {
                 case "authjs":
