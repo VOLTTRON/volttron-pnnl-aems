@@ -1,10 +1,18 @@
 -- ================================================
--- Fix PostgreSQL Logical Replication Issues
+-- Fix PostgreSQL Logical Replication Issues (SUBSCRIBER-side)
 -- ================================================
--- This script fixes the replication error by ensuring the topics table
--- has a PRIMARY KEY and cleaning up the failed subscription.
+-- This script fixes subscriber-side replication issues by ensuring topics
+-- and data have PRIMARY KEYs and cleaning up failed subscriptions.
 --
--- Run this script on the SUBSCRIBER database where the error is occurring.
+-- SCOPE: Run this on the SUBSCRIBER database. It does NOT touch the
+-- publisher's PUBLICATION — despite older docs that said otherwise, this
+-- script never issues DROP/CREATE PUBLICATION.
+--
+-- For PUBLISHER-side issues (missing / empty / FOR ALL TABLES publication,
+-- leaked migration_stage schema) run the publisher-side repair instead:
+--     ./aems-app/repair-historian-replication.sh
+-- which invokes /usr/local/bin/repair-replication.sh inside the historian
+-- container.
 -- ================================================
 
 -- Step 1: Add PRIMARY KEY to topics table if it doesn't exist
@@ -56,48 +64,60 @@ WHERE c.relname IN ('data', 'topics')
 ORDER BY c.relname;
 
 -- Step 4: Drop the failed subscription
--- The subscription name pattern is 'aems_<username>_sub' or 'aems_unknown_sub' as fallback
+-- Matches both the canonical name (historian_sub) AND legacy per-user names
+-- (aems_<username>_sub) so this file cleans up subscribers deployed under
+-- either naming convention.
 DO $$
 DECLARE
     sub_name TEXT;
 BEGIN
-    -- Find all subscriptions matching the pattern
-    FOR sub_name IN 
-        SELECT subname 
-        FROM pg_subscription 
-        WHERE subname LIKE 'aems_%_sub'
+    FOR sub_name IN
+        SELECT subname
+        FROM pg_subscription
+        WHERE subname = 'historian_sub'
+           OR subname LIKE 'aems_%_sub'
     LOOP
         RAISE NOTICE 'Dropping subscription: %', sub_name;
         EXECUTE format('DROP SUBSCRIPTION IF EXISTS %I', sub_name);
     END LOOP;
-    
+
     IF NOT FOUND THEN
-        RAISE NOTICE 'No subscriptions found matching pattern aems_%_sub';
+        RAISE NOTICE 'No historian subscriptions found (historian_sub or aems_%%_sub).';
     END IF;
 END
 $$;
 
--- Step 5: Display subscription status (should be empty after dropping)
-SELECT 
+-- Step 5: Display remaining subscription status (should be empty after dropping)
+SELECT
     subname AS subscription_name,
     subenabled AS enabled,
     subpublications AS publications
 FROM pg_subscription
-WHERE subname LIKE 'aems_%_sub';
+WHERE subname = 'historian_sub'
+   OR subname LIKE 'aems_%_sub';
 
 -- Step 6: Instructions for recreating subscription
--- After running this script, you need to recreate the subscription.
--- Run the setup-subscriber.sh script or manually create the subscription:
 --
--- CREATE SUBSCRIPTION aems_<username>_sub
--- CONNECTION 'host=<publisher_host> port=<port> dbname=historian user=replicator password=<password> sslmode=prefer'
+-- ⚠️  RECOMMENDED: run the resumable wrapper on the subscriber host:
+--     ./aems-app/subscribe-historian.sh --publisher-host <host>
+-- It creates the subscription with copy_data=false (streams from now) and
+-- backfills historical data in resumable chunked transactions — safe over
+-- unreliable / cellular links, where copy_data=true single-transaction
+-- initial COPY cannot complete.
+--
+-- FALLBACK (only for lab / broadband deployments that can complete a
+-- multi-GB initial COPY in one transaction):
+--
+-- CREATE SUBSCRIPTION historian_sub
+-- CONNECTION 'host=<publisher_host> port=<port> dbname=historian user=replicator password=<password> sslmode=require'
 -- PUBLICATION historian_pub
 -- WITH (
---     copy_data = true,
+--     copy_data   = false,
 --     create_slot = true,
---     enabled = true,
---     slot_name = 'aems_<username>_slot'
+--     enabled     = true,
+--     slot_name   = 'historian_sub_slot'
 -- );
+-- Then run aems-app/subscribe-historian.sh to backfill historical rows.
 
 -- ================================================
 -- Verification Queries

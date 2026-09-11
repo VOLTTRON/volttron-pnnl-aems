@@ -5,6 +5,7 @@ import { ReadUnitQuery } from "@/graphql-codegen/graphql";
 import { DeepPartial, typeofNonNullable, typeofObject } from "@local/common";
 import { cloneDeep, merge } from "@local/common/dist/utils/lodash";
 import { END_TIME_MAX, START_TIME_MIN, toDataFormat, toMinutes } from "@/utils/schedule";
+import { useResolvedTimezone } from "@/app/components/providers";
 
 const MIN_DURATION = 1;
 
@@ -132,6 +133,7 @@ function CreateOccupancy({
 }
 
 export function Occupancies({ unit, editing, setEditing, readOnly = false }: OccupanciesProps) {
+  const resolvedTz = useResolvedTimezone();
   const editingOccupancies = (editing?.configuration?.occupancies ?? [])
     .filter(typeofNonNullable)
     .reduce((a, v) => ({ ...a, [v?.id ?? ""]: v }), {} as Record<string, OccupancyCreateDelete>);
@@ -176,7 +178,7 @@ export function Occupancies({ unit, editing, setEditing, readOnly = false }: Occ
                       <div>
                         <strong>{occupancy.label}</strong>
                         <div style={{ fontSize: "0.75rem", color: "var(--bp5-text-color-muted)" }}>
-                          {new Date(occupancy.date ?? "").toLocaleDateString()}
+                          {new Date(occupancy.date ?? "").toLocaleDateString(undefined, { timeZone: resolvedTz })}
                         </div>
                       </div>
 

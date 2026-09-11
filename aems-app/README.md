@@ -1286,7 +1286,7 @@ The AEMS historian database can be replicated to remote offsite locations for ba
 └───────────────────────────────┼────────────────────────────┘
                                 │
                      TLS Encrypted Connection
-                       (Port 5432 by default)
+                (Port 6543 by default — HISTORIAN_REPLICATION_PORT)
                                 │
 ┌───────────────────────────────▼────────────────────────────┐
 │                    Remote Offsite Location                 │
@@ -1306,7 +1306,7 @@ The AEMS historian database can be replicated to remote offsite locations for ba
 - ✅ AEMS application running with Docker Compose
 - ✅ Traefik proxy enabled (`proxy` profile)
 - ✅ Historian database container running (`volttron` profile)
-- ✅ Port 5432 accessible from subscriber location
+- ✅ Port `HISTORIAN_REPLICATION_PORT` (default `6543`) accessible from subscriber location
 - ✅ Firewall configured to allow incoming connections
 
 **Subscriber (Remote Site):**
@@ -1410,22 +1410,25 @@ psql -U postgres -d historian
 ```
 
 ```sql
--- Create the subscription
+-- Create the subscription. copy_data=false starts live streaming from NOW;
+-- historical rows are filled by aems-app/subscribe-historian.sh (see below).
+-- copy_data=true is unsafe over unreliable / cellular links because its
+-- single-transaction initial COPY rolls back on any network drop.
 CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
 PUBLICATION historian_pub
 WITH (
-    copy_data = true,           -- Copy existing data
+    copy_data   = false,        -- stream from now; backfill via wrapper
     create_slot = true,         -- Create replication slot
-    enabled = true,             -- Enable immediately
-    slot_name = 'historian_sub_slot'
+    enabled     = true,         -- Enable immediately
+    slot_name   = 'historian_sub_slot'
 );
 
 -- Verify subscription was created
 SELECT * FROM pg_subscription WHERE subname = 'historian_sub';
 
 -- Check subscription status
-SELECT 
+SELECT
     subname AS subscription_name,
     pid AS worker_pid,
     received_lsn,
@@ -1433,6 +1436,13 @@ SELECT
     latest_end_time
 FROM pg_stat_subscription;
 ```
+
+Then backfill historical data. Everything you need is on the `/historian` page of your running publisher deployment (`https://<PUBLISHER_HOSTNAME>/historian` → Subscriber Setup tab). It offers two parallel paths:
+
+- **Pure SQL** — copy-paste blocks from Cards 1-5 into pgAdmin / psql attached to your subscriber PostgreSQL. Card 5 is a stored procedure using `dblink` with per-chunk `COMMIT`, resumable across cellular disconnects — re-`CALL` to pick up from the first incomplete chunk.
+- **Shell / PowerShell commands** — same five steps as bash one-liners (Linux/macOS) or PowerShell (Windows). Every card has Copy and Download buttons. Card 5 is a full standalone script (`subscribe-historian.sh` or `.ps1`) that encapsulates the resumable chunk loop; needs only `psql` and `pg_dump` on PATH.
+
+The subscriber can be any PostgreSQL 16+ instance — bare Postgres, no AEMS software required. Both paths are idempotent: interruption is safe, re-running skips completed chunks via `backfill.progress` (in a dedicated `backfill` schema, off `public`) and merges under `INSERT … ON CONFLICT DO NOTHING`. Path A also persists a single-row `backfill.config` so `CALL backfill.run_backfill(publisher_password := 'PW');` alone is enough to resume; Path B reads `backfill.config` as defaults so `--start-ts` isn't required on re-runs.
 
 **Note:** If you receive a warning `WARNING: publication "historian_pub" does not exist on the publisher`, see the [Troubleshooting](#troubleshooting) section below for the solution.
 
@@ -1765,38 +1775,57 @@ CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host=172.31.32.1 port=6543 dbname=historian user=replicator password=your_password sslmode=prefer'
 PUBLICATION historian_pub
 WITH (
-    copy_data = true,
+    copy_data   = false,
     create_slot = true,
-    enabled = true,
-    slot_name = 'historian_sub_slot'
+    enabled     = true,
+    slot_name   = 'historian_sub_slot'
 );
 ```
+Then backfill historical rows using the two-path recipe on the publisher's `/historian` page (pure SQL via pgAdmin, or download a `.sh` / `.ps1` from Card 5 to run against `psql` on your machine).
 
 #### Troubleshooting
 
-**Publication Does Not Exist:**
+**Publication Does Not Exist / Publication Has No Tables / `schema "..." does not exist`:**
 
-If you receive: `WARNING: publication "historian_pub" does not exist on the publisher`
+If you receive any of these on the subscriber:
 
-**Cause:** The publication is created automatically during initial database setup. If your historian database existed before replication support was added, the initialization script was never executed.
+- `WARNING: publication "historian_pub" does not exist on the publisher`
+- `pg_publication_tables` on the publisher returns zero rows for `historian_pub`
+- `ERROR: schema "migration_stage" does not exist (SQL state 3F000)` (or another stray schema) during `CREATE SUBSCRIPTION`
 
-**Solution:**
+**Cause:** The publication is created automatically during initial database setup, but only on fresh `historian-data` volumes. Deployments upgraded in place from before replication support may have no publication; deployments where `migrate-historian-data.sh` ran and left a `migration_stage` schema behind may have a publication that has been mis-scoped to `FOR ALL TABLES` and now leaks staging tables into subscriber initial-sync.
+
+**Solution:** Run the publisher-side repair wrapper from the `aems-app/` directory:
+
 ```bash
-# Verify if publication exists on publisher
-docker exec -it aems-historian psql -U historian -d historian -c "SELECT * FROM pg_publication;"
-
-# If missing, create it manually
-docker exec -it aems-historian psql -U historian -d historian -c "CREATE PUBLICATION historian_pub FOR ALL TABLES;"
-
-# Verify the subscription is now working
-psql -U postgres -d historian -c "SELECT * FROM pg_stat_subscription WHERE subname = 'historian_sub';"
+cd aems-app
+./repair-historian-replication.sh --dry-run   # report current state
+./repair-historian-replication.sh             # apply repair
 ```
+
+It is idempotent — safe on a healthy deployment. Actions inside the historian container: drop `migration_stage` if present, rebuild `historian_pub` as `FOR TABLES IN SCHEMA public` if scope is wrong, re-apply replicator grants and primary-key constraints. After a rebuild, downstream subscribers must drop and recreate their subscriptions.
+
+**`password authentication failed for user "historian"` in VOLTTRON logs:**
+
+Symptom: `docker logs aems-volttron | grep -i historian` shows repeated `FATAL:  password authentication failed for user "historian"`. VOLTTRON's SQLHistorian never manages to connect, so `public.data` / `public.topics` never get created and `pg_publication_tables` is empty even though `historian_pub` exists.
+
+**Cause:** VOLTTRON's cached SQLHistorian config in `~/.volttron/agents/<uuid>/sqlhistorianagent-*/…/config` (inside the container writable layer) diverges from the historian PG role's current password. This can happen after a `./reset-service.sh historian` alone (historian re-inits with the current secret, but volttron-setup's `.setup_complete` sentinel on the `volttron-setup` volume keeps VOLTTRON pinned to the old cached value), or after any out-of-band secret change that didn't go through `./secrets.sh`.
+
+**Solution:** The fingerprint check in `setup-volttron.sh` should self-heal on the next `docker compose up -d`. If for some reason it doesn't (e.g. the mounted secret file hasn't changed but the Postgres role's password has, drifting the other direction), force a full regen:
+
+```bash
+cd aems-app
+./reset-service.sh volttron-setup
+docker compose up -d --force-recreate volttron-setup volttron
+```
+
+For a full password rotation, edit `.env.secrets` and run `./secrets.sh` — the new HISTORIAN_DATABASE_PASSWORD handler will ALTER the role, update the secret file, and recreate volttron so everything stays in sync.
 
 **Connection Issues:**
 
 ```bash
-# Test network connectivity
-telnet YOUR_PUBLISHER_HOSTNAME 5432
+# Test network connectivity (default replication port is 6543 via Traefik).
+telnet YOUR_PUBLISHER_HOSTNAME 6543
 
 # Check Traefik is running
 docker ps | grep proxy
@@ -1970,15 +1999,16 @@ psql -U postgres -d historian
 ```
 
 ```sql
--- Recreate subscription with fresh configuration
+-- Recreate subscription with fresh configuration. copy_data=false starts
+-- live streaming from NOW; historical rows are filled by the wrapper below.
 CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host=YOUR_PUBLISHER_HOSTNAME port=YOUR_HISTORIAN_REPLICATION_PORT dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=require'
 PUBLICATION historian_pub
 WITH (
-    copy_data = true,
+    copy_data   = false,
     create_slot = true,
-    enabled = true,
-    slot_name = 'historian_sub_slot'
+    enabled     = true,
+    slot_name   = 'historian_sub_slot'
 );
 
 -- Verify subscription is working
@@ -1988,10 +2018,14 @@ SELECT subname, subenabled, pid FROM pg_stat_subscription;
 \q
 ```
 
+Then fill historical rows in resumable chunks:
+
+See the publisher's `/historian` page (Subscriber Setup tab) — Card 5 offers both a pure-SQL recovery via `CALL public.run_backfill(...)` and a Download button for `subscribe-historian.sh` / `.ps1` that will detect the invalidated slot, drop + recreate the subscription, and backfill the gap.
+
 **Important Notes:**
-- Dropping a subscription will delete all tracking data and require a full re-sync
-- If `copy_data = true`, all data will be copied again from the publisher
-- Ensure the publisher's replication slot is cleaned up to avoid WAL bloat
+- Dropping a subscription deletes all tracking data on the subscriber but preserves already-replicated rows in `public.data` / `public.topics` (idempotent under `ON CONFLICT DO NOTHING`).
+- `copy_data=false` means live streaming resumes immediately; run `subscribe-historian.sh` to backfill historical rows in resumable chunks — safe over cellular / unstable links.
+- Ensure the publisher's replication slot is cleaned up to avoid WAL bloat.
 - Monitor the initial sync progress as it may take time for large databases
 
 ### Historian Topic Mapping

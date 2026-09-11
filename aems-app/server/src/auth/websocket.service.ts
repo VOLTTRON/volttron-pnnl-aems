@@ -18,7 +18,27 @@ export class WebSocketAuthService {
 
   async authenticateWebSocket(request: Request): Promise<Express.User | undefined> {
     try {
-      const response = {} as Response;
+      // Minimal Response stub so AuthJS/passport middleware can call setHeader/status/cookie
+      // during a WebSocket upgrade without hitting a TypeError on the empty cast that used
+      // to live here — the write is discarded because the real response was the 101 handshake.
+      const noop = () => stub;
+      const stub = {
+        setHeader: noop,
+        getHeader: () => undefined,
+        removeHeader: noop,
+        status: noop,
+        sendStatus: noop,
+        send: noop,
+        json: noop,
+        end: noop,
+        cookie: noop,
+        clearCookie: noop,
+        set: noop,
+        header: noop,
+        headersSent: false,
+        writable: false,
+      } as unknown as Response;
+      const response = stub;
       const next = () => {};
       switch (this.configService.auth.framework) {
         case "authjs":

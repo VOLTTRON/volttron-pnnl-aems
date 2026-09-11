@@ -57,6 +57,11 @@ export interface Route {
    */
   index?: boolean;
   /**
+   * Fallback indicates that this index route has a real backing page and
+   * should remain navigable (e.g. shown as a clickable breadcrumb).
+   */
+  fallback?: boolean;
+  /**
    * Dynamic determines whether the route is dynamic and can be accessed with an id.
    */
   dynamic?: boolean;

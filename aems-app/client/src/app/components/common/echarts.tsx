@@ -206,6 +206,51 @@ export interface ReactEChartsProps {
   onDataZoom?: (range: { startMs: number; endMs: number }) => void;
 }
 
+/**
+ * Build an ECharts `axisLabel.formatter` that renders a time-axis tick in the
+ * caller-resolved IANA timezone. `undefined` falls through to the browser's
+ * default rendering (`toLocaleString()` without a timeZone).
+ *
+ * ECharts calls the formatter with the raw ms timestamp when the axis type is
+ * `"time"`, so this is the minimal wiring needed to make chart tick labels
+ * respect the user's timezone preference.
+ */
+export function makeTimeAxisFormatter(timezone: string | undefined) {
+  const tzOpts: Intl.DateTimeFormatOptions = timezone ? { timeZone: timezone } : {};
+  // Display formatter — inherits the browser's 12/24-hour convention.
+  const displayFmt = new Intl.DateTimeFormat(undefined, {
+    ...tzOpts,
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  // Boundary detector — forced to h23 so `hour === "00"` reliably means midnight
+  // regardless of the browser locale's default clock convention.
+  const boundaryFmt = new Intl.DateTimeFormat("en-US", {
+    ...tzOpts,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  return (value: number | string | Date) => {
+    const d = value instanceof Date ? value : new Date(value as string | number);
+    const boundary = Object.fromEntries(boundaryFmt.formatToParts(d).map((p) => [p.type, p.value]));
+    const display = Object.fromEntries(displayFmt.formatToParts(d).map((p) => [p.type, p.value]));
+    const atMidnight = boundary.hour === "00" && boundary.minute === "00";
+    if (atMidnight && boundary.month === "01" && boundary.day === "01") return display.year;
+    if (atMidnight && boundary.day === "01") return display.month;
+    if (atMidnight) return `${display.month} ${display.day}`;
+    return display.dayPeriod
+      ? `${display.hour}:${display.minute} ${display.dayPeriod}`
+      : `${display.hour}:${display.minute}`;
+  };
+}
+
 const DATA_ZOOM_DEBOUNCE_MS = 150;
 
 export function ECharts({

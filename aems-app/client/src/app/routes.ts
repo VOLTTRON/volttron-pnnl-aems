@@ -19,6 +19,7 @@ const routes: Readonly<(StaticRoute | DynamicRoute)[]> = [
     parentId: undefined,
     path: `/`,
     index: true,
+    fallback: true,
     name: "Home",
     icon: IconNames.HOME,
     display: false,

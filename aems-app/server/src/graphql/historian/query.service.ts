@@ -453,6 +453,63 @@ export class HistorianQuery {
       }),
     );
 
+    // Query: Aggregate a unit metric across all systems on a site
+    builder.queryField("historianSiteAggregateUnit", (t) =>
+      t.field({
+        description:
+          "Aggregate a unit metric across all systems on a site into a single time series (two-level bucketing: per-topic bucket, then across-topic aggregation)",
+        authScopes: { user: true },
+        type: historianObject.HistorianTimeSeries,
+        args: {
+          campus: t.arg.string({ required: true }),
+          building: t.arg.string({ required: true }),
+          systems: t.arg.stringList({ required: true }),
+          metric: t.arg({ type: UnitMetricEnum, required: true }),
+          startTime: t.arg({ type: builder.DateTime, required: true }),
+          endTime: t.arg({ type: builder.DateTime, required: true }),
+          crossSystemAggregation: t.arg({ type: MetricAggregationEnum, required: true }),
+          bucketAggregation: t.arg({ type: MetricAggregationEnum, required: false }),
+          interval: t.arg.string({ description: "Optional time interval for grouping" }),
+          excludeSystem: t.arg.string({ description: "Optional system to exclude from aggregation (case-insensitive)" }),
+        },
+        resolve: async (_root, args, ctx, _info) => {
+          const accessControl = await historianService.filterHistorianAccess(
+            ctx.user!,
+            args.campus,
+            args.building,
+            args.systems,
+          );
+
+          const allowedSystems = accessControl.allowedSystems.map((s) => s.system);
+
+          if (allowedSystems.length === 0) {
+            return {
+              system: "site",
+              metric: args.metric,
+              data: [],
+              metadata: {
+                topics: {},
+                errors: [`Access denied: User has no permissions for ${args.campus}/${args.building}`],
+              },
+            };
+          }
+
+          return historianService.getSiteAggregateUnit(
+            args.campus,
+            args.building,
+            allowedSystems,
+            args.metric,
+            args.startTime,
+            args.endTime,
+            args.crossSystemAggregation,
+            args.bucketAggregation ?? undefined,
+            args.interval ?? undefined,
+            args.excludeSystem ?? undefined,
+          );
+        },
+      }),
+    );
+
     // ========================================================================
     // CALCULATED METRICS
     // ========================================================================

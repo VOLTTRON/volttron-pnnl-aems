@@ -32,6 +32,7 @@ function makeHistorianObject(): HistorianObject {
     WeatherMetric: "WeatherMetricEnum",
     MeterMetric: "MeterMetricEnum",
     AggregationType: "AggregationTypeEnum",
+    MetricAggregation: "MetricAggregationEnum",
     HistorianMetricCurrent: "HistorianMetricCurrent",
     HistorianTimeSeries: "HistorianTimeSeries",
     HistorianAggregateResult: "HistorianAggregateResult",
@@ -53,6 +54,9 @@ function makeHistorianService(allowedSystems: { system: string }[] = [{ system: 
     getMeterTimeSeries: jest.fn().mockResolvedValue({ system: "meter", data: [] }),
     getMeterAggregated: jest.fn().mockResolvedValue({ aggregates: [] }),
     getMultiSystemUnit: jest.fn().mockResolvedValue([{ system: "ahu1", data: [] }]),
+    getSiteAggregateUnit: jest
+      .fn()
+      .mockResolvedValue({ system: "site", metric: "OutdoorAirTemperature", data: [], metadata: { topics: {}, errors: [] } }),
     calculateSetpointError: jest.fn().mockResolvedValue({ system: "ahu1", data: [] }),
     getReplicationInfo: jest.fn().mockResolvedValue({ status: "ok" }),
   } as unknown as HistorianService;
@@ -76,6 +80,7 @@ describe("HistorianQuery", () => {
         "historianMultiSystemUnit",
         "historianReplicationInfo",
         "historianSetpointError",
+        "historianSiteAggregateUnit",
         "historianUnitAggregated",
         "historianUnitCurrentValue",
         "historianUnitTimeSeries",
@@ -199,6 +204,62 @@ describe("HistorianQuery", () => {
       userCtx,
     );
     expect(svc.getMultiSystemUnit).toHaveBeenCalledWith("C", "B", ["ahu1"], ["ahu2"], "ZoneTemperature", expect.any(Date), expect.any(Date), undefined);
+  });
+
+  it("historianSiteAggregateUnit delegates to service with allowed systems, bucket agg, and exclude", async () => {
+    const svc = makeHistorianService([{ system: "ahu1" }, { system: "ahu2" }]);
+    new HistorianQuery(makeBuilder(), svc, makeHistorianObject());
+    const start = new Date();
+    const end = new Date();
+    await resolvers["historianSiteAggregateUnit"](
+      null,
+      {
+        campus: "C",
+        building: "B",
+        systems: ["ahu1", "ahu2"],
+        metric: "OutdoorAirTemperature",
+        crossSystemAggregation: "median",
+        bucketAggregation: "mean",
+        startTime: start,
+        endTime: end,
+        interval: null,
+        excludeSystem: "ahu2",
+      },
+      userCtx,
+    );
+    expect(svc.getSiteAggregateUnit).toHaveBeenCalledWith(
+      "C",
+      "B",
+      ["ahu1", "ahu2"],
+      "OutdoorAirTemperature",
+      start,
+      end,
+      "median",
+      "mean",
+      undefined,
+      "ahu2",
+    );
+  });
+
+  it("historianSiteAggregateUnit returns access-denied response when no allowed systems", async () => {
+    const svc = makeHistorianService([]);
+    new HistorianQuery(makeBuilder(), svc, makeHistorianObject());
+    const result: any = await resolvers["historianSiteAggregateUnit"](
+      null,
+      {
+        campus: "C",
+        building: "B",
+        systems: ["ahu1"],
+        metric: "OutdoorAirTemperature",
+        crossSystemAggregation: "median",
+        startTime: new Date(),
+        endTime: new Date(),
+      },
+      userCtx,
+    );
+    expect(result.data).toEqual([]);
+    expect(result.metadata.errors[0]).toMatch(/Access denied/);
+    expect(svc.getSiteAggregateUnit).not.toHaveBeenCalled();
   });
 
   it("historianSetpointError returns access-denied response when not allowed", async () => {

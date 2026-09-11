@@ -29,6 +29,12 @@ STARTING_PATH=$(pwd)
 # Set NODE_OPTIONS for increased memory allocation
 export NODE_OPTIONS="$NODE_OPTIONS --max-old-space-size=8192"
 
+# Suppress Node's startup TLS warning triggered when client/.env.local contains
+# NODE_TLS_REJECT_UNAUTHORIZED=0 (used by the local HTTPS dev server, not by tests
+# or lint). Next.js still loads .env.local for any process that needs it; this only
+# controls the value Node sees during its own startup check.
+export NODE_TLS_REJECT_UNAUTHORIZED=1
+
 # Determine if coverage should be skipped
 SKIP_COVERAGE="$SKIP_COVERAGE"
 for arg in "$@"; do

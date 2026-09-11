@@ -44,6 +44,29 @@ function Clear-PortalLinks {
     }
 }
 
+# Refresh ./node_modules/.prisma/client from the prisma workspace's freshly
+# generated copy. Node runs each downstream workspace with
+# --preserve-symlinks (set via NODE_OPTIONS in that workspace's .env), which
+# means `require('.prisma/client/default')` from the portalled @prisma/client
+# entry resolves against THIS workspace's node_modules rather than following
+# the portal back to prisma/. Without this refresh, a stale local copy shadows
+# the freshly generated one and downstream code crashes on symbols added since
+# it was last generated — e.g. `Object.values(BackupDestinationType)` throws
+# "Cannot convert undefined or null to object" during schema compile.
+function Sync-PrismaClient {
+    $Target = "./node_modules/.prisma"
+    $Source = Join-Path $StartingPath "prisma/node_modules/.prisma/client"
+    if (Test-Path -Path $Source -PathType Container) {
+        if (Test-Path -Path "$Target/client") {
+            Remove-Item -Recurse -Force "$Target/client"
+        }
+        if (-not (Test-Path -Path $Target)) {
+            New-Item -ItemType Directory -Path $Target | Out-Null
+        }
+        Copy-Item -Recurse -Force $Source "$Target/client"
+    }
+}
+
 Write-Host "Updating dependencies and building all modules in the monorepo..." -ForegroundColor Blue
 
 try {
@@ -71,6 +94,17 @@ try {
     }
     else {
         Write-Host "Prisma: Applying migrations..." -ForegroundColor Blue
+        # Prisma reads DATABASE_URL from process.env first and only falls back
+        # to prisma/.env if that variable is unset. If the caller's shell has
+        # DATABASE_URL set to anything else (a leftover from docker compose,
+        # a previous script, or a system-wide env), prisma fails validation
+        # with P1012 "URL must start with the protocol postgresql://" before
+        # ever reading .env. Unset the ambient values so migrate:deploy
+        # always reads the workspace .env authoritatively.
+        $PrevDatabaseUrl = $env:DATABASE_URL
+        $PrevDirectUrl = $env:DIRECT_URL
+        Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+        Remove-Item Env:DIRECT_URL -ErrorAction SilentlyContinue
         try {
             yarn migrate:deploy
             Write-Host "Prisma: Migrations applied successfully!" -ForegroundColor Green
@@ -78,6 +112,10 @@ try {
         catch {
             Write-Host "Prisma: Migration failed with error: $($_.Exception.Message)" -ForegroundColor Yellow
             # Continue with the build process even if migrations fail
+        }
+        finally {
+            if ($null -ne $PrevDatabaseUrl) { $env:DATABASE_URL = $PrevDatabaseUrl }
+            if ($null -ne $PrevDirectUrl) { $env:DIRECT_URL = $PrevDirectUrl }
         }
     }
 
@@ -96,6 +134,7 @@ try {
         Clear-PortalLinks
         yarn install
     }
+    Sync-PrismaClient
     Write-Host "Common: Building module..." -ForegroundColor Cyan
     yarn build
     Write-Host "Common: Build completed successfully!" -ForegroundColor Green
@@ -115,6 +154,7 @@ try {
         Clear-PortalLinks
         yarn install
     }
+    Sync-PrismaClient
     Write-Host "Server: Building module..." -ForegroundColor Cyan
     yarn build
     Write-Host "Server: Build completed successfully!" -ForegroundColor Green
@@ -134,6 +174,7 @@ try {
         Clear-PortalLinks
         yarn install
     }
+    Sync-PrismaClient
     Write-Host "Client: Building module..." -ForegroundColor Cyan
     yarn build
     Write-Host "Client: Build completed successfully!" -ForegroundColor Green

@@ -17,15 +17,19 @@ async function GenerateSchema() {
     const filename = resolve(process.cwd(), "schema.graphql");
     await rm(filename, { force: true });
     logger.log("Waiting for 'schema.graphql' to update...");
+    // Poll until the file exists AND has non-zero size. writeFile creates the
+    // file and then streams bytes into it, so stat can briefly observe a
+    // 0-byte file mid-write; treating that as a permanent failure races the
+    // legitimate write.
     let fileStats: Awaited<ReturnType<typeof stat>> | null = null;
-    while ((fileStats = await stat(filename).catch(() => null)) === null && !signal.aborted) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+    while (
+      ((fileStats = await stat(filename).catch(() => null)) === null || fileStats.size === 0) &&
+      !signal.aborted
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
     if (signal.aborted) {
       logger.error("Timed out waiting for 'schema.graphql' to update");
-      process.exit(1);
-    } else if (fileStats && fileStats.size === 0) {
-      logger.error("'schema.graphql' was written but is empty — schema generation failed");
       process.exit(1);
     } else {
       logger.log("Graphql schema updated");

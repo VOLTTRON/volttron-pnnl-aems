@@ -19,15 +19,12 @@ async function GenerateSchema() {
         await (0, promises_1.rm)(filename, { force: true });
         logger.log("Waiting for 'schema.graphql' to update...");
         let fileStats = null;
-        while ((fileStats = await (0, promises_1.stat)(filename).catch(() => null)) === null && !signal.aborted) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+        while (((fileStats = await (0, promises_1.stat)(filename).catch(() => null)) === null || fileStats.size === 0) &&
+            !signal.aborted) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
         }
         if (signal.aborted) {
             logger.error("Timed out waiting for 'schema.graphql' to update");
-            process.exit(1);
-        }
-        else if (fileStats && fileStats.size === 0) {
-            logger.error("'schema.graphql' was written but is empty — schema generation failed");
             process.exit(1);
         }
         else {
