@@ -63,6 +63,7 @@ Image builds for `client`, `server`, `prisma`, and `common` use the **repo root 
 - **First run**: `../secrets.sh` (writes stub `.env.secrets`) → edit values → `../secrets.sh` (writes `docker/secrets/*.txt`) → `../check-env.sh` → `docker compose up -d`.
 - **Rotate a credential**: edit `../.env.secrets`, then `../secrets.sh` — detects the change, runs the ALTER against the live container, updates the file, restarts the service. Stack must be up.
 - **Rebuild images after code change**: `docker compose build <service>` or `--build` on `up`.
+- **Refresh ILC configuration templates**: after editing any file under `../aems-edge/configurations/templates/`, run `../refresh-templates.sh` (or `.ps1`) from `aems-app/`. The script rebuilds the `volttron-setup` image and reruns the setup container so the templates baked into the image and those in the bind-mounted `./volttron/setup/templates/` directory match what's on disk. No other services are stopped; `server` and `services` pick up the new files on their next read (10 s ILC cron; on demand for the Admin → Templates preview).
 - **Reset DB**: `docker compose down -v` wipes volumes — destructive.
 - **Logs**: `docker compose logs -f <service>`. Backup and Keycloak have especially chatty entrypoints.
 - **Exec**: `docker compose exec database psql -U ...` for DB access; the custom image has PostGIS utilities.

@@ -2337,6 +2337,11 @@ type Query {
   """Paginate through multiple users."""
   pageUser(after: String, before: String, first: Int, last: Int, where: UserFilter): QueryPageUserConnection
 
+  """
+  Render the ILC configuration templates for a control against its current units.
+  """
+  previewControlTemplates(where: ControlUniqueFilter!): Json
+
   """Read a unique account."""
   readAccount(where: AccountUniqueFilter!): Account
 

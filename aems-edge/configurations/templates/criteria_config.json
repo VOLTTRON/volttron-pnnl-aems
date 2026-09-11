@@ -9,7 +9,14 @@
           "zonetemperature-setpoint": {
             "operation": "1/(ZoneTemperature - OccupiedCoolingSetPoint)",
             "operation_type": "formula",
-            "operation_args": ["OccupiedCoolingSetPoint", "ZoneTemperature"],
+            "operation_args": {
+              "always": [
+                "ZoneTemperature"
+              ],
+              "nc": [
+                "OccupiedCoolingSetPoint"
+              ]
+            },
             "minimum": 0,
             "maximum": 10
           },
@@ -24,19 +31,23 @@
             "point_name": "FirstStageCooling"
           },
           "room-type": {
-            "_type": "evaluate",
-            "sources": ["zoneBuilding"],
-            "expression": "zoneBuilding",
-            "values": {
-              "corner-office": 1,
-              "office": 3,
-              "empty-office": 7,
-              "conference": 1,
-              "mechanical-room": 9,
-              "computer-lab": 2,
-              "kitchen": 6,
-              "mixed": 4
-            }
+            "value": {
+              "_type": "evaluate",
+              "sources": ["zoneBuilding"],
+              "expression": "zoneBuilding",
+              "values": {
+                "corner-office": 1,
+                "office": 4,
+                "lobby": 5,
+                "empty-office": 7,
+                "conference": 2,
+                "mechanical-room": 9,
+                "computer-lab": 2,
+                "kitchen": 6,
+                "mixed": 4
+              }
+            },
+            "operation_type": "constant"
           },
           "stage": {
             "value": 1,
@@ -71,7 +82,14 @@
               "zonetemperature-setpoint": {
                 "operation": "1/(ZoneTemperature - OccupiedCoolingSetPoint)",
                 "operation_type": "formula",
-                "operation_args": ["OccupiedCoolingSetPoint", "ZoneTemperature"],
+                "operation_args": {
+                  "always": [
+                    "ZoneTemperature"
+                  ],
+                  "nc": [
+                    "OccupiedCoolingSetPoint"
+                  ]
+                },
                 "minimum": 0,
                 "maximum": 10
               },
@@ -86,19 +104,23 @@
                 "point_name": "FirstStageCooling"
               },
               "room-type": {
-                "_type": "evaluate",
-                "sources": ["zoneBuilding"],
-                "expression": "zoneBuilding",
-                "values": {
-                  "corner-office": 1,
-                  "office": 3,
-                  "empty-office": 7,
-                  "conference": 1,
-                  "mechanical-room": 9,
-                  "computer-lab": 2,
-                  "kitchen": 6,
-                  "mixed": 4
-                }
+                "value": {
+                  "_type": "evaluate",
+                  "sources": ["zoneBuilding"],
+                  "expression": "zoneBuilding",
+                  "values": {
+                    "corner-office": 1,
+                    "office": 4,
+                    "lobby": 5,
+                    "empty-office": 7,
+                    "conference": 2,
+                    "mechanical-room": 9,
+                    "computer-lab": 2,
+                    "kitchen": 6,
+                    "mixed": 4
+                  }
+                },
+                "operation_type": "constant"
               },
               "stage": {
                 "value": 2,
@@ -131,9 +153,16 @@
         "curtail": {
           "device_topic": "{campus}/{building}/{system}",
           "zonetemperature-setpoint": {
-            "operation": "1/(HeatingTemperatureSetPoint - ZoneTemperature)",
+            "operation": "1/(OccupiedHeatingSetPoint - ZoneTemperature)",
             "operation_type": "formula",
-            "operation_args": ["OccupiedHeatingSetPoint", "ZoneTemperature"],
+            "operation_args": {
+              "always": [
+                "ZoneTemperature"
+              ],
+              "nc": [
+                "OccupiedHeatingSetPoint"
+              ]
+            },
             "minimum": 0,
             "maximum": 10
           },
@@ -144,19 +173,23 @@
             "point_name": "FirstStageHeating"
           },
           "room-type": {
-            "_type": "evaluate",
-            "sources": ["zoneBuilding"],
-            "expression": "zoneBuilding",
-            "values": {
-              "corner-office": 1,
-              "office": 3,
-              "empty-office": 7,
-              "conference": 1,
-              "mechanical-room": 9,
-              "computer-lab": 2,
-              "kitchen": 6,
-              "mixed": 4
-            }
+            "value": {
+              "_type": "evaluate",
+              "sources": ["zoneBuilding"],
+              "expression": "zoneBuilding",
+              "values": {
+                "corner-office": 1,
+                "office": 4,
+                "lobby": 5,
+                "empty-office": 7,
+                "conference": 2,
+                "mechanical-room": 9,
+                "computer-lab": 2,
+                "kitchen": 6,
+                "mixed": 4
+              }
+            },
+            "operation_type": "constant"
           },
           "stage": {
             "value": 1.0,
@@ -164,12 +197,9 @@
           },
           "location": {
             "value": {
-              "value": {
-                "_type": "value",
-                "sources": ["zoneLocation"],
-                "expression": "zoneLocation === 'exterior' ? 1 : 4"
-              },
-              "operation_type": "constant"
+              "_type": "value",
+              "sources": ["zoneLocation"],
+              "expression": "zoneLocation === 'exterior' ? 1 : 4"
             },
             "operation_type": "constant"
           },
@@ -194,7 +224,14 @@
               "zonetemperature-setpoint": {
                 "operation": "1/(OccupiedHeatingSetPoint - ZoneTemperature)",
                 "operation_type": "formula",
-                "operation_args": ["OccupiedHeatingSetPoint", "ZoneTemperature"],
+                "operation_args": {
+                  "always": [
+                    "ZoneTemperature"
+                  ],
+                  "nc": [
+                    "OccupiedHeatingSetPoint"
+                  ]
+                },
                 "minimum": 0,
                 "maximum": 10
               },
@@ -205,19 +242,23 @@
                 "point_name": "SecondStageHeating"
               },
               "room-type": {
-                "_type": "evaluate",
-                "sources": ["zoneBuilding"],
-                "expression": "zoneBuilding",
-                "values": {
-                  "corner-office": 1,
-                  "office": 3,
-                  "empty-office": 7,
-                  "conference": 1,
-                  "mechanical-room": 9,
-                  "computer-lab": 2,
-                  "kitchen": 6,
-                  "mixed": 4
-                }
+                "value": {
+                  "_type": "evaluate",
+                  "sources": ["zoneBuilding"],
+                  "expression": "zoneBuilding",
+                  "values": {
+                    "corner-office": 1,
+                    "office": 4,
+                    "lobby": 5,
+                    "empty-office": 7,
+                    "conference": 2,
+                    "mechanical-room": 9,
+                    "computer-lab": 2,
+                    "kitchen": 6,
+                    "mixed": 4
+                  }
+                },
+                "operation_type": "constant"
               },
               "stage": {
                 "value": 4.0,
@@ -225,12 +266,9 @@
               },
               "location": {
                 "value": {
-                  "value": {
-                    "_type": "value",
-                    "sources": ["zoneLocation"],
-                    "expression": "zoneLocation === 'exterior' ? 1 : 4"
-                  },
-                  "operation_type": "constant"
+                  "_type": "value",
+                  "sources": ["zoneLocation"],
+                  "expression": "zoneLocation === 'exterior' ? 1 : 4"
                 },
                 "operation_type": "constant"
               },

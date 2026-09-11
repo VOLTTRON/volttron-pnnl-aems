@@ -2,6 +2,7 @@ import { ControlObject } from "./object.service";
 import { SchemaBuilderService } from "../builder.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { Scalars } from "..";
+import { AppConfigService } from "@/app.config";
 export declare class ControlQuery {
     readonly ControlAggregate: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
@@ -103,5 +104,5 @@ export declare class ControlQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, import("@prisma/client").Prisma.ControlOrderByWithRelationInput>;
-    constructor(builder: SchemaBuilderService, prismaService: PrismaService, controlObject: ControlObject);
+    constructor(builder: SchemaBuilderService, prismaService: PrismaService, controlObject: ControlObject, configService: AppConfigService);
 }

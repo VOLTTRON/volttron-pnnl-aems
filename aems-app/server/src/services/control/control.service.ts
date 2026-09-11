@@ -4,11 +4,8 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { AppConfigService } from "@/app.config";
 import { Cron } from "@nestjs/schedule";
 import { Mutation, StageType, typeofObject } from "@local/common";
-import { basename, extname, resolve } from "node:path";
-import { readFile } from "node:fs/promises";
 import { VolttronService } from "../volttron.service";
-import { getConfigFiles } from "@/utils/file";
-import { transformTemplate } from "@/utils/template";
+import { renderControlTemplates } from "@/utils/render-control-templates";
 import { SubscriptionService } from "@/subscription/subscription.service";
 
 @Injectable()
@@ -85,16 +82,11 @@ export class ControlService extends BaseService {
                 id: control.id,
                 mutation: Mutation.Updated,
               });
-              const data: Record<string, any> = {};
-              const paths = this.configService.service.control.templatePaths.map((p) => resolve(p));
-              for (const file of await getConfigFiles(paths, ".json", this.logger)) {
-                const key = basename(file, extname(file));
-                const text = await readFile(resolve(file), "utf-8");
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-                const template = control.units ? JSON.parse(text) : {};
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-                data[key] = transformTemplate(template, control);
-              }
+              const data = await renderControlTemplates(
+                control,
+                this.configService.service.control.templatePaths,
+                this.logger,
+              );
               await this.volttronService.makeApiCall(`agent.ilc`, "update_configurations", token, data);
               await this.prismaService.prisma.control.update({
                 where: { id: control.id },
