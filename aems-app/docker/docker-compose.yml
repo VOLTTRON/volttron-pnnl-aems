@@ -248,6 +248,9 @@ services:
       # the container matches the sidecar's mount so `finalPath` values
       # recorded at upload time resolve directly.
       - ./backups:/var/lib/backup/archives:rw
+      # Read-only access to the volttron-setup output so the GraphQL
+      # `previewControlTemplates` resolver can render ILC templates.
+      - ./volttron/setup/:/app/volttron/:ro
 
   # Runs application services
   services:

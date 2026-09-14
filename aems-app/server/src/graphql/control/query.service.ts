@@ -1,10 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { ControlObject } from "./object.service";
 import { SchemaBuilderService } from "../builder.service";
 import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { GraphQLScalarType } from "graphql";
 import { Scalars } from "..";
+import { AppConfigService } from "@/app.config";
+import { renderControlTemplates } from "@/utils/render-control-templates";
 
 @Injectable()
 @PothosQuery()
@@ -14,7 +16,12 @@ export class ControlQuery {
   readonly ControlWhere;
   readonly ControlOrderBy;
 
-  constructor(builder: SchemaBuilderService, prismaService: PrismaService, controlObject: ControlObject) {
+  constructor(
+    builder: SchemaBuilderService,
+    prismaService: PrismaService,
+    controlObject: ControlObject,
+    @Inject(AppConfigService.Key) configService: AppConfigService,
+  ) {
     const { StringFilter, BooleanFilter, DateTimeFilter, PagingInput } = builder;
     const { ControlFields } = controlObject;
 
@@ -160,6 +167,44 @@ export class ControlQuery {
           return prismaService.prisma.control.count({
             where: args.where ?? {},
           });
+        },
+      }),
+    );
+
+    builder.queryField("previewControlTemplates", (t) =>
+      t.field({
+        description: "Render the ILC configuration templates for a control against its current units.",
+        authScopes: { admin: true },
+        type: builder.Json,
+        args: {
+          where: t.arg({ type: ControlWhereUnique, required: true }),
+        },
+        resolve: async (_root, args, _ctx, _info) => {
+          const control = await prismaService.prisma.control.findUniqueOrThrow({
+            where: args.where,
+            include: {
+              units: {
+                include: {
+                  configuration: {
+                    include: {
+                      setpoint: true,
+                      mondaySchedule: true,
+                      tuesdaySchedule: true,
+                      wednesdaySchedule: true,
+                      thursdaySchedule: true,
+                      fridaySchedule: true,
+                      saturdaySchedule: true,
+                      sundaySchedule: true,
+                      holidaySchedule: true,
+                      holidays: true,
+                      occupancies: { include: { schedule: true } },
+                    },
+                  },
+                },
+              },
+            },
+          });
+          return renderControlTemplates(control, configService.service.control.templatePaths);
         },
       }),
     );

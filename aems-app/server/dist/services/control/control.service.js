@@ -20,11 +20,8 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const app_config_1 = require("../../app.config");
 const schedule_1 = require("@nestjs/schedule");
 const common_2 = require("@local/common");
-const node_path_1 = require("node:path");
-const promises_1 = require("node:fs/promises");
 const volttron_service_1 = require("../volttron.service");
-const file_1 = require("../../utils/file");
-const template_1 = require("../../utils/template");
+const render_control_templates_1 = require("../../utils/render-control-templates");
 const subscription_service_1 = require("../../subscription/subscription.service");
 let ControlService = ControlService_1 = class ControlService extends __1.BaseService {
     constructor(prismaService, subscriptionService, configService, volttronService) {
@@ -94,14 +91,7 @@ let ControlService = ControlService_1 = class ControlService extends __1.BaseSer
                             id: control.id,
                             mutation: common_2.Mutation.Updated,
                         });
-                        const data = {};
-                        const paths = this.configService.service.control.templatePaths.map((p) => (0, node_path_1.resolve)(p));
-                        for (const file of await (0, file_1.getConfigFiles)(paths, ".json", this.logger)) {
-                            const key = (0, node_path_1.basename)(file, (0, node_path_1.extname)(file));
-                            const text = await (0, promises_1.readFile)((0, node_path_1.resolve)(file), "utf-8");
-                            const template = control.units ? JSON.parse(text) : {};
-                            data[key] = (0, template_1.transformTemplate)(template, control);
-                        }
+                        const data = await (0, render_control_templates_1.renderControlTemplates)(control, this.configService.service.control.templatePaths, this.logger);
                         await this.volttronService.makeApiCall(`agent.ilc`, "update_configurations", token, data);
                         await this.prismaService.prisma.control.update({
                             where: { id: control.id },
