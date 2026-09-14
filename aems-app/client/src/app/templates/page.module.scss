@@ -1,0 +1,43 @@
+@import "@blueprintjs/core/lib/scss/variables";
+@import "@/app/global.module.scss";
+
+.pageContainer {
+    padding: 20px;
+    max-width: 1800px;
+    margin-left: 0;
+    margin-right: auto;
+}
+
+.pageDescription {
+    margin-bottom: 20px;
+    color: #5C7080;
+}
+
+.tabPanel {
+    margin-top: 20px;
+    width: 100%;
+    max-width: 1800px;
+    margin-left: 0;
+    margin-right: auto;
+}
+
+.cardSpacing {
+    margin-bottom: 20px;
+}
+
+.flexHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.codeBlockWithMaxHeight {
+    padding: 15px;
+    border-radius: 3px;
+    overflow: auto;
+    font-size: 12px;
+    font-family: monospace;
+    max-height: 600px;
+    background-color: rgba(138, 155, 168, 0.15);
+}

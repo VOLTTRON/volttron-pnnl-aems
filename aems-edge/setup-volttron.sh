@@ -166,6 +166,25 @@ if [[ -d "${OUTPUT_DIR}" ]]; then
     chmod -R a+rX "${OUTPUT_DIR}"
 fi
 
+# Refresh ILC templates unconditionally, BEFORE the setup-complete lock
+# gate below. Templates are cheap to copy and admins expect edits under
+# aems-edge/configurations/templates/ to take effect on the next stack
+# start (`./start-services.sh` from aems-app/). The heavy Volttron setup
+# steps stay gated by ${VOLTTRON_LOCK_FILE} and only re-run when the
+# historian-secret fingerprint changes.
+if [[ -d "${TEMPLATES_DIR}" ]]; then
+    log_info "Refreshing templates directory from ${TEMPLATES_DIR}"
+    if [[ -d "${OUTPUT_DIR}/templates" ]]; then
+        rm -rf "${OUTPUT_DIR:?}/templates"
+    fi
+    if ! cp -r "${TEMPLATES_DIR}" "${OUTPUT_DIR}/"; then
+        log_error "Failed to refresh templates directory"
+        exit 1
+    fi
+    chmod -R a+rX "${OUTPUT_DIR}/templates"
+    log_success "Templates directory refreshed"
+fi
+
 # Fingerprint the historian secret so we can detect drift after a rotation
 # or a historian-volume wipe. If it changes underneath us, the sentinel is
 # invalidated and setup re-runs so historian.config picks up the current value.
@@ -382,19 +401,8 @@ else
     exit 1
 fi
 
-# Copy templates directory to the output directory
-log_info "Copying templates directory to output directory"
-if [ -d "${OUTPUT_DIR}/templates" ]; then
-    log_info "Cleaning existing templates directory"
-    rm -rf "${OUTPUT_DIR:?}/templates"
-fi
-cp -r "${TEMPLATES_DIR}" "${OUTPUT_DIR}/"
-if [[ $? -eq 0 ]]; then
-    log_success "Templates directory copied successfully"
-else
-    log_error "Failed to copy templates directory"
-    exit 1
-fi
+# Templates are refreshed unconditionally in the pre-lock block above,
+# so there is nothing to copy here anymore.
 
 # The consuming aems-services container runs as UID 1000 (node) and reads
 # this tree via a :ro bind mount. This script runs as root, so without an

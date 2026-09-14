@@ -61,6 +61,9 @@ query ReadControls(
   readControls(where: $where, paging: $paging, orderBy: $orderBy, distinct: $distinct) {
     id
     label
+    name
+    campus
+    building
     stage
     message
     correlation
@@ -109,6 +112,10 @@ query ReadControls(
       }
     }
   }
+}
+
+query PreviewControlTemplates($where: ControlUniqueFilter!) {
+  previewControlTemplates(where: $where)
 }
 
 mutation CreateControl($create: ControlCreateInput!) {
