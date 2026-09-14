@@ -34,7 +34,7 @@ export async function renderControlTemplates(
     const text = await readFile(resolve(file), "utf-8");
     let template: unknown;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+       
       template = JSON.parse(text);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);

@@ -148,8 +148,8 @@ export default function TemplatesPage() {
         Pick a building to see the rendered ILC configuration templates that would be pushed to the VOLTTRON ILC agent
         for that building&apos;s control. Templates are rendered against the control&apos;s current units and can be
         downloaded for verification. To edit the source templates, modify the files under{" "}
-        <code>aems-edge/configurations/templates/</code> and run <code>./refresh-templates.sh</code> (or the{" "}
-        <code>.ps1</code>) from <code>aems-app/</code>.
+        <code>aems-edge/configurations/templates/</code> and re-run <code>./start-services.sh</code> from{" "}
+        <code>aems-app/</code>.
       </p>
 
       <Card elevation={Elevation.TWO} className={styles.cardSpacing}>
