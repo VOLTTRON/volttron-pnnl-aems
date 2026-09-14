@@ -636,21 +636,24 @@ class ManagerProxy:
         if update_store:
             self.config_set("set_points", data)
 
-        control_kwargs = (
-            {"on_property": "relinquishDefault"}
+        control_passes = (
+            ({"on_property": "relinquishDefault"}, {})
             if update_store
-            else {}
+            else ({},)
         )
-        success = True
-        for point, value in result.items():
-            control_result = self.do_zone_control(point, value, **control_kwargs)
 
-            if isinstance(control_result, str):
-                _log.error(
-                    f"Zone control response {self.identity} - "
-                    f"Set {point} to {value} -- {control_result}"
+        success = True
+        for control_kwargs in control_passes:
+            for point, value in result.items():
+                control_result = self.do_zone_control(
+                    point, value, **control_kwargs
                 )
-                success = False
+                if isinstance(control_result, str):
+                    _log.error(
+                        f"Zone control response {self.identity} - "
+                        f"Set {point} to {value} -- {control_result}"
+                    )
+                    success = False
 
         self.publish(topic, headers=headers, message=data)
         return success
