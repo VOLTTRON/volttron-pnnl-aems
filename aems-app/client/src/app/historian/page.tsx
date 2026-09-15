@@ -207,7 +207,8 @@ $env:PUB_PASSWORD = "YOUR_REPLICATOR_PASSWORD"`;
     { title: "2. Add primary keys", content: sub_(sub.createConstraintsSql) },
     { title: "3. Add indexes", content: sub_(sub.createIndexesSql) },
     { title: "4. Create subscription", content: sub_(sub.createSubscriptionSql) },
-    { title: "5. Backfill historical rows", content: sub_(sub.backfillProcedureSql) },
+    { title: "5A. Backfill setup (DDL + one-shot topics copy)", content: sub_(sub.backfillSetupSql) },
+    { title: "5B. Backfill run (must be executed alone)", content: sub_(sub.backfillRunSql) },
   ];
 
   // Path B (shell) card contents — a per-OS view.
@@ -484,14 +485,31 @@ $env:PUB_PASSWORD = "YOUR_REPLICATOR_PASSWORD"`;
                         </Callout>
                       )}
                       {i === 4 && (
-                        <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "10px" }}>
-                          Requires the <code>dblink</code> extension (ships with any standard PostgreSQL install as
-                          part of <code>postgres-contrib</code>). Per-chunk <code>COMMIT</code> means cellular
-                          disconnects only lose the in-flight chunk — <strong>re-CALL</strong> to resume from the
-                          first incomplete <code>chunk_start</code>. Idempotent via{" "}
-                          <code>ON CONFLICT (topic_id, ts) DO NOTHING</code>. Edit the <code>start_ts</code> and
-                          password before running.
+                        <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN} style={{ marginBottom: "10px" }}>
+                          Replace the <strong>1</strong> occurrence of <code>YOUR_REPLICATOR_PASSWORD</code> in the
+                          topics <code>INSERT ... FROM dblink(...)</code>. This card is DDL plus one INSERT — safe to
+                          run as one batch. Re-runs are idempotent.
                         </Callout>
+                      )}
+                      {i === 5 && (
+                        <>
+                          <Callout intent={Intent.WARNING} icon={IconNames.WARNING_SIGN} style={{ marginBottom: "10px" }}>
+                            Replace both occurrences of <code>YOUR_REPLICATOR_PASSWORD</code> (the active FIRST RUN and
+                            the commented RESUME example) and edit <code>start_ts</code>. Run the <code>CALL</code>{" "}
+                            <strong>alone</strong>, not batched with Card 5A — pgAdmin executes a multi-statement query
+                            buffer as one implicit transaction, and the procedure per-chunk <code>COMMIT</code>s. A
+                            batched CALL fails with <code>SQLSTATE 2D000: invalid transaction termination</code>. In
+                            pgAdmin, highlight only the <code>CALL(...);</code> block through the closing semicolon and
+                            press Execute.
+                          </Callout>
+                          <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "10px" }}>
+                            Requires the <code>dblink</code> extension (installed by Card 5A; ships with any standard
+                            PostgreSQL as part of <code>postgres-contrib</code>). Per-chunk <code>COMMIT</code> means
+                            cellular disconnects only lose the in-flight chunk — <strong>re-CALL</strong> to resume
+                            from the first incomplete <code>chunk_start</code>. Idempotent via{" "}
+                            <code>ON CONFLICT (topic_id, ts) DO NOTHING</code>.
+                          </Callout>
+                        </>
                       )}
                       <pre className={styles.codeBlockWithMaxHeight}>{card.content}</pre>
                     </Card>

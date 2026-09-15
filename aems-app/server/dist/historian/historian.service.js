@@ -2120,9 +2120,15 @@ let HistorianService = HistorianService_1 = class HistorianService {
                 createIndexesSql = idxResult.rows.map((row) => row.idx).join("\n");
             }
             const isSelfSigned = await this.isProxyCertificateSelfSigned();
-            const sslMode = isSelfSigned ? "prefer" : "require";
+            const sslMode = isSelfSigned ? "require" : "verify-full";
             const replicationPort = this.configService.historian.replicationPort;
-            const createSubscriptionSql = `CREATE SUBSCRIPTION historian_sub
+            const createSubscriptionSql = `-- =========================================================================
+-- REQUIRED BEFORE RUNNING: replace the 1 occurrence of YOUR_REPLICATOR_PASSWORD
+-- below with the value from docker/secrets/historian_replicator_password.txt
+-- on the publisher host. If it is left unreplaced, the walreceiver will fail
+-- with "password authentication failed for user 'replicator'".
+-- =========================================================================
+CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator password=YOUR_REPLICATOR_PASSWORD sslmode=${sslMode}'
 PUBLICATION historian_pub
 WITH (
@@ -2134,7 +2140,17 @@ WITH (
 -- copy_data=false: streaming starts NOW; run the backfill procedure in the
 -- next card to fill historical data. Resumable across cellular disconnects
 -- because the procedure per-chunk COMMITs.`;
-            const backfillProcedureSql = `-- Enable dblink so we can pull from the publisher inside a stored procedure.
+            const backfillSetupSql = `-- =========================================================================
+-- CARD 5A — SETUP (run once). Safe as a single-transaction batch: all DDL
+-- is idempotent (IF NOT EXISTS / OR REPLACE), and no statement here contains
+-- COMMIT/ROLLBACK at the top level.
+--
+-- REQUIRED BEFORE RUNNING: replace the 1 occurrence of YOUR_REPLICATOR_PASSWORD
+-- below with the value from docker/secrets/historian_replicator_password.txt
+-- on the publisher host. A leftover placeholder causes "password
+-- authentication failed for user 'replicator'" on the INSERT INTO topics.
+-- =========================================================================
+-- Enable dblink so we can pull from the publisher inside a stored procedure.
 CREATE EXTENSION IF NOT EXISTS dblink;
 
 -- Dedicated schema for backfill bookkeeping. Kept off 'public' so it can never
@@ -2253,10 +2269,27 @@ SELECT * FROM dblink(
     'SELECT topic_id, topic_name, metadata FROM public.topics'
 ) AS t(topic_id integer, topic_name text, metadata text)
 ON CONFLICT (topic_id) DO UPDATE
-  SET topic_name = EXCLUDED.topic_name, metadata = EXCLUDED.metadata;
+  SET topic_name = EXCLUDED.topic_name, metadata = EXCLUDED.metadata;`;
+            const backfillRunSql = `-- =========================================================================
+-- CARD 5B — RUN. This card must be executed ALONE, not batched with the
+-- setup DDL from Card 5A. pgAdmin (and libpq's simple-query protocol) will
+-- execute a multi-statement buffer inside one implicit transaction — the
+-- procedure per-chunk COMMITs, so a batched CALL raises SQLSTATE 2D000
+-- "invalid transaction termination".
+--
+-- REQUIRED BEFORE RUNNING:
+--   1) Replace both occurrences of YOUR_REPLICATOR_PASSWORD below (the
+--      active FIRST RUN call and the commented RESUME example) with the
+--      value from docker/secrets/historian_replicator_password.txt.
+--   2) Edit the start_ts on the FIRST RUN if the default is not what you
+--      want (see MIN(ts) on publisher).
+--   3) Run the CALL by itself. Do not paste it into the same buffer as
+--      Card 5A. pgAdmin: highlight ONLY the CALL(...) block (through the
+--      closing ";") and press Execute. psql: paste the CALL alone at the
+--      prompt.
+-- =========================================================================
 
--- FIRST RUN — configures backfill.config and processes chunks. Edit start_ts
--- to the earliest publisher timestamp you care about (see MIN(ts) on publisher).
+-- FIRST RUN — configures backfill.config and processes chunks.
 CALL backfill.run_backfill(
     publisher_password := 'YOUR_REPLICATOR_PASSWORD',
     publisher_conn     := 'host={{HOSTNAME}} port=${replicationPort} dbname=historian user=replicator sslmode=${sslMode}',
@@ -2265,46 +2298,55 @@ CALL backfill.run_backfill(
 
 -- RESUME (subsequent calls) — reads persisted config; only the transient
 -- password is required. Re-run at any time; completed chunks are skipped.
+-- Uncomment the line below and run it alone, in place of the FIRST RUN.
 -- CALL backfill.run_backfill(publisher_password := 'YOUR_REPLICATOR_PASSWORD');
 
--- OPERATOR VISIBILITY
+-- OPERATOR VISIBILITY (each of these is safe to run in the same buffer;
+-- they're plain SELECTs, no COMMIT semantics).
 --   SELECT * FROM backfill.config;              -- current run parameters
 --   SELECT count(*) FROM backfill.pending;      -- chunks remaining
 --   SELECT * FROM backfill.progress ORDER BY chunk_start DESC LIMIT 10;`;
-            const createTablesCmdSh = `PGPASSWORD="$PUB_PASSWORD" pg_dump \\
+            const createTablesCmdSh = `PGPASSWORD="$PUB_PASSWORD" PGSSLMODE="${sslMode}" pg_dump \\
     -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d historian \\
     --schema-only --no-owner --no-privileges \\
     -t public.data -t public.topics -t public.topics_topic_id_seq \\
-  | PGPASSWORD="$SUB_PASSWORD" psql \\
+  | PGPASSWORD="$SUB_PASSWORD" PGSSLMODE=prefer psql \\
     -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1`;
             const createTablesCmdPs1 = `$env:PGPASSWORD = $env:PUB_PASSWORD
+$env:PGSSLMODE  = "${sslMode}"
 $ddl = & pg_dump -h $env:PUB_HOST -p $env:PUB_PORT -U $env:PUB_USER -d historian \`
     --schema-only --no-owner --no-privileges \`
     -t public.data -t public.topics -t public.topics_topic_id_seq
 $env:PGPASSWORD = $env:SUB_PASSWORD
+$env:PGSSLMODE  = "prefer"
 $ddl | & psql -h $env:SUB_HOST -p $env:SUB_PORT -U $env:SUB_USER -d $env:SUB_DB -v ON_ERROR_STOP=1
-Remove-Item Env:PGPASSWORD`;
+Remove-Item Env:PGPASSWORD
+Remove-Item Env:PGSSLMODE`;
             const heredocConstraints = `ALTER TABLE public.topics ADD PRIMARY KEY (topic_id);
 ALTER TABLE public.data   ADD PRIMARY KEY (topic_id, ts);`;
-            const createConstraintsCmdSh = `PGPASSWORD="$SUB_PASSWORD" psql \\
+            const createConstraintsCmdSh = `PGPASSWORD="$SUB_PASSWORD" PGSSLMODE=prefer psql \\
     -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1 <<'SQL'
 ${heredocConstraints}
 SQL`;
             const createConstraintsCmdPs1 = `$env:PGPASSWORD = $env:SUB_PASSWORD
+$env:PGSSLMODE  = "prefer"
 @'
 ${heredocConstraints}
 '@ | & psql -h $env:SUB_HOST -p $env:SUB_PORT -U $env:SUB_USER -d $env:SUB_DB -v ON_ERROR_STOP=1
-Remove-Item Env:PGPASSWORD`;
-            const createIndexesCmdSh = `PGPASSWORD="$SUB_PASSWORD" psql \\
+Remove-Item Env:PGPASSWORD
+Remove-Item Env:PGSSLMODE`;
+            const createIndexesCmdSh = `PGPASSWORD="$SUB_PASSWORD" PGSSLMODE=prefer psql \\
     -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1 <<'SQL'
 ${createIndexesSql}
 SQL`;
             const createIndexesCmdPs1 = `$env:PGPASSWORD = $env:SUB_PASSWORD
+$env:PGSSLMODE  = "prefer"
 @'
 ${createIndexesSql}
 '@ | & psql -h $env:SUB_HOST -p $env:SUB_PORT -U $env:SUB_USER -d $env:SUB_DB -v ON_ERROR_STOP=1
-Remove-Item Env:PGPASSWORD`;
-            const createSubscriptionCmdSh = `PGPASSWORD="$SUB_PASSWORD" psql \\
+Remove-Item Env:PGPASSWORD
+Remove-Item Env:PGSSLMODE`;
+            const createSubscriptionCmdSh = `PGPASSWORD="$SUB_PASSWORD" PGSSLMODE=prefer psql \\
     -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" -v ON_ERROR_STOP=1 <<SQL
 CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host=$PUB_HOST port=$PUB_PORT dbname=historian user=$PUB_USER password=$PUB_PASSWORD sslmode=${sslMode}'
@@ -2312,13 +2354,15 @@ PUBLICATION historian_pub
 WITH (copy_data=false, create_slot=true, enabled=true, slot_name='historian_sub_slot');
 SQL`;
             const createSubscriptionCmdPs1 = `$env:PGPASSWORD = $env:SUB_PASSWORD
+$env:PGSSLMODE  = "prefer"
 @"
 CREATE SUBSCRIPTION historian_sub
 CONNECTION 'host=$($env:PUB_HOST) port=$($env:PUB_PORT) dbname=historian user=$($env:PUB_USER) password=$($env:PUB_PASSWORD) sslmode=${sslMode}'
 PUBLICATION historian_pub
 WITH (copy_data=false, create_slot=true, enabled=true, slot_name='historian_sub_slot');
 "@ | & psql -h $env:SUB_HOST -p $env:SUB_PORT -U $env:SUB_USER -d $env:SUB_DB -v ON_ERROR_STOP=1
-Remove-Item Env:PGPASSWORD`;
+Remove-Item Env:PGPASSWORD
+Remove-Item Env:PGSSLMODE`;
             const linuxScript = this.subscribeHistorianShTemplate
                 .replace(/\{\{HOSTNAME\}\}/g, "{{HOSTNAME}}")
                 .replace(/\{\{PORT\}\}/g, String(replicationPort))
@@ -2379,7 +2423,8 @@ WHERE subname = 'historian_sub';`;
                     createConstraintsSql,
                     createIndexesSql,
                     createSubscriptionSql,
-                    backfillProcedureSql,
+                    backfillSetupSql,
+                    backfillRunSql,
                     createTablesCmdSh,
                     createConstraintsCmdSh,
                     createIndexesCmdSh,

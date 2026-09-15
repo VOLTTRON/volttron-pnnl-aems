@@ -46,7 +46,12 @@ export interface SubscriberSetupSql {
   createConstraintsSql: string;
   createIndexesSql: string;
   createSubscriptionSql: string;
-  backfillProcedureSql: string;
+  // Card 5 is split into two copy targets: pgAdmin batches every
+  // statement in the query buffer as one implicit transaction, and the
+  // backfill procedure per-chunk COMMITs — so the CALL that runs it
+  // must be issued alone, never batched with the DDL that defines it.
+  backfillSetupSql: string; // DDL + one-shot topics INSERT
+  backfillRunSql: string;   // CALL backfill.run_backfill(...) alone
 
   // Path B (bash)
   createTablesCmdSh: string;

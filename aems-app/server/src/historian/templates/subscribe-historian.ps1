@@ -84,18 +84,26 @@ if (-not (Get-Command psql -ErrorAction SilentlyContinue)) {
 function Invoke-PubPsql {
     param([string[]]$Args, [string]$Stdin = $null)
     $env:PGPASSWORD = $PublisherPassword
+    $env:PGSSLMODE  = $PublisherSslmode
     try {
-        if ($Stdin) { $Stdin | & psql -h $PublisherHost -p $PublisherPort -U $PublisherUser -d $PublisherDb -v ON_ERROR_STOP=1 --set=sslmode=$PublisherSslmode @Args }
-        else { & psql -h $PublisherHost -p $PublisherPort -U $PublisherUser -d $PublisherDb -v ON_ERROR_STOP=1 --set=sslmode=$PublisherSslmode @Args }
-    } finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+        if ($Stdin) { $Stdin | & psql -h $PublisherHost -p $PublisherPort -U $PublisherUser -d $PublisherDb -v ON_ERROR_STOP=1 @Args }
+        else { & psql -h $PublisherHost -p $PublisherPort -U $PublisherUser -d $PublisherDb -v ON_ERROR_STOP=1 @Args }
+    } finally {
+        Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+        Remove-Item Env:PGSSLMODE  -ErrorAction SilentlyContinue
+    }
 }
 function Invoke-SubPsql {
     param([string[]]$Args, [string]$Stdin = $null)
     $env:PGPASSWORD = $SubscriberPassword
+    $env:PGSSLMODE  = $SubscriberSslmode
     try {
-        if ($Stdin) { $Stdin | & psql -h $SubscriberHost -p $SubscriberPort -U $SubscriberUser -d $SubscriberDb -v ON_ERROR_STOP=1 --set=sslmode=$SubscriberSslmode @Args }
-        else { & psql -h $SubscriberHost -p $SubscriberPort -U $SubscriberUser -d $SubscriberDb -v ON_ERROR_STOP=1 --set=sslmode=$SubscriberSslmode @Args }
-    } finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+        if ($Stdin) { $Stdin | & psql -h $SubscriberHost -p $SubscriberPort -U $SubscriberUser -d $SubscriberDb -v ON_ERROR_STOP=1 @Args }
+        else { & psql -h $SubscriberHost -p $SubscriberPort -U $SubscriberUser -d $SubscriberDb -v ON_ERROR_STOP=1 @Args }
+    } finally {
+        Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+        Remove-Item Env:PGSSLMODE  -ErrorAction SilentlyContinue
+    }
 }
 function Get-PubValue { param([string]$Sql) (Invoke-PubPsql -Args @("-tA", "-c", $Sql)).Trim() }
 function Get-SubValue { param([string]$Sql) (Invoke-SubPsql -Args @("-tA", "-c", $Sql)).Trim() }
@@ -149,10 +157,12 @@ if (-not $SkipSchema) {
             exit 1
         }
         $env:PGPASSWORD = $PublisherPassword
+        $env:PGSSLMODE  = $PublisherSslmode
         $ddl = & pg_dump -h $PublisherHost -p $PublisherPort -U $PublisherUser -d $PublisherDb `
             --schema-only --no-owner --no-privileges `
             -t public.data -t public.topics -t public.topics_topic_id_seq
         Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+        Remove-Item Env:PGSSLMODE  -ErrorAction SilentlyContinue
         Invoke-SubPsql -Args @() -Stdin ($ddl -join "`n")
         Write-Ok "Schema cloned"
     }
@@ -168,15 +178,19 @@ CREATE TABLE IF NOT EXISTS public.topics_stage (LIKE public.topics INCLUDING DEF
 TRUNCATE public.topics_stage;
 '@
     $env:PGPASSWORD = $PublisherPassword
+    $env:PGSSLMODE  = $PublisherSslmode
     $rows = & psql -h $PublisherHost -p $PublisherPort -U $PublisherUser -d $PublisherDb `
-        -v ON_ERROR_STOP=1 --set=sslmode=$PublisherSslmode `
+        -v ON_ERROR_STOP=1 `
         -c "\copy (SELECT topic_id, topic_name, metadata FROM public.topics ORDER BY topic_id) TO STDOUT"
     Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+    Remove-Item Env:PGSSLMODE  -ErrorAction SilentlyContinue
     $env:PGPASSWORD = $SubscriberPassword
+    $env:PGSSLMODE  = $SubscriberSslmode
     $rows | & psql -h $SubscriberHost -p $SubscriberPort -U $SubscriberUser -d $SubscriberDb `
-        -v ON_ERROR_STOP=1 --set=sslmode=$SubscriberSslmode `
+        -v ON_ERROR_STOP=1 `
         -c "\copy public.topics_stage (topic_id, topic_name, metadata) FROM STDIN"
     Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+    Remove-Item Env:PGSSLMODE  -ErrorAction SilentlyContinue
     Invoke-SubPsql -Args @() -Stdin @'
 INSERT INTO public.topics (topic_id, topic_name, metadata)
 SELECT topic_id, topic_name, metadata FROM public.topics_stage
@@ -321,10 +335,12 @@ for ($i = 0; $i -lt $chunkCount; $i++) {
     Invoke-SubPsql -Args @("-c", "DROP TABLE IF EXISTS backfill.stage; CREATE UNLOGGED TABLE backfill.stage (LIKE public.data);") | Out-Null
 
     $env:PGPASSWORD = $PublisherPassword
+    $env:PGSSLMODE  = $PublisherSslmode
     $pipe = & psql -h $PublisherHost -p $PublisherPort -U $PublisherUser -d $PublisherDb `
-        -v ON_ERROR_STOP=1 --set=sslmode=$PublisherSslmode `
+        -v ON_ERROR_STOP=1 `
         -c "\copy (SELECT topic_id, ts, value_string FROM public.data WHERE ts >= '$cs'::timestamp AND ts < '$ce'::timestamp) TO STDOUT"
     Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+    Remove-Item Env:PGSSLMODE  -ErrorAction SilentlyContinue
 
     if ($LASTEXITCODE -ne 0) {
         Write-Warn "  chunk export failed — re-run to retry"
@@ -332,10 +348,12 @@ for ($i = 0; $i -lt $chunkCount; $i++) {
     }
 
     $env:PGPASSWORD = $SubscriberPassword
+    $env:PGSSLMODE  = $SubscriberSslmode
     $pipe | & psql -h $SubscriberHost -p $SubscriberPort -U $SubscriberUser -d $SubscriberDb `
-        -v ON_ERROR_STOP=1 --set=sslmode=$SubscriberSslmode `
+        -v ON_ERROR_STOP=1 `
         -c "\copy backfill.stage (topic_id, ts, value_string) FROM STDIN"
     Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+    Remove-Item Env:PGSSLMODE  -ErrorAction SilentlyContinue
 
     if ($LASTEXITCODE -ne 0) {
         Write-Warn "  chunk import failed — re-run to retry"

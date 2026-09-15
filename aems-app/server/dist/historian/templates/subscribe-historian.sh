@@ -147,14 +147,14 @@ if ! command -v psql >/dev/null 2>&1; then
 fi
 
 publisher_psql() {
-    PGPASSWORD="$PUB_PW" psql \
+    PGPASSWORD="$PUB_PW" PGSSLMODE="$PUB_SSLMODE" psql \
         -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d "$PUB_DB" \
-        -v ON_ERROR_STOP=1 --set=sslmode="$PUB_SSLMODE" "$@"
+        -v ON_ERROR_STOP=1 "$@"
 }
 subscriber_psql() {
-    PGPASSWORD="$SUB_PW" psql \
+    PGPASSWORD="$SUB_PW" PGSSLMODE="$SUB_SSLMODE" psql \
         -h "$SUB_HOST" -p "$SUB_PORT" -U "$SUB_USER" -d "$SUB_DB" \
-        -v ON_ERROR_STOP=1 --set=sslmode="$SUB_SSLMODE" "$@"
+        -v ON_ERROR_STOP=1 "$@"
 }
 
 echo "================================================"
@@ -216,7 +216,7 @@ if [ "$SKIP_SCHEMA" = false ]; then
         if [ "$DRY_RUN" = true ]; then
             log_dry "pg_dump --schema-only … | subscriber psql"
         else
-            PGPASSWORD="$PUB_PW" pg_dump \
+            PGPASSWORD="$PUB_PW" PGSSLMODE="$PUB_SSLMODE" pg_dump \
                 -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d "$PUB_DB" \
                 --schema-only --no-owner --no-privileges \
                 -t public.data -t public.topics -t public.topics_topic_id_seq \
@@ -237,7 +237,7 @@ else
 CREATE TABLE IF NOT EXISTS public.topics_stage (LIKE public.topics INCLUDING DEFAULTS);
 TRUNCATE public.topics_stage;
 SQL
-    PGPASSWORD="$PUB_PW" psql -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d "$PUB_DB" \
+    PGPASSWORD="$PUB_PW" PGSSLMODE="$PUB_SSLMODE" psql -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d "$PUB_DB" \
         -v ON_ERROR_STOP=1 \
         -c "\copy (SELECT topic_id, topic_name, metadata FROM public.topics ORDER BY topic_id) TO STDOUT" \
     | subscriber_psql -c "\copy public.topics_stage (topic_id, topic_name, metadata) FROM STDIN"
@@ -401,7 +401,7 @@ for (( i=0; i<CHUNK_COUNT; i++ )); do
 
     subscriber_psql -c "DROP TABLE IF EXISTS backfill.stage; CREATE UNLOGGED TABLE backfill.stage (LIKE public.data);" >/dev/null
 
-    if ! PGPASSWORD="$PUB_PW" psql -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d "$PUB_DB" \
+    if ! PGPASSWORD="$PUB_PW" PGSSLMODE="$PUB_SSLMODE" psql -h "$PUB_HOST" -p "$PUB_PORT" -U "$PUB_USER" -d "$PUB_DB" \
             -v ON_ERROR_STOP=1 \
             -c "\copy (SELECT topic_id, ts, value_string FROM public.data WHERE ts >= '$CHUNK_START'::timestamp AND ts < '$CHUNK_END'::timestamp) TO STDOUT" \
         | subscriber_psql -c "\copy backfill.stage (topic_id, ts, value_string) FROM STDIN"

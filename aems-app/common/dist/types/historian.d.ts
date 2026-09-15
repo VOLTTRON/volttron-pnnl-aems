@@ -17,7 +17,8 @@ export interface SubscriberSetupSql {
     createConstraintsSql: string;
     createIndexesSql: string;
     createSubscriptionSql: string;
-    backfillProcedureSql: string;
+    backfillSetupSql: string;
+    backfillRunSql: string;
     createTablesCmdSh: string;
     createConstraintsCmdSh: string;
     createIndexesCmdSh: string;
