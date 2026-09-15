@@ -61,7 +61,7 @@ export function Holiday({ id, unit, editing, setEditing, readOnly }: HolidayProp
                 clone.configuration.holidays = clone.configuration?.holidays ?? [];
                 let holiday: HolidayCreateDelete | undefined = clone.configuration.holidays.find((h) => h?.id === id);
                 if (!holiday) {
-                  holiday = { id };
+                  holiday = { id, label };
                   clone.configuration.holidays.push(holiday);
                 }
                 holiday.action = "delete";
@@ -91,7 +91,7 @@ export function Holiday({ id, unit, editing, setEditing, readOnly }: HolidayProp
                   clone.configuration.holidays = clone.configuration.holidays ?? [];
                   let holiday: HolidayCreateDelete | undefined = clone.configuration.holidays.find((h) => h?.id === id);
                   if (!holiday) {
-                    holiday = { id };
+                    holiday = { id, label };
                     clone.configuration.holidays.push(holiday);
                   }
                   holiday.type = type === HolidayType.Enabled ? HolidayType.Disabled : HolidayType.Enabled;
