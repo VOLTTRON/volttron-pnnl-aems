@@ -1,11 +1,12 @@
 import { Button, Card, FormGroup, InputGroup, Intent, Label, Switch } from "@blueprintjs/core";
 import { IconNames } from "@blueprintjs/icons";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { ReadUnitQuery } from "@/graphql-codegen/graphql";
 import { DeepPartial, typeofNonNullable, typeofObject } from "@local/common";
 import { cloneDeep, merge } from "@local/common/dist/utils/lodash";
 import { END_TIME_MAX, START_TIME_MIN, toDataFormat, toMinutes } from "@/utils/schedule";
-import { useResolvedTimezone } from "@/app/components/providers";
+import { calendarDayToISO, todayInZone } from "@/utils/date";
+import { ConfigContext } from "@/app/components/providers";
 
 const MIN_DURATION = 1;
 
@@ -35,8 +36,10 @@ function CreateOccupancy({
   editing: DeepPartial<UnitType> | null;
   setEditing: (editing: DeepPartial<UnitType> | null) => void;
 }) {
+  const { config } = useContext(ConfigContext);
+  const serverTz = config?.location || undefined;
   const [label, setLabel] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(() => todayInZone(serverTz));
   const [occupied, setOccupied] = useState(true);
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("17:00");
@@ -105,7 +108,7 @@ function CreateOccupancy({
               clone.configuration.occupancies.push({
                 id: `${now}`,
                 label,
-                date,
+                date: calendarDayToISO(date),
                 schedule: {
                   occupied,
                   startTime: occupied ? startTime : null,
@@ -117,7 +120,7 @@ function CreateOccupancy({
               } as OccupancyCreateDelete);
               setEditing(clone);
               setLabel("");
-              setDate(new Date().toISOString().split("T")[0]);
+              setDate(todayInZone(serverTz));
               setOccupied(true);
               setStartTime("08:00");
               setEndTime("17:00");
@@ -133,7 +136,8 @@ function CreateOccupancy({
 }
 
 export function Occupancies({ unit, editing, setEditing, readOnly = false }: OccupanciesProps) {
-  const resolvedTz = useResolvedTimezone();
+  const { config } = useContext(ConfigContext);
+  const displayTz = config?.location || "UTC";
   const editingOccupancies = (editing?.configuration?.occupancies ?? [])
     .filter(typeofNonNullable)
     .reduce((a, v) => ({ ...a, [v?.id ?? ""]: v }), {} as Record<string, OccupancyCreateDelete>);
@@ -178,7 +182,7 @@ export function Occupancies({ unit, editing, setEditing, readOnly = false }: Occ
                       <div>
                         <strong>{occupancy.label}</strong>
                         <div style={{ fontSize: "0.75rem", color: "var(--bp5-text-color-muted)" }}>
-                          {new Date(occupancy.date ?? "").toLocaleDateString(undefined, { timeZone: resolvedTz })}
+                          {new Date(occupancy.date ?? "").toLocaleDateString(undefined, { timeZone: displayTz })}
                         </div>
                       </div>
 

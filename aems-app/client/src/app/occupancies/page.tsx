@@ -5,7 +5,7 @@ import { Button, ControlGroup, Intent } from "@blueprintjs/core";
 import { useContext, useMemo, useState } from "react";
 import { useQuery } from "@apollo/client";
 import { ReadOccupanciesQuery, StringFilterMode, ReadOccupanciesDocument } from "@/graphql-codegen/graphql";
-import { NotificationContext, NotificationType, RouteContext, useResolvedTimezone } from "../components/providers";
+import { ConfigContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { Term, filter } from "@/utils/client";
 import { Paging, Search, Table } from "../components/common";
 import { IconNames } from "@blueprintjs/icons";
@@ -29,7 +29,8 @@ export default function Page() {
 
   const { route } = useContext(RouteContext);
   const { createNotification } = useContext(NotificationContext);
-  const resolvedTz = useResolvedTimezone();
+  const { config } = useContext(ConfigContext);
+  const displayTz = config?.location || "UTC";
 
   const { data, loading, refetch } = useQuery(ReadOccupanciesDocument, {
     variables: {
@@ -88,7 +89,7 @@ export default function Page() {
             label: "Date",
             type: "term",
             renderer: (_col, _row, value) =>
-              value ? new Date(value).toLocaleDateString(undefined, { timeZone: resolvedTz }) : "—",
+              value ? new Date(value).toLocaleDateString(undefined, { timeZone: displayTz }) : "—",
           },
           { field: "configuration", label: "Configuration", type: "term", renderer: (col, row, value) => value?.label || "—" },
           { field: "schedule", label: "Schedule", type: "term", renderer: (col, row, value) => value?.label || "—" },

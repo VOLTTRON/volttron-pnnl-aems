@@ -49,7 +49,14 @@ import { Schedules } from "./components/Schedules";
 import { Holidays } from "./components/Holidays";
 import { Occupancies, OccupancyCreateDelete } from "./components/Occupancies";
 import { Unit } from "./components/Unit";
-import { Role, DeepPartial, typeofNonNullable, typeofObject, parseBoolean } from "@local/common";
+import {
+  Role,
+  DeepPartial,
+  typeofNonNullable,
+  typeofObject,
+  parseBoolean,
+  HolidayType as HolidayList,
+} from "@local/common";
 import { HolidayCreateDelete } from "./components/Holiday";
 import { Location } from "./components/Location";
 import { useRouter } from "next/navigation";
@@ -69,15 +76,19 @@ function allUnit(units: UnitModel[]): Partial<UnitModel> | null {
   )
     ? cloneDeep(unit.location)
     : undefined;
-  const holidays = cloneDeep(
-    unit.configuration?.holidays?.filter(typeofNonNullable).filter((v) => v.type !== HolidayEnum.Custom) ?? [],
-  );
-  holidays.forEach(
-    (v) =>
-      (v.type = units.every((u) => u.configuration?.holidays?.find((h) => h.label === v.label)?.type === v.type)
-        ? v.type
-        : null),
-  );
+  const holidays = HolidayList.values.map((canonical) => {
+    const matches = units.map((u) =>
+      u.configuration?.holidays?.filter(typeofNonNullable).find((h) => h.label === canonical.label),
+    );
+    const first = matches.find(typeofNonNullable);
+    const type =
+      first && matches.every((m) => m?.type === first.type && m?.type !== HolidayEnum.Custom) ? first.type : null;
+    return {
+      id: first?.id ?? canonical.label,
+      label: canonical.label,
+      type,
+    };
+  });
   return {
     id: unit.id,
     location,
@@ -277,10 +288,10 @@ export default function Page() {
                 variables: {
                   create: {
                     label: holiday.label ?? "",
-                    type: HolidayEnum.Custom,
-                    day: holiday.day ?? 0,
-                    month: holiday.month ?? 0,
-                    observance: holiday.observance ?? null,
+                    type: holiday.type ?? HolidayEnum.Custom,
+                    ...(holiday.day != null ? { day: holiday.day } : {}),
+                    ...(holiday.month != null ? { month: holiday.month } : {}),
+                    ...(holiday.observance != null ? { observance: holiday.observance } : {}),
                     configurations: { connect: [{ id: updated.configuration?.id ?? "" }] },
                   },
                 },
@@ -454,20 +465,23 @@ export default function Page() {
       clone.location.id = unit.location.id;
     }
 
-    // Handle holiday ID matching by label
+    // Handle holiday ID matching by label; upgrade to a create when the target unit lacks the holiday
     if (clone.configuration?.holidays) {
       clone.configuration.holidays = clone.configuration.holidays.map((editingHoliday) => {
         if (
           editingHoliday &&
           (editingHoliday.type === HolidayEnum.Enabled || editingHoliday.type === HolidayEnum.Disabled)
         ) {
-          // Find matching holiday in unit by label
           const matchingHoliday = unit.configuration?.holidays?.find(
             (unitHoliday) => unitHoliday?.label === editingHoliday.label,
           );
           if (matchingHoliday) {
             return { ...editingHoliday, id: matchingHoliday.id };
           }
+          return {
+            ...omit(editingHoliday, ["id"]),
+            action: "create",
+          } as HolidayCreateDelete;
         }
         return editingHoliday;
       });
@@ -479,37 +493,9 @@ export default function Page() {
   const handleSaveAll = async () => {
     if (!isEqual(editingAll, {}) && editingAll) {
       try {
-        // Pre-process editingAll to add holiday labels from the first unit
-        const firstUnit = units[0];
-        let updatedEditingAll = editingAll;
-
-        if (firstUnit && editingAll.configuration?.holidays) {
-          updatedEditingAll = cloneDeep(editingAll);
-          if (updatedEditingAll && updatedEditingAll.configuration?.holidays) {
-            updatedEditingAll.configuration.holidays = updatedEditingAll.configuration.holidays.map(
-              (editingHoliday) => {
-                if (
-                  editingHoliday &&
-                  editingHoliday.id &&
-                  (editingHoliday.type === HolidayEnum.Enabled || editingHoliday.type === HolidayEnum.Disabled)
-                ) {
-                  // Find matching holiday in first unit by ID
-                  const matchingHoliday = firstUnit.configuration?.holidays?.find(
-                    (unitHoliday) => unitHoliday?.id === editingHoliday.id,
-                  );
-                  if (matchingHoliday) {
-                    return { ...editingHoliday, label: matchingHoliday.label };
-                  }
-                }
-                return editingHoliday;
-              },
-            );
-          }
-        }
-
         // Process all units in parallel
         const updatePromises = units.map((unit) =>
-          handleUpdateUnit({ id: unit.id, ...updateIds(unit, updatedEditingAll) }),
+          handleUpdateUnit({ id: unit.id, ...updateIds(unit, editingAll) }),
         );
 
         // Wait for all updates to complete

@@ -12,6 +12,7 @@ import {
 } from "@/graphql-codegen/graphql";
 import { useMutation } from "@apollo/client";
 import { CreateDialog, DeleteDialog, UpdateDialog } from "../dialog";
+import { calendarDayToISO, isoToCalendarDay } from "@/utils/date";
 
 export function CreateOccupancy({
   open,
@@ -38,7 +39,7 @@ export function CreateOccupancy({
       variables: {
         create: {
           label,
-          date: new Date(date).toISOString(),
+          date: calendarDayToISO(date),
         },
       },
     });
@@ -89,7 +90,7 @@ export function UpdateOccupancy({
     const updateData: any = {};
 
     if (label !== occupancyData?.label) updateData.label = label;
-    if (date && new Date(date).toISOString() !== occupancyData?.date) updateData.date = new Date(date).toISOString();
+    if (date && calendarDayToISO(date) !== occupancyData?.date) updateData.date = calendarDayToISO(date);
 
     await updateOccupancy({
       variables: {
@@ -102,7 +103,7 @@ export function UpdateOccupancy({
   useEffect(() => {
     if (open && occupancyData) {
       setLabel(occupancyData.label ?? "");
-      setDate(occupancyData.date ? new Date(occupancyData.date).toISOString().split("T")[0] : "");
+      setDate(isoToCalendarDay(occupancyData.date));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
