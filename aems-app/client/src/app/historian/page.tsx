@@ -509,6 +509,19 @@ $env:PUB_PASSWORD = "YOUR_REPLICATOR_PASSWORD"`;
                             from the first incomplete <code>chunk_start</code>. Idempotent via{" "}
                             <code>ON CONFLICT (topic_id, ts) DO NOTHING</code>.
                           </Callout>
+                          <Callout intent={Intent.PRIMARY} icon={IconNames.INFO_SIGN} style={{ marginBottom: "10px" }}>
+                            <strong>One session at a time.</strong> A session-scoped advisory lock inside the
+                            procedure serializes concurrent invocations. If a second CALL raises{" "}
+                            <em>&quot;Another backfill.run_backfill session is already running&quot;</em>: run{" "}
+                            <code>
+                              SELECT pid, query FROM pg_stat_activity WHERE query ILIKE
+                              &apos;%backfill.run_backfill%&apos; AND pid &lt;&gt; pg_backend_pid();
+                            </code>{" "}
+                            and either wait for it, <code>pg_terminate_backend(&lt;pid&gt;)</code> a stale one, or —
+                            if a previous CALL in <em>this</em> tab errored — run{" "}
+                            <code>SELECT pg_advisory_unlock_all();</code> (or disconnect + reconnect the tab) before
+                            retrying.
+                          </Callout>
                         </>
                       )}
                       <pre className={styles.codeBlockWithMaxHeight}>{card.content}</pre>

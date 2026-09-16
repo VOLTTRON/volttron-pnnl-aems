@@ -2149,6 +2149,17 @@ WITH (
 -- below with the value from docker/secrets/historian_replicator_password.txt
 -- on the publisher host. A leftover placeholder causes "password
 -- authentication failed for user 'replicator'" on the INSERT INTO topics.
+--
+-- The procedure defined here holds a session-scoped advisory lock while
+-- running so only ONE backfill.run_backfill session executes at a time.
+-- If Card 5B raises "Another backfill.run_backfill session is already
+-- running", recover with EITHER:
+--   1) SELECT pid, state, query FROM pg_stat_activity
+--        WHERE query ILIKE '%backfill.run_backfill%' AND pid <> pg_backend_pid();
+--      -- then pg_terminate_backend(<pid>) the stale one, OR
+--   2) If a previous run in THIS same session errored (lock held by us):
+--        SELECT pg_advisory_unlock_all();
+--      -- or disconnect + reconnect the pgAdmin tab.
 -- =========================================================================
 -- Enable dblink so we can pull from the publisher inside a stored procedure.
 CREATE EXTENSION IF NOT EXISTS dblink;
@@ -2191,6 +2202,11 @@ WHERE NOT EXISTS (
 -- Any non-null overrides UPSERT into backfill.config; a zero-override call reads
 -- config and resumes. Per-chunk COMMIT so cellular disconnects only lose the
 -- in-flight chunk.
+--
+-- Concurrency: a session-scoped advisory lock at entry serializes runs across
+-- sessions — a second CALL raises an exception immediately rather than racing.
+-- The stage buffer is a pg_temp table (session-scoped, ON COMMIT DROP), so
+-- concurrent sessions can never collide on its name.
 CREATE OR REPLACE PROCEDURE backfill.run_backfill(
     publisher_password text,
     publisher_conn     text      DEFAULT NULL,
@@ -2205,6 +2221,20 @@ DECLARE
     cs timestamp;
     ce timestamp;
 BEGIN
+    -- Session-scoped exclusive lock. Only one backfill.run_backfill session
+    -- runs at a time. Auto-released on session disconnect. If the CALL errors
+    -- mid-way, the lock stays on this session — recover with either
+    --   SELECT pg_advisory_unlock_all();
+    -- or by disconnecting the pgAdmin tab (Object Explorer -> Disconnect
+    -- Server, then reconnect), then re-CALL.
+    IF NOT pg_try_advisory_lock(hashtext('backfill.run_backfill')::bigint) THEN
+        RAISE EXCEPTION USING
+            MESSAGE = 'Another backfill.run_backfill session is already running on this database.',
+            HINT    = 'Check with: SELECT pid, state, query FROM pg_stat_activity WHERE query ILIKE ''%backfill.run_backfill%'' AND pid <> pg_backend_pid(); '
+                   || 'Then either wait for it, or pg_terminate_backend(<pid>) the stale one. '
+                   || 'If a previous run in this same session errored, run SELECT pg_advisory_unlock_all(); (or reconnect the tab) before retrying.';
+    END IF;
+
     IF publisher_password IS NULL THEN
         RAISE EXCEPTION 'publisher_password is required (transient; not persisted)';
     END IF;
@@ -2243,23 +2273,35 @@ BEGIN
         ce := LEAST(cs + cfg.chunk_interval, cfg.end_ts);
         IF NOT EXISTS (SELECT 1 FROM backfill.progress WHERE chunk_start = cs) THEN
             RAISE NOTICE '[chunk] % -> %', cs, ce;
-            DROP TABLE IF EXISTS backfill.stage;
-            CREATE UNLOGGED TABLE backfill.stage (topic_id integer, ts timestamp, value_string text);
+            -- pg_temp table: session-scoped (no cross-session collision) and
+            -- ON COMMIT DROP so the per-chunk COMMIT below cleans it up — no
+            -- schema-scoped backfill.stage, and no defensive DROP IF EXISTS
+            -- (which was the source of the "table 'stage' does not exist,
+            -- skipping" NOTICE on every iteration).
+            CREATE TEMP TABLE stage (
+                topic_id integer, ts timestamp, value_string text
+            ) ON COMMIT DROP;
             EXECUTE format(
-                'INSERT INTO backfill.stage SELECT * FROM dblink(%L, %L) AS t(topic_id integer, ts timestamp, value_string text)',
+                'INSERT INTO stage SELECT * FROM dblink(%L, %L) AS t(topic_id integer, ts timestamp, value_string text)',
                 effective_conn,
                 format('SELECT topic_id, ts, value_string FROM public.data WHERE ts >= %L AND ts < %L', cs, ce)
             );
             INSERT INTO public.data (topic_id, ts, value_string)
-            SELECT topic_id, ts, value_string FROM backfill.stage
+            SELECT topic_id, ts, value_string FROM stage
             ON CONFLICT (topic_id, ts) DO NOTHING;
+            -- ON CONFLICT DO NOTHING on progress: belt-and-suspenders. The
+            -- advisory lock above prevents another session from racing us,
+            -- but this keeps the CALL idempotent under any same-session retry
+            -- that skipped the check above (e.g. a resumed run after a crash).
             INSERT INTO backfill.progress (chunk_start, chunk_end, inserted)
-            VALUES (cs, ce, (SELECT count(*) FROM backfill.stage));
-            DROP TABLE backfill.stage;
+            VALUES (cs, ce, (SELECT count(*) FROM stage))
+            ON CONFLICT (chunk_start) DO NOTHING;
             COMMIT;
         END IF;
         cs := ce;
     END LOOP;
+
+    PERFORM pg_advisory_unlock(hashtext('backfill.run_backfill')::bigint);
 END $BODY$;
 
 -- Backfill topics (small; single one-shot merge).
@@ -2287,6 +2329,16 @@ ON CONFLICT (topic_id) DO UPDATE
 --      Card 5A. pgAdmin: highlight ONLY the CALL(...) block (through the
 --      closing ";") and press Execute. psql: paste the CALL alone at the
 --      prompt.
+--
+-- SERIALIZATION: only one backfill.run_backfill session is permitted at a
+-- time (enforced by a session-scoped advisory lock inside the procedure).
+-- If the CALL errors with "Another backfill.run_backfill session is already
+-- running":
+--   * Different session holds it — check pg_stat_activity, wait or
+--     pg_terminate_backend(<pid>) the stale one.
+--   * This same session holds it (a previous CALL in this tab errored) —
+--     run: SELECT pg_advisory_unlock_all();  -- then re-CALL,
+--     or disconnect + reconnect the pgAdmin tab.
 -- =========================================================================
 
 -- FIRST RUN — configures backfill.config and processes chunks.

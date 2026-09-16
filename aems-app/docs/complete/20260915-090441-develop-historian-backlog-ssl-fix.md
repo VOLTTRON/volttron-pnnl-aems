@@ -161,3 +161,53 @@ changed, not the GraphQL schema.
 
 After redeploying, run Card 5A once (idempotent), then paste Card 5B into a
 fresh Query Tool tab, replace both password placeholders, and Execute.
+
+### 2026-09-15 11:45 — backfill.run_backfill hardened (locks, temp stage, dedup insert)
+
+User hit two more symptoms while running Card 5B against the real historian:
+(a) `NOTICE: table "stage" does not exist, skipping` fired every chunk —
+harmless but noisy, from the defensive `DROP TABLE IF EXISTS backfill.stage`
+at the top of the loop; and (b) `SQLSTATE 23505: duplicate key value
+violates unique constraint "progress_pkey"` on chunk `2026-07-09` — cause
+was two concurrent sessions racing on the same chunk after the user
+launched a second CALL to check whether the first was stuck.
+
+User asked for coordination via the existing progress table (rather than a
+lock) + a way to enforce one session at a time.
+
+Rewrote the procedure body ([historian.service.ts inside `backfillSetupSql`](../../server/src/historian/historian.service.ts)):
+
+- **Session-scoped advisory lock at entry.** `pg_try_advisory_lock(hashtext(
+  'backfill.run_backfill')::bigint)` — a second CALL from any other session
+  raises immediately with a `HINT` embedding the exact recovery commands
+  (`SELECT pid, ... FROM pg_stat_activity ...` + `pg_terminate_backend`, or
+  `SELECT pg_advisory_unlock_all()` for the same-session-retry case).
+  `pg_advisory_unlock` at end of the normal path.
+- **`stage` moved to `pg_temp`.** `CREATE TEMP TABLE stage (...) ON COMMIT
+  DROP` per iteration. Session-scoped (no cross-session name collision) and
+  auto-dropped at each per-chunk COMMIT, which eliminates both the defensive
+  `DROP TABLE IF EXISTS backfill.stage` at loop top (source of the NOTICE
+  noise) and the trailing `DROP TABLE backfill.stage;` before COMMIT.
+- **`INSERT INTO backfill.progress ... ON CONFLICT (chunk_start) DO NOTHING`.**
+  Belt-and-suspenders against same-session re-entry after error recovery
+  (the advisory lock stops cross-session races, but this keeps the CALL
+  idempotent even if the top-of-iteration `IF NOT EXISTS` check is skipped
+  by some future edit).
+
+Header banners updated so the operator sees the recovery playbook in three
+places without leaving the pgAdmin buffer:
+- Card 5A banner names the lock + gives the two recovery paths (kill stale
+  session vs. `pg_advisory_unlock_all()`).
+- Card 5B banner repeats the same, framed as "what to do when Card 5B
+  errors with 'Another backfill.run_backfill session is already running'".
+- Client Card 5B gets a third INFO Callout with the same content in HTML
+  form so users who never look at the SQL still see it.
+
+Type-check: server pass (exit 0), client pass (exit 0). Historian test
+suite: 4/4 suites pass, 59/59 tests.
+
+Operator flow after this change:
+1. Re-run Card 5A once (the `CREATE OR REPLACE PROCEDURE` is idempotent —
+   picks up the new lock/temp-table/on-conflict body).
+2. Card 5B is safe under concurrency and quiet: no per-chunk NOTICE noise,
+   no duplicate-key errors, one session at a time.
