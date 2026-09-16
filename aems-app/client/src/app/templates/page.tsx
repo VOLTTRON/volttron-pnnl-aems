@@ -89,6 +89,26 @@ export default function TemplatesPage() {
 
   const rendered = (preview.data?.previewControlTemplates ?? null) as Record<string, unknown> | null;
 
+  const collectErrors = (value: unknown): { phase: string; message: string }[] => {
+    const errors: { phase: string; message: string }[] = [];
+    const walk = (v: unknown) => {
+      if (v !== null && typeof v === "object") {
+        const obj = v as Record<string, unknown>;
+        if (typeof obj._error === "string") {
+          errors.push({ phase: typeof obj.phase === "string" ? obj.phase : "unknown", message: obj._error });
+          return;
+        }
+        if (Array.isArray(v)) {
+          v.forEach(walk);
+          return;
+        }
+        Object.values(obj).forEach(walk);
+      }
+    };
+    walk(value);
+    return errors;
+  };
+
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -120,6 +140,7 @@ export default function TemplatesPage() {
     if (!rendered) return null;
     const value = rendered[key];
     const text = JSON.stringify(value ?? null, null, 2);
+    const errors = collectErrors(value);
     return (
       <div className={styles.tabPanel}>
         <Card elevation={Elevation.TWO} className={styles.cardSpacing}>
@@ -135,6 +156,22 @@ export default function TemplatesPage() {
               />
             </ControlGroup>
           </div>
+          {errors.length > 0 && (
+            <Callout
+              intent={Intent.DANGER}
+              icon={IconNames.ERROR}
+              title={`${errors.length} render error${errors.length === 1 ? "" : "s"} in ${key}.json`}
+              className={styles.cardSpacing}
+            >
+              <ul className={styles.errorList}>
+                {errors.map((e, i) => (
+                  <li key={i}>
+                    <strong>{e.phase}:</strong> {e.message}
+                  </li>
+                ))}
+              </ul>
+            </Callout>
+          )}
           <pre className={styles.codeBlockWithMaxHeight}>{text}</pre>
         </Card>
       </div>

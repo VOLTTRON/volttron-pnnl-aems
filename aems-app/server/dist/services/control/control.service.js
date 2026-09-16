@@ -22,6 +22,7 @@ const schedule_1 = require("@nestjs/schedule");
 const common_2 = require("@local/common");
 const volttron_service_1 = require("../volttron.service");
 const render_control_templates_1 = require("../../utils/render-control-templates");
+const template_1 = require("../../utils/template");
 const subscription_service_1 = require("../../subscription/subscription.service");
 let ControlService = ControlService_1 = class ControlService extends __1.BaseService {
     constructor(prismaService, subscriptionService, configService, volttronService) {
@@ -92,6 +93,11 @@ let ControlService = ControlService_1 = class ControlService extends __1.BaseSer
                             mutation: common_2.Mutation.Updated,
                         });
                         const data = await (0, render_control_templates_1.renderControlTemplates)(control, this.configService.service.control.templatePaths, this.logger);
+                        const renderErrors = (0, template_1.collectRenderErrors)(data);
+                        if (renderErrors.length > 0) {
+                            throw new Error(`Template render failed with ${renderErrors.length} error(s): ` +
+                                renderErrors.map((e) => `[${e.phase}] ${e._error}`).join("; "));
+                        }
                         await this.volttronService.makeApiCall(`agent.ilc`, "update_configurations", token, data);
                         await this.prismaService.prisma.control.update({
                             where: { id: control.id },

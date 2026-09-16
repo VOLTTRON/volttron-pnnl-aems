@@ -24,4 +24,12 @@ export interface IEvaluate extends IAction {
     _type: "evaluate";
     values: Record<string, any>;
 }
+export type RenderErrorPhase = "value" | "evaluate" | "map" | "reduce" | "key" | "string" | "iterate" | "parse";
+export interface RenderError {
+    _error: string;
+    phase: RenderErrorPhase;
+}
+export declare const makeRenderError: (message: string, phase: RenderErrorPhase) => RenderError;
+export declare const isRenderError: (v: unknown) => v is RenderError;
 export declare const transformTemplate: (template: any, params?: any) => any;
+export declare const collectRenderErrors: (value: unknown) => RenderError[];

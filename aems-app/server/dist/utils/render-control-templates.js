@@ -27,7 +27,6 @@ async function renderControlTemplates(control, templatePaths, logger) {
     const data = {};
     for (const file of await (0, file_1.getConfigFiles)(existing, ".json", logger)) {
         const key = (0, node_path_1.basename)(file, (0, node_path_1.extname)(file));
-        const filename = (0, node_path_1.basename)(file);
         const text = await (0, promises_1.readFile)((0, node_path_1.resolve)(file), "utf-8");
         let template;
         try {
@@ -35,15 +34,10 @@ async function renderControlTemplates(control, templatePaths, logger) {
         }
         catch (err) {
             const reason = err instanceof Error ? err.message : String(err);
-            throw new Error(`Failed to parse template file "${filename}": ${reason}`);
+            data[key] = (0, template_1.makeRenderError)(reason, "parse");
+            continue;
         }
-        try {
-            data[key] = (0, template_1.transformTemplate)(template, control);
-        }
-        catch (err) {
-            const reason = err instanceof Error ? err.message : String(err);
-            throw new Error(`Failed to render template "${filename}": ${reason}`);
-        }
+        data[key] = (0, template_1.transformTemplate)(template, control);
     }
     return data;
 }

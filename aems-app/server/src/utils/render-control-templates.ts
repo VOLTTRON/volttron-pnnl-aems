@@ -2,7 +2,7 @@ import { Logger } from "@nestjs/common";
 import { basename, extname, resolve } from "node:path";
 import { readFile, stat } from "node:fs/promises";
 import { getConfigFiles } from "@/utils/file";
-import { transformTemplate } from "@/utils/template";
+import { makeRenderError, transformTemplate } from "@/utils/template";
 
 export async function renderControlTemplates(
   control: unknown,
@@ -30,22 +30,17 @@ export async function renderControlTemplates(
   const data: Record<string, unknown> = {};
   for (const file of await getConfigFiles(existing, ".json", logger)) {
     const key = basename(file, extname(file));
-    const filename = basename(file);
     const text = await readFile(resolve(file), "utf-8");
     let template: unknown;
     try {
-       
+
       template = JSON.parse(text);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to parse template file "${filename}": ${reason}`);
+      data[key] = makeRenderError(reason, "parse");
+      continue;
     }
-    try {
-      data[key] = transformTemplate(template, control);
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to render template "${filename}": ${reason}`);
-    }
+    data[key] = transformTemplate(template, control);
   }
   return data;
 }

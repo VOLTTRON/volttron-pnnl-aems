@@ -74,9 +74,9 @@ if (-not (Test-Path $ENV_FILE)) {
 if (-not (Test-Path $SECRETS_DIR)) {
   New-Item -ItemType Directory -Path $SECRETS_DIR -Force | Out-Null
 }
-$placeholder = Join-Path $SECRETS_DIR ".placeholder"
-if (-not (Test-Path $placeholder)) {
-  New-Item -ItemType File -Path $placeholder -Force | Out-Null
+$placeholderFile = Join-Path $SECRETS_DIR ".placeholder"
+if (-not (Test-Path $placeholderFile)) {
+  New-Item -ItemType File -Path $placeholderFile -Force | Out-Null
 }
 
 Write-Host "`nEnvironment/Secrets Check" -ForegroundColor White

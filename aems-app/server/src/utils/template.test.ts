@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { transformTemplate } from "@/utils/template";
+import { collectRenderErrors, isRenderError, transformTemplate } from "@/utils/template";
 import { control, unit } from "./template.fixtures";
 
 const TEMPLATES_DIR = join(__dirname, "..", "..", "..", "..", "aems-edge", "configurations", "templates");
@@ -235,5 +235,66 @@ describe("template.transformTemplate()", () => {
       },
     };
     expect(transformTemplate(template, control)).toEqual(result);
+  });
+
+  describe("error markers", () => {
+    it("emits an inline _error for an evaluate that falls through the values map", () => {
+      const unmapped = { ...unit, zoneBuilding: "not-a-known-value" };
+      const template = {
+        "room-type": {
+          value: {
+            _type: "evaluate",
+            sources: ["zoneBuilding"],
+            expression: "zoneBuilding",
+            values: { office: 4 },
+          },
+          operation_type: "constant",
+        },
+      };
+      const result = transformTemplate(template, unmapped);
+      const marker = (result as any)["room-type"].value;
+      expect(isRenderError(marker)).toBe(true);
+      expect(marker.phase).toBe("evaluate");
+      expect(marker._error).toContain("not-a-known-value");
+      // Sibling still renders normally.
+      expect((result as any)["room-type"].operation_type).toBe("constant");
+    });
+
+    it("emits an inline _error for a value expression that throws", () => {
+      const template = {
+        good: "static",
+        bad: { _type: "value", sources: ["zoneLocation"], expression: "zoneLocation.nonExistent.crash()" },
+      };
+      const result = transformTemplate(template, unit) as any;
+      expect(result.good).toBe("static");
+      expect(isRenderError(result.bad)).toBe(true);
+      expect(result.bad.phase).toBe("value");
+    });
+
+    it("does not descend into an _error marker (leaves it as a leaf)", () => {
+      const preloaded = { _error: "already failed", phase: "value" };
+      const template = { key: preloaded };
+      const result = transformTemplate(template, unit) as any;
+      expect(result.key).toEqual(preloaded);
+    });
+
+    it("preserves a template null literal without treating it as an object", () => {
+      const template = { key: null };
+      const result = transformTemplate(template, unit) as any;
+      expect(result.key).toBeNull();
+    });
+
+    it("collectRenderErrors finds inline markers across nested structures", () => {
+      const rendered = {
+        top: {
+          nested: { _error: "boom", phase: "evaluate" },
+          list: [{ _error: "kaboom", phase: "value" }, "ok"],
+        },
+        other: "fine",
+      };
+      const errors = collectRenderErrors(rendered);
+      expect(errors).toHaveLength(2);
+      expect(errors.map((e) => e.phase).sort()).toEqual(["evaluate", "value"]);
+    });
   });
 });

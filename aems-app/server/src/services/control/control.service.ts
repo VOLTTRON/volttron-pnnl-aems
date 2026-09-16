@@ -6,6 +6,7 @@ import { Cron } from "@nestjs/schedule";
 import { Mutation, StageType, typeofObject } from "@local/common";
 import { VolttronService } from "../volttron.service";
 import { renderControlTemplates } from "@/utils/render-control-templates";
+import { collectRenderErrors } from "@/utils/template";
 import { SubscriptionService } from "@/subscription/subscription.service";
 
 @Injectable()
@@ -87,6 +88,13 @@ export class ControlService extends BaseService {
                 this.configService.service.control.templatePaths,
                 this.logger,
               );
+              const renderErrors = collectRenderErrors(data);
+              if (renderErrors.length > 0) {
+                throw new Error(
+                  `Template render failed with ${renderErrors.length} error(s): ` +
+                    renderErrors.map((e) => `[${e.phase}] ${e._error}`).join("; "),
+                );
+              }
               await this.volttronService.makeApiCall(`agent.ilc`, "update_configurations", token, data);
               await this.prismaService.prisma.control.update({
                 where: { id: control.id },
