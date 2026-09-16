@@ -270,11 +270,15 @@ else
 fi
 
 # Clean and create output directory
+# Preserve `templates/` — the pre-lock refresh block above just copied it
+# in from ${TEMPLATES_DIR}, and the consuming services container reads it
+# for ILC template previews. A naive `rm -rf` wipes it, and no later step
+# re-copies it, so subsequent stack starts show "None of the configured
+# ILC template paths exist" until the volttron-setup lock file causes
+# setup to short-circuit before reaching this line.
 if [ -d "${OUTPUT_DIR}" ]; then
-    log_info "Cleaning output directory: ${OUTPUT_DIR}"
-    rm -rf "${OUTPUT_DIR:?}/"*
-    # Remove all files except platform_config.yml (portable approach)
-    # find "${OUTPUT_DIR}" -mindepth 1 -maxdepth 1 ! -name 'platform_config.yml' -exec rm -rf {} +
+    log_info "Cleaning output directory (preserving templates/): ${OUTPUT_DIR}"
+    find "${OUTPUT_DIR}" -mindepth 1 -maxdepth 1 ! -name 'templates' -exec rm -rf {} +
 else
     log_info "Creating output directory: ${OUTPUT_DIR}"
     mkdir -p "${OUTPUT_DIR}"
