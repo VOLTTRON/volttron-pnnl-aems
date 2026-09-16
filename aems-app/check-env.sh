@@ -68,6 +68,14 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
+# Ensure the placeholder bind-mount source exists. Every secret in
+# docker-compose.yml uses `${..._SOURCE:-./secrets/.placeholder}`, so a
+# missing placeholder file crashes `docker compose up` with a bind-mount
+# error before any service starts. The file is tracked in git, but guard
+# against `rm`, `docker compose down -v`, or an accidental wipe.
+mkdir -p "$SECRETS_DIR"
+[ -e "$SECRETS_DIR/.placeholder" ] || : > "$SECRETS_DIR/.placeholder"
+
 printf "\n${BOLD}Environment/Secrets Check${RESET}\n"
 printf "Running from: %s\n" "$(pwd)"
 

@@ -66,6 +66,19 @@ if (-not (Test-Path $ENV_FILE)) {
   exit 1
 }
 
+# Ensure the placeholder bind-mount source exists. Every secret in
+# docker-compose.yml uses `${..._SOURCE:-./secrets/.placeholder}`, so a
+# missing placeholder file crashes `docker compose up` with a bind-mount
+# error before any service starts. The file is tracked in git, but guard
+# against `rm`, `docker compose down -v`, or an accidental wipe.
+if (-not (Test-Path $SECRETS_DIR)) {
+  New-Item -ItemType Directory -Path $SECRETS_DIR -Force | Out-Null
+}
+$placeholder = Join-Path $SECRETS_DIR ".placeholder"
+if (-not (Test-Path $placeholder)) {
+  New-Item -ItemType File -Path $placeholder -Force | Out-Null
+}
+
 Write-Host "`nEnvironment/Secrets Check" -ForegroundColor White
 Write-Host "Running from: $(Get-Location)"
 

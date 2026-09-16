@@ -277,6 +277,21 @@ if (-not (Test-Path $ENV_FILE)) {
     exit 1
 }
 
+# Ensure the placeholder bind-mount source exists. Compose's top-level
+# `secrets:` block falls back to `./secrets/.placeholder` whenever a
+# <KEY>_SOURCE var is unset (e.g. after the bootstrap-exit path below
+# truncates .env.secrets.docker to empty). A missing placeholder crashes
+# `docker compose up` with a bind-mount error, so guard against a rogue
+# rm or `docker compose down -v` here as belt-and-suspenders — the file
+# is tracked in git, so this normally no-ops.
+if (-not (Test-Path $SECRETS_DIR)) {
+    New-Item -ItemType Directory -Path $SECRETS_DIR -Force | Out-Null
+}
+$placeholderPath = Join-Path $SECRETS_DIR ".placeholder"
+if (-not (Test-Path $placeholderPath)) {
+    New-Item -ItemType File -Path $placeholderPath -Force | Out-Null
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
 # BOOTSTRAP PATH - .env.secrets doesn't exist
 # ══════════════════════════════════════════════════════════════════════════════
@@ -555,6 +570,9 @@ if ($FreshWrites.Count -eq 0 -and $Rotations.Count -eq 0) {
         Write-SecretsEnv -SourceLines $noopSourceLines
     }
     Write-Host "`nAll secrets are up to date.`n" -ForegroundColor Green
+    if (-not $DryRun -and (Test-Path ./check-env.ps1)) {
+        try { & ./check-env.ps1 } catch { Write-Warn "check-env.ps1 reported issues - review the output above." }
+    }
     exit 0
 }
 
@@ -979,6 +997,14 @@ if ($toRestart.Count -gt 0) {
             }
         }
     }
+}
+
+# ── post-check ─────────────────────────────────────────────────────────────────
+# Auto-invoke check-env.ps1 so the operator sees green ticks confirming
+# the .env -> .env.secrets -> docker/secrets/*.txt chain is consistent.
+# Skipped under -DryRun (no state actually changed).
+if (-not $DryRun -and (Test-Path ./check-env.ps1)) {
+    try { & ./check-env.ps1 } catch { Write-Warn "check-env.ps1 reported issues - review the output above." }
 }
 
 # ── summary ────────────────────────────────────────────────────────────────────

@@ -16,7 +16,10 @@ docker-images.**
 
 # secrets
 .env.secrets
-docker/secrets/
+# Glob (not directory) rule: `docker/secrets/` would exclude the parent
+# directory, and git cannot re-include a file whose parent is excluded —
+# the `!docker/secrets/.placeholder` negation below would silently no-op.
+docker/secrets/*
 # but keep the empty placeholder and the empty secrets env file tracked —
 # .placeholder is bind-mounted for every declared secret when secrets.sh
 # hasn't been run; .env.secrets.docker is referenced by the root include:

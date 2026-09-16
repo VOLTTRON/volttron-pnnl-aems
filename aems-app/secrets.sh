@@ -268,6 +268,16 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
+# Ensure the placeholder bind-mount source exists. Compose's top-level
+# `secrets:` block falls back to `./secrets/.placeholder` whenever a
+# <KEY>_SOURCE var is unset (e.g. after the bootstrap-exit path below
+# truncates .env.secrets.docker to empty). A missing placeholder crashes
+# `docker compose up` with a bind-mount error, so guard against a rogue
+# `rm` or `docker compose down -v` here as belt-and-suspenders — the
+# file is tracked in git, so this normally no-ops.
+mkdir -p "$SECRETS_DIR"
+[ -e "$SECRETS_DIR/.placeholder" ] || : > "$SECRETS_DIR/.placeholder"
+
 # ══════════════════════════════════════════════════════════════════════════════
 # BOOTSTRAP PATH — .env.secrets doesn't exist
 # ══════════════════════════════════════════════════════════════════════════════
@@ -579,6 +589,9 @@ if [ -z "$(printf '%s%s' "$FRESH_WRITES" "$ROTATIONS" | tr -d ' ')" ]; then
     write_secrets_env "$NOOP_SOURCE_LINES"
   fi
   printf "\n${GREEN}${BOLD}All secrets are up to date.${RESET}\n\n"
+  if [ "$DRY_RUN" = 0 ] && [ -x ./check-env.sh ]; then
+    ./check-env.sh || warn "check-env.sh reported issues — review the output above."
+  fi
   exit 0
 fi
 
@@ -1036,6 +1049,14 @@ if [ -n "$(printf '%s' "$RESTART_SERVICES" | tr -d ' ')" ]; then
         ;;
     esac
   done
+fi
+
+# ── post-check ─────────────────────────────────────────────────────────────────
+# Auto-invoke check-env.sh so the operator sees green ticks confirming
+# the .env → .env.secrets → docker/secrets/*.txt chain is consistent.
+# Skipped under --dry-run (no state actually changed).
+if [ "$DRY_RUN" = 0 ] && [ -x ./check-env.sh ]; then
+  ./check-env.sh || warn "check-env.sh reported issues — review the output above."
 fi
 
 # ── summary ────────────────────────────────────────────────────────────────────
