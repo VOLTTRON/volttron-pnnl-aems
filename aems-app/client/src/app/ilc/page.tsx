@@ -33,7 +33,7 @@ import { Unit } from "./components/Unit";
 import { Role, Stage, StageType } from "@local/common";
 import { useOperationManager } from "../components/hooks/useOperationManager";
 import { useMutationWithTracking } from "../components/hooks/useMutationWithTracking";
-import { omit, cloneDeep, merge } from "@local/common/dist/utils/lodash";
+import { omit, cloneDeep, merge, orderBy as orderByLodash } from "@local/common/dist/utils/lodash";
 
 export default function ILCPage() {
   const [editing, setEditing] = useState<Partial<Term<NonNullable<ReadControlsQuery["readControls"]>[0]>> | null>(null);
@@ -52,7 +52,7 @@ export default function ILCPage() {
     startPolling,
   } = useQuery(ReadControlsDocument, {
     variables: {
-      orderBy: { createdAt: OrderBy.Desc },
+      orderBy: [{ campus: OrderBy.Asc }, { building: OrderBy.Asc }],
     },
     onError(error) {
       createNotification?.(error.message, NotificationType.Error);
@@ -61,7 +61,7 @@ export default function ILCPage() {
 
   const { data: subscribed } = useSubscription(SubscribeControlsDocument, {
     variables: {
-      orderBy: { createdAt: OrderBy.Desc },
+      orderBy: [{ campus: OrderBy.Asc }, { building: OrderBy.Asc }],
     },
     onError(error) {
       startPolling(5000);
@@ -98,7 +98,15 @@ export default function ILCPage() {
     onError: (error: any) => createNotification?.(error.message, NotificationType.Error),
   });
 
-  const controls = useMemo(() => data?.readControls ?? [], [data?.readControls]);
+  const controls = useMemo(() => {
+    const raw = data?.readControls ?? [];
+    return raw.map((control) => ({
+      ...control,
+      units: control.units
+        ? orderByLodash(control.units, ["campus", "building", "name"], ["asc", "asc", "asc"])
+        : control.units,
+    }));
+  }, [data?.readControls]);
 
   const handleEdit = (control: Term<NonNullable<ReadControlsQuery["readControls"]>[0]>) => {
     const current = editing && controls?.find((v) => v.id === editing?.id);

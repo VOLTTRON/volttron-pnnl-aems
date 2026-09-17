@@ -42,3 +42,10 @@ No design doc existed in `docs/proposed/` — plan captured at `C:\Users\d3x573\
 - Client: 4 call-site files touched; no `.graphql` edits needed (operations already declared `$orderBy`).
 - Generated files updated: [server/schema.graphql](../../server/schema.graphql), [client/schema.graphql](../../client/schema.graphql), Apollo hooks.
 - Verification: all typecheck, lint, and affected tests pass. Docker smoke test deferred to normal QA (spot-check `/dashboards`, `/keycloak` pagination, `/holidays` regression, feedback dropdown alphabetization).
+
+### 2026-09-17 12:00 — Follow-up: ILC page ordering
+- User request: top-level site ordering by campus/building, unit ordering by campus/building/unit.
+- [ilc/page.tsx](../../client/src/app/ilc/page.tsx):
+  - `ReadControlsDocument` query and `SubscribeControlsDocument` subscription orderBy changed from `{ createdAt: Desc }` to `[{ campus: Asc }, { building: Asc }]` (server appends `{ id: "asc" }` tie-breaker).
+  - Nested `control.units` (which come with the readControls response and can't be server-sorted at the nested level) sorted client-side in the `controls` `useMemo` via `orderBy` from `@local/common/dist/utils/lodash` using `["campus", "building", "name"]`.
+- `yarn check` — clean. `yarn lint` — clean. No ILC-specific tests exist.
