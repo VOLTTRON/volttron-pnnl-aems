@@ -120,7 +120,7 @@ let UserQuery = class UserQuery {
                     ...query,
                     where: args.where ?? {},
                     distinct: args.distinct ?? undefined,
-                    orderBy: args.orderBy ?? {},
+                    orderBy: builder_service_1.SchemaBuilderService.withOrderBy(args.orderBy, { email: "asc" }),
                     ...(args.paging ?? {}),
                 });
             },

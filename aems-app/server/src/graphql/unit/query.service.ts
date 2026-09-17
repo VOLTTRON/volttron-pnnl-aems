@@ -188,7 +188,12 @@ export class UnitQuery {
             ...query,
             where: !ctx.user?.authRoles.admin ? filtered : (args.where ?? {}),
             distinct: args.distinct ?? undefined,
-            orderBy: args.orderBy ?? {},
+            orderBy: SchemaBuilderService.withOrderBy(args.orderBy, [
+              { campus: "asc" },
+              { building: "asc" },
+              { system: "asc" },
+              { name: "asc" },
+            ]),
             ...(args.paging ?? {}),
           });
         },

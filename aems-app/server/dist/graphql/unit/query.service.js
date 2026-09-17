@@ -174,7 +174,12 @@ let UnitQuery = class UnitQuery {
                     ...query,
                     where: !ctx.user?.authRoles.admin ? filtered : (args.where ?? {}),
                     distinct: args.distinct ?? undefined,
-                    orderBy: args.orderBy ?? {},
+                    orderBy: builder_service_1.SchemaBuilderService.withOrderBy(args.orderBy, [
+                        { campus: "asc" },
+                        { building: "asc" },
+                        { system: "asc" },
+                        { name: "asc" },
+                    ]),
                     ...(args.paging ?? {}),
                 });
             },

@@ -144,7 +144,11 @@ export class ControlQuery {
             ...query,
             where: args.where ?? {},
             distinct: args.distinct ?? undefined,
-            orderBy: args.orderBy ?? {},
+            orderBy: SchemaBuilderService.withOrderBy(args.orderBy, [
+              { campus: "asc" },
+              { building: "asc" },
+              { label: "asc" },
+            ]),
             ...(args.paging ?? {}),
           });
         },

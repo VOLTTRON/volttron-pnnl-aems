@@ -132,7 +132,10 @@ let AccountQuery = class AccountQuery {
                     ...query,
                     where: where,
                     distinct: args.distinct ?? undefined,
-                    orderBy: args.orderBy ?? {},
+                    orderBy: builder_service_1.SchemaBuilderService.withOrderBy(args.orderBy, [
+                        { provider: "asc" },
+                        { createdAt: "asc" },
+                    ]),
                     ...(args.paging ?? {}),
                 });
             },

@@ -1310,8 +1310,10 @@ export type FileFilter = {
 };
 
 export type FileOrderBy = {
+  createdAt?: InputMaybe<OrderBy>;
   feedbackId?: InputMaybe<OrderBy>;
   id?: InputMaybe<OrderBy>;
+  updatedAt?: InputMaybe<OrderBy>;
   userId?: InputMaybe<OrderBy>;
 };
 

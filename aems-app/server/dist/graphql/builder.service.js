@@ -145,6 +145,13 @@ let SchemaBuilderService = class SchemaBuilderService extends core_1.default {
             });
         }
     }
+    static withOrderBy(arg, fallback) {
+        const asArray = (v) => (Array.isArray(v) ? v : [v]);
+        const supplied = arg == null ? [] : asArray(arg).filter((o) => o && Object.keys(o).length > 0);
+        const base = supplied.length > 0 ? supplied : asArray(fallback);
+        const alreadyById = base.some((o) => o && Object.prototype.hasOwnProperty.call(o, "id"));
+        return alreadyById ? base : [...base, { id: "asc" }];
+    }
     static aggregateToGroupBy(aggregate) {
         const temp = {};
         [

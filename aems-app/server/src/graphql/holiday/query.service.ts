@@ -137,7 +137,10 @@ export class HolidayQuery {
             ...query,
             where: args.where ?? {},
             distinct: args.distinct ?? undefined,
-            orderBy: args.orderBy ?? {},
+            orderBy: SchemaBuilderService.withOrderBy(args.orderBy, [
+              { month: "asc" },
+              { day: "asc" },
+            ]),
             ...(args.paging ?? {}),
           });
         },

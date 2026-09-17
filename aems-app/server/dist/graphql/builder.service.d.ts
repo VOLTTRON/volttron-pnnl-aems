@@ -87,6 +87,9 @@ export declare class SchemaBuilderService extends SchemaBuilder<{
     constructor(prismaService: PrismaService, configService: AppConfigService, subscriptionService: SubscriptionService);
     onModuleInit(): void;
     awaitSchema(): Promise<GraphQLSchema>;
+    static withOrderBy<T extends Record<string, unknown>>(arg: T | T[] | null | undefined, fallback: T | T[]): (T | {
+        id: "asc";
+    })[];
     static aggregateToGroupBy<T extends {
         _avg?: any;
         _count?: any;

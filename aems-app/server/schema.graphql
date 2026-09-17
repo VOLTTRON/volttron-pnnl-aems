@@ -1261,8 +1261,10 @@ input FileFilter {
 scalar FileGroupBy
 
 input FileOrderBy {
+  createdAt: OrderBy
   feedbackId: OrderBy
   id: OrderBy
+  updatedAt: OrderBy
   userId: OrderBy
 }
 

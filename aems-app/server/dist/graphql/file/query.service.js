@@ -43,6 +43,8 @@ let FileQuery = class FileQuery {
                 id: true,
                 feedbackId: true,
                 userId: true,
+                createdAt: true,
+                updatedAt: true,
             },
         });
         this.FileAggregate = builder.inputType("FileAggregate", {
@@ -115,14 +117,17 @@ let FileQuery = class FileQuery {
                 subscriptions.register(`File`);
             },
             resolve: async (query, _root, args, ctx, _info) => {
-                const where = args.where ?? {};
+                const where = { ...(args.where ?? {}) };
                 if (!ctx.user?.authRoles.admin) {
                     delete where.user;
                     where.userId = ctx.user?.id;
                 }
                 return prismaService.prisma.file.findMany({
                     ...query,
-                    where: args.where ?? {},
+                    where,
+                    distinct: args.distinct ?? undefined,
+                    orderBy: builder_service_1.SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "desc" }),
+                    ...(args.paging ?? {}),
                 });
             },
         }));

@@ -335,7 +335,7 @@ export class BackupQuery {
             ...query,
             where: args.where ?? undefined,
             distinct: args.distinct ?? undefined,
-            orderBy: args.orderBy ?? { createdAt: "asc" },
+            orderBy: SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "asc" }),
             ...(args.paging ?? {}),
           });
         },
@@ -442,7 +442,7 @@ export class BackupQuery {
             ...query,
             where: args.where ?? undefined,
             distinct: args.distinct ?? undefined,
-            orderBy: args.orderBy ?? { order: "asc" },
+            orderBy: SchemaBuilderService.withOrderBy(args.orderBy, { order: "asc" }),
             ...(args.paging ?? {}),
           });
         },
@@ -549,7 +549,7 @@ export class BackupQuery {
             ...query,
             where: args.where ?? undefined,
             distinct: args.distinct ?? undefined,
-            orderBy: args.orderBy ?? { createdAt: "desc" },
+            orderBy: SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "desc" }),
             ...(args.paging ?? {}),
           });
         },
@@ -656,7 +656,7 @@ export class BackupQuery {
             ...query,
             where: args.where ?? undefined,
             distinct: args.distinct ?? undefined,
-            orderBy: args.orderBy ?? { createdAt: "desc" },
+            orderBy: SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "desc" }),
             ...(args.paging ?? {}),
           });
         },

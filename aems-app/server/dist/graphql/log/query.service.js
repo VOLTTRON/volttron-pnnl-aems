@@ -114,7 +114,7 @@ let LogQuery = class LogQuery {
                     ...query,
                     where: args.where ?? undefined,
                     distinct: args.distinct ?? undefined,
-                    orderBy: args.orderBy ?? {},
+                    orderBy: builder_service_1.SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "desc" }),
                     ...(args.paging ?? {}),
                 });
             },

@@ -70,23 +70,10 @@ class Zone extends base_1.default {
                 type: "orientation",
             },
             {
-                name: "corner-office",
-                label: "Corner Office",
-                type: "building",
-            },
-            {
-                name: "conference",
-                label: "Conference",
-                type: "building",
-            },
-            {
-                name: "kitchen",
-                label: "Kitchen",
-                type: "building",
-            },
-            {
-                name: "closet",
-                label: "Closet",
+                name: "senior-staff-office",
+                label: "Senior Staff Office",
+                previousName: "corner-office",
+                previousLabel: "Corner Office",
                 type: "building",
             },
             {
@@ -95,8 +82,25 @@ class Zone extends base_1.default {
                 type: "building",
             },
             {
+                name: "open-office",
+                label: "Open Office",
+                type: "building",
+            },
+            {
+                name: "lobby",
+                label: "Lobby",
+                type: "building",
+            },
+            {
                 name: "empty-office",
                 label: "Empty Office",
+                type: "building",
+            },
+            {
+                name: "conference-room",
+                label: "Conference Room",
+                previousName: "conference",
+                previousLabel: "Conference",
                 type: "building",
             },
             {
@@ -110,8 +114,20 @@ class Zone extends base_1.default {
                 type: "building",
             },
             {
+                name: "kitchen",
+                label: "Kitchen",
+                type: "building",
+            },
+            {
                 name: "mixed",
                 label: "Mixed",
+                type: "building",
+            },
+            {
+                name: "closet-storage",
+                label: "Closet/Storage",
+                previousName: "closet",
+                previousLabel: "Closet",
                 type: "building",
             },
             {
@@ -159,27 +175,31 @@ class Zone extends base_1.default {
             NorthwestType: Object.freeze(this.parseStrict("northwest")),
         });
         this.Building = Object.freeze({
-            CornerOffice: Object.freeze(this.parseStrict("corner-office")),
-            Conference: Object.freeze(this.parseStrict("conference")),
-            Kitchen: Object.freeze(this.parseStrict("kitchen")),
-            Closet: Object.freeze(this.parseStrict("closet")),
+            SeniorStaffOffice: Object.freeze(this.parseStrict("senior-staff-office")),
             Office: Object.freeze(this.parseStrict("office")),
+            OpenOffice: Object.freeze(this.parseStrict("open-office")),
+            Lobby: Object.freeze(this.parseStrict("lobby")),
             EmptyOffice: Object.freeze(this.parseStrict("empty-office")),
+            ConferenceRoom: Object.freeze(this.parseStrict("conference-room")),
             MechanicalRoom: Object.freeze(this.parseStrict("mechanical-room")),
             ComputerLab: Object.freeze(this.parseStrict("computer-lab")),
+            Kitchen: Object.freeze(this.parseStrict("kitchen")),
             Mixed: Object.freeze(this.parseStrict("mixed")),
+            ClosetStorage: Object.freeze(this.parseStrict("closet-storage")),
             Other: Object.freeze(this.parseStrict("other")),
         });
         this.BuildingType = Object.freeze({
-            CornerOfficeType: Object.freeze(this.parseStrict("corner-office")),
-            ConferenceType: Object.freeze(this.parseStrict("conference")),
-            KitchenType: Object.freeze(this.parseStrict("kitchen")),
-            ClosetType: Object.freeze(this.parseStrict("closet")),
+            SeniorStaffOfficeType: Object.freeze(this.parseStrict("senior-staff-office")),
             OfficeType: Object.freeze(this.parseStrict("office")),
+            OpenOfficeType: Object.freeze(this.parseStrict("open-office")),
+            LobbyType: Object.freeze(this.parseStrict("lobby")),
             EmptyOfficeType: Object.freeze(this.parseStrict("empty-office")),
+            ConferenceRoomType: Object.freeze(this.parseStrict("conference-room")),
             MechanicalRoomType: Object.freeze(this.parseStrict("mechanical-room")),
             ComputerLabType: Object.freeze(this.parseStrict("computer-lab")),
+            KitchenType: Object.freeze(this.parseStrict("kitchen")),
             MixedType: Object.freeze(this.parseStrict("mixed")),
+            ClosetStorageType: Object.freeze(this.parseStrict("closet-storage")),
             OtherType: Object.freeze(this.parseStrict("other")),
         });
     }

@@ -3,6 +3,8 @@ import Base from "./base";
 export type ZoneType = "location" | "mass" | "orientation" | "building";
 export interface IZone extends IConstant {
     type: ZoneType;
+    previousName?: string;
+    previousLabel?: string;
 }
 declare class Zone extends Base<IZone> implements IBase<IZone> {
     constructor();
@@ -45,27 +47,31 @@ declare class Zone extends Base<IZone> implements IBase<IZone> {
         NorthwestType: Readonly<IZone>;
     }>;
     Building: Readonly<{
-        CornerOffice: Readonly<IZone>;
-        Conference: Readonly<IZone>;
-        Kitchen: Readonly<IZone>;
-        Closet: Readonly<IZone>;
+        SeniorStaffOffice: Readonly<IZone>;
         Office: Readonly<IZone>;
+        OpenOffice: Readonly<IZone>;
+        Lobby: Readonly<IZone>;
         EmptyOffice: Readonly<IZone>;
+        ConferenceRoom: Readonly<IZone>;
         MechanicalRoom: Readonly<IZone>;
         ComputerLab: Readonly<IZone>;
+        Kitchen: Readonly<IZone>;
         Mixed: Readonly<IZone>;
+        ClosetStorage: Readonly<IZone>;
         Other: Readonly<IZone>;
     }>;
     BuildingType: Readonly<{
-        CornerOfficeType: Readonly<IZone>;
-        ConferenceType: Readonly<IZone>;
-        KitchenType: Readonly<IZone>;
-        ClosetType: Readonly<IZone>;
+        SeniorStaffOfficeType: Readonly<IZone>;
         OfficeType: Readonly<IZone>;
+        OpenOfficeType: Readonly<IZone>;
+        LobbyType: Readonly<IZone>;
         EmptyOfficeType: Readonly<IZone>;
+        ConferenceRoomType: Readonly<IZone>;
         MechanicalRoomType: Readonly<IZone>;
         ComputerLabType: Readonly<IZone>;
+        KitchenType: Readonly<IZone>;
         MixedType: Readonly<IZone>;
+        ClosetStorageType: Readonly<IZone>;
         OtherType: Readonly<IZone>;
     }>;
 }

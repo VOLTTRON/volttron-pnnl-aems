@@ -151,7 +151,10 @@ export class AccountQuery {
             ...query,
             where: where,
             distinct: args.distinct ?? undefined,
-            orderBy: args.orderBy ?? {},
+            orderBy: SchemaBuilderService.withOrderBy(args.orderBy, [
+              { provider: "asc" },
+              { createdAt: "asc" },
+            ]),
             ...(args.paging ?? {}),
           });
         },

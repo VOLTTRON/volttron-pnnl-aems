@@ -134,7 +134,7 @@ export class CommentQuery {
             ...query,
             where: args.where ?? undefined,
             distinct: args.distinct ?? undefined,
-            orderBy: args.orderBy ?? {},
+            orderBy: SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "desc" }),
             ...(args.paging ?? {}),
           });
         },
