@@ -5,6 +5,8 @@ export type ZoneType = "location" | "mass" | "orientation" | "building";
 
 export interface IZone extends IConstant {
   type: ZoneType;
+  previousName?: string;
+  previousLabel?: string;
 }
 
 class Zone extends Base<IZone> implements IBase<IZone> {
@@ -76,23 +78,10 @@ class Zone extends Base<IZone> implements IBase<IZone> {
         type: "orientation" as ZoneType,
       },
       {
-        name: "corner-office",
-        label: "Corner Office",
-        type: "building" as ZoneType,
-      },
-      {
-        name: "conference",
-        label: "Conference",
-        type: "building" as ZoneType,
-      },
-      {
-        name: "kitchen",
-        label: "Kitchen",
-        type: "building" as ZoneType,
-      },
-      {
-        name: "closet",
-        label: "Closet",
+        name: "senior-staff-office",
+        label: "Senior Staff Office",
+        previousName: "corner-office",
+        previousLabel: "Corner Office",
         type: "building" as ZoneType,
       },
       {
@@ -101,8 +90,25 @@ class Zone extends Base<IZone> implements IBase<IZone> {
         type: "building" as ZoneType,
       },
       {
+        name: "open-office",
+        label: "Open Office",
+        type: "building" as ZoneType,
+      },
+      {
+        name: "lobby",
+        label: "Lobby",
+        type: "building" as ZoneType,
+      },
+      {
         name: "empty-office",
         label: "Empty Office",
+        type: "building" as ZoneType,
+      },
+      {
+        name: "conference-room",
+        label: "Conference Room",
+        previousName: "conference",
+        previousLabel: "Conference",
         type: "building" as ZoneType,
       },
       {
@@ -116,8 +122,20 @@ class Zone extends Base<IZone> implements IBase<IZone> {
         type: "building" as ZoneType,
       },
       {
+        name: "kitchen",
+        label: "Kitchen",
+        type: "building" as ZoneType,
+      },
+      {
         name: "mixed",
         label: "Mixed",
+        type: "building" as ZoneType,
+      },
+      {
+        name: "closet-storage",
+        label: "Closet/Storage",
+        previousName: "closet",
+        previousLabel: "Closet",
         type: "building" as ZoneType,
       },
       {
@@ -168,27 +186,31 @@ class Zone extends Base<IZone> implements IBase<IZone> {
     NorthwestType: Object.freeze(this.parseStrict("northwest")),
   });
   Building = Object.freeze({
-    CornerOffice: Object.freeze(this.parseStrict("corner-office")),
-    Conference: Object.freeze(this.parseStrict("conference")),
-    Kitchen: Object.freeze(this.parseStrict("kitchen")),
-    Closet: Object.freeze(this.parseStrict("closet")),
+    SeniorStaffOffice: Object.freeze(this.parseStrict("senior-staff-office")),
     Office: Object.freeze(this.parseStrict("office")),
+    OpenOffice: Object.freeze(this.parseStrict("open-office")),
+    Lobby: Object.freeze(this.parseStrict("lobby")),
     EmptyOffice: Object.freeze(this.parseStrict("empty-office")),
+    ConferenceRoom: Object.freeze(this.parseStrict("conference-room")),
     MechanicalRoom: Object.freeze(this.parseStrict("mechanical-room")),
     ComputerLab: Object.freeze(this.parseStrict("computer-lab")),
+    Kitchen: Object.freeze(this.parseStrict("kitchen")),
     Mixed: Object.freeze(this.parseStrict("mixed")),
+    ClosetStorage: Object.freeze(this.parseStrict("closet-storage")),
     Other: Object.freeze(this.parseStrict("other")),
   });
   BuildingType = Object.freeze({
-    CornerOfficeType: Object.freeze(this.parseStrict("corner-office")),
-    ConferenceType: Object.freeze(this.parseStrict("conference")),
-    KitchenType: Object.freeze(this.parseStrict("kitchen")),
-    ClosetType: Object.freeze(this.parseStrict("closet")),
+    SeniorStaffOfficeType: Object.freeze(this.parseStrict("senior-staff-office")),
     OfficeType: Object.freeze(this.parseStrict("office")),
+    OpenOfficeType: Object.freeze(this.parseStrict("open-office")),
+    LobbyType: Object.freeze(this.parseStrict("lobby")),
     EmptyOfficeType: Object.freeze(this.parseStrict("empty-office")),
+    ConferenceRoomType: Object.freeze(this.parseStrict("conference-room")),
     MechanicalRoomType: Object.freeze(this.parseStrict("mechanical-room")),
     ComputerLabType: Object.freeze(this.parseStrict("computer-lab")),
+    KitchenType: Object.freeze(this.parseStrict("kitchen")),
     MixedType: Object.freeze(this.parseStrict("mixed")),
+    ClosetStorageType: Object.freeze(this.parseStrict("closet-storage")),
     OtherType: Object.freeze(this.parseStrict("other")),
   });
 }

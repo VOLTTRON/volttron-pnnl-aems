@@ -48,6 +48,8 @@ export class FileQuery {
         id: true,
         feedbackId: true,
         userId: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -137,14 +139,17 @@ export class FileQuery {
         },
         resolve: async (query, _root, args, ctx, _info) => {
           // If not admin, limit to their own files
-          const where = args.where ?? {};
+          const where = { ...(args.where ?? {}) };
           if (!ctx.user?.authRoles.admin) {
             delete where.user;
             where.userId = ctx.user?.id;
           }
           return prismaService.prisma.file.findMany({
             ...query,
-            where: args.where ?? {},
+            where,
+            distinct: args.distinct ?? undefined,
+            orderBy: SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "desc" }),
+            ...(args.paging ?? {}),
           });
         },
       }),

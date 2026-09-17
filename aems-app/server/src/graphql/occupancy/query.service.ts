@@ -135,7 +135,7 @@ export class OccupancyQuery {
             ...query,
             where: args.where ?? {},
             distinct: args.distinct ?? undefined,
-            orderBy: args.orderBy ?? {},
+            orderBy: SchemaBuilderService.withOrderBy(args.orderBy, { date: "asc" }),
             ...(args.paging ?? {}),
           });
         },

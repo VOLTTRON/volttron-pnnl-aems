@@ -128,7 +128,11 @@ let ControlQuery = class ControlQuery {
                     ...query,
                     where: args.where ?? {},
                     distinct: args.distinct ?? undefined,
-                    orderBy: args.orderBy ?? {},
+                    orderBy: builder_service_1.SchemaBuilderService.withOrderBy(args.orderBy, [
+                        { campus: "asc" },
+                        { building: "asc" },
+                        { label: "asc" },
+                    ]),
                     ...(args.paging ?? {}),
                 });
             },

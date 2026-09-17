@@ -4,7 +4,13 @@ import styles from "./page.module.scss";
 import { Button, ControlGroup, Intent } from "@blueprintjs/core";
 import { useContext, useMemo, useState } from "react";
 import { useQuery } from "@apollo/client";
-import { ReadUsersQuery, StringFilterMode, ReadUsersDocument, ReadUnitsDocument } from "@/graphql-codegen/graphql";
+import {
+  OrderBy,
+  ReadUsersQuery,
+  StringFilterMode,
+  ReadUsersDocument,
+  ReadUnitsDocument,
+} from "@/graphql-codegen/graphql";
 import { CurrentContext, NotificationContext, NotificationType, RouteContext } from "../components/providers";
 import { Term, filter } from "@/utils/client";
 import { Paging, Search, Table } from "../components/common";
@@ -37,7 +43,10 @@ export default function Page() {
     RoleType.Super.granted(...(current?.role?.split(" ") ?? [""]));
 
   const { data: unitsData } = useQuery(ReadUnitsDocument, {
-    variables: { where: {} },
+    variables: {
+      where: {},
+      orderBy: [{ campus: OrderBy.Asc }, { building: OrderBy.Asc }, { system: OrderBy.Asc }],
+    },
     onError(error) {
       createNotification?.(error.message, NotificationType.Error);
     },

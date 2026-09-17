@@ -125,7 +125,11 @@ describe("BackupQuery", () => {
       }, adminCtx);
 
       expect(prisma.prisma.backupPolicy.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { enabled: true }, orderBy: [{ createdAt: "desc" }], take: 5 }),
+        expect.objectContaining({
+          where: { enabled: true },
+          orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+          take: 5,
+        }),
       );
     });
 
@@ -233,7 +237,10 @@ describe("BackupQuery", () => {
       }, adminCtx);
 
       expect(prisma.prisma.backupDestination.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { enabled: true }, orderBy: [{ order: "asc" }] }),
+        expect.objectContaining({
+          where: { enabled: true },
+          orderBy: [{ order: "asc" }, { id: "asc" }],
+        }),
       );
     });
 
@@ -308,7 +315,10 @@ describe("BackupQuery", () => {
       }, adminCtx);
 
       expect(prisma.prisma.backupRun.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { cancelRequested: false }, orderBy: [{ startedAt: "desc" }] }),
+        expect.objectContaining({
+          where: { cancelRequested: false },
+          orderBy: [{ startedAt: "desc" }, { id: "asc" }],
+        }),
       );
     });
 
@@ -385,7 +395,10 @@ describe("BackupQuery", () => {
       }, adminCtx);
 
       expect(prisma.prisma.backupKey.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { active: true }, orderBy: [{ createdAt: "asc" }] }),
+        expect.objectContaining({
+          where: { active: true },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        }),
       );
     });
 

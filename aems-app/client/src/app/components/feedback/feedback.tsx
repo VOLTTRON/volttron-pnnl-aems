@@ -6,6 +6,7 @@ import html2canvas from "html2canvas";
 import {
   CreateFeedbackDocument,
   FeedbackStatus as FeedbackStatusGql,
+  OrderBy,
   ReadUsersDocument,
   User,
 } from "@/graphql-codegen/graphql";
@@ -306,6 +307,7 @@ export function SelectAssignee({
     fetchPolicy: "cache-and-network",
     variables: {
       where: { role: { equals: "admin" } },
+      orderBy: [{ email: OrderBy.Asc }],
     },
   });
 

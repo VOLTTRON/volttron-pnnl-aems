@@ -5,14 +5,18 @@ import { Card } from "@blueprintjs/core";
 import { CurrentContext } from "../components/providers";
 import { Role } from "@local/common";
 import { useQuery } from "@apollo/client";
-import { ReadUnitsDocument } from "@/graphql-codegen/graphql";
+import { OrderBy, ReadUnitsDocument } from "@/graphql-codegen/graphql";
 import Link from "next/link";
 import styles from "./page.module.scss";
 import { sortBy } from "@local/common/dist/utils/lodash";
 
 export default function DashboardsPage() {
   const { current } = useContext(CurrentContext);
-  const { data, loading } = useQuery(ReadUnitsDocument);
+  const { data, loading } = useQuery(ReadUnitsDocument, {
+    variables: {
+      orderBy: [{ campus: OrderBy.Asc }, { building: OrderBy.Asc }, { system: OrderBy.Asc }],
+    },
+  });
 
   // Group units by campus and building
   const grouped = useMemo(

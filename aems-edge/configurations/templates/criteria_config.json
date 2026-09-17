@@ -23,7 +23,10 @@
           "rated-power": {
             "on_value": {
               "_type": "value",
-              "sources": ["coolingCapacity", "compressors"],
+              "sources": [
+                "coolingCapacity",
+                "compressors"
+              ],
               "expression": "coolingCapacity / (compressors || 1)"
             },
             "off_value": 0.0,
@@ -33,18 +36,23 @@
           "room-type": {
             "value": {
               "_type": "evaluate",
-              "sources": ["zoneBuilding"],
+              "sources": [
+                "zoneBuilding"
+              ],
               "expression": "zoneBuilding",
               "values": {
-                "corner-office": 1,
+                "senior-staff-office": 1,
                 "office": 4,
+                "open-office": 5,
                 "lobby": 5,
-                "empty-office": 7,
-                "conference": 2,
+                "empty-office": 9,
+                "conference-room": 3,
                 "mechanical-room": 9,
                 "computer-lab": 2,
-                "kitchen": 6,
-                "mixed": 4
+                "kitchen": 7,
+                "mixed": 4,
+                "closet-storage": 9,
+                "other": 5
               }
             },
             "operation_type": "constant"
@@ -56,7 +64,9 @@
           "location": {
             "value": {
               "_type": "value",
-              "sources": ["zoneLocation"],
+              "sources": [
+                "zoneLocation"
+              ],
               "expression": "zoneLocation === 'exterior' ? 1 : 4"
             },
             "operation_type": "constant"
@@ -73,7 +83,9 @@
       },
       "SecondStageCooling": {
         "_type": "evaluate",
-        "sources": ["compressors"],
+        "sources": [
+          "compressors"
+        ],
         "expression": "Boolean(compressors > 1).toString()",
         "values": {
           "true": {
@@ -96,7 +108,10 @@
               "rated-power": {
                 "on_value": {
                   "_type": "value",
-                  "sources": ["coolingCapacity", "compressors"],
+                  "sources": [
+                    "coolingCapacity",
+                    "compressors"
+                  ],
                   "expression": "coolingCapacity / (compressors || 1)"
                 },
                 "off_value": 0.0,
@@ -106,18 +121,23 @@
               "room-type": {
                 "value": {
                   "_type": "evaluate",
-                  "sources": ["zoneBuilding"],
+                  "sources": [
+                    "zoneBuilding"
+                  ],
                   "expression": "zoneBuilding",
                   "values": {
-                    "corner-office": 1,
+                    "senior-staff-office": 1,
                     "office": 4,
+                    "open-office": 5,
                     "lobby": 5,
-                    "empty-office": 7,
-                    "conference": 2,
+                    "empty-office": 9,
+                    "conference-room": 3,
                     "mechanical-room": 9,
                     "computer-lab": 2,
-                    "kitchen": 6,
-                    "mixed": 4
+                    "kitchen": 7,
+                    "mixed": 4,
+                    "closet-storage": 9,
+                    "other": 5
                   }
                 },
                 "operation_type": "constant"
@@ -129,7 +149,9 @@
               "location": {
                 "value": {
                   "_type": "value",
-                  "sources": ["zoneLocation"],
+                  "sources": [
+                    "zoneLocation"
+                  ],
                   "expression": "zoneLocation === 'exterior' ? 1 : 4"
                 },
                 "operation_type": "constant"
@@ -167,7 +189,13 @@
             "maximum": 10
           },
           "rated-power": {
-            "on_value": { "_type": "value", "sources": ["coolingCapacity"], "expression": "coolingCapacity" },
+            "on_value": {
+              "_type": "value",
+              "sources": [
+                "coolingCapacity"
+              ],
+              "expression": "coolingCapacity"
+            },
             "off_value": 0.0,
             "operation_type": "status",
             "point_name": "FirstStageHeating"
@@ -175,18 +203,23 @@
           "room-type": {
             "value": {
               "_type": "evaluate",
-              "sources": ["zoneBuilding"],
+              "sources": [
+                "zoneBuilding"
+              ],
               "expression": "zoneBuilding",
               "values": {
-                "corner-office": 1,
+                "senior-staff-office": 1,
                 "office": 4,
+                "open-office": 5,
                 "lobby": 5,
-                "empty-office": 7,
-                "conference": 2,
+                "empty-office": 9,
+                "conference-room": 3,
                 "mechanical-room": 9,
                 "computer-lab": 2,
-                "kitchen": 6,
-                "mixed": 4
+                "kitchen": 7,
+                "mixed": 4,
+                "closet-storage": 9,
+                "other": 5
               }
             },
             "operation_type": "constant"
@@ -198,7 +231,9 @@
           "location": {
             "value": {
               "_type": "value",
-              "sources": ["zoneLocation"],
+              "sources": [
+                "zoneLocation"
+              ],
               "expression": "zoneLocation === 'exterior' ? 1 : 4"
             },
             "operation_type": "constant"
@@ -215,7 +250,10 @@
       },
       "SecondStageHeating": {
         "_type": "evaluate",
-        "sources": ["heatPump", "heatPumpBackup"],
+        "sources": [
+          "heatPump",
+          "heatPumpBackup"
+        ],
         "expression": "Boolean(heatPump && heatPumpBackup > 0).toString()",
         "values": {
           "true": {
@@ -236,7 +274,13 @@
                 "maximum": 10
               },
               "rated-power": {
-                "on_value": { "_type": "value", "sources": ["heatPumpBackup"], "expression": "heatPumpBackup" },
+                "on_value": {
+                  "_type": "value",
+                  "sources": [
+                    "heatPumpBackup"
+                  ],
+                  "expression": "heatPumpBackup"
+                },
                 "off_value": 0.0,
                 "operation_type": "status",
                 "point_name": "SecondStageHeating"
@@ -244,18 +288,23 @@
               "room-type": {
                 "value": {
                   "_type": "evaluate",
-                  "sources": ["zoneBuilding"],
+                  "sources": [
+                    "zoneBuilding"
+                  ],
                   "expression": "zoneBuilding",
                   "values": {
-                    "corner-office": 1,
+                    "senior-staff-office": 1,
                     "office": 4,
+                    "open-office": 5,
                     "lobby": 5,
-                    "empty-office": 7,
-                    "conference": 2,
+                    "empty-office": 9,
+                    "conference-room": 3,
                     "mechanical-room": 9,
                     "computer-lab": 2,
-                    "kitchen": 6,
-                    "mixed": 4
+                    "kitchen": 7,
+                    "mixed": 4,
+                    "closet-storage": 9,
+                    "other": 5
                   }
                 },
                 "operation_type": "constant"
@@ -267,7 +316,9 @@
               "location": {
                 "value": {
                   "_type": "value",
-                  "sources": ["zoneLocation"],
+                  "sources": [
+                    "zoneLocation"
+                  ],
                   "expression": "zoneLocation === 'exterior' ? 1 : 4"
                 },
                 "operation_type": "constant"

@@ -228,7 +228,7 @@ let BackupQuery = class BackupQuery {
                     ...query,
                     where: args.where ?? undefined,
                     distinct: args.distinct ?? undefined,
-                    orderBy: args.orderBy ?? { createdAt: "asc" },
+                    orderBy: builder_service_1.SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "asc" }),
                     ...(args.paging ?? {}),
                 });
             },
@@ -319,7 +319,7 @@ let BackupQuery = class BackupQuery {
                     ...query,
                     where: args.where ?? undefined,
                     distinct: args.distinct ?? undefined,
-                    orderBy: args.orderBy ?? { order: "asc" },
+                    orderBy: builder_service_1.SchemaBuilderService.withOrderBy(args.orderBy, { order: "asc" }),
                     ...(args.paging ?? {}),
                 });
             },
@@ -410,7 +410,7 @@ let BackupQuery = class BackupQuery {
                     ...query,
                     where: args.where ?? undefined,
                     distinct: args.distinct ?? undefined,
-                    orderBy: args.orderBy ?? { createdAt: "desc" },
+                    orderBy: builder_service_1.SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "desc" }),
                     ...(args.paging ?? {}),
                 });
             },
@@ -501,7 +501,7 @@ let BackupQuery = class BackupQuery {
                     ...query,
                     where: args.where ?? undefined,
                     distinct: args.distinct ?? undefined,
-                    orderBy: args.orderBy ?? { createdAt: "desc" },
+                    orderBy: builder_service_1.SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "desc" }),
                     ...(args.paging ?? {}),
                 });
             },

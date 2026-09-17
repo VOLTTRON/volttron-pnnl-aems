@@ -7,6 +7,7 @@ import { IconNames } from "@blueprintjs/icons";
 import { useCallback, useContext, useState } from "react";
 import { useMutation, useQuery } from "@apollo/client";
 import {
+  OrderBy,
   ReadUsersDocument,
   ReadAvailableKeycloakRolesDocument,
   ReadKeycloakRolesDocument,
@@ -28,7 +29,10 @@ export default function Page() {
   const [selectedUser, setSelectedUser] = useState<UserOption | undefined>();
 
   const { data: usersData, loading: usersLoading } = useQuery(ReadUsersDocument, {
-    variables: { paging: { take: 200, skip: 0 } },
+    variables: {
+      orderBy: [{ email: OrderBy.Asc }],
+      paging: { take: 200, skip: 0 },
+    },
     onError: (err) => createNotification?.(err.message, NotificationType.Error),
   });
 

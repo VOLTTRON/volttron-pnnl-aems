@@ -185,6 +185,20 @@ export class SchemaBuilderService
     }
   }
 
+  static withOrderBy<T extends Record<string, unknown>>(
+    arg: T | T[] | null | undefined,
+    fallback: T | T[],
+  ): (T | { id: "asc" })[] {
+    const asArray = (v: T | T[]): T[] => (Array.isArray(v) ? v : [v]);
+    const supplied =
+      arg == null ? [] : asArray(arg).filter((o) => o && Object.keys(o).length > 0);
+    const base = supplied.length > 0 ? supplied : asArray(fallback);
+    const alreadyById = base.some(
+      (o) => o && Object.prototype.hasOwnProperty.call(o, "id"),
+    );
+    return alreadyById ? base : [...base, { id: "asc" }];
+  }
+
   static aggregateToGroupBy<
     T extends { _avg?: any; _count?: any; _max?: any; _min?: any; _sum?: any },
     F extends string,
