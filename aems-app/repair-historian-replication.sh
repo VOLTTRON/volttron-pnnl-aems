@@ -113,11 +113,20 @@ if ! docker exec "$TARGET_CONTAINER" test -x /usr/local/bin/repair-replication.s
     exit 1
 fi
 
-# Invoke the image-baked repair script
+# Invoke the image-baked repair script. Forward the host-side passwords so the
+# in-container script can authenticate even when the compose secrets: mount
+# ended up as ./secrets/.placeholder (empty file) — matches the docker exec -e
+# pattern used by migrate-historian-data.sh.
 if [[ "$DRY_RUN" == "true" ]]; then
-    docker exec -i "$TARGET_CONTAINER" /usr/local/bin/repair-replication.sh --dry-run
+    docker exec -i \
+        -e HISTORIAN_DATABASE_PASSWORD="${HISTORIAN_DATABASE_PASSWORD:-}" \
+        -e HISTORIAN_REPLICATOR_PASSWORD="${HISTORIAN_REPLICATOR_PASSWORD:-}" \
+        "$TARGET_CONTAINER" /usr/local/bin/repair-replication.sh --dry-run
 else
-    docker exec -i "$TARGET_CONTAINER" /usr/local/bin/repair-replication.sh
+    docker exec -i \
+        -e HISTORIAN_DATABASE_PASSWORD="${HISTORIAN_DATABASE_PASSWORD:-}" \
+        -e HISTORIAN_REPLICATOR_PASSWORD="${HISTORIAN_REPLICATOR_PASSWORD:-}" \
+        "$TARGET_CONTAINER" /usr/local/bin/repair-replication.sh
 fi
 
 print_green "Done."

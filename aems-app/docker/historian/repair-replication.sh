@@ -62,12 +62,23 @@ pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null 2>&1 || {
 # Load the database password from the mounted secret so psql can authenticate.
 # pg_hba.conf requires scram-sha-256 even for local socket connections as the
 # historian user (only 'postgres' has local peer auth).
+#
+# Fallback chain (first non-empty source wins):
+#   1. /run/secrets/historian_database_password — production path
+#   2. HISTORIAN_DATABASE_PASSWORD env var — forwarded by the host wrapper
+#      (repair-historian-replication.sh) via docker exec -e, so the script
+#      still works when the compose secrets: mount resolved to the empty
+#      ./secrets/.placeholder file.
+#   3. POSTGRES_PASSWORD env var — compose-level fallback.
 if [ -s "/run/secrets/historian_database_password" ]; then
     export PGPASSWORD="$(cat /run/secrets/historian_database_password)"
+elif [ -n "${HISTORIAN_DATABASE_PASSWORD:-}" ]; then
+    export PGPASSWORD="${HISTORIAN_DATABASE_PASSWORD}"
 elif [ -n "${POSTGRES_PASSWORD:-}" ]; then
     export PGPASSWORD="${POSTGRES_PASSWORD}"
 else
-    echo "ERROR: no database password available (/run/secrets/historian_database_password missing and POSTGRES_PASSWORD unset)." >&2
+    echo "ERROR: no database password available. Tried /run/secrets/historian_database_password (missing or empty), HISTORIAN_DATABASE_PASSWORD (unset), and POSTGRES_PASSWORD (unset)." >&2
+    echo "Hint: run this via ./repair-historian-replication.sh from aems-app/ so the host .env password is forwarded, or ensure secrets.sh has been run and the historian_database_password secret is mounted." >&2
     exit 1
 fi
 
@@ -155,9 +166,14 @@ fi
 
 # --- Apply repair ------------------------------------------------------------
 
+# Same fallback chain as the database password above — the repair script may
+# be invoked when the compose secrets: mount is empty, in which case the host
+# wrapper forwards HISTORIAN_REPLICATOR_PASSWORD via docker exec -e.
 REPLICATOR_PASSWORD=""
 if [ -s "/run/secrets/historian_replicator_password" ]; then
     REPLICATOR_PASSWORD="$(cat /run/secrets/historian_replicator_password)"
+elif [ -n "${HISTORIAN_REPLICATOR_PASSWORD:-}" ]; then
+    REPLICATOR_PASSWORD="${HISTORIAN_REPLICATOR_PASSWORD}"
 fi
 
 echo ""

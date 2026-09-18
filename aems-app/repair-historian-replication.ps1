@@ -101,10 +101,22 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
+# Forward host-side passwords so the in-container script can authenticate even
+# when the compose secrets: mount ended up as ./secrets/.placeholder (empty
+# file) — same pattern as migrate-historian-data.ps1 / .sh.
+$DbPassword = if ($env:HISTORIAN_DATABASE_PASSWORD) { $env:HISTORIAN_DATABASE_PASSWORD } else { "" }
+$ReplPassword = if ($env:HISTORIAN_REPLICATOR_PASSWORD) { $env:HISTORIAN_REPLICATOR_PASSWORD } else { "" }
+
 if ($DryRun) {
-    docker exec -i $TargetContainer /usr/local/bin/repair-replication.sh --dry-run
+    docker exec -i `
+        -e "HISTORIAN_DATABASE_PASSWORD=$DbPassword" `
+        -e "HISTORIAN_REPLICATOR_PASSWORD=$ReplPassword" `
+        $TargetContainer /usr/local/bin/repair-replication.sh --dry-run
 } else {
-    docker exec -i $TargetContainer /usr/local/bin/repair-replication.sh
+    docker exec -i `
+        -e "HISTORIAN_DATABASE_PASSWORD=$DbPassword" `
+        -e "HISTORIAN_REPLICATOR_PASSWORD=$ReplPassword" `
+        $TargetContainer /usr/local/bin/repair-replication.sh
 }
 
 if ($LASTEXITCODE -ne 0) {
