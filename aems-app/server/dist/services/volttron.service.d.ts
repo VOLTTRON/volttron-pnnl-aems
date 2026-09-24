@@ -7,6 +7,7 @@ export declare class VolttronService implements OnModuleDestroy {
     private readonly maxRetries;
     constructor(configService: AppConfigService);
     onModuleDestroy(): void;
+    private parseJsonResponseOrThrow;
     makeAuthCall(): Promise<string>;
     makeApiCall(id: string, method: string, token: string, data: any): Promise<any>;
     private makeApiCallWithRetry;

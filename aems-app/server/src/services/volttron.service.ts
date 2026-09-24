@@ -27,6 +27,24 @@ export class VolttronService implements OnModuleDestroy {
     });
   }
 
+  private async parseJsonResponseOrThrow(
+    response: Awaited<ReturnType<typeof fetch>>,
+    context: string,
+  ): Promise<any> {
+    const previewBody = async (): Promise<string> => {
+      const text = await response.text().catch(() => "<unreadable body>");
+      return text.length > 256 ? `${text.slice(0, 253)}…` : text;
+    };
+    if (!response.ok) {
+      throw new Error(`${context}: HTTP ${response.status} ${response.statusText} — ${await previewBody()}`);
+    }
+    const ct = response.headers.get("content-type") ?? "";
+    if (!ct.toLowerCase().includes("application/json")) {
+      throw new Error(`${context}: expected JSON, got content-type "${ct}" — ${await previewBody()}`);
+    }
+    return response.json();
+  }
+
   async makeAuthCall(): Promise<string> {
     if (this.configService.volttron.mocked) {
       this.logger.log("Mocked Volttron Auth call");
@@ -42,7 +60,7 @@ export class VolttronService implements OnModuleDestroy {
       headers: { "Content-Type": "application/json" },
       dispatcher: this.agent,
     });
-    const json: any = await response.json();
+    const json: any = await this.parseJsonResponseOrThrow(response, "Volttron auth");
     if (typeof json?.access_token !== "string") {
       throw new Error(`Failed Volttron Auth call: ${inspect(json)}`);
     }
@@ -82,7 +100,7 @@ export class VolttronService implements OnModuleDestroy {
         dispatcher: this.agent,
       });
 
-      const json: any = await response.json();
+      const json: any = await this.parseJsonResponseOrThrow(response, `Volttron API ${method}`);
 
       if (this.configService.service.config.verbose) {
         this.logger.log(inspect({ url: this.configService.service.config.apiUrl, response: json }, undefined, 10));

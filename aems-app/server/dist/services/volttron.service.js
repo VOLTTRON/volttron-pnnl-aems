@@ -33,6 +33,20 @@ let VolttronService = VolttronService_1 = class VolttronService {
             this.logger.error(`Failed to destroy VolttronService agent:`, error);
         });
     }
+    async parseJsonResponseOrThrow(response, context) {
+        const previewBody = async () => {
+            const text = await response.text().catch(() => "<unreadable body>");
+            return text.length > 256 ? `${text.slice(0, 253)}…` : text;
+        };
+        if (!response.ok) {
+            throw new Error(`${context}: HTTP ${response.status} ${response.statusText} — ${await previewBody()}`);
+        }
+        const ct = response.headers.get("content-type") ?? "";
+        if (!ct.toLowerCase().includes("application/json")) {
+            throw new Error(`${context}: expected JSON, got content-type "${ct}" — ${await previewBody()}`);
+        }
+        return response.json();
+    }
     async makeAuthCall() {
         if (this.configService.volttron.mocked) {
             this.logger.log("Mocked Volttron Auth call");
@@ -48,7 +62,7 @@ let VolttronService = VolttronService_1 = class VolttronService {
             headers: { "Content-Type": "application/json" },
             dispatcher: this.agent,
         });
-        const json = await response.json();
+        const json = await this.parseJsonResponseOrThrow(response, "Volttron auth");
         if (typeof json?.access_token !== "string") {
             throw new Error(`Failed Volttron Auth call: ${(0, node_util_1.inspect)(json)}`);
         }
@@ -81,7 +95,7 @@ let VolttronService = VolttronService_1 = class VolttronService {
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 dispatcher: this.agent,
             });
-            const json = await response.json();
+            const json = await this.parseJsonResponseOrThrow(response, `Volttron API ${method}`);
             if (this.configService.service.config.verbose) {
                 this.logger.log((0, node_util_1.inspect)({ url: this.configService.service.config.apiUrl, response: json }, undefined, 10));
             }
