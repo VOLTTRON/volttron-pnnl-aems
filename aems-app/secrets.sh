@@ -244,6 +244,12 @@ MYSQL_PASSWORD_FILE=/run/secrets/bookstack_database_password
 # above doesn't leak into the historian container.
 HISTORIAN_DATABASE_PASSWORD_FILE=/run/secrets/historian_database_password
 
+# Grafana legacy time-series database. Same shape as
+# KC_DB_POSTGRES_PASSWORD_FILE — routed by the service's
+# `POSTGRES_PASSWORD_FILE: ${GRAFANA_DB_POSTGRES_PASSWORD_FILE:-}` so
+# the main-db path doesn't leak into the grafana-db container.
+GRAFANA_DB_POSTGRES_PASSWORD_FILE=/run/secrets/grafana_database_password
+
 # Compose top-level `secrets:` entries interpolate <KEY>_SOURCE to pick
 # the host-side file. When unset, compose falls back to the tracked
 # empty `docker/secrets/.placeholder`. The lines below (one per key in

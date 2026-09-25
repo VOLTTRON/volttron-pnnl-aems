@@ -126,6 +126,27 @@ psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" 
     ORDER BY c.relname;
 EOSQL
 
+# Seed the historian password fingerprint file so the entrypoint wrapper's
+# reconciler no-ops on the second-ever start. Matches the fallback chain in
+# docker-entrypoint-wrapper.sh exactly.
+INIT_PW=""
+INIT_TAG=""
+if [ -s "/run/secrets/historian_database_password" ]; then
+    INIT_PW="$(cat /run/secrets/historian_database_password)"
+    INIT_TAG="secret"
+elif [ -n "${HISTORIAN_DATABASE_PASSWORD:-}" ]; then
+    INIT_PW="${HISTORIAN_DATABASE_PASSWORD}"
+    INIT_TAG="env-hist"
+elif [ -n "${POSTGRES_PASSWORD:-}" ]; then
+    INIT_PW="${POSTGRES_PASSWORD}"
+    INIT_TAG="env-postgres"
+fi
+if [ -n "${INIT_PW}" ]; then
+    printf '%s:%s\n' "${INIT_TAG}" "$(printf '%s' "${INIT_PW}" | sha256sum | awk '{print $1}')" \
+        > "${PGDATA}/.historian_pw_fp"
+fi
+unset INIT_PW
+
 echo "================================================"
 echo "Logical Replication Setup Complete!"
 echo "================================================"

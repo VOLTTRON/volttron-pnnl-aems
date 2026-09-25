@@ -41,6 +41,8 @@ secrets:
     file: ${HISTORIAN_REPLICATOR_PASSWORD_SOURCE:-./secrets/.placeholder}
   grafana_admin_password:
     file: ${GRAFANA_ADMIN_PASSWORD_SOURCE:-./secrets/.placeholder}
+  grafana_database_password:
+    file: ${GRAFANA_DATABASE_PASSWORD_SOURCE:-./secrets/.placeholder}
   keycloak_grafana_client_secret:
     file: ${KEYCLOAK_GRAFANA_CLIENT_SECRET_SOURCE:-./secrets/.placeholder}
 
@@ -765,16 +767,26 @@ services:
       - grafana-cache:/var/lib/grafana
       - certs-data:/etc/certs/:ro
 
-  # Grafana database
+  # Grafana legacy time-series database. Retained for
+  # migrate-historian-data.sh; not part of any active runtime path
+  # (grafana itself uses SQLite; the historian service supersedes this
+  # as the live time-series store). Same POSTGRES_PASSWORD / _FILE
+  # pair as keycloak-db and historian so cold-init works whether
+  # secrets.sh has been run or the operator is in env-only mode.
   grafana-db:
     container_name: ${COMPOSE_PROJECT_NAME}-grafana-db
     env_file:
       - .env.grafana
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-${GRAFANA_DATABASE_PASSWORD}}
+      POSTGRES_PASSWORD_FILE: ${GRAFANA_DB_POSTGRES_PASSWORD_FILE:-}
     hostname: grafana-db
     image: postgres:16-alpine
     profiles:
       - grafana
     restart: unless-stopped
+    secrets:
+      - grafana_database_password
     volumes:
       - grafana-data:/var/lib/postgresql/data
 

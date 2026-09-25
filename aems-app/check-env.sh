@@ -79,6 +79,35 @@ mkdir -p "$SECRETS_DIR"
 printf "\n${BOLD}Environment/Secrets Check${RESET}\n"
 printf "Running from: %s\n" "$(pwd)"
 
+# ── env-file line-integrity check ──────────────────────────────────────────────
+# Detects the concatenation-bug class where a hand-edit or a tool drops the
+# newline between two entries, producing something like:
+#     HISTORIAN_REPLICATOR_PASSWORD=passwordVOLTTRON_PASSWORD=admin
+# The first value is corrupted and the second key vanishes. Runs before the
+# value-level checks below so broken lines don't produce misleading downstream
+# errors (e.g. a "placeholder still present" false positive on a concatenated line).
+check_line_integrity() {
+  file="$1"
+  [ -f "$file" ] || return 0
+  # Match: KEY= at line start, then value chars, then an alnum char followed
+  # by an embedded MULTI_WORD_KEY=. The underscore in the embedded key is what
+  # distinguishes real env-var names from URL fragments / query params — URLs
+  # separate params with '?' or '&' which are not alnum, so ?FOO_BAR=x doesn't
+  # match while passwordVOLTTRON_PASSWORD=x does.
+  bad_lines=$(grep -nE '^[A-Z][A-Z0-9_]*=.*[a-zA-Z0-9][A-Z][A-Z0-9]{2,}(_[A-Z0-9]+)+=' "$file" || true)
+  if [ -n "$bad_lines" ]; then
+    header "Line-integrity check FAILED for $file"
+    error "One or more lines look like KEY=VALUEKEY=VALUE (missing newline between entries):"
+    printf '%s\n' "$bad_lines" | while IFS= read -r line; do
+      printf "    %s\n" "$line"
+    done
+    error "Fix the file (insert the missing newline) and re-run ./check-env.sh"
+    mark_error
+  fi
+}
+check_line_integrity "$ENV_FILE"
+check_line_integrity "$SECRETS_FILE"
+
 # ── No .env.secrets: warn-only paths ──────────────────────────────────────────
 #
 # Without .env.secrets the user is in dev/env-only mode. Docker will start
