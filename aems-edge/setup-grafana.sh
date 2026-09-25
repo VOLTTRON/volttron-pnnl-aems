@@ -259,19 +259,11 @@ GRAFANA_USERNAME=${GRAFANA_USERNAME:-""}
 GRAFANA_PASSWORD=${GRAFANA_PASSWORD:-""}
 GRAFANA_VERIFY_SSL=${GRAFANA_VERIFY_SSL:-"false"}
 
-# Docker secrets are the authoritative source when present.
-# aems-app/docker/docker-compose.yml mounts these at /run/secrets/ via
-# the grafana-setup service's
-# `secrets: [historian_database_password, grafana_admin_password, keycloak_admin_password]`.
-if [[ -s "/run/secrets/historian_database_password" ]]; then
-    HISTORIAN_DB_PASSWORD="$(cat /run/secrets/historian_database_password)"
-fi
-if [[ -s "/run/secrets/grafana_admin_password" ]]; then
-    GRAFANA_PASSWORD="$(cat /run/secrets/grafana_admin_password)"
-fi
-if [[ -s "/run/secrets/keycloak_admin_password" ]]; then
-    KEYCLOAK_ADMIN_PASSWORD="$(cat /run/secrets/keycloak_admin_password)"
-fi
+# Values come from the environment (populated by the compose env_file
+# chain from .env.secrets).
+HISTORIAN_DB_PASSWORD="${HISTORIAN_DATABASE_PASSWORD:-${HISTORIAN_DB_PASSWORD:-}}"
+GRAFANA_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-${GRAFANA_PASSWORD:-}}"
+KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:-}"
 
 # Base directories
 BASE_DIR="/home/user/configurations"

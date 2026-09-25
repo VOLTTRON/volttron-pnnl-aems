@@ -527,8 +527,8 @@ graph TB
     end
     
     subgraph Secrets["Secrets Management"]
-        SecretFiles[/Docker Secrets<br/>File-based/]
-        EnvVars[Environment Variables<br/>Fallback]
+        EnvSecrets[/.env.secrets<br/>gitignored/]
+        EnvVars[.env<br/>defaults + placeholders]
     end
     
     subgraph Build["Multi-Stage Build Process"]
@@ -549,8 +549,8 @@ graph TB
     ServerC -->|Internal Proxy<br/>After Role Check| NomC
     ServerC -->|Internal Proxy<br/>After Role Check| WikiC
     
-    SecretFiles -->|Mounted at<br/>/run/secrets/| AppContainers
-    EnvVars -.->|Fallback| AppContainers
+    EnvSecrets -->|env_file: on compose include| AppContainers
+    EnvVars -.->|env_file: on compose include| AppContainers
     
     Base --> PrismaBuild
     PrismaBuild --> CommonBuild
@@ -631,19 +631,17 @@ Get up and running with the Skeleton App:
    cp .env.example .env
    # Edit '.env' and set 'APP_HOSTNAME' to a valid hostname or your IP Address
 
-   # Bootstrap .env.secrets from .env (first run auto-creates the file
-   # seeded with every secret key it finds in .env; second run generates
-   # the docker/secrets/*.txt files once you've filled in real values).
+   # Bootstrap .env.secrets from .env (auto-creates a stub file seeded
+   # with every secret key it finds in .env). Fill in real values, then
+   # docker compose loads .env.secrets automatically on the next `up -d`.
    #
    # Windows:
-   .\secrets.ps1  # first run: writes stub .env.secrets, exits
-   # ...edit .env.secrets, then:
-   .\secrets.ps1  # second run: writes docker/secrets/*.txt
+   .\secrets.ps1  # writes stub .env.secrets and exits
+   # ...edit .env.secrets with real values.
 
    # Linux/Mac:
-   ./secrets.sh   # first run
-   # ...edit .env.secrets, then:
-   ./secrets.sh   # second run
+   ./secrets.sh   # writes stub .env.secrets and exits
+   # ...edit .env.secrets with real values.
 
    # Validate the configuration before starting
    ./check-env.sh        # Linux/Mac
@@ -2240,19 +2238,11 @@ docker exec -it aems-historian cat /app/config/historian-topic-map.json
 
 Default configuration for docker compose can be found at [.env](./.env). Sensitive values should be stored in [.env.secrets](./.env.secrets) file. There are default users with temporary passwords defined for local authentication in the [docker/seed/20211103151730-system-user.json](./docker/seed/20211103151730-system-user.json) file.
 
-#### Docker Secrets Management
+#### Secrets Management
 
-The application supports **Docker secrets** for secure handling of sensitive information in production deployments. This approach provides enhanced security compared to environment variables.
+Real secret values live in a single gitignored file: [.env.secrets](./.env.secrets). Compose picks it up for `${VAR}` interpolation only when `COMPOSE_ENV_FILES=.env,.env.secrets` is set in the shell (or `--env-file .env --env-file .env.secrets` is passed on the CLI). The wrapper scripts `start-services.sh` and `secrets.sh` export this env var automatically; if you're typing `docker compose` directly, set it yourself first. There are no `docker/secrets/*.txt` files, no `/run/secrets/*` mounts, and no `_FILE` env vars.
 
-**How It Works:**
-
-1. Secrets are defined in `.env.secrets` file (never commit this file!)
-2. Run the secrets script to generate individual secret files in `docker/secrets/`
-3. Docker Compose automatically mounts these secrets to containers at `/run/secrets/`
-4. Applications read from secrets first, then fall back to environment variables
-5. Third-party containers (PostgreSQL, Redis, etc.) use native secret file support
-
-**Generate Secret Files:**
+**Bootstrap:**
 
 ```bash
 # Windows
@@ -2262,11 +2252,7 @@ The application supports **Docker secrets** for secure handling of sensitive inf
 ./secrets.sh
 ```
 
-This generates:
-1. Individual secret files in `docker/secrets/` (e.g., `database_password.txt`)
-2. A `.env.secrets.docker` file with `_FILE` environment variable definitions
-
-**Deploy with Secrets:**
+On first run this writes a stub `.env.secrets` seeded with every key marked in `.env` with the sentinel `SeT_tHiS_iN_0x3A-.env.secrets-`. Fill in real values and then:
 
 ```bash
 docker compose up -d
@@ -2287,56 +2273,14 @@ docker compose up -d
 - `BOOKSTACK_ROOT_PASSWORD` - Wiki database root
 - `BOOKSTACK_DATABASE_PASSWORD` - Wiki database user
 - `BOOKSTACK_KEYCLOAK_CLIENT_SECRET` - Wiki OAuth client
+- `HISTORIAN_DATABASE_PASSWORD`, `HISTORIAN_REPLICATOR_PASSWORD` - Historian time-series DB
+- `GRAFANA_ADMIN_PASSWORD`, `GRAFANA_DATABASE_PASSWORD`, `KEYCLOAK_GRAFANA_CLIENT_SECRET` - Grafana
 
-**Fallback Behavior:**
+**Rotation:**
 
-The system provides flexible secret management through conditional environment variables:
-
-**Without Secrets (Backward Compatible):**
-- Don't run `secrets.sh` / `secrets.ps1`
-- Start containers normally: `docker compose up -d`
-- Database containers read passwords from `.env` files (e.g., `POSTGRES_PASSWORD`)
-- Everything works as before - no changes needed
-
-**With Secrets (Enhanced Security):**
-- Run `secrets.sh` / `secrets.ps1` to generate secret files
-- Start containers with: `docker compose up -d`
-- The `.env.secrets.docker` file sets `_FILE` variables (e.g., `POSTGRES_PASSWORD_FILE`)
-- Database containers read passwords from `/run/secrets/` instead
-- Plain password variables are ignored when `_FILE` is set
-
-This provides flexibility for different deployment scenarios:
-- **Development**: Use environment variables directly (simpler setup, no secrets script needed)
-- **Production**: Use Docker secrets (enhanced security, run secrets script)
-- **CI/CD**: Choose based on your platform's secret management capabilities
-
-**Security Benefits:**
-
-- ✅ Secrets never appear in container environment variables
-- ✅ Secrets are not visible in `docker inspect` output
-- ✅ File-based secrets can have restricted permissions (chmod 600)
-- ✅ Easier secret rotation without container rebuilds
-- ✅ Compatible with Docker Swarm and Kubernetes secrets
-
-**Example Configuration:**
-
-```yaml
-# docker-compose.yml snippet
-secrets:
-  database_password:
-    file: ./docker/secrets/database_password.txt
-
-services:
-  database:
-    secrets:
-      - database_password
-    environment:
-      POSTGRES_PASSWORD_FILE: /run/secrets/database_password
-```
+Edit `.env.secrets`, then re-run `./secrets.sh` (or `.\secrets.ps1`). The script compares the new value against `docker inspect`'s view of the running container, runs the appropriate handler live (`ALTER ROLE` for Postgres, `ALTER USER` for MariaDB, `kcadm` for Keycloak, `grafana-cli` for Grafana admin, restart for Redis/app secrets), then `docker compose up -d --no-deps <svc>` to reload env into the container. **`docker compose restart` will not pick up new values** — always use `up -d --no-deps` (or let `secrets.sh` do it).
 
 The authoritative secret list lives in [.env](./.env) — every entry with the placeholder value `SeT_tHiS_iN_0x3A-.env.secrets-` is treated as a declared secret. Add a new secret by adding a line to `.env` with that placeholder; the next `secrets.sh` run picks it up automatically.
-
-`.env.secrets` (gitignored) holds the real values you fill in after bootstrap. `docker/.env.secrets.docker` (also gitignored, auto-generated) contains only the compose interpolation glue — image `_FILE` variables and `<KEY>_SOURCE=./secrets/<key>.txt` pointers — that lets each service's top-level `secrets:` reference resolve to the right host file. Real secret values never live in this file; they stay in `docker/secrets/*.txt` and reach each container through its `/run/secrets/<name>` mount. Volttron, grafana, and historian follow the same pattern: their setup scripts and Postgres `POSTGRES_PASSWORD_FILE` / Grafana `GF_*__FILE` env vars read from the mounted secret file.
 
 The file [docker-compose.yml](./docker-compose.yml) or [docker/docker-compose.yml](./docker/docker-compose.yml) may need to be edited for some deployments. The docker compose definition contains a few optional containers that can be enabled by adding profiles. Proxy (`proxy`) is a Traefik proxy that can serve locally signed or valid internet certificates provided by Let's Encrypt. Open Street Map (`map`) is map file service that can be configured to provide Open Street Map tiles. Nominatim (`nom`) is an address lookup and auto-complete service that is configured to utilize the same data and area as the optional map container.
 
@@ -2609,7 +2553,7 @@ source ./env.sh .env.production
 
 #### `secrets.[ps1|sh]`
 
-Reads `.env.secrets` and writes individual secret files into `docker/secrets/` (one `.txt` file per key, named to match the Docker Compose `secrets:` block). Also generates `docker/.env.secrets.docker` with `_FILE` environment variable definitions for third-party containers.
+Manages `.env.secrets` and applies rotations to live containers. Bootstraps a stub `.env.secrets` on first run, migrates misplaced values from `.env`, and — when values differ from the running container's env — runs the appropriate `ALTER ROLE` / `kcadm.sh` / `grafana-cli` command against the container followed by `docker compose up -d --no-deps <svc>` to reload env.
 
 **Usage:**
 
@@ -2626,14 +2570,13 @@ Reads `.env.secrets` and writes individual secret files into `docker/secrets/` (
 Run this any time you edit `.env.secrets`. `secrets.sh` picks the right lane per key:
 
 - **Bootstrap** (no `.env.secrets` yet): writes a stub seeded from `.env`, exits.
-- **Fresh deploy** (no `docker/secrets/<key>.txt` yet): writes the file. No rotation needed — nothing is running with the old credential yet.
-- **Rotation** (deployed file exists with a value that differs from `.env.secrets`): runs the `ALTER ROLE`/`ALTER USER`/`kcadm.sh` command against the running container **before** overwriting the file, then restarts the affected services. If the container isn't running, the script refuses (writing the file without rotating would leave the next boot unable to authenticate). Pass `--force` to override.
+- **Rotation** (`.env.secrets` value differs from what `docker inspect` sees in the running container): runs the `ALTER ROLE` / `ALTER USER` / `kcadm.sh` / `grafana-cli` command against the running container, then `docker compose up -d --no-deps <svc>` so the container is recreated with fresh env from `.env.secrets`. If the container isn't running, the script refuses (bringing the stack up cold with a mismatched password would fail auth against the seeded data volume). Pass `--force` to override.
 - **No-op** (values already match): silent skip.
 
 Flags:
 - `./secrets.sh --dry-run` — show the plan without executing.
 - `./secrets.sh KEY1 KEY2 ...` — limit to named keys.
-- `./secrets.sh --force` — skip the rotation stage entirely; just write files. For fresh deploys where you'll wipe volumes, or for non-Docker environments.
+- `./secrets.sh --force` — skip live rotation. For fresh deploys where you'll wipe volumes, or for non-Docker environments.
 
 **File Format (`.env.secrets`):**
 
@@ -2645,7 +2588,7 @@ JWT_SECRET=your_jwt_secret_key
 
 #### `check-env.[ps1|sh]`
 
-Validates that `.env`, `.env.secrets`, and `docker/secrets/` are consistent before deploying. Called automatically by `start-services.[ps1|sh]`.
+Validates that `.env.secrets` is complete and free of placeholders before deploying. Called automatically by `start-services.[ps1|sh]`.
 
 Detects the deployment mode and applies appropriate checks:
 
@@ -2653,8 +2596,7 @@ Detects the deployment mode and applies appropriate checks:
 |------|-----------|----------|
 | Raw dev | `.env` still has placeholder values, no `.env.secrets` | Warning only — valid starting point |
 | Env-only | `.env` has real values, no `.env.secrets` | Warning about security posture, does not block |
-| Secrets | `.env.secrets` exists | Hard-fails if any secret file is missing or stale |
-| Mixed | Both `.env` edited and `.env.secrets` present | Advisory warning, still validates secrets chain |
+| Secrets | `.env.secrets` exists | Hard-fails if any key is missing or still a placeholder |
 
 ```bash
 ./check-env.sh        # Linux/Mac

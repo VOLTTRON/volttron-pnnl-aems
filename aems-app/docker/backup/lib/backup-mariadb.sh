@@ -21,22 +21,11 @@ fi
 # drains it, starving later iterations. Force stdin to /dev/null.
 docker compose exec -T "$SERVICE" sh -c '
     set -e
-    # When MYSQL_DATABASE is set we only need the app user — it always
-    # has GRANT ALL on its own database and its credentials are initialised
-    # deterministically from MYSQL_USER/MYSQL_PASSWORD (or *_FILE). Root
-    # is reserved for --all-databases dumps where no scope is configured,
-    # because some mariadb images (linuxserver) generate a random root
-    # password when MYSQL_ROOT_PASSWORD_FILE is injected but empty.
+    # Prefer the app user when scoped to a single database (always has
+    # GRANT ALL there); fall back to root for --all-databases dumps.
     if [ -n "${MYSQL_DATABASE:-}" ] && [ -n "${MYSQL_USER:-}" ]; then
-        if [ -n "${MYSQL_PASSWORD_FILE:-}" ] && [ -r "$MYSQL_PASSWORD_FILE" ]; then
-            PASS="$(cat "$MYSQL_PASSWORD_FILE")"
-        else
-            PASS="${MYSQL_PASSWORD:-}"
-        fi
+        PASS="${MYSQL_PASSWORD:-}"
         USER="$MYSQL_USER"
-    elif [ -n "${MYSQL_ROOT_PASSWORD_FILE:-}" ] && [ -r "$MYSQL_ROOT_PASSWORD_FILE" ]; then
-        PASS="$(cat "$MYSQL_ROOT_PASSWORD_FILE")"
-        USER="root"
     elif [ -n "${MYSQL_ROOT_PASSWORD:-}" ]; then
         PASS="$MYSQL_ROOT_PASSWORD"
         USER="root"

@@ -21,27 +21,19 @@ if [[ -z "$SERVICE" || -z "$OUTPUT" ]]; then
 fi
 
 # Run pg_dump inside the container, streaming SQL to stdout.
-# The container already has PGPASSWORD-equivalent context via its normal env.
-# We detect the username/db from standard postgres env vars inside the container.
-#
-# Supports either POSTGRES_PASSWORD_FILE (file-based secret) or POSTGRES_PASSWORD
-# (env var fallback). This mirrors the server's own fallback behavior.
+# Uses POSTGRES_PASSWORD from the container's env (populated by compose
+# from .env.secrets).
 
 # `-T` disables TTY but leaves stdin attached — if this script runs inside
 # a `while read` loop fed from a pipe, docker exec inherits that pipe and
 # drains it, starving later iterations. Force stdin to /dev/null.
 docker compose exec -T "$SERVICE" sh -c '
     set -e
-    if [ -n "${POSTGRES_PASSWORD_FILE:-}" ] && [ -r "$POSTGRES_PASSWORD_FILE" ]; then
-        PGPASSWORD="$(cat "$POSTGRES_PASSWORD_FILE")"
-    elif [ -n "${POSTGRES_PASSWORD:-}" ]; then
-        PGPASSWORD="$POSTGRES_PASSWORD"
-    fi
-    if [ -z "${PGPASSWORD:-}" ]; then
-        echo "backup-postgres: no password available (POSTGRES_PASSWORD_FILE/POSTGRES_PASSWORD unset)" >&2
+    if [ -z "${POSTGRES_PASSWORD:-}" ]; then
+        echo "backup-postgres: POSTGRES_PASSWORD is not set" >&2
         exit 3
     fi
-    export PGPASSWORD
+    export PGPASSWORD="$POSTGRES_PASSWORD"
     USER="${POSTGRES_USER:-postgres}"
     DB="${POSTGRES_DB:-$USER}"
     pg_dump --clean --if-exists --no-owner --no-privileges \

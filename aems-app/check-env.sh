@@ -1,15 +1,14 @@
 #!/bin/sh
 #
-# Validate consistency of .env, .env.secrets, and docker/secrets/ before deploying.
+# Validate consistency of .env and .env.secrets before deploying.
 #
-# Exit 0: all warnings only (raw dev state, env-only, or secrets mode fully in sync)
-# Exit 1: secrets chain is broken (docker compose will fail or services will use wrong credentials)
+# Exit 0: OK (with or without warnings)
+# Exit 1: a required secret is missing or still holds the placeholder
 #
 # Usage: ./check-env.sh
 
 ENV_FILE=".env"
 SECRETS_FILE=".env.secrets"
-SECRETS_DIR="docker/secrets"
 PLACEHOLDER="SeT_tHiS_iN_0x3A-.env.secrets-"
 
 # ── color helpers ──────────────────────────────────────────────────────────────
@@ -29,10 +28,6 @@ mark_error() { ERRORS=$((ERRORS + 1)); }
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
-# Derive the authoritative secret key list from .env by grepping for
-# the placeholder marker. Any line in .env of the form KEY=<placeholder>
-# is treated as a declared secret; this is the same signal `secrets.sh`
-# uses when bootstrapping .env.secrets.
 env_secret_keys() {
   grep -F "=$PLACEHOLDER" "$ENV_FILE" | sed 's/=.*//'
 }
@@ -68,14 +63,6 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-# Ensure the placeholder bind-mount source exists. Every secret in
-# docker-compose.yml uses `${..._SOURCE:-./secrets/.placeholder}`, so a
-# missing placeholder file crashes `docker compose up` with a bind-mount
-# error before any service starts. The file is tracked in git, but guard
-# against `rm`, `docker compose down -v`, or an accidental wipe.
-mkdir -p "$SECRETS_DIR"
-[ -e "$SECRETS_DIR/.placeholder" ] || : > "$SECRETS_DIR/.placeholder"
-
 printf "\n${BOLD}Environment/Secrets Check${RESET}\n"
 printf "Running from: %s\n" "$(pwd)"
 
@@ -83,17 +70,10 @@ printf "Running from: %s\n" "$(pwd)"
 # Detects the concatenation-bug class where a hand-edit or a tool drops the
 # newline between two entries, producing something like:
 #     HISTORIAN_REPLICATOR_PASSWORD=passwordVOLTTRON_PASSWORD=admin
-# The first value is corrupted and the second key vanishes. Runs before the
-# value-level checks below so broken lines don't produce misleading downstream
-# errors (e.g. a "placeholder still present" false positive on a concatenated line).
+# The first value is corrupted and the second key vanishes.
 check_line_integrity() {
   file="$1"
   [ -f "$file" ] || return 0
-  # Match: KEY= at line start, then value chars, then an alnum char followed
-  # by an embedded MULTI_WORD_KEY=. The underscore in the embedded key is what
-  # distinguishes real env-var names from URL fragments / query params — URLs
-  # separate params with '?' or '&' which are not alnum, so ?FOO_BAR=x doesn't
-  # match while passwordVOLTTRON_PASSWORD=x does.
   bad_lines=$(grep -nE '^[A-Z][A-Z0-9_]*=.*[a-zA-Z0-9][A-Z][A-Z0-9]{2,}(_[A-Z0-9]+)+=' "$file" || true)
   if [ -n "$bad_lines" ]; then
     header "Line-integrity check FAILED for $file"
@@ -108,11 +88,12 @@ check_line_integrity() {
 check_line_integrity "$ENV_FILE"
 check_line_integrity "$SECRETS_FILE"
 
-# ── No .env.secrets: warn-only paths ──────────────────────────────────────────
+# ── No .env.secrets: env-only path ──────────────────────────────────────────
 #
-# Without .env.secrets the user is in dev/env-only mode. Docker will start
-# using whatever is in .env. We warn about the security posture but never
-# block — a fresh clone with all placeholders is a legitimate starting point.
+# Without .env.secrets, docker will start using whatever is in .env. Warn
+# but don't block — a fresh clone with placeholders is a legitimate
+# starting point, and putting real values directly in .env is a supported
+# simple-dev setup.
 
 if [ ! -f "$SECRETS_FILE" ]; then
   if env_has_placeholders; then
@@ -121,33 +102,25 @@ if [ ! -f "$SECRETS_FILE" ]; then
     warn "Services that depend on secrets (auth, database passwords, etc.) will not work"
     warn "until you either:"
     warn "  a) Edit .env directly with real values (simple dev setup), or"
-    warn "  b) Run ./secrets.sh — it bootstraps $SECRETS_FILE from .env, then re-run it"
-    warn "     after filling in real values to generate docker/secrets/*.txt"
+    warn "  b) Run ./secrets.sh — it bootstraps $SECRETS_FILE from .env; edit real values"
+    warn "     and re-run docker compose up -d."
   else
-    header "Mode: env-only"
-    warn "Running without docker secrets — secret values are set directly in .env."
-    warn "This works for development. For production, consider using secrets.sh."
+    header "Mode: env-only (real values in .env)"
+    warn "Running with real secret values in .env directly."
+    warn "This works but is less secure — .env is typically committed. Consider"
+    warn "moving secrets to $SECRETS_FILE (gitignored) via ./secrets.sh."
   fi
   printf "\n${GREEN}Check complete (warnings only).${RESET}\n\n"
   exit 0
 fi
 
-# ── .env.secrets exists: validate the full chain ──────────────────────────────
-#
-# Once .env.secrets is present the operator has committed to the secrets path.
-# Broken links in the chain (missing/stale docker/secrets/ files) will cause
-# docker compose to refuse to start or services to authenticate with wrong creds.
-# These are hard errors.
+# ── .env.secrets exists: validate completeness ────────────────────────────────
 
-# Mixed-state advisory: .env also has real values alongside .env.secrets
 if env_has_real_values; then
   header "Advisory: mixed configuration detected"
   warn ".env has real secret values AND .env.secrets also exists."
-  warn "Docker Compose loads .env first; docker/secrets/ takes effect only when"
-  warn "compose is invoked with --env-file docker/.env.secrets.docker."
-  warn "Reconcile to one approach to avoid confusion:"
-  warn "  - env-only: remove .env.secrets and docker/secrets/*.txt"
-  warn "  - secrets:  restore .env placeholder sentinels, keep .env.secrets"
+  warn "Both are loaded by compose; .env.secrets wins on collisions."
+  warn "Reset .env placeholders back to the sentinel to avoid confusion."
 fi
 
 header "Checking .env.secrets completeness"
@@ -165,36 +138,10 @@ for key in $(env_secret_keys); do
   fi
 done
 
-header "Checking docker/secrets/ is populated and in sync"
-
-if [ ! -d "$SECRETS_DIR" ]; then
-  error "docker/secrets/ directory does not exist — run ./secrets.sh to generate and apply secrets"
-  mark_error
-else
-  for key in $(env_secret_keys); do
-    secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
-    secret_file="${SECRETS_DIR}/${secret_name}.txt"
-    if [ ! -f "$secret_file" ]; then
-      error "$secret_file missing — run ./secrets.sh to generate and apply secrets"
-      mark_error
-    else
-      env_val=$(get_value "$SECRETS_FILE" "$key")
-      file_val=$(tr -d '\n' < "$secret_file")
-      if [ "$env_val" != "$file_val" ]; then
-        error "$key: $secret_file is stale (out of sync with .env.secrets) — run ./secrets.sh to apply changes to running services"
-        mark_error
-      else
-        ok "$key → $secret_file"
-      fi
-    fi
-  done
-fi
-
 # ── summary ────────────────────────────────────────────────────────────────────
 printf "\n"
 if [ "$ERRORS" -gt 0 ]; then
   printf "${RED}${BOLD}%d error(s) found.${RESET}" "$ERRORS"
-  printf " The secrets chain is broken — docker compose will fail or services will use wrong credentials.\n"
   printf " Fix the issues above and re-run ./check-env.sh\n\n"
   exit 1
 else

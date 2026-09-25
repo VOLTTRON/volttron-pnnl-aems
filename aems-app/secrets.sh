@@ -1,39 +1,43 @@
 #!/bin/sh
 #
-# Manage the secret pipeline: .env → .env.secrets → docker/secrets/*.txt.
+# Manage .env.secrets and apply rotations to live containers.
 #
-# One entry point for every secret operation:
+# Secrets live as plain KEY=VALUE lines in the gitignored `.env.secrets`
+# file. The root docker-compose.yml loads that file as an env_file, so
+# every ${VAR} interpolation and every service's `env_file: .env.<svc>`
+# forwarding picks the values up automatically. No /run/secrets, no _FILE
+# indirection, no docker/secrets/*.txt.
 #
-#   1. FIRST RUN (no .env.secrets): bootstrap it from .env's placeholder-
-#      marked keys. Exits after writing the stub so you can fill in real
-#      values. Nothing under docker/secrets/ is touched.
+# What this script does:
 #
-#   2. FRESH DEPLOY (no docker/secrets/<key>.txt yet): write each secret
-#      file. No rotation is needed — nothing is running with the old
-#      credential yet.
+#   1. BOOTSTRAP (no .env.secrets): create a stub .env.secrets seeded with
+#      every key marked in .env with the sentinel placeholder. Exits so the
+#      user can fill in real values.
 #
-#   3. ROTATION (docker/secrets/<key>.txt exists with a value that differs
-#      from .env.secrets AND a live deployment exists): run the
-#      credential-change SQL/kcadm command against the running container
-#      BEFORE overwriting the file, then restart the affected services.
-#      If the container isn't running, REFUSE — writing the file without
-#      rotating would leave the next boot unable to authenticate against
-#      the seeded data volume. Pass --force to override.
+#   2. MISPLACED (real values found in .env): migrate them into
+#      .env.secrets and warn.
 #
-#   4. NO-OP (values already match): silent skip.
+#   3. ROTATION (a key's value in .env.secrets differs from the value
+#      currently live in the deployed container): run the credential-change
+#      handler (ALTER ROLE / ALTER USER / kcadm.sh / grafana-cli) against
+#      the running container BEFORE the new env is picked up, then
+#      `docker compose up -d --no-deps <service>` so the container inherits
+#      the new value from .env.secrets. Container must be running — abort
+#      otherwise; pass --force to skip the live-rotation step (the operator
+#      is then responsible for wiping the affected data volume, if any).
 #
-#   5. RESIDUE (docker/secrets/<key>.txt differs from .env.secrets BUT
-#      no ${PROJECT}-* containers or ${PROJECT}_* volumes exist): treat
-#      the mismatched files as residue from a prior run, prompt to
-#      overwrite, and skip the rotation lane. --yes or --force
-#      auto-confirms the prompt.
+#   4. NO-OP: silent skip when the running container's env already matches.
+#
+# Note on restart mode: `docker compose restart` reuses the cached env
+# vars in the existing container — it does NOT re-read env_file. We use
+# `docker compose up -d --no-deps <svc>` instead, which recreates the
+# container with fresh env.
 #
 # Usage:
 #   ./secrets.sh                # process every key in .env.secrets
 #   ./secrets.sh KEY1 KEY2 ...  # limit to named keys
 #   ./secrets.sh --dry-run      # print the plan without executing
-#   ./secrets.sh --force        # skip the rotation stage; just write files
-#   ./secrets.sh --yes          # auto-confirm residue overwrite
+#   ./secrets.sh --force        # skip the live-rotation step
 #
 # Must be run from the repo root.
 
@@ -41,10 +45,6 @@ set -e
 
 ENV_FILE=".env"
 SECRETS_FILE=".env.secrets"
-SECRETS_DIR="docker/secrets"
-SECRETS_ENV_FILE="docker/.env.secrets.docker"
-# Marker value in .env that flags a key as "needs a real secret before
-# deployment." Kept in one place — helpers grep on this exact string.
 PLACEHOLDER="SeT_tHiS_iN_0x3A-.env.secrets-"
 
 # ── arg parsing ────────────────────────────────────────────────────────────────
@@ -90,15 +90,14 @@ get_value() {
 
 # Derive the authoritative secret key list from .env by grepping for
 # the placeholder marker. Any line in .env of the form KEY=<placeholder>
-# is treated as a declared secret.
+# is a declared secret.
 env_secret_keys() {
   grep -F "=$PLACEHOLDER" "$ENV_FILE" | sed 's/=.*//'
 }
 
 # Returns key names for every variable in .env whose name ends in
 # _PASSWORD, _SECRET, _TOKEN, or _KEY and whose value is non-empty and
-# not the placeholder. These are secrets that belong in .env.secrets but
-# were set directly in .env (misplaced secrets).
+# not the placeholder. These belong in .env.secrets.
 env_misplaced_keys() {
   grep -v '^\s*#' "$ENV_FILE" \
     | grep -iE '^[A-Za-z_][A-Za-z0-9_]*_(PASSWORD|SECRET|TOKEN|KEY)=' \
@@ -112,7 +111,7 @@ env_misplaced_keys() {
 }
 
 # Write KEY=VALUE into FILE, replacing an existing entry or appending a
-# new one. Line-by-line rewrite so special characters in VALUE are safe.
+# new one.
 update_secrets_entry() {
   file="$1"; key="$2"; value="$3"
   if grep -q "^${key}=" "$file" 2>/dev/null; then
@@ -138,58 +137,67 @@ container_running() {
   docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^$1$"
 }
 
-# True iff any docker container (running or stopped) exists whose name
-# starts with "${1}-". Compose sets container names of the form
-# <project>-<service> when container_name uses ${COMPOSE_PROJECT_NAME}.
-project_has_containers() {
-  docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^$1-"
-}
-
-# Per-secret data volume: names the compose-declared volume that holds
-# seeded credentials for each rotation-capable secret. When the volume
-# is absent, overwriting the corresponding docker/secrets/*.txt file is
-# safe — no seeded state can be out of sync with the file.
-#
-# Keys without an entry here are either app-only (rotation via restart)
-# or read the credential from the compose command line (REDIS_PASSWORD).
-key_data_volume() {
-  case "$1" in
-    DATABASE_PASSWORD)                echo "database-data" ;;
-    KEYCLOAK_ADMIN_PASSWORD)          echo "keycloak-data" ;;
-    KEYCLOAK_DATABASE_PASSWORD)       echo "keycloak-data" ;;
-    KEYCLOAK_CLIENT_SECRET)           echo "keycloak-data" ;;
-    KEYCLOAK_GRAFANA_CLIENT_SECRET)   echo "keycloak-data" ;;
-    BOOKSTACK_KEYCLOAK_CLIENT_SECRET) echo "keycloak-data" ;;
-    NOMINATIM_DATABASE_PASSWORD)      echo "nominatim-data" ;;
-    BOOKSTACK_ROOT_PASSWORD)          echo "wiki-data" ;;
-    BOOKSTACK_DATABASE_PASSWORD)      echo "wiki-data" ;;
-    HISTORIAN_DATABASE_PASSWORD)      echo "historian-data" ;;
-    HISTORIAN_REPLICATOR_PASSWORD)    echo "historian-data" ;;
-    GRAFANA_ADMIN_PASSWORD)           echo "grafana-data" ;;
-    GRAFANA_DATABASE_PASSWORD)        echo "grafana-data" ;;
-    *) echo "" ;;
+# Which container's env holds each key's currently-deployed value. Used
+# by deployed_secret() to detect drift between .env.secrets and the live
+# stack.
+key_deployed_container() {
+  proj="$1"; key="$2"
+  case "$key" in
+    DATABASE_PASSWORD)                echo "${proj}-database" ;;
+    KEYCLOAK_ADMIN_PASSWORD)          echo "${proj}-keycloak" ;;
+    KEYCLOAK_DATABASE_PASSWORD)       echo "${proj}-keycloak-db" ;;
+    KEYCLOAK_CLIENT_SECRET)           echo "${proj}-server" ;;
+    KEYCLOAK_GRAFANA_CLIENT_SECRET)   echo "${proj}-grafana" ;;
+    BOOKSTACK_KEYCLOAK_CLIENT_SECRET) echo "${proj}-wiki" ;;
+    NOMINATIM_DATABASE_PASSWORD)      echo "${proj}-nominatim" ;;
+    BOOKSTACK_ROOT_PASSWORD)          echo "${proj}-wiki-db" ;;
+    BOOKSTACK_DATABASE_PASSWORD)      echo "${proj}-wiki-db" ;;
+    HISTORIAN_DATABASE_PASSWORD)      echo "${proj}-historian" ;;
+    HISTORIAN_REPLICATOR_PASSWORD)    echo "${proj}-historian" ;;
+    GRAFANA_ADMIN_PASSWORD)           echo "${proj}-grafana" ;;
+    GRAFANA_DATABASE_PASSWORD)        echo "${proj}-grafana-db" ;;
+    SESSION_SECRET|JWT_SECRET|WORKER_TOKEN)
+                                      echo "${proj}-server" ;;
+    REDIS_PASSWORD)                   echo "${proj}-redis" ;;
+    BOOKSTACK_SESSION_SECRET)         echo "${proj}-wiki" ;;
+    *)                                echo "" ;;
   esac
 }
 
-# True iff a docker named volume exists on this host that would hold
-# seeded credentials for $2 under project prefix $1. Returns false for
-# keys with no volume dependency (they're safe to overwrite by
-# definition).
-key_data_volume_exists() {
-  vol=$(key_data_volume "$2")
-  [ -z "$vol" ] && return 1
-  docker volume ls --format '{{.Name}}' 2>/dev/null | grep -q "^$1_${vol}$"
+# Read the value of $key from the running container's env. Empty string
+# if the container isn't running or the var isn't set. For DB services,
+# the env var name in the container is POSTGRES_PASSWORD / MYSQL_PASSWORD;
+# we look those up by pattern.
+container_env_key() {
+  case "$1" in
+    DATABASE_PASSWORD|KEYCLOAK_DATABASE_PASSWORD|NOMINATIM_DATABASE_PASSWORD|HISTORIAN_DATABASE_PASSWORD|GRAFANA_DATABASE_PASSWORD)
+      echo "POSTGRES_PASSWORD" ;;
+    BOOKSTACK_DATABASE_PASSWORD)       echo "MYSQL_PASSWORD" ;;
+    BOOKSTACK_ROOT_PASSWORD)           echo "MYSQL_ROOT_PASSWORD" ;;
+    GRAFANA_ADMIN_PASSWORD)            echo "GF_SECURITY_ADMIN_PASSWORD" ;;
+    KEYCLOAK_GRAFANA_CLIENT_SECRET)    echo "GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET" ;;
+    BOOKSTACK_SESSION_SECRET)          echo "APP_KEY" ;;
+    BOOKSTACK_KEYCLOAK_CLIENT_SECRET)  echo "OIDC_CLIENT_SECRET" ;;
+    KEYCLOAK_ADMIN_PASSWORD)           echo "KEYCLOAK_ADMIN_PASSWORD" ;;
+    KEYCLOAK_CLIENT_SECRET)            echo "KEYCLOAK_CLIENT_SECRET" ;;
+    HISTORIAN_REPLICATOR_PASSWORD)     echo "HISTORIAN_REPLICATOR_PASSWORD" ;;
+    *)                                 echo "$1" ;;
+  esac
 }
 
-# Read the currently-deployed value from disk (empty string if the file
-# doesn't exist).
 deployed_secret() {
   key="$1"
-  secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
-  secret_file="${SECRETS_DIR}/${secret_name}.txt"
-  if [ -f "$secret_file" ]; then
-    tr -d '\n' < "$secret_file"
-  fi
+  container=$(key_deployed_container "$PROJECT" "$key")
+  [ -z "$container" ] && return 0
+  container_running "$container" || return 0
+  env_key=$(container_env_key "$key")
+  val=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$container" 2>/dev/null \
+    | grep "^${env_key}=" | head -1 | sed 's/^[^=]*=//')
+  # Filter noise: an unfilled sentinel means compose interpolation produced
+  # a placeholder (old .env-only-with-placeholders deploys), not a real
+  # deployed value. Treat as "not deployed" so classification falls to FRESH.
+  [ "$val" = "$PLACEHOLDER" ] && val=""
+  printf '%s' "$val"
 }
 
 run_or_dry() {
@@ -200,106 +208,30 @@ run_or_dry() {
   fi
 }
 
-# Write docker/.env.secrets.docker with the given SOURCE_LINES block.
-# Called on every successful secrets.sh run so the root docker-compose.yml
-# include: env_file always reflects the current state and plain
-# `docker compose up -d` works without extra --env-file flags.
-write_secrets_env() {
-  source_lines="$1"
-  if [ "$DRY_RUN" = 1 ]; then
-    dry "Would regenerate $SECRETS_ENV_FILE"
-    return
-  fi
-  cat > "$SECRETS_ENV_FILE" << 'EOF'
-# Auto-generated by secrets.sh — do not edit manually.
-# Populated when secrets.sh has been run with real values in .env.secrets.
-# Referenced by the root docker-compose.yml include: env_file so that
-# plain `docker compose up -d` activates real Docker secrets without any
-# --env-file flags.
-
-# Image-defined _FILE vars tell database containers to read passwords from
-# /run/secrets/ instead of plain env vars. These are only active when
-# compose mounts a real (non-empty) secret file at the declared path.
-
-# Main application database
-POSTGRES_PASSWORD_FILE=/run/secrets/database_password
-
-# Keycloak SSO service
-KEYCLOAK_ADMIN_PASSWORD_FILE=/run/secrets/keycloak_admin_password
-KC_DB_PASSWORD_FILE=/run/secrets/keycloak_database_password
-
-# Keycloak database
-KC_DB_POSTGRES_PASSWORD_FILE=/run/secrets/keycloak_database_password
-
-# Nominatim geocoding service
-NOMINATIM_POSTGRES_PASSWORD_FILE=/run/secrets/nominatim_database_password
-
-# BookStack wiki database
-MYSQL_ROOT_PASSWORD_FILE=/run/secrets/bookstack_root_password
-MYSQL_PASSWORD_FILE=/run/secrets/bookstack_database_password
-
-# Historian database. Interpolated by the historian service's
-# `POSTGRES_PASSWORD_FILE: ${HISTORIAN_DATABASE_PASSWORD_FILE:-}` so the
-# main-db name (`POSTGRES_PASSWORD_FILE=/run/secrets/database_password`)
-# above doesn't leak into the historian container.
-HISTORIAN_DATABASE_PASSWORD_FILE=/run/secrets/historian_database_password
-
-# Grafana legacy time-series database. Same shape as
-# KC_DB_POSTGRES_PASSWORD_FILE — routed by the service's
-# `POSTGRES_PASSWORD_FILE: ${GRAFANA_DB_POSTGRES_PASSWORD_FILE:-}` so
-# the main-db path doesn't leak into the grafana-db container.
-GRAFANA_DB_POSTGRES_PASSWORD_FILE=/run/secrets/grafana_database_password
-
-# Compose top-level `secrets:` entries interpolate <KEY>_SOURCE to pick
-# the host-side file. When unset, compose falls back to the tracked
-# empty `docker/secrets/.placeholder`. The lines below (one per key in
-# .env.secrets) override that so real secret files get mounted.
-EOF
-  printf '%s' "$source_lines" >> "$SECRETS_ENV_FILE"
-  # Blank the plain-env counterparts. The postgres official image's
-  # `file_env` helper errors if BOTH `POSTGRES_PASSWORD` and
-  # `POSTGRES_PASSWORD_FILE` are set; blanking lets the _FILE vars win.
-  cat >> "$SECRETS_ENV_FILE" << 'EOF'
-
-POSTGRES_PASSWORD=
-KEYCLOAK_ADMIN_PASSWORD=
-KC_DB_PASSWORD=
-EOF
-  chmod 600 "$SECRETS_ENV_FILE"
-}
-
 # ── pre-flight ─────────────────────────────────────────────────────────────────
 if [ ! -f "$ENV_FILE" ]; then
   error "$ENV_FILE not found. Run from the repo root."
   exit 1
 fi
 
-# Ensure the placeholder bind-mount source exists. Compose's top-level
-# `secrets:` block falls back to `./secrets/.placeholder` whenever a
-# <KEY>_SOURCE var is unset (e.g. after the bootstrap-exit path below
-# truncates .env.secrets.docker to empty). A missing placeholder crashes
-# `docker compose up` with a bind-mount error, so guard against a rogue
-# `rm` or `docker compose down -v` here as belt-and-suspenders — the
-# file is tracked in git, so this normally no-ops.
-mkdir -p "$SECRETS_DIR"
-[ -e "$SECRETS_DIR/.placeholder" ] || : > "$SECRETS_DIR/.placeholder"
+# Point docker compose at both .env and .env.secrets for interpolation so
+# `docker compose up -d --no-deps <svc>` in the restart pass below picks up
+# real secret values. Compose's `include: env_file:` doesn't cascade.
+if [ -f "$SECRETS_FILE" ]; then
+  export COMPOSE_ENV_FILES="${ENV_FILE},${SECRETS_FILE}"
+else
+  export COMPOSE_ENV_FILES="${ENV_FILE}"
+fi
 
 # ══════════════════════════════════════════════════════════════════════════════
 # BOOTSTRAP PATH — .env.secrets doesn't exist
 # ══════════════════════════════════════════════════════════════════════════════
-# Derive the secret key list from .env, write a stub .env.secrets seeded
-# with those keys, then exit and ask the user to edit values before
-# re-running. Nothing under docker/secrets/ or docker/.env.secrets.docker
-# is touched — the user still has a working "no secrets" dev stack
-# (compose falls through to `.env` values via the `secrets:` placeholder
-# indirection).
 if [ ! -f "$SECRETS_FILE" ]; then
   echo "No $SECRETS_FILE found — bootstrapping from $ENV_FILE."
 
   secret_keys=$(env_secret_keys)
   misplaced_keys=$(env_misplaced_keys)
 
-  # Warn about and merge in any misplaced secrets found in .env
   if [ -n "$misplaced_keys" ]; then
     header "WARNING: Secret values found in $ENV_FILE"
     for key in $misplaced_keys; do
@@ -327,14 +259,13 @@ if [ ! -f "$SECRETS_FILE" ]; then
     printf '#\n'
     printf '# Workflow:\n'
     printf '#   1. Edit the values below.\n'
-    printf '#   2. Re-run ./secrets.sh to write docker/secrets/*.txt and\n'
-    printf '#      docker/.env.secrets.docker.\n'
-    printf '#   3. Bring the stack up:\n'
-    printf '#        docker compose up -d\n'
+    printf '#   2. Bring the stack up: docker compose up -d\n'
     printf '#\n'
-    printf '# Add a new secret? Add it to .env with the placeholder value and\n'
-    printf '# re-run ./secrets.sh — this file will be regenerated with the new\n'
-    printf '# key preserved alongside any existing values.\n'
+    printf '# To rotate a credential after deploy:\n'
+    printf '#   1. Edit the value here.\n'
+    printf '#   2. Re-run ./secrets.sh — it will apply the change against the\n'
+    printf '#      running container and then `docker compose up -d --no-deps`\n'
+    printf '#      to reload env into affected services.\n'
     printf '\n'
     for key in $secret_keys; do
       env_val=$(get_value "$ENV_FILE" "$key")
@@ -348,43 +279,32 @@ if [ ! -f "$SECRETS_FILE" ]; then
 
   chmod 600 "$SECRETS_FILE"
 
-  # Reset docker/.env.secrets.docker to empty so that `docker compose up -d`
-  # falls back to the .env placeholder defaults until real secrets are deployed.
-  # Without this, stale _SOURCE paths from a prior run cause compose to
-  # auto-create missing files as directories, corrupting future secret mounts.
-  : > "$SECRETS_ENV_FILE"
-
   blank_count=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=$' "$SECRETS_FILE" | wc -l | tr -d ' ')
   count=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$SECRETS_FILE" | wc -l | tr -d ' ')
 
+  echo
+  echo "Wrote $count stub entries to $SECRETS_FILE."
+  [ -n "$misplaced_keys" ] && echo "Some entries were pre-populated from $ENV_FILE values."
   if [ "$blank_count" -gt 0 ]; then
-    echo
-    echo "Wrote $count stub entries to $SECRETS_FILE."
-    [ -n "$misplaced_keys" ] && echo "Some entries were pre-populated from $ENV_FILE values."
     echo
     echo "Next steps:"
     echo "  1. Edit $SECRETS_FILE and fill in the $blank_count remaining blank entries."
-    echo "  2. Re-run ./secrets.sh to generate docker/secrets/*.txt and"
-    echo "     docker/.env.secrets.docker."
+    echo "  2. docker compose up -d"
     echo
-    exit 0
   fi
-
-  info "All secrets pre-populated from $ENV_FILE — proceeding with deployment."
+  exit 0
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
-# DEPLOY / ROTATE PATH — .env.secrets exists
+# ROTATE PATH — .env.secrets exists
 # ══════════════════════════════════════════════════════════════════════════════
 
-printf "\n${BOLD}Secret Deploy${RESET}"
+printf "\n${BOLD}Secret Rotate${RESET}"
 [ "$DRY_RUN" = 1 ] && printf " ${YELLOW}(dry-run)${RESET}"
-[ "$FORCE"   = 1 ] && printf " ${YELLOW}(--force: skipping rotation)${RESET}"
+[ "$FORCE"   = 1 ] && printf " ${YELLOW}(--force: skipping live rotation)${RESET}"
 printf "\nRunning from: %s\n" "$(pwd)"
 
 PROJECT=$(project_name)
-
-mkdir -p "$SECRETS_DIR"
 
 # Build the list of keys to process.
 if [ -n "$EXPLICIT_KEYS" ]; then
@@ -394,10 +314,6 @@ else
 fi
 
 # ── misplaced-secret migration ─────────────────────────────────────────────────
-# Scan .env for credential-named keys with real values that are absent or
-# blank in .env.secrets. Warn and migrate them so the deploy pass can write
-# their docker/secrets/*.txt files. Only runs when not filtering by explicit
-# keys (full runs only — targeted single-key reruns skip this).
 if [ -z "$EXPLICIT_KEYS" ]; then
   _misplaced=$(env_misplaced_keys)
   if [ -n "$_misplaced" ]; then
@@ -416,8 +332,6 @@ if [ -z "$EXPLICIT_KEYS" ]; then
         fi
         _migrated=$((_migrated + 1))
       fi
-      # Always add to KEYS_TO_CHECK so .txt files get written even when
-      # .env.secrets was already populated (e.g. by the bootstrap fall-through).
       case " $KEYS_TO_CHECK " in *" $key "*) ;; *) KEYS_TO_CHECK="$KEYS_TO_CHECK $key" ;; esac
     done
     if [ "$_migrated" -gt 0 ] && [ "$DRY_RUN" = 0 ]; then
@@ -426,174 +340,48 @@ if [ -z "$EXPLICIT_KEYS" ]; then
   fi
 fi
 
-# ── residue check ─────────────────────────────────────────────────────────────
-# Per-key check: for each key whose docker/secrets/*.txt differs from
-# .env.secrets, is there ANY live state (running/stopped container or a
-# seeded data volume) that would make live rotation necessary? If not,
-# the file is residue from a prior run and can be safely overwritten.
-# Prompt once with the full list so the user can approve all at once.
-RESIDUE_KEYS=""
-for key in $KEYS_TO_CHECK; do
-  new_val=$(get_value "$SECRETS_FILE" "$key")
-  if [ -z "$new_val" ] || [ "$new_val" = "$PLACEHOLDER" ]; then
-    continue
-  fi
-  secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
-  secret_file="${SECRETS_DIR}/${secret_name}.txt"
-  if [ ! -f "$secret_file" ]; then
-    continue
-  fi
-  old_val=$(deployed_secret "$key")
-  if [ "$new_val" = "$old_val" ]; then
-    continue
-  fi
-
-  # Would be classified as a rotation. Check whether any live state
-  # would actually block it. Both container AND data volume absent =>
-  # the file is residue.
-  if project_has_containers "$PROJECT"; then
-    continue
-  fi
-  if key_data_volume_exists "$PROJECT" "$key"; then
-    continue
-  fi
-
-  RESIDUE_KEYS="$RESIDUE_KEYS $key"
-done
-
-if [ -n "$(printf '%s' "$RESIDUE_KEYS" | tr -d ' ')" ]; then
-  header "No live deployment detected for changed keys"
-  warn "The following docker/secrets/ files do not match ${SECRETS_FILE},"
-  warn "and neither their container nor their data volume exists:"
-  for key in $RESIDUE_KEYS; do
-    secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
-    warn "  ${secret_name}.txt"
-  done
-  printf "\n"
-  printf "These files are residue from a prior run. No live rotation is\n"
-  printf "needed — the new values will be honored on the next \`docker\n"
-  printf "compose up\`.\n\n"
-
-  confirmed=0
-  if [ "$DRY_RUN" = 1 ]; then
-    dry "Would prompt to overwrite residue files"
-    confirmed=1
-  elif [ "$YES" = 1 ] || [ "$FORCE" = 1 ]; then
-    info "Auto-confirmed (--yes / --force)"
-    confirmed=1
-  else
-    printf "Overwrite these files from %s? [y/N] " "$SECRETS_FILE"
-    read -r answer || answer=""
-    case "$answer" in
-      y|Y|yes|YES) confirmed=1 ;;
-    esac
-  fi
-
-  if [ "$confirmed" = 0 ]; then
-    printf "\n"
-    error "Aborted by user."
-    printf "Re-run with --yes to auto-confirm, or delete the residue files\n"
-    printf "manually and re-run.\n\n"
-    exit 1
-  fi
-
-  # Overwrite residue files in place so classification sees them as
-  # matching .env.secrets. Rotation lane will not fire for these keys.
-  if [ "$DRY_RUN" = 0 ]; then
-    overwritten=0
-    for key in $RESIDUE_KEYS; do
-      new_val=$(get_value "$SECRETS_FILE" "$key")
-      secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
-      secret_file="${SECRETS_DIR}/${secret_name}.txt"
-      echo "$new_val" > "$secret_file"
-      chmod 600 "$secret_file"
-      overwritten=$((overwritten + 1))
-    done
-    ok "Overwrote $overwritten residue file(s)"
-  fi
-fi
-
 # ── classify ──────────────────────────────────────────────────────────────────
 #
-# For each key, decide the lane:
-#   FRESH_WRITES  — no deployed file yet, .env.secrets has a real value.
-#   ROTATIONS     — deployed file exists with a different value; need to
-#                   run the credential-change handler before overwriting.
-#   NOOPS         — deployed file matches .env.secrets. Silent skip.
-#   CONFLICTS     — deployed file exists but .env.secrets is empty or
-#                   still holds the placeholder marker. Refuse — the user
-#                   almost certainly forgot to fill in the value; writing
-#                   would blank a live secret.
-#   MISSING       — no deployed file AND no real value. Warn and skip.
+# For each key, compare the value in .env.secrets against what's live in
+# the running container:
+#   FRESH       — no container is running with this key, or the container
+#                 lookup returns empty. Nothing to rotate; the new value
+#                 will take effect on next `docker compose up -d`.
+#   ROTATIONS   — container is running with a different value; need to
+#                 apply the credential-change handler live.
+#   NOOPS       — container's env already matches .env.secrets.
+#   MISSING     — .env.secrets has no value for this key.
 
 header "Classifying secrets"
 
-FRESH_WRITES=""
+FRESH=""
 ROTATIONS=""
-CONFLICTS=""
 MISSING=""
 
 for key in $KEYS_TO_CHECK; do
   new_val=$(get_value "$SECRETS_FILE" "$key")
-  old_val=$(deployed_secret "$key")
 
-  secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
-  secret_file="${SECRETS_DIR}/${secret_name}.txt"
-
-  new_is_empty=0
   if [ -z "$new_val" ] || [ "$new_val" = "$PLACEHOLDER" ]; then
-    new_is_empty=1
+    MISSING="$MISSING $key"
+    warn "$key: no value in $SECRETS_FILE — skipping"
+    continue
   fi
 
-  if [ -f "$secret_file" ]; then
-    # Something is deployed.
-    if [ "$new_is_empty" = 1 ]; then
-      CONFLICTS="$CONFLICTS $key"
-    elif [ "$new_val" = "$old_val" ]; then
-      NOOPS="$NOOPS $key"
-      ok "$key: unchanged"
-    else
-      ROTATIONS="$ROTATIONS $key"
-      info "$key: changed — will rotate"
-    fi
+  old_val=$(deployed_secret "$key")
+
+  if [ -z "$old_val" ]; then
+    FRESH="$FRESH $key"
+    info "$key: fresh (no running container to rotate against)"
+  elif [ "$new_val" = "$old_val" ]; then
+    ok "$key: unchanged"
   else
-    # No deployed file.
-    if [ "$new_is_empty" = 1 ]; then
-      MISSING="$MISSING $key"
-      warn "$key: no value in $SECRETS_FILE — skipping"
-    else
-      FRESH_WRITES="$FRESH_WRITES $key"
-      info "$key: fresh write"
-    fi
+    ROTATIONS="$ROTATIONS $key"
+    info "$key: changed — will rotate live"
   fi
 done
 
-# ── bail on conflicts ─────────────────────────────────────────────────────────
-if [ -n "$(printf '%s' "$CONFLICTS" | tr -d ' ')" ]; then
-  header "Refusing to overwrite deployed secrets with empty values"
-  for key in $CONFLICTS; do
-    error "$key: $SECRETS_FILE has no value, but docker/secrets/ has one deployed"
-  done
-  printf "\n"
-  printf "Edit %s and fill in real values, then re-run.\n" "$SECRETS_FILE"
-  printf "If you want to intentionally clear these secrets, delete the\n"
-  printf "corresponding docker/secrets/*.txt files first.\n\n"
-  exit 1
-fi
-
-# Early exit if nothing to do — but still regenerate docker/.env.secrets.docker
-# so that the root docker-compose.yml include: env_file picks up the _SOURCE
-# vars and plain `docker compose up -d` works without any extra flags.
-if [ -z "$(printf '%s%s' "$FRESH_WRITES" "$ROTATIONS" | tr -d ' ')" ]; then
-  if [ "$DRY_RUN" = 0 ]; then
-    NOOP_SOURCE_LINES=""
-    for key in $(env_secret_keys); do
-      secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
-      NOOP_SOURCE_LINES="${NOOP_SOURCE_LINES}${key}_SOURCE=./secrets/${secret_name}.txt
-"
-    done
-    write_secrets_env "$NOOP_SOURCE_LINES"
-  fi
+# Nothing to do — .env.secrets matches every running container's env.
+if [ -z "$(printf '%s%s' "$FRESH" "$ROTATIONS" | tr -d ' ')" ]; then
   printf "\n${GREEN}${BOLD}All secrets are up to date.${RESET}\n\n"
   if [ "$DRY_RUN" = 0 ] && [ -x ./check-env.sh ]; then
     ./check-env.sh || warn "check-env.sh reported issues — review the output above."
@@ -604,22 +392,12 @@ fi
 # ══════════════════════════════════════════════════════════════════════════════
 # ROTATION PASS — SQL/kcadm handlers for changed keys
 # ══════════════════════════════════════════════════════════════════════════════
-# Skipped entirely under --force. Otherwise: for each key in ROTATIONS,
-# check the target container is running and dispatch to the handler. If
-# any target container is down, abort BEFORE writing any files — the
-# whole point of this stage is to avoid the "overwrote file, container
-# can't auth" footgun.
 
 RESTART_SERVICES=""
-queue_restart() {
-  RESTART_SERVICES="$RESTART_SERVICES $1"
-}
+queue_restart() { RESTART_SERVICES="$RESTART_SERVICES $1"; }
 
-# Postgres ALTER ROLE. When the fifth arg (current password) is omitted,
-# assumes socket auth works without a password (POSIX peer or the default
-# `trust` pg_hba shipped by the postgres image). When provided, authenticates
-# via PGPASSWORD — needed for containers with a hardened pg_hba (e.g. the
-# historian, whose local socket requires scram-sha-256 for non-postgres users).
+# Postgres ALTER ROLE. When old_pw is provided, authenticates via
+# PGPASSWORD; otherwise assumes socket auth works without a password.
 rotate_pg() {
   container="$1"; db_user="$2"; new_pw="$3"; caller_key="$4"; old_pw="${5:-}"
   if ! container_running "$container"; then
@@ -636,7 +414,6 @@ rotate_pg() {
   fi
 }
 
-# MariaDB ALTER USER — needs the current root password (from deployed file).
 rotate_mysql_user() {
   container="$1"; db_user="$2"; old_root_pw="$3"; new_pw="$4"; caller_key="$5"
   if ! container_running "$container"; then
@@ -650,7 +427,6 @@ rotate_mysql_user() {
     -e \"ALTER USER '${db_user}'@'%' IDENTIFIED BY '${escaped_new}'; FLUSH PRIVILEGES;\""
 }
 
-# Rotate the MariaDB root password (needs old root password).
 rotate_mysql_root() {
   container="$1"; old_root_pw="$2"; new_pw="$3"; caller_key="$4"
   if ! container_running "$container"; then
@@ -665,9 +441,8 @@ rotate_mysql_root() {
 }
 
 if [ "$FORCE" = 1 ] && [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
-  header "Skipping rotation (--force)"
-  warn "The following keys changed but their credentials will NOT be"
-  warn "rotated against the running containers:"
+  header "Skipping live rotation (--force)"
+  warn "The following keys changed but will NOT be rotated live:"
   for key in $ROTATIONS; do
     warn "  $key"
   done
@@ -679,7 +454,7 @@ elif [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
 
   KC_CONTAINER="${PROJECT}-keycloak"
   KC_ADMIN=$(get_value "$ENV_FILE" "KEYCLOAK_ADMIN")
-  KC_AUTHED=0  # authenticate to kcadm once per run
+  KC_AUTHED=0
 
   ROTATION_ERRORS=0
 
@@ -691,30 +466,30 @@ elif [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
 
       DATABASE_PASSWORD)
         DB_USER=$(get_value "$ENV_FILE" "DATABASE_USERNAME")
-        DB_CONTAINER="${PROJECT}-database"
-        rotate_pg "$DB_CONTAINER" "$DB_USER" "$new_val" "$key" || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
+        rotate_pg "${PROJECT}-database" "$DB_USER" "$new_val" "$key" || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
+        # Recreate the DB container too so its POSTGRES_PASSWORD env reflects the
+        # new value. Postgres only reads POSTGRES_PASSWORD on initdb, so a recreate
+        # against a seeded volume is a no-op auth-wise — but it keeps
+        # `docker inspect` in sync with .env.secrets so future runs classify correctly.
+        queue_restart "database"
         queue_restart "server"
         queue_restart "client"
         ;;
 
       KEYCLOAK_DATABASE_PASSWORD)
         KC_DB_USER=$(get_value "$ENV_FILE" "KEYCLOAK_DATABASE_USERNAME")
-        KC_DB_CONTAINER="${PROJECT}-keycloak-db"
-        rotate_pg "$KC_DB_CONTAINER" "$KC_DB_USER" "$new_val" "$key" || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
+        rotate_pg "${PROJECT}-keycloak-db" "$KC_DB_USER" "$new_val" "$key" || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
+        queue_restart "keycloak-db"
         queue_restart "keycloak"
         ;;
 
       NOMINATIM_DATABASE_PASSWORD)
-        NOM_CONTAINER="${PROJECT}-nominatim"
-        rotate_pg "$NOM_CONTAINER" "nominatim" "$new_val" "$key" || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
+        rotate_pg "${PROJECT}-nominatim" "nominatim" "$new_val" "$key" || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
         queue_restart "nominatim"
         ;;
 
       BOOKSTACK_DATABASE_PASSWORD)
         WIKI_DB_CONTAINER="${PROJECT}-wiki-db"
-        # ALTER USER needs the CURRENT root password. Prefer the deployed
-        # value; fall back to .env.secrets in case this is a first-time
-        # deploy sequence.
         ROOT_PW=$(deployed_secret "BOOKSTACK_ROOT_PASSWORD")
         [ -z "$ROOT_PW" ] && ROOT_PW=$(get_value "$SECRETS_FILE" "BOOKSTACK_ROOT_PASSWORD")
         WIKI_DB_USER=$(get_value "$ENV_FILE" "BOOKSTACK_DATABASE_USERNAME")
@@ -724,17 +499,15 @@ elif [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
         ;;
 
       BOOKSTACK_ROOT_PASSWORD)
-        WIKI_DB_CONTAINER="${PROJECT}-wiki-db"
-        rotate_mysql_root "$WIKI_DB_CONTAINER" "$old_val" "$new_val" "$key" \
+        rotate_mysql_root "${PROJECT}-wiki-db" "$old_val" "$new_val" "$key" \
           || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
         queue_restart "wiki-db"
         queue_restart "wiki"
         ;;
 
       REDIS_PASSWORD)
-        # Redis reads the password from the startup command (see the
-        # redis service in docker-compose.yml), so a restart is enough.
-        info "$key: rotation via restart (no live command needed)"
+        # Redis reads the password from its startup command — restart is enough.
+        info "$key: rotation via restart"
         queue_restart "redis"
         queue_restart "server"
         ;;
@@ -756,7 +529,6 @@ elif [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
           info "Updating Keycloak admin password"
           run_or_dry "docker exec '$KC_CONTAINER' /opt/keycloak/bin/kcadm.sh set-password \
             -r master --username '${KC_ADMIN}' --new-password '${escaped}'"
-          # kcadm token is now stale — force re-auth on the next kcadm call.
           KC_AUTHED=0
         fi
         queue_restart "keycloak"
@@ -825,15 +597,9 @@ elif [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
         ;;
 
       HISTORIAN_DATABASE_PASSWORD)
-        HIST_CONTAINER="${PROJECT}-historian"
-        # historian's pg_hba requires scram-sha-256 for local socket auth
-        # as the `historian` user, so authenticate with the current password.
-        rotate_pg "$HIST_CONTAINER" "historian" "$new_val" "$key" "$old_val" \
+        rotate_pg "${PROJECT}-historian" "historian" "$new_val" "$key" "$old_val" \
           || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
         queue_restart "historian"
-        # volttron-setup's fingerprint check will re-run and regenerate
-        # historian.config from the new mounted secret; volttron picks it up
-        # on --force-recreate (see the restart pass below).
         queue_restart "volttron-setup"
         queue_restart "volttron"
         queue_restart "server"
@@ -842,17 +608,13 @@ elif [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
         ;;
 
       HISTORIAN_REPLICATOR_PASSWORD)
-        HIST_CONTAINER="${PROJECT}-historian"
-        rotate_pg "$HIST_CONTAINER" "replicator" "$new_val" "$key" "$old_val" \
+        rotate_pg "${PROJECT}-historian" "replicator" "$new_val" "$key" "$old_val" \
           || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
         queue_restart "historian"
-        # No in-stack consumers: subscribers are external and manage their
-        # own CONNECTION strings for the historian_sub subscription.
         ;;
 
       GRAFANA_DATABASE_PASSWORD)
-        GD_CONTAINER="${PROJECT}-grafana-db"
-        rotate_pg "$GD_CONTAINER" "grafana" "$new_val" "$key" \
+        rotate_pg "${PROJECT}-grafana-db" "grafana" "$new_val" "$key" \
           || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
         queue_restart "grafana-db"
         queue_restart "grafana"
@@ -860,8 +622,6 @@ elif [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
 
       GRAFANA_ADMIN_PASSWORD)
         GRAFANA_CONTAINER="${PROJECT}-grafana"
-        # grafana-cli supports resetting the admin password without the
-        # current one, so no old_val needed.
         if ! container_running "$GRAFANA_CONTAINER"; then
           error "$key: container $GRAFANA_CONTAINER is not running"
           ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
@@ -901,156 +661,73 @@ elif [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
         ;;
 
       *)
-        # Unknown key — write the file but flag it so the operator knows
-        # no live rotation ran. Preserves back-compat for keys added to
-        # .env without a matching handler in this script.
-        warn "$key: no rotation handler defined — file will be updated, but you may need to restart or reconcile services manually"
+        warn "$key: no rotation handler defined — new value will be picked up on next \`docker compose up -d\`, but you may need to reconcile services manually"
         mark_warn
         ;;
 
     esac
   done
 
-  # Any handler that couldn't reach its container prompts the user
-  # before we overwrite files. This is the anti-footgun: we don't
-  # overwrite unless the user explicitly acknowledges the risk.
   if [ "$ROTATION_ERRORS" -gt 0 ] && [ "$DRY_RUN" = 0 ]; then
     header "Cannot rotate $ROTATION_ERRORS credential(s) live"
     printf "\n"
-    printf "Overwriting the files without rotating means any data volume\n"
-    printf "seeded with the old credential will no longer authenticate on\n"
-    printf "next boot — you will need to wipe the affected data volume(s)\n"
-    printf "or apply the credential change manually.\n\n"
-
-    overwrite=0
-    if [ "$YES" = 1 ] || [ "$FORCE" = 1 ]; then
-      info "Auto-confirmed (--yes / --force)"
-      overwrite=1
-    else
-      printf "Overwrite anyway (skip rotation)? [y/N] "
-      read -r answer || answer=""
-      case "$answer" in
-        y|Y|yes|YES) overwrite=1 ;;
-      esac
-    fi
-
-    if [ "$overwrite" = 0 ]; then
-      header "Aborting"
-      error "$ROTATION_ERRORS rotation(s) could not be applied — nothing has been written."
-      printf "\n"
-      printf "Start the affected containers (docker compose up -d) and re-run.\n\n"
-      exit 1
-    fi
-
-    warn "Skipping rotation for the failed key(s). Data volumes must be"
-    warn "wiped or credentials reconciled manually before services can auth."
-    mark_warn
+    printf "The containers for those keys are not running. Bringing the stack\n"
+    printf "up now with the new .env.secrets would leave the seeded data\n"
+    printf "volumes unable to authenticate.\n\n"
+    error "Start the affected containers (docker compose up -d) and re-run."
+    printf "Or pass --force to skip live rotation (data volumes must then be\n"
+    printf "wiped or credentials reconciled manually).\n\n"
+    exit 1
   fi
 fi
 
-# ══════════════════════════════════════════════════════════════════════════════
-# WRITE PASS — the actual file updates
-# ══════════════════════════════════════════════════════════════════════════════
-
-header "Writing docker/secrets/"
-
-# Accumulator for the `<KEY>_SOURCE=./secrets/<key>.txt` lines emitted
-# into $SECRETS_ENV_FILE below. Populated in the same loop that creates
-# the per-secret files so the two lists stay in sync automatically.
-SOURCE_LINES=""
-
-# FRESH_WRITES + ROTATIONS need the actual write. NOOPS are already on
-# disk with the current value — skip them. CONFLICTS are already gone
-# (we exited above). MISSING keys have no value to write.
-for key in $FRESH_WRITES $ROTATIONS; do
-  value=$(get_value "$SECRETS_FILE" "$key")
-  secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
-  secret_file="${SECRETS_DIR}/${secret_name}.txt"
-
-  # `docker compose up` will auto-create the mount source as a directory
-  # when the declared secret file is missing, leaving a broken
-  # `./secrets/foo.txt/` directory that later blocks `echo ... > $secret_file`.
-  # Recover from that state here: remove an empty directory at the target,
-  # refuse on a non-empty one so we never destroy user data.
-  if [ -d "$secret_file" ]; then
-    if [ -z "$(ls -A "$secret_file" 2>/dev/null)" ]; then
-      rmdir "$secret_file"
-    else
-      error "$secret_file exists as a non-empty directory."
-      error "Refusing to overwrite. Move or delete it manually, then re-run."
-      exit 1
-    fi
+# For FRESH keys, we did nothing live — but the new value still needs to
+# reach the service on next start. If any service is currently running,
+# it will pick up the new value only after `up -d --no-deps` recreates it.
+for key in $FRESH; do
+  container=$(key_deployed_container "$PROJECT" "$key")
+  if [ -n "$container" ] && container_running "$container"; then
+    # Only reached when the container is up but env_key returned empty.
+    # Rare — most likely a missing case in container_env_key. Queue a
+    # restart so the new env applies.
+    svc=${container#${PROJECT}-}
+    queue_restart "$svc"
   fi
-
-  if [ "$DRY_RUN" = 1 ]; then
-    dry "Would write $secret_file"
-  else
-    echo "$value" > "$secret_file"
-    chmod 600 "$secret_file"
-  fi
-
-  # Accumulate the `_SOURCE` line for docker/.env.secrets.docker. Paths
-  # are relative to docker/ (where the compose file lives), so drop the
-  # `docker/` prefix.
-  SOURCE_LINES="${SOURCE_LINES}${key}_SOURCE=./${secret_file#docker/}
-"
 done
-
-# Also emit _SOURCE lines for keys the first loop didn't touch — NOOPS
-# (unchanged, no rewrite needed) and any key excluded by positional
-# args. .env.secrets.docker must always list every declared secret so
-# compose interpolation resolves them to the real files.
-for key in $(env_secret_keys); do
-  case " $FRESH_WRITES $ROTATIONS " in
-    *" $key "*) ;;  # already emitted in the write loop above
-    *)
-      secret_name=$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')
-      SOURCE_LINES="${SOURCE_LINES}${key}_SOURCE=./secrets/${secret_name}.txt
-"
-      ;;
-  esac
-done
-
-write_secrets_env "$SOURCE_LINES"
-if [ "$DRY_RUN" = 0 ]; then
-  ok "Updated docker/secrets/*.txt and $SECRETS_ENV_FILE"
-fi
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RESTART PASS
 # ══════════════════════════════════════════════════════════════════════════════
+#
+# Use `docker compose up -d --no-deps <svc>` — NOT `docker compose restart`.
+# `restart` reuses the cached env in the existing container and would keep
+# the OLD .env.secrets value. `up -d --no-deps` recreates the container so
+# it re-reads env_file.
 
 RESTART_SERVICES=$(printf '%s' "$RESTART_SERVICES" | tr ' ' '\n' | grep -v '^$' | sort -u | tr '\n' ' ')
 
 if [ -n "$(printf '%s' "$RESTART_SERVICES" | tr -d ' ')" ]; then
-  header "Restarting affected services: $RESTART_SERVICES"
+  header "Recreating affected services: $RESTART_SERVICES"
   for svc in $RESTART_SERVICES; do
     container="${PROJECT}-${svc}"
     case "$svc" in
       volttron)
-        # `docker compose restart` reuses the same container, so anything
-        # in the writable layer (e.g. ~/.volttron/agents/) survives with its
-        # stale cached configs. Force-recreate so bootstart.sh re-runs
-        # setup-platform.py and reinstalls agents from the freshly generated
-        # historian.config on the bind mount.
         info "Recreating $svc (--force-recreate)"
         run_or_dry "docker compose up -d --force-recreate $svc"
         ok "$svc recreated"
         ;;
       volttron-setup)
-        # volttron-setup is `restart: no`; re-invoke via up -d so it runs
-        # once and detects the fingerprint change.
         info "Re-running $svc"
         run_or_dry "docker compose up -d $svc"
         ok "$svc re-run"
         ;;
       *)
         if container_running "$container"; then
-          info "Restarting $svc"
-          run_or_dry "docker compose restart $svc"
-          ok "$svc restarted"
+          info "Recreating $svc"
+          run_or_dry "docker compose up -d --no-deps $svc"
+          ok "$svc recreated"
         else
-          warn "$svc is not running — skipping restart"
+          warn "$svc is not running — skipping"
         fi
         ;;
     esac
@@ -1058,9 +735,6 @@ if [ -n "$(printf '%s' "$RESTART_SERVICES" | tr -d ' ')" ]; then
 fi
 
 # ── post-check ─────────────────────────────────────────────────────────────────
-# Auto-invoke check-env.sh so the operator sees green ticks confirming
-# the .env → .env.secrets → docker/secrets/*.txt chain is consistent.
-# Skipped under --dry-run (no state actually changed).
 if [ "$DRY_RUN" = 0 ] && [ -x ./check-env.sh ]; then
   ./check-env.sh || warn "check-env.sh reported issues — review the output above."
 fi

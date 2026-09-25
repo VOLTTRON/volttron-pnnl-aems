@@ -1,19 +1,18 @@
-﻿#
-# Validate consistency of .env, .env.secrets, and docker/secrets/ before deploying.
 #
-# Exit 0: all warnings only (raw dev state, env-only, or secrets mode fully in sync)
-# Exit 1: secrets chain is broken (docker compose will fail or services will use wrong credentials)
+# Validate consistency of .env and .env.secrets before deploying.
+#
+# Exit 0: OK (with or without warnings)
+# Exit 1: a required secret is missing or still holds the placeholder
 #
 # Usage: .\check-env.ps1
 
 $ErrorActionPreference = "Stop"
 
-$ENV_FILE        = ".env"
-$SECRETS_FILE    = ".env.secrets"
-$SECRETS_DIR     = "docker/secrets"
-$PLACEHOLDER     = "SeT_tHiS_iN_0x3A-.env.secrets-"
+$ENV_FILE     = ".env"
+$SECRETS_FILE = ".env.secrets"
+$PLACEHOLDER  = "SeT_tHiS_iN_0x3A-.env.secrets-"
 
-# ── color helpers ──────────────────────────────────────────────────────────────
+# -- color helpers --------------------------------------------------------------
 function Write-Ok    { param($msg) Write-Host "  [OK]    $msg" -ForegroundColor Green }
 function Write-Warn  { param($msg) Write-Host "  [WARN]  $msg" -ForegroundColor Yellow }
 function Write-Err   { param($msg) Write-Host "  [ERROR] $msg" -ForegroundColor Red }
@@ -22,12 +21,8 @@ function Write-Hdr   { param($msg) Write-Host "`n$msg" -ForegroundColor White }
 $script:Errors = 0
 function noteError { $script:Errors++ }
 
-# ── helpers ────────────────────────────────────────────────────────────────────
+# -- helpers --------------------------------------------------------------------
 
-# Derive the authoritative secret key list from .env by grepping for
-# the placeholder marker. Any line in .env of the form KEY=<placeholder>
-# is treated as a declared secret; this is the same signal `secrets.ps1`
-# uses when bootstrapping .env.secrets.
 function Get-EnvSecretKeys {
   Get-Content $ENV_FILE | ForEach-Object {
     if ($_.TrimEnd() -match "^([A-Za-z_][A-Za-z0-9_]*)=$([regex]::Escape($PLACEHOLDER))$") {
@@ -60,67 +55,42 @@ function Test-EnvHasRealValues {
   return $true
 }
 
-# ── pre-flight ─────────────────────────────────────────────────────────────────
+# -- pre-flight -----------------------------------------------------------------
 if (-not (Test-Path $ENV_FILE)) {
   Write-Host "ERROR: $ENV_FILE not found. Run from the repo root." -ForegroundColor Red
   exit 1
 }
 
-# Ensure the placeholder bind-mount source exists. Every secret in
-# docker-compose.yml uses `${..._SOURCE:-./secrets/.placeholder}`, so a
-# missing placeholder file crashes `docker compose up` with a bind-mount
-# error before any service starts. The file is tracked in git, but guard
-# against `rm`, `docker compose down -v`, or an accidental wipe.
-if (-not (Test-Path $SECRETS_DIR)) {
-  New-Item -ItemType Directory -Path $SECRETS_DIR -Force | Out-Null
-}
-$placeholderFile = Join-Path $SECRETS_DIR ".placeholder"
-if (-not (Test-Path $placeholderFile)) {
-  New-Item -ItemType File -Path $placeholderFile -Force | Out-Null
-}
-
 Write-Host "`nEnvironment/Secrets Check" -ForegroundColor White
 Write-Host "Running from: $(Get-Location)"
 
-# ── No .env.secrets: warn-only paths ──────────────────────────────────────────
-#
-# Without .env.secrets the user is in dev/env-only mode. Docker will start
-# using whatever is in .env. We warn about the security posture but never
-# block — a fresh clone with all placeholders is a legitimate starting point.
+# -- No .env.secrets: env-only path ------------------------------------------
 
 if (-not (Test-Path $SECRETS_FILE)) {
   if (Test-EnvHasPlaceholders) {
     Write-Hdr "Mode: raw dev (no secrets configured)"
     Write-Warn "Secret variables in .env still have placeholder values."
-    Write-Warn "Services that depend on secrets (auth, database passwords, etc.) will not work"
-    Write-Warn "until you either:"
+    Write-Warn "Services that depend on secrets will not work until you either:"
     Write-Warn "  a) Edit .env directly with real values (simple dev setup), or"
-    Write-Warn "  b) Run .\secrets.ps1 — it bootstraps $SECRETS_FILE from .env, then re-run it"
-    Write-Warn "     after filling in real values to generate docker/secrets/*.txt"
+    Write-Warn "  b) Run .\secrets.ps1 - it bootstraps $SECRETS_FILE from .env; edit real"
+    Write-Warn "     values there and run docker compose up -d."
   } else {
-    Write-Hdr "Mode: env-only"
-    Write-Warn "Running without docker secrets — secret values are set directly in .env."
-    Write-Warn "This works for development. For production, consider using secrets.ps1."
+    Write-Hdr "Mode: env-only (real values in .env)"
+    Write-Warn "Running with real secret values in .env directly."
+    Write-Warn "This works but is less secure - .env is typically committed. Consider"
+    Write-Warn "moving secrets to $SECRETS_FILE (gitignored) via .\secrets.ps1."
   }
   Write-Host "`nCheck complete (warnings only).`n" -ForegroundColor Green
   exit 0
 }
 
-# ── .env.secrets exists: validate the full chain ──────────────────────────────
-#
-# Once .env.secrets is present the operator has committed to the secrets path.
-# Broken links in the chain will cause docker compose to fail or services to
-# authenticate with wrong credentials. These are hard errors.
+# -- .env.secrets exists: validate completeness --------------------------------
 
-# Mixed-state advisory
 if (Test-EnvHasRealValues) {
   Write-Hdr "Advisory: mixed configuration detected"
   Write-Warn ".env has real secret values AND .env.secrets also exists."
-  Write-Warn "Docker Compose loads .env first; docker/secrets/ takes effect only when"
-  Write-Warn "compose is invoked with --env-file docker/.env.secrets.docker."
-  Write-Warn "Reconcile to one approach to avoid confusion:"
-  Write-Warn "  - env-only: remove .env.secrets and docker/secrets/*.txt"
-  Write-Warn "  - secrets:  restore .env placeholder sentinels, keep .env.secrets"
+  Write-Warn "Both are loaded by compose; .env.secrets wins on collisions."
+  Write-Warn "Reset .env placeholders back to the sentinel to avoid confusion."
 }
 
 Write-Hdr "Checking .env.secrets completeness"
@@ -138,35 +108,10 @@ foreach ($key in (Get-EnvSecretKeys)) {
   }
 }
 
-Write-Hdr "Checking docker/secrets/ is populated and in sync"
-
-if (-not (Test-Path $SECRETS_DIR)) {
-  Write-Err "docker/secrets/ directory does not exist — run .\secrets.ps1 to generate secret files"
-  noteError
-} else {
-  foreach ($key in (Get-EnvSecretKeys)) {
-    $secretName = $key.ToLower()
-    $secretFile = Join-Path $SECRETS_DIR "$secretName.txt"
-    if (-not (Test-Path $secretFile)) {
-      Write-Err "$secretFile missing — run .\secrets.ps1 to generate and apply secrets"
-      noteError
-    } else {
-      $envVal  = Get-EnvValue -File $SECRETS_FILE -Key $key
-      $fileVal = (Get-Content $secretFile -Raw).TrimEnd("`r`n")
-      if ($envVal -ne $fileVal) {
-        Write-Err "${key}: $secretFile is stale (out of sync with .env.secrets) — re-run .\secrets.ps1"
-        noteError
-      } else {
-        Write-Ok "$key → $secretFile"
-      }
-    }
-  }
-}
-
-# ── summary ────────────────────────────────────────────────────────────────────
+# -- summary --------------------------------------------------------------------
 Write-Host ""
 if ($script:Errors -gt 0) {
-  Write-Host "$($script:Errors) error(s) found. The secrets chain is broken — docker compose will fail or services will use wrong credentials." -ForegroundColor Red
+  Write-Host "$($script:Errors) error(s) found." -ForegroundColor Red
   Write-Host "Fix the issues above and re-run .\check-env.ps1`n"
   exit 1
 } else {

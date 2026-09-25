@@ -73,7 +73,8 @@ RUN mkdir -p /host-secrets /var/lib/backup/staging /var/lib/backup/pending \
 # before invoking the worker.
 
 # The sidecar expects the repo root to be mounted at /workspace (read-only)
-# and the backup secrets directory at /run/secrets/backup.
+# and the backup age-keypair directory at /host-secrets (bind mount from
+# ./secrets/backup/ — auto-populated by init-keys.sh on first boot).
 WORKDIR /workspace
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

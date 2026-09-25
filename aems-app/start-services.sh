@@ -75,6 +75,17 @@ if ! ./check-env.sh; then
     exit 1
 fi
 
+# Point docker compose at both .env (defaults/placeholders) and .env.secrets
+# (real values) for interpolation. Compose's `include: env_file:` doesn't
+# cascade to interpolation of the outer file, so we set this env-var here
+# once per invocation. Only include .env.secrets when it exists — otherwise
+# fall back to `.env` alone (env-only or raw-dev mode).
+if [ -f ".env.secrets" ]; then
+    export COMPOSE_ENV_FILES=".env,.env.secrets"
+else
+    export COMPOSE_ENV_FILES=".env"
+fi
+
 print_blue "Building and starting Docker Compose services..."
 
 # Build Docker images

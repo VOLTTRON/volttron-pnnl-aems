@@ -90,8 +90,8 @@ export class PrismaService {
     const level = getLogLevel(configService.log.prisma.level);
 
     // Build a DATABASE_URL from the individual config fields so that the
-    // password read via readSecret() (Docker secret file > env var) takes
-    // precedence over whatever is baked into prisma/.env at image build time.
+    // password read via readSecret() takes precedence over whatever is baked
+    // into prisma/.env at image build time.
     const { host, port, name, schema, username, password } = configService.database;
     const connLimit = 5;
     const datasourceUrl = host && name && username && password
