@@ -40,39 +40,14 @@ const HEARTBEAT_MS = parseInt(process.env.BACKUP_WORKER_HEARTBEAT_MS || "10000",
 const STALE_MS = parseInt(process.env.BACKUP_WORKER_STALE_MS || "300000", 10);
 const WORKER_ID = `${process.env.HOSTNAME || "backup"}-${process.pid}-${crypto.randomBytes(3).toString("hex")}`;
 
-/**
- * Resolve a secret by name, matching the server's readSecret precedence:
- *   1. Docker secret file at /run/secrets/<name-lowercase>
- *   2. `<NAME>_FILE` env var pointing at a file
- *   3. `<NAME>` env var directly
- *
- * Returns "" if none are available or readable. Read errors (including
- * ENOENT/EISDIR for a non-existent or mistakenly-created-as-dir secret
- * mount) fall through to the next source instead of aborting.
- */
 function readSecret(name) {
-    const dockerPath = `/run/secrets/${name.toLowerCase()}`;
-    try {
-        const v = fs.readFileSync(dockerPath, "utf-8").trim();
-        if (v) return v;
-    } catch { /* fall through */ }
-
-    const filePath = process.env[`${name}_FILE`];
-    if (filePath) {
-        try {
-            const v = fs.readFileSync(filePath, "utf-8").trim();
-            if (v) return v;
-        } catch { /* fall through */ }
-    }
-
     return (process.env[name] ?? "").trim();
 }
 
 const WORKER_TOKEN = readSecret("WORKER_TOKEN");
 if (!WORKER_TOKEN) {
     console.error(
-        `[backup-worker ${WORKER_ID}] FATAL: WORKER_TOKEN not available. ` +
-        `Set via the worker_token docker secret, WORKER_TOKEN_FILE, or the WORKER_TOKEN env var.`,
+        `[backup-worker ${WORKER_ID}] FATAL: WORKER_TOKEN env var is not set.`,
     );
     process.exit(1);
 }

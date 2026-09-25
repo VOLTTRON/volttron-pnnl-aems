@@ -135,13 +135,7 @@ NUM_CONFIGS=${VOLTTRON_NUM_CONFIGS:-${NUM_CONFIGS:-"1"}}
 # Historian DB settings for Volttron config generation (optional)
 HISTORIAN_DB_NAME=${HISTORIAN_DB_NAME:-""}
 HISTORIAN_DB_USER=${HISTORIAN_DB_USER:-""}
-HISTORIAN_DB_PASSWORD=${HISTORIAN_DB_PASSWORD:-""}
-# The docker secret is the authoritative source when present.
-# aems-app/docker/docker-compose.yml mounts it at this path via the
-# volttron-setup service's `secrets: [historian_database_password]`.
-if [[ -s "/run/secrets/historian_database_password" ]]; then
-    HISTORIAN_DB_PASSWORD="$(cat /run/secrets/historian_database_password)"
-fi
+HISTORIAN_DB_PASSWORD=${HISTORIAN_DATABASE_PASSWORD:-${HISTORIAN_DB_PASSWORD:-""}}
 HISTORIAN_DB_HOST=${HISTORIAN_DB_HOST:-""}
 HISTORIAN_DB_PORT=${HISTORIAN_DB_PORT:-""}
 
@@ -185,13 +179,12 @@ if [[ -d "${TEMPLATES_DIR}" ]]; then
     log_success "Templates directory refreshed"
 fi
 
-# Fingerprint the historian secret so we can detect drift after a rotation
+# Fingerprint the historian password so we can detect drift after a rotation
 # or a historian-volume wipe. If it changes underneath us, the sentinel is
 # invalidated and setup re-runs so historian.config picks up the current value.
-HISTORIAN_SECRET_FILE="/run/secrets/historian_database_password"
 compute_historian_fp() {
-    if [[ -s "${HISTORIAN_SECRET_FILE}" ]]; then
-        sha256sum "${HISTORIAN_SECRET_FILE}" | awk '{print $1}'
+    if [[ -n "${HISTORIAN_DB_PASSWORD}" ]]; then
+        printf '%s' "${HISTORIAN_DB_PASSWORD}" | sha256sum | awk '{print $1}'
     fi
 }
 

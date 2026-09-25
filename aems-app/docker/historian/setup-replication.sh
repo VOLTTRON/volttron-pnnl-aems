@@ -8,15 +8,11 @@ echo "================================================"
 echo "Setting up PostgreSQL Logical Replication"
 echo "================================================"
 
-# The docker secret is the authoritative source. Compose mounts it via
-# the historian service's `secrets: [historian_replicator_password]`.
-if [ -s "/run/secrets/historian_replicator_password" ]; then
-    REPLICATOR_PASSWORD="$(cat /run/secrets/historian_replicator_password)"
-fi
+REPLICATOR_PASSWORD="${HISTORIAN_REPLICATOR_PASSWORD:-${REPLICATOR_PASSWORD:-}}"
 
 if [ -z "${REPLICATOR_PASSWORD}" ]; then
-    echo "ERROR: REPLICATOR_PASSWORD is empty. Ensure secrets.sh has been run"
-    echo "       and the historian_replicator_password secret is mounted."
+    echo "ERROR: HISTORIAN_REPLICATOR_PASSWORD is empty. Ensure it is set"
+    echo "       in .env.secrets."
     exit 1
 fi
 
@@ -127,22 +123,11 @@ psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" 
 EOSQL
 
 # Seed the historian password fingerprint file so the entrypoint wrapper's
-# reconciler no-ops on the second-ever start. Matches the fallback chain in
-# docker-entrypoint-wrapper.sh exactly.
-INIT_PW=""
-INIT_TAG=""
-if [ -s "/run/secrets/historian_database_password" ]; then
-    INIT_PW="$(cat /run/secrets/historian_database_password)"
-    INIT_TAG="secret"
-elif [ -n "${HISTORIAN_DATABASE_PASSWORD:-}" ]; then
-    INIT_PW="${HISTORIAN_DATABASE_PASSWORD}"
-    INIT_TAG="env-hist"
-elif [ -n "${POSTGRES_PASSWORD:-}" ]; then
-    INIT_PW="${POSTGRES_PASSWORD}"
-    INIT_TAG="env-postgres"
-fi
+# reconciler no-ops on the second-ever start. Matches the resolution in
+# docker-entrypoint-wrapper.sh.
+INIT_PW="${HISTORIAN_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:-}}"
 if [ -n "${INIT_PW}" ]; then
-    printf '%s:%s\n' "${INIT_TAG}" "$(printf '%s' "${INIT_PW}" | sha256sum | awk '{print $1}')" \
+    printf 'env:%s\n' "$(printf '%s' "${INIT_PW}" | sha256sum | awk '{print $1}')" \
         > "${PGDATA}/.historian_pw_fp"
 fi
 unset INIT_PW

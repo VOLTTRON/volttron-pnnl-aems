@@ -1,56 +1,10 @@
-# Every declared secret uses a `${..._SOURCE:-./secrets/.placeholder}`
-# indirection so that when `secrets.sh` hasn't been run and the real
-# `./secrets/foo.txt` files don't exist, compose falls through to the
-# tracked empty `.placeholder` file instead of auto-creating each source
-# path as a directory (a footgun that corrupts every secret mount).
-# Empty placeholders satisfy `-f` / `-r` file tests but return "" on
-# read, and every downstream consumer either uses `-s` (non-empty) or
-# checks the read value for truthiness before using it. `secrets.sh`
-# overrides the indirection by emitting per-secret `_SOURCE=` lines into
-# `docker/.env.secrets.docker`.
-secrets:
-  session_secret:
-    file: ${SESSION_SECRET_SOURCE:-./secrets/.placeholder}
-  jwt_secret:
-    file: ${JWT_SECRET_SOURCE:-./secrets/.placeholder}
-  database_password:
-    file: ${DATABASE_PASSWORD_SOURCE:-./secrets/.placeholder}
-  redis_password:
-    file: ${REDIS_PASSWORD_SOURCE:-./secrets/.placeholder}
-  keycloak_client_secret:
-    file: ${KEYCLOAK_CLIENT_SECRET_SOURCE:-./secrets/.placeholder}
-  keycloak_admin_password:
-    file: ${KEYCLOAK_ADMIN_PASSWORD_SOURCE:-./secrets/.placeholder}
-  keycloak_database_password:
-    file: ${KEYCLOAK_DATABASE_PASSWORD_SOURCE:-./secrets/.placeholder}
-  nominatim_database_password:
-    file: ${NOMINATIM_DATABASE_PASSWORD_SOURCE:-./secrets/.placeholder}
-  bookstack_session_secret:
-    file: ${BOOKSTACK_SESSION_SECRET_SOURCE:-./secrets/.placeholder}
-  bookstack_root_password:
-    file: ${BOOKSTACK_ROOT_PASSWORD_SOURCE:-./secrets/.placeholder}
-  bookstack_database_password:
-    file: ${BOOKSTACK_DATABASE_PASSWORD_SOURCE:-./secrets/.placeholder}
-  bookstack_keycloak_client_secret:
-    file: ${BOOKSTACK_KEYCLOAK_CLIENT_SECRET_SOURCE:-./secrets/.placeholder}
-  worker_token:
-    file: ${WORKER_TOKEN_SOURCE:-./secrets/.placeholder}
-  historian_database_password:
-    file: ${HISTORIAN_DATABASE_PASSWORD_SOURCE:-./secrets/.placeholder}
-  historian_replicator_password:
-    file: ${HISTORIAN_REPLICATOR_PASSWORD_SOURCE:-./secrets/.placeholder}
-  grafana_admin_password:
-    file: ${GRAFANA_ADMIN_PASSWORD_SOURCE:-./secrets/.placeholder}
-  grafana_database_password:
-    file: ${GRAFANA_DATABASE_PASSWORD_SOURCE:-./secrets/.placeholder}
-  keycloak_grafana_client_secret:
-    file: ${KEYCLOAK_GRAFANA_CLIENT_SECRET_SOURCE:-./secrets/.placeholder}
-
-# NOTE: The backup encryption keypair is NOT declared as a docker secret
-# because docker secrets require the source file to exist before compose
-# start. The backup sidecar auto-generates the keypair on first boot by
-# writing into the ./secrets/backup/ directory (mounted into the container
-# at /host-secrets). See docker/backup/init-keys.sh.
+# Secrets are plain env vars sourced from `.env.secrets` (gitignored),
+# loaded via the root shim's `env_file:` chain. See docker/CLAUDE.md.
+#
+# The backup sidecar auto-generates its age keypair on first boot into
+# `./secrets/backup/` (bind-mounted at `/host-secrets`). See
+# docker/backup/init-keys.sh — that directory is unrelated to any
+# docker-secret machinery.
 
 services:
   # Proxy that can be configured for HTTP or HTTPS
@@ -123,9 +77,6 @@ services:
     #   replicas: 2
     env_file:
       - .env.client
-    secrets:
-      - database_password
-      - redis_password
     healthcheck:
       test: "curl --fail http://localhost:3000 || exit 1"
       interval: 10s
@@ -184,15 +135,6 @@ services:
     #   replicas: 2
     env_file:
       - .env.server
-    secrets:
-      - session_secret
-      - jwt_secret
-      - database_password
-      - historian_database_password
-      - redis_password
-      - keycloak_client_secret
-      - keycloak_admin_password
-      - worker_token
     healthcheck:
       test: "curl --fail -X POST http://localhost:3000/graphql -H 'Content-Type: application/json' -d '{\"query\":\"{__typename}\"}'"
       interval: 10s
@@ -225,10 +167,6 @@ services:
       - /tmp
     environment:
       BACKUP_WORKSPACE: /workspace
-      # Env-var fallback for readSecret when the docker secret isn't
-      # configured (dev runs without secrets.sh). When the docker secret
-      # IS mounted it wins via /run/secrets/worker_token and this is
-      # ignored. Harmless when unset.
       WORKER_TOKEN: ${WORKER_TOKEN:-}
       # Forward the compose profiles selected at stack startup so
       # BackupDiscoveryService can auto-exclude services/volumes/paths
@@ -268,15 +206,6 @@ services:
       - .env.services
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    secrets:
-      - session_secret
-      - jwt_secret
-      - database_password
-      - historian_database_password
-      - redis_password
-      - keycloak_client_secret
-      - keycloak_admin_password
-      - worker_token
     healthcheck:
       test: "curl --fail -X POST http://localhost:3000/graphql -H 'Content-Type: application/json' -d '{\"query\":\"{__typename}\"}'"
       interval: 10s
@@ -305,13 +234,6 @@ services:
         condition: service_started
     env_file:
       - .env.seeders
-    secrets:
-      - session_secret
-      - jwt_secret
-      - database_password
-      - redis_password
-      - keycloak_client_secret
-      - worker_token
     healthcheck:
       test: "curl --fail -X POST http://localhost:3000/graphql -H 'Content-Type: application/json' -d '{\"query\":\"{__typename}\"}'"
       interval: 10s
@@ -338,14 +260,6 @@ services:
         condition: service_started
     env_file:
       - .env.synth-worker
-    secrets:
-      - session_secret
-      - jwt_secret
-      - database_password
-      - historian_database_password
-      - redis_password
-      - keycloak_client_secret
-      - worker_token
     hostname: synth-worker
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/server:${TAG}
     profiles:
@@ -373,8 +287,6 @@ services:
       - .env.init
     hostname: init
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/init:${TAG}
-    secrets:
-      - database_password
 
   # Creates self-signed TLS certs for localhost and domain
   certs:
@@ -409,16 +321,7 @@ services:
     env_file:
       - .env.database
     environment:
-      # `${VAR-fallback}` (no colon) uses the fallback only when VAR is
-      # UNSET; a blank-set value sticks. `secrets.sh` writes
-      # `POSTGRES_PASSWORD=` (blank) into `docker/.env.secrets.docker`
-      # to satisfy the postgres `file_env` "not both set" invariant
-      # when the `_FILE` var is active. Without secrets, no override
-      # is loaded and this resolves to `DATABASE_PASSWORD` from `.env`.
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-${DATABASE_PASSWORD}}
-      POSTGRES_PASSWORD_FILE: ${POSTGRES_PASSWORD_FILE:-}
-    secrets:
-      - database_password
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
@@ -434,9 +337,7 @@ services:
   redis:
     command: >
       sh -c "
-      if [ -s /run/secrets/redis_password ]; then
-        redis-server --requirepass $$(cat /run/secrets/redis_password);
-      elif [ ! -z \"$$REDIS_PASSWORD\" ]; then
+      if [ -n \"$$REDIS_PASSWORD\" ]; then
         redis-server --requirepass $$REDIS_PASSWORD;
       else
         redis-server;
@@ -447,8 +348,6 @@ services:
       - .env.redis
     hostname: redis
     image: redis:6.2
-    secrets:
-      - redis_password
     profiles:
       - redis
     restart: unless-stopped
@@ -471,10 +370,7 @@ services:
     env_file:
       - .env.nominatim
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-${NOMINATIM_DATABASE_PASSWORD}}
-      POSTGRES_PASSWORD_FILE: ${NOMINATIM_POSTGRES_PASSWORD_FILE:-}
-    secrets:
-      - nominatim_database_password
+      POSTGRES_PASSWORD: ${NOMINATIM_DATABASE_PASSWORD}
     hostname: nominatim
     image: mediagis/nominatim:4.4
     profiles:
@@ -496,10 +392,6 @@ services:
         condition: service_started
     env_file:
       - .env.wiki
-    secrets:
-      - bookstack_session_secret
-      - bookstack_database_password
-      - bookstack_keycloak_client_secret
     hostname: wiki
     image: lscr.io/linuxserver/bookstack:25.11.5
     profiles:
@@ -511,25 +403,14 @@ services:
       - ./certs/:/etc/certs/:ro
       - ./wiki/init-wiki.sh:/custom-cont-init.d/init-wiki.sh:ro
 
-  # Wiki database
-  #
-  # `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD` come in through `.env.wiki`.
-  # The `_FILE` variants aren't forwarded here: setting them to empty
-  # unconditionally (as the previous `environment:` block did) causes the
-  # linuxserver/mariadb init to generate a random root password on first
-  # boot, leaving root unrecoverable. Operators who want secret-file
-  # indirection should invoke compose with
-  # `--env-file docker/.env.secrets.docker` (generated by secrets.sh) so
-  # the `_FILE` vars reach this service only when they point at real files.
+  # Wiki database. `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD` come in as
+  # plain env vars through `.env.wiki`.
   wiki-db:
     container_name: ${COMPOSE_PROJECT_NAME}-wiki-db
     env_file:
       - .env.wiki
     hostname: wiki-db
     image: lscr.io/linuxserver/mariadb:11.4.8
-    secrets:
-      - bookstack_root_password
-      - bookstack_database_password
     profiles:
       - wiki
     restart: unless-stopped
@@ -551,13 +432,6 @@ services:
         condition: service_healthy
     env_file:
       - .env.keycloak
-    environment:
-      KEYCLOAK_ADMIN_PASSWORD_FILE: ${KEYCLOAK_ADMIN_PASSWORD_FILE:-}
-      KC_DB_PASSWORD_FILE: ${KC_DB_PASSWORD_FILE:-}
-    secrets:
-      - keycloak_admin_password
-      - keycloak_database_password
-      - keycloak_client_secret
     hostname: keycloak
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/keycloak:${TAG}
     labels:
@@ -613,10 +487,7 @@ services:
       # The sidecar no longer talks to Postgres directly — every DB
       # operation goes through the server's internal /worker/backup REST
       # API. BACKUP_SERVER_URL is the compose-internal address the
-      # worker uses; the shared worker token is read via the same
-      # precedence as other secrets (docker secret > _FILE env >
-      # env var), so WORKER_TOKEN here is an env-var fallback for
-      # dev runs where secrets.sh hasn't been run.
+      # worker uses; WORKER_TOKEN is a shared secret from .env.secrets.
       BACKUP_SERVER_URL: http://server:3000
       WORKER_TOKEN: ${WORKER_TOKEN:-}
       # Workspace is the repo root, mounted read-only except for the staging dir.
@@ -636,8 +507,6 @@ services:
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/backup:${TAG}
     restart: unless-stopped
     user: root:root
-    secrets:
-      - worker_token
     tmpfs:
       # uid/gid match the node user in the backup image so the worker (which
       # drops to node via su-exec in entrypoint.sh) can write here without
@@ -667,8 +536,7 @@ services:
     env_file:
       - .env.keycloak
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-${KEYCLOAK_DATABASE_PASSWORD}}
-      POSTGRES_PASSWORD_FILE: ${KC_DB_POSTGRES_PASSWORD_FILE:-}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DATABASE_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
@@ -679,8 +547,6 @@ services:
     profiles:
       - sso
     restart: unless-stopped
-    secrets:
-      - keycloak_database_password
     volumes:
       - keycloak-data:/var/lib/postgresql/data
 
@@ -697,10 +563,6 @@ services:
       - SETUP_MODE=grafana
     env_file:
       - .env.grafana
-    secrets:
-      - historian_database_password
-      - grafana_admin_password
-      - keycloak_admin_password
     hostname: grafana-setup
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}
     profiles:
@@ -759,9 +621,6 @@ services:
     profiles:
       - grafana
     restart: unless-stopped
-    secrets:
-      - grafana_admin_password
-      - keycloak_grafana_client_secret
     user: root
     volumes:
       - grafana-cache:/var/lib/grafana
@@ -770,23 +629,18 @@ services:
   # Grafana legacy time-series database. Retained for
   # migrate-historian-data.sh; not part of any active runtime path
   # (grafana itself uses SQLite; the historian service supersedes this
-  # as the live time-series store). Same POSTGRES_PASSWORD / _FILE
-  # pair as keycloak-db and historian so cold-init works whether
-  # secrets.sh has been run or the operator is in env-only mode.
+  # as the live time-series store).
   grafana-db:
     container_name: ${COMPOSE_PROJECT_NAME}-grafana-db
     env_file:
       - .env.grafana
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-${GRAFANA_DATABASE_PASSWORD}}
-      POSTGRES_PASSWORD_FILE: ${GRAFANA_DB_POSTGRES_PASSWORD_FILE:-}
+      POSTGRES_PASSWORD: ${GRAFANA_DATABASE_PASSWORD}
     hostname: grafana-db
     image: postgres:16-alpine
     profiles:
       - grafana
     restart: unless-stopped
-    secrets:
-      - grafana_database_password
     volumes:
       - grafana-data:/var/lib/postgresql/data
 
@@ -806,20 +660,10 @@ services:
     env_file:
       - .env.historian
     environment:
-      # Same `${VAR-fallback}` / `_FILE` pair as the main database service.
-      # When secrets.sh has been run, .env.secrets.docker blanks
-      # POSTGRES_PASSWORD (via the shared footer) and sets
-      # HISTORIAN_DATABASE_PASSWORD_FILE — the postgres image then reads
-      # from /run/secrets/historian_database_password. Without secrets,
-      # POSTGRES_PASSWORD falls back to the .env value.
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-${HISTORIAN_DATABASE_PASSWORD}}
-      POSTGRES_PASSWORD_FILE: ${HISTORIAN_DATABASE_PASSWORD_FILE:-}
+      POSTGRES_PASSWORD: ${HISTORIAN_DATABASE_PASSWORD}
       COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
       TEST_HISTORIAN_HOST: ${TEST_HISTORIAN_HOST:-}
       TEST_HISTORIAN_PASSWORD: ${TEST_HISTORIAN_PASSWORD:-}
-    secrets:
-      - historian_database_password
-      - historian_replicator_password
     hostname: historian
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/historian:${TAG}
     ports:
@@ -846,8 +690,6 @@ services:
       - SETUP_MODE=volttron
     env_file:
       - .env.volttron
-    secrets:
-      - historian_database_password
     hostname: volttron-setup
     network_mode: host
     image: ${COMPOSE_CONTAINER_REGISTRY}/${COMPOSE_PROJECT_NAME}/setup:${TAG}

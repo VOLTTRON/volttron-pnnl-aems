@@ -32,10 +32,24 @@ $StartingPath = Get-Location
 
 Write-Host "Checking environment/secrets configuration..." -ForegroundColor Blue
 
-& .\check-env.ps1
+# Run check-env.ps1 in a separate PowerShell process so parse errors surface
+# as a non-zero exit code (dot-sourcing or `&` invocation in the same process
+# reports parse errors to the console but leaves $LASTEXITCODE unchanged, so
+# a broken check-env.ps1 would silently let start-services proceed).
+& powershell.exe -NoProfile -File .\check-env.ps1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Environment check failed - fix the issues above before starting services." -ForegroundColor Red
     exit 1
+}
+
+# Point docker compose at both .env (defaults/placeholders) and .env.secrets
+# (real values) for interpolation. Compose's `include: env_file:` doesn't
+# cascade to interpolation of the outer file, so we set this env-var here
+# once per invocation.
+if (Test-Path ".env.secrets") {
+    $env:COMPOSE_ENV_FILES = ".env,.env.secrets"
+} else {
+    $env:COMPOSE_ENV_FILES = ".env"
 }
 
 Write-Host "Building and starting Docker Compose services..." -ForegroundColor Blue

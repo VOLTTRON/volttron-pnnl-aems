@@ -543,26 +543,16 @@ wait_for_db_ready() {
             # Try unset MYSQL_PWD first (covers socket / no-password root
             # accounts). Then fall through to each known candidate.
             env -u MYSQL_PWD "$ADMIN" -uroot ping --silent >/dev/null 2>&1 && exit 0
-            CF=$(mktemp)
-            if [ -n "${MYSQL_ROOT_PASSWORD_FILE:-}" ] && [ -f "$MYSQL_ROOT_PASSWORD_FILE" ]; then
-                printf "%s\n" "$(cat "$MYSQL_ROOT_PASSWORD_FILE")" >> "$CF"
-            fi
             if [ -n "${MYSQL_ROOT_PASSWORD:-}" ]; then
                 case "$MYSQL_ROOT_PASSWORD" in
                     SeT_tHiS_iN_*|CHANGEME*) : ;;
-                    *) printf "%s\n" "$MYSQL_ROOT_PASSWORD" >> "$CF" ;;
+                    *)
+                        if MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$ADMIN" -uroot ping --silent >/dev/null 2>&1; then
+                            exit 0
+                        fi
+                        ;;
                 esac
             fi
-            for f in /run/secrets/*root_password* /run/secrets/*_root_password; do
-                [ -f "$f" ] || continue
-                printf "%s\n" "$(cat "$f")" >> "$CF"
-            done
-            while IFS= read -r p; do
-                if MYSQL_PWD="$p" "$ADMIN" -uroot ping --silent >/dev/null 2>&1; then
-                    rm -f "$CF"; exit 0
-                fi
-            done < "$CF"
-            rm -f "$CF"
             exit 1
         ' >/dev/null 2>&1; then
             print_green "  $svc is ready"
@@ -678,50 +668,32 @@ except Exception:
 ' || true)"
         case "${IMAGE,,}" in
             *mariadb*|*mysql*)
-                # Probe for a working root auth method in this order:
-                #   1) unset MYSQL_PWD entirely  (socket / no-password root)
-                #   2) \$MYSQL_ROOT_PASSWORD_FILE content
-                #   3) \$MYSQL_ROOT_PASSWORD (rejecting known placeholders)
-                #   4) any /run/secrets/*root_password* file
-                #
-                # Candidate passwords are written newline-terminated to a
-                # tmpfile and consumed with `while IFS= read -r` so empty
-                # lines are preserved. An explicit "env -u MYSQL_PWD" pass
-                # is done first because some deployments (linuxserver's
-                # mariadb with placeholder secrets) configure root with no
-                # password at all — not even empty-string.
+                # Probe for a working root auth method:
+                #   1) unset MYSQL_PWD entirely (socket / no-password root)
+                #   2) \$MYSQL_ROOT_PASSWORD (rejecting known placeholders)
+                # An explicit "env -u MYSQL_PWD" pass is done first because
+                # some deployments (linuxserver's mariadb with placeholder
+                # secrets) configure root with no password at all.
                 run_or_echo "gunzip -c \"$dump\" | docker compose exec -T \"$svc\" sh -c '
                     if command -v mariadb >/dev/null 2>&1; then CLI=mariadb; else CLI=mysql; fi
                     TMP=\$(mktemp); cat > \"\$TMP\"
-                    CF=\$(mktemp)
-                    if [ -n \"\${MYSQL_ROOT_PASSWORD_FILE:-}\" ] && [ -f \"\$MYSQL_ROOT_PASSWORD_FILE\" ]; then
-                        printf \"%s\\n\" \"\$(cat \"\$MYSQL_ROOT_PASSWORD_FILE\")\" >> \"\$CF\"
-                    fi
-                    if [ -n \"\${MYSQL_ROOT_PASSWORD:-}\" ]; then
-                        case \"\$MYSQL_ROOT_PASSWORD\" in
-                            SeT_tHiS_iN_*|CHANGEME*) : ;;
-                            *) printf \"%s\\n\" \"\$MYSQL_ROOT_PASSWORD\" >> \"\$CF\" ;;
-                        esac
-                    fi
-                    for f in /run/secrets/*root_password* /run/secrets/*_root_password; do
-                        [ -f \"\$f\" ] || continue
-                        printf \"%s\\n\" \"\$(cat \"\$f\")\" >> \"\$CF\"
-                    done
                     MODE=
                     WORKING=
                     if env -u MYSQL_PWD \"\$CLI\" --user=root -e \"SELECT 1\" >/dev/null 2>&1; then
                         MODE=unset
-                    else
-                        while IFS= read -r p; do
-                            if MYSQL_PWD=\"\$p\" \"\$CLI\" --user=root -e \"SELECT 1\" >/dev/null 2>&1; then
-                                MODE=pwd; WORKING=\"\$p\"; break
-                            fi
-                        done < \"\$CF\"
+                    elif [ -n \"\${MYSQL_ROOT_PASSWORD:-}\" ]; then
+                        case \"\$MYSQL_ROOT_PASSWORD\" in
+                            SeT_tHiS_iN_*|CHANGEME*) : ;;
+                            *)
+                                if MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" \"\$CLI\" --user=root -e \"SELECT 1\" >/dev/null 2>&1; then
+                                    MODE=pwd; WORKING=\"\$MYSQL_ROOT_PASSWORD\"
+                                fi
+                                ;;
+                        esac
                     fi
-                    rm -f \"\$CF\"
                     if [ -z \"\$MODE\" ]; then
                         echo \"Could not authenticate to MariaDB as root.\" >&2
-                        echo \"Tried unset, \\\$MYSQL_ROOT_PASSWORD_FILE, \\\$MYSQL_ROOT_PASSWORD, /run/secrets/*root_password*.\" >&2
+                        echo \"Tried unset and \\\$MYSQL_ROOT_PASSWORD.\" >&2
                         rm -f \"\$TMP\"; exit 1
                     fi
                     if [ \"\$MODE\" = unset ]; then
@@ -733,7 +705,6 @@ except Exception:
                 ;;
             *)
                 run_or_echo "gunzip -c \"$dump\" | docker compose exec -T \"$svc\" sh -c '
-                    if [ -n \"\${POSTGRES_PASSWORD_FILE:-}\" ]; then PGPASSWORD=\$(cat \"\$POSTGRES_PASSWORD_FILE\"); fi
                     export PGPASSWORD
                     USER=\"\${POSTGRES_USER:-postgres}\"; DB=\"\${POSTGRES_DB:-\$USER}\"
                     psql -U \"\$USER\" -d \"\$DB\"'"

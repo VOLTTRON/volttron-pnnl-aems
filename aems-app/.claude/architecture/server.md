@@ -22,7 +22,7 @@ NestJS 11 + Apollo Server 4 + Pothos (code-first GraphQL) backed by Prisma. Hand
 - [server/src/prisma/](../../server/src/prisma/) — Prisma module + service (DI wrapper around `@local/prisma`).
 - [server/src/redis.ts](../../server/src/redis.ts), [server/src/subscription/](../../server/src/subscription/) — Redis client + GraphQL pub/sub transport.
 - [server/src/middleware/](../../server/src/middleware/), [server/src/logging/](../../server/src/logging/), [server/src/utils/](../../server/src/utils/).
-  - [readSecret.ts](../../server/src/utils/readSecret.ts) — reads a credential from `/run/secrets/<name>` (Docker secret file) with `_FILE` env var and plain env var fallbacks. Used by `PrismaService` and `KeycloakService`.
+  - [readSecret.ts](../../server/src/utils/readSecret.ts) — reads a credential from a plain env var with a default fallback. Used by `PrismaService` and `KeycloakService`.
 - [server/src/graphql/keycloak/](../../server/src/graphql/keycloak/) — Keycloak Admin API aggregate. **Not** part of the OAuth2 auth strategy — this exposes realm-role management to app users holding the `keycloak` role. Files: `keycloak-admin.service.ts` (Admin REST API client), `object.service.ts` (`KeycloakRole` type), `query.service.ts`, `mutate.service.ts`. See [auth.md](auth.md) § "Keycloak Admin API" for full detail.
 
   GraphQL operations (all scoped `authScopes: { keycloak: true }`):
