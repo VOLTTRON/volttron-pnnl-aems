@@ -28,18 +28,5 @@
       "Edit(*)",
       "Write(*)"
     ]
-  },
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/hooks/prisma-rebuild-reminder.cjs"
-          }
-        ]
-      }
-    ]
   }
 }

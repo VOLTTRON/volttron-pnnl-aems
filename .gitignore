@@ -1,2 +1,5 @@
 .claude
 *.docx
+# reach: this machine's lane state, never the repository's
+/Logs/reach-lane/
+.reach-lane-lock

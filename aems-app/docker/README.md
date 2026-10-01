@@ -319,7 +319,7 @@ docker compose --profile fastapi up -d --build
 curl http://localhost:5410/health/
 ```
 
-Pipeline docs: [`aems-lib-fastapi/docs/PIPELINE.md`](../../aems-lib-fastapi/docs/PIPELINE.md)
+Pipeline docs: `docs/PIPELINE.md` in the sibling `aems-lib-fastapi` checkout.
 
 ## Environment Configuration
 

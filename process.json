@@ -1,0 +1,90 @@
+{
+  "reach": "0.11.30",
+  "project": "aems-app",
+
+  "spine": { "path": "aems-app/docs/ARCHITECTURE.md", "cap": 95 },
+  "roster": { "path": "aems-app/docs/roster.md", "cap": 26 },
+  "unit": { "noun": "unit", "dir": "aems-app/docs/units", "cap": 60 },
+  "evidence": {
+    "noun": "scenario",
+    "mark": "// scenario:",
+    "search": ["aems-app/common/src", "aems-app/server/src", "aems-app/client/src", "aems-app/scripts/tests"]
+  },
+  "human": { "doc": "aems-app/docs/process/WALKTHROUGHS.md", "noun": "walkthrough", "layer": "aems-app/client/src/app" },
+  "reports": { "doc": "aems-app/docs/process/REPORTS.md", "cap": 60 },
+  "adoption": "aems-app/docs/process/ADOPTION.md",
+
+  "archive": "aems-app/Reference",
+  "unmaintained": [
+    "node_modules", ".git", "Library", "obj", "bin", "target", ".venv",
+    "aems-app/prisma/node_modules", "aems-app/common/node_modules", "aems-app/server/node_modules",
+    "aems-app/client/node_modules", "aems-app/scripts/node_modules", "aems-app/client/.next",
+    "aems-edge", "docs", "README.md"
+  ],
+  "checks": "aems-app/scripts/gate-checks",
+  "caps": {
+    "aems-app/docs/TRAPS.md": 80,
+    "aems-app/docs/process/WALKTHROUGHS.md": 16,
+    "aems-app/CLAUDE.md": 18
+  },
+
+  "integration": { "branch": "develop", "primary": "working", "mode": "push", "remote": "origin" },
+  "lanes": [
+    {
+      "name": "build",
+      "branch": "build",
+      "worktree": "../volttron-pnnl-aems-lanes/build",
+      "command": "/reach:build",
+      "warm": { "run": "" },
+      "unattended": false
+    },
+    {
+      "name": "milestone",
+      "branch": "milestone",
+      "worktree": "../volttron-pnnl-aems-lanes/milestone",
+      "command": "/reach:milestone",
+      "unattended": false
+    }
+  ],
+
+  "tiers": [
+    {
+      "id": "A",
+      "what": "types, over freshly built prisma and common",
+      "run": "(cd aems-app/prisma && yarn build && cd ../common && yarn build && cd ../server && yarn check && cd ../client && yarn check) 2>&1",
+      "requires": "(node -e \"process.exit(['prisma','common','server','client'].every(w=>require('fs').existsSync('aems-app/'+w+'/node_modules'))?0:1)\") 2>&1",
+      "cost": "~2min"
+    },
+    {
+      "id": "B",
+      "what": "lint, without --fix",
+      "run": "(cd aems-app/prisma && yarn eslint \"src/**/*.ts\" && cd ../common && yarn eslint \"src/**/*.ts\" && cd ../server && yarn eslint \"src/**/*.ts\" && cd ../client && yarn lint) 2>&1",
+      "requires": "(node -e \"process.exit(['prisma','common','server','client'].every(w=>require('fs').existsSync('aems-app/'+w+'/node_modules'))?0:1)\") 2>&1",
+      "cost": "~1min"
+    },
+    {
+      "id": "C",
+      "what": "unit tests: common, server, client (prisma has none)",
+      "run": "(cd aems-app/common && yarn test && cd ../server && yarn test && cd ../client && yarn test) 2>&1",
+      "requires": "(node -e \"process.exit(['prisma','common','server','client'].every(w=>require('fs').existsSync('aems-app/'+w+'/node_modules'))?0:1)\") 2>&1",
+      "proves": "Tests:\\s+\\d+ passed",
+      "cost": "~5min"
+    },
+    {
+      "id": "D",
+      "what": "the real artifact: nest build and next build, and the generated schema matches the committed one",
+      "run": "(cd aems-app/server && yarn build && cd ../client && yarn build && git diff --exit-code -- ../server/schema.graphql schema.graphql) 2>&1",
+      "requires": "(node -e \"process.exit(['prisma','common','server','client'].every(w=>require('fs').existsSync('aems-app/'+w+'/node_modules'))?0:1)\") 2>&1",
+      "cost": "~6min"
+    },
+    {
+      "id": "E",
+      "what": "the deployed stack: Playwright through Traefik and Keycloak",
+      "run": "(cd aems-app && powershell -NoProfile -ExecutionPolicy Bypass -File test-integration.ps1) 2>&1",
+      "requires": "(docker info) 2>&1",
+      "proves": "\\d+ passed",
+      "cost": "~15min"
+    },
+    { "id": "F", "what": "the owner's eyes: how it looks, TLS trust in a real browser", "human": true }
+  ]
+}

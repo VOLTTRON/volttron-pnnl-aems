@@ -21,4 +21,4 @@ This directory contains the server-side authentication stack. Multiple strategie
 
 ## Further reading
 
-Full architecture detail (session sharing, WebSocket auth, adding a new provider, Keycloak setup): [`.claude/architecture/auth.md`](../../../.claude/architecture/auth.md)
+What auth guarantees, and its open questions: [`docs/units/auth.md`](../../../docs/units/auth.md). Session sharing and WebSocket traps: [`docs/TRAPS.md`](../../../docs/TRAPS.md).
