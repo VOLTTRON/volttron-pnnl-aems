@@ -16,9 +16,8 @@ field or page is.
 - Every HTTP endpoint requires an authenticated user unless it carries `@PublicRoute`; the global
   guards are AuthenticatedGuard and RolesGuard.
 - `@Roles(...)` on a REST handler admits a user whose roles satisfy it through `Role.granted`.
-- `Role.granted`: `admin` grants `user`; `keycloak` grants `admin` and `user`; `user` grants nothing.
-  **Open:** `super` grants nothing in `common/src/constants/role.ts:10-12`, while the previous
-  documents stated `super` grants `admin` and `user`.
+- `Role.granted`: `super` and `keycloak` each grant `admin` and `user`; `admin` grants `user`; `user`
+  grants nothing. Only `super` may sign in as another user.
 - A WebSocket connection is authenticated once, at connect, by the same framework as HTTP.
 - The Auth.js session cookie is `Secure` and scoped to `APP_HOSTNAME`.
 - `/authjs/signin` never answers 500, and `/authjs/providers` never answers 404 or 502.
