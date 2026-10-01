@@ -49,10 +49,14 @@ working on the area it names.
   `start-services` from `aems-app/`: the volttron-setup image layer is invalidated and its setup
   re-copies them. Never bind-mount templates from the host (ownership, SELinux). If BuildKit keeps the
   old layer, `docker compose build --no-cache volttron-setup`.
-- **Compose only interpolates `.env.secrets` when `COMPOSE_ENV_FILES=.env,.env.secrets` is set**; the
-  shim's `include: env_file:` does not feed interpolation, and an unset value resolves to the
-  `.env` sentinel. `start-services` and `secrets` export it; a hand-typed `docker compose` must too.
-  *Superseded on the secrets branch by the `.env`-single-input model; replaced when that branch lands.*
+- **Compose reads only `.env`.** `.env.secrets` reaches it because `secrets.sh` overlays it into `.env`;
+  editing `.env.secrets` alone changes nothing until `secrets.sh` (or `start-services`) runs.
+- **Never commit a synced `.env`.** After `secrets.sh` it holds real credentials; the tracked baseline
+  is the sentinel version.
+- **A Postgres volume keeps the password it was initialised with**, whatever `.env` says later.
+  `secrets.sh` detects a sentinel-initialised role and rotates it; a hand-typed `up` does not.
+- **VOLTTRON SQLHistorian reads an install-time config**, not the config store, so a rotated historian
+  password needs `scripts/sync-volttron-historian-config.sh` — which `secrets.sh` and `start-services` run.
 
 ## Dev sessions
 

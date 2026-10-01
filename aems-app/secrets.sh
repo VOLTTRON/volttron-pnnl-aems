@@ -2,36 +2,46 @@
 #
 # Manage .env.secrets and apply rotations to live containers.
 #
-# Secrets live as plain KEY=VALUE lines in the gitignored `.env.secrets`
-# file. The root docker-compose.yml loads that file as an env_file, so
-# every ${VAR} interpolation and every service's `env_file: .env.<svc>`
-# forwarding picks the values up automatically. No /run/secrets, no _FILE
-# indirection, no docker/secrets/*.txt.
+# ARCHITECTURE
+# ────────────
+# .env is the single input docker compose reads. It contains real
+# values in a running deployment. .env.secrets (optional, gitignored)
+# is an operator's editable secret store. This script overlays the
+# values from .env.secrets onto .env before compose runs, so compose's
+# natural `.env` auto-load resolves every ${VAR} to the real value —
+# no --env-file flag, no COMPOSE_ENV_FILES, no service-level env_file
+# mount of .env.secrets.
+#
+# Deployments that don't want a separate .env.secrets file can leave
+# it absent and edit .env directly. This script is then a no-op after
+# bootstrap.
 #
 # What this script does:
 #
-#   1. BOOTSTRAP (no .env.secrets): create a stub .env.secrets seeded with
-#      every key marked in .env with the sentinel placeholder. Exits so the
-#      user can fill in real values.
+#   1. BOOTSTRAP (no .env.secrets): create a stub .env.secrets seeded
+#      from every key marked in .env with the sentinel placeholder
+#      (or whose current value is a real credential misplaced in .env).
+#      Exits so the operator can fill in real values.
 #
-#   2. MISPLACED (real values found in .env): migrate them into
-#      .env.secrets and warn.
+#   2. SYNC + ROTATION (every subsequent run): compare each secret key's
+#      value between .env.secrets (desired) and .env (currently
+#      deployed). If they differ:
+#        - Run the live credential-change handler (ALTER ROLE / kcadm /
+#          grafana-cli) against the running container using the old
+#          value from .env.
+#        - Overlay the new value into .env in place.
+#        - Queue affected services for `docker compose up -d --no-deps`
+#          so they pick up the fresh .env on next boot.
 #
-#   3. ROTATION (a key's value in .env.secrets differs from the value
-#      currently live in the deployed container): run the credential-change
-#      handler (ALTER ROLE / ALTER USER / kcadm.sh / grafana-cli) against
-#      the running container BEFORE the new env is picked up, then
-#      `docker compose up -d --no-deps <service>` so the container inherits
-#      the new value from .env.secrets. Container must be running — abort
-#      otherwise; pass --force to skip the live-rotation step (the operator
-#      is then responsible for wiping the affected data volume, if any).
-#
-#   4. NO-OP: silent skip when the running container's env already matches.
+#   3. NO-OP: silent skip when .env and .env.secrets already match.
 #
 # Note on restart mode: `docker compose restart` reuses the cached env
-# vars in the existing container — it does NOT re-read env_file. We use
-# `docker compose up -d --no-deps <svc>` instead, which recreates the
-# container with fresh env.
+# vars in the existing container — it does NOT re-read the .env at
+# compose parse time. Use `docker compose up -d --no-deps <svc>`.
+#
+# WARNING: after this script runs, .env contains real secret values.
+# The file is tracked in git with the sentinel baseline. DO NOT commit
+# the modified .env.
 #
 # Usage:
 #   ./secrets.sh                # process every key in .env.secrets
@@ -42,6 +52,10 @@
 # Must be run from the repo root.
 
 set -e
+
+# Anchor to this script's directory so relative paths and docker compose's
+# cwd-based `.env` auto-load resolve regardless of the caller's location.
+cd "$(dirname "$0")"
 
 ENV_FILE=".env"
 SECRETS_FILE=".env.secrets"
@@ -96,17 +110,28 @@ env_secret_keys() {
 }
 
 # Returns key names for every variable in .env whose name ends in
-# _PASSWORD, _SECRET, _TOKEN, or _KEY and whose value is non-empty and
-# not the placeholder. These belong in .env.secrets.
+# _PASSWORD, _SECRET, _TOKEN, or _KEY and whose value is a real
+# credential NOT already in .env.secrets. These belong in .env.secrets
+# but aren't there yet — candidates for migration.
+#
+# In the sync model, .env normally holds the same real values as
+# .env.secrets (via `sync_env_from_secrets`), so we filter those out:
+# a value that matches .env.secrets is a synced entry, not a misplaced
+# one.
 env_misplaced_keys() {
   grep -v '^\s*#' "$ENV_FILE" \
     | grep -iE '^[A-Za-z_][A-Za-z0-9_]*_(PASSWORD|SECRET|TOKEN|KEY)=' \
     | while read -r line; do
         key="${line%%=*}"
         val="${line#*=}"
-        if [ -n "$val" ] && [ "$val" != "$PLACEHOLDER" ]; then
-          echo "$key"
+        [ -z "$val" ] && continue
+        [ "$val" = "$PLACEHOLDER" ] && continue
+        # If .env.secrets already has the same value, it's synced — skip.
+        if [ -f "$SECRETS_FILE" ]; then
+          secrets_val=$(get_value "$SECRETS_FILE" "$key")
+          [ "$secrets_val" = "$val" ] && continue
         fi
+        echo "$key"
       done
 }
 
@@ -164,40 +189,42 @@ key_deployed_container() {
   esac
 }
 
-# Read the value of $key from the running container's env. Empty string
-# if the container isn't running or the var isn't set. For DB services,
-# the env var name in the container is POSTGRES_PASSWORD / MYSQL_PASSWORD;
-# we look those up by pattern.
-container_env_key() {
-  case "$1" in
-    DATABASE_PASSWORD|KEYCLOAK_DATABASE_PASSWORD|NOMINATIM_DATABASE_PASSWORD|HISTORIAN_DATABASE_PASSWORD|GRAFANA_DATABASE_PASSWORD)
-      echo "POSTGRES_PASSWORD" ;;
-    BOOKSTACK_DATABASE_PASSWORD)       echo "MYSQL_PASSWORD" ;;
-    BOOKSTACK_ROOT_PASSWORD)           echo "MYSQL_ROOT_PASSWORD" ;;
-    GRAFANA_ADMIN_PASSWORD)            echo "GF_SECURITY_ADMIN_PASSWORD" ;;
-    KEYCLOAK_GRAFANA_CLIENT_SECRET)    echo "GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET" ;;
-    BOOKSTACK_SESSION_SECRET)          echo "APP_KEY" ;;
-    BOOKSTACK_KEYCLOAK_CLIENT_SECRET)  echo "OIDC_CLIENT_SECRET" ;;
-    KEYCLOAK_ADMIN_PASSWORD)           echo "KEYCLOAK_ADMIN_PASSWORD" ;;
-    KEYCLOAK_CLIENT_SECRET)            echo "KEYCLOAK_CLIENT_SECRET" ;;
-    HISTORIAN_REPLICATOR_PASSWORD)     echo "HISTORIAN_REPLICATOR_PASSWORD" ;;
-    *)                                 echo "$1" ;;
-  esac
-}
-
+# The "currently deployed" value for a secret key is the value in .env —
+# that's what docker compose reads when interpolating ${KEY} and what the
+# service containers see in their runtime env. A sentinel in .env means
+# nothing real is deployed for this key yet; return empty so classification
+# falls to FRESH.
 deployed_secret() {
   key="$1"
-  container=$(key_deployed_container "$PROJECT" "$key")
-  [ -z "$container" ] && return 0
-  container_running "$container" || return 0
-  env_key=$(container_env_key "$key")
-  val=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$container" 2>/dev/null \
-    | grep "^${env_key}=" | head -1 | sed 's/^[^=]*=//')
-  # Filter noise: an unfilled sentinel means compose interpolation produced
-  # a placeholder (old .env-only-with-placeholders deploys), not a real
-  # deployed value. Treat as "not deployed" so classification falls to FRESH.
+  val=$(get_value "$ENV_FILE" "$key")
   [ "$val" = "$PLACEHOLDER" ] && val=""
   printf '%s' "$val"
+}
+
+# Every KEY=VALUE line in .env.secrets (skipping comments, blanks).
+secrets_file_keys() {
+  grep -v '^\s*#' "$SECRETS_FILE" 2>/dev/null \
+    | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' \
+    | sed 's/=.*//'
+}
+
+# Overlay every non-blank non-placeholder value from .env.secrets onto
+# .env. Prints the count of keys whose value changed.
+sync_env_from_secrets() {
+  changed=0
+  for k in $(secrets_file_keys); do
+    new_val=$(get_value "$SECRETS_FILE" "$k")
+    [ -z "$new_val" ] && continue
+    [ "$new_val" = "$PLACEHOLDER" ] && continue
+    old_val=$(get_value "$ENV_FILE" "$k")
+    if [ "$new_val" != "$old_val" ]; then
+      if [ "$DRY_RUN" = 0 ]; then
+        update_secrets_entry "$ENV_FILE" "$k" "$new_val"
+      fi
+      changed=$((changed + 1))
+    fi
+  done
+  echo "$changed"
 }
 
 run_or_dry() {
@@ -214,14 +241,9 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-# Point docker compose at both .env and .env.secrets for interpolation so
-# `docker compose up -d --no-deps <svc>` in the restart pass below picks up
-# real secret values. Compose's `include: env_file:` doesn't cascade.
-if [ -f "$SECRETS_FILE" ]; then
-  export COMPOSE_ENV_FILES="${ENV_FILE},${SECRETS_FILE}"
-else
-  export COMPOSE_ENV_FILES="${ENV_FILE}"
-fi
+# Compose auto-loads .env from cwd. No --env-file discipline needed —
+# this script's job is to make .env correct, and compose reads it
+# unconditionally.
 
 # ══════════════════════════════════════════════════════════════════════════════
 # BOOTSTRAP PATH — .env.secrets doesn't exist
@@ -306,11 +328,16 @@ printf "\nRunning from: %s\n" "$(pwd)"
 
 PROJECT=$(project_name)
 
-# Build the list of keys to process.
+# Build the list of keys to process. Prefer .env.secrets as the
+# authoritative list — after the first sync, .env no longer has
+# sentinel-marked entries, so env_secret_keys() would return empty.
 if [ -n "$EXPLICIT_KEYS" ]; then
   KEYS_TO_CHECK="$EXPLICIT_KEYS"
 else
-  KEYS_TO_CHECK=$(env_secret_keys)
+  KEYS_TO_CHECK=$(secrets_file_keys)
+  # Fall back to sentinel-marked entries in .env if .env.secrets is
+  # empty (freshly bootstrapped and nothing filled in).
+  [ -z "$(printf '%s' "$KEYS_TO_CHECK" | tr -d ' \n\t')" ] && KEYS_TO_CHECK=$(env_secret_keys)
 fi
 
 # ── misplaced-secret migration ─────────────────────────────────────────────────
@@ -380,8 +407,39 @@ for key in $KEYS_TO_CHECK; do
   fi
 done
 
-# Nothing to do — .env.secrets matches every running container's env.
-if [ -z "$(printf '%s%s' "$FRESH" "$ROTATIONS" | tr -d ' ')" ]; then
+# ══════════════════════════════════════════════════════════════════════════════
+# SENTINEL SCAN — detect and repair containers whose env holds the
+# `.env` placeholder sentinel. This happens when someone runs
+# `docker compose up -d` without `COMPOSE_ENV_FILES=.env,.env.secrets`
+# set in their shell — compose interpolates `${VAR}` against `.env`
+# alone and every recreated container gets the sentinel baked into its
+# env, breaking auth everywhere downstream. Scan is scoped to full
+# runs (skipped when the user passed explicit keys).
+# ══════════════════════════════════════════════════════════════════════════════
+
+POISONED_SERVICES=""
+if [ -z "$EXPLICIT_KEYS" ]; then
+  header "Scanning for sentinel-poisoned containers"
+  for c in $(docker ps -a --format '{{.Names}}' 2>/dev/null | grep "^${PROJECT}-" || true); do
+    if docker inspect "$c" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+         | grep -q "=${PLACEHOLDER}$"; then
+      svc=${c#${PROJECT}-}
+      POISONED_SERVICES="$POISONED_SERVICES $svc"
+      warn "$c: env holds the sentinel placeholder"
+    fi
+  done
+  if [ -n "$(printf '%s' "$POISONED_SERVICES" | tr -d ' ')" ]; then
+    warn "This means docker compose ran without COMPOSE_ENV_FILES set."
+    warn "Recreating with real values from ${SECRETS_FILE}..."
+    mark_warn
+  else
+    ok "No sentinel-poisoned containers detected."
+  fi
+fi
+
+# Nothing to do — .env.secrets matches every running container's env
+# AND no poisoned containers to repair.
+if [ -z "$(printf '%s%s%s' "$FRESH" "$ROTATIONS" "$POISONED_SERVICES" | tr -d ' ')" ]; then
   printf "\n${GREEN}${BOLD}All secrets are up to date.${RESET}\n\n"
   if [ "$DRY_RUN" = 0 ] && [ -x ./check-env.sh ]; then
     ./check-env.sh || warn "check-env.sh reported issues — review the output above."
@@ -695,6 +753,86 @@ for key in $FRESH; do
   fi
 done
 
+# ── pg_shadow-drift probe ──────────────────────────────────────────────────────
+# Runs UNCONDITIONALLY on full-runs. For each postgres role, verify
+# `pg_shadow` accepts the `.env.secrets` value. If it doesn't but
+# ACCEPTS the sentinel, the volume was seeded with the sentinel and we
+# rotate to realign. Covers the case where compose up -d has already
+# fixed container envs to real values but `pg_shadow` was poisoned in
+# the volume by a prior bad boot.
+_pg_auth_ok() {
+  docker exec -e PGPASSWORD="$1" "$2" psql -U "$3" -h "$4" -d "$5" -tAc 'SELECT 1;' >/dev/null 2>&1
+}
+if [ -z "$EXPLICIT_KEYS" ] && [ "$DRY_RUN" = 0 ]; then
+  for spec in \
+      "DATABASE_PASSWORD:database:aems" \
+      "KEYCLOAK_DATABASE_PASSWORD:keycloak-db:keycloak" \
+      "NOMINATIM_DATABASE_PASSWORD:nominatim:nominatim" \
+      "HISTORIAN_DATABASE_PASSWORD:historian:historian" \
+      "HISTORIAN_REPLICATOR_PASSWORD:historian:replicator" \
+      "GRAFANA_DATABASE_PASSWORD:grafana-db:grafana"; do
+    key=${spec%%:*}
+    rest=${spec#*:}
+    svc=${rest%%:*}
+    db_user=${rest#*:}
+    container="${PROJECT}-${svc}"
+    container_running "$container" || continue
+    new_val=$(get_value "$SECRETS_FILE" "$key")
+    [ -z "$new_val" ] || [ "$new_val" = "$PLACEHOLDER" ] && continue
+    # If pg_shadow already accepts the desired value, nothing to do.
+    if _pg_auth_ok "$new_val" "$container" "$db_user" "$svc" "$db_user"; then
+      continue
+    fi
+    # It doesn't. Try the sentinel — if that works, pg_shadow is stuck
+    # on the sentinel and needs rotation to align with .env.secrets.
+    if _pg_auth_ok "$PLACEHOLDER" "$container" "$db_user" "$svc" "$db_user"; then
+      warn "$container: pg_shadow accepts the sentinel — aligning role $db_user to $SECRETS_FILE value"
+      rotate_pg "$container" "$db_user" "$new_val" "$key (pg_shadow repair)" "$PLACEHOLDER" \
+        || warn "  rotate_pg failed — pg_shadow may still be drifted; check manually"
+      # Force downstream recreates so app envs pick up the freshly
+      # rotated password.
+      case "$svc" in
+        database)    for s in init server services seeders synth-worker client backup; do queue_restart "$s"; done ;;
+        keycloak-db) queue_restart "keycloak" ;;
+        historian)   for s in volttron volttron-setup server services synth-worker; do queue_restart "$s"; done ;;
+        grafana-db)  queue_restart "grafana" ;;
+        nominatim)   queue_restart "nominatim" ;;
+      esac
+    else
+      warn "$container: pg_shadow does not accept either the sentinel or the $SECRETS_FILE value for $db_user — manual reconciliation required"
+    fi
+  done
+fi
+
+# Merge POISONED_SERVICES into RESTART_SERVICES so the existing RESTART
+# pass recreates them with real env values from .env.secrets.
+for svc in $POISONED_SERVICES; do
+  queue_restart "$svc"
+done
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SYNC .env FROM .env.secrets
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Live rotations above ran against the OLD .env values. Now that the
+# rotation handlers have made the live containers accept the new values,
+# overlay .env.secrets onto .env so:
+#   (a) `docker compose up -d --no-deps <svc>` below recreates each
+#       service with the new value in its runtime env
+#   (b) future compose invocations (from any shell) resolve ${VAR}
+#       against the real value in .env
+#
+# .env is the single input compose reads. This script's job is to keep
+# it aligned with .env.secrets.
+if [ -f "$SECRETS_FILE" ]; then
+  SYNCED=$(sync_env_from_secrets)
+  if [ "$SYNCED" -gt 0 ] && [ "$DRY_RUN" = 0 ]; then
+    header "Synced $SYNCED secret(s) from $SECRETS_FILE into $ENV_FILE"
+    warn "$ENV_FILE now contains real secret values — DO NOT commit."
+    mark_warn
+  fi
+fi
+
 # ══════════════════════════════════════════════════════════════════════════════
 # RESTART PASS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -709,7 +847,6 @@ RESTART_SERVICES=$(printf '%s' "$RESTART_SERVICES" | tr ' ' '\n' | grep -v '^$' 
 if [ -n "$(printf '%s' "$RESTART_SERVICES" | tr -d ' ')" ]; then
   header "Recreating affected services: $RESTART_SERVICES"
   for svc in $RESTART_SERVICES; do
-    container="${PROJECT}-${svc}"
     case "$svc" in
       volttron)
         info "Recreating $svc (--force-recreate)"
@@ -722,16 +859,39 @@ if [ -n "$(printf '%s' "$RESTART_SERVICES" | tr -d ' ')" ]; then
         ok "$svc re-run"
         ;;
       *)
-        if container_running "$container"; then
-          info "Recreating $svc"
-          run_or_dry "docker compose up -d --no-deps $svc"
-          ok "$svc recreated"
-        else
-          warn "$svc is not running — skipping"
-        fi
+        # Always try to recreate — compose will skip services whose
+        # profile isn't active. Services in Exited/Created state (e.g.,
+        # a failed init) still need to come up with fresh env.
+        info "Recreating $svc"
+        run_or_dry "docker compose up -d --no-deps $svc"
+        ok "$svc recreated"
         ;;
     esac
   done
+fi
+
+# ── Volttron historian config sync ────────────────────────────────────────────
+# The SQLHistorian agent reads its DB connection from its install-time
+# config file (dist-info/config), NOT the dynamic config store, and
+# --force-recreate of the volttron container doesn't guarantee the agent
+# picks up the current historian.config on disk (setup-platform.py's
+# install-if-missing behavior). Run the sync helper explicitly whenever
+# any rotation touched the historian password OR volttron was in the
+# poisoned recreate set (sentinel-poisoning of the volttron container's
+# env means historian.config was written with placeholder values and
+# the agent got installed with them).
+NEED_VOLTTRON_SYNC=0
+case " $ROTATIONS " in
+  *" HISTORIAN_DATABASE_PASSWORD "*|*" HISTORIAN_REPLICATOR_PASSWORD "*)
+    NEED_VOLTTRON_SYNC=1 ;;
+esac
+case " $POISONED_SERVICES " in
+  *" volttron "*|*" volttron-setup "*) NEED_VOLTTRON_SYNC=1 ;;
+esac
+if [ "$NEED_VOLTTRON_SYNC" = 1 ] && [ "$DRY_RUN" = 0 ] && [ -x ./scripts/sync-volttron-historian-config.sh ]; then
+  header "Syncing SQLHistorian install-time config"
+  ./scripts/sync-volttron-historian-config.sh \
+    || warn "sync-volttron-historian-config.sh reported issues (see above). Dashboards may not show new data until the sync succeeds."
 fi
 
 # ── post-check ─────────────────────────────────────────────────────────────────

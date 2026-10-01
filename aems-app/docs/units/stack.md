@@ -1,15 +1,12 @@
 # stack
 
 **State:** unbuilt
-**Contract:** partial — how `.env.secrets` reaches compose interpolation is pending the port from the
-secrets branch.
 
 ## Contract
 
-The Docker Compose deployment: which containers run, in what order, how they are reached, and how
-their secrets are created and rotated. It guarantees every other unit a running database, a TLS
-front door on one hostname, and a configuration that boots from a fresh checkout. It does not own any
-application behaviour behind the proxy.
+The Docker Compose deployment: which containers run, in what order, and how they are reached. It
+guarantees every other unit a running database and a TLS front door on one hostname. It does not own
+credentials — that is `secrets` — or any application behaviour behind the proxy.
 
 ## Claims
 
@@ -24,12 +21,6 @@ application behaviour behind the proxy.
 - The seeders service creates the system user on a cold database.
 - The profiles are exactly proxy, sso, map, nom, wiki, redis, grafana, historian, volttron, fastapi,
   fastapi-agents and synth; a service in a profile does not start unless that profile is selected.
-- A fresh checkout with no `.env.secrets` boots: the sentinels in `.env` are valid runtime defaults.
-- `secrets.sh` creates a complete `.env.secrets` on a first run.
-- `secrets.sh` rotates a changed credential into the running services, and refuses when the affected
-  container is down unless `--force` is given; `--dry-run` changes nothing.
-- `check-env` reports an incomplete or placeholder `.env.secrets` and does not block startup.
-- `readSecret` reads a plain environment variable with a default.
 
 ## Dependencies
 

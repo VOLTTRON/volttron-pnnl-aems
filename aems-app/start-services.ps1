@@ -30,6 +30,12 @@ if ($Help -or $args -contains "-h" -or $args -contains "--help") {
 # Store the starting path
 $StartingPath = Get-Location
 
+# Anchor to this script's directory so relative paths (.\check-env.ps1,
+# .\secrets.ps1, .\scripts\...) and `docker compose`'s cwd-based `.env`
+# auto-load resolve regardless of the caller's location.
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location -Path $ScriptDir
+
 Write-Host "Checking environment/secrets configuration..." -ForegroundColor Blue
 
 # Run check-env.ps1 in a separate PowerShell process so parse errors surface
@@ -42,14 +48,16 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Point docker compose at both .env (defaults/placeholders) and .env.secrets
-# (real values) for interpolation. Compose's `include: env_file:` doesn't
-# cascade to interpolation of the outer file, so we set this env-var here
-# once per invocation.
-if (Test-Path ".env.secrets") {
-    $env:COMPOSE_ENV_FILES = ".env,.env.secrets"
-} else {
-    $env:COMPOSE_ENV_FILES = ".env"
+# Ensure .env is aligned with .env.secrets before compose reads it.
+# secrets.ps1 syncs any changed values from .env.secrets into .env in
+# place and rotates the live credentials if the stack is already up.
+# Idempotent: no-op when .env already matches .env.secrets.
+if ((Test-Path .\secrets.ps1) -and (Test-Path ".env.secrets")) {
+    Write-Host "Syncing .env from .env.secrets..." -ForegroundColor Cyan
+    & .\secrets.ps1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "secrets.ps1 reported issues (see above); continuing." -ForegroundColor Yellow
+    }
 }
 
 Write-Host "Building and starting Docker Compose services..." -ForegroundColor Blue
@@ -58,7 +66,7 @@ try {
     # Build Docker images
     if (-not $NoBuild) {
         Write-Host "Building Docker images..." -ForegroundColor Cyan
-        docker compose build
+        & docker compose build
 
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Docker build failed with exit code: $LASTEXITCODE" -ForegroundColor Red
@@ -74,23 +82,73 @@ try {
     } else {
         Write-Host "Skipping image build (-NoBuild)." -ForegroundColor Cyan
     }
-    
-    # Start services in detached mode
+
+    # Start services in detached mode. Do NOT throw on failure here - if
+    # a stateful volume has drift (pg_shadow), the safety-net secrets.ps1
+    # invocation below runs the pg_shadow probe and recovers. Only fail
+    # out for the classic non-recoverable causes (ports, resources,
+    # malformed config).
     Write-Host "Starting services in detached mode..." -ForegroundColor Cyan
-    docker compose up -d
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Failed to start services with exit code: $LASTEXITCODE" -ForegroundColor Red
-        Write-Host "Possible causes:" -ForegroundColor Yellow
-        Write-Host "  - Ports already in use by other services" -ForegroundColor Yellow
-        Write-Host "  - Missing or invalid environment variables" -ForegroundColor Yellow
-        Write-Host "  - Insufficient system resources" -ForegroundColor Yellow
-        Write-Host "  - Volume mount issues or permission errors" -ForegroundColor Yellow
-        throw "Docker compose up failed"
+    & docker compose up -d
+    $composeExit = $LASTEXITCODE
+
+    if ($composeExit -ne 0) {
+        Write-Host "docker compose up -d exited $composeExit - will attempt self-heal via secrets.ps1..." -ForegroundColor Yellow
+    } else {
+        Write-Host "Services started successfully!" -ForegroundColor Green
     }
-    
-    Write-Host "Services started successfully!" -ForegroundColor Green
-    Write-Host "" 
+
+    # -- Safety net: reconcile pg_shadow / volttron install-time config ------
+    # Runs regardless of the compose exit code. Covers stateful-volume
+    # drift cases where env is correct but the persisted credential
+    # (postgres pg_shadow, volttron agent install-time config) is stale.
+    if (Test-Path .\secrets.ps1) {
+        Write-Host "Reconciling stateful credentials..." -ForegroundColor Cyan
+        & .\secrets.ps1
+        $secretsExit = $LASTEXITCODE
+        if ($secretsExit -ne 0) {
+            Write-Host "secrets.ps1 reported issues (see above)." -ForegroundColor Yellow
+        }
+    } elseif (Test-Path .\scripts\sync-volttron-historian-config.ps1) {
+        Write-Host "Reconciling SQLHistorian install-time config..." -ForegroundColor Cyan
+        & .\scripts\sync-volttron-historian-config.ps1
+    }
+
+    # If compose up failed, re-verify: did the safety-net actually recover?
+    # secrets.ps1's recreate of init runs `docker compose up -d --no-deps init`,
+    # which returns before init has finished running. Poll for it to exit 0
+    # for up to 60s. `docker inspect` returns the exit code with a trailing
+    # newline on PS 5.1 — trim it before comparing.
+    if ($composeExit -ne 0) {
+        Write-Host "Waiting up to 60 s for aems-init to complete post self-heal..." -ForegroundColor Cyan
+        $initContainer = (docker ps -aqf name=aems-init 2>$null | Select-Object -First 1)
+        $healed = $false
+        for ($i = 0; $i -lt 60; $i++) {
+            if ($initContainer) {
+                $rawExit = docker inspect --format '{{.State.ExitCode}}' $initContainer 2>$null
+                $rawState = docker inspect --format '{{.State.Status}}' $initContainer 2>$null
+                $initExitTrim = if ($null -eq $rawExit) { '' } else { ($rawExit -join '').Trim() }
+                $initState    = if ($null -eq $rawState) { '' } else { ($rawState -join '').Trim() }
+                if ($initState -eq 'exited' -and $initExitTrim -eq '0') {
+                    $healed = $true
+                    break
+                }
+            }
+            Start-Sleep -Seconds 1
+        }
+        if (-not $healed) {
+            Write-Host "docker compose up exited $composeExit and self-heal did not recover the stack." -ForegroundColor Red
+            Write-Host "Possible causes:" -ForegroundColor Yellow
+            Write-Host "  - Ports already in use by other services" -ForegroundColor Yellow
+            Write-Host "  - Missing or invalid environment variables in .env.secrets" -ForegroundColor Yellow
+            Write-Host "  - Insufficient system resources" -ForegroundColor Yellow
+            Write-Host "  - Volume mount issues or permission errors" -ForegroundColor Yellow
+            throw "Docker compose up failed and self-heal did not recover"
+        }
+        Write-Host "Self-heal recovered the stack." -ForegroundColor Green
+    }
+
+    Write-Host ""
     Write-Host "All Docker Compose services are now running in detached mode." -ForegroundColor Green
     Write-Host "Use 'docker compose ps' to view running services." -ForegroundColor Cyan
     Write-Host "Use 'docker compose logs -f' to view logs." -ForegroundColor Cyan

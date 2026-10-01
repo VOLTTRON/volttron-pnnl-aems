@@ -626,24 +626,26 @@ Get up and running with the Skeleton App:
 
 2. **Configure environment**
 
-   ```bash
-   # Copy and customize the main environment file
-   cp .env.example .env
-   # Edit '.env' and set 'APP_HOSTNAME' to a valid hostname or your IP Address
+   The tracked `.env` is the working default and ships with sentinel placeholder values for every secret — the stack will boot on those as-is. The only edit required is `APP_HOSTNAME`.
 
-   # Bootstrap .env.secrets from .env (auto-creates a stub file seeded
-   # with every secret key it finds in .env). Fill in real values, then
-   # docker compose loads .env.secrets automatically on the next `up -d`.
-   #
+   ```bash
+   # Edit '.env' and set 'APP_HOSTNAME' to a valid hostname or your IP Address
+   ```
+
+   **Optional — override defaults with real credentials:**
+
+   `.env.secrets` (gitignored) is an operator overlay. Bootstrap and populate it if you want real values instead of the sentinel defaults; `secrets.sh` copies its contents into `.env` in place before compose runs.
+
+   ```bash
    # Windows:
    .\secrets.ps1  # writes stub .env.secrets and exits
-   # ...edit .env.secrets with real values.
+   # ...edit .env.secrets with real values, then re-run .\secrets.ps1 to sync.
 
    # Linux/Mac:
    ./secrets.sh   # writes stub .env.secrets and exits
-   # ...edit .env.secrets with real values.
+   # ...edit .env.secrets with real values, then re-run ./secrets.sh to sync.
 
-   # Validate the configuration before starting
+   # Validate the configuration before starting (optional)
    ./check-env.sh        # Linux/Mac
    .\check-env.ps1       # Windows
    ```
@@ -2240,7 +2242,7 @@ Default configuration for docker compose can be found at [.env](./.env). Sensiti
 
 #### Secrets Management
 
-Real secret values live in a single gitignored file: [.env.secrets](./.env.secrets). Compose picks it up for `${VAR}` interpolation only when `COMPOSE_ENV_FILES=.env,.env.secrets` is set in the shell (or `--env-file .env --env-file .env.secrets` is passed on the CLI). The wrapper scripts `start-services.sh` and `secrets.sh` export this env var automatically; if you're typing `docker compose` directly, set it yourself first. There are no `docker/secrets/*.txt` files, no `/run/secrets/*` mounts, and no `_FILE` env vars.
+`.env` is the single input docker compose reads. It contains real values in a running deployment. [.env.secrets](./.env.secrets) (gitignored, optional) is an operator's editable secret store — `secrets.sh` / `secrets.ps1` overlays values from `.env.secrets` onto `.env` before compose runs. Compose then auto-loads `.env` normally — no `--env-file`, no `COMPOSE_ENV_FILES`, no `/run/secrets/*` mounts, no `_FILE` env vars. Deployments that maintain real values directly in `.env` may skip `.env.secrets` entirely. **Do not commit changes to `.env` after `secrets.sh` runs** — the tracked baseline has the sentinel `SeT_tHiS_iN_0x3A-.env.secrets-` for every declared secret; a locally-synced `.env` contains real values.
 
 **Bootstrap:**
 

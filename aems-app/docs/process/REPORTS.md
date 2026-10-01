@@ -40,8 +40,7 @@ check could never fail, an absent `check-env` read as FAIL, and live rotation re
 `SESSION_SECRET` with a new random value instead of restoring it.
 
 **Flagged, not placed — still in the archive.** Throttling advice and "PrismaPubSub is more durable"
-(meaning unclear); "back up snapshots and volumes"; "service-specific `.env.*` files override defaults",
-which the secrets branch resolves.
+(meaning unclear); "back up snapshots and volumes"; "service-specific `.env.*` files override defaults".
 
 **Not documented anywhere before adoption:** the AEMS domain. Six units — site-model,
 setpoints-schedules, controls-ilc, volttron-sync, historian-dashboards, synthetic-setup — and
@@ -56,3 +55,6 @@ around it; `aems-edge/` and the root `docs/` are not aems-app's. All three are l
 built went red on ClaimsAreProven and green on restore. Tiers A–D pass. Tier E fails: Traefik serves
 the localhost certificate for `APP_HOSTNAME` — `certs-traefik.yml` never loads `mkcert-hostname.crt` —
 so Playwright's setup is refused before any test runs. Carried as `tls-cert-names-hostname` in `stack`.
+
+**Secrets branch merged, 2026-10-01.** Its archived-`CLAUDE.md` edits went to TRAPS.md and a new
+`secrets` unit, split from `stack` at its cap; its four logs joined the archive and adoption map.
