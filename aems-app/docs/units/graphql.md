@@ -11,9 +11,7 @@ that works across instances. It does not own any aggregate's data.
 ## Claims
 
 - The schema builder uses the prisma, relay, scope-auth, complexity and smart-subscriptions plugins.
-- A query over the complexity or depth limit is refused.
-  **Open:** the limits are 5000 and 10 in `server/src/graphql/builder.service.ts:82-83`, while the
-  previous documents stated 500 and 5 and forbade raising them.
+- A query over complexity 5000 or depth 10 is refused.
 - A field whose `authScopes` the caller does not satisfy is refused as unauthorised; an anonymous
   caller is evaluated with the default roles.
 - Every aggregate exposes `page`, `read`, `reads`, `count` and `group` under those names.
