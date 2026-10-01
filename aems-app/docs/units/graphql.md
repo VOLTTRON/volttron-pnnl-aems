@@ -17,9 +17,9 @@ that works across instances. It does not own any aggregate's data.
 - Every aggregate exposes `page`, `read`, `reads`, `count` and `group` under those names.
 - A subscription is authorised once, when it is opened, and re-resolves its query each time a topic it
   watches is published.
-- `GRAPHQL_PUBSUB` selects the pub/sub backend among Redis, Postgres and in-memory.
-  **Open:** the backend is in-memory when `GRAPHQL_PUBSUB` is unset, while the previous documents
-  required Redis for every subscription so that a second instance sees the publish.
+- `GRAPHQL_PUBSUB` selects the pub/sub backend among Redis, Postgres and in-memory; unset is
+  in-memory, which only a single process may use, so every compose service that publishes or
+  subscribes sets a shared backend.
 - `{ __typename }` answers through the proxy.
 
 ## Dependencies
@@ -35,5 +35,6 @@ auth
 | `field-scopes-refuse` | `authScopes` refusal and the anonymous default |
 | `aggregate-query-names` | the standard query names |
 | `subscription-reresolves` | authorise once, re-resolve on publish |
-| `pubsub-backend-selected` | `GRAPHQL_PUBSUB` selection |
+| `pubsub-backend-selected` | `GRAPHQL_PUBSUB` selection; unset is in-memory |
+| `compose-pubsub-shared` | every publishing compose service sets a shared backend |
 | `typename-through-proxy` | `{ __typename }` answers |
