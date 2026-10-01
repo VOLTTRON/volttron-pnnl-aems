@@ -22,9 +22,7 @@ field or page is.
 - The Auth.js session cookie is `Secure` and scoped to `APP_HOSTNAME`.
 - `/authjs/signin` never answers 500, and `/authjs/providers` never answers 404 or 502.
 - With `KEYCLOAK_PASS_ROLES=true`, Keycloak realm roles map onto the `Role` enum.
-- Requests are rate limited at 3 per second, 20 per 10 seconds and 100 per minute.
-  **Open:** ThrottlerModule is configured with these limits (`server/src/app.module.ts:42`) but no
-  ThrottlerGuard is registered anywhere in `server/src`.
+- The server does no request rate limiting and carries no throttler module or dependency.
 
 ## Dependencies
 
@@ -38,8 +36,9 @@ stack
 | `endpoints-private-by-default` | unauthenticated requests are refused without `@PublicRoute` |
 | `roles-guard-admits-granted` | `@Roles` admits through `Role.granted` |
 | `role-grants-table` | the grant table |
+| `impersonation-super-only` | signing in as another user is refused without `super` |
 | `websocket-auth-at-connect` | WS authenticates at connect |
 | `session-cookie-attributes` | Secure, Domain = `APP_HOSTNAME` |
 | `authjs-endpoints-answer` | signin never 500, providers never 404/502 |
 | `keycloak-roles-mapped` | realm roles map onto the enum |
-| `rate-limit-enforced` | the three throttle windows |
+| `no-throttler` | no throttler module is imported or depended on |
