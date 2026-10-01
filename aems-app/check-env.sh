@@ -66,6 +66,45 @@ fi
 printf "\n${BOLD}Environment/Secrets Check${RESET}\n"
 printf "Running from: %s\n" "$(pwd)"
 
+# ── compose-shim include: env_file: sanity ────────────────────────────────────
+# Guards against the class of bug where the root shim (docker-compose.yml)
+# lists a gitignored file under `include: env_file:`. Compose fails hard on
+# a missing entry, so a fresh clone can't run any compose subcommand until
+# the operator produces the file — silently blocking new setups.
+check_include_env_files() {
+  shim="docker-compose.yml"
+  gi=".gitignore"
+  [ -f "$shim" ] || return 0
+  [ -f "$gi" ] || return 0
+  paths=$(awk '
+    /^[[:space:]]*env_file:[[:space:]]*$/ { in_block=1; next }
+    in_block && /^[[:space:]]*-[[:space:]]*/ { sub(/^[[:space:]]*-[[:space:]]*/,""); sub(/^\.\//,""); print; next }
+    in_block { in_block=0 }
+  ' "$shim")
+  bad=0
+  for path in $paths; do
+    [ -n "$path" ] || continue
+    base=$(basename "$path")
+    if grep -v '^\s*#' "$gi" | grep -q -x -F "$path" \
+       || grep -v '^\s*#' "$gi" | grep -q -x -F "/$path" \
+       || grep -v '^\s*#' "$gi" | grep -q -x -F "$base"; then
+      if [ "$bad" = 0 ]; then
+        header "Compose shim references a gitignored env_file"
+      fi
+      error "$shim lists '$path' under 'include: env_file:', but that path is gitignored."
+      error "A fresh clone can't produce this file, so 'docker compose' will refuse to run."
+      error "Fix: remove that entry from $shim, or stop gitignoring $path."
+      bad=1
+    fi
+  done
+  return $bad
+}
+if ! check_include_env_files; then
+  mark_error
+  printf "\n${RED}${BOLD}Compose-shim configuration invalid — see above.${RESET}\n\n"
+  exit 1
+fi
+
 # ── env-file line-integrity check ──────────────────────────────────────────────
 # Detects the concatenation-bug class where a hand-edit or a tool drops the
 # newline between two entries, producing something like:
@@ -116,22 +155,30 @@ fi
 
 # ── .env.secrets exists: validate completeness ────────────────────────────────
 
-if env_has_real_values; then
-  header "Advisory: mixed configuration detected"
-  warn ".env has real secret values AND .env.secrets also exists."
-  warn "Both are loaded by compose; .env.secrets wins on collisions."
-  warn "Reset .env placeholders back to the sentinel to avoid confusion."
-fi
+# In the sync-model, `.env` holds real values after ./secrets.sh syncs
+# from `.env.secrets`. Both files coexist by design; .env is what compose
+# actually reads. Only warn if the state is inconsistent.
 
 header "Checking .env.secrets completeness"
 
-for key in $(env_secret_keys); do
-  val=$(get_value "$SECRETS_FILE" "$key")
-  if [ -z "$val" ]; then
-    error "$key is missing from $SECRETS_FILE"
+# Union of keys with a sentinel in .env AND keys present in .env.secrets.
+# Covers both pre-sync (.env has sentinels) and post-sync (.env.secrets
+# is authoritative) states.
+all_keys=$( { env_secret_keys; grep -v '^\s*#' "$SECRETS_FILE" | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' | sed 's/=.*//'; } | sort -u)
+
+for key in $all_keys; do
+  secrets_val=$(get_value "$SECRETS_FILE" "$key")
+  env_val=$(get_value "$ENV_FILE" "$key")
+  if [ -z "$secrets_val" ] && { [ -z "$env_val" ] || [ "$env_val" = "$PLACEHOLDER" ]; }; then
+    error "$key: missing from both $SECRETS_FILE and $ENV_FILE"
     mark_error
-  elif [ "$val" = "$PLACEHOLDER" ]; then
-    error "$key still has a placeholder value in $SECRETS_FILE"
+  elif [ -z "$secrets_val" ] && [ -n "$env_val" ] && [ "$env_val" != "$PLACEHOLDER" ]; then
+    warn "$key: in $ENV_FILE only — add to $SECRETS_FILE, or run ./secrets.sh to migrate"
+  elif [ "$secrets_val" = "$PLACEHOLDER" ]; then
+    error "$key: still has a placeholder value in $SECRETS_FILE"
+    mark_error
+  elif [ "$env_val" = "$PLACEHOLDER" ]; then
+    error "$key: $ENV_FILE still holds the sentinel while $SECRETS_FILE has a real value — run ./secrets.sh BEFORE any 'docker compose' command, or containers will bootstrap with the sentinel string as the credential"
     mark_error
   else
     ok "$key"

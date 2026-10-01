@@ -58,7 +58,7 @@ Per-module commands (`yarn` inside the sub-project directory):
 - **Client queries**: `.graphql` files in [client/src/queries/](client/src/queries/); codegen produces typed hooks.
 - **Styles**: SCSS modules (`*.module.scss`). Blueprint.js for components.
 - **Database migrations**: `yarn migrate:create` in [prisma/](prisma/) — never edit applied migrations.
-- **Secrets / config**: real secrets live in `.env.secrets` (gitignored), loaded by the root compose shim as an `env_file:`. `.env` holds non-secret defaults and sentinel placeholders. `docker/` env files override root defaults.
+- **Secrets / config**: `.env` is the single input compose reads. `.env.secrets` (gitignored, optional) is an operator's editable secret store; `secrets.sh` overlays values from `.env.secrets` onto `.env` before compose runs. **Do not commit changes to `.env` after `secrets.sh` runs** — the tracked baseline has sentinel placeholders. See [docker/CLAUDE.md](docker/CLAUDE.md).
 
 ## Guardrails
 

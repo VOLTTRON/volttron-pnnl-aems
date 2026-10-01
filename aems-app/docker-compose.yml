@@ -2,4 +2,3 @@ include:
   - path: ./docker/docker-compose.yml
     env_file:
       - ./.env
-      - ./.env.secrets

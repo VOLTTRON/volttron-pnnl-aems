@@ -286,14 +286,35 @@ if [[ -d "${OUTPUT_DIR}" ]]; then
     chmod -R a+rX "${OUTPUT_DIR}"
 fi
 
+# Fingerprint the historian password so we can detect drift after a rotation.
+# The password is embedded in the generated config.ini's [PostgreSQL-DB] section
+# and ultimately reaches Grafana's datasource. If the password source changes
+# and the fingerprint doesn't match, the lock file is treated as stale so
+# grafana-setup re-runs and rewrites the datasource with the current value.
+# Otherwise dashboards would keep querying historian with a stale password —
+# which is exactly the "no data on dashboards" failure mode after the
+# docker-secrets -> env-vars migration.
+compute_historian_fp() {
+    if [[ -n "${HISTORIAN_DB_PASSWORD}" ]]; then
+        printf '%s' "${HISTORIAN_DB_PASSWORD}" | sha256sum | awk '{print $1}'
+    fi
+}
+
 # Check setup completion status
 GRAFANA_COMPLETED=false
 
-# Check if Grafana setup is already completed
+# Check if Grafana setup is already completed AND the historian password
+# hasn't changed since it ran.
 if [[ -f "${GRAFANA_LOCK_FILE}" ]]; then
     log_info "Grafana setup lock file found at: ${GRAFANA_LOCK_FILE}"
-    GRAFANA_COMPLETED=true
-    log_info "Grafana setup already completed - nothing to do"
+    stored_fp=$(cat "${GRAFANA_LOCK_FILE}.fingerprint" 2>/dev/null || true)
+    current_fp=$(compute_historian_fp)
+    if [[ -n "${stored_fp}" && "${stored_fp}" == "${current_fp}" ]]; then
+        GRAFANA_COMPLETED=true
+        log_info "Historian password fingerprint unchanged - nothing to do"
+    else
+        log_info "Historian password changed since last setup - regenerating dashboards"
+    fi
 fi
 
 # Exit if Grafana is already completed
@@ -376,7 +397,14 @@ if [[ -d "${GRAFANA_DIR}" ]]; then
         if [[ -f "${URLS_SOURCE_FILE}" ]]; then
             echo "Dashboard URLs metadata file: ${URLS_SOURCE_FILE}" >> "${GRAFANA_LOCK_FILE}"
         fi
-        
+
+        # Persist the historian-password fingerprint alongside the lock file
+        # so the next run can detect drift and force a regeneration.
+        current_fp=$(compute_historian_fp)
+        if [[ -n "${current_fp}" ]]; then
+            printf '%s\n' "${current_fp}" > "${GRAFANA_LOCK_FILE}.fingerprint"
+        fi
+
         if [[ $? -eq 0 ]]; then
             log_success "Grafana setup completed and lock file created"
             GRAFANA_COMPLETED=true

@@ -31,23 +31,70 @@ Check [docker-compose.yml](docker-compose.yml) for the authoritative list; [READ
 
 ## Secrets model
 
-Plain env vars, single source, no `/run/secrets/*` mounts:
+`.env` is the single input docker compose reads. It contains real
+values in a running deployment. `.env.secrets` (optional, gitignored)
+is an operator's editable secret store. `secrets.sh` / `secrets.ps1`
+overlays values from `.env.secrets` into `.env` before compose runs, so
+compose's natural `.env` auto-load resolves every `${VAR}` to the real
+value. No `--env-file`, no `COMPOSE_ENV_FILES`, no `/run/secrets/*`,
+no service-level env_file mount of `.env.secrets`.
 
-- Real values live in [../.env.secrets](../.env.secrets) (gitignored). Root `.env` uses the sentinel `SeT_tHiS_iN_0x3A-.env.secrets-` for keys that must be set there.
-- Compose interpolates `${VAR}` in the compose file from a project-root `.env` PLUS the files listed in `COMPOSE_ENV_FILES`. The `include: env_file:` list in the root shim does NOT participate in the outer file's interpolation — compose treats it only as documentation of what the operator should be passing in. **You must set `COMPOSE_ENV_FILES=.env,.env.secrets` for every `docker compose` invocation** (or pass `--env-file .env --env-file .env.secrets`), or `${VAR}` interpolation resolves against `.env` alone and every secret becomes the sentinel placeholder.
-- [../start-services.sh](../start-services.sh) / [../start-services.ps1](../start-services.ps1) and [../secrets.sh](../secrets.sh) / [../secrets.ps1](../secrets.ps1) both `export COMPOSE_ENV_FILES` automatically before invoking compose. Use them whenever possible. Any hand-typed `docker compose up -d` / `docker compose exec` needs to set the var too.
-- The backup sidecar's age keypair is auto-generated on first boot into `./secrets/backup/`, bind-mounted at `/host-secrets`. Unrelated to any Docker secret machinery.
+- Root [../.env](../.env) is tracked in git with the sentinel
+  `SeT_tHiS_iN_0x3A-.env.secrets-` for every declared secret key.
+  Compose auto-loads it from the repo root and uses it for `${VAR}`
+  interpolation of the compose file and every service's
+  `env_file: .env.<svc>` chain.
+- [../.env.secrets](../.env.secrets) (gitignored) holds real secret
+  values as literal `KEY=VALUE` lines. Deployments that maintain real
+  values directly in `.env` may skip this file entirely.
+- [../secrets.sh](../secrets.sh) / [../secrets.ps1](../secrets.ps1)
+  overlays every non-blank non-placeholder value from `.env.secrets`
+  onto `.env` in place. Idempotent — no-op when the two already agree.
+- **Do NOT commit `.env` after it has been synced.** The tracked
+  baseline is the sentinel version; a locally-synced `.env` contains
+  real secrets. `secrets.sh` prints an explicit warning on exit.
+- The backup sidecar's age keypair is auto-generated on first boot
+  into `./secrets/backup/`, bind-mounted at `/host-secrets`. Unrelated
+  to any Docker secret machinery.
 
 **Validation helper (repo root):**
-- [../check-env.sh](../check-env.sh) / [../check-env.ps1](../check-env.ps1) — validates `.env.secrets` is complete and free of placeholders. Run by `start-services.sh` automatically.
+- [../check-env.sh](../check-env.sh) / [../check-env.ps1](../check-env.ps1)
+  — validates `.env.secrets` is complete and free of placeholders, and
+  warns if `.env` still holds the sentinel for a synced key.
 
-**Secrets script** at [../secrets.sh](../secrets.sh) / [../secrets.ps1](../secrets.ps1) handles: bootstrap `.env.secrets` on first run, migrate misplaced values from `.env`, and — most importantly — live credential rotation. When a value in `.env.secrets` differs from what's in the running container's env (looked up via `docker inspect`), the script runs the appropriate handler (`ALTER ROLE` / `ALTER USER` / `kcadm.sh` / `grafana-cli`) against the running container, then `docker compose up -d --no-deps <svc>` to recreate the container with fresh env from `.env.secrets`. **Note:** `docker compose restart` reuses cached env and will NOT pick up new `.env.secrets` values — always use `up -d --no-deps` after editing secrets. If the target container is down during a rotation, the script refuses to proceed — pass `--force` only if you'll wipe the data volume manually. `--dry-run` previews the plan.
+**Rotation.** Edit [../.env.secrets](../.env.secrets), then run
+[../secrets.sh](../secrets.sh) / [../secrets.ps1](../secrets.ps1). The
+script diffs `.env.secrets` (desired) against `.env` (currently
+deployed), runs the appropriate live handler for changed values
+(`ALTER ROLE` / `ALTER USER` / `kcadm.sh` / `grafana-cli`) against the
+running container, overlays the new value into `.env`, and
+`docker compose up -d --no-deps <svc>` to reload env into affected
+services. `docker compose restart` reuses cached env vars — always use
+`up -d --no-deps` after editing secrets. If a target container is down
+during a rotation, the script refuses to proceed — pass `--force` only
+if you'll wipe the data volume manually. `--dry-run` previews the plan.
+
+**pg_shadow drift recovery.** If a postgres data volume was initialised
+with a wrong password (e.g. a pre-refactor fresh-clone-with-bad-boot),
+`docker compose up -d` will bring the container up with the correct env
+but `pg_shadow` still rejects the correct password. `secrets.sh`'s
+`pg_shadow-drift probe` catches this: probes each DB with the
+`.env.secrets` value; if it fails but the sentinel works, rotates
+pg_shadow via `ALTER ROLE`. No operator intervention needed.
+
+**Volttron SQLHistorian sync.** VOLTTRON's SQLHistorian agent reads its DB connection from an install-time config file baked into the agent's on-disk state, not the dynamic config store. `secrets.sh`'s `HISTORIAN_DATABASE_PASSWORD` rotation flow `--force-recreate`s the volttron container, which normally makes `setup-platform.py` re-install SQLHistorian from the freshly regenerated [volttron/setup/configs/historian.config](volttron/setup/configs/historian.config) — but drifts happen (an image variant that persists `agents/`, an interrupted rotation, or a manual `docker/secrets/*.txt` edit before the migration). [../scripts/sync-volttron-historian-config.sh](../scripts/sync-volttron-historian-config.sh) is a belt-and-suspenders reconciler: it waits for volttron VIP + SQLHistorian install to be ready, compares the on-disk `historian.config` against the running agent's install-time config, overwrites the agent config on mismatch, and restarts the historian agent. Invoked automatically by `secrets.sh` after any `HISTORIAN_*_PASSWORD` rotation and by `start-services.sh` after every deploy, so `git pull && ./start-services.sh` self-heals a stale volttron install.
 
 ## Environment
 
-- Root [../.env](../.env) provides defaults and is auto-loaded by compose **only when compose is invoked from the repo root** (see "Run from the repo root, not from here" above).
-- [../.env.secrets](../.env.secrets) (gitignored) holds real secret values. Compose picks it up ONLY when `COMPOSE_ENV_FILES=.env,.env.secrets` is set in the shell (see "Secrets model" above). The wrapper scripts export it; direct compose invocations must too.
-- `COMPOSE_PROJECT_NAME` prefixes all container names — respect it when writing helper scripts.
+- Root [../.env](../.env) is auto-loaded by compose **only when compose
+  is invoked from the repo root** (see "Run from the repo root, not
+  from here" above). Compose uses `.env` for all `${VAR}` interpolation
+  in the compose file and in every service's `env_file:` chain.
+- [../.env.secrets](../.env.secrets) (gitignored, optional) holds real
+  secret values. `secrets.sh` overlays them into `.env` before compose
+  runs — compose itself never reads `.env.secrets` directly.
+- `COMPOSE_PROJECT_NAME` prefixes all container names — respect it when
+  writing helper scripts.
 
 ## Networking
 
@@ -70,7 +117,8 @@ Image builds for `client`, `server`, `prisma`, and `common` use the **repo root 
 ## Gotchas
 
 - The DB image is **custom** — don't replace `image:` with `postgres:16`; you'll lose PostGIS.
-- `docker compose restart` reuses cached env — after editing `.env.secrets`, use `docker compose up -d --no-deps <svc>` (or let `secrets.sh` do it) so containers re-read env_file. `secrets.sh` uses the correct form; hand-typed `restart` will silently keep the old value.
+- `docker compose restart` reuses cached env — after editing `.env.secrets`, use `docker compose up -d --no-deps <svc>` (or let `secrets.sh` do it) so containers re-read the freshly-synced `.env`. `secrets.sh` uses the correct form; hand-typed `restart` will silently keep the old value.
+- **Do NOT commit a synced `.env`.** The tracked baseline is the sentinel version. `secrets.sh` writes real values into `.env` for compose to pick up locally.
 - Traefik v3 syntax differs from v2 in places; check `traefik:v3.5.3` docs before copying older snippets.
 - Optional profiles are opt-in; a service with `profiles: [...]` is invisible to `docker compose up` unless the profile is selected. Don't remove profile gating to "make it simpler" — it's load-bearing for minimal deploys.
 

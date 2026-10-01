@@ -1,33 +1,39 @@
 #
 # Manage .env.secrets and apply rotations to live containers.
 #
-# Secrets live as plain KEY=VALUE lines in the gitignored `.env.secrets`
-# file. The root docker-compose.yml loads that file as an env_file, so
-# every ${VAR} interpolation and every service's `env_file: .env.<svc>`
-# forwarding picks the values up automatically. No /run/secrets, no _FILE
-# indirection, no docker/secrets/*.txt.
+# ARCHITECTURE
+# ------------
+# .env is the single input docker compose reads. It contains real
+# values in a running deployment. .env.secrets (optional, gitignored)
+# is an operator's editable secret store. This script overlays the
+# values from .env.secrets onto .env before compose runs, so compose's
+# natural `.env` auto-load resolves every ${VAR} to the real value -
+# no --env-file flag, no COMPOSE_ENV_FILES, no service-level env_file
+# mount of .env.secrets.
 #
 # What this script does:
 #
-#   1. BOOTSTRAP (no .env.secrets): create a stub .env.secrets seeded with
-#      every key marked in .env with the sentinel placeholder. Exits so
-#      the user can fill in real values.
+#   1. BOOTSTRAP (no .env.secrets): create a stub .env.secrets seeded
+#      from every key marked in .env with the sentinel placeholder.
+#      Exits so the operator can fill in real values.
 #
-#   2. MISPLACED (real values found in .env): migrate them into
-#      .env.secrets and warn.
+#   2. SYNC + ROTATION (every subsequent run): compare each secret
+#      key's value between .env.secrets (desired) and .env (currently
+#      deployed). If they differ:
+#        - Run the live credential-change handler against the running
+#          container using the old value from .env.
+#        - Overlay the new value into .env in place.
+#        - Queue affected services for `docker compose up -d --no-deps`.
 #
-#   3. ROTATION (a key's value in .env.secrets differs from what's live in
-#      the deployed container): run the credential-change handler
-#      against the running container, then `docker compose up -d --no-deps
-#      <service>` so the container inherits the new value from
-#      .env.secrets. Container must be running - abort otherwise; pass
-#      -Force to skip live rotation.
-#
-#   4. NO-OP: silent skip when the running container's env matches.
+#   3. NO-OP: silent skip when .env and .env.secrets already match.
 #
 # Note: `docker compose restart` reuses cached env vars in the existing
-# container - it does NOT re-read env_file. We use `docker compose up -d
-# --no-deps <svc>` instead, which recreates the container with fresh env.
+# container - use `docker compose up -d --no-deps <svc>` after editing
+# secrets so the container re-reads .env at parse time.
+#
+# WARNING: after this script runs, .env contains real secret values.
+# .env is tracked in git with the sentinel baseline. DO NOT commit
+# the modified .env.
 #
 # Usage:
 #   .\secrets.ps1                            # process every key
@@ -45,7 +51,17 @@ param(
   [string[]]$ExplicitKeys
 )
 
-$ErrorActionPreference = "Stop"
+# This script wraps many `docker` / `psql` calls whose non-zero exit is
+# EXPECTED (e.g. a probe that authenticates with the sentinel and
+# fails). With ErrorActionPreference=Stop, PS 5.1 turns those native-
+# command stderr writes into ErrorRecords and can throw right past our
+# explicit `if ($LASTEXITCODE -ne 0)` checks. Use Continue and rely on
+# explicit exit-code handling throughout.
+$ErrorActionPreference = "Continue"
+
+# Anchor to this script's directory so relative paths and docker compose's
+# cwd-based `.env` auto-load resolve regardless of the caller's location.
+Set-Location -Path (Split-Path -Parent $MyInvocation.MyCommand.Path)
 
 $ENV_FILE     = ".env"
 $SECRETS_FILE = ".env.secrets"
@@ -81,12 +97,22 @@ function Get-EnvSecretKeys {
 }
 
 function Get-MisplacedKeys {
+    # A key is "misplaced" if it holds a real credential in .env that
+    # ISN'T already in .env.secrets. Values in .env that match
+    # .env.secrets are synced entries, not misplaced ones.
     Get-Content $ENV_FILE | ForEach-Object {
         if ($_ -notmatch '^\s*#' -and
             $_ -match '^([A-Za-z_][A-Za-z0-9_]*_(PASSWORD|SECRET|TOKEN|KEY))=(.+)$') {
             $key = $matches[1]; $val = $matches[3]
             if ($val -and $val -ne $PLACEHOLDER) {
-                [PSCustomObject]@{ Key = $key; Value = $val }
+                $isSynced = $false
+                if (Test-Path $SECRETS_FILE) {
+                    $secretsVal = Get-EnvValue $SECRETS_FILE $key
+                    if ($secretsVal -eq $val) { $isSynced = $true }
+                }
+                if (-not $isSynced) {
+                    [PSCustomObject]@{ Key = $key; Value = $val }
+                }
             }
         }
     }
@@ -139,38 +165,47 @@ function Get-KeyDeployedContainer {
     }
 }
 
-function Get-ContainerEnvKey {
-    param([string]$Key)
-    switch ($Key) {
-        { $_ -in 'DATABASE_PASSWORD','KEYCLOAK_DATABASE_PASSWORD','NOMINATIM_DATABASE_PASSWORD','HISTORIAN_DATABASE_PASSWORD','GRAFANA_DATABASE_PASSWORD' } { 'POSTGRES_PASSWORD' }
-        'BOOKSTACK_DATABASE_PASSWORD'      { 'MYSQL_PASSWORD' }
-        'BOOKSTACK_ROOT_PASSWORD'          { 'MYSQL_ROOT_PASSWORD' }
-        'GRAFANA_ADMIN_PASSWORD'           { 'GF_SECURITY_ADMIN_PASSWORD' }
-        'KEYCLOAK_GRAFANA_CLIENT_SECRET'   { 'GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET' }
-        'BOOKSTACK_SESSION_SECRET'         { 'APP_KEY' }
-        'BOOKSTACK_KEYCLOAK_CLIENT_SECRET' { 'OIDC_CLIENT_SECRET' }
-        default                            { $Key }
-    }
-}
-
+# The "currently deployed" value for a secret key is the value in .env -
+# that's what docker compose reads. A sentinel in .env means the key
+# hasn't been synced from .env.secrets yet; return empty so classification
+# falls to FRESH.
 function Get-DeployedSecret {
     param([string]$Key)
-    $container = Get-KeyDeployedContainer $PROJECT $Key
-    if (-not $container) { return '' }
-    if (-not (Test-ContainerRunning $container)) { return '' }
-    $envKey = Get-ContainerEnvKey $Key
-    $envList = docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' $container 2>$null
-    foreach ($line in $envList) {
-        if ($line -match "^${envKey}=(.*)$") {
-            $val = $matches[1]
-            # Filter noise: an unfilled sentinel means compose interpolation
-            # produced a placeholder (old .env-only-with-placeholders deploys),
-            # not a real deployed value.
-            if ($val -eq $PLACEHOLDER) { return '' }
-            return $val
+    $val = Get-EnvValue $ENV_FILE $Key
+    if ($val -eq $PLACEHOLDER) { return '' }
+    return $val
+}
+
+# List every KEY=VALUE line in .env.secrets (skipping comments/blanks).
+function Get-SecretsFileKeys {
+    if (-not (Test-Path $SECRETS_FILE)) { return @() }
+    $lines = Get-Content $SECRETS_FILE
+    $keys = @()
+    foreach ($line in $lines) {
+        if ($line -match '^\s*#') { continue }
+        if ($line -match '^([A-Za-z_][A-Za-z0-9_]*)=') { $keys += $matches[1] }
+    }
+    return $keys
+}
+
+# Overlay every non-blank non-placeholder value from .env.secrets onto
+# .env. Returns the count of keys whose value changed.
+function Sync-EnvFromSecrets {
+    if (-not (Test-Path $SECRETS_FILE)) { return 0 }
+    $changed = 0
+    foreach ($k in (Get-SecretsFileKeys)) {
+        $new_val = Get-EnvValue $SECRETS_FILE $k
+        if ([string]::IsNullOrEmpty($new_val)) { continue }
+        if ($new_val -eq $PLACEHOLDER) { continue }
+        $old_val = Get-EnvValue $ENV_FILE $k
+        if ($new_val -ne $old_val) {
+            if (-not $DryRun) {
+                Update-SecretsEntry $ENV_FILE $k $new_val
+            }
+            $changed++
         }
     }
-    return ''
+    return $changed
 }
 
 function Invoke-OrDry {
@@ -181,14 +216,10 @@ function Invoke-OrDry {
 # -- pre-flight -----------------------------------------------------------------
 if (-not (Test-Path $ENV_FILE)) { Write-Err "$ENV_FILE not found. Run from the repo root."; exit 1 }
 
-# Point docker compose at both .env and .env.secrets for interpolation so
-# `docker compose up -d --no-deps <svc>` in the restart pass picks up real
-# secret values.
-if (Test-Path $SECRETS_FILE) {
-    $env:COMPOSE_ENV_FILES = "$ENV_FILE,$SECRETS_FILE"
-} else {
-    $env:COMPOSE_ENV_FILES = "$ENV_FILE"
-}
+# Compose auto-loads .env from cwd. No --env-file discipline needed -
+# this script's job is to make .env correct, and compose reads it
+# unconditionally.
+$ComposeArgs = @()
 
 # ==============================================================================
 # BOOTSTRAP PATH
@@ -274,7 +305,10 @@ $PROJECT = Get-ProjectName
 if ($ExplicitKeys) {
     $keysToCheck = @($ExplicitKeys)
 } else {
-    $keysToCheck = @(Get-EnvSecretKeys)
+    # Prefer .env.secrets as the authoritative list - after the first
+    # sync, .env no longer has sentinel-marked entries.
+    $keysToCheck = @(Get-SecretsFileKeys)
+    if ($keysToCheck.Count -eq 0) { $keysToCheck = @(Get-EnvSecretKeys) }
 }
 
 # -- misplaced-secret migration ------------------------------------------------
@@ -327,7 +361,33 @@ foreach ($key in $keysToCheck) {
     }
 }
 
-if ($FRESH.Count -eq 0 -and $ROTATIONS.Count -eq 0) {
+# ==============================================================================
+# SENTINEL SCAN - detect and repair containers whose env holds the
+# `.env` placeholder sentinel (from a `docker compose up -d` invocation
+# with COMPOSE_ENV_FILES unset). See secrets.sh for the full rationale.
+# ==============================================================================
+$POISONED = @()
+if (-not $ExplicitKeys) {
+    Write-Hdr "Scanning for sentinel-poisoned containers"
+    $containers = docker ps -a --format '{{.Names}}' 2>$null | Where-Object { $_ -match "^${PROJECT}-" }
+    foreach ($c in $containers) {
+        $envDump = docker inspect $c --format '{{range .Config.Env}}{{println .}}{{end}}' 2>$null
+        if ($envDump -match "=$([regex]::Escape($PLACEHOLDER))(\r?\n|$)") {
+            $svc = $c -replace "^${PROJECT}-", ""
+            $POISONED += $svc
+            Write-Warn "$c`: env holds the sentinel placeholder"
+        }
+    }
+    if ($POISONED.Count -gt 0) {
+        Write-Warn "This means docker compose ran without COMPOSE_ENV_FILES set."
+        Write-Warn "Recreating with real values from $SECRETS_FILE..."
+        noteWarn
+    } else {
+        Write-Ok "No sentinel-poisoned containers detected."
+    }
+}
+
+if ($FRESH.Count -eq 0 -and $ROTATIONS.Count -eq 0 -and $POISONED.Count -eq 0) {
     Write-Host "`nAll secrets are up to date." -ForegroundColor Green
     if (-not $DryRun -and (Test-Path .\check-env.ps1)) {
         & .\check-env.ps1
@@ -348,16 +408,30 @@ function Invoke-RotatePg {
         Write-Err "$CallerKey`: container $Container is not running"
         return $false
     }
+    # SQL escape for single quotes inside the password literal.
     $escNew = $NewPw -replace "'", "''"
+    $sql    = "ALTER ROLE `"$DbUser`" WITH PASSWORD '$escNew';"
     Write-Info "ALTER ROLE $DbUser in $Container"
-    if ($OldPw) {
-        $escOld = $OldPw -replace "'", "'\''"
-        $cmd = "docker exec -e PGPASSWORD='$escOld' '$Container' psql -U '$DbUser' -c `"ALTER ROLE \`"$DbUser\`" WITH PASSWORD '$escNew';`""
-    } else {
-        $cmd = "docker exec '$Container' psql -U '$DbUser' -c `"ALTER ROLE \`"$DbUser\`" WITH PASSWORD '$escNew';`""
+    if ($DryRun) {
+        Write-Dry "docker exec [-e PGPASSWORD=***] $Container psql -U $DbUser -c `"$sql`""
+        return $true
     }
-    Invoke-OrDry $cmd
-    return $true
+    # Invoke docker directly with argv so PowerShell doesn't mangle the
+    # nested quotes. Previous version routed through Invoke-Expression
+    # which parsed `\"aems\"` as PS syntax and dropped the actual ALTER.
+    try {
+        $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        if ($OldPw) {
+            & docker exec -e "PGPASSWORD=$OldPw" $Container psql -U $DbUser -c $sql *> $null
+        } else {
+            & docker exec $Container psql -U $DbUser -c $sql *> $null
+        }
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
+    } finally {
+        $ErrorActionPreference = $prev
+    }
 }
 
 function Invoke-RotateMySqlUser {
@@ -547,6 +621,90 @@ if ($Force -and $ROTATIONS.Count -gt 0) {
     }
 }
 
+# -- pg_shadow-drift probe ------------------------------------------------------
+# Runs UNCONDITIONALLY on full-runs (not just when a container's env is
+# poisoned). For each postgres role, verify pg_shadow accepts the
+# .env.secrets value. If it doesn't but ACCEPTS the sentinel, the volume
+# was seeded with the sentinel (fresh-clone-with-bad-boot) — rotate to
+# realign. Covers the case where compose up -d fixed container envs but
+# pg_shadow was already poisoned in the volume from a prior bad boot.
+function Test-PgAuth {
+    param([string]$Container, [string]$User, [string]$DbHost, [string]$Db, [string]$Password)
+    try {
+        $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        & docker exec -e "PGPASSWORD=$Password" $Container psql -U $User -h $DbHost -d $Db -tAc 'SELECT 1;' *> $null
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
+if (-not $ExplicitKeys -and -not $DryRun) {
+    $pgSpecs = @(
+        @{ Key = 'DATABASE_PASSWORD';            Svc = 'database';    User = 'aems' },
+        @{ Key = 'KEYCLOAK_DATABASE_PASSWORD';   Svc = 'keycloak-db'; User = 'keycloak' },
+        @{ Key = 'NOMINATIM_DATABASE_PASSWORD';  Svc = 'nominatim';   User = 'nominatim' },
+        @{ Key = 'HISTORIAN_DATABASE_PASSWORD';  Svc = 'historian';   User = 'historian' },
+        @{ Key = 'HISTORIAN_REPLICATOR_PASSWORD';Svc = 'historian';   User = 'replicator' },
+        @{ Key = 'GRAFANA_DATABASE_PASSWORD';    Svc = 'grafana-db';  User = 'grafana' }
+    )
+    $probedAny = $false
+    foreach ($spec in $pgSpecs) {
+        $container = "$PROJECT-$($spec.Svc)"
+        if (-not (Test-ContainerRunning $container)) { continue }
+        $newVal = Get-EnvValue $SECRETS_FILE $spec.Key
+        if (-not $newVal -or $newVal -eq $PLACEHOLDER) { continue }
+        $probedAny = $true
+        # If pg_shadow already accepts the correct value, nothing to do.
+        if (Test-PgAuth $container $spec.User $spec.Svc $spec.User $newVal) { continue }
+        # It doesn't. Try the sentinel — if that works, pg_shadow is
+        # stuck on the sentinel and needs rotation to align with .env.secrets.
+        if (Test-PgAuth $container $spec.User $spec.Svc $spec.User $PLACEHOLDER) {
+            Write-Warn "$container`: pg_shadow accepts the sentinel - aligning role $($spec.User) to $SECRETS_FILE value"
+            try {
+                $null = Invoke-RotatePg $container $spec.User $newVal "$($spec.Key) (pg_shadow repair)" $PLACEHOLDER
+                # Force the recreate of dependent containers so their env
+                # matches the newly-rotated pg_shadow.
+                switch ($spec.Svc) {
+                    'database'    { Queue-Restart 'init'; Queue-Restart 'server'; Queue-Restart 'services'; Queue-Restart 'seeders'; Queue-Restart 'synth-worker'; Queue-Restart 'client'; Queue-Restart 'backup' }
+                    'keycloak-db' { Queue-Restart 'keycloak' }
+                    'historian'   { Queue-Restart 'volttron'; Queue-Restart 'volttron-setup'; Queue-Restart 'server'; Queue-Restart 'services'; Queue-Restart 'synth-worker' }
+                    'grafana-db'  { Queue-Restart 'grafana' }
+                    'nominatim'   { Queue-Restart 'nominatim' }
+                }
+            } catch {
+                Write-Warn "  rotate_pg failed - pg_shadow may still be drift; check manually"
+            }
+        } else {
+            Write-Warn "$container`: pg_shadow does not accept either the sentinel or the .env.secrets value for $($spec.User) - manual reconciliation required"
+        }
+    }
+}
+
+# Merge POISONED into RESTART so the existing pass recreates them with
+# real env from .env (which the sync step below aligns with .env.secrets).
+foreach ($svc in $POISONED) { Queue-Restart $svc }
+
+# ==============================================================================
+# SYNC .env FROM .env.secrets
+# ==============================================================================
+#
+# Live rotations above ran against the OLD .env values. Now overlay the
+# new .env.secrets values onto .env so the RESTART pass below recreates
+# each service with the new value in its runtime env, and any future
+# `docker compose up -d` from any shell resolves ${VAR} to the real
+# value from .env.
+if (Test-Path $SECRETS_FILE) {
+    $synced = Sync-EnvFromSecrets
+    if ($synced -gt 0 -and -not $DryRun) {
+        Write-Hdr "Synced $synced secret(s) from $SECRETS_FILE into $ENV_FILE"
+        Write-Warn "$ENV_FILE now contains real secret values - DO NOT commit."
+        noteWarn
+    }
+}
+
 # ==============================================================================
 # RESTART PASS
 # ==============================================================================
@@ -558,27 +716,46 @@ $RESTART = $RESTART | Where-Object { $_ } | Sort-Object -Unique
 if ($RESTART.Count -gt 0) {
     Write-Hdr "Recreating affected services: $($RESTART -join ' ')"
     foreach ($svc in $RESTART) {
-        $container = "$PROJECT-$svc"
         switch ($svc) {
             'volttron' {
                 Write-Info "Recreating $svc (--force-recreate)"
-                Invoke-OrDry "docker compose up -d --force-recreate $svc"
+                if ($DryRun) { Write-Dry "docker compose $($ComposeArgs -join ' ') up -d --force-recreate $svc" }
+                else { & docker compose @ComposeArgs up -d --force-recreate $svc }
                 Write-Ok "$svc recreated"
             }
             'volttron-setup' {
                 Write-Info "Re-running $svc"
-                Invoke-OrDry "docker compose up -d $svc"
+                if ($DryRun) { Write-Dry "docker compose $($ComposeArgs -join ' ') up -d $svc" }
+                else { & docker compose @ComposeArgs up -d $svc }
                 Write-Ok "$svc re-run"
             }
             default {
-                if (Test-ContainerRunning $container) {
-                    Write-Info "Recreating $svc"
-                    Invoke-OrDry "docker compose up -d --no-deps $svc"
-                    Write-Ok "$svc recreated"
-                } else {
-                    Write-Warn "$svc is not running - skipping"
-                }
+                # Always try to recreate — compose will skip services
+                # whose profile isn't active. Services in Exited/Created
+                # state (e.g., a failed init) still need to come up with
+                # fresh env, so we can't gate on running-status.
+                Write-Info "Recreating $svc"
+                if ($DryRun) { Write-Dry "docker compose $($ComposeArgs -join ' ') up -d --no-deps $svc" }
+                else { & docker compose @ComposeArgs up -d --no-deps $svc }
+                Write-Ok "$svc recreated"
             }
+        }
+    }
+}
+
+# ── Volttron historian config sync ────────────────────────────────────────────
+# SQLHistorian reads its DB connection from its install-time config file,
+# NOT the dynamic config store, so we invoke the sync helper whenever a
+# historian secret rotated.
+$needVolttronSync = $false
+if ($ROTATIONS -contains 'HISTORIAN_DATABASE_PASSWORD' -or $ROTATIONS -contains 'HISTORIAN_REPLICATOR_PASSWORD') { $needVolttronSync = $true }
+if ($POISONED -contains 'volttron' -or $POISONED -contains 'volttron-setup') { $needVolttronSync = $true }
+if ($needVolttronSync -and -not $DryRun) {
+    if (Test-Path .\scripts\sync-volttron-historian-config.ps1) {
+        Write-Hdr "Syncing SQLHistorian install-time config"
+        & .\scripts\sync-volttron-historian-config.ps1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warn "sync-volttron-historian-config.ps1 reported issues (see above). Dashboards may not show new data until the sync succeeds."
         }
     }
 }
