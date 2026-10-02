@@ -166,7 +166,7 @@ let GrafanaController = GrafanaController_1 = class GrafanaController {
 exports.GrafanaController = GrafanaController;
 __decorate([
     (0, swagger_1.ApiTags)("grafana", "info", "building", "campus"),
-    (0, public_decorator_1.Public)(),
+    (0, public_decorator_1.PublicRoute)(),
     (0, common_2.Get)("info"),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),

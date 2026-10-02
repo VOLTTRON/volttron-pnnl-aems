@@ -28,6 +28,7 @@ const auth_module_1 = require("../auth/auth.module");
 const logging_1 = require("../logging");
 const websocket_service_1 = require("../auth/websocket.service");
 const framework_module_1 = require("../auth/framework.module");
+const connection_1 = require("./connection");
 let PothosGraphQLModule = PothosGraphQLModule_1 = class PothosGraphQLModule {
     static forRoot() {
         const moduleOptionsFactory = (configService) => ({
@@ -84,47 +85,13 @@ let PothosGraphQLModule = PothosGraphQLModule_1 = class PothosGraphQLModule {
                     imports: [auth_module_1.AuthModule, framework_module_1.FrameworkModule.register()],
                     inject: [websocket_service_1.WebSocketAuthService, app_config_1.AppConfigService.Key],
                     useFactory: (wsAuthService, configService) => {
-                        const wsLogger = new logging_1.InfoLogger(`${PothosGraphQLModule_1.name}:ws`);
+                        const { context, onConnect } = (0, connection_1.graphqlConnection)(wsAuthService, new logging_1.InfoLogger(`${PothosGraphQLModule_1.name}:ws`));
                         return ({
-                            context: ({ req, extra, }) => {
-                                let user;
-                                if (req?.user) {
-                                    user = req.user;
-                                }
-                                else if (extra?.socket?.user) {
-                                    user = extra?.socket?.user;
-                                }
-                                else if (extra?.request?.user) {
-                                    user = extra?.request?.user;
-                                }
-                                return {
-                                    user,
-                                };
-                            },
+                            context,
                             subscriptions: {
                                 "graphql-ws": {
                                     path: "/graphql",
-                                    onConnect: async (context) => {
-                                        const { extra } = context;
-                                        const request = extra?.request;
-                                        if (!request) {
-                                            wsLogger.warn("Rejecting WS connect: no upgrade request on extra");
-                                            return false;
-                                        }
-                                        try {
-                                            const user = await wsAuthService.authenticateWebSocket(request);
-                                            if (extra?.socket) {
-                                                extra.socket.user = user;
-                                            }
-                                            request.user = user;
-                                            wsLogger.log(user ? `WS connect: user=${user.id ?? "?"}` : "WS connect: anonymous");
-                                            return true;
-                                        }
-                                        catch (error) {
-                                            wsLogger.warn(`WS authenticateWebSocket threw: ${error?.message ?? error}`);
-                                            return false;
-                                        }
-                                    },
+                                    onConnect,
                                 },
                             },
                             ...Object.fromEntries(Object.entries(moduleOptionsFactory(configService)).filter(([k]) => !["sortSchema", "autoSchemaFile", "subscriptions"].includes(k))),

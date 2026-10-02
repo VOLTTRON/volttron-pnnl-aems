@@ -75,6 +75,8 @@ export class AppConfigService {
   nodeEnv: string;
   printEnv: boolean;
   port: number;
+  /** APP_HOSTNAME: the one host the stack is served on. */
+  hostname?: string;
   project: {
     name: string;
   };
@@ -317,6 +319,7 @@ export class AppConfigService {
     this.nodeEnv = process.env.NODE_ENV ?? "development";
     this.printEnv = parseBoolean(process.env.PRINT_ENV);
     this.port = parseInt(process.env.PORT ?? "3000");
+    this.hostname = process.env.APP_HOSTNAME || undefined;
     this.project = {
       name: process.env.PROJECT_NAME ?? "",
     };
@@ -368,7 +371,7 @@ export class AppConfigService {
       db: process.env.REDIS_DB ? parseInt(process.env.REDIS_DB) : undefined,
     };
     this.auth = {
-      framework: process.env.AUTH_FRAMEWORK ?? "passport",
+      framework: process.env.AUTH_FRAMEWORK || "authjs",
       providers: process.env.AUTH_PROVIDERS?.split(",") ?? [],
       debug: parseBoolean(process.env.AUTH_DEBUG),
     };

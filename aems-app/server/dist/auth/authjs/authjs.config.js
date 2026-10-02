@@ -16,6 +16,11 @@ const validateStore = (store) => {
             throw new Error(`Invalid Authjs session store '${store}'.`);
     }
 };
+const keycloakRoles = (accessToken) => {
+    const payload = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64url").toString());
+    const rolesFromToken = payload?.realm_access?.roles || [];
+    return rolesFromToken.map((v) => common_1.RoleType.parse(v)?.enum).filter((0, common_1.typeofEnum)(constants_1.RoleEnum));
+};
 const buildConfig = (configService, prismaService, authService, subscriptionService) => {
     const logger = new common_2.Logger("AuthjsConfig");
     return {
@@ -28,11 +33,7 @@ const buildConfig = (configService, prismaService, authService, subscriptionServ
             jwt({ token, account, profile: _profile }) {
                 if (account?.provider === "keycloak" && account.access_token) {
                     try {
-                        const payload = JSON.parse(Buffer.from(account.access_token.split(".")[1], "base64").toString());
-                        const rolesFromToken = payload?.realm_access?.roles || [];
-                        const roles = rolesFromToken
-                            .map((v) => common_1.RoleType.parse(v)?.enum)
-                            .filter((0, common_1.typeofEnum)(constants_1.RoleEnum));
+                        const roles = keycloakRoles(account.access_token);
                         token.keycloakRoles = roles;
                         token.refreshToken = account.refresh_token;
                         logger.debug(`Extracted roles from Keycloak token: ${roles.join(", ")}`);
@@ -46,8 +47,7 @@ const buildConfig = (configService, prismaService, authService, subscriptionServ
             async signIn({ user, account, profile: _profile }) {
                 if (account?.provider === "keycloak" && user.email) {
                     try {
-                        const tokenWithRoles = account;
-                        const roles = tokenWithRoles.keycloakRoles || [];
+                        const roles = account.access_token ? keycloakRoles(account.access_token) : [];
                         const existingUser = await prismaService.prisma.user.findFirst({
                             where: {
                                 OR: [
@@ -141,6 +141,7 @@ const buildConfig = (configService, prismaService, authService, subscriptionServ
                     sameSite: "lax",
                     path: "/",
                     secure: true,
+                    domain: configService.hostname,
                 },
             },
             callbackUrl: {

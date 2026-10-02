@@ -2,7 +2,7 @@ import { RolesGuard } from "./roles.guard";
 import { Reflector } from "@nestjs/core";
 import { ExecutionContext } from "@nestjs/common";
 import { RolesKey } from "./roles.decorator";
-import Role from "@local/common/src/constants/role";
+import { RoleType as Role } from "@local/common";
 
 function makeContext(user: Express.User | undefined, handler = jest.fn(), cls = jest.fn()): ExecutionContext {
   return {
@@ -14,6 +14,7 @@ function makeContext(user: Express.User | undefined, handler = jest.fn(), cls = 
   } as unknown as ExecutionContext;
 }
 
+// scenario: roles-guard-admits-granted
 describe("RolesGuard", () => {
   let reflector: Reflector;
   let guard: RolesGuard;

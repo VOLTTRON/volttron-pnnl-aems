@@ -5,7 +5,7 @@ import { IsPublicKey } from "./public.decorator";
 
 /**
  * Guard that ensures a user is authenticated before allowing access.
- * Routes marked with @Public() decorator are accessible without authentication.
+ * Routes marked with @PublicRoute() decorator are accessible without authentication.
  * This guard should run before RolesGuard to ensure request.user is populated.
  */
 @Injectable()

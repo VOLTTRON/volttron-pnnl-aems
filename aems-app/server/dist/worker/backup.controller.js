@@ -125,7 +125,7 @@ __decorate([
 ], BackupWorkerController.prototype, "upsertKey", null);
 exports.BackupWorkerController = BackupWorkerController = BackupWorkerController_1 = __decorate([
     (0, common_1.Controller)("worker/backup"),
-    (0, public_decorator_1.Public)(),
+    (0, public_decorator_1.PublicRoute)(),
     (0, common_1.UseGuards)(token_guard_1.WorkerTokenGuard),
     __metadata("design:paramtypes", [backup_service_1.BackupWorkerService])
 ], BackupWorkerController);

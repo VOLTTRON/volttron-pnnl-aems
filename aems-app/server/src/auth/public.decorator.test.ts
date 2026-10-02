@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { IsPublicKey, Public } from "./public.decorator";
+import { IsPublicKey, PublicRoute } from "./public.decorator";
 
 describe("IsPublicKey", () => {
   it("is a Symbol", () => {
@@ -7,10 +7,10 @@ describe("IsPublicKey", () => {
   });
 });
 
-describe("Public decorator", () => {
+describe("PublicRoute decorator", () => {
   it("sets isPublic metadata to true on the decorated target", () => {
     class TestController {
-      @Public()
+      @PublicRoute()
       handler() {}
     }
 
@@ -19,7 +19,7 @@ describe("Public decorator", () => {
   });
 
   it("returns a decorator function", () => {
-    const decorator = Public();
+    const decorator = PublicRoute();
     expect(typeof decorator).toBe("function");
   });
 });

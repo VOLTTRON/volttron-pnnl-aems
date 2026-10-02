@@ -13,6 +13,7 @@ field or page is.
 
 - `AUTH_FRAMEWORK` selects the runtime strategy among authjs, passport, local, bearer, keycloak and
   super; both framework modules are always loaded, and unset means `authjs`.
+  **Open:** `AUTH_FRAMEWORK` only ever chooses between `authjs` and `passport` (`server/src/app.config.ts:374`, `auth/framework.module.ts`); local, bearer, keycloak and super are providers chosen by `AUTH_PROVIDERS` (`app.config.ts:375`) and each module decides on `providers.includes(...)` (`auth/super/super.module.ts`), so `AUTH_FRAMEWORK=local` selects nothing.
 - Every HTTP endpoint requires an authenticated user unless it carries `@PublicRoute`; the global
   guards are AuthenticatedGuard and RolesGuard.
 - `@Roles(...)` on a REST handler admits a user whose roles satisfy it through `Role.granted`.

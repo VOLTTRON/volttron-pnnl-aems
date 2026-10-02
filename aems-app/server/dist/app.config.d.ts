@@ -13,6 +13,7 @@ export declare class AppConfigService {
     nodeEnv: string;
     printEnv: boolean;
     port: number;
+    hostname?: string;
     project: {
         name: string;
     };
