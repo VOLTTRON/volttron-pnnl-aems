@@ -1,8 +1,12 @@
 #
-# Validate consistency of .env and .env.secrets before deploying.
+# Report the state of .env and .env.secrets before deploying.
 #
-# Exit 0: OK (with or without warnings)
-# Exit 1: a required secret is missing or still holds the placeholder
+# Exit 0: OK, with or without warnings. A blank or placeholder entry in .env.secrets means the
+#         .env sentinel, which is a valid runtime default; a sentinel .env beside a real
+#         .env.secrets means secrets.ps1 has not run yet. Both are reported, neither blocks.
+# Exit 1: the compose shim cannot be run from a fresh clone, or an env file has lost a newline.
+#
+# check-env.sh reports the same findings in the same words.
 #
 # Usage: .\check-env.ps1
 
@@ -23,36 +27,31 @@ function noteError { $script:Errors++ }
 
 # -- helpers --------------------------------------------------------------------
 
-function Get-EnvSecretKeys {
-  Get-Content $ENV_FILE | ForEach-Object {
-    if ($_.TrimEnd() -match "^([A-Za-z_][A-Za-z0-9_]*)=$([regex]::Escape($PLACEHOLDER))$") {
-      $matches[1]
-    }
-  }
+# File content without a BOM or CRs, comments dropped. ReadAllLines strips both.
+function Get-Entries {
+  param([string]$File)
+  if (-not (Test-Path $File)) { return @() }
+  return @([IO.File]::ReadAllLines((Join-Path (Get-Location) $File)) | Where-Object { $_ -notmatch '^\s*#' })
 }
 
+function Get-EnvSecretKeys {
+  $pattern = "^([A-Za-z_][A-Za-z0-9_]*)=['`"]?$([regex]::Escape($PLACEHOLDER))['`"]?$"
+  foreach ($l in (Get-Entries $ENV_FILE)) { if ($l -cmatch $pattern) { $matches[1] } }
+}
+
+function Get-SecretsKeys {
+  foreach ($l in (Get-Entries $SECRETS_FILE)) { if ($l -match '^([A-Za-z_][A-Za-z0-9_]*)=') { $matches[1] } }
+}
+
+# A value as compose reads it: '...' is literal, "..." takes \" and $$ escapes.
 function Get-EnvValue {
   param([string]$File, [string]$Key)
-  $line = Get-Content $File | Where-Object {
-    $_ -notmatch '^\s*#' -and $_ -match "^${Key}="
-  } | Select-Object -First 1
-  if ($line) { ($line -split '=', 2)[1].Trim() } else { '' }
-}
-
-function Test-EnvHasPlaceholders {
-  foreach ($key in (Get-EnvSecretKeys)) {
-    $val = Get-EnvValue -File $ENV_FILE -Key $key
-    if ($val -eq $PLACEHOLDER) { return $true }
-  }
-  return $false
-}
-
-function Test-EnvHasRealValues {
-  foreach ($key in (Get-EnvSecretKeys)) {
-    $val = Get-EnvValue -File $ENV_FILE -Key $key
-    if ([string]::IsNullOrEmpty($val) -or $val -eq $PLACEHOLDER) { return $false }
-  }
-  return $true
+  $line = Get-Entries $File | Where-Object { $_.StartsWith("$Key=") } | Select-Object -First 1
+  if (-not $line) { return '' }
+  $v = $line.Substring($Key.Length + 1)
+  if ($v.Length -ge 2 -and $v[0] -eq "'" -and $v[-1] -eq "'") { return $v.Substring(1, $v.Length - 2) }
+  if ($v.Length -ge 2 -and $v[0] -eq '"' -and $v[-1] -eq '"') { return $v.Substring(1, $v.Length - 2).Replace('\"', '"').Replace('$$', '$') }
+  return $v
 }
 
 # -- pre-flight -----------------------------------------------------------------
@@ -64,57 +63,76 @@ if (-not (Test-Path $ENV_FILE)) {
 Write-Host "`nEnvironment/Secrets Check" -ForegroundColor White
 Write-Host "Running from: $(Get-Location)"
 
-# -- No .env.secrets: env-only path ------------------------------------------
-
-if (-not (Test-Path $SECRETS_FILE)) {
-  if (Test-EnvHasPlaceholders) {
-    Write-Hdr "Mode: raw dev (no secrets configured)"
-    Write-Warn "Secret variables in .env still have placeholder values."
-    Write-Warn "Services that depend on secrets will not work until you either:"
-    Write-Warn "  a) Edit .env directly with real values (simple dev setup), or"
-    Write-Warn "  b) Run .\secrets.ps1 - it bootstraps $SECRETS_FILE from .env; edit real"
-    Write-Warn "     values there and run docker compose up -d."
-  } else {
-    Write-Hdr "Mode: env-only (real values in .env)"
-    Write-Warn "Running with real secret values in .env directly."
-    Write-Warn "This works but is less secure - .env is typically committed. Consider"
-    Write-Warn "moving secrets to $SECRETS_FILE (gitignored) via .\secrets.ps1."
+# -- compose-shim include: env_file: sanity -------------------------------------
+# A gitignored file under the root shim's `include: env_file:` cannot exist in a fresh clone, and
+# compose refuses to run at all without it.
+$shim = "docker-compose.yml"
+$gi = ".gitignore"
+if ((Test-Path $shim) -and (Test-Path $gi)) {
+  $ignored = @(Get-Entries $gi)
+  $inBlock = $false
+  foreach ($l in [IO.File]::ReadAllLines((Join-Path (Get-Location) $shim))) {
+    if ($l -match '^\s*env_file:\s*$') { $inBlock = $true; continue }
+    if ($inBlock -and $l -match '^\s*-\s*(.+?)\s*$') {
+      $path = $matches[1] -replace '^\./', ''
+      $base = Split-Path $path -Leaf
+      if ($ignored -ccontains $path -or $ignored -ccontains "/$path" -or $ignored -ccontains $base) {
+        Write-Err "$shim lists '$path' under 'include: env_file:', but that path is gitignored; a fresh clone cannot run compose"
+        noteError
+      }
+      continue
+    }
+    $inBlock = $false
   }
-  Write-Host "`nCheck complete (warnings only).`n" -ForegroundColor Green
-  exit 0
 }
 
-# -- .env.secrets exists: validate completeness --------------------------------
-
-if (Test-EnvHasRealValues) {
-  Write-Hdr "Advisory: mixed configuration detected"
-  Write-Warn ".env has real secret values AND .env.secrets also exists."
-  Write-Warn "Both are loaded by compose; .env.secrets wins on collisions."
-  Write-Warn "Reset .env placeholders back to the sentinel to avoid confusion."
+# -- env-file line integrity ----------------------------------------------------
+# KEY=VALUEKEY=VALUE: a dropped newline corrupts the first value and loses the second key.
+foreach ($file in @($ENV_FILE, $SECRETS_FILE)) {
+  $n = 0
+  $bad = $false
+  foreach ($l in (Get-Entries $file)) {
+    $n++
+    if ($l -cmatch '^[A-Z][A-Z0-9_]*=.*[a-zA-Z0-9][A-Z][A-Z0-9]{2,}(_[A-Z0-9]+)+=') {
+      Write-Err "$file line $n holds two entries; insert the missing newline"
+      $bad = $true
+    }
+  }
+  if ($bad) { noteError }
 }
 
-Write-Hdr "Checking .env.secrets completeness"
-
-foreach ($key in (Get-EnvSecretKeys)) {
-  $val = Get-EnvValue -File $SECRETS_FILE -Key $key
-  if ([string]::IsNullOrEmpty($val)) {
-    Write-Err "$key is missing from $SECRETS_FILE"
-    noteError
-  } elseif ($val -eq $PLACEHOLDER) {
-    Write-Err "$key still has a placeholder value in $SECRETS_FILE"
-    noteError
+# -- secrets --------------------------------------------------------------------
+if (-not (Test-Path $SECRETS_FILE)) {
+  Write-Hdr "No $SECRETS_FILE"
+  if (@(Get-EnvSecretKeys).Count -gt 0) {
+    Write-Warn "no ${SECRETS_FILE}: the $ENV_FILE sentinels are the running credentials"
   } else {
-    Write-Ok $key
+    Write-Warn "no ${SECRETS_FILE}: $ENV_FILE holds real values directly"
+  }
+} else {
+  Write-Hdr "Checking $SECRETS_FILE"
+  $keys = [string[]]@(@(Get-EnvSecretKeys) + @(Get-SecretsKeys) | Select-Object -Unique)
+  [Array]::Sort($keys, [StringComparer]::Ordinal)
+  foreach ($key in $keys) {
+    $secretsVal = Get-EnvValue $SECRETS_FILE $key
+    $envVal = Get-EnvValue $ENV_FILE $key
+    if (-not $secretsVal -or $secretsVal -ceq $PLACEHOLDER) {
+      Write-Warn "${key}: blank in $SECRETS_FILE, so the $ENV_FILE sentinel is used"
+    } elseif ($envVal -ceq $PLACEHOLDER) {
+      Write-Warn "${key}: $ENV_FILE holds the sentinel while $SECRETS_FILE has a value; run secrets before docker compose"
+    } elseif ($envVal -cne $secretsVal) {
+      Write-Warn "${key}: $ENV_FILE differs from $SECRETS_FILE; run secrets before docker compose"
+    } else {
+      Write-Ok $key
+    }
   }
 }
 
 # -- summary --------------------------------------------------------------------
 Write-Host ""
 if ($script:Errors -gt 0) {
-  Write-Host "$($script:Errors) error(s) found." -ForegroundColor Red
-  Write-Host "Fix the issues above and re-run .\check-env.ps1`n"
+  Write-Host "$($script:Errors) error(s) found. Fix the issues above and re-run .\check-env.ps1`n" -ForegroundColor Red
   exit 1
-} else {
-  Write-Host "All checks passed.`n" -ForegroundColor Green
-  exit 0
 }
+Write-Host "Check complete.`n" -ForegroundColor Green
+exit 0

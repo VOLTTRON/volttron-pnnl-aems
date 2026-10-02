@@ -97,9 +97,20 @@ mark_warn() { WARNINGS=$((WARNINGS + 1)); }
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
+# A value as compose reads it: '...' is literal, "..." takes \" and $$ escapes.
+unquote() {
+  case "$1" in
+    \'*\') v=${1#\'}; printf '%s' "${v%\'}" ;;
+    \"*\") v=${1#\"}; v=${v%\"}; printf '%s' "$v" | sed 's/\\"/"/g; s/\$\$/$/g' ;;
+    *)     printf '%s' "$1" ;;
+  esac
+}
+
 get_value() {
   file="$1"; key="$2"
-  grep -v '^\s*#' "$file" | grep "^${key}=" | head -1 | sed 's/^[^=]*=//'
+  [ -f "$file" ] || return 0
+  raw=$(sed '1s/^\xEF\xBB\xBF//; s/\r$//' "$file" | grep -v '^\s*#' | grep "^${key}=" | head -1 | sed 's/^[^=]*=//')
+  unquote "$raw"
 }
 
 # Derive the authoritative secret key list from .env by grepping for
@@ -119,11 +130,11 @@ env_secret_keys() {
 # a value that matches .env.secrets is a synced entry, not a misplaced
 # one.
 env_misplaced_keys() {
-  grep -v '^\s*#' "$ENV_FILE" \
+  grep -v '^\s*#' "$ENV_FILE" | tr -d '\r' \
     | grep -iE '^[A-Za-z_][A-Za-z0-9_]*_(PASSWORD|SECRET|TOKEN|KEY)=' \
     | while read -r line; do
         key="${line%%=*}"
-        val="${line#*=}"
+        val=$(unquote "${line#*=}")
         [ -z "$val" ] && continue
         [ "$val" = "$PLACEHOLDER" ] && continue
         # If .env.secrets already has the same value, it's synced — skip.
@@ -135,26 +146,33 @@ env_misplaced_keys() {
       done
 }
 
-# Write KEY=VALUE into FILE, replacing an existing entry or appending a
-# new one.
+# Write KEY='VALUE' into FILE, replacing an existing entry or appending a new one. The file comes
+# out UTF-8 without a BOM, LF-terminated, and keeps its mode. Single quotes are compose's literal
+# form, so `$`, `#` and spaces reach the container unchanged; a value holding a single quote has
+# no literal form and is refused.
 update_secrets_entry() {
   file="$1"; key="$2"; value="$3"
-  if grep -q "^${key}=" "$file" 2>/dev/null; then
-    tmp="${file}.tmp$$"
-    while IFS= read -r line || [ -n "$line" ]; do
-      case "$line" in
-        "${key}="*) printf '%s=%s\n' "$key" "$value" ;;
-        *)          printf '%s\n' "$line" ;;
-      esac
-    done < "$file" > "$tmp"
-    mv "$tmp" "$file"
-  else
-    printf '%s=%s\n' "$key" "$value" >> "$file"
-  fi
+  case "$value" in
+    *"'"*) error "$key: the value contains a single quote, which $file cannot carry literally — choose another"; return 1 ;;
+  esac
+  line="${key}='${value}'"
+  tmp="${file}.tmp$$"
+  found=0
+  sed '1s/^\xEF\xBB\xBF//; s/\r$//' "$file" 2>/dev/null > "$tmp.in" || : > "$tmp.in"
+  while IFS= read -r l || [ -n "$l" ]; do
+    case "$l" in
+      "${key}="*) printf '%s\n' "$line"; found=1 ;;
+      *)          printf '%s\n' "$l" ;;
+    esac
+  done < "$tmp.in" > "$tmp"
+  [ "$found" = 1 ] || printf '%s\n' "$line" >> "$tmp"
+  cat "$tmp" > "$file"
+  rm -f "$tmp" "$tmp.in"
 }
 
+# The shell outranks .env, as it does for compose itself.
 project_name() {
-  val=$(get_value "$ENV_FILE" "COMPOSE_PROJECT_NAME")
+  val=${COMPOSE_PROJECT_NAME:-$(get_value "$ENV_FILE" "COMPOSE_PROJECT_NAME")}
   printf '%s' "${val:-skeleton}"
 }
 
@@ -219,7 +237,7 @@ sync_env_from_secrets() {
     old_val=$(get_value "$ENV_FILE" "$k")
     if [ "$new_val" != "$old_val" ]; then
       if [ "$DRY_RUN" = 0 ]; then
-        update_secrets_entry "$ENV_FILE" "$k" "$new_val"
+        update_secrets_entry "$ENV_FILE" "$k" "$new_val" || continue
       fi
       changed=$((changed + 1))
     fi
@@ -292,7 +310,7 @@ if [ ! -f "$SECRETS_FILE" ]; then
     for key in $secret_keys; do
       env_val=$(get_value "$ENV_FILE" "$key")
       if [ -n "$env_val" ] && [ "$env_val" != "$PLACEHOLDER" ]; then
-        printf '%s=%s\n' "$key" "$env_val"
+        printf "%s='%s'\n" "$key" "$env_val"
       else
         printf '%s=\n' "$key"
       fi
@@ -353,7 +371,7 @@ if [ -z "$EXPLICIT_KEYS" ]; then
         warn "  Reset $key in $ENV_FILE to the placeholder when convenient."
         mark_warn
         if [ "$DRY_RUN" = 0 ]; then
-          update_secrets_entry "$SECRETS_FILE" "$key" "$env_val"
+          update_secrets_entry "$SECRETS_FILE" "$key" "$env_val" || mark_warn
         else
           dry "Would migrate $key from $ENV_FILE into $SECRETS_FILE"
         fi
@@ -408,28 +426,31 @@ for key in $KEYS_TO_CHECK; do
 done
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SENTINEL SCAN — detect and repair containers whose env holds the
-# `.env` placeholder sentinel. This happens when someone runs
-# `docker compose up -d` without `COMPOSE_ENV_FILES=.env,.env.secrets`
-# set in their shell — compose interpolates `${VAR}` against `.env`
-# alone and every recreated container gets the sentinel baked into its
-# env, breaking auth everywhere downstream. Scan is scoped to full
-# runs (skipped when the user passed explicit keys).
+# SENTINEL SCAN — a container created before .env was synced (a hand-typed
+# `docker compose up`) carries the sentinel for a key .env.secrets now sets.
+# Recreate it with the synced value. Scoped to full runs (skipped when the
+# user passed explicit keys).
 # ══════════════════════════════════════════════════════════════════════════════
 
 POISONED_SERVICES=""
 if [ -z "$EXPLICIT_KEYS" ]; then
   header "Scanning for sentinel-poisoned containers"
+  # The sentinel is a valid runtime default: a container holding it is poisoned only for a key
+  # .env.secrets gives a real value.
   for c in $(docker ps -a --format '{{.Names}}' 2>/dev/null | grep "^${PROJECT}-" || true); do
-    if docker inspect "$c" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
-         | grep -q "=${PLACEHOLDER}$"; then
-      svc=${c#${PROJECT}-}
-      POISONED_SERVICES="$POISONED_SERVICES $svc"
-      warn "$c: env holds the sentinel placeholder"
-    fi
+    for k in $(docker inspect "$c" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+                 | tr -d '\r' | grep "=${PLACEHOLDER}$" | sed 's/=.*//' || true); do
+      want=$(get_value "$SECRETS_FILE" "$k")
+      if [ -n "$want" ] && [ "$want" != "$PLACEHOLDER" ]; then
+        svc=${c#${PROJECT}-}
+        POISONED_SERVICES="$POISONED_SERVICES $svc"
+        warn "$c: env holds the sentinel for $k, which $SECRETS_FILE sets"
+        break
+      fi
+    done
   done
   if [ -n "$(printf '%s' "$POISONED_SERVICES" | tr -d ' ')" ]; then
-    warn "This means docker compose ran without COMPOSE_ENV_FILES set."
+    warn "Those containers were created before secrets.sh synced .env."
     warn "Recreating with real values from ${SECRETS_FILE}..."
     mark_warn
   else

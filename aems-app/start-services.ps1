@@ -120,8 +120,8 @@ try {
     # for up to 60s. `docker inspect` returns the exit code with a trailing
     # newline on PS 5.1 — trim it before comparing.
     if ($composeExit -ne 0) {
-        Write-Host "Waiting up to 60 s for aems-init to complete post self-heal..." -ForegroundColor Cyan
-        $initContainer = (docker ps -aqf name=aems-init 2>$null | Select-Object -First 1)
+        Write-Host "Waiting up to 60 s for init to complete post self-heal..." -ForegroundColor Cyan
+        $initContainer = (docker compose ps -a -q init 2>$null | Select-Object -First 1)
         $healed = $false
         for ($i = 0; $i -lt 60; $i++) {
             if ($initContainer) {

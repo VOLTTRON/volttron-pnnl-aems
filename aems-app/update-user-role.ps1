@@ -50,11 +50,23 @@ try {
     $KeycloakAdminRole = "realm-admin"
     $KeycloakRealm = "default"
 
+    # The shell outranks .env, as it does for compose itself.
+    $ShellProjectName = $env:COMPOSE_PROJECT_NAME
+
+    # secrets.ps1/secrets.sh write values as '...'.
+    function ConvertFrom-EnvValue([string]$v) {
+        $v = $v.Trim()
+        if ($v.Length -ge 2 -and (($v[0] -eq "'" -and $v[-1] -eq "'") -or ($v[0] -eq '"' -and $v[-1] -eq '"'))) {
+            return $v.Substring(1, $v.Length - 2)
+        }
+        return $v
+    }
+
     function Read-EnvFile($path) {
         if (Test-Path $path) {
             Get-Content $path | ForEach-Object {
                 if ($_ -match "^([^#][^=]+)=(.*)$") {
-                    [Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim(), "Process")
+                    [Environment]::SetEnvironmentVariable($matches[1].Trim(), (ConvertFrom-EnvValue $matches[2]), "Process")
                 }
             }
         }
@@ -68,7 +80,8 @@ try {
     Read-EnvFile "server/.env"
     Read-EnvFile ".env"
 
-    if ($env:COMPOSE_PROJECT_NAME) { $ComposeProjectName = $env:COMPOSE_PROJECT_NAME }
+    if ($ShellProjectName) { $ComposeProjectName = $ShellProjectName }
+    elseif ($env:COMPOSE_PROJECT_NAME) { $ComposeProjectName = $env:COMPOSE_PROJECT_NAME }
     if ($env:DATABASE_NAME)        { $DatabaseName        = $env:DATABASE_NAME }
     if ($env:DATABASE_USERNAME)    { $DatabaseUsername    = $env:DATABASE_USERNAME }
     if ($env:KEYCLOAK_ADMIN)       { $KeycloakAdmin        = $env:KEYCLOAK_ADMIN }
@@ -79,20 +92,19 @@ try {
         $KeycloakRealm = $Matches[1]
     }
 
-    # Admin password: secrets files take priority over .env placeholders
+    # Admin password: a secrets file first; a blank entry there means the .env value, and the
+    # .env sentinel is a valid default.
     foreach ($secretsFile in @(".env.secrets", "server/.env.secrets")) {
         if (Test-Path $secretsFile) {
             Get-Content $secretsFile | ForEach-Object {
                 if ($_ -match "^KEYCLOAK_ADMIN_PASSWORD=(.+)$") {
-                    $KeycloakAdminPassword = $matches[1].Trim()
+                    $pw = ConvertFrom-EnvValue $matches[1]
+                    if ($pw) { $KeycloakAdminPassword = $pw }
                 }
             }
         }
     }
-    if ((-not $KeycloakAdminPassword) -and $env:KEYCLOAK_ADMIN_PASSWORD -and
-        ($env:KEYCLOAK_ADMIN_PASSWORD -notmatch "SeT_tHiS_iN")) {
-        $KeycloakAdminPassword = $env:KEYCLOAK_ADMIN_PASSWORD
-    }
+    if (-not $KeycloakAdminPassword) { $KeycloakAdminPassword = $env:KEYCLOAK_ADMIN_PASSWORD }
 
     # Check database container
     $ContainerName = "$ComposeProjectName-database"

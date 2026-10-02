@@ -153,8 +153,8 @@ fi
 # which returns before init finishes running. Poll for it to exit 0 for
 # up to 60s.
 if [ "$COMPOSE_EXIT" -ne 0 ]; then
-    print_cyan "Waiting up to 60s for aems-init to complete post self-heal..."
-    INIT_CONTAINER=$(docker ps -aqf name=aems-init 2>/dev/null | head -1)
+    print_cyan "Waiting up to 60s for init to complete post self-heal..."
+    INIT_CONTAINER=$(docker compose ps -a -q init 2>/dev/null | head -1)
     HEALED=0
     for _ in $(seq 1 60); do
         if [ -n "$INIT_CONTAINER" ]; then

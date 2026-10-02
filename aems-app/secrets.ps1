@@ -80,12 +80,31 @@ function noteWarn { $script:Warnings++ }
 
 # -- helpers --------------------------------------------------------------------
 
+# A value as compose reads it: '...' is literal, "..." takes \" and $$ escapes.
+function ConvertFrom-EnvValue {
+    param([string]$Raw)
+    $v = $Raw.Trim()
+    if ($v.Length -ge 2 -and $v[0] -eq "'" -and $v[-1] -eq "'") { return $v.Substring(1, $v.Length - 2) }
+    if ($v.Length -ge 2 -and $v[0] -eq '"' -and $v[-1] -eq '"') {
+        return $v.Substring(1, $v.Length - 2).Replace('\"', '"').Replace('$$', '$')
+    }
+    return $v
+}
+
 function Get-EnvValue {
     param([string]$File, [string]$Key)
+    if (-not (Test-Path $File)) { return '' }
     $line = Get-Content $File | Where-Object {
         $_ -notmatch '^\s*#' -and $_ -match "^${Key}="
     } | Select-Object -First 1
-    if ($line) { ($line -split '=', 2)[1].Trim() } else { '' }
+    if ($line) { ConvertFrom-EnvValue ($line -split '=', 2)[1] } else { '' }
+}
+
+# UTF-8 without a BOM, LF-terminated: what compose and the .sh scripts read.
+function Write-EnvFile {
+    param([string]$File, [string[]]$Lines)
+    $path = Join-Path (Get-Location) $File
+    [IO.File]::WriteAllText($path, (($Lines -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding $false))
 }
 
 function Get-EnvSecretKeys {
@@ -103,12 +122,12 @@ function Get-MisplacedKeys {
     Get-Content $ENV_FILE | ForEach-Object {
         if ($_ -notmatch '^\s*#' -and
             $_ -match '^([A-Za-z_][A-Za-z0-9_]*_(PASSWORD|SECRET|TOKEN|KEY))=(.+)$') {
-            $key = $matches[1]; $val = $matches[3]
+            $key = $matches[1]; $val = ConvertFrom-EnvValue $matches[3]
             if ($val -and $val -ne $PLACEHOLDER) {
                 $isSynced = $false
                 if (Test-Path $SECRETS_FILE) {
                     $secretsVal = Get-EnvValue $SECRETS_FILE $key
-                    if ($secretsVal -eq $val) { $isSynced = $true }
+                    if ($secretsVal -ceq $val) { $isSynced = $true }
                 }
                 if (-not $isSynced) {
                     [PSCustomObject]@{ Key = $key; Value = $val }
@@ -118,19 +137,32 @@ function Get-MisplacedKeys {
     }
 }
 
+# Write KEY='VALUE' into FILE, replacing an existing entry or appending a new one. Single quotes
+# are compose's literal form, so `$`, `#` and spaces reach the container unchanged; a value
+# holding a single quote has no literal form and is refused. Returns whether it wrote.
 function Update-SecretsEntry {
     param([string]$File, [string]$Key, [string]$Value)
-    $content = Get-Content $File
-    $found = $false
-    $new = $content | ForEach-Object {
-        if ($_ -match "^${Key}=") { $found = $true; "$Key=$Value" } else { $_ }
+    if ($Value.Contains("'")) {
+        Write-Err "${Key}: the value contains a single quote, which $File cannot carry literally - choose another"
+        return $false
     }
-    if (-not $found) { $new = @($content) + @("$Key=$Value") }
-    Set-Content -Path $File -Value $new -Encoding UTF8
+    $line = "$Key='$Value'"
+    $content = @()
+    if (Test-Path $File) { $content = @([IO.File]::ReadAllLines((Join-Path (Get-Location) $File))) }
+    $found = $false
+    $new = @()
+    foreach ($l in $content) {
+        if ($l -match "^${Key}=") { $found = $true; $new += $line } else { $new += $l }
+    }
+    if (-not $found) { $new += $line }
+    Write-EnvFile $File $new
+    return $true
 }
 
+# The shell outranks .env, as it does for compose itself.
 function Get-ProjectName {
-    $val = Get-EnvValue $ENV_FILE "COMPOSE_PROJECT_NAME"
+    $val = $env:COMPOSE_PROJECT_NAME
+    if (-not $val) { $val = Get-EnvValue $ENV_FILE "COMPOSE_PROJECT_NAME" }
     if ($val) { return $val } else { return "skeleton" }
 }
 
@@ -198,9 +230,10 @@ function Sync-EnvFromSecrets {
         if ([string]::IsNullOrEmpty($new_val)) { continue }
         if ($new_val -eq $PLACEHOLDER) { continue }
         $old_val = Get-EnvValue $ENV_FILE $k
-        if ($new_val -ne $old_val) {
+        # -cne: a password that differs only in case is a different password.
+        if ($new_val -cne $old_val) {
             if (-not $DryRun) {
-                Update-SecretsEntry $ENV_FILE $k $new_val
+                if (-not (Update-SecretsEntry $ENV_FILE $k $new_val)) { continue }
             }
             $changed++
         }
@@ -268,12 +301,12 @@ if (-not (Test-Path $SECRETS_FILE)) {
     foreach ($key in $secretKeys) {
         $envVal = Get-EnvValue $ENV_FILE $key
         if ($envVal -and $envVal -ne $PLACEHOLDER) {
-            $lines += "$key=$envVal"
+            $lines += "$key='$envVal'"
         } else {
             $lines += "$key="
         }
     }
-    Set-Content -Path $SECRETS_FILE -Value $lines -Encoding UTF8
+    Write-EnvFile $SECRETS_FILE $lines
 
     $blank = (Get-Content $SECRETS_FILE | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=$' }).Count
     $total = (Get-Content $SECRETS_FILE | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=' }).Count
@@ -325,7 +358,7 @@ if (-not $ExplicitKeys) {
                 if ($DryRun) {
                     Write-Dry "Would migrate $($m.Key) from $ENV_FILE into $SECRETS_FILE"
                 } else {
-                    Update-SecretsEntry $SECRETS_FILE $m.Key $m.Value
+                    if (-not (Update-SecretsEntry $SECRETS_FILE $m.Key $m.Value)) { noteWarn }
                 }
                 $migrated++
             }
@@ -353,7 +386,7 @@ foreach ($key in $keysToCheck) {
     if (-not $oldVal) {
         $FRESH += $key
         Write-Info "$key`: fresh (no running container to rotate against)"
-    } elseif ($newVal -eq $oldVal) {
+    } elseif ($newVal -ceq $oldVal) {
         Write-Ok "$key`: unchanged"
     } else {
         $ROTATIONS += $key
@@ -362,24 +395,30 @@ foreach ($key in $keysToCheck) {
 }
 
 # ==============================================================================
-# SENTINEL SCAN - detect and repair containers whose env holds the
-# `.env` placeholder sentinel (from a `docker compose up -d` invocation
-# with COMPOSE_ENV_FILES unset). See secrets.sh for the full rationale.
+# SENTINEL SCAN - a container created before .env was synced carries the
+# sentinel for a key .env.secrets now sets; recreate it with the synced value.
 # ==============================================================================
 $POISONED = @()
 if (-not $ExplicitKeys) {
     Write-Hdr "Scanning for sentinel-poisoned containers"
     $containers = docker ps -a --format '{{.Names}}' 2>$null | Where-Object { $_ -match "^${PROJECT}-" }
+    # The sentinel is a valid runtime default: a container holding it is poisoned only for a key
+    # .env.secrets gives a real value.
     foreach ($c in $containers) {
-        $envDump = docker inspect $c --format '{{range .Config.Env}}{{println .}}{{end}}' 2>$null
-        if ($envDump -match "=$([regex]::Escape($PLACEHOLDER))(\r?\n|$)") {
-            $svc = $c -replace "^${PROJECT}-", ""
-            $POISONED += $svc
-            Write-Warn "$c`: env holds the sentinel placeholder"
+        $envDump = @(docker inspect $c --format '{{range .Config.Env}}{{println .}}{{end}}' 2>$null)
+        foreach ($entry in $envDump) {
+            if ($entry.TrimEnd() -notmatch "^([^=]+)=$([regex]::Escape($PLACEHOLDER))$") { continue }
+            $k = $matches[1]
+            $want = Get-EnvValue $SECRETS_FILE $k
+            if ($want -and $want -cne $PLACEHOLDER) {
+                $POISONED += ($c -replace "^${PROJECT}-", "")
+                Write-Warn "${c}: env holds the sentinel for $k, which $SECRETS_FILE sets"
+                break
+            }
         }
     }
     if ($POISONED.Count -gt 0) {
-        Write-Warn "This means docker compose ran without COMPOSE_ENV_FILES set."
+        Write-Warn "Those containers were created before secrets.ps1 synced .env."
         Write-Warn "Recreating with real values from $SECRETS_FILE..."
         noteWarn
     } else {

@@ -51,24 +51,31 @@ print_cyan "Email: $USER_EMAIL"
 print_cyan "New Role: $USER_ROLE"
 
 # Load environment variables — root .env first, then server/.env (server values win)
+# KEY's value in FILE, unquoted: secrets.sh writes values as '...'.
+env_value() {
+    grep "^$2=" "$1" 2>/dev/null | head -1 | tr -d '\r' | sed "s/^[^=]*=//; s/^'\(.*\)'\$/\1/; s/^\"\(.*\)\"\$/\1/"
+}
+
 read_env() {
     local file="$1"
     [ -f "$file" ] || return
     local val
-    val=$(grep "^COMPOSE_PROJECT_NAME=" "$file" 2>/dev/null | cut -d'=' -f2 | tr -d '"')
+    val=$(env_value "$file" COMPOSE_PROJECT_NAME)
     [ -n "$val" ] && COMPOSE_PROJECT_NAME="$val"
-    val=$(grep "^DATABASE_NAME=" "$file" 2>/dev/null | cut -d'=' -f2 | tr -d '"')
+    val=$(env_value "$file" DATABASE_NAME)
     [ -n "$val" ] && DATABASE_NAME="$val"
-    val=$(grep "^DATABASE_USERNAME=" "$file" 2>/dev/null | cut -d'=' -f2 | tr -d '"')
+    val=$(env_value "$file" DATABASE_USERNAME)
     [ -n "$val" ] && DATABASE_USERNAME="$val"
-    val=$(grep "^KEYCLOAK_ISSUER_URL=" "$file" 2>/dev/null | cut -d'=' -f2 | tr -d '"')
+    val=$(env_value "$file" KEYCLOAK_ISSUER_URL)
     [ -n "$val" ] && KEYCLOAK_ISSUER_URL="$val"
-    val=$(grep "^KEYCLOAK_ADMIN=" "$file" 2>/dev/null | cut -d'=' -f2 | tr -d '"')
+    val=$(env_value "$file" KEYCLOAK_ADMIN)
     [ -n "$val" ] && KEYCLOAK_ADMIN="$val"
-    val=$(grep "^KEYCLOAK_ADMIN_ROLE=" "$file" 2>/dev/null | cut -d'=' -f2 | tr -d '"')
+    val=$(env_value "$file" KEYCLOAK_ADMIN_ROLE)
     [ -n "$val" ] && KEYCLOAK_ADMIN_ROLE="$val"
 }
 
+# The shell outranks .env, as it does for compose itself.
+SHELL_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-}"
 COMPOSE_PROJECT_NAME="skeleton"
 DATABASE_NAME="skeleton"
 DATABASE_USERNAME="skeleton"
@@ -83,18 +90,19 @@ KEYCLOAK_ADMIN_ROLE="realm-admin"
 # server/.env, so they survive the root .env pass unmodified.
 read_env "server/.env"
 read_env ".env"
+[ -n "$SHELL_PROJECT_NAME" ] && COMPOSE_PROJECT_NAME="$SHELL_PROJECT_NAME"
 
-# Admin password: prefer secrets files (avoid .env placeholder values)
+# Admin password: a secrets file first; a blank entry there means the .env value, and the .env
+# sentinel is a valid default.
 KEYCLOAK_ADMIN_PASSWORD=""
 for secrets_file in ".env.secrets" "server/.env.secrets"; do
     if [ -f "$secrets_file" ]; then
-        local_pw=$(grep "^KEYCLOAK_ADMIN_PASSWORD=" "$secrets_file" 2>/dev/null | cut -d'=' -f2 | tr -d '"')
+        local_pw=$(env_value "$secrets_file" KEYCLOAK_ADMIN_PASSWORD)
         [ -n "$local_pw" ] && KEYCLOAK_ADMIN_PASSWORD="$local_pw"
     fi
 done
 if [ -z "$KEYCLOAK_ADMIN_PASSWORD" ]; then
-    env_pw=$(grep "^KEYCLOAK_ADMIN_PASSWORD=" .env 2>/dev/null | cut -d'=' -f2 | tr -d '"' || true)
-    case "$env_pw" in SeT_tHiS_iN*) ;; *) KEYCLOAK_ADMIN_PASSWORD="$env_pw" ;; esac
+    KEYCLOAK_ADMIN_PASSWORD=$(env_value .env KEYCLOAK_ADMIN_PASSWORD)
 fi
 
 # Derive Keycloak realm from issuer URL (e.g. .../realms/default -> default)
