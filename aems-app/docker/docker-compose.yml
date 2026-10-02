@@ -21,8 +21,9 @@ services:
       - --entrypoints.websecure.http.tls=true
       - --entrypoints.websecure.http.tls.certresolver=${CERT_RESOLVER}
       - --entrypoints.historian.address=:${HISTORIAN_REPLICATION_PORT}
+      # The whole of ./proxy is the one file provider. A providers.file.filename beside a
+      # directory is ignored by Traefik, so nothing is given to it any other way.
       - --providers.file.directory=/etc/traefik/dynamic
-      - --providers.file.filename=/etc/traefik/dynamic.yml
       - --providers.file.watch=true
       - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
       - --certificatesresolvers.letsencrypt.acme.email=${ADMIN_EMAIL}
@@ -50,10 +51,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - certs-data:/etc/certs/:ro
       - acme-data:/etc/traefik/acme/
-      - ./proxy/certs-traefik.yml:/etc/traefik/dynamic/certs-traefik.yml
-      - ./proxy/historian-tcp.yml:/etc/traefik/dynamic/historian-tcp.yml
-      - ./proxy/volttron-transport.yml:/etc/traefik/dynamic/volttron-transport.yml
-      - ./proxy/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - ./proxy:/etc/traefik/dynamic:ro
 
   # Application that hosts static files and API
   client:
@@ -125,8 +123,10 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+      # grafana is an optional profile: awaited when selected, absent otherwise.
       grafana-setup:
         condition: service_completed_successfully
+        required: false
       database:
         condition: service_started
     # deploy:
@@ -202,6 +202,7 @@ services:
         condition: service_started
       grafana-setup:
         condition: service_completed_successfully
+        required: false
     env_file:
       - .env.services
     extra_hosts:

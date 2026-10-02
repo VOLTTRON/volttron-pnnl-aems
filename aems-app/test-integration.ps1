@@ -4,6 +4,8 @@
 # Usage: .\test-integration.ps1 [OPTIONS]
 
 param(
+    [string]$Project = "aems-test",
+    [switch]$Warm,
     [switch]$SkipInstall,
     [switch]$NoBuild,
     [switch]$NoStart,
@@ -17,7 +19,14 @@ if ($Help) {
     Write-Host "Start the Docker Compose stack, run Playwright integration tests,"
     Write-Host "write an HTML report, then stop the stack."
     Write-Host ""
+    Write-Host "The stack runs as its own compose project on its own volumes, started cold:"
+    Write-Host "its volumes are removed first. Containers of any other project holding the"
+    Write-Host "stack's host ports are stopped for the run and started again afterwards."
+    Write-Host ""
     Write-Host "Options:"
+    Write-Host "  -Project NAME   Compose project to test as (default: aems-test). Never the"
+    Write-Host "                  COMPOSE_PROJECT_NAME in .env: that one holds real data."
+    Write-Host "  -Warm           Keep the test project's volumes instead of starting cold"
     Write-Host "  -SkipInstall    Skip npm install + playwright install (faster on repeat runs)"
     Write-Host "  -NoBuild        Skip 'docker compose build' (use existing images)"
     Write-Host "  -NoStart        Don't start the stack (assume it's already running)"
@@ -25,8 +34,7 @@ if ($Help) {
     Write-Host "  -Help           Show this help message"
     Write-Host ""
     Write-Host "Reads from:"
-    Write-Host "  .env            APP_HOSTNAME, KEYCLOAK_ADMIN"
-    Write-Host "  .env.secrets    KEYCLOAK_ADMIN_PASSWORD (preferred over .env)"
+    Write-Host "  .env            APP_HOSTNAME, KEYCLOAK_ADMIN, KEYCLOAK_ADMIN_PASSWORD"
     Write-Host ""
     Write-Host "Output:"
     Write-Host "  scripts\playwright-report\index.html"
@@ -36,6 +44,7 @@ if ($Help) {
 $StartingPath = Get-Location
 $StackStarted = $false
 $TestExit = 0
+$Parked = @()
 
 function Write-Blue($msg)   { Write-Host $msg -ForegroundColor Blue }
 function Write-Cyan($msg)   { Write-Host $msg -ForegroundColor Cyan }
@@ -79,33 +88,26 @@ function Wait-ForUrl($url, $label, $timeoutSeconds = 600) {
 try {
     # ── Load environment ───────────────────────────────────────────────────────
 
-    $AppHostname = $null
-    $KeycloakAdmin = "admin"
-    $KeycloakAdminPassword = $null
-
-    foreach ($envFile in @("server\.env", ".env")) {
-        $val = Read-EnvVar $envFile "APP_HOSTNAME";   if ($val) { $AppHostname = $val }
-        $val = Read-EnvVar $envFile "KEYCLOAK_ADMIN"; if ($val) { $KeycloakAdmin = $val }
-    }
-
-    foreach ($secretsFile in @(".env.secrets", "server\.env.secrets")) {
-        $val = Read-EnvVar $secretsFile "KEYCLOAK_ADMIN_PASSWORD"
-        if ($val) { $KeycloakAdminPassword = $val }
-    }
-    if (-not $KeycloakAdminPassword) {
-        $val = Read-EnvVar ".env" "KEYCLOAK_ADMIN_PASSWORD"
-        if ($val -and -not $val.StartsWith("SeT_tHiS_iN")) { $KeycloakAdminPassword = $val }
-    }
+    $AppHostname = Read-EnvVar ".env" "APP_HOSTNAME"
+    $KeycloakAdmin = Read-EnvVar ".env" "KEYCLOAK_ADMIN"
+    if (-not $KeycloakAdmin) { $KeycloakAdmin = "admin" }
 
     if (-not $AppHostname) {
         Write-Red "Error: APP_HOSTNAME is not set in .env"; exit 1
     }
-    if (-not $KeycloakAdminPassword) {
-        Write-Red "Error: KEYCLOAK_ADMIN_PASSWORD is not set in .env.secrets or .env"; exit 1
+
+    # The project .env names holds the operator's data; this harness removes its own
+    # project's volumes, so it never runs as that one.
+    $EnvProject = Read-EnvVar ".env" "COMPOSE_PROJECT_NAME"
+    if ($Project -eq $EnvProject) {
+        Write-Red "Error: -Project '$Project' is the project .env names; refusing to test against it."; exit 1
     }
+    # Shell environment outranks .env for compose interpolation, and the scripts read it first too.
+    $env:COMPOSE_PROJECT_NAME = $Project
 
     Write-Blue "Integration test configuration:"
     Write-Cyan "  APP_HOSTNAME:  $AppHostname"
+    Write-Cyan "  Project:       $Project$(if ($Warm) { ' (warm)' } else { ' (cold)' })"
     Write-Cyan "  Report:        scripts\playwright-report\index.html"
 
     # ── Install test dependencies ──────────────────────────────────────────────
@@ -123,6 +125,24 @@ try {
     # ── Start the stack ────────────────────────────────────────────────────────
 
     if (-not $NoStart) {
+        # Another project's running containers hold the host ports this stack publishes.
+        # PowerShell 5.1 strips quotes inside native arguments, so the label is parsed here rather
+        # than selected with {{.Label "..."}}.
+        $Parked = @(docker ps --format '{{.ID}}|{{.Labels}}' |
+            Where-Object { $_ -match '^(\w+)\|.*\bcom\.docker\.compose\.project=([^,]+)' -and $Matches[2] -ne $Project } |
+            ForEach-Object { ($_ -split '\|')[0] })
+        if ($LASTEXITCODE -ne 0) { throw "docker ps failed" }
+        if ($Parked.Count -gt 0) {
+            Write-Blue "Stopping $($Parked.Count) container(s) of other compose projects for the run..."
+            docker stop $Parked | Out-Null
+        }
+
+        if (-not $Warm) {
+            Write-Blue "Removing project '$Project' and its volumes for a cold start..."
+            docker compose down -v --remove-orphans
+            if ($LASTEXITCODE -ne 0) { throw "docker compose down -v failed" }
+        }
+
         Write-Blue "Starting Docker Compose stack..."
         if ($NoBuild) {
             & .\start-services.ps1 -NoBuild
@@ -140,9 +160,10 @@ try {
 
     # ── Copy mkcert CA cert for Node TLS verification ──────────────────────────
 
-    $ComposeProjectName = Read-EnvVar ".env" "COMPOSE_PROJECT_NAME"
-    if (-not $ComposeProjectName) { $ComposeProjectName = "skeleton" }
-    $ProxyContainer = "${ComposeProjectName}-proxy"
+    # Whatever answers on APP_HOSTNAME must be this project's proxy, not another stack's.
+    $ProxyContainer = "${Project}-proxy"
+    $proxyRunning = (docker inspect --format '{{.State.Running}}' $ProxyContainer 2>$null | Out-String).Trim()
+    if ($proxyRunning -ne "true") { throw "$ProxyContainer is not running; the stack under test did not come up" }
     $CaCertPath = "scripts\.auth\mkcert-ca.crt"
 
     New-Item -ItemType Directory -Path "scripts\.auth" -Force | Out-Null
@@ -155,6 +176,12 @@ try {
     }
 
     # ── Run tests ──────────────────────────────────────────────────────────────
+
+    # Read after start: start-services has synced .env, and a sentinel there is the live value.
+    $KeycloakAdminPassword = Read-EnvVar ".env" "KEYCLOAK_ADMIN_PASSWORD"
+    if (-not $KeycloakAdminPassword) {
+        Write-Red "Error: KEYCLOAK_ADMIN_PASSWORD is not set in .env"; exit 1
+    }
 
     Write-Blue "Running integration tests..."
     Set-Location scripts
@@ -193,6 +220,13 @@ try {
         Write-Blue "Stopping Docker Compose stack..."
         & .\stop-services.ps1
     }
+    # -NoStop keeps the stack under test up, which still holds the ports; if it never came up,
+    # nothing holds them and the parked containers go back regardless.
+    if ($Parked.Count -gt 0 -and (-not $NoStop -or -not $StackStarted)) {
+        Write-Blue "Starting the $($Parked.Count) container(s) stopped for the run..."
+        docker start $Parked | Out-Null
+    }
+    Remove-Item Env:\COMPOSE_PROJECT_NAME -ErrorAction SilentlyContinue
 }
 
 exit $TestExit

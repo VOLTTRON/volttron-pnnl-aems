@@ -1,0 +1,8 @@
+# Everything runs in Linux containers or reads fine as LF on Windows, and a shell script or
+# env file checked out with CRLF breaks inside a container (`exec ./setup.sh: no such file`).
+# Pin LF in the working tree whatever core.autocrlf says.
+* text=auto eol=lf
+
+# cmd.exe needs CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf

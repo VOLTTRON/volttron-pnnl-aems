@@ -1,9 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// PLAYWRIGHT_SCRIPTS_ONLY=1 with --project scripts runs the script fixtures with no stack at all.
+const scriptsOnly = process.env.PLAYWRIGHT_SCRIPTS_ONLY === "1";
+
 const hostname = process.env.APP_HOSTNAME;
-if (!hostname) {
+if (!hostname && !scriptsOnly) {
   throw new Error("APP_HOSTNAME environment variable is required");
 }
+
+// Matches tests/<name>.spec.ts for the listed names. The character before the name is a path
+// separator, so it is matched explicitly; a leading `\.` there silently matches nothing.
+const specs = (...names: string[]) => new RegExp(`(^|[\\\\/])(${names.join("|")})\\.spec\\.ts$`);
 
 export default defineConfig({
   testDir: "./tests",
@@ -11,8 +18,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers: 1,
   reporter: [["html"], ["line"]],
-  globalSetup: "./tests/global-setup.ts",
-  globalTeardown: "./tests/global-teardown.ts",
+  ...(scriptsOnly ? {} : { globalSetup: "./tests/global-setup.ts", globalTeardown: "./tests/global-teardown.ts" }),
   use: {
     baseURL: `https://${hostname}`,
     // TLS cert trust is verified explicitly in smoke.spec.ts (EC-TLS check).
@@ -24,13 +30,19 @@ export default defineConfig({
   },
   projects: [
     {
+      // Drives the repository's shell scripts in temp directories against a fake `docker`;
+      // no browser and no live container.
+      name: "scripts",
+      testMatch: /\.script\.spec\.ts$/,
+    },
+    {
       name: "setup",
       testMatch: /auth\.setup\.ts/,
     },
     {
       name: "unauthenticated",
       use: { ...devices["Desktop Chrome"] },
-      testMatch: /\.(smoke|auth)\.spec\.ts/,
+      testMatch: specs("smoke", "auth", "stack"),
     },
     {
       name: "as-user",
@@ -39,7 +51,7 @@ export default defineConfig({
         storageState: ".auth/user.json",
       },
       dependencies: ["setup"],
-      testMatch: /\.(auth|graphql|ui)\.spec\.ts/,
+      testMatch: specs("auth", "graphql", "ui"),
     },
     {
       name: "as-admin",
@@ -48,7 +60,13 @@ export default defineConfig({
         storageState: ".auth/admin.json",
       },
       dependencies: ["setup"],
-      testMatch: /graphql-admin\.spec\.ts/,
+      testMatch: specs("graphql-admin"),
+    },
+    {
+      // Restarts the stack, so it waits for everything that uses it.
+      name: "reboot",
+      dependencies: ["unauthenticated", "as-user", "as-admin"],
+      testMatch: specs("reboot"),
     },
   ],
 });

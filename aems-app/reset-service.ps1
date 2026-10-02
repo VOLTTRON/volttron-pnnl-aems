@@ -284,6 +284,12 @@ try {
         Write-Host "  - $vol"
     }
 
+    if ($volumeNames -contains "historian-data") {
+        Write-Host ""
+        Write-Host "historian-data holds the replication publication. After it is removed, every remote" -ForegroundColor Red
+        Write-Host "subscriber must drop and re-create its subscription; replication to them stops until then." -ForegroundColor Red
+    }
+
     if ($skippedShared -gt 0) {
         Write-Host ""
         Write-Host "Note: $skippedShared shared volume(s) were skipped. Pass -s / --include-shared to include them." -ForegroundColor Yellow

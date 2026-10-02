@@ -316,6 +316,12 @@ echo "$VOLUMES" | while read -r vol; do
     fi
 done
 
+if echo "$VOLUMES" | grep -qx "historian-data"; then
+    echo ""
+    print_red "historian-data holds the replication publication. After it is removed, every remote"
+    print_red "subscriber must drop and re-create its subscription; replication to them stops until then."
+fi
+
 if [[ "$SKIPPED_SHARED_COUNT" -gt 0 ]]; then
     echo ""
     print_yellow "Note: $SKIPPED_SHARED_COUNT shared volume(s) were skipped. Pass -s / --include-shared to include them."

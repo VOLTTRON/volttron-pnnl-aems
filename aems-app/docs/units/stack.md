@@ -18,6 +18,7 @@ credentials — that is `secrets` — or any application behaviour behind the pr
 - Traefik routes `/authjs`, `/graphql`, `/api` and `/ext` to server, `/auth/sso/` to Keycloak,
   `/grafana` to Grafana, and everything else on the host to client.
 - Responses carry HSTS, X-Frame-Options and X-Content-Type-Options.
+  **Open:** the tracked `.env:25` sets `STS_SECONDS=` with the stated reason "0 = disabled (dev default; browsers delete any cached policy)", and every router sends `stsSeconds=${STS_SECONDS:-0}` (`docker/docker-compose.yml:96,154`), so a deployment from the tracked `.env` sends no `Strict-Transport-Security` header at all (measured on `aems.local`: absent on `/` and `/graphql`).
 - The certs service completes before the proxy starts.
 - The init service migrates an empty database and exits 0.
 - The seeders service creates the system user on a cold database.
