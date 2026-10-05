@@ -29,6 +29,9 @@ let EventService = EventService_1 = class EventService extends __1.BaseService {
         this.ageValue = configService.service.event.age.value;
         this.ageUnit = configService.service.event.age.unit;
     }
+    start() {
+        return this.execute();
+    }
     execute() {
         return super.execute();
     }
@@ -56,6 +59,11 @@ let EventService = EventService_1 = class EventService extends __1.BaseService {
 exports.EventService = EventService;
 __decorate([
     (0, schedule_1.Timeout)(1000),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], EventService.prototype, "start", null);
+__decorate([
     (0, schedule_1.Cron)("0 0 * * *"),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),

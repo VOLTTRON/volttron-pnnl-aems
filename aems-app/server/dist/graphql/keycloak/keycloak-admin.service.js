@@ -175,6 +175,7 @@ let KeycloakAdminService = KeycloakAdminService_1 = class KeycloakAdminService {
     async lookupKeycloakUserId(appUserId) {
         const account = await this.prismaService.prisma.account.findFirst({
             where: { userId: appUserId, provider: "keycloak" },
+            orderBy: { createdAt: "desc" },
         });
         return account?.providerAccountId ?? null;
     }

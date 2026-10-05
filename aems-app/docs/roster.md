@@ -12,7 +12,7 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 | `keycloak-admin` | unbuilt | auth, graphql |
 | `background` | built | stack |
 | `logging` | built | background |
-| `backup` | unbuilt | background |
+| `backup` | built | background |
 | `ext-geography` | unbuilt | auth |
 | `content-admin` | unbuilt | graphql |
 | `site-model` | unbuilt | graphql |

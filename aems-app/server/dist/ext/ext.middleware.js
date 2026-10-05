@@ -25,12 +25,12 @@ let ExtRewriteMiddleware = ExtRewriteMiddleware_1 = class ExtRewriteMiddleware {
         this.configs = [];
         Object.entries(configService.ext).forEach(([key, config]) => {
             try {
-                if (config.path && config.authorized) {
-                    this.configs.push(config);
+                if (config.path && config.authorized && config.role) {
+                    this.configs.push({ ...config, path: config.path, authorized: config.authorized, role: config.role });
                     this.logger.log(`Successfully configured proxy for external service: ${key}`);
                 }
                 else {
-                    this.logger.warn(`Ext option ${key} is missing required properties - path: ${!!config.path}, authorized: ${!!config.authorized}`);
+                    this.logger.warn(`Ext option ${key} is missing required properties - path: ${!!config.path}, authorized: ${!!config.authorized}, role: ${!!config.role}`);
                 }
             }
             catch (error) {
@@ -44,15 +44,13 @@ let ExtRewriteMiddleware = ExtRewriteMiddleware_1 = class ExtRewriteMiddleware {
             if (!config) {
                 return next();
             }
-            if (config.role) {
-                const userRoles = req.user?.roles ?? [];
-                if (!config.role.granted(...userRoles)) {
-                    if (config.unauthorized) {
-                        return res.redirect(common_1.HttpStatusType.Found.status, config.unauthorized);
-                    }
-                    else {
-                        return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
-                    }
+            const userRoles = req.user?.roles ?? [];
+            if (!config.role.granted(...userRoles)) {
+                if (config.unauthorized) {
+                    return res.redirect(common_1.HttpStatusType.Found.status, config.unauthorized);
+                }
+                else {
+                    return res.status(common_1.HttpStatusType.Forbidden.status).json(common_1.HttpStatusType.Forbidden);
                 }
             }
             const targetUrl = new URL(req.originalUrl.replace(new RegExp(`^${config.path}`, "i"), ""), config.authorized);

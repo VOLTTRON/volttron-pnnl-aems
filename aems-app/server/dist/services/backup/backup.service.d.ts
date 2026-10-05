@@ -15,6 +15,7 @@ export declare class BackupService extends BaseService implements OnModuleInit {
     constructor(prismaService: PrismaService, schedulerRegistry: SchedulerRegistry, configService: AppConfigService, backupDiscoveryService: BackupDiscoveryService);
     onModuleInit(): Promise<void>;
     private ensureDefaultPolicy;
+    start(): Promise<void>;
     poll(): Promise<void>;
     execute(): Promise<void>;
     task(): Promise<void>;

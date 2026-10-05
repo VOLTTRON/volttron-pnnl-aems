@@ -276,6 +276,12 @@ if [[ -z "$ARCHIVE" ]]; then
     prompt_archive
 fi
 
+# The host's own key needs no TTY: it is the default --identity promises, prompt or none.
+if [[ -z "${BACKUP_AGE_IDENTITY:-}" && -z "${BACKUP_GPG_KEY_FILE:-}" && "$ARCHIVE" != *.gpg && -f "$DEFAULT_AGE_KEY" ]]; then
+    print_blue "Auto-detected age key at $DEFAULT_AGE_KEY"
+    export BACKUP_AGE_IDENTITY="$DEFAULT_AGE_KEY"
+fi
+
 if [[ -z "${BACKUP_AGE_IDENTITY:-}" && -z "${BACKUP_GPG_KEY_FILE:-}" ]]; then
     if [[ ! -t 0 ]]; then
         print_red "No decryption key provided. Pass --identity or --gpg-key-file,"

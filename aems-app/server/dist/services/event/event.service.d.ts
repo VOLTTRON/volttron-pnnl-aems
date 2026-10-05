@@ -8,6 +8,7 @@ export declare class EventService extends BaseService {
     private ageValue;
     private ageUnit;
     constructor(prismaService: PrismaService, configService: AppConfigService);
+    start(): Promise<void>;
     execute(): Promise<void>;
     schedule(): boolean;
     task(): Promise<void>;
