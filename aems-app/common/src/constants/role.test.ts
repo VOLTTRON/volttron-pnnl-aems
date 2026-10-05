@@ -61,4 +61,23 @@ describe("constants.RoleType", () => {
       expect(RoleType.Admin.granted("")).toEqual(false);
     });
   });
+
+  // scenario: role-grants-table
+  describe("the grant table", () => {
+    const holds: Record<string, string[]> = {
+      super: ["super", "admin", "user"],
+      keycloak: ["keycloak", "admin", "user"],
+      admin: ["admin", "user"],
+      user: ["user"],
+    };
+    const roles = Object.keys(holds);
+    for (const holder of roles) {
+      for (const role of roles) {
+        const expected = holds[holder].includes(role);
+        it(`${holder} ${expected ? "holds" : "does not hold"} ${role}`, () => {
+          expect(RoleType.granted(role, holder)).toEqual(expected);
+        });
+      }
+    }
+  });
 });

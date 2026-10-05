@@ -9,7 +9,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
-const throttler_1 = require("@nestjs/throttler");
 const api_module_1 = require("./api/api.module");
 const worker_module_1 = require("./worker/worker.module");
 const core_1 = require("@nestjs/core");
@@ -51,23 +50,6 @@ exports.AppModule = AppModule = __decorate([
             pothos_module_1.PothosGraphQLModule.forRoot(),
             core_1.RouterModule.register([{ path: "api", module: api_module_1.ApiModule }]),
             services_module_1.ServicesModule,
-            throttler_1.ThrottlerModule.forRoot([
-                {
-                    name: "short",
-                    ttl: 1000,
-                    limit: 3,
-                },
-                {
-                    name: "medium",
-                    ttl: 10000,
-                    limit: 20,
-                },
-                {
-                    name: "long",
-                    ttl: 60000,
-                    limit: 100,
-                },
-            ]),
         ],
         controllers: [],
         providers: [],

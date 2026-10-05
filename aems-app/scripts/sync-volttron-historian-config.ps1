@@ -34,11 +34,13 @@ function Write-Warn { param($msg) Write-Host "  !   $msg" -ForegroundColor Yello
 function Write-Err  { param($msg) Write-Host "  x   $msg" -ForegroundColor Red }
 
 # ── resolve project name ───────────────────────────────────────────────────────
-$Project = "skeleton"
-if (Test-Path $EnvFile) {
+# The shell outranks .env, as it does for compose itself.
+$Project = $env:COMPOSE_PROJECT_NAME
+if (-not $Project -and (Test-Path $EnvFile)) {
     $line = Get-Content $EnvFile | Where-Object { $_ -notmatch '^\s*#' -and $_ -match '^COMPOSE_PROJECT_NAME=' } | Select-Object -First 1
-    if ($line) { $Project = ($line -split '=', 2)[1].Trim() }
+    if ($line) { $Project = ($line -split '=', 2)[1].Trim().Trim("'", '"') }
 }
+if (-not $Project) { $Project = "skeleton" }
 $VolttronContainer = "$Project-volttron"
 
 # ── pre-flight ─────────────────────────────────────────────────────────────────

@@ -1,5 +1,10 @@
 tls:
   certificates:
+    # Names APP_HOSTNAME; Traefik picks it by SNI.
+    - certFile: /etc/certs/mkcert-hostname.crt
+      keyFile: /etc/certs/mkcert-hostname.key
+      stores:
+        - default
     - certFile: /etc/certs/mkcert-local.crt
       keyFile: /etc/certs/mkcert-local.key
       stores:
@@ -9,5 +14,4 @@ tls:
       defaultCertificate:
         certFile: /etc/certs/mkcert-local.crt
         keyFile: /etc/certs/mkcert-local.key
-  options:
-    default: {}
+  # tls.options.default is in dynamic.yml; the same key in two files is a conflict.

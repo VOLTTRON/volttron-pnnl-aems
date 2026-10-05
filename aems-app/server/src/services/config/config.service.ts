@@ -24,7 +24,7 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
   }
 
   async onApplicationBootstrap() {
-    if (!this.configService.service.config.startup) return;
+    if (!this.enabled || !this.configService.service.config.startup) return;
     this.logger.log("SERVICE_CONFIG_STARTUP=true → marking all units for repush");
     await this.prismaService.prisma.unit.updateMany({
       data: { stage: StageType.ProcessType.enum, message: "Repushing on startup..." },

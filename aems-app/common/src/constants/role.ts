@@ -9,7 +9,7 @@ class Role extends Base<IRole> implements IBase<IRole> {
         {
           name: "super",
           label: "Super",
-          grants: [],
+          grants: ["admin", "user"],
           enum: RoleEnum.Super,
         },
         {

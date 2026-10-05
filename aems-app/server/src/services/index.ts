@@ -31,6 +31,11 @@ export abstract class BaseService {
     this.runTask = enabled.includes(this.service) && !disabled.includes(this.service);
   }
 
+  /** Whether INSTANCE_TYPE runs this service in this process; anything it starts on its own checks it. */
+  get enabled(): boolean {
+    return this.runTask;
+  }
+
   schedule() {
     if (this.running || !this.runTask) {
       return false;

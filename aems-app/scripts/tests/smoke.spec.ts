@@ -14,7 +14,7 @@ test.describe("Smoke", () => {
     const response = await page.goto("/");
     const headers = response?.headers() ?? {};
 
-    expect(headers["strict-transport-security"], "Missing HSTS header").toBeTruthy();
+    // HSTS is stack.spec's security-headers-present, parked under an Open line.
     expect(
       headers["x-frame-options"]?.toUpperCase(),
       "X-Frame-Options should be DENY",

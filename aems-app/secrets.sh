@@ -24,16 +24,23 @@
 #      Exits so the operator can fill in real values.
 #
 #   2. SYNC + ROTATION (every subsequent run): compare each secret key's
-#      value between .env.secrets (desired) and .env (currently
-#      deployed). If they differ:
+#      value between .env.secrets (desired) and the container that holds
+#      it (deployed) -- never .env, which git can reset under a running
+#      stack. If they differ:
 #        - Run the live credential-change handler (ALTER ROLE / kcadm /
 #          grafana-cli) against the running container using the old
-#          value from .env.
+#          value. A container that is down cannot take it: the script
+#          refuses unless --force.
 #        - Overlay the new value into .env in place.
 #        - Queue affected services for `docker compose up -d --no-deps`
 #          so they pick up the fresh .env on next boot.
 #
-#   3. NO-OP: silent skip when .env and .env.secrets already match.
+#   3. NO-OP: nothing changes when .env, .env.secrets and the running
+#      containers already agree.
+#
+# While .env holds a real value it is marked skip-worktree, so git can
+# neither show, stage nor restore it; --scrub writes the tracked sentinel
+# version back and clears the mark.
 #
 # Note on restart mode: `docker compose restart` reuses the cached env
 # vars in the existing container — it does NOT re-read the .env at
@@ -48,6 +55,7 @@
 #   ./secrets.sh KEY1 KEY2 ...  # limit to named keys
 #   ./secrets.sh --dry-run      # print the plan without executing
 #   ./secrets.sh --force        # skip the live-rotation step
+#   ./secrets.sh --scrub        # put the tracked sentinel .env back
 #
 # Must be run from the repo root.
 
@@ -64,6 +72,7 @@ PLACEHOLDER="SeT_tHiS_iN_0x3A-.env.secrets-"
 # ── arg parsing ────────────────────────────────────────────────────────────────
 DRY_RUN=0
 FORCE=0
+SCRUB=0
 YES=0
 EXPLICIT_KEYS=""
 
@@ -71,6 +80,7 @@ for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
     --force)   FORCE=1 ;;
+    --scrub)   SCRUB=1 ;;
     --yes|-y)  YES=1 ;;
     --*)       printf "Unknown flag: %s\n" "$arg" >&2; exit 1 ;;
     *)         EXPLICIT_KEYS="$EXPLICIT_KEYS $arg" ;;
@@ -97,9 +107,20 @@ mark_warn() { WARNINGS=$((WARNINGS + 1)); }
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
+# A value as compose reads it: '...' is literal, "..." takes \" and $$ escapes.
+unquote() {
+  case "$1" in
+    \'*\') v=${1#\'}; printf '%s' "${v%\'}" ;;
+    \"*\") v=${1#\"}; v=${v%\"}; printf '%s' "$v" | sed 's/\\"/"/g; s/\$\$/$/g' ;;
+    *)     printf '%s' "$1" ;;
+  esac
+}
+
 get_value() {
   file="$1"; key="$2"
-  grep -v '^\s*#' "$file" | grep "^${key}=" | head -1 | sed 's/^[^=]*=//'
+  [ -f "$file" ] || return 0
+  raw=$(sed '1s/^\xEF\xBB\xBF//; s/\r$//' "$file" | grep -v '^\s*#' | grep "^${key}=" | head -1 | sed 's/^[^=]*=//')
+  unquote "$raw"
 }
 
 # Derive the authoritative secret key list from .env by grepping for
@@ -119,11 +140,11 @@ env_secret_keys() {
 # a value that matches .env.secrets is a synced entry, not a misplaced
 # one.
 env_misplaced_keys() {
-  grep -v '^\s*#' "$ENV_FILE" \
+  grep -v '^\s*#' "$ENV_FILE" | tr -d '\r' \
     | grep -iE '^[A-Za-z_][A-Za-z0-9_]*_(PASSWORD|SECRET|TOKEN|KEY)=' \
     | while read -r line; do
         key="${line%%=*}"
-        val="${line#*=}"
+        val=$(unquote "${line#*=}")
         [ -z "$val" ] && continue
         [ "$val" = "$PLACEHOLDER" ] && continue
         # If .env.secrets already has the same value, it's synced — skip.
@@ -135,26 +156,33 @@ env_misplaced_keys() {
       done
 }
 
-# Write KEY=VALUE into FILE, replacing an existing entry or appending a
-# new one.
+# Write KEY='VALUE' into FILE, replacing an existing entry or appending a new one. The file comes
+# out UTF-8 without a BOM, LF-terminated, and keeps its mode. Single quotes are compose's literal
+# form, so `$`, `#` and spaces reach the container unchanged; a value holding a single quote has
+# no literal form and is refused.
 update_secrets_entry() {
   file="$1"; key="$2"; value="$3"
-  if grep -q "^${key}=" "$file" 2>/dev/null; then
-    tmp="${file}.tmp$$"
-    while IFS= read -r line || [ -n "$line" ]; do
-      case "$line" in
-        "${key}="*) printf '%s=%s\n' "$key" "$value" ;;
-        *)          printf '%s\n' "$line" ;;
-      esac
-    done < "$file" > "$tmp"
-    mv "$tmp" "$file"
-  else
-    printf '%s=%s\n' "$key" "$value" >> "$file"
-  fi
+  case "$value" in
+    *"'"*) error "$key: the value contains a single quote, which $file cannot carry literally — choose another"; return 1 ;;
+  esac
+  line="${key}='${value}'"
+  tmp="${file}.tmp$$"
+  found=0
+  sed '1s/^\xEF\xBB\xBF//; s/\r$//' "$file" 2>/dev/null > "$tmp.in" || : > "$tmp.in"
+  while IFS= read -r l || [ -n "$l" ]; do
+    case "$l" in
+      "${key}="*) printf '%s\n' "$line"; found=1 ;;
+      *)          printf '%s\n' "$l" ;;
+    esac
+  done < "$tmp.in" > "$tmp"
+  [ "$found" = 1 ] || printf '%s\n' "$line" >> "$tmp"
+  cat "$tmp" > "$file"
+  rm -f "$tmp" "$tmp.in"
 }
 
+# The shell outranks .env, as it does for compose itself.
 project_name() {
-  val=$(get_value "$ENV_FILE" "COMPOSE_PROJECT_NAME")
+  val=${COMPOSE_PROJECT_NAME:-$(get_value "$ENV_FILE" "COMPOSE_PROJECT_NAME")}
   printf '%s' "${val:-skeleton}"
 }
 
@@ -162,43 +190,71 @@ container_running() {
   docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^$1$"
 }
 
-# Which container's env holds each key's currently-deployed value. Used
-# by deployed_secret() to detect drift between .env.secrets and the live
-# stack.
-key_deployed_container() {
-  proj="$1"; key="$2"
-  case "$key" in
-    DATABASE_PASSWORD)                echo "${proj}-database" ;;
-    KEYCLOAK_ADMIN_PASSWORD)          echo "${proj}-keycloak" ;;
-    KEYCLOAK_DATABASE_PASSWORD)       echo "${proj}-keycloak-db" ;;
-    KEYCLOAK_CLIENT_SECRET)           echo "${proj}-server" ;;
-    KEYCLOAK_GRAFANA_CLIENT_SECRET)   echo "${proj}-grafana" ;;
-    BOOKSTACK_KEYCLOAK_CLIENT_SECRET) echo "${proj}-wiki" ;;
-    NOMINATIM_DATABASE_PASSWORD)      echo "${proj}-nominatim" ;;
-    BOOKSTACK_ROOT_PASSWORD)          echo "${proj}-wiki-db" ;;
-    BOOKSTACK_DATABASE_PASSWORD)      echo "${proj}-wiki-db" ;;
-    HISTORIAN_DATABASE_PASSWORD)      echo "${proj}-historian" ;;
-    HISTORIAN_REPLICATOR_PASSWORD)    echo "${proj}-historian" ;;
-    GRAFANA_ADMIN_PASSWORD)           echo "${proj}-grafana" ;;
-    GRAFANA_DATABASE_PASSWORD)        echo "${proj}-grafana-db" ;;
-    SESSION_SECRET|JWT_SECRET|WORKER_TOKEN)
-                                      echo "${proj}-server" ;;
-    REDIS_PASSWORD)                   echo "${proj}-redis" ;;
-    BOOKSTACK_SESSION_SECRET)         echo "${proj}-wiki" ;;
+# Which service's container holds each key's deployed value, and under which variable, as
+# service:VARIABLE.
+key_deployed_source() {
+  case "$1" in
+    SESSION_SECRET|JWT_SECRET|WORKER_TOKEN|KEYCLOAK_CLIENT_SECRET)
+                                      echo "server:$1" ;;
+    DATABASE_PASSWORD)                echo "database:POSTGRES_PASSWORD" ;;
+    REDIS_PASSWORD)                   echo "redis:REDIS_PASSWORD" ;;
+    NOMINATIM_DATABASE_PASSWORD)      echo "nominatim:POSTGRES_PASSWORD" ;;
+    BOOKSTACK_SESSION_SECRET)         echo "wiki:APP_KEY" ;;
+    BOOKSTACK_KEYCLOAK_CLIENT_SECRET) echo "wiki:OIDC_CLIENT_SECRET" ;;
+    BOOKSTACK_ROOT_PASSWORD)          echo "wiki-db:MYSQL_ROOT_PASSWORD" ;;
+    BOOKSTACK_DATABASE_PASSWORD)      echo "wiki-db:MYSQL_PASSWORD" ;;
+    KEYCLOAK_ADMIN_PASSWORD|KEYCLOAK_GRAFANA_CLIENT_SECRET)
+                                      echo "keycloak:$1" ;;
+    KEYCLOAK_DATABASE_PASSWORD)       echo "keycloak-db:POSTGRES_PASSWORD" ;;
+    GRAFANA_ADMIN_PASSWORD)           echo "grafana:GF_SECURITY_ADMIN_PASSWORD" ;;
+    GRAFANA_DATABASE_PASSWORD)        echo "grafana-db:POSTGRES_PASSWORD" ;;
+    HISTORIAN_DATABASE_PASSWORD)      echo "historian:POSTGRES_PASSWORD" ;;
+    HISTORIAN_REPLICATOR_PASSWORD)    echo "historian:HISTORIAN_REPLICATOR_PASSWORD" ;;
     *)                                echo "" ;;
   esac
 }
 
-# The "currently deployed" value for a secret key is the value in .env —
-# that's what docker compose reads when interpolating ${KEY} and what the
-# service containers see in their runtime env. A sentinel in .env means
-# nothing real is deployed for this key yet; return empty so classification
-# falls to FRESH.
+# The service whose container a live rotation of KEY runs in; empty for a key that a recreate
+# alone rotates.
+key_rotation_service() {
+  case "$1" in
+    DATABASE_PASSWORD)                echo "database" ;;
+    KEYCLOAK_DATABASE_PASSWORD)       echo "keycloak-db" ;;
+    NOMINATIM_DATABASE_PASSWORD)      echo "nominatim" ;;
+    BOOKSTACK_DATABASE_PASSWORD|BOOKSTACK_ROOT_PASSWORD)
+                                      echo "wiki-db" ;;
+    KEYCLOAK_ADMIN_PASSWORD|KEYCLOAK_CLIENT_SECRET|BOOKSTACK_KEYCLOAK_CLIENT_SECRET|KEYCLOAK_GRAFANA_CLIENT_SECRET)
+                                      echo "keycloak" ;;
+    HISTORIAN_DATABASE_PASSWORD|HISTORIAN_REPLICATOR_PASSWORD)
+                                      echo "historian" ;;
+    GRAFANA_DATABASE_PASSWORD)        echo "grafana-db" ;;
+    GRAFANA_ADMIN_PASSWORD)           echo "grafana" ;;
+    *)                                echo "" ;;
+  esac
+}
+
+# The deployed value of a key: what its container, running or stopped, was created with. Not
+# .env -- git can reset .env under a running stack. Empty when no container holds the key, so
+# classification falls to FRESH; a sentinel is a real deployed value.
 deployed_secret() {
-  key="$1"
-  val=$(get_value "$ENV_FILE" "$key")
-  [ "$val" = "$PLACEHOLDER" ] && val=""
-  printf '%s' "$val"
+  src=$(key_deployed_source "$1")
+  [ -n "$src" ] || return 0
+  docker inspect "$(project_name)-${src%%:*}" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+    | tr -d '\r' | grep "^${src#*:}=" | head -1 | sed 's/^[^=]*=//' || true
+}
+
+# While .env holds a real value for a key the tracked .env carries as the sentinel, git must
+# neither show, stage nor restore it. skip-worktree survives stash, checkout and reset --hard.
+hide_env_from_git() {
+  [ "$DRY_RUN" = 0 ] || return 0
+  git ls-files --error-unmatch "$ENV_FILE" >/dev/null 2>&1 || return 0
+  for k in $(git show ":./$ENV_FILE" 2>/dev/null | tr -d '\r' | grep -F "=$PLACEHOLDER" | sed 's/=.*//'); do
+    v=$(get_value "$ENV_FILE" "$k")
+    if [ -n "$v" ] && [ "$v" != "$PLACEHOLDER" ]; then
+      git update-index --skip-worktree "$ENV_FILE"
+      return 0
+    fi
+  done
 }
 
 # Every KEY=VALUE line in .env.secrets (skipping comments, blanks).
@@ -219,7 +275,7 @@ sync_env_from_secrets() {
     old_val=$(get_value "$ENV_FILE" "$k")
     if [ "$new_val" != "$old_val" ]; then
       if [ "$DRY_RUN" = 0 ]; then
-        update_secrets_entry "$ENV_FILE" "$k" "$new_val"
+        update_secrets_entry "$ENV_FILE" "$k" "$new_val" || continue
       fi
       changed=$((changed + 1))
     fi
@@ -244,6 +300,20 @@ fi
 # Compose auto-loads .env from cwd. No --env-file discipline needed —
 # this script's job is to make .env correct, and compose reads it
 # unconditionally.
+
+# ── scrub: the tracked sentinel .env, visible to git again ─────────────────────
+if [ "$SCRUB" = 1 ]; then
+  if ! git ls-files --error-unmatch "$ENV_FILE" >/dev/null 2>&1; then
+    error "$ENV_FILE is not tracked here, so there is no sentinel version to put back."
+    exit 1
+  fi
+  # The mark first: git does not restore a skip-worktree file.
+  git update-index --no-skip-worktree "$ENV_FILE"
+  git checkout HEAD -- "$ENV_FILE"
+  ok "$ENV_FILE is the tracked sentinel version again, and git sees it."
+  warn "A running stack keeps its values; ./secrets.sh syncs them back."
+  exit 0
+fi
 
 # ══════════════════════════════════════════════════════════════════════════════
 # BOOTSTRAP PATH — .env.secrets doesn't exist
@@ -292,7 +362,7 @@ if [ ! -f "$SECRETS_FILE" ]; then
     for key in $secret_keys; do
       env_val=$(get_value "$ENV_FILE" "$key")
       if [ -n "$env_val" ] && [ "$env_val" != "$PLACEHOLDER" ]; then
-        printf '%s=%s\n' "$key" "$env_val"
+        printf "%s='%s'\n" "$key" "$env_val"
       else
         printf '%s=\n' "$key"
       fi
@@ -300,6 +370,7 @@ if [ ! -f "$SECRETS_FILE" ]; then
   } > "$SECRETS_FILE"
 
   chmod 600 "$SECRETS_FILE"
+  hide_env_from_git
 
   blank_count=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=$' "$SECRETS_FILE" | wc -l | tr -d ' ')
   count=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$SECRETS_FILE" | wc -l | tr -d ' ')
@@ -353,7 +424,7 @@ if [ -z "$EXPLICIT_KEYS" ]; then
         warn "  Reset $key in $ENV_FILE to the placeholder when convenient."
         mark_warn
         if [ "$DRY_RUN" = 0 ]; then
-          update_secrets_entry "$SECRETS_FILE" "$key" "$env_val"
+          update_secrets_entry "$SECRETS_FILE" "$key" "$env_val" || mark_warn
         else
           dry "Would migrate $key from $ENV_FILE into $SECRETS_FILE"
         fi
@@ -408,28 +479,31 @@ for key in $KEYS_TO_CHECK; do
 done
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SENTINEL SCAN — detect and repair containers whose env holds the
-# `.env` placeholder sentinel. This happens when someone runs
-# `docker compose up -d` without `COMPOSE_ENV_FILES=.env,.env.secrets`
-# set in their shell — compose interpolates `${VAR}` against `.env`
-# alone and every recreated container gets the sentinel baked into its
-# env, breaking auth everywhere downstream. Scan is scoped to full
-# runs (skipped when the user passed explicit keys).
+# SENTINEL SCAN — a container created before .env was synced (a hand-typed
+# `docker compose up`) carries the sentinel for a key .env.secrets now sets.
+# Recreate it with the synced value. Scoped to full runs (skipped when the
+# user passed explicit keys).
 # ══════════════════════════════════════════════════════════════════════════════
 
 POISONED_SERVICES=""
 if [ -z "$EXPLICIT_KEYS" ]; then
   header "Scanning for sentinel-poisoned containers"
+  # The sentinel is a valid runtime default: a container holding it is poisoned only for a key
+  # .env.secrets gives a real value.
   for c in $(docker ps -a --format '{{.Names}}' 2>/dev/null | grep "^${PROJECT}-" || true); do
-    if docker inspect "$c" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
-         | grep -q "=${PLACEHOLDER}$"; then
-      svc=${c#${PROJECT}-}
-      POISONED_SERVICES="$POISONED_SERVICES $svc"
-      warn "$c: env holds the sentinel placeholder"
-    fi
+    for k in $(docker inspect "$c" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+                 | tr -d '\r' | grep "=${PLACEHOLDER}$" | sed 's/=.*//' || true); do
+      want=$(get_value "$SECRETS_FILE" "$k")
+      if [ -n "$want" ] && [ "$want" != "$PLACEHOLDER" ]; then
+        svc=${c#${PROJECT}-}
+        POISONED_SERVICES="$POISONED_SERVICES $svc"
+        warn "$c: env holds the sentinel for $k, which $SECRETS_FILE sets"
+        break
+      fi
+    done
   done
   if [ -n "$(printf '%s' "$POISONED_SERVICES" | tr -d ' ')" ]; then
-    warn "This means docker compose ran without COMPOSE_ENV_FILES set."
+    warn "Those containers were created before secrets.sh synced .env."
     warn "Recreating with real values from ${SECRETS_FILE}..."
     mark_warn
   else
@@ -437,14 +511,26 @@ if [ -z "$EXPLICIT_KEYS" ]; then
   fi
 fi
 
-# Nothing to do — .env.secrets matches every running container's env
-# AND no poisoned containers to repair.
-if [ -z "$(printf '%s%s%s' "$FRESH" "$ROTATIONS" "$POISONED_SERVICES" | tr -d ' ')" ]; then
-  printf "\n${GREEN}${BOLD}All secrets are up to date.${RESET}\n\n"
-  if [ "$DRY_RUN" = 0 ] && [ -x ./check-env.sh ]; then
-    ./check-env.sh || warn "check-env.sh reported issues — review the output above."
+# ── refusal ──────────────────────────────────────────────────────────────────
+# A changed value is applied with the old one, inside the container that holds it. A container
+# that is down cannot take it, and bringing it up with the new value would leave its data
+# volume unable to authenticate -- so nothing changes, unless --force.
+if [ "$FORCE" = 0 ]; then
+  DOWN=""
+  for key in $ROTATIONS; do
+    svc=$(key_rotation_service "$key")
+    [ -n "$svc" ] || continue
+    container_running "${PROJECT}-${svc}" || DOWN="$DOWN $key:${PROJECT}-${svc}"
+  done
+  if [ -n "$DOWN" ]; then
+    header "Cannot rotate live: the container is down"
+    for entry in $DOWN; do
+      error "${entry%%:*}: ${entry#*:} holds the old value and is not running"
+    done
+    printf "\nStart it (docker compose up -d <service>) and re-run, or pass --force to\n"
+    printf "skip live rotation (its data volume must then be wiped or reconciled by hand).\n\n"
+    exit 1
   fi
-  exit 0
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -743,13 +829,10 @@ fi
 # reach the service on next start. If any service is currently running,
 # it will pick up the new value only after `up -d --no-deps` recreates it.
 for key in $FRESH; do
-  container=$(key_deployed_container "$PROJECT" "$key")
-  if [ -n "$container" ] && container_running "$container"; then
-    # Only reached when the container is up but env_key returned empty.
-    # Rare — most likely a missing case in container_env_key. Queue a
-    # restart so the new env applies.
-    svc=${container#${PROJECT}-}
-    queue_restart "$svc"
+  src=$(key_deployed_source "$key")
+  if [ -n "$src" ] && container_running "${PROJECT}-${src%%:*}"; then
+    # Up, but created without the key: recreate it so the new env applies.
+    queue_restart "${src%%:*}"
   fi
 done
 
@@ -824,14 +907,16 @@ done
 #
 # .env is the single input compose reads. This script's job is to keep
 # it aligned with .env.secrets.
+SYNCED=0
 if [ -f "$SECRETS_FILE" ]; then
   SYNCED=$(sync_env_from_secrets)
   if [ "$SYNCED" -gt 0 ] && [ "$DRY_RUN" = 0 ]; then
     header "Synced $SYNCED secret(s) from $SECRETS_FILE into $ENV_FILE"
-    warn "$ENV_FILE now contains real secret values — DO NOT commit."
+    warn "$ENV_FILE now contains real secret values; git no longer sees it."
     mark_warn
   fi
 fi
+hide_env_from_git
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RESTART PASS
@@ -901,7 +986,9 @@ fi
 
 # ── summary ────────────────────────────────────────────────────────────────────
 printf "\n"
-if [ "$WARNINGS" -gt 0 ]; then
+if [ -z "$(printf '%s%s%s' "$FRESH" "$ROTATIONS" "$RESTART_SERVICES" | tr -d ' ')" ] && [ "$SYNCED" = 0 ]; then
+  printf "${GREEN}${BOLD}All secrets are up to date.${RESET}\n\n"
+elif [ "$WARNINGS" -gt 0 ]; then
   printf "${YELLOW}${BOLD}Done with %d warning(s).${RESET}\n" "$WARNINGS"
   printf "Review warnings above.\n\n"
 else

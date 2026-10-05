@@ -32,6 +32,8 @@ let BackupService = BackupService_1 = class BackupService extends __1.BaseServic
         this.activeCron = null;
     }
     async onModuleInit() {
+        if (!this.enabled)
+            return;
         await this.ensureDefaultPolicy().catch((err) => {
             this.logger.warn({ message: err.message, stack: err.stack });
         });
@@ -53,6 +55,8 @@ let BackupService = BackupService_1 = class BackupService extends __1.BaseServic
         });
     }
     async poll() {
+        if (!this.enabled)
+            return;
         await this.reloadPolicy().catch((err) => {
             this.logger.warn({ message: err.message, stack: err.stack });
         });

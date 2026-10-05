@@ -1,5 +1,5 @@
 import { AppConfigService } from "@/app.config";
-import { Public } from "@/auth/public.decorator";
+import { PublicRoute } from "@/auth/public.decorator";
 import { Roles } from "@/auth/roles.decorator";
 import { User } from "@/auth/user.decorator";
 import { getConfigFiles } from "@/utils/file";
@@ -148,7 +148,7 @@ export class GrafanaController {
   }
 
   @ApiTags("grafana", "info", "building", "campus")
-  @Public()
+  @PublicRoute()
   @Get("info")
   info() {
     return {

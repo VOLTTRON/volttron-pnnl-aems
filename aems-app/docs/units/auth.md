@@ -15,6 +15,7 @@ field or page is.
   framework modules are always loaded.
 - `AUTH_PROVIDERS`, a comma list, enables each of local, bearer, keycloak and super that it names,
   and no other.
+  **Open:** does naming `bearer` enable it under `authjs`? There is only a passport bearer: `bearer/bearer.module.ts:35-37` returns `null` unless `AUTH_FRAMEWORK=passport`, so the default framework with `AUTH_PROVIDERS=bearer` enables nothing (measured). The other fourteen cases hold in `server/src/auth/providers.test.ts`.
 - Every HTTP endpoint requires an authenticated user unless it carries `@PublicRoute`; the global
   guards are AuthenticatedGuard and RolesGuard.
 - `@Roles(...)` on a REST handler admits a user whose roles satisfy it through `Role.granted`.

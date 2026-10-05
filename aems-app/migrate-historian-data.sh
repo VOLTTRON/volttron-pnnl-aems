@@ -22,19 +22,15 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Load environment variables from .env file if it exists
-if [ -f ".env" ]; then
-    # Read .env file line by line to properly handle spaces and special characters
-    while IFS= read -r line || [ -n "$line" ]; do
-        # Skip comments and blank lines
-        [[ "$line" =~ ^[[:space:]]*# ]] && continue
-        [[ -z "$line" ]] && continue
-        # Export valid variable assignments (VAR=value format)
-        if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)= ]]; then
-            export "$line"
-        fi
-    done < .env
-fi
+# KEY's value in .env, unquoted: secrets.sh writes values as '...'. Read into a variable, never
+# exported -- an exported value would outrank .env for every compose this script runs.
+env_value() {
+    grep "^$1=" .env 2>/dev/null | head -1 | tr -d '\r' | sed "s/^[^=]*=//; s/^'\(.*\)'\$/\1/; s/^\"\(.*\)\"\$/\1/"
+}
+for key in COMPOSE_PROJECT_NAME HISTORIAN_DATABASE_PASSWORD GRAFANA_DATABASE_PASSWORD; do
+    val=$(env_value "$key")
+    [ -n "$val" ] && printf -v "$key" '%s' "$val"
+done
 
 # Configuration
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-aems-app}"
@@ -369,7 +365,7 @@ if [ -z "$SOURCE_TOPICS_COUNT" ] || [ -z "$SOURCE_DATA_COUNT" ]; then
 
     # Restart the container to apply changes (more reliable than reload)
     log_info "Restarting container to apply pg_hba.conf changes..."
-    (cd docker && docker compose restart grafana-db) >> "$LOG_FILE" 2>&1
+    docker compose restart grafana-db >> "$LOG_FILE" 2>&1
 
     # Wait for PostgreSQL to be ready
     log_info "Waiting for PostgreSQL to be ready..."
@@ -512,7 +508,7 @@ cleanup() {
         if docker exec "$SOURCE_CONTAINER" test -f "${HBA_MUTATED_FILE}.backup" 2>/dev/null; then
             log_info "Restoring pg_hba.conf on source from backup..."
             docker exec "$SOURCE_CONTAINER" sh -c "cp '${HBA_MUTATED_FILE}.backup' '$HBA_MUTATED_FILE'"
-            (cd docker && docker compose restart grafana-db) >> "$LOG_FILE" 2>&1 || true
+            docker compose restart grafana-db >> "$LOG_FILE" 2>&1 || true
             log_success "pg_hba.conf restored"
         fi
     fi

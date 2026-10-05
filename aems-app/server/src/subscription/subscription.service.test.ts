@@ -47,6 +47,30 @@ describe("SubscriptionService", () => {
   });
 
   describe("constructor — pubsub provider selection", () => {
+    // scenario: pubsub-backend-selected
+    it("selects Redis, Postgres or in-memory from GRAPHQL_PUBSUB, and in-memory when it is unset", () => {
+      const { RedisPubSub } = jest.requireMock("graphql-redis-subscriptions");
+      const { PrismaPubSub } = jest.requireMock("@/prisma");
+      const saved = process.env.GRAPHQL_PUBSUB;
+      const backend = (value: string | undefined) => {
+        jest.clearAllMocks();
+        if (value === undefined) delete process.env.GRAPHQL_PUBSUB;
+        else process.env.GRAPHQL_PUBSUB = value;
+        new SubscriptionService(makePrisma(), new AppConfigService());
+        return RedisPubSub.mock.calls.length ? "redis" : PrismaPubSub.mock.calls.length ? "postgres" : "memory";
+      };
+      try {
+        expect(backend(undefined)).toBe("memory");
+        expect(backend("redis")).toBe("redis");
+        expect(backend("postgres")).toBe("postgres");
+        expect(backend("postgresql")).toBe("postgres");
+        expect(backend("memory")).toBe("memory");
+      } finally {
+        if (saved === undefined) delete process.env.GRAPHQL_PUBSUB;
+        else process.env.GRAPHQL_PUBSUB = saved;
+      }
+    });
+
     it("creates an in-memory pubsub when pubsub is 'memory'", () => {
       const { RedisPubSub } = jest.requireMock("graphql-redis-subscriptions");
       new SubscriptionService(makePrisma(), makeConfig("memory"));

@@ -11,11 +11,11 @@ export const IsPublicKey = Symbol("isPublic");
  * 
  * @example
  * ```typescript
- * @Public()
+ * @PublicRoute()
  * @Get('public-info')
  * getPublicInfo() {
  *   return { data: 'publicly accessible' };
  * }
  * ```
  */
-export const Public = () => SetMetadata(IsPublicKey, true);
+export const PublicRoute = () => SetMetadata(IsPublicKey, true);

@@ -94,6 +94,16 @@ if ($DryRun) {
     Write-Host "[DRY RUN MODE - No changes will be made]" -ForegroundColor Yellow
 }
 
+# Compose reads .env as it stands, so it is synced from .env.secrets before any container is
+# created from it.
+if ((Test-Path .\secrets.ps1) -and (Test-Path ".env.secrets")) {
+    Write-Host "Syncing .env from .env.secrets..." -ForegroundColor Cyan
+    if ($DryRun) { & .\secrets.ps1 -DryRun } else { & .\secrets.ps1 }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "secrets.ps1 reported issues (see above); continuing." -ForegroundColor Yellow
+    }
+}
+
 try {
     # Verify all services exist
     Write-Host "Verifying services exist..." -ForegroundColor Cyan
@@ -114,7 +124,9 @@ try {
         }
         else {
             Write-Host "Restarting service: $ServiceName" -ForegroundColor Blue
-            docker compose restart $ServiceName
+            # Recreated, not restarted: a restart keeps the environment the container was created
+            # with, so the .env synced above would reach nothing.
+            docker compose up -d --force-recreate --no-deps $ServiceName
             Write-Host "Restarted: $ServiceName" -ForegroundColor Green
         }
     }

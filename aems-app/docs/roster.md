@@ -4,13 +4,13 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 
 | Unit | State | Depends on |
 |---|---|---|
-| `stack` | unbuilt | — |
-| `secrets` | unbuilt | stack |
+| `stack` | built | — |
+| `secrets` | built | stack |
 | `auth` | unbuilt | stack |
-| `graphql` | unbuilt | auth |
+| `graphql` | built | auth |
 | `shell` | unbuilt | auth, graphql |
 | `keycloak-admin` | unbuilt | auth, graphql |
-| `background` | unbuilt | stack |
+| `background` | built | stack |
 | `logging` | unbuilt | background |
 | `backup` | unbuilt | background |
 | `ext-geography` | unbuilt | auth |

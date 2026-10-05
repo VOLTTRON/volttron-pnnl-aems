@@ -1,5 +1,6 @@
 import { readSecret } from "./readSecret";
 
+// scenario: read-secret-env
 describe("readSecret", () => {
   const originalEnv = process.env;
 

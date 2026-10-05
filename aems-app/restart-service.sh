@@ -135,6 +135,17 @@ if [[ "$DRY_RUN" == "true" ]]; then
     print_yellow "[DRY RUN MODE - No changes will be made]"
 fi
 
+# Compose reads .env as it stands, so it is synced from .env.secrets before any container is
+# created from it.
+if [ -x ./secrets.sh ] && [ -f ".env.secrets" ]; then
+    print_cyan "Syncing .env from .env.secrets..."
+    if [[ "$DRY_RUN" == "true" ]]; then
+        ./secrets.sh --dry-run || print_yellow "secrets.sh reported issues (see above); continuing."
+    else
+        ./secrets.sh || print_yellow "secrets.sh reported issues (see above); continuing."
+    fi
+fi
+
 # Verify all services exist
 print_cyan "Verifying services exist..."
 ALL_SERVICES=$(docker compose config --services 2>/dev/null)
@@ -152,7 +163,9 @@ for SERVICE_NAME in "${SERVICE_NAMES[@]}"; do
         print_blue "[DRY RUN] Would restart: $SERVICE_NAME"
     else
         print_blue "Restarting service: $SERVICE_NAME"
-        docker compose restart "$SERVICE_NAME"
+        # Recreated, not restarted: a restart keeps the environment the container was created
+        # with, so the .env synced above would reach nothing.
+        docker compose up -d --force-recreate --no-deps "$SERVICE_NAME"
         print_green "Restarted: $SERVICE_NAME"
     fi
 done

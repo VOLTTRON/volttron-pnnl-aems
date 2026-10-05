@@ -2528,31 +2528,6 @@ For each module (Prisma, Common, Server, Client):
 2. **Type Check**: `yarn check` - TypeScript compilation verification
 3. **Test**: `yarn test:cov` - Jest tests with coverage (or `yarn test` if coverage skipped)
 
-#### `env.sh`
-
-Environment variable loader for CI/CD environments, compatible with Linux, FreeBSD, and macOS.
-
-**Purpose:**
-
-- Loads environment variables from a specified file (default: `.env`)
-- Filters out comments (lines starting with `#`)
-- Exports variables to the current shell session
-
-**Usage:**
-
-```bash
-# Load from .env (default)
-source ./env.sh
-
-# Load from custom file
-source ./env.sh .env.production
-```
-
-**Platform Compatibility:**
-
-- **Linux**: Uses `xargs -d '\n'` for newline delimiter
-- **FreeBSD/Darwin**: Uses `xargs -0` for null delimiter
-
 #### `secrets.[ps1|sh]`
 
 Manages `.env.secrets` and applies rotations to live containers. Bootstraps a stub `.env.secrets` on first run, migrates misplaced values from `.env`, and — when values differ from the running container's env — runs the appropriate `ALTER ROLE` / `kcadm.sh` / `grafana-cli` command against the container followed by `docker compose up -d --no-deps <svc>` to reload env.
@@ -2699,7 +2674,7 @@ Use this over `docker compose down [-v]` — the wrapper adds a confirmation pro
 
 #### `restart-service.[ps1|sh]`
 
-Restarts one or more services in place. Preserves volumes and every other running service — this is the safe, non-destructive counterpart to `reset-service`.
+Syncs `.env`, then recreates one or more services with `docker compose up -d --force-recreate --no-deps`, so each runs with the `.env` as it now stands. Preserves volumes and every other running service — this is the safe, non-destructive counterpart to `reset-service`.
 
 ```bash
 # Linux/Mac
@@ -2715,7 +2690,7 @@ Restarts one or more services in place. Preserves volumes and every other runnin
 
 Invoked with no arguments, lists every service the compose project defines. Options: `-n/--dry-run` previews; `-h/--help` shows detailed usage. Prints a `docker compose ps` status line for the restarted services on completion so you can confirm they came back healthy.
 
-Use this for reloading a service after editing a bind-mounted config file — no need to type raw `docker compose restart` commands.
+Use this for reloading a service after editing `.env.secrets`, `.env` or a bind-mounted config file. A raw `docker compose restart` keeps the environment the container was created with.
 
 #### `reset-service.[ps1|sh]`
 

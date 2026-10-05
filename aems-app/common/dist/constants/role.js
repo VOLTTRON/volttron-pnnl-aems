@@ -9,7 +9,7 @@ class Role extends base_1.default {
             {
                 name: "super",
                 label: "Super",
-                grants: [],
+                grants: ["admin", "user"],
                 enum: _1.RoleEnum.Super,
             },
             {

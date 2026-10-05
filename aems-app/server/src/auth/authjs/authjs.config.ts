@@ -20,6 +20,15 @@ const validateStore = (store: string) => {
   }
 };
 
+/** Keycloak realm roles from an access token, narrowed to the ones the Role enum knows. */
+const keycloakRoles = (accessToken: string): RoleEnum[] => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const payload = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64url").toString());
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+  const rolesFromToken: string[] = payload?.realm_access?.roles || [];
+  return rolesFromToken.map((v: string) => RoleType.parse(v)?.enum).filter(typeofEnum(RoleEnum));
+};
+
 export const buildConfig = (
   configService: AppConfigService,
   prismaService: PrismaService,
@@ -39,16 +48,9 @@ export const buildConfig = (
         // Handle Keycloak role extraction from JWT token and store refresh_token
         if (account?.provider === "keycloak" && account.access_token) {
           try {
-            // Decode the access token to extract roles
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unnecessary-type-assertion
-            const payload = JSON.parse(Buffer.from(account.access_token.split(".")[1], "base64").toString()) as any;
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            const rolesFromToken: string[] = payload?.realm_access?.roles || [];
-            const roles: RoleEnum[] = rolesFromToken
-              .map((v: string) => RoleType.parse(v)?.enum)
-              .filter(typeofEnum(RoleEnum));
+            const roles = keycloakRoles(account.access_token);
 
-            // Store roles and refresh_token in the token for use in signIn callback and logout
+            // Store roles and refresh_token in the token for logout
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             (token as any).keycloakRoles = roles;
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -64,11 +66,9 @@ export const buildConfig = (
         // Handle role management for Keycloak users
         if (account?.provider === "keycloak" && user.email) {
           try {
-            // Get roles from the JWT token (processed in jwt callback)
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            const tokenWithRoles = account as any;
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            const roles: RoleEnum[] = tokenWithRoles.keycloakRoles || [];
+            // signIn runs before jwt, and under the database session strategy jwt never runs:
+            // the roles come from the access token on the account itself.
+            const roles = account.access_token ? keycloakRoles(account.access_token) : [];
 
             // Find existing user
             const existingUser = await prismaService.prisma.user.findFirst({
@@ -173,6 +173,7 @@ export const buildConfig = (
           sameSite: "lax",
           path: "/",
           secure: true,
+          domain: configService.hostname,
         },
       },
       callbackUrl: {

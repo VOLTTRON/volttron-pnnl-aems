@@ -2818,17 +2818,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nestjs/throttler@npm:^6.4.0":
-  version: 6.4.0
-  resolution: "@nestjs/throttler@npm:6.4.0"
-  peerDependencies:
-    "@nestjs/common": ^7.0.0 || ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0
-    "@nestjs/core": ^7.0.0 || ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0
-    reflect-metadata: ^0.1.13 || ^0.2.0
-  checksum: 10/3ed1ed54fb70fa5f89d91a4738bb67b61467556430810328ae1c21eb9790a223224a877913556d46168d9f6dd99774392426fa2bc789f0231f0bc6296bdb6a4d
-  languageName: node
-  linkType: hard
-
 "@nestjs/websockets@npm:^11.1.19":
   version: 11.1.27
   resolution: "@nestjs/websockets@npm:11.1.27"
@@ -11061,7 +11050,6 @@ __metadata:
     "@nestjs/schematics": "npm:^11.0.0"
     "@nestjs/swagger": "npm:^11.1.0"
     "@nestjs/testing": "npm:^11.1.19"
-    "@nestjs/throttler": "npm:^6.4.0"
     "@nestjs/websockets": "npm:^11.1.19"
     "@node-rs/bcrypt": "npm:^1.10.7"
     "@pothos/core": "npm:^4.3.0"
