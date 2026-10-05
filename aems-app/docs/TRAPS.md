@@ -51,8 +51,8 @@ working on the area it names.
   old layer, `docker compose build --no-cache volttron-setup`.
 - **Compose reads only `.env`.** `.env.secrets` reaches it because `secrets.sh` overlays it into `.env`;
   editing `.env.secrets` alone changes nothing until `secrets.sh` (or `start-services`) runs.
-- **Never commit a synced `.env`.** After `secrets.sh` it holds real credentials; the tracked baseline
-  is the sentinel version.
+- **A synced `.env` is `skip-worktree`**, so git neither shows nor restores it, and a pull that changes
+  the tracked `.env` refuses: `secrets.sh --scrub`, pull, `secrets.sh`. Never clear the mark by hand.
 - **A Postgres volume keeps the password it was initialised with**, whatever `.env` says later.
   `secrets.sh` detects a sentinel-initialised role and rotates it; a hand-typed `up` does not.
 - **VOLTTRON SQLHistorian reads an install-time config**, not the config store, so a rotated historian

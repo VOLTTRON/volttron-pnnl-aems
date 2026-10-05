@@ -11,24 +11,20 @@ field or page is.
 
 ## Claims
 
-- `AUTH_FRAMEWORK` selects the runtime strategy among authjs, passport, local, bearer, keycloak and
-  super; both framework modules are always loaded.
-  **Open:** the code's fallback when `AUTH_FRAMEWORK` is unset is `passport`
-  (`server/src/app.config.ts:371`), while every deployment sets `authjs` and the previous documents
-  called authjs the default.
+- `AUTH_FRAMEWORK` selects the framework, `authjs` or `passport`, and unset means `authjs`; both
+  framework modules are always loaded.
+- `AUTH_PROVIDERS`, a comma list, enables each of local, bearer, keycloak and super that it names,
+  and no other.
 - Every HTTP endpoint requires an authenticated user unless it carries `@PublicRoute`; the global
   guards are AuthenticatedGuard and RolesGuard.
 - `@Roles(...)` on a REST handler admits a user whose roles satisfy it through `Role.granted`.
-- `Role.granted`: `admin` grants `user`; `keycloak` grants `admin` and `user`; `user` grants nothing.
-  **Open:** `super` grants nothing in `common/src/constants/role.ts:10-12`, while the previous
-  documents stated `super` grants `admin` and `user`.
+- `Role.granted`: `super` and `keycloak` each grant `admin` and `user`; `admin` grants `user`; `user`
+  grants nothing. Only `super` may sign in as another user.
 - A WebSocket connection is authenticated once, at connect, by the same framework as HTTP.
 - The Auth.js session cookie is `Secure` and scoped to `APP_HOSTNAME`.
 - `/authjs/signin` never answers 500, and `/authjs/providers` never answers 404 or 502.
 - With `KEYCLOAK_PASS_ROLES=true`, Keycloak realm roles map onto the `Role` enum.
-- Requests are rate limited at 3 per second, 20 per 10 seconds and 100 per minute.
-  **Open:** ThrottlerModule is configured with these limits (`server/src/app.module.ts:42`) but no
-  ThrottlerGuard is registered anywhere in `server/src`.
+- The server does no request rate limiting and carries no throttler module or dependency.
 
 ## Dependencies
 
@@ -38,12 +34,14 @@ stack
 
 | Name | Proves |
 |---|---|
-| `framework-selected-by-env` | the strategy follows `AUTH_FRAMEWORK` |
+| `framework-selected-by-env` | the framework follows `AUTH_FRAMEWORK`; unset is `authjs`; both modules load |
+| `providers-selected-by-env` | each provider is enabled only when `AUTH_PROVIDERS` names it |
 | `endpoints-private-by-default` | unauthenticated requests are refused without `@PublicRoute` |
 | `roles-guard-admits-granted` | `@Roles` admits through `Role.granted` |
 | `role-grants-table` | the grant table |
+| `impersonation-super-only` | signing in as another user is refused without `super` |
 | `websocket-auth-at-connect` | WS authenticates at connect |
 | `session-cookie-attributes` | Secure, Domain = `APP_HOSTNAME` |
 | `authjs-endpoints-answer` | signin never 500, providers never 404/502 |
 | `keycloak-roles-mapped` | realm roles map onto the enum |
-| `rate-limit-enforced` | the three throttle windows |
+| `no-throttler` | no throttler module is imported or depended on |
