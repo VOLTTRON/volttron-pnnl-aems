@@ -62,14 +62,21 @@ try {
         return $v
     }
 
+    # Read into a table, never the environment: run from a prompt, this script shares the session's
+    # process, and anything set there would outrank .env for every later compose.
+    $DotEnv = @{}
     function Read-EnvFile($path) {
         if (Test-Path $path) {
             Get-Content $path | ForEach-Object {
                 if ($_ -match "^([^#][^=]+)=(.*)$") {
-                    [Environment]::SetEnvironmentVariable($matches[1].Trim(), (ConvertFrom-EnvValue $matches[2]), "Process")
+                    $DotEnv[$matches[1].Trim()] = ConvertFrom-EnvValue $matches[2]
                 }
             }
         }
+    }
+    function Get-Setting([string]$name) {
+        if ($DotEnv[$name]) { return $DotEnv[$name] }
+        return [Environment]::GetEnvironmentVariable($name)
     }
 
     # Load server/.env first, then root .env — root wins.
@@ -81,14 +88,14 @@ try {
     Read-EnvFile ".env"
 
     if ($ShellProjectName) { $ComposeProjectName = $ShellProjectName }
-    elseif ($env:COMPOSE_PROJECT_NAME) { $ComposeProjectName = $env:COMPOSE_PROJECT_NAME }
-    if ($env:DATABASE_NAME)        { $DatabaseName        = $env:DATABASE_NAME }
-    if ($env:DATABASE_USERNAME)    { $DatabaseUsername    = $env:DATABASE_USERNAME }
-    if ($env:KEYCLOAK_ADMIN)       { $KeycloakAdmin        = $env:KEYCLOAK_ADMIN }
-    if ($env:KEYCLOAK_ADMIN_ROLE)  { $KeycloakAdminRole   = $env:KEYCLOAK_ADMIN_ROLE }
+    elseif (Get-Setting "COMPOSE_PROJECT_NAME") { $ComposeProjectName = Get-Setting "COMPOSE_PROJECT_NAME" }
+    if (Get-Setting "DATABASE_NAME")       { $DatabaseName      = Get-Setting "DATABASE_NAME" }
+    if (Get-Setting "DATABASE_USERNAME")   { $DatabaseUsername  = Get-Setting "DATABASE_USERNAME" }
+    if (Get-Setting "KEYCLOAK_ADMIN")      { $KeycloakAdmin     = Get-Setting "KEYCLOAK_ADMIN" }
+    if (Get-Setting "KEYCLOAK_ADMIN_ROLE") { $KeycloakAdminRole = Get-Setting "KEYCLOAK_ADMIN_ROLE" }
 
     # Derive realm name from KEYCLOAK_ISSUER_URL if available
-    if ($env:KEYCLOAK_ISSUER_URL -match "/realms/([^/]+)") {
+    if ((Get-Setting "KEYCLOAK_ISSUER_URL") -match "/realms/([^/]+)") {
         $KeycloakRealm = $Matches[1]
     }
 
@@ -104,7 +111,7 @@ try {
             }
         }
     }
-    if (-not $KeycloakAdminPassword) { $KeycloakAdminPassword = $env:KEYCLOAK_ADMIN_PASSWORD }
+    if (-not $KeycloakAdminPassword) { $KeycloakAdminPassword = Get-Setting "KEYCLOAK_ADMIN_PASSWORD" }
 
     # Check database container
     $ContainerName = "$ComposeProjectName-database"

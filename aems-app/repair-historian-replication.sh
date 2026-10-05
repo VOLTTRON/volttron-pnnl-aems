@@ -61,16 +61,15 @@ print_green()  { echo -e "\033[1;32m$1\033[0m"; }
 print_yellow() { echo -e "\033[1;33m$1\033[0m"; }
 print_red()    { echo -e "\033[1;31m$1\033[0m"; }
 
-# Load .env if present (same shape as migrate-historian-data.sh)
-if [ -f ".env" ]; then
-    while IFS= read -r line || [ -n "$line" ]; do
-        [[ "$line" =~ ^[[:space:]]*# ]] && continue
-        [[ -z "$line" ]] && continue
-        if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)= ]]; then
-            export "$line"
-        fi
-    done < .env
-fi
+# KEY's value in .env, unquoted: secrets.sh writes values as '...'. Read into a variable, never
+# exported -- an exported value would outrank .env for every compose this script runs.
+env_value() {
+    grep "^$1=" .env 2>/dev/null | head -1 | tr -d '\r' | sed "s/^[^=]*=//; s/^'\(.*\)'\$/\1/; s/^\"\(.*\)\"\$/\1/"
+}
+for key in COMPOSE_PROJECT_NAME HISTORIAN_DATABASE_PASSWORD HISTORIAN_REPLICATOR_PASSWORD; do
+    val=$(env_value "$key")
+    [ -n "$val" ] && printf -v "$key" '%s' "$val"
+done
 
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-aems-app}"
 TARGET_CONTAINER="${TARGET_CONTAINER:-${COMPOSE_PROJECT_NAME}-historian}"

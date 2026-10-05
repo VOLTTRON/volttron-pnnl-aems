@@ -45,24 +45,27 @@ foreach ($arg in $args) {
     }
 }
 
-# Load .env if present
+# .env read into a table, never the environment: run from a prompt, this script shares the
+# session's process, and anything set there would outrank .env for every later compose.
+# secrets.ps1/secrets.sh write values as '...'.
+$DotEnv = @{}
 if (Test-Path ".env") {
     Get-Content ".env" | ForEach-Object {
-        $line = $_.Trim()
-        if ($line -and -not $line.StartsWith("#")) {
-            $parts = $line -split "=", 2
-            if ($parts.Length -eq 2) {
-                $name = $parts[0].Trim()
-                $value = $parts[1].Trim()
-                if ($name -match '^[A-Za-z_][A-Za-z0-9_]*$') {
-                    [Environment]::SetEnvironmentVariable($name, $value)
-                }
+        if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+            $v = $matches[2].Trim()
+            if ($v.Length -ge 2 -and (($v[0] -eq "'" -and $v[-1] -eq "'") -or ($v[0] -eq '"' -and $v[-1] -eq '"'))) {
+                $v = $v.Substring(1, $v.Length - 2)
             }
+            $DotEnv[$matches[1]] = $v
         }
     }
 }
+function Get-Setting([string]$name) {
+    if ($DotEnv[$name]) { return $DotEnv[$name] }
+    return [Environment]::GetEnvironmentVariable($name)
+}
 
-$ProjectName = $env:COMPOSE_PROJECT_NAME
+$ProjectName = Get-Setting "COMPOSE_PROJECT_NAME"
 if (-not $ProjectName) { $ProjectName = "aems-app" }
 $TargetContainer = $env:TARGET_CONTAINER
 if (-not $TargetContainer) { $TargetContainer = "$ProjectName-historian" }
@@ -104,8 +107,10 @@ if ($LASTEXITCODE -ne 0) {
 # Forward host-side passwords so the in-container script can authenticate even
 # when the compose secrets: mount ended up as ./secrets/.placeholder (empty
 # file) — same pattern as migrate-historian-data.ps1 / .sh.
-$DbPassword = if ($env:HISTORIAN_DATABASE_PASSWORD) { $env:HISTORIAN_DATABASE_PASSWORD } else { "" }
-$ReplPassword = if ($env:HISTORIAN_REPLICATOR_PASSWORD) { $env:HISTORIAN_REPLICATOR_PASSWORD } else { "" }
+$DbPassword = Get-Setting "HISTORIAN_DATABASE_PASSWORD"
+if (-not $DbPassword) { $DbPassword = "" }
+$ReplPassword = Get-Setting "HISTORIAN_REPLICATOR_PASSWORD"
+if (-not $ReplPassword) { $ReplPassword = "" }
 
 if ($DryRun) {
     docker exec -i `

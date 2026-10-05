@@ -101,6 +101,16 @@ export class Fixture {
     return { status: r.status ?? -1, out: (r.stdout ?? "") + (r.stderr ?? "") };
   }
 
+  /** COMMAND in one PowerShell session, so scripts it invokes with `&` share that session's process. */
+  session(command: string): Result {
+    const r = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command], {
+      cwd: this.dir,
+      env: this.env(this.psBin),
+      encoding: "utf8",
+    });
+    return { status: r.status ?? -1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  }
+
   read(file: string): Buffer {
     return fs.readFileSync(path.join(this.dir, file));
   }

@@ -2528,31 +2528,6 @@ For each module (Prisma, Common, Server, Client):
 2. **Type Check**: `yarn check` - TypeScript compilation verification
 3. **Test**: `yarn test:cov` - Jest tests with coverage (or `yarn test` if coverage skipped)
 
-#### `env.sh`
-
-Environment variable loader for CI/CD environments, compatible with Linux, FreeBSD, and macOS.
-
-**Purpose:**
-
-- Loads environment variables from a specified file (default: `.env`)
-- Filters out comments (lines starting with `#`)
-- Exports variables to the current shell session
-
-**Usage:**
-
-```bash
-# Load from .env (default)
-source ./env.sh
-
-# Load from custom file
-source ./env.sh .env.production
-```
-
-**Platform Compatibility:**
-
-- **Linux**: Uses `xargs -d '\n'` for newline delimiter
-- **FreeBSD/Darwin**: Uses `xargs -0` for null delimiter
-
 #### `secrets.[ps1|sh]`
 
 Manages `.env.secrets` and applies rotations to live containers. Bootstraps a stub `.env.secrets` on first run, migrates misplaced values from `.env`, and — when values differ from the running container's env — runs the appropriate `ALTER ROLE` / `kcadm.sh` / `grafana-cli` command against the container followed by `docker compose up -d --no-deps <svc>` to reload env.
