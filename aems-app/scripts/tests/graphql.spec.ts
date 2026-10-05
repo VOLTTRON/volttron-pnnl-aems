@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("GraphQL API — as-user", () => {
+  // scenario: typename-through-proxy
   test("__typename probe returns Query", async ({ request }) => {
     const response = await request.post("/graphql", {
       data: { query: "{ __typename }" },

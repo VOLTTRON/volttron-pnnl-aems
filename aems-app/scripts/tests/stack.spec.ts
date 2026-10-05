@@ -182,6 +182,18 @@ test.describe("stack", () => {
     expect(running.filter((s) => !admitted(selected)(s))).toEqual([]);
   });
 
+  // scenario: compose-pubsub-shared
+  test("every service that runs the server image sets a shared pub/sub backend", () => {
+    const services = Object.entries(
+      (JSON.parse(run("docker", ["compose", "config", "--format", "json"], {
+        env: { ...process.env, COMPOSE_PROFILES: "*", MSYS_NO_PATHCONV: "1" },
+      })) as { services: Record<string, { image?: string; environment?: Record<string, string> }> }).services,
+    ).filter(([, s]) => /\/server:[^/]*$/.test(s.image ?? ""));
+    expect(services.map(([name]) => name)).toEqual(expect.arrayContaining(["server", "services"]));
+    const unshared = services.filter(([, s]) => !["redis", "ioredis", "prisma", "database", "postgres", "postgresql"].includes(s.environment?.GRAPHQL_PUBSUB ?? ""));
+    expect(unshared.map(([name, s]) => `${name}: GRAPHQL_PUBSUB=${s.environment?.GRAPHQL_PUBSUB ?? "(unset)"}`)).toEqual([]);
+  });
+
   // scenario: reset-warns-subscribers
   test("reset-service warns about subscribers before it removes historian-data", () => {
     const outputs = [
