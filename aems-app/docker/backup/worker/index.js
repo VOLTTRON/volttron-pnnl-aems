@@ -37,7 +37,6 @@ const LOCAL_DESTINATION_PATH = "/var/lib/backup/archives";
 const SERVER_URL = (process.env.BACKUP_SERVER_URL || "http://server:3000").replace(/\/+$/, "");
 const POLL_MS = parseInt(process.env.BACKUP_WORKER_POLL_MS || "5000", 10);
 const HEARTBEAT_MS = parseInt(process.env.BACKUP_WORKER_HEARTBEAT_MS || "10000", 10);
-const STALE_MS = parseInt(process.env.BACKUP_WORKER_STALE_MS || "300000", 10);
 const WORKER_ID = `${process.env.HOSTNAME || "backup"}-${process.pid}-${crypto.randomBytes(3).toString("hex")}`;
 
 function readSecret(name) {
@@ -84,8 +83,13 @@ async function apiCall(method, pathname, body) {
 
 // ----- API calls (one per server endpoint) ------------------------------
 
+// Called once, at boot. The sidecar's container name is fixed per project, so a booting worker is
+// the only one: every Running run belongs to a worker that no longer exists, however fresh its
+// last heartbeat. Waiting for it to go stale left the schedule skipping "in flight" runs until the
+// server's hourly sweep.
 async function reconcileStale() {
-    const { reconciled } = await apiCall("POST", "/worker/backup/runs/reconcile-stale", { staleMs: STALE_MS });
+    // 1 ms, not 0: the endpoint refuses a non-positive threshold.
+    const { reconciled } = await apiCall("POST", "/worker/backup/runs/reconcile-stale", { staleMs: 1 });
     if (reconciled > 0) log(`Reconciled ${reconciled} stale Running run(s) to Failed.`);
 }
 

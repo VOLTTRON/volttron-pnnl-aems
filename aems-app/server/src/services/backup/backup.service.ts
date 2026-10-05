@@ -79,8 +79,12 @@ export class BackupService extends BaseService implements OnModuleInit {
     });
   }
 
-  /** Runs every minute to detect BackupPolicy changes and re-register the cron. */
   @Timeout(5000)
+  start(): Promise<void> {
+    return this.poll();
+  }
+
+  /** Runs every minute to detect BackupPolicy changes and re-register the cron. */
   @Cron(CronExpression.EVERY_MINUTE)
   async poll(): Promise<void> {
     if (!this.enabled) return;

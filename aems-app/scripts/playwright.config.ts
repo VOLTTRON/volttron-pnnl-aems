@@ -66,7 +66,7 @@ export default defineConfig({
       // Restarts the stack, so it waits for everything that uses it.
       name: "reboot",
       dependencies: ["unauthenticated", "as-user", "as-admin"],
-      testMatch: specs("reboot"),
+      testMatch: specs("backup", "reboot"),
     },
   ],
 });

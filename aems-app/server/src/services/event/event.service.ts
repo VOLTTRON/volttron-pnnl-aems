@@ -23,6 +23,10 @@ export class EventService extends BaseService {
   }
 
   @Timeout(1000) // Initial delay of 1 second before first execution
+  start(): Promise<void> {
+    return this.execute();
+  }
+
   @Cron("0 0 * * *") // Runs daily at midnight
   execute(): Promise<void> {
     return super.execute();

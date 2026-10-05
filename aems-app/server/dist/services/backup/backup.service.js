@@ -54,6 +54,9 @@ let BackupService = BackupService_1 = class BackupService extends __1.BaseServic
             data: { id: "default", enabled: false, cron: "0 2 * * *", retentionDays: 30 },
         });
     }
+    start() {
+        return this.poll();
+    }
     async poll() {
         if (!this.enabled)
             return;
@@ -161,6 +164,11 @@ BackupService.CRON_NAME = "backup-policy";
 BackupService.STALE_HEARTBEAT_MS = 5 * 60 * 1000;
 __decorate([
     (0, schedule_1.Timeout)(5000),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], BackupService.prototype, "start", null);
+__decorate([
     (0, schedule_1.Cron)(schedule_1.CronExpression.EVERY_MINUTE),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),

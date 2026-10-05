@@ -17,7 +17,20 @@ set -euo pipefail
 # in init-keys.sh will surface a clearer error if it didn't take.
 if [[ "$(id -u)" -eq 0 ]]; then
     chown -R node:node /host-secrets /var/lib/backup 2>/dev/null || true
-    exec su-exec node:node "$0" "$@"
+    # Every dump goes through the mounted Docker socket, whose group is the host's: root on Docker
+    # Desktop, the host's docker gid on Linux. No gid baked into the image matches both, so node
+    # joins whichever group owns the socket here.
+    if [[ -S /var/run/docker.sock ]]; then
+        sock_gid="$(stat -c %g /var/run/docker.sock)"
+        sock_group="$(getent group "$sock_gid" | cut -d: -f1)"
+        if [[ -z "$sock_group" ]]; then
+            addgroup -g "$sock_gid" docker-host && sock_group=docker-host
+        fi
+        addgroup node "$sock_group" 2>/dev/null || true
+    fi
+    # By user name alone: su-exec then takes node's supplementary groups from /etc/group, where
+    # `node:node` would set the one group and drop the socket's.
+    exec su-exec node "$0" "$@"
 fi
 
 # Sweep transient workspace directories. If the previous run was killed
