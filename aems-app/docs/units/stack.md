@@ -23,6 +23,8 @@ credentials — that is `secrets` — or any application behaviour behind the pr
 - The seeders service creates the system user on a cold database.
 - Before `reset-service` removes `historian-data`, it says that every remote subscriber must drop and
   re-create its subscription.
+- `restart-service` recreates each service it names with `up -d --force-recreate --no-deps`, so the
+  service runs with the `.env` it has just synced.
 - The profiles are exactly proxy, sso, map, nom, wiki, redis, grafana, historian, volttron, fastapi,
   fastapi-agents and synth; a service in a profile does not start unless that profile is selected.
 
@@ -44,3 +46,4 @@ None.
 | `cold-seed-system-user` | seeders create the system user |
 | `profiles-gate-services` | the profile list and its gating |
 | `reset-warns-subscribers` | the warning precedes removing `historian-data` |
+| `restart-recreates` | `restart-service` recreates rather than restarts, after syncing `.env` |
