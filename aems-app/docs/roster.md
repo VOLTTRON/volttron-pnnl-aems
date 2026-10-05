@@ -10,7 +10,7 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 | `graphql` | built | auth |
 | `shell` | unbuilt | auth, graphql |
 | `keycloak-admin` | unbuilt | auth, graphql |
-| `background` | unbuilt | stack |
+| `background` | built | stack |
 | `logging` | unbuilt | background |
 | `backup` | unbuilt | background |
 | `ext-geography` | unbuilt | auth |

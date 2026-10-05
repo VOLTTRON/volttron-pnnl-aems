@@ -194,6 +194,23 @@ test.describe("stack", () => {
     expect(unshared.map(([name, s]) => `${name}: GRAPHQL_PUBSUB=${s.environment?.GRAPHQL_PUBSUB ?? "(unset)"}`)).toEqual([]);
   });
 
+  // scenario: instance-type-deployed-values
+  test("server runs none, services *,!seed,!synth, seeders ^seed and synth-worker synth", () => {
+    const services = config("*").services as Record<string, { environment?: Record<string, string> }>;
+    const deployed = Object.fromEntries(
+      ["server", "services", "seeders", "synth-worker"].map((s) => [s, services[s]?.environment?.INSTANCE_TYPE]),
+    );
+    expect(deployed).toEqual({ server: "none", services: "*,!seed,!synth", seeders: "^seed", "synth-worker": "synth" });
+  });
+
+  // scenario: instance-type-run-once
+  test("the seeders run the seed service once and their process exits 0", async () => {
+    await expect.poll(() => inspect(container("seeders"), "{{.State.Status}}"), { timeout: 300_000, intervals: [5_000] }).toBe("exited");
+    expect(inspect(container("seeders"), "{{.State.ExitCode}}")).toBe("0");
+    // on-failure restarts would show here; a process that exited 0 once was never restarted.
+    expect(inspect(container("seeders"), "{{.RestartCount}}")).toBe("0");
+  });
+
   // scenario: reset-warns-subscribers
   test("reset-service warns about subscribers before it removes historian-data", () => {
     const outputs = [

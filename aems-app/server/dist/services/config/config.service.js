@@ -34,7 +34,7 @@ let ConfigService = ConfigService_1 = class ConfigService extends __1.BaseServic
         this.logger = new common_1.Logger(ConfigService_1.name);
     }
     async onApplicationBootstrap() {
-        if (!this.configService.service.config.startup)
+        if (!this.enabled || !this.configService.service.config.startup)
             return;
         this.logger.log("SERVICE_CONFIG_STARTUP=true → marking all units for repush");
         await this.prismaService.prisma.unit.updateMany({

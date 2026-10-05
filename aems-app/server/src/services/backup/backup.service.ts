@@ -48,6 +48,7 @@ export class BackupService extends BaseService implements OnModuleInit {
   }
 
   async onModuleInit() {
+    if (!this.enabled) return;
     await this.ensureDefaultPolicy().catch((err: Error) => {
       this.logger.warn({ message: err.message, stack: err.stack });
     });
@@ -82,6 +83,7 @@ export class BackupService extends BaseService implements OnModuleInit {
   @Timeout(5000)
   @Cron(CronExpression.EVERY_MINUTE)
   async poll(): Promise<void> {
+    if (!this.enabled) return;
     await this.reloadPolicy().catch((err: Error) => {
       this.logger.warn({ message: err.message, stack: err.stack });
     });

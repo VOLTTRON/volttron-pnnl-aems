@@ -27,6 +27,9 @@ class BaseService {
         this.shutdown = shutdown.includes(this.service);
         this.runTask = enabled.includes(this.service) && !disabled.includes(this.service);
     }
+    get enabled() {
+        return this.runTask;
+    }
     schedule() {
         if (this.running || !this.runTask) {
             return false;
