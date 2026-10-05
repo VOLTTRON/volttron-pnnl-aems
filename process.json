@@ -28,7 +28,7 @@
     "aems-app/CLAUDE.md": 18
   },
 
-  "integration": { "branch": "develop", "primary": "working", "mode": "push", "remote": "origin" },
+  "integration": { "branch": "develop", "primary": "working", "mode": "objects", "remote": "origin" },
   "lanes": [
     {
       "name": "build",
