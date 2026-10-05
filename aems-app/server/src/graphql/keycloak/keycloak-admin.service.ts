@@ -209,8 +209,11 @@ export class KeycloakAdminService {
   // ── Misc ─────────────────────────────────────────────────────────────────
 
   async lookupKeycloakUserId(appUserId: string): Promise<string | null> {
+    // A Keycloak user deleted and re-created under the same email links a second account to the
+    // same app user, and the older one names a Keycloak user that no longer exists.
     const account = await this.prismaService.prisma.account.findFirst({
       where: { userId: appUserId, provider: "keycloak" },
+      orderBy: { createdAt: "desc" },
     });
     return account?.providerAccountId ?? null;
   }

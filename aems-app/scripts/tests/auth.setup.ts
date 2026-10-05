@@ -19,7 +19,8 @@ const TEST_USERS = [
     email: "test-admin@skeleton.local",
     password: "TestAdmin1!",
     stateFile: path.join(authDir, "admin.json"),
-    role: "admin",
+    // keycloak too: granting a role takes holding it, and keycloak-admin.spec grants keycloak.
+    role: "admin,keycloak",
   },
 ];
 
