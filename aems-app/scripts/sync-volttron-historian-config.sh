@@ -55,8 +55,10 @@ warn()  { printf "${YELLOW}  !${RESET}  %s\n" "$1"; }
 error() { printf "${RED}  ✗${RESET}  %s\n" "$1" >&2; }
 
 # ── resolve project name ───────────────────────────────────────────────────────
-if [ -f "${ENV_FILE}" ]; then
-  PROJECT=$(grep -v '^\s*#' "${ENV_FILE}" | grep '^COMPOSE_PROJECT_NAME=' | head -1 | sed 's/^[^=]*=//')
+# The shell outranks .env, as it does for compose itself.
+PROJECT="${COMPOSE_PROJECT_NAME:-}"
+if [ -z "${PROJECT}" ] && [ -f "${ENV_FILE}" ]; then
+  PROJECT=$(grep -v '^\s*#' "${ENV_FILE}" | tr -d '\r' | grep '^COMPOSE_PROJECT_NAME=' | head -1 | sed "s/^[^=]*=//; s/^['\"]//; s/['\"]$//")
 fi
 PROJECT="${PROJECT:-skeleton}"
 VOLTTRON_CONTAINER="${PROJECT}-volttron"

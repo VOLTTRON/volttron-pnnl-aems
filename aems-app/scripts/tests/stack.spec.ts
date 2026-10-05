@@ -196,4 +196,30 @@ test.describe("stack", () => {
       expect(removal, out).toBeGreaterThan(warning);
     }
   });
+
+  // scenario: historian-config-reconciled
+  test("after start-services the SQLHistorian agent runs on the install-time config historian.config holds", async () => {
+    test.setTimeout(10 * 60_000);
+    const volttron = container("volttron");
+    const exec = (script: string) => docker("exec", "-u", "volttron", volttron, "sh", "-c", script).trim();
+    let pid = "";
+    await expect
+      .poll(
+        () => {
+          try {
+            pid = exec("pgrep -f 'sqlhistorian\\.historian' | head -1");
+          } catch {
+            pid = "";
+          }
+          return pid;
+        },
+        { timeout: 8 * 60_000, intervals: [5_000] },
+      )
+      .not.toBe("");
+    const agentConfig = exec(`tr '\\0' '\\n' < /proc/${pid}/environ | sed -n 's/^AGENT_CONFIG=//p'`);
+    expect(agentConfig).not.toBe("");
+    const desired = fs.readFileSync(path.join(appDir, "docker/volttron/setup/configs/historian.config"), "utf8");
+    const squash = (text: string) => text.replace(/\s+/g, "");
+    expect(squash(exec(`cat '${agentConfig}'`))).toBe(squash(desired));
+  });
 });

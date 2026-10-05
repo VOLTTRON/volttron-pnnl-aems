@@ -34,6 +34,8 @@ the one its peers accept, whatever git has done to the checkout; not which servi
 - Every script that runs `docker compose` to create containers — `start-services`, `reset-service`,
   `restart-service` — syncs `.env` first; `start-services` syncs before `check-env` judges it, and
   again when `up -d` fails. Nothing exports `.env` into the shell, where it would outrank `.env`.
+  **Open:** `env.sh` exists to export every line of `.env` into the calling shell (`env.sh:5,7`), `README.md:2545` documents it as `source ./env.sh`, and the spine asks before any deletion (ARCHITECTURE §5) — so "nothing exports `.env` into the shell" is false today and this command cannot make it true.
+  **Open:** `restart-service` runs `docker compose restart` (`restart-service.sh:166`, `restart-service.ps1:127`), which keeps each container's environment and creates nothing, so the `.env` it now syncs first reaches no container it restarts.
 - `check-env.sh` and `check-env.ps1` report the same findings — an incomplete `.env.secrets`, a
   sentinel `.env` beside a real `.env.secrets` — without blocking startup.
 - `readSecret` reads a plain environment variable with a default.

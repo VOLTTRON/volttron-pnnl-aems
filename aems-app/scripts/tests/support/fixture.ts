@@ -17,6 +17,8 @@ export type DockerState = {
   running?: string[];
   env?: Record<string, string[]>;
   psql?: Record<string, string[]>;
+  files?: Record<string, string>;
+  outputs?: [string, string][];
   fail?: string[];
 };
 
@@ -34,6 +36,7 @@ export class Fixture {
   constructor(scripts: string[]) {
     this.dir = fs.mkdtempSync(path.join(os.tmpdir(), "aems-fixture-"));
     for (const s of scripts) {
+      fs.mkdirSync(path.dirname(path.join(this.dir, s)), { recursive: true });
       fs.copyFileSync(path.join(appDir, s), path.join(this.dir, s));
       fs.chmodSync(path.join(this.dir, s), 0o755);
     }
@@ -50,13 +53,20 @@ export class Fixture {
 
     const git = (...args: string[]) => execFileSync("git", args, { cwd: this.dir, stdio: "pipe" });
     git("init", "-q");
-    git("-c", "user.email=f@x", "-c", "user.name=fixture", "add", ".env", ".gitignore");
-    git("-c", "user.email=f@x", "-c", "user.name=fixture", "commit", "-qm", "fixture");
+    git("config", "user.email", "f@x");
+    git("config", "user.name", "fixture");
+    git("add", ".env", ".gitignore");
+    git("commit", "-qm", "fixture");
   }
 
   docker(state: DockerState) {
     fs.writeFileSync(this.statePath, JSON.stringify(state));
     fs.writeFileSync(this.logPath, "");
+  }
+
+  /** The fake docker's state as it now stands, with whatever files its execs wrote. */
+  state(): DockerState {
+    return JSON.parse(fs.readFileSync(this.statePath, "utf8")) as DockerState;
   }
 
   /** Every docker call made since the state was last set, as argv strings. */
@@ -100,7 +110,14 @@ export class Fixture {
   }
 
   write(file: string, content: string) {
+    fs.mkdirSync(path.dirname(path.join(this.dir, file)), { recursive: true });
     fs.writeFileSync(path.join(this.dir, file), content);
+  }
+
+  /** git in the fixture's repository; its output, or the error's when it fails. */
+  git(...args: string[]): Result {
+    const r = spawnSync("git", args, { cwd: this.dir, encoding: "utf8" });
+    return { status: r.status ?? -1, out: (r.stdout ?? "") + (r.stderr ?? "") };
   }
 
   exists(file: string) {

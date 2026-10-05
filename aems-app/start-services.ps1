@@ -36,6 +36,18 @@ $StartingPath = Get-Location
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location -Path $ScriptDir
 
+# Ensure .env is aligned with .env.secrets before check-env judges it and
+# before compose reads it. secrets.ps1 syncs any changed values from
+# .env.secrets into .env in place and rotates the live credentials if the
+# stack is already up. Idempotent: no-op when .env already matches.
+if ((Test-Path .\secrets.ps1) -and (Test-Path ".env.secrets")) {
+    Write-Host "Syncing .env from .env.secrets..." -ForegroundColor Cyan
+    & .\secrets.ps1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "secrets.ps1 reported issues (see above); continuing." -ForegroundColor Yellow
+    }
+}
+
 Write-Host "Checking environment/secrets configuration..." -ForegroundColor Blue
 
 # Run check-env.ps1 in a separate PowerShell process so parse errors surface
@@ -46,18 +58,6 @@ Write-Host "Checking environment/secrets configuration..." -ForegroundColor Blue
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Environment check failed - fix the issues above before starting services." -ForegroundColor Red
     exit 1
-}
-
-# Ensure .env is aligned with .env.secrets before compose reads it.
-# secrets.ps1 syncs any changed values from .env.secrets into .env in
-# place and rotates the live credentials if the stack is already up.
-# Idempotent: no-op when .env already matches .env.secrets.
-if ((Test-Path .\secrets.ps1) -and (Test-Path ".env.secrets")) {
-    Write-Host "Syncing .env from .env.secrets..." -ForegroundColor Cyan
-    & .\secrets.ps1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "secrets.ps1 reported issues (see above); continuing." -ForegroundColor Yellow
-    }
 }
 
 Write-Host "Building and starting Docker Compose services..." -ForegroundColor Blue
@@ -109,7 +109,10 @@ try {
         if ($secretsExit -ne 0) {
             Write-Host "secrets.ps1 reported issues (see above)." -ForegroundColor Yellow
         }
-    } elseif (Test-Path .\scripts\sync-volttron-historian-config.ps1) {
+    }
+    # The SQLHistorian agent keeps its install-time config across every recreate, so it is
+    # reconciled on every start, not only after a rotation.
+    if (Test-Path .\scripts\sync-volttron-historian-config.ps1) {
         Write-Host "Reconciling SQLHistorian install-time config..." -ForegroundColor Cyan
         & .\scripts\sync-volttron-historian-config.ps1
     }

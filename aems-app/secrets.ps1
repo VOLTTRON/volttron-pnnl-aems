@@ -18,14 +18,21 @@
 #      Exits so the operator can fill in real values.
 #
 #   2. SYNC + ROTATION (every subsequent run): compare each secret
-#      key's value between .env.secrets (desired) and .env (currently
-#      deployed). If they differ:
+#      key's value between .env.secrets (desired) and the container that
+#      holds it (deployed) - never .env, which git can reset under a
+#      running stack. If they differ:
 #        - Run the live credential-change handler against the running
-#          container using the old value from .env.
+#          container using the old value. A container that is down cannot
+#          take it: the script refuses unless -Force.
 #        - Overlay the new value into .env in place.
 #        - Queue affected services for `docker compose up -d --no-deps`.
 #
-#   3. NO-OP: silent skip when .env and .env.secrets already match.
+#   3. NO-OP: nothing changes when .env, .env.secrets and the running
+#      containers already agree.
+#
+# While .env holds a real value it is marked skip-worktree, so git can
+# neither show, stage nor restore it; -Scrub writes the tracked sentinel
+# version back and clears the mark.
 #
 # Note: `docker compose restart` reuses cached env vars in the existing
 # container - use `docker compose up -d --no-deps <svc>` after editing
@@ -40,12 +47,14 @@
 #   .\secrets.ps1 KEY1 KEY2 ...              # limit to named keys
 #   .\secrets.ps1 -DryRun                    # print plan without executing
 #   .\secrets.ps1 -Force                     # skip live rotation
+#   .\secrets.ps1 -Scrub                     # put the tracked sentinel .env back
 #
 # Must be run from the repo root.
 
 param(
   [switch]$DryRun,
   [switch]$Force,
+  [switch]$Scrub,
   [switch]$Yes,
   [Parameter(ValueFromRemainingArguments)]
   [string[]]$ExplicitKeys
@@ -172,40 +181,74 @@ function Test-ContainerRunning {
     return ($names -contains $Name)
 }
 
-function Get-KeyDeployedContainer {
-    param([string]$Proj, [string]$Key)
+# Which service's container holds each key's deployed value, and under which variable.
+function Get-KeyDeployedSource {
+    param([string]$Key)
     switch ($Key) {
-        'DATABASE_PASSWORD'                { "${Proj}-database" }
-        'KEYCLOAK_ADMIN_PASSWORD'          { "${Proj}-keycloak" }
-        'KEYCLOAK_DATABASE_PASSWORD'       { "${Proj}-keycloak-db" }
-        'KEYCLOAK_CLIENT_SECRET'           { "${Proj}-server" }
-        'KEYCLOAK_GRAFANA_CLIENT_SECRET'   { "${Proj}-grafana" }
-        'BOOKSTACK_KEYCLOAK_CLIENT_SECRET' { "${Proj}-wiki" }
-        'NOMINATIM_DATABASE_PASSWORD'      { "${Proj}-nominatim" }
-        'BOOKSTACK_ROOT_PASSWORD'          { "${Proj}-wiki-db" }
-        'BOOKSTACK_DATABASE_PASSWORD'      { "${Proj}-wiki-db" }
-        'HISTORIAN_DATABASE_PASSWORD'      { "${Proj}-historian" }
-        'HISTORIAN_REPLICATOR_PASSWORD'    { "${Proj}-historian" }
-        'GRAFANA_ADMIN_PASSWORD'           { "${Proj}-grafana" }
-        'GRAFANA_DATABASE_PASSWORD'        { "${Proj}-grafana-db" }
-        'SESSION_SECRET'                   { "${Proj}-server" }
-        'JWT_SECRET'                       { "${Proj}-server" }
-        'WORKER_TOKEN'                     { "${Proj}-server" }
-        'REDIS_PASSWORD'                   { "${Proj}-redis" }
-        'BOOKSTACK_SESSION_SECRET'         { "${Proj}-wiki" }
-        default                            { "" }
+        { $_ -in 'SESSION_SECRET','JWT_SECRET','WORKER_TOKEN','KEYCLOAK_CLIENT_SECRET' } { return @{ Svc = 'server'; Var = $Key } }
+        'DATABASE_PASSWORD'                { return @{ Svc = 'database';    Var = 'POSTGRES_PASSWORD' } }
+        'REDIS_PASSWORD'                   { return @{ Svc = 'redis';       Var = 'REDIS_PASSWORD' } }
+        'NOMINATIM_DATABASE_PASSWORD'      { return @{ Svc = 'nominatim';   Var = 'POSTGRES_PASSWORD' } }
+        'BOOKSTACK_SESSION_SECRET'         { return @{ Svc = 'wiki';        Var = 'APP_KEY' } }
+        'BOOKSTACK_KEYCLOAK_CLIENT_SECRET' { return @{ Svc = 'wiki';        Var = 'OIDC_CLIENT_SECRET' } }
+        'BOOKSTACK_ROOT_PASSWORD'          { return @{ Svc = 'wiki-db';     Var = 'MYSQL_ROOT_PASSWORD' } }
+        'BOOKSTACK_DATABASE_PASSWORD'      { return @{ Svc = 'wiki-db';     Var = 'MYSQL_PASSWORD' } }
+        { $_ -in 'KEYCLOAK_ADMIN_PASSWORD','KEYCLOAK_GRAFANA_CLIENT_SECRET' } { return @{ Svc = 'keycloak'; Var = $Key } }
+        'KEYCLOAK_DATABASE_PASSWORD'       { return @{ Svc = 'keycloak-db'; Var = 'POSTGRES_PASSWORD' } }
+        'GRAFANA_ADMIN_PASSWORD'           { return @{ Svc = 'grafana';     Var = 'GF_SECURITY_ADMIN_PASSWORD' } }
+        'GRAFANA_DATABASE_PASSWORD'        { return @{ Svc = 'grafana-db';  Var = 'POSTGRES_PASSWORD' } }
+        'HISTORIAN_DATABASE_PASSWORD'      { return @{ Svc = 'historian';   Var = 'POSTGRES_PASSWORD' } }
+        'HISTORIAN_REPLICATOR_PASSWORD'    { return @{ Svc = 'historian';   Var = 'HISTORIAN_REPLICATOR_PASSWORD' } }
     }
+    return $null
 }
 
-# The "currently deployed" value for a secret key is the value in .env -
-# that's what docker compose reads. A sentinel in .env means the key
-# hasn't been synced from .env.secrets yet; return empty so classification
-# falls to FRESH.
+# The service whose container a live rotation of a key runs in; '' for a key that a recreate
+# alone rotates.
+function Get-KeyRotationService {
+    param([string]$Key)
+    switch ($Key) {
+        'DATABASE_PASSWORD'           { return 'database' }
+        'KEYCLOAK_DATABASE_PASSWORD'  { return 'keycloak-db' }
+        'NOMINATIM_DATABASE_PASSWORD' { return 'nominatim' }
+        { $_ -in 'BOOKSTACK_DATABASE_PASSWORD','BOOKSTACK_ROOT_PASSWORD' } { return 'wiki-db' }
+        { $_ -in 'KEYCLOAK_ADMIN_PASSWORD','KEYCLOAK_CLIENT_SECRET','BOOKSTACK_KEYCLOAK_CLIENT_SECRET','KEYCLOAK_GRAFANA_CLIENT_SECRET' } { return 'keycloak' }
+        { $_ -in 'HISTORIAN_DATABASE_PASSWORD','HISTORIAN_REPLICATOR_PASSWORD' } { return 'historian' }
+        'GRAFANA_DATABASE_PASSWORD'   { return 'grafana-db' }
+        'GRAFANA_ADMIN_PASSWORD'      { return 'grafana' }
+    }
+    return ''
+}
+
+# The deployed value of a key: what its container, running or stopped, was created with. Not
+# .env - git can reset .env under a running stack. '' when no container holds the key, so
+# classification falls to FRESH; a sentinel is a real deployed value.
 function Get-DeployedSecret {
     param([string]$Key)
-    $val = Get-EnvValue $ENV_FILE $Key
-    if ($val -eq $PLACEHOLDER) { return '' }
-    return $val
+    $src = Get-KeyDeployedSource $Key
+    if (-not $src) { return '' }
+    $dump = @(docker inspect "$(Get-ProjectName)-$($src.Svc)" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>$null)
+    foreach ($entry in $dump) {
+        $e = "$entry".TrimEnd("`r")
+        if ($e.StartsWith("$($src.Var)=")) { return $e.Substring($src.Var.Length + 1) }
+    }
+    return ''
+}
+
+# While .env holds a real value for a key the tracked .env carries as the sentinel, git must
+# neither show, stage nor restore it. skip-worktree survives stash, checkout and reset --hard.
+function Hide-EnvFromGit {
+    if ($DryRun) { return }
+    git ls-files --error-unmatch $ENV_FILE *> $null
+    if ($LASTEXITCODE -ne 0) { return }
+    foreach ($line in @(git show ":./$ENV_FILE" 2>$null)) {
+        if ("$line".TrimEnd("`r") -notmatch "^([A-Za-z_][A-Za-z0-9_]*)=$([regex]::Escape($PLACEHOLDER))$") { continue }
+        $v = Get-EnvValue $ENV_FILE $matches[1]
+        if ($v -and $v -cne $PLACEHOLDER) {
+            git update-index --skip-worktree $ENV_FILE
+            return
+        }
+    }
 }
 
 # List every KEY=VALUE line in .env.secrets (skipping comments/blanks).
@@ -253,6 +296,21 @@ if (-not (Test-Path $ENV_FILE)) { Write-Err "$ENV_FILE not found. Run from the r
 # this script's job is to make .env correct, and compose reads it
 # unconditionally.
 $ComposeArgs = @()
+
+# -- scrub: the tracked sentinel .env, visible to git again ---------------------
+if ($Scrub) {
+    git ls-files --error-unmatch $ENV_FILE *> $null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "$ENV_FILE is not tracked here, so there is no sentinel version to put back."
+        exit 1
+    }
+    # The mark first: git does not restore a skip-worktree file.
+    git update-index --no-skip-worktree $ENV_FILE
+    git checkout HEAD -- $ENV_FILE
+    Write-Ok "$ENV_FILE is the tracked sentinel version again, and git sees it."
+    Write-Warn "A running stack keeps its values; .\secrets.ps1 syncs them back."
+    exit 0
+}
 
 # ==============================================================================
 # BOOTSTRAP PATH
@@ -307,6 +365,7 @@ if (-not (Test-Path $SECRETS_FILE)) {
         }
     }
     Write-EnvFile $SECRETS_FILE $lines
+    Hide-EnvFromGit
 
     $blank = (Get-Content $SECRETS_FILE | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=$' }).Count
     $total = (Get-Content $SECRETS_FILE | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=' }).Count
@@ -426,12 +485,26 @@ if (-not $ExplicitKeys) {
     }
 }
 
-if ($FRESH.Count -eq 0 -and $ROTATIONS.Count -eq 0 -and $POISONED.Count -eq 0) {
-    Write-Host "`nAll secrets are up to date." -ForegroundColor Green
-    if (-not $DryRun -and (Test-Path .\check-env.ps1)) {
-        & .\check-env.ps1
+# -- refusal ----------------------------------------------------------------------
+# A changed value is applied with the old one, inside the container that holds it. A container
+# that is down cannot take it, and bringing it up with the new value would leave its data
+# volume unable to authenticate - so nothing changes, unless -Force.
+if (-not $Force) {
+    $down = @()
+    foreach ($key in $ROTATIONS) {
+        $svc = Get-KeyRotationService $key
+        if (-not $svc) { continue }
+        if (-not (Test-ContainerRunning "$PROJECT-$svc")) { $down += "${key}: $PROJECT-$svc holds the old value and is not running" }
     }
-    exit 0
+    if ($down.Count -gt 0) {
+        Write-Hdr "Cannot rotate live: the container is down"
+        foreach ($d in $down) { Write-Err $d }
+        Write-Host ""
+        Write-Host "Start it (docker compose up -d <service>) and re-run, or pass -Force to"
+        Write-Host "skip live rotation (its data volume must then be wiped or reconciled by hand)."
+        Write-Host ""
+        exit 1
+    }
 }
 
 # ==============================================================================
@@ -735,14 +808,16 @@ foreach ($svc in $POISONED) { Queue-Restart $svc }
 # each service with the new value in its runtime env, and any future
 # `docker compose up -d` from any shell resolves ${VAR} to the real
 # value from .env.
+$synced = 0
 if (Test-Path $SECRETS_FILE) {
     $synced = Sync-EnvFromSecrets
     if ($synced -gt 0 -and -not $DryRun) {
         Write-Hdr "Synced $synced secret(s) from $SECRETS_FILE into $ENV_FILE"
-        Write-Warn "$ENV_FILE now contains real secret values - DO NOT commit."
+        Write-Warn "$ENV_FILE now contains real secret values; git no longer sees it."
         noteWarn
     }
 }
+Hide-EnvFromGit
 
 # ==============================================================================
 # RESTART PASS
@@ -750,7 +825,7 @@ if (Test-Path $SECRETS_FILE) {
 # Use `docker compose up -d --no-deps` (NOT `docker compose restart`) so
 # containers re-read env_file and pick up the new .env.secrets values.
 
-$RESTART = $RESTART | Where-Object { $_ } | Sort-Object -Unique
+$RESTART = @($RESTART | Where-Object { $_ } | Sort-Object -Unique)
 
 if ($RESTART.Count -gt 0) {
     Write-Hdr "Recreating affected services: $($RESTART -join ' ')"
@@ -806,7 +881,9 @@ if (-not $DryRun -and (Test-Path .\check-env.ps1)) {
 
 # -- summary --------------------------------------------------------------------
 Write-Host ""
-if ($script:Warnings -gt 0) {
+if ($FRESH.Count -eq 0 -and $ROTATIONS.Count -eq 0 -and $RESTART.Count -eq 0 -and $synced -eq 0) {
+    Write-Host "All secrets are up to date." -ForegroundColor Green
+} elseif ($script:Warnings -gt 0) {
     Write-Host "Done with $($script:Warnings) warning(s)." -ForegroundColor Yellow
     Write-Host "Review warnings above."
 } else {

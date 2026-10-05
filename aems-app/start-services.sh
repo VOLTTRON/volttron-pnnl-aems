@@ -75,22 +75,22 @@ on_failure() {
 set -e
 trap on_failure ERR
 
-print_blue "Checking environment/secrets configuration..."
-
-if ! ./check-env.sh; then
-    print_red "Environment check failed — fix the issues above before starting services."
-    exit 1
-fi
-
-# Ensure .env is aligned with .env.secrets before compose reads it.
-# secrets.sh syncs any changed values from .env.secrets into .env in
-# place and rotates the live credentials if the stack is already up.
-# Idempotent: no-op when .env already matches .env.secrets.
+# Ensure .env is aligned with .env.secrets before check-env judges it and
+# before compose reads it. secrets.sh syncs any changed values from
+# .env.secrets into .env in place and rotates the live credentials if the
+# stack is already up. Idempotent: no-op when .env already matches.
 if [ -x ./secrets.sh ] && [ -f ".env.secrets" ]; then
     print_cyan "Syncing .env from .env.secrets..."
     if ! ./secrets.sh; then
         print_yellow "secrets.sh reported issues (see above); continuing."
     fi
+fi
+
+print_blue "Checking environment/secrets configuration..."
+
+if ! ./check-env.sh; then
+    print_red "Environment check failed — fix the issues above before starting services."
+    exit 1
 fi
 
 print_blue "Building and starting Docker Compose services..."
@@ -117,8 +117,8 @@ fi
 # call below runs the pg_shadow probe and can recover pre-existing
 # volume drift.
 print_cyan "Starting services in detached mode..."
-docker compose up -d
-COMPOSE_EXIT=$?
+COMPOSE_EXIT=0
+docker compose up -d || COMPOSE_EXIT=$?
 
 if [ "$COMPOSE_EXIT" -ne 0 ]; then
     print_yellow "docker compose up -d exited $COMPOSE_EXIT — will attempt self-heal via secrets.sh..."
@@ -142,7 +142,10 @@ if [ -x ./secrets.sh ]; then
     if [ "$SECRETS_EXIT" -ne 0 ]; then
         print_yellow "secrets.sh reported issues (see above)."
     fi
-elif [ -x ./scripts/sync-volttron-historian-config.sh ]; then
+fi
+# The SQLHistorian agent keeps its install-time config across every recreate, so it is
+# reconciled on every start, not only after a rotation.
+if [ -x ./scripts/sync-volttron-historian-config.sh ]; then
     print_cyan "Reconciling SQLHistorian install-time config..."
     ./scripts/sync-volttron-historian-config.sh || \
         print_yellow "sync-volttron-historian-config.sh reported issues."
