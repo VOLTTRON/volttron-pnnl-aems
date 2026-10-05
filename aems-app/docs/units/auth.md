@@ -11,8 +11,10 @@ field or page is.
 
 ## Claims
 
-- `AUTH_FRAMEWORK` selects the runtime strategy among authjs, passport, local, bearer, keycloak and
-  super; both framework modules are always loaded, and unset means `authjs`.
+- `AUTH_FRAMEWORK` selects the framework, `authjs` or `passport`, and unset means `authjs`; both
+  framework modules are always loaded.
+- `AUTH_PROVIDERS`, a comma list, enables each of local, bearer, keycloak and super that it names,
+  and no other.
 - Every HTTP endpoint requires an authenticated user unless it carries `@PublicRoute`; the global
   guards are AuthenticatedGuard and RolesGuard.
 - `@Roles(...)` on a REST handler admits a user whose roles satisfy it through `Role.granted`.
@@ -32,7 +34,8 @@ stack
 
 | Name | Proves |
 |---|---|
-| `framework-selected-by-env` | the strategy follows `AUTH_FRAMEWORK`; unset is `authjs` |
+| `framework-selected-by-env` | the framework follows `AUTH_FRAMEWORK`; unset is `authjs`; both modules load |
+| `providers-selected-by-env` | each provider is enabled only when `AUTH_PROVIDERS` names it |
 | `endpoints-private-by-default` | unauthenticated requests are refused without `@PublicRoute` |
 | `roles-guard-admits-granted` | `@Roles` admits through `Role.granted` |
 | `role-grants-table` | the grant table |
