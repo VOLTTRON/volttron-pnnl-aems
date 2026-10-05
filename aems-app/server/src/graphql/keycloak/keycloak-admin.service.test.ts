@@ -334,12 +334,13 @@ describe("KeycloakAdminService", () => {
   });
 
   describe("lookupKeycloakUserId()", () => {
-    it("queries prisma.account.findFirst with provider='keycloak' and userId", async () => {
+    it("takes the newest keycloak account of the user, an older one naming a deleted Keycloak user", async () => {
       const prisma = makePrisma({ providerAccountId: "kc-user-1" });
       const svc = new KeycloakAdminService(makeConfig(), prisma);
       await svc.lookupKeycloakUserId("app-user-1");
       expect(prisma.prisma.account.findFirst).toHaveBeenCalledWith({
         where: { userId: "app-user-1", provider: "keycloak" },
+        orderBy: { createdAt: "desc" },
       });
     });
 

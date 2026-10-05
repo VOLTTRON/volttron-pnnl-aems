@@ -11,7 +11,7 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 | `shell` | unbuilt | auth, graphql |
 | `keycloak-admin` | unbuilt | auth, graphql |
 | `background` | built | stack |
-| `logging` | unbuilt | background |
+| `logging` | built | background |
 | `backup` | unbuilt | background |
 | `ext-geography` | unbuilt | auth |
 | `content-admin` | unbuilt | graphql |

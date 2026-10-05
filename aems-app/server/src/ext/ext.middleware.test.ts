@@ -85,7 +85,7 @@ describe("ExtRewriteMiddleware", () => {
     const proxyReq = makeProxyReq();
     mockHttpRequest.mockReturnValue(proxyReq);
 
-    const ext = { map: { path: "/ext/map", authorized: "http://tiles.local" } };
+    const ext = { map: { path: "/ext/map", authorized: "http://tiles.local", role: makeGranted(true) } };
     const middleware = new ExtRewriteMiddleware(makeConfig(ext));
     const req = makeReq({ url: "/ext/map/layer.json", originalUrl: "/ext/map/layer.json" });
 
@@ -99,7 +99,7 @@ describe("ExtRewriteMiddleware", () => {
     const proxyReq = makeProxyReq();
     mockHttpsRequest.mockReturnValue(proxyReq);
 
-    const ext = { secure: { path: "/ext/secure", authorized: "https://secure.local" } };
+    const ext = { secure: { path: "/ext/secure", authorized: "https://secure.local", role: makeGranted(true) } };
     const middleware = new ExtRewriteMiddleware(makeConfig(ext));
     const req = makeReq({ url: "/ext/secure/data", originalUrl: "/ext/secure/data" });
 
@@ -175,7 +175,7 @@ describe("ExtRewriteMiddleware", () => {
       return proxyReq;
     });
 
-    const ext = { map: { path: "/ext/map", authorized: "http://tiles.local" } };
+    const ext = { map: { path: "/ext/map", authorized: "http://tiles.local", role: makeGranted(true) } };
     const middleware = new ExtRewriteMiddleware(makeConfig(ext));
     const req = makeReq({ url: "/ext/map/tile", originalUrl: "/ext/map/tile" });
     const res = makeRes();
