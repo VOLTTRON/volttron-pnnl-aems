@@ -8,17 +8,19 @@ import * as https from "https";
 @Injectable()
 export class ExtRewriteMiddleware implements NestMiddleware {
   private logger = new Logger(ExtRewriteMiddleware.name);
-  private configs: ExtConfig[] = [];
+  private configs: (ExtConfig & Required<Pick<ExtConfig, "path" | "authorized" | "role">>)[] = [];
 
   constructor(@Inject(AppConfigService.Key) configService: AppConfigService) {
     Object.entries(configService.ext).forEach(([key, config]) => {
       try {
-        if (config.path && config.authorized) {
-          this.configs.push(config);
+        // A role is required: with none there is nothing to check the caller against, and the
+        // services behind /ext/ (the tile server among them) do no authentication of their own.
+        if (config.path && config.authorized && config.role) {
+          this.configs.push({ ...config, path: config.path, authorized: config.authorized, role: config.role });
           this.logger.log(`Successfully configured proxy for external service: ${key}`);
         } else {
           this.logger.warn(
-            `Ext option ${key} is missing required properties - path: ${!!config.path}, authorized: ${!!config.authorized}`,
+            `Ext option ${key} is missing required properties - path: ${!!config.path}, authorized: ${!!config.authorized}, role: ${!!config.role}`,
           );
         }
       } catch (error) {
@@ -33,14 +35,12 @@ export class ExtRewriteMiddleware implements NestMiddleware {
       if (!config) {
         return next();
       }
-      if (config.role) {
-        const userRoles = req.user?.roles ?? [];
-        if (!config.role.granted(...userRoles)) {
-          if (config.unauthorized) {
-            return res.redirect(HttpStatusType.Found.status, config.unauthorized);
-          } else {
-            return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
-          }
+      const userRoles = req.user?.roles ?? [];
+      if (!config.role.granted(...userRoles)) {
+        if (config.unauthorized) {
+          return res.redirect(HttpStatusType.Found.status, config.unauthorized);
+        } else {
+          return res.status(HttpStatusType.Forbidden.status).json(HttpStatusType.Forbidden);
         }
       }
       const targetUrl = new URL(req.originalUrl.replace(new RegExp(`^${config.path}`, "i"), ""), config.authorized);

@@ -42,7 +42,7 @@ export default defineConfig({
     {
       name: "unauthenticated",
       use: { ...devices["Desktop Chrome"] },
-      testMatch: specs("smoke", "auth", "stack"),
+      testMatch: specs("smoke", "auth", "stack", "ext"),
     },
     {
       name: "as-user",
@@ -60,7 +60,7 @@ export default defineConfig({
         storageState: ".auth/admin.json",
       },
       dependencies: ["setup"],
-      testMatch: specs("graphql-admin"),
+      testMatch: specs("graphql-admin", "keycloak-admin", "geography"),
     },
     {
       // Restarts the stack, so it waits for everything that uses it.
