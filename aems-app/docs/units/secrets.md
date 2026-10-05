@@ -23,10 +23,9 @@ the one its peers accept, whatever git has done to the checkout; not which servi
   `secrets.sh --scrub` writes the tracked sentinel version back and clears the mark.
 - The deployed value of a credential is read from the running container, never from `.env`, so a
   `.env` reset to its sentinels under a running stack is re-synced with no rotation and no recreate.
-- A value that differs between `.env.secrets` and the running container is applied to the service
-  with the old value (`ALTER ROLE`, `kcadm`, `grafana-cli`) and the service recreated with
-  `up -d --no-deps`; when that container is down the script refuses unless `--force`, and
-  `--dry-run` changes nothing.
+- A value differing between `.env.secrets` and the running container is applied to the service with
+  the old value (`ALTER ROLE`, `kcadm`, `grafana-cli`) and that service recreated with `up -d
+  --no-deps`; when its container is down the script refuses unless `--force`; `--dry-run` changes nothing.
 - A Postgres role whose stored password matches the sentinel rather than `.env.secrets` is rotated to
   the `.env.secrets` value without operator action.
 - After any `HISTORIAN_*_PASSWORD` rotation, and after every `start-services`, the VOLTTRON
@@ -55,6 +54,7 @@ stack
 | `secrets-rotate-live` | live rotation, refusal when down, `--dry-run` |
 | `pg-shadow-drift-healed` | sentinel-initialised role rotated |
 | `historian-config-reconciled` | SQLHistorian config matches after rotation and deploy |
-| `compose-paths-sync-first` | each script syncs first, before `check-env`, after a failed `up`; no export |
+| `compose-paths-sync-first` | each script syncs first, before `check-env`, after a failed `up` |
+| `no-env-export` | no `env.sh`, and no script exports `.env` into the shell |
 | `check-env-warns` | reports without blocking, `.sh` and `.ps1` alike |
 | `read-secret-env` | `readSecret` reads the variable |
