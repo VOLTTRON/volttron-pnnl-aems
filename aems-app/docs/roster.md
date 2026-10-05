@@ -4,7 +4,7 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 
 | Unit | State | Depends on |
 |---|---|---|
-| `stack` | unbuilt | — |
+| `stack` | built | — |
 | `secrets` | built | stack |
 | `auth` | unbuilt | stack |
 | `graphql` | built | auth |

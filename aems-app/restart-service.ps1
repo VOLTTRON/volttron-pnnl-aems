@@ -124,7 +124,9 @@ try {
         }
         else {
             Write-Host "Restarting service: $ServiceName" -ForegroundColor Blue
-            docker compose restart $ServiceName
+            # Recreated, not restarted: a restart keeps the environment the container was created
+            # with, so the .env synced above would reach nothing.
+            docker compose up -d --force-recreate --no-deps $ServiceName
             Write-Host "Restarted: $ServiceName" -ForegroundColor Green
         }
     }

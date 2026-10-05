@@ -57,7 +57,25 @@ for (const shell of ["sh", "ps"] as const) {
       const restarted = run(shell, "restart-service", "database");
       expect(restarted.status, restarted.out).toBe(0);
       expect(fx.calls()[0], fx.calls().join("\n")).toBe("#secrets");
-      expect(fx.calls(), fx.calls().join("\n")).toContain("compose restart database");
+      expect(fx.calls().some((c) => c.startsWith("compose up -d")), fx.calls().join("\n")).toBe(true);
+    });
+
+    // scenario: restart-recreates
+    test("restart-service recreates each service it names, after syncing .env, and restarts none", () => {
+      fx = new Fixture([`restart-service.${ext}`]);
+      stub(shell, "secrets");
+      fx.write(".env.secrets", "");
+
+      fx.docker({ outputs: [["compose config --services", "database\nserver\nclient"]] });
+      const restarted = run(shell, "restart-service", "database", "server");
+      expect(restarted.status, restarted.out).toBe(0);
+      const calls = fx.calls();
+      const synced = calls.indexOf("#secrets");
+      expect(synced, calls.join("\n")).toBe(0);
+      for (const service of ["database", "server"]) {
+        expect(calls.indexOf(`compose up -d --force-recreate --no-deps ${service}`), calls.join("\n")).toBeGreaterThan(synced);
+      }
+      expect(calls.filter((c) => / restart\b|client/.test(c)), calls.join("\n")).toEqual([]);
     });
   });
 

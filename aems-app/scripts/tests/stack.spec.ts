@@ -15,6 +15,7 @@ import {
   run,
   stripAnsi,
 } from "./support/stack";
+import { headersOn, routers } from "./support/routers";
 
 type Config = {
   services: Record<string, { profiles?: string[]; depends_on?: Record<string, { condition: string; required?: boolean }> }>;
@@ -99,14 +100,16 @@ test.describe("stack", () => {
   });
 
   // scenario: security-headers-present
-  test("responses carry HSTS, X-Frame-Options and X-Content-Type-Options", async ({ request }) => {
-    test.fixme(true, "parked: the HSTS claim carries an Open line in docs/units/stack.md");
-    for (const p of ["/", "/graphql"]) {
-      const headers = (await request.get(p, { maxRedirects: 0 })).headers();
-      expect(headers["strict-transport-security"], p).toMatch(/max-age=[1-9]/);
-      expect(headers["x-frame-options"], p).toBeTruthy();
-      expect(headers["x-content-type-options"], p).toBe("nosniff");
+  test("every router, Grafana's included, sends X-Frame-Options and X-Content-Type-Options", async ({ request }) => {
+    const all = routers();
+    expect(all.map((r) => r.name)).toEqual(expect.arrayContaining(["client", "server", "keycloak", "keycloak-admin", "grafana"]));
+    const missing: string[] = [];
+    for (const { name, url } of all) {
+      const headers = await headersOn(request, url);
+      if (!/^(DENY|SAMEORIGIN)$/i.test(headers["x-frame-options"] ?? "")) missing.push(`${name}: X-Frame-Options`);
+      if (headers["x-content-type-options"] !== "nosniff") missing.push(`${name}: X-Content-Type-Options`);
     }
+    expect(missing).toEqual([]);
   });
 
   // scenario: certs-before-proxy

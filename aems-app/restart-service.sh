@@ -163,7 +163,9 @@ for SERVICE_NAME in "${SERVICE_NAMES[@]}"; do
         print_blue "[DRY RUN] Would restart: $SERVICE_NAME"
     else
         print_blue "Restarting service: $SERVICE_NAME"
-        docker compose restart "$SERVICE_NAME"
+        # Recreated, not restarted: a restart keeps the environment the container was created
+        # with, so the .env synced above would reach nothing.
+        docker compose up -d --force-recreate --no-deps "$SERVICE_NAME"
         print_green "Restarted: $SERVICE_NAME"
     fi
 done

@@ -2674,7 +2674,7 @@ Use this over `docker compose down [-v]` — the wrapper adds a confirmation pro
 
 #### `restart-service.[ps1|sh]`
 
-Restarts one or more services in place. Preserves volumes and every other running service — this is the safe, non-destructive counterpart to `reset-service`.
+Syncs `.env`, then recreates one or more services with `docker compose up -d --force-recreate --no-deps`, so each runs with the `.env` as it now stands. Preserves volumes and every other running service — this is the safe, non-destructive counterpart to `reset-service`.
 
 ```bash
 # Linux/Mac
@@ -2690,7 +2690,7 @@ Restarts one or more services in place. Preserves volumes and every other runnin
 
 Invoked with no arguments, lists every service the compose project defines. Options: `-n/--dry-run` previews; `-h/--help` shows detailed usage. Prints a `docker compose ps` status line for the restarted services on completion so you can confirm they came back healthy.
 
-Use this for reloading a service after editing a bind-mounted config file — no need to type raw `docker compose restart` commands.
+Use this for reloading a service after editing `.env.secrets`, `.env` or a bind-mounted config file. A raw `docker compose restart` keeps the environment the container was created with.
 
 #### `reset-service.[ps1|sh]`
 
