@@ -1,6 +1,6 @@
 # logging
 
-**State:** unbuilt
+**State:** built
 
 ## Contract
 

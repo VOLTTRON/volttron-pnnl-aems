@@ -1,10 +1,65 @@
 import { test, expect } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { appDir, container, hostname, inspect, readEnv, run } from "./support/stack";
+import { appDir, container, docker, hostname, inspect, psql, readEnv, run, stripAnsi } from "./support/stack";
 import { headersOn, routers } from "./support/routers";
 
 const PLACEHOLDER = "SeT_tHiS_iN_0x3A-.env.secrets-";
+
+const healthy = (service: string) =>
+  expect
+    .poll(() => inspect(container(service), "{{.State.Health.Status}}"), { timeout: 10 * 60_000, intervals: [5_000] })
+    .toBe("healthy");
+
+// Runs here because it restarts the server: the services container boots the same application and
+// writes the same lines to the same table, so only a line written after the server alone restarted
+// is known to be the server's.
+// scenario: log-to-console-and-table
+test("a log entry reaches the server's console and the Log table", async () => {
+  test.setTimeout(15 * 60_000);
+  const BOOTED = "Nest application successfully started";
+  docker("restart", container("server"));
+  const started = inspect(container("server"), "{{.State.StartedAt}}");
+  await healthy("server");
+  expect(stripAnsi(docker("logs", "--since", started, container("server")))).toContain(BOOTED);
+  const since = `"createdAt" >= '${started}'::timestamptz - interval '1 second'`;
+  await expect
+    .poll(() => Number(psql("database", "aems", `SELECT count(*) FROM "Log" WHERE message LIKE '%${BOOTED}%' AND ${since}`)), {
+      timeout: 60_000,
+    })
+    .toBeGreaterThan(0);
+});
+
+// Runs here because it restarts the server and the background services.
+// scenario: log-pruned-by-worker
+test("the Log table is pruned by the process whose INSTANCE_TYPE includes log, and not by the server", async () => {
+  test.setTimeout(15 * 60_000);
+  const instanceType = (service: string) =>
+    (JSON.parse(inspect(container(service), "{{json .Config.Env}}")) as string[])
+      .find((e) => e.startsWith("INSTANCE_TYPE="))
+      ?.slice("INSTANCE_TYPE=".length)
+      .split(",");
+  const includesLog = (types: string[] = []) => !types.includes("!log") && ["log", "^log", "*"].some((t) => types.includes(t));
+  expect(includesLog(instanceType("services"))).toBe(true);
+  expect(includesLog(instanceType("server"))).toBe(false);
+
+  const marker = `prune-marker-${Date.now()}`;
+  const present = () => Number(psql("database", "aems", `SELECT count(*) FROM "Log" WHERE id = '${marker}'`));
+  psql(
+    "database",
+    "aems",
+    `INSERT INTO "Log" (id, type, message, "createdAt", "updatedAt") VALUES ('${marker}', 'Info', '${marker}', now() - interval '1 day', now())`,
+  );
+  expect(present()).toBe(1);
+
+  docker("restart", container("server"));
+  await healthy("server");
+  await new Promise((resolve) => setTimeout(resolve, 15_000));
+  expect(present()).toBe(1);
+
+  docker("restart", container("services"));
+  await expect.poll(present, { timeout: 5 * 60_000, intervals: [2_000] }).toBe(0);
+});
 
 // Runs here because it recreates every service that carries a router.
 // scenario: hsts-follows-sts-seconds
