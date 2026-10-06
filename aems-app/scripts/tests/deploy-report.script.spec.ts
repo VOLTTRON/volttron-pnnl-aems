@@ -75,23 +75,40 @@ for (const shell of ["sh", "ps"] as const) {
       expect(lineFor(r.out, "VOLTTRON"), r.out).toMatch(/not running/);
     });
 
-    test("start-services ends with it", () => {
+    /** start-services with every script it runs stubbed to log itself; the report exits REPORT. */
+    function stubbedStart(report: number) {
       fx = new Fixture([`start-services.${ext}`]);
       for (const script of ["secrets", "check-env", "scripts/reconcile-historian-logins", "scripts/sync-volttron-historian-config", SCRIPT]) {
         const line = JSON.stringify({ argv: [`#${script}`], env: {} });
+        const code = script === SCRIPT ? report : 0;
         fx.write(
           `${script}.${ext}`,
           shell === "sh"
-            ? `#!/bin/sh\nprintf '%s\\n' '${line}' >> "$FAKE_DOCKER_LOG"\n`
-            : `Add-Content -LiteralPath $env:FAKE_DOCKER_LOG -Value '${line}'\nexit 0\n`,
+            ? `#!/bin/sh\nprintf '%s\\n' '${line}' >> "$FAKE_DOCKER_LOG"\nexit ${code}\n`
+            : `Add-Content -LiteralPath $env:FAKE_DOCKER_LOG -Value '${line}'\nexit ${code}\n`,
         );
       }
       fx.write(".env.secrets", "");
       fx.docker({});
-      const r = shell === "sh" ? fx.sh("start-services.sh", "--no-build") : fx.ps("start-services.ps1", "-NoBuild");
+    }
+
+    test("start-services ends with it", () => {
+      stubbedStart(0);
+      const r = shell === "sh" ? fx!.sh("start-services.sh", "--no-build") : fx!.ps("start-services.ps1", "-NoBuild");
       expect(r.status, r.out).toBe(0);
-      const calls = fx.calls();
+      const calls = fx!.calls();
       expect(calls[calls.length - 1], calls.join("\n")).toBe(`#${SCRIPT}`);
+    });
+
+    // test-integration.ps1 runs start-services in its own session and reads $LASTEXITCODE after it.
+    test("an unhealthy report does not fail start-services, even for a caller in the same session", () => {
+      stubbedStart(1);
+      const r =
+        shell === "sh"
+          ? fx!.sh("start-services.sh", "--no-build")
+          : fx!.session("& .\\start-services.ps1 -NoBuild; exit $LASTEXITCODE");
+      expect(r.status, r.out).toBe(0);
+      expect(fx!.calls().pop(), r.out).toBe(`#${SCRIPT}`);
     });
   });
 }

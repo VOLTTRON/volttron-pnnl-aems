@@ -168,6 +168,8 @@ try {
         if ($LASTEXITCODE -ne 0) {
             Write-Host "The deployment report names something unhealthy (above)." -ForegroundColor Yellow
         }
+        # The report's verdict is its own: a caller in this session reads $LASTEXITCODE as the start's.
+        $global:LASTEXITCODE = 0
     }
 }
 catch {
