@@ -650,14 +650,6 @@ input ChangeAggregate {
   sum: [ChangeFields!]
 }
 
-input ChangeCreateInput {
-  data: ChangeData
-  key: String!
-  mutation: ChangeMutation!
-  table: String!
-  userId: String
-}
-
 scalar ChangeData
 
 enum ChangeFields {
@@ -706,14 +698,6 @@ input ChangeOrderBy {
 
 input ChangeUniqueFilter {
   id: String
-}
-
-input ChangeUpdateInput {
-  data: ChangeData
-  key: String
-  mutation: ChangeMutation
-  table: String
-  userId: String
 }
 
 type Comment {
@@ -1701,9 +1685,6 @@ type Mutation {
   """Create a new banner."""
   createBanner(create: BannerCreateInput!): Banner
 
-  """Create a new change."""
-  createChange(create: ChangeCreateInput!): Change
-
   """Create a new comment."""
   createComment(create: CommentCreateInput!): Comment
 
@@ -1842,9 +1823,6 @@ type Mutation {
 
   """Update the specified banner."""
   updateBanner(update: BannerUpdateInput!, where: BannerUniqueFilter!): Banner
-
-  """Update the specified change."""
-  updateChange(update: ChangeUpdateInput!, where: ChangeUniqueFilter!): Change
 
   """Update the specified comment."""
   updateComment(update: CommentUpdateInput!, where: CommentUniqueFilter!): Comment

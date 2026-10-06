@@ -4,6 +4,7 @@ import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { VolttronService } from "../volttron.service";
+import { StageType } from "@local/common";
 
 interface Flags {
   serviceOverride?: boolean;
@@ -28,6 +29,7 @@ function unit(configuration: Record<string, unknown> = {}, timezone: string | nu
     id: "u1",
     label: "Unit 1",
     system: "RTU1",
+    stage: StageType.Update.enum as string,
     timezone,
     location: null,
     configuration: {
@@ -51,10 +53,12 @@ describe("the unit configuration sent to VOLTTRON", () => {
   let module: TestingModule;
   let service: ConfigService;
   let makeApiCall: jest.Mock;
-  let units: unknown[];
+  let units: ReturnType<typeof unit>[];
+  let updates: { stage: string; message?: string | null }[];
 
   async function push(flags: Flags = {}) {
-    makeApiCall = jest.fn().mockResolvedValue({});
+    makeApiCall ??= jest.fn().mockResolvedValue({});
+    updates = [];
     module = await Test.createTestingModule({
       providers: [
         ConfigService,
@@ -63,8 +67,13 @@ describe("the unit configuration sent to VOLTTRON", () => {
           useValue: {
             prisma: {
               unit: {
-                findMany: jest.fn().mockResolvedValue(units),
-                update: jest.fn().mockResolvedValue(null),
+                findMany: jest.fn(({ where }: { where: { stage: { in: string[] } } }) =>
+                  Promise.resolve(units.filter((u) => where.stage.in.includes(u.stage))),
+                ),
+                update: jest.fn(({ data }: { data: { stage: string; message?: string | null } }) => {
+                  updates.push(data);
+                  return Promise.resolve(null);
+                }),
                 updateMany: jest.fn().mockResolvedValue({ count: 0 }),
               },
             },
@@ -92,11 +101,12 @@ describe("the unit configuration sent to VOLTTRON", () => {
     await service.task();
   }
 
-  const sent = (method: string) => makeApiCall.mock.calls.find((c) => c[1] === method)?.[3] as Record<string, any> | undefined;
+  const sent = (method: string) => makeApiCall.mock.calls.filter((c) => c[1] === method).pop()?.[3] as Record<string, any> | undefined;
 
   afterEach(async () => {
     jest.useRealTimers();
     await module?.close();
+    makeApiCall = undefined as unknown as jest.Mock;
   });
 
   // scenario: service-windows-gated
@@ -187,5 +197,56 @@ describe("the unit configuration sent to VOLTTRON", () => {
       await push({ timezone: "Asia/Tokyo" });
       expect(Object.keys(sent("set_occupancy_override") ?? {})).toEqual(["2026-03-10"]);
     });
+  });
+
+  const methods = () => makeApiCall.mock.calls.map((c) => c[1] as string);
+
+  // scenario: unit-push-sequence
+  it("moves a unit to Process, makes the eight calls to manager.<system> in order, then moves it to Complete", async () => {
+    units = [unit()];
+    await push({ serviceOverride: true });
+    expect(methods()).toEqual([
+      "set_temperature_setpoints",
+      "set_occupancy_override",
+      "set_holidays",
+      "set_schedule",
+      "set_service_schedule",
+      "set_optimal_start",
+      "set_configurations",
+      "set_location",
+    ]);
+    expect(new Set(makeApiCall.mock.calls.map((c) => c[0]))).toEqual(new Set(["manager.rtu1"]));
+    expect(updates.map((u) => u.stage)).toEqual([StageType.Process.enum, StageType.Complete.enum]);
+  });
+
+  // scenario: unit-push-fail-message
+  describe("a failed call", () => {
+    const failing = (method: string, message: string) =>
+      jest.fn((_id: string, m: string) => (m === method ? Promise.reject(new Error(message)) : Promise.resolve({})));
+
+    it("moves the unit to Fail with the error cut to 1024 characters, and stops the push", async () => {
+      units = [unit()];
+      makeApiCall = failing("set_holidays", "y".repeat(2000));
+      await push({ serviceOverride: true });
+      expect(methods()).toEqual(["set_temperature_setpoints", "set_occupancy_override", "set_holidays"]);
+      expect(updates.map((u) => u.stage)).toEqual([StageType.Process.enum, StageType.Fail.enum]);
+      expect(updates[1].message).toHaveLength(1024);
+    });
+
+    it("to set_service_schedule is only logged, and the push carries on to Complete", async () => {
+      units = [unit()];
+      makeApiCall = failing("set_service_schedule", "service schedule refused");
+      await push({ serviceOverride: true });
+      expect(methods()).toContain("set_location");
+      expect(updates.map((u) => u.stage)).toEqual([StageType.Process.enum, StageType.Complete.enum]);
+    });
+  });
+
+  // scenario: fail-not-retried
+  it("leaves a unit in Fail alone", async () => {
+    units = [{ ...unit(), stage: StageType.Fail.enum }];
+    await push();
+    expect(makeApiCall).not.toHaveBeenCalled();
+    expect(updates).toEqual([]);
   });
 });

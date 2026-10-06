@@ -6,6 +6,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 
 const resolvers: Record<string, (...args: unknown[]) => unknown> = {};
+const scopes: Record<string, unknown> = {};
 
 function makeMockT() {
   return {
@@ -22,6 +23,7 @@ function makeBuilder(): SchemaBuilderService {
     mutationField: jest.fn((name: string, cb: (t: unknown) => any) => {
       const opts = cb(mockT);
       resolvers[name] = opts.resolve;
+      scopes[name] = opts.authScopes;
     }),
   } as unknown as SchemaBuilderService;
 }
@@ -58,30 +60,11 @@ describe("ChangeMutation", () => {
     Object.keys(resolvers).forEach((k) => delete resolvers[k]);
   });
 
-  it("registers create/update/delete mutation fields", () => {
+  // scenario: change-log-guarded
+  it("offers no mutation that creates or edits a change record, and lets an admin delete one", () => {
     new ChangeMutation(makeBuilder(), makePrisma(), makeSubscription(), makeChangeQuery(), makeChangeObject());
-    expect(Object.keys(resolvers).sort()).toEqual(["createChange", "deleteChange", "updateChange"]);
-  });
-
-  it("createChange calls prisma.change.create and publishes subscription", async () => {
-    const prisma = makePrisma({ id: "c1" });
-    const sub = makeSubscription();
-    new ChangeMutation(makeBuilder(), prisma, sub, makeChangeQuery(), makeChangeObject());
-    const result = await resolvers["createChange"]({}, null, { create: { table: "User" } }, adminCtx);
-    expect(prisma.prisma.change.create).toHaveBeenCalled();
-    expect(sub.publish).toHaveBeenCalledWith("Change", expect.objectContaining({ id: "c1" }));
-    expect(result).toEqual({ id: "c1" });
-  });
-
-  it("updateChange calls prisma.change.update and publishes 2 subscriptions", async () => {
-    const prisma = makePrisma({ id: "c1" });
-    const sub = makeSubscription();
-    new ChangeMutation(makeBuilder(), prisma, sub, makeChangeQuery(), makeChangeObject());
-    await resolvers["updateChange"]({}, null, { where: { id: "c1" }, update: { table: "X" } }, adminCtx);
-    expect(prisma.prisma.change.update).toHaveBeenCalled();
-    expect(sub.publish).toHaveBeenCalledTimes(2);
-    expect(sub.publish).toHaveBeenCalledWith("Change", expect.any(Object));
-    expect(sub.publish).toHaveBeenCalledWith("Change/c1", expect.any(Object));
+    expect(Object.keys(resolvers)).toEqual(["deleteChange"]);
+    expect(scopes.deleteChange).toEqual({ admin: true });
   });
 
   it("deleteChange calls prisma.change.delete and publishes 2 subscriptions", async () => {

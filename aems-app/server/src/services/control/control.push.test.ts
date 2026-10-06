@@ -160,6 +160,14 @@ describe("pushing a control to the ILC agent", () => {
     });
   });
 
+  // scenario: fail-not-retried
+  it("leaves a control in Fail alone", async () => {
+    controls = [control({ stage: StageType.Fail.enum })];
+    await push();
+    expect(sent()).toEqual([]);
+    expect(updates).toEqual([]);
+  });
+
   // scenario: new-control-pushed
   it("pushes a control setup has just created, with no edit", async () => {
     controls = [control({ stage: StageType.Create.enum })];
