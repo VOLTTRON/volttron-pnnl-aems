@@ -20,23 +20,27 @@ const prisma_service_1 = require("../../prisma/prisma.service");
 const app_config_1 = require("../../app.config");
 const schedule_1 = require("@nestjs/schedule");
 const common_2 = require("@local/common");
+const config_occupancy_1 = require("../config/config.occupancy");
 let CleanupService = CleanupService_1 = class CleanupService extends __1.BaseService {
     constructor(prismaService, configService) {
         super("cleanup", configService);
         this.prismaService = prismaService;
+        this.configService = configService;
         this.logger = new common_1.Logger(CleanupService_1.name);
-        this.started = new Date(new Date().getTime() - process.uptime() * 1000);
     }
     execute() {
         return super.execute();
     }
     async task() {
         this.logger.log("Checking for occupancies that need to be cleaned up...");
+        const fallback = this.configService.volttron.timezone;
         return this.prismaService.prisma.occupancy
-            .findMany({
-            where: { date: { lt: new Date(Date.now() - this.started.getTime()) } },
-            include: { configuration: { include: { units: true } } },
-        })
+            .findMany({ include: { configuration: { include: { units: true } } } })
+            .then((all) => all.filter((occupancy) => {
+            const units = occupancy.configuration?.units ?? [];
+            const todays = units.length > 0 ? units.map((unit) => (0, config_occupancy_1.todayIn)([unit.timezone, fallback])) : [(0, config_occupancy_1.todayIn)([fallback])];
+            return todays.every((today) => (0, config_occupancy_1.dateKey)(occupancy.date) < today);
+        }))
             .then(async (occupancies) => {
             const occupancyIds = occupancies.map((occupancy) => occupancy.id);
             const unitIds = new Set(occupancies
@@ -50,7 +54,7 @@ let CleanupService = CleanupService_1 = class CleanupService extends __1.BaseSer
                 where: { id: { in: Array.from(unitIds) } },
                 data: { stage: common_2.StageType.ProcessType.enum },
             });
-            this.logger.log(`Cleaned up ${result.count} ${result.count === 1 ? " occupancy" : " occupancies"} that occurred prior to ${this.started.toLocaleDateString()}.`);
+            this.logger.log(`Cleaned up ${result.count} ${result.count === 1 ? " occupancy" : " occupancies"} dated before today.`);
         })
             .catch((error) => {
             this.logger.warn({ message: error.message, stack: error.stack });

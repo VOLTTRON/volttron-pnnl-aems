@@ -116,12 +116,11 @@ let ConfigService = ConfigService_1 = class ConfigService extends __1.BaseServic
                         await this.volttronService.makeApiCall(`manager.${unit.system.toLowerCase()}`, "set_temperature_setpoints", token, set_temperature_setpoints);
                         this.logger.debug(`[${unit.label}] Temperature setpoints updated successfully`);
                         this.logger.debug(`[${unit.label}] Setting occupancy overrides...`);
-                        const now = new Date();
-                        const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+                        const today = (0, config_occupancy_1.todayIn)([unit.timezone, this.configService.volttron.timezone]);
                         const set_occupancy_override = unit.configuration?.occupancies
-                            .filter((v) => v.date.getTime() >= todayUtc)
+                            .filter((v) => (0, config_occupancy_1.dateKey)(v.date) >= today)
                             .reduce((p, c) => {
-                            const k = `${c.date.getUTCFullYear().toString()}-${(c.date.getUTCMonth() + 1).toString().padStart(2, "0")}-${c.date.getUTCDate().toString().padStart(2, "0")}`;
+                            const k = (0, config_occupancy_1.dateKey)(c.date);
                             const v = this.buildOccupancyPayload(c.schedule).occupancy;
                             if (k in p) {
                                 p[k].push(v);
@@ -137,7 +136,9 @@ let ConfigService = ConfigService_1 = class ConfigService extends __1.BaseServic
                         const set_holidays = unit.configuration?.holidays
                             .filter((a) => a.type !== "Disabled")
                             .reduce((p, c) => (0, lodash_1.merge)(p, {
-                            [c.label]: c.type === "Custom" ? { month: c.month, day: c.day, observance: c.observance } : {},
+                            [c.label]: c.type === "Custom"
+                                ? { month: c.month, day: c.day, observance: common_2.ObservanceType.parse(c.observance ?? "")?.name ?? c.observance }
+                                : {},
                         }), {});
                         await this.volttronService.makeApiCall(`manager.${unit.system.toLowerCase()}`, "set_holidays", token, set_holidays);
                         this.logger.debug(`[${unit.label}] Holidays updated successfully`);

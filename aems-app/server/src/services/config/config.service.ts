@@ -3,12 +3,12 @@ import { BaseService } from "..";
 import { Inject, Injectable, Logger, OnApplicationBootstrap } from "@nestjs/common";
 import { PrismaService } from "@/prisma/prisma.service";
 import { Cron } from "@nestjs/schedule";
-import { Mutation, StageType, typeofObject } from "@local/common";
+import { Mutation, ObservanceType, StageType, typeofObject } from "@local/common";
 import { merge } from "@local/common/dist/utils/lodash";
 import { VolttronService } from "../volttron.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { Schedule } from "@prisma/client";
-import { toOccupiedRange, toServiceWindow } from "./config.occupancy";
+import { dateKey, todayIn, toOccupiedRange, toServiceWindow } from "./config.occupancy";
 
 @Injectable()
 export class ConfigService extends BaseService implements OnApplicationBootstrap {
@@ -117,13 +117,12 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
               this.logger.debug(`[${unit.label}] Temperature setpoints updated successfully`);
 
               this.logger.debug(`[${unit.label}] Setting occupancy overrides...`);
-              const now = new Date();
-              const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+              const today = todayIn([unit.timezone, this.configService.volttron.timezone]);
               const set_occupancy_override = unit.configuration?.occupancies
-                .filter((v) => v.date.getTime() >= todayUtc)
+                .filter((v) => dateKey(v.date) >= today)
                 .reduce(
                   (p, c) => {
-                    const k = `${c.date.getUTCFullYear().toString()}-${(c.date.getUTCMonth() + 1).toString().padStart(2, "0")}-${c.date.getUTCDate().toString().padStart(2, "0")}`;
+                    const k = dateKey(c.date);
                     const v = this.buildOccupancyPayload(c.schedule).occupancy;
                     if (k in p) {
                       p[k].push(v);
@@ -148,7 +147,10 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
                 .reduce(
                   (p, c) =>
                     merge(p, {
-                      [c.label]: c.type === "Custom" ? { month: c.month, day: c.day, observance: c.observance } : {},
+                      [c.label]:
+                        c.type === "Custom"
+                          ? { month: c.month, day: c.day, observance: ObservanceType.parse(c.observance ?? "")?.name ?? c.observance }
+                          : {},
                     }),
                   {} as Record<string, { month?: number; day?: number; observance?: string }>,
                 );

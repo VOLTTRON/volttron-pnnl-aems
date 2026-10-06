@@ -1,8 +1,28 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.dateKey = dateKey;
+exports.todayIn = todayIn;
 exports.toMinutes = toMinutes;
 exports.toOccupiedRange = toOccupiedRange;
 exports.toServiceWindow = toServiceWindow;
+function dateKey(date) {
+    return date.toISOString().slice(0, 10);
+}
+function todayIn(timezones, now = new Date()) {
+    for (const timeZone of timezones) {
+        if (!timeZone)
+            continue;
+        try {
+            const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" })
+                .formatToParts(now)
+                .reduce((acc, part) => ({ ...acc, [part.type]: part.value }), {});
+            return `${parts.year}-${parts.month}-${parts.day}`;
+        }
+        catch {
+        }
+    }
+    return dateKey(now);
+}
 function toMinutes(t) {
     if (!t)
         return null;

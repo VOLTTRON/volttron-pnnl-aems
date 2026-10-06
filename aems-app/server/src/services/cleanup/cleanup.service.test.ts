@@ -4,7 +4,7 @@ import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
 
 function makeConfig(): AppConfigService {
-  return { instanceType: "cleanup", service: {} } as unknown as AppConfigService;
+  return { instanceType: "cleanup", service: {}, volttron: { timezone: "Asia/Tokyo" } } as unknown as AppConfigService;
 }
 
 describe("CleanupService", () => {
@@ -44,24 +44,46 @@ describe("CleanupService", () => {
     expect(service).toBeDefined();
   });
 
-  it("task() queries occupancies even when none match", async () => {
-    await service.task();
-    expect(mockPrisma.prisma.occupancy.findMany).toHaveBeenCalled();
-    expect(mockPrisma.prisma.occupancy.deleteMany).toHaveBeenCalledWith({ where: { id: { in: [] } } });
-  });
+  // scenario: occupancy-cleanup-deletes-past
+  describe("each night", () => {
+    // 03:00 UTC on 10 March is still 9 March in Los Angeles and already 10 March in Tokyo. Dates are
+    // stored at noon UTC, as the client writes them.
+    const at = (id: string, day: string, timezones: (string | null)[]) => ({
+      id,
+      date: new Date(`${day}T12:00:00Z`),
+      configuration: { units: timezones.map((timezone, i) => ({ id: `${id}-u${i}`, timezone })) },
+    });
+    beforeEach(() => {
+      jest.useFakeTimers({ now: new Date("2026-03-10T03:00:00Z"), doNotFake: ["nextTick", "setImmediate", "setTimeout", "setInterval", "queueMicrotask"] });
+    });
+    afterEach(() => jest.useRealTimers());
 
-  it("task() deletes matching occupancies and updates affected units", async () => {
-    mockPrisma.prisma.occupancy.findMany.mockResolvedValue([
-      { id: "o1", configuration: { units: [{ id: "u1" }, { id: "u2" }] } },
-      { id: "o2", configuration: { units: [{ id: "u2" }] } },
-    ]);
-    mockPrisma.prisma.occupancy.deleteMany.mockResolvedValue({ count: 2 });
+    const deleted = () => (mockPrisma.prisma.occupancy.deleteMany.mock.calls[0]?.[0]?.where.id.in ?? []).slice().sort();
 
-    await service.task();
+    it("deletes the occupancies dated before today in their units' timezone, and marks those units", async () => {
+      mockPrisma.prisma.occupancy.findMany.mockResolvedValue([
+        at("past", "2026-03-08", ["America/Los_Angeles"]),
+        at("today-la", "2026-03-09", ["America/Los_Angeles"]),
+        at("yesterday-tokyo", "2026-03-09", ["Asia/Tokyo"]),
+        at("future", "2026-03-11", ["Asia/Tokyo"]),
+      ]);
+      mockPrisma.prisma.occupancy.deleteMany.mockResolvedValue({ count: 2 });
+      await service.task();
+      expect(deleted()).toEqual(["past", "yesterday-tokyo"]);
+      expect(mockPrisma.prisma.unit.updateMany.mock.calls[0][0].where.id.in.sort()).toEqual(["past-u0", "yesterday-tokyo-u0"]);
+    });
 
-    expect(mockPrisma.prisma.occupancy.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["o1", "o2"] } } });
-    const updateCall = mockPrisma.prisma.unit.updateMany.mock.calls[0][0];
-    expect(updateCall.where.id.in.sort()).toEqual(["u1", "u2"]);
+    it("keeps an occupancy that is still today for any unit using it", async () => {
+      mockPrisma.prisma.occupancy.findMany.mockResolvedValue([at("shared", "2026-03-09", ["Asia/Tokyo", "America/Los_Angeles"])]);
+      await service.task();
+      expect(deleted()).toEqual([]);
+    });
+
+    it("uses VOLTTRON_TIMEZONE for a unit with no timezone", async () => {
+      mockPrisma.prisma.occupancy.findMany.mockResolvedValue([at("none", "2026-03-09", [null])]);
+      await service.task();
+      expect(deleted()).toEqual(["none"]);
+    });
   });
 
   it("task() swallows prisma errors without throwing", async () => {

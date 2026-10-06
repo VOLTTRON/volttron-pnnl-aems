@@ -3,7 +3,7 @@ jest.mock("@/utils/file", () => ({ getConfigFiles: jest.fn() }));
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { ValidateType } from "@local/common";
+import { HolidayType, ValidateType } from "@local/common";
 import { SetupService } from "./setup.service";
 import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
@@ -173,6 +173,21 @@ describe("SetupService", () => {
     for (const day of ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "holiday"]) {
       expect(configuration[`${day}Schedule`].create).toEqual(expect.objectContaining({ occupied: expect.any(Boolean) }));
     }
+  });
+
+  // scenario: holiday-defaults-and-forms
+  it("gives a new unit the thirteen holidays, all enabled but four", async () => {
+    files["/t/a.config"] = thermostat("PNNL", "ROB", "rtu1");
+
+    await service.task();
+
+    const holidays = units[0].data.configuration.create.holidays.create as { label: string; type: string }[];
+    expect(holidays.map((h) => h.label).sort()).toEqual(HolidayType.values.map((h) => h.label).sort());
+    expect(holidays).toHaveLength(13);
+    expect(holidays.filter((h) => h.type === "Disabled").map((h) => h.label).sort()).toEqual(
+      ["Columbus Day", "Martin Luther King Jr", "Presidents Day", "Veterans Day"],
+    );
+    expect(holidays.filter((h) => h.type !== "Disabled").every((h) => h.type === "Enabled")).toBe(true);
   });
 
   // scenario: existing-unit-untouched
