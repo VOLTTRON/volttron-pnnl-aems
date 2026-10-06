@@ -16,8 +16,6 @@ services themselves.
   the profile that serves it, at the port that service declares it listens on (a `--port` argument
   or `expose:`).
 - Geography columns are PostGIS types read and written through raw SQL.
-- Database views are read-only.
-  **Open:** which views? There are none to hold to it: no `view` block under `prisma/prisma/models/` and no `CREATE VIEW` in any migration; only the `views` preview feature at `prisma/prisma/schema.prisma:9`.
 
 ## Dependencies
 
@@ -30,4 +28,3 @@ auth
 | `ext-checks-roles-first` | role check before forwarding |
 | `ext-targets-match-compose` | each authorized URL names a profiled compose host and its declared port |
 | `geography-raw-sql` | PostGIS read and write |
-| `views-read-only` | views refuse writes |
