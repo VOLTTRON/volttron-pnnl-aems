@@ -254,4 +254,21 @@ test.describe("stack", () => {
     const squash = (text: string) => text.replace(/\s+/g, "");
     expect(squash(exec(`cat '${agentConfig}'`))).toBe(squash(desired));
   });
+
+  // Runs after the SQLHistorian test, which waits for VOLTTRON to finish installing its agents.
+  // scenario: deploy-report
+  test("the deployment report names the historian login and each VOLTTRON agent with its health", () => {
+    let out = "";
+    try {
+      out = run("bash", ["./scripts/deploy-report.sh"]);
+    } catch (error) {
+      // An unhealthy agent exits 1 and is still a report.
+      out = String((error as { stdout?: string }).stdout ?? "");
+    }
+    const lines = stripAnsi(out).split(/\r?\n/);
+    expect(lines.find((l) => l.includes("historian login")), out).toMatch(/\bOK\b.*historian login: role \S+/);
+    const agents = lines.filter((l) => l.includes("agent: "));
+    expect(agents.find((l) => l.includes("platform.historian")), out).toMatch(/\bGOOD\b/);
+    for (const agent of agents) expect(agent, out).toMatch(/^\s+(GOOD|NOT HEALTHY)\s+agent: \S/);
+  });
 });

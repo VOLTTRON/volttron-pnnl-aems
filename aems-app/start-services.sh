@@ -195,6 +195,12 @@ print_green "All Docker Compose services are now running in detached mode."
 print_cyan "Use 'docker compose ps' to view running services."
 print_cyan "Use 'docker compose logs -f' to view logs."
 
+# Last: what came up working. A report, so an unhealthy line does not fail the start.
+if [ -x ./scripts/deploy-report.sh ]; then
+    ./scripts/deploy-report.sh || \
+        print_yellow "The deployment report names something unhealthy (above)."
+fi
+
 # Always restore the starting path
 cd "$STARTING_PATH"
 print_cyan "Restored starting directory: $STARTING_PATH"

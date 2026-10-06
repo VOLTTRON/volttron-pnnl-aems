@@ -161,6 +161,14 @@ try {
     Write-Host "All Docker Compose services are now running in detached mode." -ForegroundColor Green
     Write-Host "Use 'docker compose ps' to view running services." -ForegroundColor Cyan
     Write-Host "Use 'docker compose logs -f' to view logs." -ForegroundColor Cyan
+
+    # Last: what came up working. A report, so an unhealthy line does not fail the start.
+    if (Test-Path .\scripts\deploy-report.ps1) {
+        & .\scripts\deploy-report.ps1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "The deployment report names something unhealthy (above)." -ForegroundColor Yellow
+        }
+    }
 }
 catch {
     Write-Host "Failed to start services: $($_.Exception.Message)" -ForegroundColor Red
