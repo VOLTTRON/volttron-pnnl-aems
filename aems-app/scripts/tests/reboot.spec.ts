@@ -104,6 +104,38 @@ test("HSTS max-age is STS_SECONDS on every router, Grafana's too, and absent whe
 });
 
 // Runs last: it restarts the stack every other spec ran against.
+// Runs here because it restarts the historian.
+// scenario: historian-logins-verified
+test("a historian role on a stale password is reset to the .env value by the reconciler start-services runs", async () => {
+  test.setTimeout(5 * 60_000);
+  const historian = container("historian");
+  const password = readEnv("HISTORIAN_DATABASE_PASSWORD")!;
+  const role = inspect(historian, "{{range .Config.Env}}{{println .}}{{end}}")
+    .split(/\r?\n/)
+    .find((e) => e.startsWith("POSTGRES_USER="))!
+    .slice("POSTGRES_USER=".length);
+  const sql = (pw: string, statement: string) =>
+    docker("exec", "-e", `PGPASSWORD=${pw}`, historian, "psql", "-U", role, "-h", "localhost", "-d", role, "-tAc", statement);
+  const logsIn = (pw: string) => {
+    try {
+      return sql(pw, "SELECT 1;").trim() === "1";
+    } catch {
+      return false;
+    }
+  };
+
+  expect(logsIn(password)).toBe(true);
+  const stale = `stale-${Date.now()}`;
+  sql(password, `ALTER ROLE "${role}" WITH PASSWORD '${stale}';`);
+  expect(logsIn(password)).toBe(false);
+
+  const out = stripAnsi(run("bash", ["./scripts/reconcile-historian-logins.sh"]));
+  expect(out).toMatch(/reset, and accepts the password \.env holds/);
+  expect(out).not.toContain(password);
+  expect(logsIn(password)).toBe(true);
+  expect(logsIn(stale)).toBe(false);
+});
+
 // scenario: fresh-checkout-boots
 test("a checkout with only sentinels and blank secrets boots, and boots again", async ({ request }) => {
   test.setTimeout(20 * 60_000);

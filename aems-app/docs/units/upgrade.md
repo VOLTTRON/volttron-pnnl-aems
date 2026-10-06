@@ -17,6 +17,7 @@ Implemented today in `start-services.sh`/`.ps1`, `scripts/sync-volttron-historia
   holds. A role that does not is reset to that value, whatever it was before.
 - `volttron-setup` re-renders whenever any input it renders from changes: every `VOLTTRON_*` and
   `HISTORIAN_DB_*` value, the templates, the thermostat configs and `site.json`.
+  **Open:** which thermostat configs and which `site.json` are inputs? `site.json` is an output: `aems-edge/setup-volttron.sh:393` writes it from `VOLTTRON_CAMPUS`, `VOLTTRON_BUILDING`, `VOLTTRON_PREFIX` and `NUM_CONFIGS`. Nothing `setup-volttron.sh` runs reads `aems-edge/configurations/thermostats/` or the tracked `aems-edge/configurations/site.json`.
 - After `start-services`, VOLTTRON's config store and each agent's install-time config match the
   rendered configs for every agent. The app then re-pushes what it owns, so its values win there.
 - The startup re-push marks every control as well as every unit.

@@ -4,6 +4,7 @@ import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { VolttronService } from "../volttron.service";
+import { StageType } from "@local/common";
 
 function makeConfig(overrides: object = {}): AppConfigService {
   return {
@@ -26,6 +27,9 @@ describe("ConfigService", () => {
         unit: {
           findMany: jest.fn().mockResolvedValue([]),
           update: jest.fn().mockResolvedValue(null),
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+        control: {
           updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
       },
@@ -62,14 +66,21 @@ describe("ConfigService", () => {
     await build();
     await service.onApplicationBootstrap();
     expect(mockPrisma.prisma.unit.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.prisma.control.updateMany).not.toHaveBeenCalled();
   });
 
-  it("onApplicationBootstrap marks all units for repush when startup is true", async () => {
+  // scenario: startup-repushes-controls
+  it("onApplicationBootstrap marks every unit and every control for repush when startup is true", async () => {
     await build(makeConfig({ service: { config: { startup: true } } }));
     await service.onApplicationBootstrap();
-    expect(mockPrisma.prisma.unit.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ message: expect.stringMatching(/Repushing/) }) }),
-    );
+    for (const model of [mockPrisma.prisma.unit, mockPrisma.prisma.control]) {
+      expect(model.updateMany).toHaveBeenCalledTimes(1);
+      const [[args]] = model.updateMany.mock.calls;
+      expect(args.where).toBeUndefined();
+      expect(args.data).toEqual(
+        expect.objectContaining({ stage: StageType.Process.enum, message: expect.stringMatching(/Repushing/) }),
+      );
+    }
   });
 
   it("task() exits early when no units need pushing", async () => {

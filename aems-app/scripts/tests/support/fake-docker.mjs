@@ -5,7 +5,10 @@
 //     "env": { "proj-server": ["KEY=value", ...] },  what `docker inspect` reports as Config.Env; a
 //                                                     container here and not running is stopped,
 //                                                     and `docker ps -a` lists it
-//     "psql": { "proj-database": ["pw", ...] },      passwords a `psql` exec accepts
+//     "psql": { "proj-database": ["pw", ...] },      passwords a `psql` exec accepts; a `restart`
+//                                                     leaves it accepting only the POSTGRES_PASSWORD
+//                                                     its env holds, as the historian's entrypoint
+//                                                     wrapper re-asserts it at boot
 //     "files": { "/path": "content" },               files inside the containers: an exec of
 //                                                     `cat '/path'` prints one and `cat > '/path'`
 //                                                     writes stdin to it, kept in this state file
@@ -43,6 +46,16 @@ switch (argv[0]) {
     const name = argv.find((a, i) => i > 0 && !a.startsWith("-") && argv[i - 1] !== "--format" && argv[i - 1] !== "-f");
     if (!running.includes(name) && !(state.env ?? {})[name]) process.exit(1);
     process.stdout.write(((state.env ?? {})[name] ?? []).join("\n") + "\n");
+    break;
+  }
+  case "restart": {
+    const name = argv[argv.length - 1];
+    if (!running.includes(name)) process.exit(1);
+    const password = ((state.env ?? {})[name] ?? []).find((e) => e.startsWith("POSTGRES_PASSWORD="));
+    if (state.psql?.[name] && password) {
+      state.psql[name] = [password.slice("POSTGRES_PASSWORD=".length)];
+      fs.writeFileSync(statePath, JSON.stringify(state));
+    }
     break;
   }
   case "exec": {
