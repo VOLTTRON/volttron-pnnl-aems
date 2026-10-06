@@ -89,3 +89,8 @@ row is deleted in the same commit. When the table is empty, this document is del
 | [in-progress/20260710-070151-verify-deployment.md](../../Reference/docs/in-progress/20260710-070151-verify-deployment.md) | 22 |
 
 Total: 5072 lines.
+
+Flagged at adoption and not yet placed, because their meaning is unclear: the throttling advice and
+"PrismaPubSub is more durable"; "back up snapshots and volumes"; "service-specific `.env.*` files
+override defaults". Outside aems-app and unfixed: the repository-root `README.md` links to
+`aems-app/.env.secrets.example`, deleted in July, and describes the retired `docker/secrets/` model.
