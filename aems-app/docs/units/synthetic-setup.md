@@ -7,7 +7,7 @@
 
 Synthetic data for demonstration and the first-run setup and welcome flow.
 
-Implemented today in `server/src/services/{synthetic,setup}/` and `client/src/app/{setup,welcome,dev,demo}/`.
+Implemented today in `server/src/services/synthetic/` and `client/src/app/{setup,welcome,dev,demo}/`.
 
 ## Claims
 
