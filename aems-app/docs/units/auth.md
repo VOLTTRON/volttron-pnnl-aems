@@ -1,6 +1,6 @@
 # auth
 
-**State:** unbuilt
+**State:** built
 
 ## Contract
 
