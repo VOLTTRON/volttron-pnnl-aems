@@ -9,7 +9,7 @@ This directory contains the server-side authentication stack. Multiple strategie
 | `authjs/` | Auth.js (primary) | Session middleware + JWT handling |
 | `keycloak/` | Keycloak / OAuth2 SSO | Active when `AUTH_PROVIDERS` includes `keycloak` |
 | `local/` | Username/password | Local credential validation |
-| `bearer/` | Bearer token | API key / machine-to-machine access |
+| `bearer/` | Bearer token | API key / machine-to-machine access; `passport` framework only |
 | `super/` | Super-user | Elevated internal access |
 | `passport/` | Passport.js plumbing | Shared strategy wiring |
 
