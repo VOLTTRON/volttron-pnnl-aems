@@ -182,7 +182,7 @@ Always start with `docker compose up -d` (no profile needed).
 COMPOSE_PROJECT_NAME=skeleton
 TAG=latest
 APP_HOSTNAME=localhost                # Change for production
-AUTH_PROVIDERS=keycloak              # local,super,bearer,keycloak
+AUTH_PROVIDERS=keycloak              # local,super,bearer (passport only),keycloak
 LOGGERS=console,database             # console,database
 INSTANCE_TYPE=""                     # Service configuration (see below)
 ```
@@ -354,7 +354,7 @@ Two-tier system: edit only `aems-app/.env`. Per-service `docker/.env.*` files ar
 | `HOSTNAME` | `172.31.32.1` | Domain/IP for routing and certs |
 | `CERT_RESOLVER` | (empty) | Set `letsencrypt` for real TLS |
 | `DATABASE_PASSWORD` | (placeholder) | Must be changed |
-| `AUTH_PROVIDERS` | `keycloak` | Options: `local`, `super`, `bearer`, `keycloak` |
+| `AUTH_PROVIDERS` | `keycloak` | Options: `local`, `super`, `bearer` (needs `AUTH_FRAMEWORK=passport`), `keycloak` |
 
 ## Volumes
 

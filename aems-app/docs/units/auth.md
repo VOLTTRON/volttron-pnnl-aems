@@ -14,8 +14,9 @@ field or page is.
 - `AUTH_FRAMEWORK` selects the framework, `authjs` or `passport`, and unset means `authjs`; both
   framework modules are always loaded.
 - `AUTH_PROVIDERS`, a comma list, enables each of local, bearer, keycloak and super that it names,
-  and no other.
-  **Open:** does naming `bearer` enable it under `authjs`? There is only a passport bearer: `bearer/bearer.module.ts:35-37` returns `null` unless `AUTH_FRAMEWORK=passport`, so the default framework with `AUTH_PROVIDERS=bearer` enables nothing (measured). The other fourteen cases hold in `server/src/auth/providers.test.ts`.
+  and no other. `bearer` exists only under `passport`: a list naming a provider the selected
+  framework cannot serve stops the server at startup, with an error naming the provider and the
+  framework.
 - Every HTTP endpoint requires an authenticated user unless it carries `@PublicRoute`; the global
   guards are AuthenticatedGuard and RolesGuard.
 - `@Roles(...)` on a REST handler admits a user whose roles satisfy it through `Role.granted`.
@@ -37,6 +38,7 @@ stack
 |---|---|
 | `framework-selected-by-env` | the framework follows `AUTH_FRAMEWORK`; unset is `authjs`; both modules load |
 | `providers-selected-by-env` | each provider is enabled only when `AUTH_PROVIDERS` names it |
+| `provider-framework-mismatch-refused` | `bearer` named under `authjs` stops startup, naming both |
 | `endpoints-private-by-default` | unauthenticated requests are refused without `@PublicRoute` |
 | `roles-guard-admits-granted` | `@Roles` admits through `Role.granted` |
 | `role-grants-table` | the grant table |
