@@ -21,6 +21,7 @@ Implemented today in `server/src/services/setup/`, `server/src/graphql/{unit,con
 - Setup makes one unit for each thermostat `.config` file under `SERVICE_SETUP_THERMOSTAT_PATHS`. The
   file's `campus`, `building` and `system` identify the unit and name it `campus-building-system`. The
   unit starts with default setpoints and schedules, and takes the file's `local_tz` as its timezone.
+  **Open:** is the name `campus-building-system` verbatim? `server/src/services/setup/setup.service.ts:53,335` names it from `upperFirst(snakeCase(...))` of each part, so `PNNL`/`B1`/`Ahu1` gives `Pnnl-B_1-Ahu_1`, and existing units are found by that name: a different name would make setup delete each existing unit and create it anew.
 - Setup never changes a unit that already exists. The file gives the unit its identity; the timezone
   and every other setting belong to the app once the unit is made.
 - A unit whose file is gone is deleted on the next run, except demo units (`SYNTHETIC_CAMPUS_PREFIX`).

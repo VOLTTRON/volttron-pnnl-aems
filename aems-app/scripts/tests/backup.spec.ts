@@ -32,9 +32,10 @@ test("on first boot the sidecar generates an age keypair into docker/secrets/bac
   expect(fs.existsSync(path.join(secrets, "age.key"))).toBe(false);
 
   docker("restart", container("backup"));
-  await expect.poll(() => fs.existsSync(path.join(secrets, "age.pub")), { timeout: 2 * 60_000 }).toBe(true);
-  const pub = fs.readFileSync(path.join(secrets, "age.pub"), "utf8").trim();
-  expect(pub).toMatch(/^age1[0-9a-z]+$/);
+  // The sidecar creates age.pub empty and then fills it, so the file exists before the key is in it.
+  const published = () => (fs.existsSync(path.join(secrets, "age.pub")) ? fs.readFileSync(path.join(secrets, "age.pub"), "utf8").trim() : "");
+  await expect.poll(published, { timeout: 2 * 60_000 }).toMatch(/^age1[0-9a-z]+$/);
+  const pub = published();
   expect(fs.readFileSync(path.join(secrets, "age.key"), "utf8")).toContain("AGE-SECRET-KEY-");
   // The recipient is the one the private key derives, not merely a well-formed one.
   expect(docker("exec", container("backup"), "age-keygen", "-y", "/host-secrets/age.key").trim()).toBe(pub);

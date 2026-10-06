@@ -110,6 +110,12 @@ try {
             Write-Host "secrets.ps1 reported issues (see above)." -ForegroundColor Yellow
         }
     }
+    # The historian role keeps its password in the volume, so a login is checked, and repaired,
+    # on every start. The SQLHistorian sync below logs in with it.
+    if (Test-Path .\scripts\reconcile-historian-logins.ps1) {
+        Write-Host "Checking historian logins..." -ForegroundColor Cyan
+        & .\scripts\reconcile-historian-logins.ps1
+    }
     # The SQLHistorian agent keeps its install-time config across every recreate, so it is
     # reconciled on every start, not only after a rotation.
     if (Test-Path .\scripts\sync-volttron-historian-config.ps1) {

@@ -36,10 +36,10 @@ let ConfigService = ConfigService_1 = class ConfigService extends __1.BaseServic
     async onApplicationBootstrap() {
         if (!this.enabled || !this.configService.service.config.startup)
             return;
-        this.logger.log("SERVICE_CONFIG_STARTUP=true → marking all units for repush");
-        await this.prismaService.prisma.unit.updateMany({
-            data: { stage: common_2.StageType.ProcessType.enum, message: "Repushing on startup..." },
-        });
+        this.logger.log("SERVICE_CONFIG_STARTUP=true → marking all units and controls for repush");
+        const data = { stage: common_2.StageType.ProcessType.enum, message: "Repushing on startup..." };
+        await this.prismaService.prisma.unit.updateMany({ data });
+        await this.prismaService.prisma.control.updateMany({ data });
     }
     execute() {
         return super.execute();

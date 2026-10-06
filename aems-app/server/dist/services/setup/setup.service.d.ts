@@ -10,4 +10,5 @@ export declare class SetupService extends BaseService {
     constructor(prismaService: PrismaService, subscriptionService: SubscriptionService, configService: AppConfigService);
     execute(): Promise<void>;
     task(): Promise<void>;
+    private remove;
 }

@@ -143,6 +143,13 @@ if [ -x ./secrets.sh ]; then
         print_yellow "secrets.sh reported issues (see above)."
     fi
 fi
+# The historian role keeps its password in the volume, so a login is checked, and repaired, on
+# every start. The SQLHistorian sync below logs in with it.
+if [ -x ./scripts/reconcile-historian-logins.sh ]; then
+    print_cyan "Checking historian logins..."
+    ./scripts/reconcile-historian-logins.sh || \
+        print_yellow "reconcile-historian-logins.sh reported issues."
+fi
 # The SQLHistorian agent keeps its install-time config across every recreate, so it is
 # reconciled on every start, not only after a rotation.
 if [ -x ./scripts/sync-volttron-historian-config.sh ]; then

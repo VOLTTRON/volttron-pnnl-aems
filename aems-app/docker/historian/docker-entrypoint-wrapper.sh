@@ -38,29 +38,21 @@ else
 fi
 
 # ── Historian pg_shadow reconciler ─────────────────────────────────────────
-# POSTGRES_PASSWORD is only read on initdb (empty PGDATA). If the env value
-# is later mutated (e.g. `.env.secrets` rotation) without going through
-# secrets.sh's ALTER ROLE flow, pg_shadow keeps the previous value and
-# Volttron auth fails. Reconcile using postgres single-user mode, which
-# bypasses auth entirely.
+# POSTGRES_PASSWORD is only read on initdb (empty PGDATA), so the role's
+# password in the volume can drift from the env by any route: a rotation
+# that went around secrets.sh, a restore, a hand edit. Every boot re-asserts
+# the env value using postgres single-user mode, which bypasses auth
+# entirely; this is the one way in that needs no password, and
+# scripts/reconcile-historian-logins.sh restarts the container to use it.
 TARGET_PW="${HISTORIAN_DATABASE_PASSWORD:-${POSTGRES_PASSWORD:-}}"
 
-PW_FP_FILE="${PGDATA}/.historian_pw_fp"
 if [ -f "${PGDATA}/PG_VERSION" ] && [ -n "${TARGET_PW}" ]; then
-    # Tagged `env:` so fingerprints written under the old
-    # (secret/env-hist/env-postgres) tags trigger exactly one reconcile on
-    # first boot after the docker-secrets removal.
-    current_fp="env:$(printf '%s' "${TARGET_PW}" | sha256sum | awk '{print $1}')"
-    stored_fp="$(cat "${PW_FP_FILE}" 2>/dev/null || true)"
-    if [ "${current_fp}" != "${stored_fp}" ]; then
-        echo "Historian password source changed — reconciling pg_shadow via single-user mode..."
-        escaped="$(printf '%s' "${TARGET_PW}" | sed "s/'/''/g")"
-        gosu postgres postgres --single -D "${PGDATA}" "${POSTGRES_DB}" <<EOF
+    echo "Re-asserting the historian role's password via single-user mode..."
+    escaped="$(printf '%s' "${TARGET_PW}" | sed "s/'/''/g")"
+    gosu postgres postgres --single -D "${PGDATA}" "${POSTGRES_DB}" >/dev/null <<EOF
 ALTER USER "${POSTGRES_USER}" WITH ENCRYPTED PASSWORD '${escaped}';
 EOF
-        printf '%s\n' "${current_fp}" | gosu postgres tee "${PW_FP_FILE}" >/dev/null
-        echo "Historian pg_shadow reconciled."
-    fi
+    echo "Historian role password re-asserted."
 elif [ -f "${PGDATA}/PG_VERSION" ]; then
     echo "WARN: no historian password source resolved (checked HISTORIAN_DATABASE_PASSWORD, POSTGRES_PASSWORD) — skipping reconcile"
 fi

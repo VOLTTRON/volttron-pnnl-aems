@@ -249,12 +249,27 @@ let SetupService = SetupService_1 = class SetupService extends __1.BaseService {
         return super.execute();
     }
     async task() {
+        const problems = [];
+        const problem = (reason, error) => {
+            problems.push(reason);
+            this.logger.warn(`${reason}:`, error);
+        };
         this.logger.log(`Checking for units that need to be created...`);
         const units = [];
         const thermostatPaths = this.configService.service.setup.thermostatPaths.map((p) => (0, node_path_1.resolve)(p));
-        for (const file of await (0, file_1.getConfigFiles)(thermostatPaths, ".config", this.logger)) {
-            const text = await (0, promises_1.readFile)((0, node_path_1.resolve)(file), "utf-8");
-            const json = JSON.parse(text);
+        const thermostatFiles = await (0, file_1.getConfigFiles)(thermostatPaths, ".config", this.logger).catch((error) => {
+            problem(`Failed to scan the thermostat paths`, error);
+            return [];
+        });
+        for (const file of thermostatFiles) {
+            let json;
+            try {
+                json = JSON.parse(await (0, promises_1.readFile)((0, node_path_1.resolve)(file), "utf-8"));
+            }
+            catch (error) {
+                problem(`Failed to read thermostat config "${file}"`, error);
+                continue;
+            }
             const { campus, building, system, local_tz: timezone, } = json ?? {
                 campus: "",
                 building: "",
@@ -287,76 +302,103 @@ let SetupService = SetupService_1 = class SetupService extends __1.BaseService {
                         });
                         units.push(unit);
                     })
-                        .catch((error) => this.logger.warn(`Failed to create unit "${name}":`, error));
+                        .catch((error) => problem(`Failed to create unit "${name}"`, error));
                 }
             })
-                .catch((error) => this.logger.warn(`Failed to look for thermostat unit "${name}":`, error));
+                .catch((error) => problem(`Failed to look for thermostat unit "${name}"`, error));
         }
+        this.logger.log(`Finished checking for thermostat units to create.`);
+        this.logger.log(`Checking for controls that need to be created...`);
+        const configs = [];
+        const controls = await this.prismaService.prisma.control
+            .findMany({ include: { units: true } })
+            .catch((error) => problem(`Failed to look for controls`, error));
+        if (controls) {
+            const ilcPaths = this.configService.service.setup.ilcPaths.map((p) => (0, node_path_1.resolve)(process.cwd(), p));
+            const ilcFiles = await (0, file_1.getConfigFiles)(ilcPaths, ".json", this.logger).catch((error) => {
+                problem(`Failed to scan the ILC paths`, error);
+                return [];
+            });
+            for (const file of ilcFiles) {
+                let json;
+                try {
+                    json = JSON.parse(await (0, promises_1.readFile)((0, node_path_1.resolve)(process.cwd(), file), "utf-8"));
+                }
+                catch (error) {
+                    problem(`Failed to read ILC config "${file}"`, error);
+                    continue;
+                }
+                const { campus, building, systems } = json;
+                const name = `${transform(campus)}-${transform(building)}`;
+                let control = controls.find((v) => v.name === name);
+                if (!control) {
+                    const label = `${campus} ${building}`;
+                    this.logger.log(`Creating control (ILC) "${name}" in the database.`);
+                    const stage = common_1.StageType.CreateType.enum;
+                    try {
+                        control = await this.prismaService.prisma.control.create({
+                            include: { units: true },
+                            data: { name, label, campus, building, stage },
+                        });
+                    }
+                    catch (error) {
+                        problem(`Failed to create control (ILC) "${name}"`, error);
+                        continue;
+                    }
+                    await this.subscriptionService.publish("Control", {
+                        topic: "Control",
+                        id: control.id,
+                        mutation: common_1.Mutation.Created,
+                    });
+                }
+                configs.push({ control: control.name, units: [] });
+                for (const system of systems) {
+                    const temp = `${name}-${transform(system)}`;
+                    configs[configs.length - 1].units.push(temp);
+                    const unit = units.find((v) => v?.name === temp);
+                    if (!unit) {
+                        this.logger.warn(new Error(`Unit "${temp}" specified in control (ILC) config does not exist.`));
+                    }
+                    else if (unit.controlId !== control.id) {
+                        this.logger.log(`Assigning unit "${unit.name}" to  control (ILC) "${name}".`);
+                        await this.prismaService.prisma.unit.update({ where: { id: unit.id }, data: { controlId: control.id } });
+                        await this.subscriptionService.publish("Unit", { topic: "Unit", id: unit.id, mutation: common_1.Mutation.Updated });
+                        await this.subscriptionService.publish(`Unit/${unit.id}`, {
+                            topic: "Unit",
+                            id: unit.id,
+                            mutation: common_1.Mutation.Updated,
+                        });
+                    }
+                }
+            }
+        }
+        this.logger.log(`Finished checking for controls (ILC) to create or assign.`);
+        const existing = await this.prismaService.prisma.unit
+            .findMany()
+            .catch((error) => problem(`Failed to look for thermostat units`, error));
+        if (thermostatFiles.length === 0) {
+            problems.push("the scan found no thermostat file");
+        }
+        if (problems.length > 0 || !existing || !controls) {
+            this.logger.warn(`Deleting no unit or control, and unassigning no unit, because: ${problems.join("; ")}.`);
+            return;
+        }
+        await this.remove(existing, units, controls, configs);
+    }
+    async remove(existing, units, controls, configs) {
         const synthPrefix = this.configService.service.synthetic.campusPrefix;
         const isSynthetic = (row) => Boolean(synthPrefix) &&
             (row.campus?.startsWith(synthPrefix) === true || row.name?.startsWith(synthPrefix) === true);
-        await this.prismaService.prisma.unit
-            .findMany()
-            .then(async (values) => {
-            const remove = (0, lodash_1.difference)(values.filter((v) => !isSynthetic(v)).map((v) => v?.name).filter((v) => v), units.map((v) => v?.name).filter((v) => v)).filter(common_1.typeofNonNullable);
-            for (const name of remove) {
-                this.logger.log(`Removing thermostat unit "${name}" from the database.`);
-                await this.prismaService.prisma.unit.deleteMany({ where: { name } });
-            }
-        })
-            .catch((error) => this.logger.warn(`Failed to look for thermostat units:`, error));
-        this.logger.log(`Finished checking for thermostat units to create or update.`);
-        this.logger.log(`Checking for controls that need to be created...`);
-        const controls = await this.prismaService.prisma.control
-            .findMany({ include: { units: true } })
-            .catch((error) => this.logger.warn(`Failed to look for controls:`, error));
-        const configs = [];
-        const ilcPaths = this.configService.service.setup.ilcPaths.map((p) => (0, node_path_1.resolve)(process.cwd(), p));
-        for (const file of await (0, file_1.getConfigFiles)(ilcPaths, ".json", this.logger)) {
-            const text = await (0, promises_1.readFile)((0, node_path_1.resolve)(process.cwd(), file), "utf-8");
-            const json = JSON.parse(text);
-            const { campus, building, systems } = json;
-            const name = `${transform(campus)}-${transform(building)}`;
-            let control = controls?.find((v) => v.name === name);
-            if (!control) {
-                const label = `${campus} ${building}`;
-                this.logger.log(`Creating control (ILC) "${name}" in the database.`);
-                const stage = common_1.StageType.CreateType.enum;
-                control = await this.prismaService.prisma.control.create({
-                    include: { units: true },
-                    data: { name, label, campus, building, stage },
-                });
-                await this.subscriptionService.publish("Control", {
-                    topic: "Control",
-                    id: control.id,
-                    mutation: common_1.Mutation.Created,
-                });
-            }
-            configs.push({ control: control.name, units: [] });
-            for (const system of systems) {
-                const temp = `${name}-${transform(system)}`;
-                configs[configs.length - 1].units.push(temp);
-                const unit = units.find((v) => v?.name === temp);
-                if (!unit) {
-                    this.logger.warn(new Error(`Unit "${temp}" specified in control (ILC) config does not exist.`));
-                }
-                else if (unit.controlId !== control.id) {
-                    this.logger.log(`Assigning unit "${unit.name}" to  control (ILC) "${name}".`);
-                    await this.prismaService.prisma.unit.update({ where: { id: unit.id }, data: { controlId: control.id } });
-                    await this.subscriptionService.publish("Unit", { topic: "Unit", id: unit.id, mutation: common_1.Mutation.Updated });
-                    await this.subscriptionService.publish(`Unit/${unit.id}`, {
-                        topic: "Unit",
-                        id: unit.id,
-                        mutation: common_1.Mutation.Updated,
-                    });
-                }
-            }
+        const removeUnits = (0, lodash_1.difference)(existing.filter((v) => !isSynthetic(v)).map((v) => v?.name).filter((v) => v), units.map((v) => v?.name).filter((v) => v)).filter(common_1.typeofNonNullable);
+        for (const name of removeUnits) {
+            this.logger.log(`Removing thermostat unit "${name}" from the database.`);
+            await this.prismaService.prisma.unit.deleteMany({ where: { name } });
         }
-        const removeControls = (0, lodash_1.difference)(controls?.filter((v) => !isSynthetic(v)).map((v) => v?.name).filter((v) => v) ?? [], configs.map((c) => c.control)).filter((v) => v);
+        const removeControls = (0, lodash_1.difference)(controls.filter((v) => !isSynthetic(v)).map((v) => v?.name).filter((v) => v), configs.map((c) => c.control)).filter((v) => v);
         if (!(0, lodash_1.isEmpty)(removeControls)) {
             this.logger.log(`Deleting control${removeControls.length === 1 ? "" : "s"} (ILC) ${removeControls.map((v) => `"${v}"`).join(", ")}.`);
             await this.prismaService.prisma.control.deleteMany({ where: { name: { in: removeControls } } });
-            for (const control of controls?.filter((c) => removeControls.includes(c.name)) ?? []) {
+            for (const control of controls.filter((c) => removeControls.includes(c.name))) {
                 await this.subscriptionService.publish("Control", {
                     topic: "Control",
                     id: control.id,
@@ -369,16 +411,16 @@ let SetupService = SetupService_1 = class SetupService extends __1.BaseService {
                 });
             }
         }
-        const removeUnits = (0, lodash_1.difference)(units.map((v) => v?.name).filter((v) => v), (0, lodash_1.flatten)(configs.map((n) => n.units))).filter((v) => v);
-        if (!(0, lodash_1.isEmpty)(removeUnits)) {
-            this.logger.log(`Unassigning unit${removeUnits.length === 1 ? "" : "s"} ${removeUnits
+        const unassign = (0, lodash_1.difference)(units.map((v) => v?.name).filter((v) => v), (0, lodash_1.flatten)(configs.map((n) => n.units))).filter((v) => v);
+        if (!(0, lodash_1.isEmpty)(unassign)) {
+            this.logger.log(`Unassigning unit${unassign.length === 1 ? "" : "s"} ${unassign
                 .map((v) => `"${v}"`)
                 .join(", ")} from controls (ILC).`);
             await this.prismaService.prisma.unit.updateMany({
-                where: { name: { in: removeUnits } },
+                where: { name: { in: unassign } },
                 data: { controlId: null },
             });
-            for (const unit of units.filter((u) => removeUnits.includes(u.name))) {
+            for (const unit of units.filter((u) => unassign.includes(u.name))) {
                 await this.subscriptionService.publish("Unit", { topic: "Unit", id: unit.id, mutation: common_1.Mutation.Updated });
                 await this.subscriptionService.publish(`Unit/${unit.id}`, {
                     topic: "Unit",
@@ -387,7 +429,7 @@ let SetupService = SetupService_1 = class SetupService extends __1.BaseService {
                 });
             }
         }
-        this.logger.log(`Finished checking for controls (ILC) to create or update.`);
+        this.logger.log(`Finished removing the units and controls whose files are gone.`);
     }
 };
 exports.SetupService = SetupService;

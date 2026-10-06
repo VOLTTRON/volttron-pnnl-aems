@@ -25,10 +25,10 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
 
   async onApplicationBootstrap() {
     if (!this.enabled || !this.configService.service.config.startup) return;
-    this.logger.log("SERVICE_CONFIG_STARTUP=true → marking all units for repush");
-    await this.prismaService.prisma.unit.updateMany({
-      data: { stage: StageType.ProcessType.enum, message: "Repushing on startup..." },
-    });
+    this.logger.log("SERVICE_CONFIG_STARTUP=true → marking all units and controls for repush");
+    const data = { stage: StageType.ProcessType.enum, message: "Repushing on startup..." };
+    await this.prismaService.prisma.unit.updateMany({ data });
+    await this.prismaService.prisma.control.updateMany({ data });
   }
 
   @Cron(`*/10 * * * * *`)
