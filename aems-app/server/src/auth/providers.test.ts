@@ -37,6 +37,7 @@ async function enabled(framework: string, providers: string): Promise<string[]> 
   return names.filter((name) => authService.getProvider(name) !== undefined);
 }
 
+// scenario: providers-selected-by-env
 describe("AUTH_PROVIDERS", () => {
   const saved = { framework: process.env.AUTH_FRAMEWORK, providers: process.env.AUTH_PROVIDERS };
   afterEach(() => {
@@ -81,5 +82,17 @@ describe("AUTH_PROVIDERS", () => {
 
   it("enables all four under passport when all four are named", async () => {
     expect((await enabled("passport", "local,bearer,keycloak,super")).sort()).toEqual(names.slice().sort());
+  });
+
+  // scenario: provider-framework-mismatch-refused
+  it("stops startup when it names bearer under authjs, naming the provider and the framework", async () => {
+    for (const providers of ["bearer", "local,bearer,keycloak,super"]) {
+      const refusal = await enabled("authjs", providers).then(
+        () => undefined,
+        (error: Error) => error.message,
+      );
+      expect(refusal).toMatch(/"bearer"/);
+      expect(refusal).toMatch(/"authjs"/);
+    }
   });
 });

@@ -1,6 +1,6 @@
 # ext-geography
 
-**State:** unbuilt
+**State:** built
 
 ## Contract
 

@@ -30,12 +30,17 @@ import { PrismaService } from "@/prisma/prisma.service";
         configService: AppConfigService,
         prismaService: PrismaService,
         jwtService: JwtService,
-      ) =>
-        configService.auth.providers.includes(Provider)
-          ? configService.auth.framework === "passport"
-            ? new BearerPassportService(authService, configService, prismaService, jwtService)
-            : null
-          : null,
+      ) => {
+        if (!configService.auth.providers.includes(Provider)) {
+          return null;
+        }
+        if (configService.auth.framework !== "passport") {
+          throw new Error(
+            `AUTH_PROVIDERS names "${Provider}", which AUTH_FRAMEWORK "${configService.auth.framework}" cannot serve; "${Provider}" requires AUTH_FRAMEWORK=passport.`,
+          );
+        }
+        return new BearerPassportService(authService, configService, prismaService, jwtService);
+      },
     },
   ],
   // todo: make this cleaner

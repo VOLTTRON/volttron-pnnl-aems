@@ -6,7 +6,7 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 |---|---|---|
 | `stack` | built | — |
 | `secrets` | built | stack |
-| `auth` | unbuilt | stack |
+| `auth` | built | stack |
 | `graphql` | built | auth |
 | `upgrade` | unbuilt | secrets, stack |
 | `shell` | unbuilt | auth, graphql |
@@ -14,7 +14,7 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 | `background` | built | stack |
 | `logging` | built | background |
 | `backup` | built | background |
-| `ext-geography` | unbuilt | auth |
+| `ext-geography` | built | auth |
 | `content-admin` | unbuilt | graphql |
 | `site-model` | unbuilt | graphql, background |
 | `setpoints-schedules` | unbuilt | site-model |

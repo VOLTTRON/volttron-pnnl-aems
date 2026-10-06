@@ -372,6 +372,8 @@ services:
       - .env.nominatim
     environment:
       POSTGRES_PASSWORD: ${NOMINATIM_DATABASE_PASSWORD}
+    expose:
+      - "8080"
     hostname: nominatim
     image: mediagis/nominatim:4.4
     profiles:
@@ -393,6 +395,8 @@ services:
         condition: service_started
     env_file:
       - .env.wiki
+    expose:
+      - "80"
     hostname: wiki
     image: lscr.io/linuxserver/bookstack:25.11.5
     profiles:
