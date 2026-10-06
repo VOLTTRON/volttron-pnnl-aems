@@ -4,15 +4,14 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { AppConfigService } from "@/app.config";
 import { Cron } from "@nestjs/schedule";
 import { StageType, typeofNonNullable } from "@local/common";
+import { dateKey, todayIn } from "../config/config.occupancy";
 
 @Injectable()
 export class CleanupService extends BaseService {
   private logger = new Logger(CleanupService.name);
-  private started = new Date(new Date().getTime() - process.uptime() * 1000);
-
   constructor(
     private prismaService: PrismaService,
-    @Inject(AppConfigService.Key) configService: AppConfigService,
+    @Inject(AppConfigService.Key) private configService: AppConfigService,
   ) {
     super("cleanup", configService);
   }
@@ -24,11 +23,17 @@ export class CleanupService extends BaseService {
 
   async task() {
     this.logger.log("Checking for occupancies that need to be cleaned up...");
+    const fallback = this.configService.volttron.timezone;
     return this.prismaService.prisma.occupancy
-      .findMany({
-        where: { date: { lt: new Date(Date.now() - this.started.getTime()) } },
-        include: { configuration: { include: { units: true } } },
-      })
+      .findMany({ include: { configuration: { include: { units: true } } } })
+      .then((all) =>
+        // Past only once it is past for every unit using it: "today" is each unit's own.
+        all.filter((occupancy) => {
+          const units = occupancy.configuration?.units ?? [];
+          const todays = units.length > 0 ? units.map((unit) => todayIn([unit.timezone, fallback])) : [todayIn([fallback])];
+          return todays.every((today) => dateKey(occupancy.date) < today);
+        }),
+      )
       .then(async (occupancies) => {
         const occupancyIds = occupancies.map((occupancy) => occupancy.id);
         const unitIds = new Set(
@@ -47,7 +52,7 @@ export class CleanupService extends BaseService {
         this.logger.log(
           `Cleaned up ${result.count} ${
             result.count === 1 ? " occupancy" : " occupancies"
-          } that occurred prior to ${this.started.toLocaleDateString()}.`,
+          } dated before today.`,
         );
       })
       .catch((error: Error) => {

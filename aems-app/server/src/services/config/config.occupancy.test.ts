@@ -22,6 +22,7 @@ describe("toMinutes", () => {
   });
 });
 
+// scenario: schedule-range-forms
 describe("toOccupiedRange", () => {
   test("returns always_off when occupied is false", () => {
     expect(toOccupiedRange(false, "08:00", "18:00")).toBe("always_off");

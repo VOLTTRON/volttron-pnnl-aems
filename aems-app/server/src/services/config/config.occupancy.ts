@@ -1,6 +1,27 @@
 export type OccupiedRange = "always_on" | "always_off" | { start: string; end: string };
 export type ServiceWindow = "always_on" | "always_off" | { start: string; end: string };
 
+/** An occupancy's calendar date, YYYY-MM-DD. Dates are stored at noon UTC, so the UTC parts are the day. */
+export function dateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/** Today's date, YYYY-MM-DD, in the first of TIMEZONES that names a zone, else in UTC. */
+export function todayIn(timezones: (string | null | undefined)[], now = new Date()): string {
+  for (const timeZone of timezones) {
+    if (!timeZone) continue;
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" })
+        .formatToParts(now)
+        .reduce((acc, part) => ({ ...acc, [part.type]: part.value }), {} as Record<string, string>);
+      return `${parts.year}-${parts.month}-${parts.day}`;
+    } catch {
+      // Not a zone Intl knows: try the next.
+    }
+  }
+  return dateKey(now);
+}
+
 export function toMinutes(t?: string | null): number | null {
   if (!t) return null;
   const m = /^(\d{1,2}):(\d{2})$/.exec(t);
