@@ -6,8 +6,9 @@ const promises_1 = require("node:fs/promises");
 const file_1 = require("./file");
 const template_1 = require("./template");
 async function renderControlTemplates(control, templatePaths, logger) {
-    if (templatePaths.length === 0)
-        return {};
+    if (templatePaths.length === 0) {
+        throw new Error("No ILC template path is configured. Check SERVICE_SETUP_TEMPLATE_PATHS.");
+    }
     const resolved = templatePaths.map((p) => (0, node_path_1.resolve)(p));
     const existing = [];
     const missing = [];
