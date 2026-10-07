@@ -1,5 +1,5 @@
 {
-  "reach": "0.11.30",
+  "reach": "0.14.0",
   "project": "aems-app",
 
   "spine": { "path": "aems-app/docs/ARCHITECTURE.md", "cap": 95 },
@@ -35,8 +35,11 @@
       "branch": "build",
       "worktree": "../volttron-pnnl-aems-lanes/build",
       "command": "/reach:build",
-      "warm": { "run": "" },
-      "unattended": false
+      "warm": { "run": "cd aems-app\\prisma && yarn install && yarn build && cd ..\\common && yarn install && yarn build && cd ..\\server && yarn install && cd ..\\client && yarn install" },
+      "builders": {
+        "warm": { "run": "cd aems-app\\prisma && yarn install && yarn build && cd ..\\common && yarn install && yarn build && cd ..\\server && yarn install && cd ..\\client && yarn install" }
+      },
+      "unattended": true
     },
     {
       "name": "milestone",
@@ -82,6 +85,7 @@
       "what": "the deployed stack: Playwright through Traefik and Keycloak",
       "run": "(cd aems-app && powershell -NoProfile -ExecutionPolicy Bypass -File test-integration.ps1) 2>&1",
       "requires": "(docker info) 2>&1",
+      "builders": false,
       "proves": "\\d+ passed",
       "cost": "~15min"
     },

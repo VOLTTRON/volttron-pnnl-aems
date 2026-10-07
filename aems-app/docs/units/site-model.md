@@ -19,9 +19,11 @@ Implemented today in `server/src/services/setup/`, `server/src/graphql/{unit,con
 ## Claims
 
 - Setup makes one unit for each thermostat `.config` file under `SERVICE_SETUP_THERMOSTAT_PATHS`. The
-  file's `campus`, `building` and `system` identify the unit and name it `campus-building-system`. The
-  unit starts with default setpoints and schedules, and takes the file's `local_tz` as its timezone.
-  **Open:** is the name `campus-building-system` verbatim? `server/src/services/setup/setup.service.ts:53,335` names it from `upperFirst(snakeCase(...))` of each part, so `PNNL`/`B1`/`Ahu1` gives `Pnnl-B_1-Ahu_1`, and existing units are found by that name: a different name would make setup delete each existing unit and create it anew.
+  file's `campus`, `building` and `system` identify the unit. Its label is the three as written,
+  space-separated; its name joins them with `-`, each snake-cased with its first letter upper-cased,
+  so `PNNL`/`B1`/`Ahu1` is named `Pnnl-B_1-Ahu_1`. The name is what finds an existing unit and what an
+  ILC file's `systems` are matched against. The unit starts with default setpoints and schedules, and
+  takes the file's `local_tz` as its timezone.
 - Setup never changes a unit that already exists. The file gives the unit its identity; the timezone
   and every other setting belong to the app once the unit is made.
 - A unit whose file is gone is deleted on the next run, except demo units (`SYNTHETIC_CAMPUS_PREFIX`).
@@ -41,7 +43,7 @@ graphql, background
 
 | Name | Proves |
 |---|---|
-| `unit-per-thermostat-file` | a file makes one named unit with defaults and its timezone |
+| `unit-per-thermostat-file` | a file makes one unit, named and labelled from its parts, with defaults and its timezone |
 | `existing-unit-untouched` | a changed file leaves its existing unit as it was |
 | `removed-file-deletes-unit` | a gone file deletes its unit; a demo unit stays |
 | `control-per-ilc-file` | one control per file, assigned exactly the named units; a gone file deletes it |
