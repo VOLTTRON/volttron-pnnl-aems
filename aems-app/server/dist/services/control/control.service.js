@@ -65,7 +65,7 @@ let ControlService = ControlService_1 = class ControlService extends __1.BaseSer
                 orderBy: {
                     createdAt: "desc",
                 },
-                where: { stage: { in: [common_2.StageType.Update.enum, common_2.StageType.Process.enum] } },
+                where: { stage: { in: [common_2.StageType.Create.enum, common_2.StageType.Update.enum, common_2.StageType.Process.enum] } },
             })
                 .then(async (controls) => {
                 if (controls.length === 0) {
@@ -75,9 +75,7 @@ let ControlService = ControlService_1 = class ControlService extends __1.BaseSer
                 for (const control of controls) {
                     this.logger.log(`Pushing the control config for: ${control.label}`);
                     try {
-                        if (control.peakLoadExclude) {
-                            control.units = [];
-                        }
+                        control.units = control.peakLoadExclude ? [] : control.units.filter((unit) => !unit.peakLoadExclude);
                         await this.prismaService.prisma.control.update({
                             where: { id: control.id },
                             data: { stage: common_2.StageType.ProcessType.enum, message: null },

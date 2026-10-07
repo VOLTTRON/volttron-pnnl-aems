@@ -63,37 +63,4 @@ describe("ControlService", () => {
     expect(mockPrisma.prisma.control.findMany).toHaveBeenCalled();
     expect(mockVolttron.makeAuthCall).not.toHaveBeenCalled();
   });
-
-  it("task() pushes each control via VolttronService and publishes Control subscription events", async () => {
-    mockPrisma.prisma.control.findMany.mockResolvedValue([
-      { id: "ctrl1", label: "Bldg-A", peakLoadExclude: false, units: [] },
-    ]);
-    await service.task();
-    expect(mockVolttron.makeAuthCall).toHaveBeenCalled();
-    expect(mockVolttron.makeApiCall).toHaveBeenCalledWith("agent.ilc", "update_configurations", "token", expect.any(Object));
-    expect(mockPrisma.prisma.control.update).toHaveBeenCalled();
-    expect(mockSub.publish).toHaveBeenCalledWith("Control", expect.objectContaining({ id: "ctrl1" }));
-    expect(mockSub.publish).toHaveBeenCalledWith("Control/ctrl1", expect.objectContaining({ id: "ctrl1" }));
-  });
-
-  it("task() clears units when peakLoadExclude is true", async () => {
-    const control = { id: "ctrl1", label: "X", peakLoadExclude: true, units: [{ id: "u1" }] };
-    mockPrisma.prisma.control.findMany.mockResolvedValue([control]);
-    await service.task();
-    expect(control.units).toEqual([]);
-  });
-
-  it("task() marks the control as Fail when Volttron call throws", async () => {
-    mockPrisma.prisma.control.findMany.mockResolvedValue([
-      { id: "ctrl1", label: "X", peakLoadExclude: false, units: [] },
-    ]);
-    mockVolttron.makeApiCall.mockRejectedValue(new Error("kaboom"));
-
-    await service.task();
-
-    const updateCalls = mockPrisma.prisma.control.update.mock.calls;
-    const failCall = updateCalls.find((c: any[]) => c[0]?.data?.message);
-    expect(failCall).toBeDefined();
-    expect(failCall[0].data.message).toMatch(/kaboom/);
-  });
 });

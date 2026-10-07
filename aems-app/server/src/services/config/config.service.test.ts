@@ -70,6 +70,7 @@ describe("ConfigService", () => {
   });
 
   // scenario: startup-repushes-controls
+  // scenario: startup-repush
   it("onApplicationBootstrap marks every unit and every control for repush when startup is true", async () => {
     await build(makeConfig({ service: { config: { startup: true } } }));
     await service.onApplicationBootstrap();

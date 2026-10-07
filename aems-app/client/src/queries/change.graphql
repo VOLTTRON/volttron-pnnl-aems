@@ -46,22 +46,6 @@ query ReadChanges($where: ChangeFilter, $paging: PagingInput, $orderBy: [ChangeO
   countChanges(where: $where)
 }
 
-mutation CreateChange($create: ChangeCreateInput!) {
-  createChange(create: $create) {
-    id
-    table
-    key
-    mutation
-    data
-    createdAt
-    updatedAt
-    user {
-      name
-      email
-    }
-  }
-}
-
 mutation DeleteChange($where: ChangeUniqueFilter!) {
   deleteChange(where: $where) {
     id

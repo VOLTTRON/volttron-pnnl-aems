@@ -56,7 +56,8 @@ export class ControlService extends BaseService {
           orderBy: {
             createdAt: "desc",
           },
-          where: { stage: { in: [StageType.Update.enum, StageType.Process.enum] } },
+          // Create: setup makes a control in that stage, and a new control is pushed without an edit.
+          where: { stage: { in: [StageType.Create.enum, StageType.Update.enum, StageType.Process.enum] } },
         })
         .then(async (controls) => {
           if (controls.length === 0) {
@@ -66,9 +67,8 @@ export class ControlService extends BaseService {
           for (const control of controls) {
             this.logger.log(`Pushing the control config for: ${control.label}`);
             try {
-              if (control.peakLoadExclude) {
-                control.units = [];
-              }
+              // Only what takes part in grid services goes to the ILC agent.
+              control.units = control.peakLoadExclude ? [] : control.units.filter((unit) => !unit.peakLoadExclude);
               await this.prismaService.prisma.control.update({
                 where: { id: control.id },
                 data: { stage: StageType.ProcessType.enum, message: null },

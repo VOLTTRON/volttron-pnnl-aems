@@ -9,7 +9,9 @@ export async function renderControlTemplates(
   templatePaths: string[],
   logger?: Logger,
 ): Promise<Record<string, unknown>> {
-  if (templatePaths.length === 0) return {};
+  if (templatePaths.length === 0) {
+    throw new Error("No ILC template path is configured. Check SERVICE_SETUP_TEMPLATE_PATHS.");
+  }
   const resolved = templatePaths.map((p) => resolve(p));
   const existing: string[] = [];
   const missing: string[] = [];
