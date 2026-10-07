@@ -8,7 +8,7 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 | `secrets` | built | stack |
 | `auth` | built | stack |
 | `graphql` | built | auth |
-| `upgrade` | unbuilt | secrets, stack |
+| `upgrade` | built | secrets, stack |
 | `shell` | unbuilt | auth, graphql |
 | `keycloak-admin` | unbuilt | auth, graphql |
 | `background` | built | stack |
