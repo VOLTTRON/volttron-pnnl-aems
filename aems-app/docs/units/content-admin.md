@@ -13,12 +13,14 @@ Implemented today in `server/src/graphql/{user,banner,feedback,comment,file,acco
 ## Claims
 
 - A non-admin reads and changes only their own feedback, comments and files. That holds through every
-  query and mutation, counts and groupings included. An admin reaches all of them. No API lets a
-  non-admin hand a record to another user or attach someone else's file to their feedback.
-- A non-admin sees another user only as an id and a name. No GraphQL field exposes an account's
-  tokens, and only admins read accounts.
-- A user may change their own name, image, preferences and password. Only an admin may change an
-  email or a role. No one may update or delete a user who holds a role they could not grant.
+  query and mutation, counts, groupings and the subscriptions they back included, and a caller's own
+  `where` only narrows it. An admin reaches all of them. No API lets a non-admin hand a record to
+  another user or attach someone else's file to their feedback.
+- A non-admin sees another user only as an id and a name, and their own record in full. No GraphQL
+  field exposes an account's tokens, and only admins read or change accounts.
+- A user may change their own name, image, preferences and password, and none of the four is dropped.
+  Only an admin may change an email or a role. No one may update or delete a user who holds a role
+  they could not grant.
 - Passwords are stored as bcrypt hashes and are never returned.
 - Deleting a user leaves the feedback assigned to them unassigned, and removes their uploaded files
   from disk.
@@ -41,9 +43,9 @@ graphql
 
 | Name | Proves |
 |---|---|
-| `own-records-only` | every read and write path refuses another user's feedback, comments and files |
-| `user-view-and-tokens-guarded` | others read as id and name only; no token field; accounts admin-only |
-| `user-edit-rights` | self-edit limits, admin-only email and role, no edit above one's grants |
+| `own-records-only` | every read, write and subscription path refuses another user's feedback, comments and files, whatever `where` is passed |
+| `user-view-and-tokens-guarded` | others read as id and name only, self in full; no token field; accounts admin-only |
+| `user-edit-rights` | all four self-edits written; admin-only email and role; no edit or delete above one's grants |
 | `password-hashed-hidden` | stored as bcrypt; no field returns it |
 | `user-delete-cascade-safe` | assigned feedback kept unassigned; the user's files gone from disk |
 | `banner-visibility` | shown until expiry, always without one; expired filtered by the server |
