@@ -5,6 +5,7 @@ import { getLogLevel } from "@/logging";
 import { Inject, Logger, Optional } from "@nestjs/common";
 import { Injectable } from "@nestjs/common";
 import { AppConfigService } from "@/app.config";
+import { Marked, MarkingClient, writeAndMark } from "./push-marking";
 
 const processPassword = (password: string, validate: boolean, strength: number) => {
   const result = checkPassword(password);
@@ -17,9 +18,25 @@ const processPassword = (password: string, validate: boolean, strength: number) 
   return hashSync(password, 10);
 };
 
-const extendPrisma = <T extends PrismaClient>(prisma: T, configService: AppConfigService) => {
+const extendPrisma = <T extends PrismaClient>(prisma: T, configService: AppConfigService, onMarked: (marked: Marked) => void) => {
   return prisma.$extends({
     query: {
+      // A write that changes what a unit or control sends marks it for a push, whichever mutation or
+      // service made it. The marking reads and writes through the unextended client, so its own
+      // writes are not marked again.
+      $allModels: {
+        async $allOperations({ model, operation, args, query }) {
+          const { result, marked } = await writeAndMark(
+            prisma as unknown as MarkingClient,
+            model,
+            operation,
+            args as { where?: Record<string, unknown>; data?: unknown },
+            query as (args: unknown) => Promise<unknown>,
+          );
+          if (marked.units.length > 0 || marked.controls.length > 0) onMarked(marked);
+          return result;
+        },
+      },
       user: {
         $allOperations({ operation, args, query }) {
           switch (operation) {
@@ -85,6 +102,17 @@ export class PrismaService {
   // magic string necessary because class name is minified
   private logger = new Logger("PrismaClient");
   readonly prisma: PrismaClient;
+  private readonly markListeners: ((marked: Marked) => Promise<void> | void)[] = [];
+  private readonly marked = (marked: Marked) => {
+    for (const listener of this.markListeners) {
+      Promise.resolve(listener(marked)).catch((error: Error) => this.logger.warn(error, "A push-mark listener failed"));
+    }
+  };
+
+  /** Calls LISTENER with the units and controls each write marks for a push. */
+  onPushMarked(listener: (marked: Marked) => Promise<void> | void) {
+    this.markListeners.push(listener);
+  }
 
   constructor(@Inject(AppConfigService.Key) configService: AppConfigService, @Optional() prisma?: PrismaClient) {
     const level = getLogLevel(configService.log.prisma.level);
@@ -107,15 +135,15 @@ export class PrismaService {
       prisma.$on("query", (event) => {
         this.logger[level](event, "Prisma Query");
       });
-      this.prisma = extendPrisma(prisma, configService) as PrismaClient;
+      this.prisma = extendPrisma(prisma, configService, this.marked) as PrismaClient;
       this.logger.log(
         `Prisma Client configured for database (with query logging) at:  ${host}:${port}/${name}`,
       );
     } else if (!prisma) {
-      this.prisma = extendPrisma(new PrismaClient({ datasources }), configService) as PrismaClient;
+      this.prisma = extendPrisma(new PrismaClient({ datasources }), configService, this.marked) as PrismaClient;
       this.logger.log(`Prisma Client configured for database at:  ${host}:${port}/${name}`);
     } else {
-      this.prisma = extendPrisma(prisma, configService) as PrismaClient;
+      this.prisma = extendPrisma(prisma, configService, this.marked) as PrismaClient;
       this.logger.log(`Prisma Client configured using supplied prisma client.`);
     }
   }

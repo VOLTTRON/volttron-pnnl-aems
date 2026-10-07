@@ -56,6 +56,19 @@ describe("the unit configuration sent to VOLTTRON", () => {
   let units: ReturnType<typeof unit>[];
   let updates: { stage: string; message?: string | null }[];
 
+  type Stage = { stage: string; message?: string | null };
+  type Where = { id?: string; stage?: string | { in: string[] } };
+  const matches = (u: { id: string; stage: string }, where: Where) =>
+    (where.id === undefined || u.id === where.id) &&
+    (where.stage === undefined || (typeof where.stage === "string" ? u.stage === where.stage : where.stage.in.includes(u.stage)));
+  /** Applies DATA to the units WHERE matches, recording it once if any did; the number written. */
+  function write(where: Where, data: Stage) {
+    const rows = units.filter((u) => matches(u, where));
+    rows.forEach((u) => Object.assign(u, data));
+    if (rows.length > 0) updates.push(data);
+    return rows.length;
+  }
+
   async function push(flags: Flags = {}) {
     makeApiCall ??= jest.fn().mockResolvedValue({});
     updates = [];
@@ -66,15 +79,12 @@ describe("the unit configuration sent to VOLTTRON", () => {
           provide: PrismaService,
           useValue: {
             prisma: {
+              // A table of UNITS: a write applies to the rows its WHERE (id, and stage or stages) matches.
               unit: {
-                findMany: jest.fn(({ where }: { where: { stage: { in: string[] } } }) =>
-                  Promise.resolve(units.filter((u) => where.stage.in.includes(u.stage))),
-                ),
-                update: jest.fn(({ data }: { data: { stage: string; message?: string | null } }) => {
-                  updates.push(data);
-                  return Promise.resolve(null);
-                }),
-                updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+                findMany: jest.fn(({ where }: { where: Where }) => Promise.resolve(units.filter((u) => matches(u, where)))),
+                findUnique: jest.fn(({ where }: { where: Where }) => Promise.resolve(units.find((u) => matches(u, where)) ?? null)),
+                update: jest.fn(({ where, data }: { where: Where; data: Stage }) => Promise.resolve(write(where, data))),
+                updateMany: jest.fn(({ where, data }: { where: Where; data: Stage }) => Promise.resolve({ count: write(where, data) })),
               },
             },
           },
@@ -167,6 +177,7 @@ describe("the unit configuration sent to VOLTTRON", () => {
       expect(sent("set_schedule")).not.toHaveProperty("Holiday");
       expect(sent("set_service_schedule")).not.toHaveProperty("Holiday");
       await module.close();
+      units = [unit()];
       await push({ serviceOverride: true, holidaySchedule: true });
       expect(sent("set_schedule")).toHaveProperty("Holiday", "always_off");
       expect(sent("set_service_schedule")).toHaveProperty("Holiday");
@@ -248,5 +259,43 @@ describe("the unit configuration sent to VOLTTRON", () => {
     await push();
     expect(makeApiCall).not.toHaveBeenCalled();
     expect(updates).toEqual([]);
+  });
+
+  // scenario: edit-during-push-repushed
+  describe("an edit saved while the unit is being pushed", () => {
+    /** A push in which, during set_holidays, an edit raises the setpoint and marks the unit, then CALL answers. */
+    function editedMidPush(call: () => Promise<unknown>) {
+      const editing = unit();
+      units = [editing];
+      makeApiCall = jest.fn((_id: string, method: string) => {
+        if (method === "set_holidays") {
+          editing.configuration.setpoint.setpoint = 74;
+          editing.stage = StageType.Update.enum;
+          return call();
+        }
+        return Promise.resolve({});
+      });
+      return editing;
+    }
+
+    it("is not marked Complete by that push, and the next push sends it", async () => {
+      const editing = editedMidPush(() => Promise.resolve({}));
+      await push();
+      expect(editing.stage).toBe(StageType.Update.enum);
+      expect(updates.map((u) => u.stage)).not.toContain(StageType.Complete.enum);
+
+      await module.close();
+      makeApiCall = jest.fn().mockResolvedValue({});
+      await push();
+      expect(sent("set_temperature_setpoints")).toMatchObject({ OccupiedSetPoint: 74 });
+      expect(editing.stage).toBe(StageType.Complete.enum);
+    });
+
+    it("is not marked Fail when that push fails, so it is pushed again", async () => {
+      const editing = editedMidPush(() => Promise.reject(new Error("refused")));
+      await push();
+      expect(editing.stage).toBe(StageType.Update.enum);
+      expect(updates.map((u) => u.stage)).not.toContain(StageType.Fail.enum);
+    });
   });
 });

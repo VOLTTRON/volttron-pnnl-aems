@@ -1,6 +1,6 @@
 # volttron-sync
 
-**State:** unbuilt
+**State:** built
 
 ## Contract
 
@@ -8,9 +8,6 @@ Carrying each unit's configuration to the VOLTTRON edge platform, and recording 
 What a unit's configuration says, and the form it takes, belong to setpoints-schedules. The ILC
 configuration a control sends belongs to controls-ilc. The stages a push moves a unit or control
 through belong here.
-
-Implemented today in `server/src/services/volttron.service.ts`, `server/src/services/config/config.service.ts`,
-`server/src/change/`, `server/src/graphql/change/` and `client/src/app/changes/`.
 
 ## Claims
 

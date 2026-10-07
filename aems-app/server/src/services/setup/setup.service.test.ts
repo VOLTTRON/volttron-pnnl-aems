@@ -155,14 +155,29 @@ describe("SetupService", () => {
     await module.close();
   });
 
-  it("makes a unit for a thermostat file, with default setpoints and schedules and the file's timezone", async () => {
+  // scenario: unit-per-thermostat-file
+  it("makes a unit for a thermostat file, named and labelled from its parts, with defaults and its timezone", async () => {
     files["/t/a.config"] = thermostat("PNNL", "ROB", "rtu1", "America/Denver");
+    files["/t/b.config"] = thermostat("PNNL", "B1", "Ahu1", "America/Los_Angeles");
 
     await service.task();
 
-    expect(units).toHaveLength(1);
-    const [unit] = units;
-    expect(unit).toMatchObject({ campus: "PNNL", building: "ROB", system: "rtu1", timezone: "America/Denver" });
+    expect(units).toHaveLength(2);
+    const [unit, second] = units;
+    expect(unit).toMatchObject({
+      campus: "PNNL",
+      building: "ROB",
+      system: "rtu1",
+      timezone: "America/Denver",
+      name: "Pnnl-Rob-Rtu_1",
+      label: "PNNL ROB rtu1",
+    });
+    // The claim's named example: PNNL / B1 / Ahu1 -> Pnnl-B_1-Ahu_1.
+    expect(second).toMatchObject({
+      name: "Pnnl-B_1-Ahu_1",
+      label: "PNNL B1 Ahu1",
+      timezone: "America/Los_Angeles",
+    });
     const configuration = unit.data.configuration.create;
     expect(configuration.setpoint.create).toMatchObject({
       setpoint: ValidateType.Setpoint.options?.default,
