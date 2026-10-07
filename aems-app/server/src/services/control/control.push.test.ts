@@ -109,6 +109,20 @@ describe("pushing a control to the ILC agent", () => {
     expect(sent()).toEqual([{ control: { PNNL: { units: ["rtu1", "rtu2"] } }, building: { name: "ROB" } }]);
   });
 
+  // scenario: ilc-templates-reread
+  it("re-reads the templates each push, so an edit on disk reaches the next render", async () => {
+    controls = [control()];
+    await push();
+    expect(sent()).toEqual([{ control: { PNNL: { units: ["rtu1", "rtu2"] } }, building: { name: "ROB" } }]);
+
+    writeFileSync(join(templates, "building.json"), JSON.stringify({ renamed: "{building}" }));
+    await module.close();
+
+    controls = [control({ stage: StageType.Update.enum })];
+    await push();
+    expect(sent().pop()).toEqual({ control: { PNNL: { units: ["rtu1", "rtu2"] } }, building: { renamed: "ROB" } });
+  });
+
   // scenario: ilc-push-stages
   describe("stages", () => {
     it("moves the control to Process, then to Complete", async () => {
