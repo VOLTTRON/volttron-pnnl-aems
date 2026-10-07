@@ -222,7 +222,8 @@ test("a deployment whose historian role is on a stale password and whose VOLTTRO
   await expect
     .poll(() => vsh("vctl status").split(/\r?\n/).find((l) => l.includes("platform.historian")) ?? "", { timeout: 5 * 60_000, intervals: [5_000] })
     .toMatch(/GOOD\s*$/);
-  expect(out.split(/\r?\n/).find((l) => l.includes("historian login")), out).toMatch(/\bOK\b/);
+  const report = out.slice(out.lastIndexOf("Deployment report"));
+  expect(report.split(/\r?\n/).find((l) => l.includes("historian login: role")), out).toMatch(/\bOK\b/);
 });
 
 // scenario: fresh-checkout-boots
