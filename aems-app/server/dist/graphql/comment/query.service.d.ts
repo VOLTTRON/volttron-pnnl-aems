@@ -68,11 +68,11 @@ export declare class CommentQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("id" | "createdAt" | "updatedAt" | "userId" | "message")[] | null | undefined;
-        sum?: ("id" | "createdAt" | "updatedAt" | "userId" | "message")[] | null | undefined;
-        maximum?: ("id" | "createdAt" | "updatedAt" | "userId" | "message")[] | null | undefined;
-        minimum?: ("id" | "createdAt" | "updatedAt" | "userId" | "message")[] | null | undefined;
-        average?: ("id" | "createdAt" | "updatedAt" | "userId" | "message")[] | null | undefined;
+        count?: ("id" | "createdAt" | "updatedAt" | "message" | "userId")[] | null | undefined;
+        sum?: ("id" | "createdAt" | "updatedAt" | "message" | "userId")[] | null | undefined;
+        maximum?: ("id" | "createdAt" | "updatedAt" | "message" | "userId")[] | null | undefined;
+        minimum?: ("id" | "createdAt" | "updatedAt" | "message" | "userId")[] | null | undefined;
+        average?: ("id" | "createdAt" | "updatedAt" | "message" | "userId")[] | null | undefined;
     }>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, commentObject: CommentObject, userQuery: UserQuery);
 }

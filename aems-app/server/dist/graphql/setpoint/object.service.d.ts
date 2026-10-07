@@ -34,10 +34,10 @@ export declare class SetpointObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        setpoint: number;
-        message: string | null;
         stage: import("@prisma/client").$Enums.ModelStage;
+        message: string | null;
         correlation: string | null;
+        setpoint: number;
         label: string;
         deadband: number;
         overrideSetpoint: number;
@@ -52,6 +52,6 @@ export declare class SetpointObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset", "id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset">;
+    }>, "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpoint" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset", "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpoint" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset">;
     constructor(builder: SchemaBuilderService);
 }

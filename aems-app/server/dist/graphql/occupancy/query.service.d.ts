@@ -9,11 +9,11 @@ export declare class OccupancyQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "configurationId" | "date" | "scheduleId")[] | null | undefined;
-        sum?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "configurationId" | "date" | "scheduleId")[] | null | undefined;
-        maximum?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "configurationId" | "date" | "scheduleId")[] | null | undefined;
-        minimum?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "configurationId" | "date" | "scheduleId")[] | null | undefined;
-        average?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "configurationId" | "date" | "scheduleId")[] | null | undefined;
+        count?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "scheduleId" | "configurationId" | "label" | "date")[] | null | undefined;
+        sum?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "scheduleId" | "configurationId" | "label" | "date")[] | null | undefined;
+        maximum?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "scheduleId" | "configurationId" | "label" | "date")[] | null | undefined;
+        minimum?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "scheduleId" | "configurationId" | "label" | "date")[] | null | undefined;
+        average?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "scheduleId" | "configurationId" | "label" | "date")[] | null | undefined;
     }>;
     readonly OccupancyWhereUnique: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;

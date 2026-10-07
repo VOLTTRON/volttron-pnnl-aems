@@ -45,8 +45,8 @@ export declare class FeedbackObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         message: string;
+        userId: string;
         status: import("@prisma/client").$Enums.FeedbackStatus;
         assigneeId: string | null;
     }>;
@@ -55,6 +55,6 @@ export declare class FeedbackObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "userId" | "message" | "status" | "assigneeId", "id" | "createdAt" | "updatedAt" | "userId" | "message" | "status" | "assigneeId">;
+    }>, "id" | "createdAt" | "updatedAt" | "message" | "userId" | "status" | "assigneeId", "id" | "createdAt" | "updatedAt" | "message" | "userId" | "status" | "assigneeId">;
     constructor(builder: SchemaBuilderService);
 }

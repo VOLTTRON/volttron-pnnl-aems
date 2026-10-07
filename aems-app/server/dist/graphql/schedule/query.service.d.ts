@@ -9,11 +9,11 @@ export declare class ScheduleQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
-        sum?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
-        maximum?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
-        minimum?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
-        average?: ("id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
+        count?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpointId" | "label" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
+        sum?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpointId" | "label" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
+        maximum?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpointId" | "label" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
+        minimum?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpointId" | "label" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
+        average?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpointId" | "label" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime")[] | null | undefined;
     }>;
     readonly ScheduleWhereUnique: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;

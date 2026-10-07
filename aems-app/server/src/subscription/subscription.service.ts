@@ -5,7 +5,7 @@ import { PubSub } from "graphql-subscriptions";
 import { PrismaPubSub } from "@/prisma";
 import { PrismaService } from "@/prisma/prisma.service";
 import { PubSubAsyncIterableIterator } from "graphql-subscriptions/dist/pubsub-async-iterable-iterator";
-import { SubscriptionEvent, SubscriptionTopic } from "@local/common";
+import { Mutation, SubscriptionEvent, SubscriptionTopic } from "@local/common";
 import { AppConfigService } from "@/app.config";
 
 class PubSubExt extends PubSub implements PubSubEngineExt {
@@ -59,6 +59,17 @@ export class SubscriptionService implements PubSubEngineExt {
         logger.warn(`Unknown GraphQL subscription type specified: ${configService.graphql.pubsub}`);
         break;
     }
+    // A write elsewhere that marks units or controls for a push changes their stage: publish it.
+    prismaService.onPushMarked(async ({ units, controls }) => {
+      for (const id of units) {
+        await this.publish("Unit", { topic: "Unit", id, mutation: Mutation.Updated });
+        await this.publish(`Unit/${id}`, { topic: "Unit", id, mutation: Mutation.Updated });
+      }
+      for (const id of controls) {
+        await this.publish("Control", { topic: "Control", id, mutation: Mutation.Updated });
+        await this.publish(`Control/${id}`, { topic: "Control", id, mutation: Mutation.Updated });
+      }
+    });
   }
 
   publish<T extends SubscriptionTopic>(

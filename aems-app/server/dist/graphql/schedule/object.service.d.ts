@@ -74,11 +74,11 @@ export declare class ScheduleObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        message: string | null;
         stage: import("@prisma/client").$Enums.ModelStage;
+        message: string | null;
         correlation: string | null;
-        label: string;
         setpointId: string | null;
+        label: string;
         startTime: string;
         endTime: string;
         occupied: boolean;
@@ -93,6 +93,6 @@ export declare class ScheduleObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime", "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime">;
+    }>, "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpointId" | "label" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime", "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpointId" | "label" | "startTime" | "endTime" | "occupied" | "override" | "overridePreStartTime" | "overridePreEndTime" | "overridePostStartTime" | "overridePostEndTime">;
     constructor(builder: SchemaBuilderService);
 }

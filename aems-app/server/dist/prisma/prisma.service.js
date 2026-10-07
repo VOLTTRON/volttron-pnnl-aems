@@ -20,6 +20,7 @@ const logging_1 = require("../logging");
 const common_1 = require("@nestjs/common");
 const common_2 = require("@nestjs/common");
 const app_config_1 = require("../app.config");
+const push_marking_1 = require("./push-marking");
 const processPassword = (password, validate, strength) => {
     const result = (0, auth_1.checkPassword)(password);
     if (validate && result.feedback.warning) {
@@ -30,9 +31,17 @@ const processPassword = (password, validate, strength) => {
     }
     return (0, bcrypt_1.hashSync)(password, 10);
 };
-const extendPrisma = (prisma, configService) => {
+const extendPrisma = (prisma, configService, onMarked) => {
     return prisma.$extends({
         query: {
+            $allModels: {
+                async $allOperations({ model, operation, args, query }) {
+                    const { result, marked } = await (0, push_marking_1.writeAndMark)(prisma, model, operation, args, query);
+                    if (marked.units.length > 0 || marked.controls.length > 0)
+                        onMarked(marked);
+                    return result;
+                },
+            },
             user: {
                 $allOperations({ operation, args, query }) {
                     switch (operation) {
@@ -74,8 +83,17 @@ const extendPrisma = (prisma, configService) => {
     });
 };
 let PrismaService = class PrismaService {
+    onPushMarked(listener) {
+        this.markListeners.push(listener);
+    }
     constructor(configService, prisma) {
         this.logger = new common_1.Logger("PrismaClient");
+        this.markListeners = [];
+        this.marked = (marked) => {
+            for (const listener of this.markListeners) {
+                Promise.resolve(listener(marked)).catch((error) => this.logger.warn(error, "A push-mark listener failed"));
+            }
+        };
         const level = (0, logging_1.getLogLevel)(configService.log.prisma.level);
         const { host, port, name, schema, username, password } = configService.database;
         const connLimit = 5;
@@ -91,15 +109,15 @@ let PrismaService = class PrismaService {
             prisma.$on("query", (event) => {
                 this.logger[level](event, "Prisma Query");
             });
-            this.prisma = extendPrisma(prisma, configService);
+            this.prisma = extendPrisma(prisma, configService, this.marked);
             this.logger.log(`Prisma Client configured for database (with query logging) at:  ${host}:${port}/${name}`);
         }
         else if (!prisma) {
-            this.prisma = extendPrisma(new client_1.PrismaClient({ datasources }), configService);
+            this.prisma = extendPrisma(new client_1.PrismaClient({ datasources }), configService, this.marked);
             this.logger.log(`Prisma Client configured for database at:  ${host}:${port}/${name}`);
         }
         else {
-            this.prisma = extendPrisma(prisma, configService);
+            this.prisma = extendPrisma(prisma, configService, this.marked);
             this.logger.log(`Prisma Client configured using supplied prisma client.`);
         }
     }

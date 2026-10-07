@@ -9,11 +9,11 @@ export declare class HolidayQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("day" | "month" | "id" | "createdAt" | "updatedAt" | "type" | "message" | "stage" | "correlation" | "label" | "observance")[] | null | undefined;
-        sum?: ("day" | "month" | "id" | "createdAt" | "updatedAt" | "type" | "message" | "stage" | "correlation" | "label" | "observance")[] | null | undefined;
-        maximum?: ("day" | "month" | "id" | "createdAt" | "updatedAt" | "type" | "message" | "stage" | "correlation" | "label" | "observance")[] | null | undefined;
-        minimum?: ("day" | "month" | "id" | "createdAt" | "updatedAt" | "type" | "message" | "stage" | "correlation" | "label" | "observance")[] | null | undefined;
-        average?: ("day" | "month" | "id" | "createdAt" | "updatedAt" | "type" | "message" | "stage" | "correlation" | "label" | "observance")[] | null | undefined;
+        count?: ("day" | "month" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "type" | "label" | "observance")[] | null | undefined;
+        sum?: ("day" | "month" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "type" | "label" | "observance")[] | null | undefined;
+        maximum?: ("day" | "month" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "type" | "label" | "observance")[] | null | undefined;
+        minimum?: ("day" | "month" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "type" | "label" | "observance")[] | null | undefined;
+        average?: ("day" | "month" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "type" | "label" | "observance")[] | null | undefined;
     }>;
     readonly HolidayWhereUnique: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;

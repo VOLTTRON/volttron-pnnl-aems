@@ -10,11 +10,11 @@ export declare class ControlQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("name" | "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude")[] | null | undefined;
-        sum?: ("name" | "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude")[] | null | undefined;
-        maximum?: ("name" | "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude")[] | null | undefined;
-        minimum?: ("name" | "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude")[] | null | undefined;
-        average?: ("name" | "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude")[] | null | undefined;
+        count?: ("name" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude")[] | null | undefined;
+        sum?: ("name" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude")[] | null | undefined;
+        maximum?: ("name" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude")[] | null | undefined;
+        minimum?: ("name" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude")[] | null | undefined;
+        average?: ("name" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude")[] | null | undefined;
     }>;
     readonly ControlWhereUnique: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;

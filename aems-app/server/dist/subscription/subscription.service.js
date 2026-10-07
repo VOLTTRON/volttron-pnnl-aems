@@ -19,6 +19,7 @@ const common_1 = require("@nestjs/common");
 const graphql_subscriptions_1 = require("graphql-subscriptions");
 const prisma_1 = require("../prisma");
 const prisma_service_1 = require("../prisma/prisma.service");
+const common_2 = require("@local/common");
 const app_config_1 = require("../app.config");
 class PubSubExt extends graphql_subscriptions_1.PubSub {
     asyncIterator(triggers) {
@@ -66,6 +67,16 @@ let SubscriptionService = SubscriptionService_1 = class SubscriptionService {
                 logger.warn(`Unknown GraphQL subscription type specified: ${configService.graphql.pubsub}`);
                 break;
         }
+        prismaService.onPushMarked(async ({ units, controls }) => {
+            for (const id of units) {
+                await this.publish("Unit", { topic: "Unit", id, mutation: common_2.Mutation.Updated });
+                await this.publish(`Unit/${id}`, { topic: "Unit", id, mutation: common_2.Mutation.Updated });
+            }
+            for (const id of controls) {
+                await this.publish("Control", { topic: "Control", id, mutation: common_2.Mutation.Updated });
+                await this.publish(`Control/${id}`, { topic: "Control", id, mutation: common_2.Mutation.Updated });
+            }
+        });
     }
     publish(triggerName, payload) {
         return this.instance.publish(triggerName, payload);

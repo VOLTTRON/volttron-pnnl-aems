@@ -29,14 +29,14 @@ export declare class CommentObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string | null;
         message: string;
+        userId: string | null;
     }>;
     readonly CommentFields: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "userId" | "message", "id" | "createdAt" | "updatedAt" | "userId" | "message">;
+    }>, "id" | "createdAt" | "updatedAt" | "message" | "userId", "id" | "createdAt" | "updatedAt" | "message" | "userId">;
     constructor(builder: SchemaBuilderService);
 }

@@ -31,10 +31,10 @@ export declare class HolidayObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        type: import("@prisma/client").$Enums.HolidayType;
-        message: string | null;
         stage: import("@prisma/client").$Enums.ModelStage;
+        message: string | null;
         correlation: string | null;
+        type: import("@prisma/client").$Enums.HolidayType;
         label: string;
         observance: string | null;
     }>;
@@ -43,7 +43,7 @@ export declare class HolidayObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "day" | "month" | "id" | "createdAt" | "updatedAt" | "type" | "message" | "stage" | "correlation" | "label" | "observance", "day" | "month" | "id" | "createdAt" | "updatedAt" | "type" | "message" | "stage" | "correlation" | "label" | "observance">;
+    }>, "day" | "month" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "type" | "label" | "observance", "day" | "month" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "type" | "label" | "observance">;
     readonly HolidayType: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;

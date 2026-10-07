@@ -84,11 +84,11 @@ export declare class ConfigurationObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        message: string | null;
         stage: import("@prisma/client").$Enums.ModelStage;
+        message: string | null;
         correlation: string | null;
-        label: string;
         setpointId: string | null;
+        label: string;
         mondayScheduleId: string | null;
         tuesdayScheduleId: string | null;
         wednesdayScheduleId: string | null;
@@ -103,6 +103,6 @@ export declare class ConfigurationObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "mondayScheduleId" | "tuesdayScheduleId" | "wednesdayScheduleId" | "thursdayScheduleId" | "fridayScheduleId" | "saturdayScheduleId" | "sundayScheduleId" | "holidayScheduleId", "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "setpointId" | "mondayScheduleId" | "tuesdayScheduleId" | "wednesdayScheduleId" | "thursdayScheduleId" | "fridayScheduleId" | "saturdayScheduleId" | "sundayScheduleId" | "holidayScheduleId">;
+    }>, "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpointId" | "label" | "mondayScheduleId" | "tuesdayScheduleId" | "wednesdayScheduleId" | "thursdayScheduleId" | "fridayScheduleId" | "saturdayScheduleId" | "sundayScheduleId" | "holidayScheduleId", "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpointId" | "label" | "mondayScheduleId" | "tuesdayScheduleId" | "wednesdayScheduleId" | "thursdayScheduleId" | "fridayScheduleId" | "saturdayScheduleId" | "sundayScheduleId" | "holidayScheduleId">;
     constructor(builder: SchemaBuilderService);
 }

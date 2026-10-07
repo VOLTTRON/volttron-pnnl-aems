@@ -34,19 +34,19 @@ export declare class OccupancyObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        message: string | null;
         stage: import("@prisma/client").$Enums.ModelStage;
+        message: string | null;
         correlation: string | null;
-        label: string;
-        configurationId: string | null;
-        date: Date;
         scheduleId: string | null;
+        configurationId: string | null;
+        label: string;
+        date: Date;
     }>;
     readonly OccupancyFields: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "configurationId" | "date" | "scheduleId", "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "label" | "configurationId" | "date" | "scheduleId">;
+    }>, "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "scheduleId" | "configurationId" | "label" | "date", "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "scheduleId" | "configurationId" | "label" | "date">;
     constructor(builder: SchemaBuilderService);
 }

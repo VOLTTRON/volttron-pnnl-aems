@@ -29,14 +29,14 @@ export declare class LogObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        type: import("@prisma/client").$Enums.LogType | null;
         message: string | null;
+        type: import("@prisma/client").$Enums.LogType | null;
     }>;
     readonly LogFields: PothosSchemaTypes.EnumRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "id" | "createdAt" | "updatedAt" | "type" | "message", "id" | "createdAt" | "updatedAt" | "type" | "message">;
+    }>, "id" | "createdAt" | "updatedAt" | "message" | "type", "id" | "createdAt" | "updatedAt" | "message" | "type">;
     constructor(builder: SchemaBuilderService);
 }

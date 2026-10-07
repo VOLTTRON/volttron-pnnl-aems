@@ -80,11 +80,11 @@ export declare class FeedbackQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("id" | "createdAt" | "updatedAt" | "userId" | "message" | "status" | "assigneeId")[] | null | undefined;
-        sum?: ("id" | "createdAt" | "updatedAt" | "userId" | "message" | "status" | "assigneeId")[] | null | undefined;
-        maximum?: ("id" | "createdAt" | "updatedAt" | "userId" | "message" | "status" | "assigneeId")[] | null | undefined;
-        minimum?: ("id" | "createdAt" | "updatedAt" | "userId" | "message" | "status" | "assigneeId")[] | null | undefined;
-        average?: ("id" | "createdAt" | "updatedAt" | "userId" | "message" | "status" | "assigneeId")[] | null | undefined;
+        count?: ("id" | "createdAt" | "updatedAt" | "message" | "userId" | "status" | "assigneeId")[] | null | undefined;
+        sum?: ("id" | "createdAt" | "updatedAt" | "message" | "userId" | "status" | "assigneeId")[] | null | undefined;
+        maximum?: ("id" | "createdAt" | "updatedAt" | "message" | "userId" | "status" | "assigneeId")[] | null | undefined;
+        minimum?: ("id" | "createdAt" | "updatedAt" | "message" | "userId" | "status" | "assigneeId")[] | null | undefined;
+        average?: ("id" | "createdAt" | "updatedAt" | "message" | "userId" | "status" | "assigneeId")[] | null | undefined;
     }>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, feedbackObject: FeedbackObject, userQuery: UserQuery);
 }

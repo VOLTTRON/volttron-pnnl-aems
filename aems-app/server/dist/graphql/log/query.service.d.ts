@@ -67,11 +67,11 @@ export declare class LogQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("id" | "createdAt" | "updatedAt" | "type" | "message")[] | null | undefined;
-        sum?: ("id" | "createdAt" | "updatedAt" | "type" | "message")[] | null | undefined;
-        maximum?: ("id" | "createdAt" | "updatedAt" | "type" | "message")[] | null | undefined;
-        minimum?: ("id" | "createdAt" | "updatedAt" | "type" | "message")[] | null | undefined;
-        average?: ("id" | "createdAt" | "updatedAt" | "type" | "message")[] | null | undefined;
+        count?: ("id" | "createdAt" | "updatedAt" | "message" | "type")[] | null | undefined;
+        sum?: ("id" | "createdAt" | "updatedAt" | "message" | "type")[] | null | undefined;
+        maximum?: ("id" | "createdAt" | "updatedAt" | "message" | "type")[] | null | undefined;
+        minimum?: ("id" | "createdAt" | "updatedAt" | "message" | "type")[] | null | undefined;
+        average?: ("id" | "createdAt" | "updatedAt" | "message" | "type")[] | null | undefined;
     }>;
     constructor(builder: SchemaBuilderService, prismaService: PrismaService, logObject: LogObject);
 }

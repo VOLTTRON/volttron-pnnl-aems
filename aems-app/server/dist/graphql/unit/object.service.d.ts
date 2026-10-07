@@ -45,9 +45,10 @@ export declare class UnitObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        message: string | null;
         stage: import("@prisma/client").$Enums.ModelStage;
+        message: string | null;
         correlation: string | null;
+        configurationId: string | null;
         campus: string;
         building: string;
         system: string;
@@ -73,7 +74,6 @@ export declare class UnitObject {
         peakLoadExclude: boolean;
         economizerSetpoint: number;
         occupancyDetection: boolean;
-        configurationId: string | null;
         controlId: string | null;
         locationId: string | null;
     }>;
@@ -82,6 +82,6 @@ export declare class UnitObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "name" | "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "campus" | "building" | "system" | "timezone" | "label" | "coolingCapacity" | "compressors" | "coolingLockout" | "optimalStartLockout" | "optimalStartDeviation" | "earliestStart" | "latestStart" | "zoneLocation" | "zoneMass" | "zoneOrientation" | "zoneBuilding" | "heatPump" | "heatPumpBackup" | "economizer" | "heatPumpLockout" | "coolingPeakOffset" | "heatingPeakOffset" | "peakLoadExclude" | "economizerSetpoint" | "occupancyDetection" | "configurationId" | "controlId" | "locationId", "name" | "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "campus" | "building" | "system" | "timezone" | "label" | "coolingCapacity" | "compressors" | "coolingLockout" | "optimalStartLockout" | "optimalStartDeviation" | "earliestStart" | "latestStart" | "zoneLocation" | "zoneMass" | "zoneOrientation" | "zoneBuilding" | "heatPump" | "heatPumpBackup" | "economizer" | "heatPumpLockout" | "coolingPeakOffset" | "heatingPeakOffset" | "peakLoadExclude" | "economizerSetpoint" | "occupancyDetection" | "configurationId" | "controlId" | "locationId">;
+    }>, "name" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "configurationId" | "campus" | "building" | "system" | "timezone" | "label" | "coolingCapacity" | "compressors" | "coolingLockout" | "optimalStartLockout" | "optimalStartDeviation" | "earliestStart" | "latestStart" | "zoneLocation" | "zoneMass" | "zoneOrientation" | "zoneBuilding" | "heatPump" | "heatPumpBackup" | "economizer" | "heatPumpLockout" | "coolingPeakOffset" | "heatingPeakOffset" | "peakLoadExclude" | "economizerSetpoint" | "occupancyDetection" | "controlId" | "locationId", "name" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "configurationId" | "campus" | "building" | "system" | "timezone" | "label" | "coolingCapacity" | "compressors" | "coolingLockout" | "optimalStartLockout" | "optimalStartDeviation" | "earliestStart" | "latestStart" | "zoneLocation" | "zoneMass" | "zoneOrientation" | "zoneBuilding" | "heatPump" | "heatPumpBackup" | "economizer" | "heatPumpLockout" | "coolingPeakOffset" | "heatingPeakOffset" | "peakLoadExclude" | "economizerSetpoint" | "occupancyDetection" | "controlId" | "locationId">;
     constructor(builder: SchemaBuilderService);
 }

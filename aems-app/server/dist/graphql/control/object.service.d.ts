@@ -30,8 +30,8 @@ export declare class ControlObject {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        message: string | null;
         stage: import("@prisma/client").$Enums.ModelStage;
+        message: string | null;
         correlation: string | null;
         campus: string;
         building: string;
@@ -43,6 +43,6 @@ export declare class ControlObject {
         AuthScopes: import("../../auth").AuthRoles;
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: import("..").Scalars;
-    }>, "name" | "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude", "name" | "id" | "createdAt" | "updatedAt" | "message" | "stage" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude">;
+    }>, "name" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude", "name" | "id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "campus" | "building" | "label" | "peakLoadExclude">;
     constructor(builder: SchemaBuilderService);
 }

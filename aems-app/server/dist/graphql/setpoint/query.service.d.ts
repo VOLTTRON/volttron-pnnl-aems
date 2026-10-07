@@ -9,11 +9,11 @@ export declare class SetpointQuery {
         PrismaTypes: import("@local/prisma/dist/pothos").default;
         Scalars: Scalars;
     }>, {
-        count?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
-        sum?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
-        maximum?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
-        minimum?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
-        average?: ("id" | "createdAt" | "updatedAt" | "setpoint" | "message" | "stage" | "correlation" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
+        count?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpoint" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
+        sum?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpoint" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
+        maximum?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpoint" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
+        minimum?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpoint" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
+        average?: ("id" | "createdAt" | "updatedAt" | "stage" | "message" | "correlation" | "setpoint" | "label" | "deadband" | "overrideSetpoint" | "overrideDeadband" | "heating" | "cooling" | "standbyTime" | "standbyOffset")[] | null | undefined;
     }>;
     readonly SetpointWhereUnique: PothosSchemaTypes.InputObjectRef<PothosSchemaTypes.ExtendDefaultTypes<{
         Context: import("..").Context;
