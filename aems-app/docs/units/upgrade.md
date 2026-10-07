@@ -16,8 +16,9 @@ Implemented today in `start-services.sh`/`.ps1`, `scripts/sync-volttron-historia
 - After `start-services`, every historian role a service logs in as accepts the password `.env`
   holds. A role that does not is reset to that value, whatever it was before.
 - `volttron-setup` re-renders whenever any input it renders from changes: every `VOLTTRON_*` and
-  `HISTORIAN_DB_*` value, the templates, the thermostat configs and `site.json`.
-  **Open:** which thermostat configs and which `site.json` are inputs? `site.json` is an output: `aems-edge/setup-volttron.sh:393` writes it from `VOLTTRON_CAMPUS`, `VOLTTRON_BUILDING`, `VOLTTRON_PREFIX` and `NUM_CONFIGS`. Nothing `setup-volttron.sh` runs reads `aems-edge/configurations/thermostats/` or the tracked `aems-edge/configurations/site.json`.
+  `HISTORIAN_DB_*` value, `generate_configs.py`, which holds the config templates, and the contents
+  of the registry file `VOLTTRON_REGISTRY_FILE_PATH` names. The thermostat configs and `site.json` are
+  what it renders, never inputs. The ILC templates are copied afresh on every run.
 - After `start-services`, VOLTTRON's config store and each agent's install-time config match the
   rendered configs for every agent. The app then re-pushes what it owns, so its values win there.
 - The startup re-push marks every control as well as every unit.
@@ -35,7 +36,7 @@ secrets, stack
 | Name | Proves |
 |---|---|
 | `historian-logins-verified` | a role on a stale non-sentinel password is reset and logs in |
-| `volttron-setup-rerenders` | a changed `VOLTTRON_*` value or template re-renders; unchanged inputs do not |
+| `volttron-setup-rerenders` | a changed `VOLTTRON_*` value, `generate_configs.py` or registry file re-renders; unchanged inputs do not |
 | `volttron-store-reconciled` | a stale store entry is replaced; app-owned entries end with the app's values |
 | `startup-repushes-controls` | the startup re-push marks every unit and control |
 | `deploy-report` | the report names each historian login and agent, healthy or not |
