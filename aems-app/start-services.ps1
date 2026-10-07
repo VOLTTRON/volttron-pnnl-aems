@@ -122,6 +122,12 @@ try {
         Write-Host "Reconciling SQLHistorian install-time config..." -ForegroundColor Cyan
         & .\scripts\sync-volttron-historian-config.ps1
     }
+    # VOLTTRON keeps the configs it was installed with; every agent's are brought to what was
+    # rendered, and the app then re-pushes its own values over them.
+    if (Test-Path .\scripts\reconcile-volttron-configs.ps1) {
+        Write-Host "Reconciling VOLTTRON configs..." -ForegroundColor Cyan
+        & .\scripts\reconcile-volttron-configs.ps1
+    }
 
     # If compose up failed, re-verify: did the safety-net actually recover?
     # secrets.ps1's recreate of init runs `docker compose up -d --no-deps init`,

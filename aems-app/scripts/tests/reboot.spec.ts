@@ -136,6 +136,95 @@ test("a historian role on a stale password is reset to the .env value by the rec
   expect(logsIn(stale)).toBe(false);
 });
 
+// Runs here because it restarts a VOLTTRON agent and re-pushes every unit.
+// scenario: volttron-store-reconciled
+test("a stale config-store entry and a stale install-time config are brought back to the rendered configs, and every unit and control is marked for a push", async () => {
+  test.setTimeout(15 * 60_000);
+  const volttron = container("volttron");
+  const vsh = (script: string) =>
+    docker("exec", "-u", "volttron", volttron, "bash", "-lc", `export PATH=/home/volttron/.local/bin:$PATH; ${script}`).trim();
+  const rendered = (file: string) => JSON.parse(fs.readFileSync(path.join(appDir, "docker/volttron/setup/configs", file), "utf8")) as unknown;
+  const watcherConfig = "$(ls $(dirname $(grep -l -x platform.topic_watcher $VOLTTRON_HOME/agents/*/IDENTITY))/*/*.dist-info/config)";
+  const storedDriverConfig = () =>
+    JSON.parse((JSON.parse(vsh("cat $VOLTTRON_HOME/configuration_store/platform.driver.store")) as Record<string, { data: string }>).config.data) as unknown;
+
+  await expect
+    .poll(
+      () => {
+        try {
+          return vsh(`vctl status >/dev/null && cat ${watcherConfig} >/dev/null && echo ready`);
+        } catch {
+          return "";
+        }
+      },
+      { timeout: 10 * 60_000, intervals: [5_000] },
+    )
+    .toBe("ready");
+
+  vsh(`printf '{"stale": true}' > /tmp/stale.json && vctl config store platform.driver config /tmp/stale.json --json`);
+  vsh(`printf '{"stale": true}' > ${watcherConfig}`);
+  expect(storedDriverConfig()).toEqual({ stale: true });
+  for (const table of ["Unit", "Control"]) psql("database", "aems", `UPDATE "${table}" SET "updatedAt" = now() - interval '1 day'`);
+
+  let out = "";
+  try {
+    out = run("bash", ["./scripts/reconcile-volttron-configs.sh"]);
+  } catch (error) {
+    // An agent this stack never installs is reported and is not this test's concern.
+    out = String((error as { stdout?: string }).stdout ?? "");
+  }
+  expect(stripAnsi(out), out).toMatch(/reconciled: platform\.driver store config/);
+  expect(stripAnsi(out), out).toMatch(/reconciled: platform\.topic_watcher install-time config/);
+  expect(storedDriverConfig()).toEqual(rendered("driver.config"));
+  expect(JSON.parse(vsh(`cat ${watcherConfig}`))).toEqual(rendered("topic_watcher.config"));
+  const marked = Number(psql("database", "aems", `SELECT (SELECT count(*) FROM "Unit") + (SELECT count(*) FROM "Control")`));
+  expect(marked).toBeGreaterThan(0);
+  for (const table of ["Unit", "Control"]) {
+    expect(Number(psql("database", "aems", `SELECT count(*) FROM "${table}" WHERE "updatedAt" < now() - interval '1 hour'`)), table).toBe(0);
+  }
+});
+
+// Runs here because it breaks the historian and VOLTTRON and runs start-services over them.
+// scenario: upgrade-from-broken-fixture
+test("a deployment whose historian role is on a stale password and whose VOLTTRON holds stale configs comes up working after one start-services", async () => {
+  test.setTimeout(20 * 60_000);
+  const historian = container("historian");
+  const volttron = container("volttron");
+  const password = readEnv("HISTORIAN_DATABASE_PASSWORD")!;
+  const vsh = (script: string) =>
+    docker("exec", "-u", "volttron", volttron, "bash", "-lc", `export PATH=/home/volttron/.local/bin:$PATH; ${script}`).trim();
+  const login = (pw: string) => {
+    try {
+      return docker("exec", "-e", `PGPASSWORD=${pw}`, historian, "psql", "-U", "historian", "-h", "localhost", "-d", "historian", "-tAc", "SELECT 1;").trim() === "1";
+    } catch {
+      return false;
+    }
+  };
+  const rendered = (file: string) => JSON.parse(fs.readFileSync(path.join(appDir, "docker/volttron/setup/configs", file), "utf8")) as unknown;
+  const watcherConfig = "$(ls $(dirname $(grep -l -x platform.topic_watcher $VOLTTRON_HOME/agents/*/IDENTITY))/*/*.dist-info/config)";
+  const storedDriverConfig = () =>
+    JSON.parse((JSON.parse(vsh("cat $VOLTTRON_HOME/configuration_store/platform.driver.store")) as Record<string, { data: string }>).config.data) as unknown;
+
+  // Both broken states at once.
+  docker("exec", "-e", `PGPASSWORD=${password}`, historian, "psql", "-U", "historian", "-h", "localhost", "-d", "historian", "-tAc", `ALTER ROLE historian WITH PASSWORD 'stale-${Date.now()}';`);
+  vsh(`printf '{"stale": true}' > /tmp/stale.json && vctl config store platform.driver config /tmp/stale.json --json`);
+  vsh(`printf '{"stale": true}' > ${watcherConfig}`);
+  expect(login(password)).toBe(false);
+  expect(storedDriverConfig()).toEqual({ stale: true });
+
+  const out = stripAnsi(
+    run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ".\\start-services.ps1", "-NoBuild"], { stdio: "pipe" }),
+  );
+
+  expect(login(password), out).toBe(true);
+  expect(storedDriverConfig()).toEqual(rendered("driver.config"));
+  expect(JSON.parse(vsh(`cat ${watcherConfig}`))).toEqual(rendered("topic_watcher.config"));
+  await expect
+    .poll(() => vsh("vctl status").split(/\r?\n/).find((l) => l.includes("platform.historian")) ?? "", { timeout: 5 * 60_000, intervals: [5_000] })
+    .toMatch(/GOOD\s*$/);
+  expect(out.split(/\r?\n/).find((l) => l.includes("historian login")), out).toMatch(/\bOK\b/);
+});
+
 // scenario: fresh-checkout-boots
 test("a checkout with only sentinels and blank secrets boots, and boots again", async ({ request }) => {
   test.setTimeout(20 * 60_000);
