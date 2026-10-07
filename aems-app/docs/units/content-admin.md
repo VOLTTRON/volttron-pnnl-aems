@@ -24,8 +24,9 @@ Implemented today in `server/src/graphql/{user,banner,feedback,comment,file,acco
 - Passwords are stored as bcrypt hashes and are never returned.
 - Deleting a user leaves the feedback assigned to them unassigned, and removes their uploaded files
   from disk; a file already missing does not stop the delete.
-- A banner is shown to every signed-in user until its expiration, or always when it has none. The
-  server filters out expired banners.
+- The server sends a non-admin no expired banner, through reads and their subscription alike; an admin
+  reads every banner, expired ones included, to manage them. The frame shows each banner to every
+  signed-in user until its expiration, or always when it has none.
 - Feedback moves through Todo, InProgress and Done. Only an admin changes its status or assignee.
   Unassigned feedback reads with a null assignee.
 - An upload takes at most 10 files of 50 MB each, of the allowed types. Each file is stored under a
@@ -50,7 +51,8 @@ graphql
 | `user-edit-rights` | all four self-edits written; admin-only email and role; no edit or delete above one's grants |
 | `password-hashed-hidden` | stored as bcrypt; no field returns it |
 | `user-delete-cascade-safe` | assigned feedback kept unassigned; the user's files gone from disk; a missing file does not block it |
-| `banner-visibility` | shown until expiry, always without one; expired filtered by the server |
+| `banner-visibility` | no read or subscription gives a non-admin an expired banner; an admin gets every one |
+| `banner-shown-until-expiry` | the frame shows a banner until it expires, and one with no expiration always |
 | `feedback-workflow` | statuses, admin-only changes, null assignee readable |
 | `upload-limits-and-names` | limits and types; server-chosen names; a refused or failed file reported with its reason, the rest stored and returned |
 | `download-confined` | no input sets `objectKey`; a path resolving outside the upload path is never served; quoted attachment name |
