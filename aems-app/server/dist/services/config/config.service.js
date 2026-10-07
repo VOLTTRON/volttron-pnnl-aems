@@ -55,41 +55,49 @@ let ConfigService = ConfigService_1 = class ConfigService extends __1.BaseServic
         try {
             await this.prismaService.prisma.unit
                 .findMany({
-                include: {
-                    configuration: {
-                        include: {
-                            setpoint: true,
-                            mondaySchedule: true,
-                            tuesdaySchedule: true,
-                            wednesdaySchedule: true,
-                            thursdaySchedule: true,
-                            fridaySchedule: true,
-                            saturdaySchedule: true,
-                            sundaySchedule: true,
-                            holidaySchedule: true,
-                            holidays: true,
-                            occupancies: { include: { schedule: true } },
-                        },
-                    },
-                    location: true,
-                },
+                select: { id: true },
                 orderBy: {
                     createdAt: "desc",
                 },
                 where: { stage: { in: [common_2.StageType.Update.enum, common_2.StageType.Process.enum] } },
             })
-                .then(async (units) => {
-                if (units.length === 0) {
+                .then(async (listed) => {
+                if (listed.length === 0) {
                     return;
                 }
                 const token = await this.volttronService.makeAuthCall();
-                for (const unit of units) {
+                for (const { id } of listed) {
+                    const claimed = await this.prismaService.prisma.unit.updateMany({
+                        where: { id, stage: { in: [common_2.StageType.Update.enum, common_2.StageType.Process.enum] } },
+                        data: { stage: common_2.StageType.ProcessType.enum, message: "Synchronizing with Volttron..." },
+                    });
+                    if (claimed.count === 0)
+                        continue;
+                    const unit = await this.prismaService.prisma.unit.findUnique({
+                        where: { id },
+                        include: {
+                            configuration: {
+                                include: {
+                                    setpoint: true,
+                                    mondaySchedule: true,
+                                    tuesdaySchedule: true,
+                                    wednesdaySchedule: true,
+                                    thursdaySchedule: true,
+                                    fridaySchedule: true,
+                                    saturdaySchedule: true,
+                                    sundaySchedule: true,
+                                    holidaySchedule: true,
+                                    holidays: true,
+                                    occupancies: { include: { schedule: true } },
+                                },
+                            },
+                            location: true,
+                        },
+                    });
+                    if (!unit)
+                        continue;
                     this.logger.log(`Pushing the unit config for: ${unit.label} (ID: ${unit.id})`);
                     try {
-                        await this.prismaService.prisma.unit.update({
-                            where: { id: unit.id },
-                            data: { stage: common_2.StageType.ProcessType.enum, message: "Synchronizing with Volttron..." },
-                        });
                         await this.subscriptionService.publish("Unit", {
                             topic: "Unit",
                             id: unit.id,
@@ -137,7 +145,11 @@ let ConfigService = ConfigService_1 = class ConfigService extends __1.BaseServic
                             .filter((a) => a.type !== "Disabled")
                             .reduce((p, c) => (0, lodash_1.merge)(p, {
                             [c.label]: c.type === "Custom"
-                                ? { month: c.month, day: c.day, observance: common_2.ObservanceType.parse(c.observance ?? "")?.name ?? c.observance }
+                                ? {
+                                    month: c.month,
+                                    day: c.day,
+                                    observance: common_2.ObservanceType.parse(c.observance ?? "")?.name ?? c.observance,
+                                }
                                 : {},
                         }), {});
                         await this.volttronService.makeApiCall(`manager.${unit.system.toLowerCase()}`, "set_holidays", token, set_holidays);
@@ -214,8 +226,8 @@ let ConfigService = ConfigService_1 = class ConfigService extends __1.BaseServic
                             : {});
                         this.logger.debug(`[${unit.label}] Location updated successfully`);
                         this.logger.debug(`[${unit.label}] All API calls completed successfully, setting stage to Complete`);
-                        await this.prismaService.prisma.unit.update({
-                            where: { id: unit.id },
+                        await this.prismaService.prisma.unit.updateMany({
+                            where: { id: unit.id, stage: common_2.StageType.Process.enum },
                             data: { stage: common_2.StageType.CompleteType.enum },
                         });
                         await this.subscriptionService.publish("Unit", {
@@ -236,8 +248,8 @@ let ConfigService = ConfigService_1 = class ConfigService extends __1.BaseServic
                             ? error.message
                             : "Unknown error occurred while pushing unit config.";
                         message = message.length > 1024 ? message.substring(0, 1024 - 3) + "..." : message;
-                        await this.prismaService.prisma.unit.update({
-                            where: { id: unit.id },
+                        await this.prismaService.prisma.unit.updateMany({
+                            where: { id: unit.id, stage: common_2.StageType.Process.enum },
                             data: { stage: common_2.StageType.FailType.enum, message: message },
                         });
                         await this.subscriptionService.publish("Unit", {

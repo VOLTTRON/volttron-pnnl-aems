@@ -39,47 +39,56 @@ let ControlService = ControlService_1 = class ControlService extends __1.BaseSer
     async task() {
         this.logger.debug(`Checking for intelligent load controls that need to be pushed...`);
         try {
+            const pending = [common_2.StageType.Create.enum, common_2.StageType.Update.enum, common_2.StageType.Process.enum];
             await this.prismaService.prisma.control
                 .findMany({
-                include: {
-                    units: {
-                        include: {
-                            configuration: {
-                                include: {
-                                    setpoint: true,
-                                    mondaySchedule: true,
-                                    tuesdaySchedule: true,
-                                    wednesdaySchedule: true,
-                                    thursdaySchedule: true,
-                                    fridaySchedule: true,
-                                    saturdaySchedule: true,
-                                    sundaySchedule: true,
-                                    holidaySchedule: true,
-                                    holidays: true,
-                                    occupancies: { include: { schedule: true } },
-                                },
-                            },
-                        },
-                    },
-                },
+                select: { id: true },
                 orderBy: {
                     createdAt: "desc",
                 },
-                where: { stage: { in: [common_2.StageType.Create.enum, common_2.StageType.Update.enum, common_2.StageType.Process.enum] } },
+                where: { stage: { in: pending } },
             })
-                .then(async (controls) => {
-                if (controls.length === 0) {
+                .then(async (listed) => {
+                if (listed.length === 0) {
                     return;
                 }
                 const token = await this.volttronService.makeAuthCall();
-                for (const control of controls) {
+                for (const { id } of listed) {
+                    const claimed = await this.prismaService.prisma.control.updateMany({
+                        where: { id, stage: { in: pending } },
+                        data: { stage: common_2.StageType.ProcessType.enum, message: null },
+                    });
+                    if (claimed.count === 0)
+                        continue;
+                    const control = await this.prismaService.prisma.control.findUnique({
+                        where: { id },
+                        include: {
+                            units: {
+                                include: {
+                                    configuration: {
+                                        include: {
+                                            setpoint: true,
+                                            mondaySchedule: true,
+                                            tuesdaySchedule: true,
+                                            wednesdaySchedule: true,
+                                            thursdaySchedule: true,
+                                            fridaySchedule: true,
+                                            saturdaySchedule: true,
+                                            sundaySchedule: true,
+                                            holidaySchedule: true,
+                                            holidays: true,
+                                            occupancies: { include: { schedule: true } },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    });
+                    if (!control)
+                        continue;
                     this.logger.log(`Pushing the control config for: ${control.label}`);
                     try {
                         control.units = control.peakLoadExclude ? [] : control.units.filter((unit) => !unit.peakLoadExclude);
-                        await this.prismaService.prisma.control.update({
-                            where: { id: control.id },
-                            data: { stage: common_2.StageType.ProcessType.enum, message: null },
-                        });
                         await this.subscriptionService.publish("Control", {
                             topic: "Control",
                             id: control.id,
@@ -97,8 +106,8 @@ let ControlService = ControlService_1 = class ControlService extends __1.BaseSer
                                 renderErrors.map((e) => `[${e.phase}] ${e._error}`).join("; "));
                         }
                         await this.volttronService.makeApiCall(`agent.ilc`, "update_configurations", token, data);
-                        await this.prismaService.prisma.control.update({
-                            where: { id: control.id },
+                        await this.prismaService.prisma.control.updateMany({
+                            where: { id: control.id, stage: common_2.StageType.Process.enum },
                             data: { stage: common_2.StageType.CompleteType.enum },
                         });
                         await this.subscriptionService.publish("Control", {
@@ -119,8 +128,8 @@ let ControlService = ControlService_1 = class ControlService extends __1.BaseSer
                             ? error.message
                             : "Unknown error occurred while pushing control config.";
                         message = message.length > 1024 ? message.substring(0, 1024 - 3) + "..." : message;
-                        await this.prismaService.prisma.control.update({
-                            where: { id: control.id },
+                        await this.prismaService.prisma.control.updateMany({
+                            where: { id: control.id, stage: common_2.StageType.Process.enum },
                             data: { stage: common_2.StageType.FailType.enum, message: message },
                         });
                         await this.subscriptionService.publish("Control", {
