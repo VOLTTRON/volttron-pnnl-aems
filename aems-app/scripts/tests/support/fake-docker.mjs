@@ -24,7 +24,9 @@ const statePath = process.env.FAKE_DOCKER_STATE;
 const state = statePath ? JSON.parse(fs.readFileSync(statePath, "utf8")) : {};
 const env = {};
 for (let i = 0; i < argv.length - 1; i++) if (argv[i] === "-e") env[argv[i + 1].split("=")[0]] = argv[i + 1].slice(argv[i + 1].indexOf("=") + 1);
-if (process.env.FAKE_DOCKER_LOG) fs.appendFileSync(process.env.FAKE_DOCKER_LOG, JSON.stringify({ argv, env }) + "\n");
+// What a psql exec reads from stdin is logged as one more argument: "<<" and the text.
+const logged = argv[0] === "exec" && argv.includes("-i") && argv.includes("psql") ? [...argv, `<<${fs.readFileSync(0, "utf8")}`] : argv;
+if (process.env.FAKE_DOCKER_LOG) fs.appendFileSync(process.env.FAKE_DOCKER_LOG, JSON.stringify({ argv: logged, env }) + "\n");
 
 const joined = argv.join(" ");
 if ((state.fail ?? []).some((prefix) => joined.startsWith(prefix))) process.exit(1);

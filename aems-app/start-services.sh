@@ -157,6 +157,13 @@ if [ -x ./scripts/sync-volttron-historian-config.sh ]; then
     ./scripts/sync-volttron-historian-config.sh || \
         print_yellow "sync-volttron-historian-config.sh reported issues."
 fi
+# VOLTTRON keeps the configs it was installed with; every agent's are brought to what was rendered,
+# and the app then re-pushes its own values over them.
+if [ -x ./scripts/reconcile-volttron-configs.sh ]; then
+    print_cyan "Reconciling VOLTTRON configs..."
+    ./scripts/reconcile-volttron-configs.sh || \
+        print_yellow "reconcile-volttron-configs.sh reported issues."
+fi
 
 # If compose up failed, re-verify: did the safety-net actually recover?
 # secrets.sh's recreate of init runs `docker compose up -d --no-deps init`,
