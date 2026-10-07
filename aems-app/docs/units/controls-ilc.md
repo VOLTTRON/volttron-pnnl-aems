@@ -1,6 +1,6 @@
 # controls-ilc
 
-**State:** unbuilt
+**State:** built
 
 ## Contract
 
@@ -8,8 +8,6 @@ Intelligent Load Control for one building. Setup makes the building's control fr
 site-model). When whole-building power crosses the demand limit, VOLTTRON's ILC agent sheds load by
 curtailing the control's participating units; the curtailing is the agent's, not the app's. This unit
 owns what the app sends that agent, and when.
-
-Implemented today in `server/src/graphql/control/`, `server/src/services/control/`, `server/src/utils/{render-control-templates,template}.ts`, `docker/volttron/setup/templates/` and `client/src/app/{controls,ilc}/`.
 
 ## Claims
 

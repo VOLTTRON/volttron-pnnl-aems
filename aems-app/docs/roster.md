@@ -18,8 +18,8 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 | `content-admin` | unbuilt | graphql |
 | `site-model` | unbuilt | graphql, background |
 | `setpoints-schedules` | unbuilt | site-model |
-| `controls-ilc` | unbuilt | site-model |
-| `volttron-sync` | unbuilt | site-model, background |
+| `controls-ilc` | built | site-model |
+| `volttron-sync` | built | site-model, background |
 | `historian-dashboards` | unbuilt | site-model, stack |
 | `grafana-access` | unbuilt | site-model, keycloak-admin |
 | `synthetic-setup` | unbuilt | site-model, background |

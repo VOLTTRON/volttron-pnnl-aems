@@ -24,7 +24,7 @@ import { KeycloakQuery } from "./query.service";
 jest.mock("@/prisma", () => ({ PrismaPubSub: jest.fn() }));
 
 const config = { nodeEnv: "test", instanceName: "test", graphql: { pubsub: "" } } as unknown as AppConfigService;
-const prisma = { prisma: {} } as unknown as PrismaService;
+const prisma = { prisma: {}, onPushMarked: () => undefined } as unknown as PrismaService;
 
 // Every admin call answers something plausible, so a field that gets past its scope resolves cleanly.
 const answers: Record<string, unknown> = { lookupKeycloakUserId: "kc-user", hasAdminAccess: true };
