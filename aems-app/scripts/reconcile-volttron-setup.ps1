@@ -70,7 +70,10 @@ function Get-EnvPairs {
 function Get-FileSha {
     param([string]$Path)
     if (-not (Test-Path $Path)) { return '' }
-    return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLower()
+    $bytes  = [System.IO.File]::ReadAllBytes($Path)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try   { return (($sha256.ComputeHash($bytes) | ForEach-Object { $_.ToString("x2") }) -join '') }
+    finally { $sha256.Dispose() }
 }
 
 function Get-RenderFingerprint {
