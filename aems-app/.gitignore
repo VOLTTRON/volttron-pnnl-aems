@@ -24,6 +24,12 @@ docker/secrets/
 # backups
 docker/backups/
 
+# build output: `yarn build` writes it and the portal chain reads it, so a
+# committed copy only goes stale and makes parallel lanes conflict
+prisma/dist/
+common/dist/
+server/dist/
+
 # other
 *.bat
 *.log
