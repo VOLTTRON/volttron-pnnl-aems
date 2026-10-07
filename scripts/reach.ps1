@@ -5,6 +5,7 @@
       pwsh Scripts/reach.ps1 gate            the blocking gate      0 clean, 1 blocking, 2 refused
       pwsh Scripts/reach.ps1 all             gate + every tier      0 pass, 1 fail, 3 something skipped
       pwsh Scripts/reach.ps1 lane <verb>     seed | sync | status | remove
+      pwsh Scripts/reach.ps1 builders <verb> take | drop | held | ready | pending | reject | rejection | state
       pwsh Scripts/reach.ps1 land -Lane ...  land a lane onto the integration branch, then publish
       pwsh Scripts/reach.ps1 publish         push the refs that carry the process, after one failed
       pwsh Scripts/reach.ps1 run <lane>      run a lane unattended
@@ -35,6 +36,7 @@ $verbs = @{
     'gate'  = 'Verify-Gate.ps1'
     'all'   = 'Verify-All.ps1'
     'lane'  = 'Lane.ps1'
+    'builders' = 'Builders.ps1'
     'land'  = 'Land.ps1'
     'publish' = 'Publish.ps1'
     'run'   = 'Run-Lane.ps1'
