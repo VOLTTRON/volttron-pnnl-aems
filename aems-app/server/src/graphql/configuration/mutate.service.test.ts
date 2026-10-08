@@ -139,4 +139,33 @@ describe("ConfigurationMutation", () => {
     expect(prisma.prisma.configuration.delete).toHaveBeenCalled();
     expect(sub.publish).toHaveBeenCalledTimes(2);
   });
+
+  // scenario: schedule-time-refused
+  describe("the server refuses a configuration write giving a bad time in a nested schedule", () => {
+    it("createConfiguration refuses a nested bad startTime and never writes", async () => {
+      const { prisma } = instantiate();
+      await expect(
+        resolvers["createConfiguration"](
+          {},
+          null,
+          { create: { label: "L", mondaySchedule: { create: { startTime: "99:99" } } } },
+          userCtx,
+        ),
+      ).rejects.toThrow();
+      expect(prisma.prisma.configuration.create).not.toHaveBeenCalled();
+    });
+
+    it("updateConfiguration refuses a nested bad endTime and never writes", async () => {
+      const { prisma } = instantiate();
+      await expect(
+        resolvers["updateConfiguration"](
+          {},
+          null,
+          { where: { id: "cfg1" }, update: { tuesdaySchedule: { update: { endTime: "25:00" } } } },
+          userCtx,
+        ),
+      ).rejects.toThrow();
+      expect(prisma.prisma.configuration.update).not.toHaveBeenCalled();
+    });
+  });
 });

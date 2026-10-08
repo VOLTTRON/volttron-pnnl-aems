@@ -112,4 +112,58 @@ describe("ScheduleMutation", () => {
     expect(sub.publish).toHaveBeenCalledTimes(2);
     expect(change.handleChange).toHaveBeenCalledWith("Unknown", expect.any(Object), "Schedule", "Delete", userCtx.user);
   });
+
+  // scenario: schedule-time-refused
+  describe("the server refuses a schedule write giving a bad start, end or window time", () => {
+    const cases: Array<[string, string]> = [
+      ["startTime", "8:00"],
+      ["endTime", "25:00"],
+      ["overridePreStartTime", "24:30"],
+      ["overridePreEndTime", "ab:cd"],
+      ["overridePostStartTime", "08:60"],
+      ["overridePostEndTime", "08-00"],
+    ];
+
+    it.each(cases)("createSchedule refuses %s = %s and never writes", async (field, value) => {
+      const prisma = makePrisma({ id: "s1" });
+      new ScheduleMutation(makeBuilder(), prisma, makeSubscription(), makeScheduleQuery(), makeSetpointMutation(), makeChangeService());
+      await expect(
+        resolvers["createSchedule"]({}, null, { create: { [field]: value } }, userCtx),
+      ).rejects.toThrow();
+      expect(prisma.prisma.schedule.create).not.toHaveBeenCalled();
+    });
+
+    it.each(cases)("updateSchedule refuses %s = %s and never writes", async (field, value) => {
+      const prisma = makePrisma({ id: "s1" });
+      new ScheduleMutation(makeBuilder(), prisma, makeSubscription(), makeScheduleQuery(), makeSetpointMutation(), makeChangeService());
+      await expect(
+        resolvers["updateSchedule"]({}, null, { where: { id: "s1" }, update: { [field]: value } }, userCtx),
+      ).rejects.toThrow();
+      expect(prisma.prisma.schedule.update).not.toHaveBeenCalled();
+    });
+
+    it("createSchedule accepts 00:00 at a start and 24:00 at the end", async () => {
+      const prisma = makePrisma({ id: "s1" });
+      new ScheduleMutation(makeBuilder(), prisma, makeSubscription(), makeScheduleQuery(), makeSetpointMutation(), makeChangeService());
+      await resolvers["createSchedule"](
+        {},
+        null,
+        { create: { startTime: "00:00", endTime: "24:00" } },
+        userCtx,
+      );
+      expect(prisma.prisma.schedule.create).toHaveBeenCalled();
+    });
+
+    it("createSchedule accepts 00:00 at an end -- the parser leaves the day's-end meaning to its reader", async () => {
+      const prisma = makePrisma({ id: "s1" });
+      new ScheduleMutation(makeBuilder(), prisma, makeSubscription(), makeScheduleQuery(), makeSetpointMutation(), makeChangeService());
+      await resolvers["createSchedule"](
+        {},
+        null,
+        { create: { startTime: "08:00", endTime: "00:00" } },
+        userCtx,
+      );
+      expect(prisma.prisma.schedule.create).toHaveBeenCalled();
+    });
+  });
 });

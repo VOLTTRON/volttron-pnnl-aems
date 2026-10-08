@@ -14,6 +14,7 @@ import { HolidayQuery } from "../holiday/query.service";
 import { ChangeService } from "@/change/change.service";
 import { ChangeMutation } from "@prisma/client";
 import { isEqual, omit } from "@local/common/dist/utils/lodash";
+import { refuseBadScheduleTimes } from "../schedule/validate";
 
 @Injectable()
 @PothosMutation()
@@ -182,6 +183,7 @@ export class ConfigurationMutation {
           create: t.arg({ type: ConfigurationCreate, required: true }),
         },
         resolve: async (query, _root, args, ctx, _info) => {
+          refuseBadScheduleTimes(args.create);
           return prismaService.prisma.configuration
             .create({
               ...query,
@@ -271,6 +273,7 @@ export class ConfigurationMutation {
           update: t.arg({ type: ConfigurationUpdate, required: true }),
         },
         resolve: async (query, _root, args, ctx, _info) => {
+          refuseBadScheduleTimes(args.update);
           const before = await prismaService.prisma.configuration.findUnique({
             where: args.where,
             include: {

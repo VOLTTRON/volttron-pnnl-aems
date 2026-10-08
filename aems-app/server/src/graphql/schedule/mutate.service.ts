@@ -9,6 +9,7 @@ import { SetpointMutation } from "../setpoint/mutate.service";
 import { ChangeService } from "@/change/change.service";
 import { ChangeMutation } from "@prisma/client";
 import { omit } from "@local/common/dist/utils/lodash";
+import { refuseBadScheduleTimes } from "./validate";
 
 @Injectable()
 @PothosMutation()
@@ -88,6 +89,7 @@ export class ScheduleMutation {
           create: t.arg({ type: ScheduleCreate, required: true }),
         },
         resolve: async (query, _root, args, ctx, _info) => {
+          refuseBadScheduleTimes(args.create);
           return prismaService.prisma.schedule
             .create({
               ...query,
@@ -132,6 +134,7 @@ export class ScheduleMutation {
           update: t.arg({ type: ScheduleUpdate, required: true }),
         },
         resolve: async (query, _root, args, ctx, _info) => {
+          refuseBadScheduleTimes(args.update);
           return prismaService.prisma.schedule
             .update({
               ...query,
