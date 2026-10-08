@@ -2,14 +2,11 @@ import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { BaseService } from "@/services";
-import { getConfigFiles } from "@/utils/file";
 import { Mutation, SubscriptionEvent, Normalization } from "@local/common";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Cron, Timeout } from "@nestjs/schedule";
 import { Unit, User } from "@prisma/client";
-import { basename, resolve } from "node:path";
-import { readFile } from "node:fs/promises";
-import { parseDashboardFilename } from "@/grafana/filename";
+import { readDashboardConfigs } from "@/grafana/read-dashboard-configs";
 
 // Keycloak API types
 interface KeycloakUser {
@@ -42,16 +39,6 @@ interface SyncResult {
   total: number;
   skipped?: boolean;
   reason?: string;
-}
-
-interface DashboardConfig {
-  [dashboardName: string]:
-    | string
-    | {
-        url: string;
-        keycloak_role?: string;
-        role_created?: boolean;
-      };
 }
 
 @Injectable()
@@ -256,25 +243,33 @@ export class KeycloakSyncService extends BaseService {
     }
   }
 
-  /**
-   * Load dashboard config files and extract Keycloak role names
-   */
-  private async loadDashboardRoles(): Promise<void> {
+  async loadDashboardRoles(): Promise<void> {
+    const configPath = this.configService.grafana.configPath;
+    if (!configPath) {
+      this.logger.warn("Grafana config path not set, dashboard roles will be empty");
+      this.dashboardRoles = new Map();
+      return;
+    }
+
     try {
-      const configPath = this.configService.grafana.configPath;
-      if (!configPath) {
-        this.logger.warn("Grafana config path not set, dashboard roles will be empty");
-        this.dashboardRoles = new Map();
-        return;
+      const files = await readDashboardConfigs(configPath, this.logger);
+      const roleMap = new Map<string, Set<string>>();
+      for (const file of files) {
+        const key = `${file.campus}_${file.building}`;
+        const roles = new Set<string>();
+        for (const entry of file.entries) {
+          if (entry.keycloakRole) roles.add(entry.keycloakRole);
+        }
+        if (roles.size > 0) {
+          roleMap.set(key, roles);
+          this.logger.debug(`Loaded ${roles.size} roles for ${key}`);
+        }
       }
-
-      this.dashboardRoles = await this.parseDashboardConfigs(configPath);
-
+      this.dashboardRoles = roleMap;
       const totalRoles = Array.from(this.dashboardRoles.values()).reduce(
         (sum, roles) => sum + roles.size,
         0,
       );
-
       this.logger.log(
         `Loaded ${totalRoles} Grafana roles from ${this.dashboardRoles.size} campus/building configs`,
       );
@@ -284,61 +279,6 @@ export class KeycloakSyncService extends BaseService {
     }
   }
 
-  /**
-   * Parse dashboard URL config files to extract role names
-   */
-  private async parseDashboardConfigs(configPath: string): Promise<Map<string, Set<string>>> {
-    const roleMap = new Map<string, Set<string>>();
-
-    try {
-      const files = await getConfigFiles([configPath], ".json", this.logger);
-
-      if (files.length === 0) {
-        this.logger.debug(`No dashboard config files found in ${configPath}`);
-        return roleMap;
-      }
-
-      for (const file of files) {
-        try {
-          const filename = basename(file);
-          const parsed = parseDashboardFilename(filename);
-          if (!parsed) {
-            this.logger.warn(`Skipping invalid dashboard config filename: ${filename}`);
-            continue;
-          }
-          const { campus, building } = parsed;
-          const key = `${campus}_${building}`.toLowerCase();
-
-          const text = await readFile(resolve(file), "utf-8");
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          const config: DashboardConfig = JSON.parse(text);
-
-          const roles = new Set<string>();
-
-          for (const [_dashboardName, dashboardInfo] of Object.entries(config)) {
-            if (typeof dashboardInfo === "object" && dashboardInfo.keycloak_role) {
-              roles.add(dashboardInfo.keycloak_role);
-            }
-          }
-
-          if (roles.size > 0) {
-            roleMap.set(key, roles);
-            this.logger.debug(`Loaded ${roles.size} roles for ${key}`);
-          }
-        } catch (error) {
-          this.logger.error(`Error parsing dashboard config file ${file}:`, error);
-        }
-      }
-    } catch (error) {
-      this.logger.error(`Error reading dashboard config files from ${configPath}:`, error);
-    }
-
-    return roleMap;
-  }
-
-  /**
-   * Get all available Grafana roles across all campus/building configs
-   */
   private getAllGrafanaRoles(): string[] {
     const allRoles: string[] = [];
     for (const roles of this.dashboardRoles.values()) {
@@ -351,6 +291,10 @@ export class KeycloakSyncService extends BaseService {
    * Main sync method - synchronize user's Keycloak roles based on database state
    */
   async syncUserRoles(email: string): Promise<SyncResult> {
+    // Re-read dashboard configs before every sync so a file written after
+    // start is seen without a restart.
+    await this.loadDashboardRoles();
+
     // 1. Get user from database with role and units
     const user = await this.prismaService.prisma.user.findUnique({
       where: { email },
