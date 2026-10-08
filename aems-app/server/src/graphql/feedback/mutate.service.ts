@@ -65,6 +65,24 @@ export class FeedbackMutation {
             throw new Error("Feedback message required");
           }
 
+          // A non-admin may only attach files they own. Verify each connected id
+          // belongs to the caller — otherwise refuse the whole create.
+          if (!ctx.user.authRoles.admin && args.create.files?.connect) {
+            const connect = args.create.files.connect;
+            const connects = Array.isArray(connect) ? connect : [connect];
+            const ids = connects
+              .map((w) => w?.id)
+              .filter((id): id is string => Boolean(id));
+            if (ids.length) {
+              const ownedCount = await prismaService.prisma.file.count({
+                where: { id: { in: ids }, userId: ctx.user.id },
+              });
+              if (ownedCount !== ids.length) {
+                throw new Error("Cannot attach files that do not belong to you.");
+              }
+            }
+          }
+
           return prismaService.prisma.feedback
             .create({
               ...query,

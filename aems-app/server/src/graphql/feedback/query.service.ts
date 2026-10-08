@@ -6,6 +6,7 @@ import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { GraphQLScalarType } from "graphql";
 import { Scalars } from "..";
+import { narrowToOwner } from "../own-records";
 
 @Injectable()
 @PothosQuery()
@@ -89,10 +90,10 @@ export class FeedbackQuery {
         args: {
           where: t.arg({ type: FeedbackWhere }),
         },
-        resolve: async (query, _parent, args, _ctx, _info) => {
+        resolve: async (query, _parent, args, ctx, _info) => {
           return prismaService.prisma.feedback.findMany({
             ...query,
-            where: args.where ?? {},
+            where: narrowToOwner(args.where, ctx) ?? {},
           });
         },
       }),
@@ -110,14 +111,16 @@ export class FeedbackQuery {
         subscribe: (subscriptions, _feedback, args, _context, _info) => {
           subscriptions.register(`Feedback/${args.where.id}`);
         },
-        resolve: async (_query, _root, args, ctx, _info) => {
-          const where = args.where ?? {};
-          if (!ctx.user?.authRoles.admin) {
-            delete where.user;
-            where.userId = ctx.user?.id;
+        resolve: async (query, _root, args, ctx, _info) => {
+          if (ctx.user?.authRoles.admin) {
+            return prismaService.prisma.feedback.findUniqueOrThrow({
+              ...query,
+              where: args.where,
+            });
           }
-          return prismaService.prisma.feedback.findUniqueOrThrow({
-            where: args.where,
+          return prismaService.prisma.feedback.findFirstOrThrow({
+            ...query,
+            where: narrowToOwner(args.where, ctx),
           });
         },
       }),
@@ -139,14 +142,9 @@ export class FeedbackQuery {
           subscriptions.register(`Feedback`);
         },
         resolve: async (query, _root, args, ctx, _info) => {
-          const where = args.where ?? {};
-          if (!ctx.user?.authRoles.admin) {
-            delete where.user;
-            where.userId = ctx.user?.id;
-          }
           return prismaService.prisma.feedback.findMany({
             ...query,
-            where: args.where ?? undefined,
+            where: narrowToOwner(args.where, ctx),
             distinct: args.distinct ?? undefined,
             orderBy: SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "desc" }),
             ...(args.paging ?? {}),
@@ -167,9 +165,9 @@ export class FeedbackQuery {
         subscribe: (subscriptions, _feedback, _args, _context, _info) => {
           subscriptions.register("Feedback");
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
           return prismaService.prisma.feedback.count({
-            where: args.where ?? undefined,
+            where: narrowToOwner(args.where, ctx),
           });
         },
       }),
@@ -189,11 +187,11 @@ export class FeedbackQuery {
         subscribe: (subscriptions, _feedback, _args, _context, _info) => {
           subscriptions.register("Feedback");
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
           return prismaService.prisma.feedback.groupBy({
             by: args.by ?? [],
             ...SchemaBuilderService.aggregateToGroupBy(args.aggregate),
-            where: args.where ?? undefined,
+            where: narrowToOwner(args.where, ctx),
           });
         },
       }),
