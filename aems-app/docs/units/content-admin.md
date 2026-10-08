@@ -5,10 +5,7 @@
 ## Contract
 
 The app's administrative content: user records and their linked sign-in accounts, banners, feedback,
-comments and uploaded files. Who a caller is belongs to auth. Mirroring roles to Keycloak belongs to
-keycloak-admin.
-
-Implemented today in `server/src/graphql/{user,banner,feedback,comment,file,account,current}/`, `server/src/api/file.controller.ts` and `client/src/app/{users,banners,feedback}/`.
+comments and uploaded files, lived today in `server/src/graphql/{user,banner,feedback,comment,file,account,current}/`, `server/src/api/file.controller.ts` and `client/src/app/{users,banners,feedback}/`. Who a caller is belongs to auth. Mirroring roles to Keycloak belongs to keycloak-admin.
 
 ## Claims
 
@@ -16,11 +13,14 @@ Implemented today in `server/src/graphql/{user,banner,feedback,comment,file,acco
   query and mutation, counts, groupings and the subscriptions they back included, and a caller's own
   `where` only narrows it. An admin reaches all of them. No API lets a non-admin hand a record to
   another user or attach someone else's file to their feedback.
+  **Open:** `feedback/query.service.ts:120,149` and `account/query.service.ts:97` build a narrowed `where` then pass the unmodified `args.where` to Prisma; `pageFeedback`/`countFeedbacks`/`groupFeedbacks` do no narrowing at all.
 - A non-admin sees another user only as an id and a name, and their own record in full. No GraphQL
   field exposes an account's tokens, and only admins read or change accounts.
+  **Open:** `account/object.service.ts:14` exposes `refresh_token`, `access_token`, `id_token`, `token_type`, `scope`, `session_state` under `authScopes: { user: true }`, and `UserObject` exposes every field to every caller — no id-and-name narrowing for non-self reads.
 - A user may change their own name, image, preferences and password, and none of the four is dropped.
   Only an admin may change an email or a role. No one may update or delete a user who holds a role
   they could not grant.
+  **Open:** `user/mutate.service.ts:179` keeps only `password` and `preferences` for a non-admin's own update — `name` and `image` are dropped.
 - Passwords are stored as bcrypt hashes and are never returned.
 - Deleting a user leaves the feedback assigned to them unassigned, and removes their uploaded files
   from disk; a file already missing does not stop the delete.
@@ -33,15 +33,16 @@ Implemented today in `server/src/graphql/{user,banner,feedback,comment,file,acco
   server-chosen name inside `FILE_UPLOAD_PATH`. A file refused for its type or size, or that fails to
   store, is reported by name with its reason; the other files stay stored, and exactly those are
   returned.
+  **Open:** `api/file.controller.ts:193` passes `dbFiles`/`fsFiles` (the *successful* uploads) into `cleanupPartialUploads` on any failure, so one failure deletes the whole batch; multer's `fileFilter` also drops type-rejected files silently, no "with its reason" is possible.
 - Only the server sets `objectKey`, at upload: no GraphQL input accepts one. A download serves only a
   file whose resolved path lies inside `FILE_UPLOAD_PATH`, as an attachment with a quoted, sanitized
   filename.
+  **Open:** `api/file.controller.ts:220` interpolates `name` into Content-Disposition unquoted and unsanitized, and resolves `filePath` from `objectKey` with no `startsWith(uploadDir)` check.
 - Deleting a file record removes its bytes from disk; bytes already missing do not stop the delete.
 
 ## Dependencies
 
 graphql
-
 ## Scenarios
 
 | Name | Proves |

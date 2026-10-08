@@ -8,6 +8,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 
 const resolvers: Record<string, (query: unknown, root: unknown, args: unknown, ctx: unknown) => unknown> = {};
+const fieldOpts: Record<string, { authScopes?: Record<string, boolean>; args?: Record<string, unknown> }> = {};
 
 function makeMockT() {
   return {
@@ -25,6 +26,7 @@ function makeBuilder(): SchemaBuilderService {
     mutationField: jest.fn((name: string, cb: (t: unknown) => any) => {
       const opts = cb(mockT);
       resolvers[name] = opts.resolve;
+      fieldOpts[name] = { authScopes: opts.authScopes, args: opts.args };
     }),
   } as unknown as SchemaBuilderService;
 }
@@ -65,6 +67,36 @@ describe("FeedbackMutation", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Object.keys(resolvers).forEach((k) => delete resolvers[k]);
+    Object.keys(fieldOpts).forEach((k) => delete fieldOpts[k]);
+  });
+
+  // scenario: feedback-workflow
+  describe("status workflow and admin-only edits", () => {
+    it("builds FeedbackUpdate with status and assigneeId", () => {
+      const prisma = makePrisma();
+      const sub = makeSubscription();
+      const builder = makeBuilder();
+      new FeedbackMutation(builder, prisma, sub, makeFeedbackObject(), makeFeedbackQuery(), makeFileQuery());
+      const [, opts] = (builder.prismaUpdate as jest.Mock).mock.calls[0] as [string, { fields: Record<string, unknown> }];
+      expect(Object.keys(opts.fields).sort()).toEqual(["assigneeId", "status"]);
+    });
+
+    it("FeedbackCreate exposes no status or assignee field — a user cannot set them", () => {
+      const prisma = makePrisma();
+      const sub = makeSubscription();
+      const builder = makeBuilder();
+      new FeedbackMutation(builder, prisma, sub, makeFeedbackObject(), makeFeedbackQuery(), makeFileQuery());
+      const [, opts] = (builder.prismaCreate as jest.Mock).mock.calls[0] as [string, { fields: Record<string, unknown> }];
+      expect(Object.keys(opts.fields)).not.toContain("status");
+      expect(Object.keys(opts.fields)).not.toContain("assigneeId");
+    });
+
+    it("updateFeedback is gated by admin scope", () => {
+      const prisma = makePrisma();
+      const sub = makeSubscription();
+      new FeedbackMutation(makeBuilder(), prisma, sub, makeFeedbackObject(), makeFeedbackQuery(), makeFileQuery());
+      expect(fieldOpts["updateFeedback"].authScopes).toEqual({ admin: true });
+    });
   });
 
   describe("createFeedback resolver", () => {
