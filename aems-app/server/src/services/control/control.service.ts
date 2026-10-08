@@ -29,6 +29,17 @@ export class ControlService extends BaseService {
 
   async task() {
     this.logger.debug(`Checking for intelligent load controls that need to be pushed...`);
+    const synthPrefix = this.configService.service.synthetic.campusPrefix;
+    const notDemo = synthPrefix
+      ? {
+          NOT: {
+            OR: [
+              { campus: { startsWith: synthPrefix } },
+              { name: { startsWith: synthPrefix } },
+            ],
+          },
+        }
+      : {};
     try {
       // Create: setup makes a control in that stage, and a new control is pushed without an edit.
       const pending = [StageType.Create.enum, StageType.Update.enum, StageType.Process.enum];
@@ -38,7 +49,7 @@ export class ControlService extends BaseService {
           orderBy: {
             createdAt: "desc",
           },
-          where: { stage: { in: pending } },
+          where: { stage: { in: pending }, ...notDemo },
         })
         .then(async (listed) => {
           if (listed.length === 0) {

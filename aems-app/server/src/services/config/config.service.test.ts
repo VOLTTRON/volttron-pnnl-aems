@@ -9,7 +9,10 @@ import { StageType } from "@local/common";
 function makeConfig(overrides: object = {}): AppConfigService {
   return {
     instanceType: "config",
-    service: { config: { startup: false, serviceOverride: false, holidaySchedule: false } },
+    service: {
+      config: { startup: false, serviceOverride: false, holidaySchedule: false },
+      synthetic: { campusPrefix: "" },
+    },
     ...overrides,
   } as unknown as AppConfigService;
 }

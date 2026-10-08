@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { Timeout } from "@nestjs/schedule";
 import { BaseService } from "..";
 import { AppConfigService } from "@/app.config";
@@ -43,6 +43,7 @@ const METER_METRICS: (keyof MeterSample)[] = ["WholeBuildingPower", "Demand"];
 const UNIT_CONFIG = { coolingSetpoint: 74, heatingSetpoint: 68 };
 
 const SAMPLE_INTERVAL_MS = 60_000;
+const DEFAULT_RETRY_MS = 30_000;
 
 export interface TopicRegistry {
   units: SyntheticUnit[];
@@ -51,12 +52,14 @@ export interface TopicRegistry {
 }
 
 @Injectable()
-export class SyntheticService extends BaseService {
+export class SyntheticService extends BaseService implements OnModuleDestroy {
   private readonly logger = new Logger(SyntheticService.name);
 
-  /** Resolves once task() has finished (or is skipped because gating turned it off). */
+  /** Resolves once task() has finished successfully; the ticker waits on this. */
   readonly backfillReady: Promise<void>;
   private resolveBackfillReady!: () => void;
+  private stopped = false;
+  retryMs = DEFAULT_RETRY_MS;
 
   constructor(
     @Inject(AppConfigService.Key) private readonly configService: AppConfigService,
@@ -70,6 +73,10 @@ export class SyntheticService extends BaseService {
     });
   }
 
+  onModuleDestroy(): void {
+    this.stopped = true;
+  }
+
   @Timeout(1000)
   async execute(): Promise<void> {
     // Nest's schedule invokes this decorated method more than once (once
@@ -79,11 +86,28 @@ export class SyntheticService extends BaseService {
     // schedule() returns false.
     if (!(this as unknown as { schedule: () => boolean }).schedule()) return;
     try {
-      await this.task();
+      let attempt = 0;
+      while (!this.stopped) {
+        attempt++;
+        try {
+          await this.task();
+          this.resolveBackfillReady();
+          return;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.logger.warn(
+            `Synthetic seeder attempt ${attempt} failed: ${msg}. Retrying in ${this.retryMs}ms...`,
+          );
+          await this.sleep(this.retryMs);
+        }
+      }
     } finally {
       (this as unknown as { running: boolean }).running = false;
-      this.resolveBackfillReady();
     }
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async task(): Promise<void> {
@@ -127,18 +151,23 @@ export class SyntheticService extends BaseService {
 
   private async backfill(registry: TopicRegistry, start: Date, end: Date): Promise<number> {
     const { units, buildings, topicIds } = registry;
-    const startMs = start.getTime();
+    const windowStartMs = start.getTime();
     const endMs = end.getTime();
     let total = 0;
-    let skipped = 0;
 
-    const runCopy = async (topicId: number, iter: Iterable<[Date, number]>): Promise<number> => {
-      if (await this.writer.topicHasData(topicId)) {
-        skipped++;
-        return 0;
-      }
-      await this.writer.clearRange(topicId, start, end);
-      return this.writer.copyTopic(topicId, iter);
+    const fillStartMs = async (topicId: number): Promise<number> => {
+      const latest = await this.writer.latestRowTs(topicId);
+      const nextSampleMs = latest ? latest.getTime() + SAMPLE_INTERVAL_MS : windowStartMs;
+      return Math.max(nextSampleMs, windowStartMs);
+    };
+
+    const runCopy = async (
+      topicId: number,
+      build: (startMs: number, endMs: number) => Iterable<[Date, number]>,
+    ): Promise<number> => {
+      const startMs = await fillStartMs(topicId);
+      if (startMs >= endMs) return 0;
+      return this.writer.copyTopic(topicId, build(startMs, endMs));
     };
 
     const baseSeed = this.configService.service.synthetic.seed;
@@ -147,20 +176,19 @@ export class SyntheticService extends BaseService {
       const buildingSeed = seedFor("weather", baseSeed, b.campus, b.building);
       const buildingUnits = units.filter((u) => u.campus === b.campus && u.building === b.building);
       const buildingTotalBefore = total;
-      const buildingSkippedBefore = skipped;
 
       for (const m of WEATHER_METRICS) {
         const topicId = topicIds.get(`${b.campus}/${b.building}/weather/${m.topic}`);
         if (topicId === undefined) continue;
-        const iter = this.iterateWeather(b, buildingSeed, m.key, startMs, endMs);
-        total += await runCopy(topicId, iter);
+        total += await runCopy(topicId, (sMs, eMs) => this.iterateWeather(b, buildingSeed, m.key, sMs, eMs));
       }
 
       for (const metric of METER_METRICS) {
         const topicId = topicIds.get(`${b.campus}/${b.building}/meter/${metric}`);
         if (topicId === undefined) continue;
-        const iter = this.iterateMeter(b, buildingSeed, buildingUnits.length, metric, startMs, endMs);
-        total += await runCopy(topicId, iter);
+        total += await runCopy(topicId, (sMs, eMs) =>
+          this.iterateMeter(b, buildingSeed, buildingUnits.length, metric, sMs, eMs),
+        );
       }
 
       for (const u of buildingUnits) {
@@ -168,17 +196,16 @@ export class SyntheticService extends BaseService {
         for (const metric of UNIT_METRICS) {
           const topicId = topicIds.get(`${u.campus}/${u.building}/${u.system}/${metric}`);
           if (topicId === undefined) continue;
-          const iter = this.iterateUnit(b, buildingSeed, u, unitSeed, metric, startMs, endMs);
-          total += await runCopy(topicId, iter);
+          total += await runCopy(topicId, (sMs, eMs) =>
+            this.iterateUnit(b, buildingSeed, u, unitSeed, metric, sMs, eMs),
+          );
         }
       }
       const filledThisBuilding = total - buildingTotalBefore;
-      const skippedThisBuilding = skipped - buildingSkippedBefore;
       this.logger.log(
-        `Backfilled ${b.campus}/${b.building}: ${filledThisBuilding.toLocaleString()} new rows, ${skippedThisBuilding} topics already had data.`,
+        `Backfilled ${b.campus}/${b.building}: ${filledThisBuilding.toLocaleString()} new rows.`,
       );
     }
-    if (skipped > 0) this.logger.log(`Total topics skipped (already populated): ${skipped}.`);
     return total;
   }
 
