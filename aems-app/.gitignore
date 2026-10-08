@@ -38,3 +38,8 @@ server/dist/
 scripts/.auth/
 scripts/playwright-report/
 scripts/test-results/
+
+# reconcile-volttron-setup renders the whole volttron/ tree on each
+# `docker compose up`; the fingerprint it writes to track its inputs
+# is transient and would otherwise block a lane sync.
+volttron/
