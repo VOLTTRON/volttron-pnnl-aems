@@ -325,9 +325,14 @@ export class KeycloakSyncService extends BaseService {
 
     this.logger.debug(`Current roles for ${email}: ${currentRoles.join(", ")}`);
 
-    // 5. Calculate diff
+    // 5. Calculate diff. A sync that read no config removes nothing: if the
+    // configs are empty we skip the removal step so a transient read miss
+    // cannot wipe a user's existing Grafana roles.
     const rolesToAdd = requiredRoles.filter((r) => !currentRoles.includes(r));
-    const rolesToRemove = currentRoles.filter((r) => !requiredRoles.includes(r));
+    const rolesToRemove =
+      this.lastConfigs.length === 0
+        ? []
+        : currentRoles.filter((r) => !requiredRoles.includes(r));
 
     this.logger.log(
       `Syncing roles for ${email}: +${rolesToAdd.length} -${rolesToRemove.length}`,
