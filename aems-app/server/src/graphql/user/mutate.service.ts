@@ -174,15 +174,15 @@ export class UserMutation {
             throw new Error("Unauthorized: You can only update your own user data");
           }
 
-          // If not admin, restrict what fields can be updated (only password and preferences)
+          // Non-admin may change their own name, image, preferences and password —
+          // and none of the four is dropped. Email and role stay admin-only.
           let updateData = args.update;
           if (!ctx.user?.authRoles.admin) {
             updateData = {};
-            if (args.update.password !== undefined) {
-              updateData.password = args.update.password;
-            }
-            if (args.update.preferences !== undefined) {
-              updateData.preferences = args.update.preferences;
+            for (const field of ["name", "image", "preferences", "password"] as const) {
+              if (args.update[field] !== undefined) {
+                (updateData as Record<string, unknown>)[field] = args.update[field];
+              }
             }
           } else {
             // Admin can update all fields, but trim role field if present
@@ -239,7 +239,16 @@ export class UserMutation {
         args: {
           where: t.arg({ type: UserWhereUnique, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
+          // No one may delete a user who holds a role they could not grant.
+          const existing = await prismaService.prisma.user.findUnique({
+            where: args.where,
+            select: { role: true },
+          });
+          if (!existing) {
+            throw new Error("User not found.");
+          }
+          validateRoleGrant(existing.role, ctx.user!);
           return prismaService.prisma.user
             .delete({
               ...query,

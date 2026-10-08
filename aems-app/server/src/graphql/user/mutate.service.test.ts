@@ -297,13 +297,16 @@ describe("UserMutation", () => {
   });
 
   describe("deleteUser resolver", () => {
+    const adminCtx = { user: { id: "a1", roles: [{ name: "admin" }], authRoles: { admin: true, user: true } } };
+
     it("calls prisma.user.delete with where arg", async () => {
       const prisma = makePrisma({ id: "u1", email: "a@b.com" });
+      (prisma.prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: null });
       const sub = makeSubscription();
       makeAllDeps(prisma, sub);
 
-      const resolve = resolvers["deleteUser"] as (q: unknown, r: unknown, args: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { id: "u1" } });
+      const resolve = resolvers["deleteUser"] as (q: unknown, r: unknown, args: unknown, c: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { id: "u1" } }, adminCtx);
 
       expect(prisma.prisma.user.delete).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: "u1" } }),
@@ -313,11 +316,12 @@ describe("UserMutation", () => {
     it("publishes two subscription events after delete", async () => {
       const user = { id: "u1", email: "a@b.com" };
       const prisma = makePrisma(user);
+      (prisma.prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: null });
       const sub = makeSubscription();
       makeAllDeps(prisma, sub);
 
-      const resolve = resolvers["deleteUser"] as (q: unknown, r: unknown, args: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { id: "u1" } });
+      const resolve = resolvers["deleteUser"] as (q: unknown, r: unknown, args: unknown, c: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { id: "u1" } }, adminCtx);
 
       expect(sub.publish).toHaveBeenCalledTimes(2);
       expect(sub.publish).toHaveBeenCalledWith("User", expect.objectContaining({ id: "u1" }));
