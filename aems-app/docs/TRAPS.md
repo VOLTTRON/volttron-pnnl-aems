@@ -50,7 +50,7 @@ working on the area it names.
   re-copies them. Never bind-mount templates from the host (ownership, SELinux). If BuildKit keeps the
   old layer, `docker compose build --no-cache volttron-setup`.
 - **A synced `.env` is `skip-worktree`**, so git neither shows nor restores it, and a pull that changes
-  the tracked `.env` refuses: `secrets.sh --scrub`, pull, `secrets.sh`. Never clear the mark by hand.
+  the tracked `.env` refuses: run `update`, never a bare `git pull`. Never clear the mark by hand.
 - **A Postgres volume keeps the password it was initialised with**, whatever `.env` says later.
   `secrets.sh` detects a sentinel-initialised role and rotates it; a hand-typed `up` does not.
 
