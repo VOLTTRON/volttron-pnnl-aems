@@ -45,4 +45,27 @@ describe("UserObject", () => {
     expect(instance.UserObject).toBeDefined();
     expect(instance.UserFields).toBeDefined();
   });
+
+  // scenario: password-hashed-hidden
+  describe("password is not exposed", () => {
+    it("UserObject declares no 'password' field", () => {
+      const builder = makeBuilder();
+      new UserObject(builder);
+      const [, opts] = (builder.prismaObject as jest.Mock).mock.calls[0] as [string, { fields: (t: unknown) => Record<string, unknown> }];
+      const t = {
+        exposeString: jest.fn((name: string) => name),
+        expose: jest.fn((name: string) => name),
+        relation: jest.fn((name: string) => name),
+      };
+      const fields = opts.fields(t);
+      expect(Object.keys(fields)).not.toContain("password");
+    });
+
+    it("UserFields enum omits password", () => {
+      const builder = makeBuilder();
+      new UserObject(builder);
+      const [, opts] = (builder.enumType as jest.Mock).mock.calls[0] as [string, { values: string[] }];
+      expect(opts.values).not.toContain("password");
+    });
+  });
 });
