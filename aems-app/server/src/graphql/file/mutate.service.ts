@@ -1,4 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import { unlink } from "node:fs/promises";
+import { resolve } from "node:path";
 import { SchemaBuilderService } from "../builder.service";
 import { FileQuery } from "./query.service";
 import { UserQuery } from "../user/query.service";
@@ -7,10 +9,32 @@ import { Mutation } from "@local/common";
 import { PothosMutation } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { AppConfigService } from "@/app.config";
+
+// Remove the file at <uploadDir>/<objectKey>. A missing file does not stop the delete.
+export async function unlinkFileBytes(
+  uploadDir: string,
+  objectKey: string | null | undefined,
+  logger: Logger,
+): Promise<void> {
+  if (!objectKey) return;
+  const filePath = resolve(uploadDir, objectKey);
+  try {
+    await unlink(filePath);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
+      logger.debug(`File bytes already gone at ${filePath}`);
+      return;
+    }
+    throw err;
+  }
+}
 
 @Injectable()
 @PothosMutation()
 export class FileMutation {
+  private readonly logger = new Logger(FileMutation.name);
+
   readonly FileUpdateUser;
   readonly FileCreate;
   readonly FileUpdate;
@@ -21,6 +45,7 @@ export class FileMutation {
     subscriptionService: SubscriptionService,
     fileQuery: FileQuery,
     userQuery: UserQuery,
+    @Inject(AppConfigService.Key) configService: AppConfigService,
   ) {
     const { FileWhereUnique } = fileQuery;
     const { UserWhereUnique } = userQuery;
@@ -122,6 +147,8 @@ export class FileMutation {
       }),
     );
 
+    const logger = this.logger;
+
     builder.mutationField("deleteFile", (t) =>
       t.prismaField({
         description: "Delete a local file record.",
@@ -142,6 +169,8 @@ export class FileMutation {
               where,
             })
             .then(async (file) => {
+              const uploadDir = resolve(process.cwd(), configService.file.uploadPath);
+              await unlinkFileBytes(uploadDir, file.objectKey, logger);
               await subscriptionService.publish("File", {
                 topic: "File",
                 id: file.id,
