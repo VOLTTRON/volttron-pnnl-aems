@@ -12,6 +12,11 @@ import { UnitQuery } from "../unit/query.service";
 import { KeycloakAdminService } from "../keycloak/keycloak-admin.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { AppConfigService } from "@/app.config";
+
+jest.mock("node:fs/promises", () => ({
+  unlink: jest.fn().mockResolvedValue(undefined),
+}));
 
 type Resolve = (query: unknown, root: unknown, args: unknown, ctx: unknown) => Promise<unknown>;
 
@@ -38,7 +43,7 @@ function makeBuilder(): SchemaBuilderService {
   } as unknown as SchemaBuilderService;
 }
 
-function makePrisma(updateResult = { id: "u1" }, findResult: unknown = { role: null }) {
+function makePrisma(updateResult = { id: "u1" }, findResult: unknown = { role: null, files: [] }) {
   return {
     prisma: {
       user: {
@@ -50,7 +55,7 @@ function makePrisma(updateResult = { id: "u1" }, findResult: unknown = { role: n
   } as unknown as PrismaService;
 }
 
-function makeDeps(): [SubscriptionService, UserObject, UserQuery, AccountQuery, CommentQuery, BannerQuery, UnitQuery, AccountMutation, CommentMutation, BannerMutation, KeycloakAdminService] {
+function makeDeps(): [SubscriptionService, UserObject, UserQuery, AccountQuery, CommentQuery, BannerQuery, UnitQuery, AccountMutation, CommentMutation, BannerMutation, KeycloakAdminService, AppConfigService] {
   return [
     { publish: jest.fn().mockResolvedValue(undefined) } as unknown as SubscriptionService,
     { UserPreferences: "UserPreferences" } as unknown as UserObject,
@@ -63,6 +68,7 @@ function makeDeps(): [SubscriptionService, UserObject, UserQuery, AccountQuery, 
     { CommentCreate: "CommentCreate" } as unknown as CommentMutation,
     { BannerCreate: "BannerCreate" } as unknown as BannerMutation,
     { syncAdminRole: jest.fn().mockResolvedValue(undefined) } as unknown as KeycloakAdminService,
+    { file: { uploadPath: "uploads" } } as unknown as AppConfigService,
   ];
 }
 
@@ -166,7 +172,7 @@ describe("A user may change their own name, image, preferences and password; ema
     const superCtx = { user: { id: "s1", roles: [{ name: "super" }], authRoles: { ...adminRoles, super: true } } };
 
     it("admin cannot delete a super user (role they could not grant)", async () => {
-      const prisma = makePrisma({ id: "sx" }, { role: "super" });
+      const prisma = makePrisma({ id: "sx" }, { role: "super", files: [] });
       new UserMutation(makeBuilder(), prisma, ...makeDeps());
       const resolve = resolvers["deleteUser"] as Resolve;
       await expect(
@@ -176,7 +182,7 @@ describe("A user may change their own name, image, preferences and password; ema
     });
 
     it("admin can delete a plain user (null role grants)", async () => {
-      const prisma = makePrisma({ id: "u1" }, { role: null });
+      const prisma = makePrisma({ id: "u1" }, { role: null, files: [] });
       new UserMutation(makeBuilder(), prisma, ...makeDeps());
       const resolve = resolvers["deleteUser"] as Resolve;
       await expect(resolve({}, null, { where: { id: "u1" } }, adminCtx)).resolves.toMatchObject({ id: "u1" });
@@ -184,7 +190,7 @@ describe("A user may change their own name, image, preferences and password; ema
     });
 
     it("super may delete anyone (super grants admin)", async () => {
-      const prisma = makePrisma({ id: "a2" }, { role: "admin" });
+      const prisma = makePrisma({ id: "a2" }, { role: "admin", files: [] });
       new UserMutation(makeBuilder(), prisma, ...makeDeps());
       const resolve = resolvers["deleteUser"] as Resolve;
       await expect(resolve({}, null, { where: { id: "a2" } }, superCtx)).resolves.toMatchObject({ id: "a2" });
@@ -195,7 +201,7 @@ describe("A user may change their own name, image, preferences and password; ema
       // The guard: the admin-attempts-super case above rejects. If someone drops the
       // check, that test turns green when it should stay red — this control exists to
       // keep the shape of the proof honest.
-      const prisma = makePrisma({ id: "sx" }, { role: "super" });
+      const prisma = makePrisma({ id: "sx" }, { role: "super", files: [] });
       new UserMutation(makeBuilder(), prisma, ...makeDeps());
       const resolve = resolvers["deleteUser"] as Resolve;
       await expect(

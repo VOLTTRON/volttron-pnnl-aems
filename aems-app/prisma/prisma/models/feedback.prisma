@@ -13,7 +13,7 @@ model Feedback {
     userId     String
     assigneeId String?
     user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-    assignee   User?          @relation("assignee", fields: [assigneeId], references: [id], onDelete: Cascade)
+    assignee   User?          @relation("assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
     files      File[]
 
     @@index([status], map: "feedback_status")
