@@ -91,6 +91,7 @@ describe("PreferencesProvider", () => {
     expect(result.current.preferences?.mode).toBe(Mode.Dark);
   });
 
+  // scenario: preferences-persist-sync (localStorage half)
   it("persists preferences to localStorage", () => {
     const { result } = renderHook(() => useContext(PreferencesContext), { wrapper });
     act(() => {

@@ -45,7 +45,7 @@ secrets, stack
 | `startup-repushes-controls` | the startup re-push marks every unit and control |
 | `deploy-report` | the report names each historian login and agent, healthy or not |
 | `upgrade-from-broken-fixture` | both broken states repaired by one `start-services` |
-| `update-pulls-changed-env` | *(owed)* a release changing the tracked `.env` pulls under a synced `.env`, and the stack comes up on it |
-| `update-keeps-env-only-values` | *(owed)* a value held only in `.env` is in `.env.secrets` and `.env` afterwards |
-| `update-refused-pull-safe` | *(owed)* a diverged checkout: `.env` re-synced, nothing started, the reason named |
-| `update-sh-ps1-parity` | *(owed)* `update.sh` and `update.ps1` alike on the three fixtures above |
+| `update-pulls-changed-env` | a release changing the tracked `.env` pulls under a synced `.env`, and the stack comes up on it |
+| `update-keeps-env-only-values` | a value held only in `.env` is in `.env.secrets` and `.env` afterwards |
+| `update-refused-pull-safe` | a diverged checkout: `.env` re-synced, nothing started, the reason named |
+| `update-sh-ps1-parity` | `update.sh` and `update.ps1` alike on the three fixtures above |
