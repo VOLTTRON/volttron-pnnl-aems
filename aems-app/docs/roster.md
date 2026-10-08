@@ -15,7 +15,7 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 | `logging` | built | background |
 | `backup` | built | background |
 | `ext-geography` | built | auth |
-| `content-admin` | unbuilt | graphql |
+| `content-admin` | built | graphql |
 | `site-model` | built | graphql, background |
 | `setpoints-schedules` | built | site-model |
 | `controls-ilc` | built | site-model |
