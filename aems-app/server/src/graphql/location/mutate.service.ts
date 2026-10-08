@@ -130,6 +130,12 @@ export class LocationMutation {
           where: t.arg({ type: LocationWhereUnique, required: true }),
         },
         resolve: async (query, _root, args, ctx, _info) => {
+          const inUse = await prismaService.prisma.unit.count({ where: { locationId: args.where.id } });
+          if (inUse > 0) {
+            throw new Error(
+              `Cannot delete location ${args.where.id}: ${inUse} unit${inUse === 1 ? "" : "s"} still reference it.`,
+            );
+          }
           return prismaService.prisma.location
             .delete({
               ...query,

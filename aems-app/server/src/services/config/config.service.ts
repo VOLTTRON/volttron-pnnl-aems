@@ -45,6 +45,17 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
 
   async task() {
     this.logger.debug(`Checking for unit configs that need to be pushed...`);
+    const synthPrefix = this.configService.service.synthetic.campusPrefix;
+    const notDemo = synthPrefix
+      ? {
+          NOT: {
+            OR: [
+              { campus: { startsWith: synthPrefix } },
+              { name: { startsWith: synthPrefix } },
+            ],
+          },
+        }
+      : {};
     try {
       await this.prismaService.prisma.unit
         .findMany({
@@ -52,7 +63,7 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
           orderBy: {
             createdAt: "desc",
           },
-          where: { stage: { in: [StageType.Update.enum, StageType.Process.enum] } },
+          where: { stage: { in: [StageType.Update.enum, StageType.Process.enum] }, ...notDemo },
         })
         .then(async (listed) => {
           if (listed.length === 0) {

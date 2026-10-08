@@ -10,6 +10,7 @@ interface Flags {
   serviceOverride?: boolean;
   holidaySchedule?: boolean;
   timezone?: string;
+  campusPrefix?: string;
 }
 
 const schedule = (occupied = true, startTime = "08:00", endTime = "17:00") => ({
@@ -27,6 +28,8 @@ const schedule = (occupied = true, startTime = "08:00", endTime = "17:00") => ({
 function unit(configuration: Record<string, unknown> = {}, timezone: string | null = "America/Los_Angeles") {
   return {
     id: "u1",
+    name: "Unit 1",
+    campus: "PNNL",
     label: "Unit 1",
     system: "RTU1",
     stage: StageType.Update.enum as string,
@@ -57,10 +60,24 @@ describe("the unit configuration sent to VOLTTRON", () => {
   let updates: { stage: string; message?: string | null }[];
 
   type Stage = { stage: string; message?: string | null };
-  type Where = { id?: string; stage?: string | { in: string[] } };
-  const matches = (u: { id: string; stage: string }, where: Where) =>
-    (where.id === undefined || u.id === where.id) &&
-    (where.stage === undefined || (typeof where.stage === "string" ? u.stage === where.stage : where.stage.in.includes(u.stage)));
+  type Where = {
+    id?: string;
+    stage?: string | { in: string[] };
+    NOT?: { OR?: { campus?: { startsWith: string }; name?: { startsWith: string } }[] };
+  };
+  const matches = (u: { id: string; stage: string; name?: string; campus?: string }, where: Where) => {
+    if (where.id !== undefined && u.id !== where.id) return false;
+    if (where.stage !== undefined) {
+      if (typeof where.stage === "string" ? u.stage !== where.stage : !where.stage.in.includes(u.stage)) return false;
+    }
+    if (where.NOT?.OR) {
+      for (const clause of where.NOT.OR) {
+        if (clause.campus && u.campus?.startsWith(clause.campus.startsWith)) return false;
+        if (clause.name && u.name?.startsWith(clause.name.startsWith)) return false;
+      }
+    }
+    return true;
+  };
   /** Applies DATA to the units WHERE matches, recording it once if any did; the number written. */
   function write(where: Where, data: Stage) {
     const rows = units.filter((u) => matches(u, where));
@@ -100,6 +117,7 @@ describe("the unit configuration sent to VOLTTRON", () => {
                 serviceOverride: flags.serviceOverride ?? false,
                 holidaySchedule: flags.holidaySchedule ?? false,
               },
+              synthetic: { campusPrefix: flags.campusPrefix ?? "" },
             },
             volttron: { timezone: flags.timezone ?? "" },
           },
@@ -259,6 +277,28 @@ describe("the unit configuration sent to VOLTTRON", () => {
     await push();
     expect(makeApiCall).not.toHaveBeenCalled();
     expect(updates).toEqual([]);
+  });
+
+  // scenario: demo-never-pushed
+  describe("a unit whose campus or name carries the synthetic prefix", () => {
+    it("is skipped entirely when SYNTHETIC_CAMPUS_PREFIX is set, even in Update", async () => {
+      units = [{ ...unit(), campus: "DEMO_PNNL", name: "DEMO_PNNL/BLDG_A/RTU1" }];
+      await push({ campusPrefix: "DEMO_" });
+      expect(makeApiCall).not.toHaveBeenCalled();
+      expect(updates).toEqual([]);
+    });
+
+    it("is skipped when only the name carries the prefix (campus does not)", async () => {
+      units = [{ ...unit(), campus: "PNNL", name: "DEMO_ROB/RTU1" }];
+      await push({ campusPrefix: "DEMO_" });
+      expect(makeApiCall).not.toHaveBeenCalled();
+    });
+
+    it("is pushed when the prefix is empty — nothing is marked as demo", async () => {
+      units = [{ ...unit(), campus: "DEMO_PNNL", name: "DEMO_PNNL/BLDG_A/RTU1" }];
+      await push({ campusPrefix: "" });
+      expect(makeApiCall).toHaveBeenCalled();
+    });
   });
 
   // scenario: edit-during-push-repushed
