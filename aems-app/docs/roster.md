@@ -17,7 +17,7 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 | `ext-geography` | built | auth |
 | `content-admin` | unbuilt | graphql |
 | `site-model` | unbuilt | graphql, background |
-| `setpoints-schedules` | unbuilt | site-model |
+| `setpoints-schedules` | built | site-model |
 | `controls-ilc` | built | site-model |
 | `volttron-sync` | built | site-model, background |
 | `historian-dashboards` | unbuilt | site-model, stack |
