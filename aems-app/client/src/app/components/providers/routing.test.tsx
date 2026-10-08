@@ -27,35 +27,44 @@ const makeNode = (data: object, children: any[] = []) => ({
   isAncestor: () => false,
 });
 
+// scenario: route-display-rules
 describe("isDisplay", () => {
-  it("returns false when display is falsy", () => {
+  it("returns false when display is false (never in nav)", () => {
     const node = makeNode({ display: false });
     expect(isDisplay(node as any)).toBe(false);
   });
 
-  it("returns false when display is undefined", () => {
+  it("returns false when display is undefined (default: never in nav)", () => {
     const node = makeNode({});
     expect(isDisplay(node as any)).toBe(false);
   });
 
-  it("returns true when display is boolean true", () => {
+  it("returns true when display is boolean true (always in nav)", () => {
     const node = makeNode({ display: true });
     expect(isDisplay(node as any)).toBe(true);
-  });
-
-  it("returns true when display matches user role", () => {
-    const node = makeNode({ display: "admin" });
+    // true means always, regardless of user role
+    expect(isDisplay(node as any, {})).toBe(true);
+    expect(isDisplay(node as any, { role: "user" })).toBe(true);
     expect(isDisplay(node as any, { role: "admin" })).toBe(true);
   });
 
-  it("returns false when display role does not match user role", () => {
+  it("returns true for display: 'admin' only when user is granted admin", () => {
     const node = makeNode({ display: "admin" });
-    expect(isDisplay(node as any, { role: "user" })).toBe(false);
+    expect(isDisplay(node as any, { role: "admin" })).toBe(true);
+    expect(isDisplay(node as any, { role: "super" })).toBe(true);
   });
 
-  it("returns false when user has no role", () => {
+  it("returns false for display: 'admin' when user is not admin", () => {
     const node = makeNode({ display: "admin" });
+    expect(isDisplay(node as any, { role: "user" })).toBe(false);
     expect(isDisplay(node as any, {})).toBe(false);
+  });
+
+  it("returns true for display: 'keycloak' only when user has keycloak role", () => {
+    const node = makeNode({ display: "keycloak" });
+    expect(isDisplay(node as any, { role: "keycloak" })).toBe(true);
+    expect(isDisplay(node as any, { role: "admin" })).toBe(false);
+    expect(isDisplay(node as any, { role: "user" })).toBe(false);
   });
 });
 
