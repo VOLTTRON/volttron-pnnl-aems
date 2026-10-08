@@ -2,11 +2,11 @@ import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { BaseService } from "@/services";
-import { Mutation, SubscriptionEvent, Normalization } from "@local/common";
+import { Mutation, SubscriptionEvent } from "@local/common";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Cron, Timeout } from "@nestjs/schedule";
 import { Unit, User } from "@prisma/client";
-import { readDashboardConfigs } from "@/grafana/read-dashboard-configs";
+import { DashboardConfigFile, readDashboardConfigs } from "@/grafana/read-dashboard-configs";
 
 // Keycloak API types
 interface KeycloakUser {
@@ -45,6 +45,7 @@ interface SyncResult {
 export class KeycloakSyncService extends BaseService {
   private logger = new Logger(KeycloakSyncService.name);
   private dashboardRoles: Map<string, Set<string>> = new Map();
+  private lastConfigs: DashboardConfigFile[] = [];
   private subscriptionId?: number;
   private adminTokenCache?: { token: string; expiresAt: number };
   private clientUuidCache?: string;
@@ -248,13 +249,14 @@ export class KeycloakSyncService extends BaseService {
     if (!configPath) {
       this.logger.warn("Grafana config path not set, dashboard roles will be empty");
       this.dashboardRoles = new Map();
+      this.lastConfigs = [];
       return;
     }
 
     try {
-      const files = await readDashboardConfigs(configPath, this.logger);
+      this.lastConfigs = await readDashboardConfigs(configPath, this.logger);
       const roleMap = new Map<string, Set<string>>();
-      for (const file of files) {
+      for (const file of this.lastConfigs) {
         const key = `${file.campus}_${file.building}`;
         const roles = new Set<string>();
         for (const entry of file.entries) {
@@ -276,15 +278,8 @@ export class KeycloakSyncService extends BaseService {
     } catch (error) {
       this.logger.error("Failed to load dashboard roles:", error);
       this.dashboardRoles = new Map();
+      this.lastConfigs = [];
     }
-  }
-
-  private getAllGrafanaRoles(): string[] {
-    const allRoles: string[] = [];
-    for (const roles of this.dashboardRoles.values()) {
-      allRoles.push(...roles);
-    }
-    return allRoles;
   }
 
   /**
@@ -365,57 +360,46 @@ export class KeycloakSyncService extends BaseService {
     };
   }
 
-  /**
-   * Normalize a name for use in Keycloak role names.
-   * Applies: lowercase, trim, compact spaces, letters/numbers only, replace spaces with underscores
-   */
-  private normalizeRoleName(name: string): string {
-    // Use the common library's normalization utility
-    const normalize = Normalization.process("Lowercase", "Trim", "Compact", "Letters", "Numbers");
-    const normalized = normalize(name);
-    // Replace remaining spaces with underscores
-    return normalized.replace(/\s+/g, '_');
-  }
-
-  /**
-   * Determine required Keycloak roles based on user's role and unit assignments
-   */
-  private determineRequiredRoles(user: User & { units: Unit[] }): string[] {
-    const roles: Set<string> = new Set();
-
-    // Parse user role string (space-separated)
+  determineRequiredRoles(user: User & { units: Unit[] }): string[] {
     const userRoles = (user.role || "").toLowerCase().split(/\s+/).map((r) => r.trim()).filter(Boolean);
     const hasUserRole = userRoles.includes("user");
     const hasAdminRole = userRoles.includes("admin");
 
     if (!hasUserRole && !hasAdminRole) {
-      // No Grafana access
       this.logger.debug(`User ${user.email} has no user or admin role, no Grafana access`);
       return [];
     }
 
     if (hasAdminRole) {
-      // Admin gets all viewer roles
-      const allRoles = this.getAllGrafanaRoles();
-      this.logger.debug(`User ${user.email} is admin, granting ${allRoles.length} viewer roles`);
-      return allRoles;
+      const all = new Set<string>();
+      for (const file of this.lastConfigs) {
+        for (const entry of file.entries) {
+          if (entry.keycloakRole) all.add(entry.keycloakRole);
+        }
+      }
+      this.logger.debug(`User ${user.email} is admin, granting ${all.size} viewer roles`);
+      return Array.from(all);
     }
 
-    // Regular user - get roles for assigned units with normalized names
+    const roles = new Set<string>();
     for (const unit of user.units) {
-      const campus = this.normalizeRoleName(unit.campus);
-      const building = this.normalizeRoleName(unit.building);
-      const unitName = this.normalizeRoleName(unit.name);
-
-      // Add unit-specific role
-      const unitRole = `grafana-view-unit-${campus}_${building}_${unitName}`;
-      roles.add(unitRole);
-
-      // Add building site role
-      const siteRole = `grafana-view-site-${campus}_${building}`;
-      roles.add(siteRole);
+      const campus = unit.campus.toLowerCase();
+      const building = unit.building.toLowerCase();
+      const name = unit.name.toLowerCase();
+      const file = this.lastConfigs.find((f) => f.campus === campus && f.building === building);
+      if (!file) continue;
+      for (const entry of file.entries) {
+        if (!entry.keycloakRole) continue;
+        if (entry.key.toLowerCase() === "site overview") {
+          roles.add(entry.keycloakRole);
+          continue;
+        }
+        const match = /^rtu overview - (?<n>.+)$/i.exec(entry.key);
+        if (match && match.groups?.n.toLowerCase() === name) {
+          roles.add(entry.keycloakRole);
+        }
+      }
     }
-
     return Array.from(roles);
   }
 
