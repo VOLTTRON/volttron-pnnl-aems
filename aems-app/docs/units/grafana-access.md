@@ -1,6 +1,6 @@
 # grafana-access
 
-**State:** unbuilt
+**State:** built
 
 ## Contract
 
@@ -9,8 +9,6 @@ Site Overview per building, and gives each a Keycloak role. It then writes
 `{campus}--{building}_dashboard_urls.json`, listing each dashboard's URL and role. The app reads those
 files and grants each user the roles their units entitle them to, and Grafana enforces the roles. The
 Keycloak admin client used here belongs to keycloak-admin.
-
-Implemented today in `server/src/api/grafana.controller.ts`, `server/src/grafana/` and `server/src/keycloak/keycloak-sync.service.ts` (its Grafana roles).
 
 ## Claims
 
