@@ -513,6 +513,7 @@ describe("PrismaService", () => {
     });
   });
 
+  // scenario: password-hashed-hidden
   describe("extendPrisma — $extends interceptor (upsert and createMany/updateMany paths)", () => {
     it("exercises upsert path: hashes create.password and update.password", () => {
       let capturedInterceptor: ((args: { operation: string; args: any; query: (a: any) => any }) => any) | null = null;
