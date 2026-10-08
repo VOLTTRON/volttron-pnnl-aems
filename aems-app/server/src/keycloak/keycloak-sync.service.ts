@@ -84,9 +84,10 @@ export class KeycloakSyncService extends BaseService {
    */
   @Cron("0 0 * * *")
   async dailySync() {
-    if (!this.schedule()) {
-      return;
-    }
+    // Gate on INSTANCE_TYPE directly; BaseService.schedule() sets a running
+    // flag that is only cleared by execute(), so using it here would make the
+    // cron fire once and never again.
+    if (!this.enabled) return;
 
     try {
       this.logger.log("Running daily scheduled sync of all users...");
