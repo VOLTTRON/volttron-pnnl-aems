@@ -1,6 +1,6 @@
 # site-model
 
-**State:** unbuilt
+**State:** built
 **Contract:** partial — locations, a unit's tunable settings and configurations are still to be derived with the owner.
 
 ## Contract
@@ -13,8 +13,6 @@ roles and VOLTTRON's `site.json` — and those names stay as they are.
 
 VOLTTRON's configuration files decide which units and controls exist; this unit holds them in the
 database. One building is supported today, and nothing here assumes only one.
-
-Implemented today in `server/src/services/setup/`, `server/src/graphql/{unit,configuration,location,config}/` and `client/src/app/{units,configurations,locations,templates}/`.
 
 ## Claims
 

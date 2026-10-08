@@ -28,8 +28,8 @@ export class SyntheticTickerService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Synthetic ticker armed: every ${intervalMs / 1000}s (waiting for backfill to complete)...`);
 
     // Wait until the backfill task has finished before firing the first
-    // tick. Otherwise a partial backfill sees ticker-inserted rows,
-    // topicHasData short-circuits, and topics end up sparsely populated.
+    // tick. Otherwise a partial backfill races the ticker and leaves
+    // the window sparsely populated.
     void this.synthetic.backfillReady.then(() => {
       if (this.stopped) return;
       this.logger.log(`Synthetic ticker started.`);
@@ -69,6 +69,14 @@ export class SyntheticTickerService implements OnModuleInit, OnModuleDestroy {
       ts.setSeconds(0, 0);
       const values = this.synthetic.collectTickValues(this.registry, ts);
       await this.writer.tickInsert(ts, values);
+
+      const { historianDays } = this.configService.service.synthetic;
+      const cutoff = new Date(ts.getTime() - historianDays * 86_400_000);
+      const pruned = await this.writer.pruneOlderThan(
+        Array.from(this.registry.topicIds.values()),
+        cutoff,
+      );
+      if (pruned > 0) this.logger.debug(`Pruned ${pruned} demo rows older than ${cutoff.toISOString()}.`);
     } catch (err) {
       this.logger.warn(`Synthetic tick failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {

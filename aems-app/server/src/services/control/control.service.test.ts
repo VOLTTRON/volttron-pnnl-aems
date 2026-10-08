@@ -11,7 +11,7 @@ import { VolttronService } from "../volttron.service";
 function makeConfig(): AppConfigService {
   return {
     instanceType: "control",
-    service: { control: { templatePaths: [] } },
+    service: { control: { templatePaths: [] }, synthetic: { campusPrefix: "" } },
   } as unknown as AppConfigService;
 }
 

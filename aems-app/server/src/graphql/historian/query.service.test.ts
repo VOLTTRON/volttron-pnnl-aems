@@ -4,6 +4,7 @@ import { HistorianObject } from "./object.service";
 import { HistorianService } from "@/historian/historian.service";
 
 const resolvers: Record<string, (...args: unknown[]) => unknown> = {};
+const fieldOpts: Record<string, { authScopes?: unknown; resolve: (...args: unknown[]) => unknown }> = {};
 
 function makeMockT() {
   const arg: any = jest.fn((opts: any) => opts);
@@ -22,6 +23,7 @@ function makeBuilder(): SchemaBuilderService {
     queryField: jest.fn((name: string, cb: (t: unknown) => any) => {
       const opts = cb(mockT);
       resolvers[name] = opts.resolve;
+      fieldOpts[name] = opts;
     }),
   } as unknown as SchemaBuilderService;
 }
@@ -68,6 +70,7 @@ describe("HistorianQuery", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Object.keys(resolvers).forEach((k) => delete resolvers[k]);
+    Object.keys(fieldOpts).forEach((k) => delete fieldOpts[k]);
   });
 
   it("registers all expected historian query fields", () => {
@@ -281,5 +284,15 @@ describe("HistorianQuery", () => {
     const result = await resolvers["historianReplicationInfo"](null, {}, userCtx);
     expect(svc.getReplicationInfo).toHaveBeenCalled();
     expect(result).toEqual({ status: "ok" });
+  });
+
+  // scenario: replication-info-admin-only
+  it("historianReplicationInfo is registered with the admin scope and no other query is", () => {
+    new HistorianQuery(makeBuilder(), makeHistorianService(), makeHistorianObject());
+    expect(fieldOpts.historianReplicationInfo.authScopes).toEqual({ admin: true });
+    for (const [name, opts] of Object.entries(fieldOpts)) {
+      if (name === "historianReplicationInfo") continue;
+      expect(opts.authScopes).not.toEqual({ admin: true });
+    }
   });
 });

@@ -206,10 +206,14 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     const allowedSystems = userSystems
       .filter((s) => requestedSystemsLower.includes(s.system.toLowerCase()))
       .map((s) => ({ campus: s.campus, building: s.building, system: s.system }));
-    if (requestedSystems.includes("weather")) {
+
+    // Weather and meter are per-building: a non-admin reads them only when they
+    // have at least one unit in the building. An admin always reads them.
+    const canReadBuildingAggregate = user.authRoles.admin || userSystems.length > 0;
+    if (requestedSystems.includes("weather") && canReadBuildingAggregate) {
       allowedSystems.push({ campus: campus ?? "", building: building ?? "", system: "weather" });
     }
-    if (requestedSystems.includes("meter")) {
+    if (requestedSystems.includes("meter") && canReadBuildingAggregate) {
       allowedSystems.push({ campus: campus ?? "", building: building ?? "", system: "meter" });
     }
 
@@ -1918,6 +1922,31 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Hard cap on the number of buckets a client-requested interval may yield
+   * across a query range. A finer interval is coarsened to fit.
+   */
+  static readonly MAX_BUCKETS = 5000;
+
+  /**
+   * Enforce the MAX_BUCKETS cap on a client-requested interval. Returns the
+   * parsed interval as-is when the range would stay within the cap, and a
+   * coarsened `{ sql, ms }` in whole seconds otherwise. Exposed for tests.
+   */
+  static capClientInterval(
+    parsed: { sql: string; ms: number },
+    rangeMs: number,
+    maxBuckets: number = HistorianService.MAX_BUCKETS,
+  ): { sql: string; ms: number } {
+    const effectiveRange = Math.max(0, rangeMs);
+    const effectiveMax = Math.max(1, maxBuckets);
+    if (parsed.ms <= 0 || effectiveRange / parsed.ms <= effectiveMax) {
+      return parsed;
+    }
+    const coarsenedSec = Math.max(1, Math.ceil(effectiveRange / 1000 / effectiveMax));
+    return { sql: `${coarsenedSec} seconds`, ms: coarsenedSec * 1000 };
+  }
+
+  /**
    * Resolve how a query should be bucketed for a given range and optional
    * client-supplied interval. When the requested range is at or below the
    * configured `historian.binning.start * unit` threshold, returns `raw` so
@@ -1930,15 +1959,16 @@ export class HistorianService implements OnModuleInit, OnModuleDestroy {
     clientInterval?: string,
     rawThresholdOverride?: string,
   ): { mode: "binned"; sql: string; ms: number } | { mode: "raw" } {
+    const rangeMs = Math.max(0, endTime.getTime() - startTime.getTime());
     if (clientInterval) {
       const parsed = HistorianService.parseClientInterval(clientInterval);
-      return { mode: "binned", sql: parsed.sql, ms: parsed.ms };
+      const capped = HistorianService.capClientInterval(parsed, rangeMs);
+      return { mode: "binned", sql: capped.sql, ms: capped.ms };
     }
     const thresholdMs = rawThresholdOverride
       ? Math.max(0, HistorianService.parseClientInterval(rawThresholdOverride).ms)
       : Math.max(0, this.configService.historian.binning.start) *
         HistorianService.msPerDurationUnit(this.configService.historian.binning.unit);
-    const rangeMs = Math.max(0, endTime.getTime() - startTime.getTime());
     if (thresholdMs > 0 && rangeMs <= thresholdMs) {
       return { mode: "raw" };
     }

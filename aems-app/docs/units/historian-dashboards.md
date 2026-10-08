@@ -1,6 +1,6 @@
 # historian-dashboards
 
-**State:** unbuilt
+**State:** built
 
 ## Contract
 
@@ -8,8 +8,6 @@ What the edge records about each unit, its building's weather and its building's
 from the historian database. Also the app's own dashboards, which chart that data. Who may open a
 Grafana dashboard belongs to grafana-access. The historian's credentials and replication belong to
 secrets and stack.
-
-Implemented today in `server/src/historian/`, `server/src/graphql/historian/` and `client/src/app/{dashboards,historian}/`.
 
 ## Claims
 

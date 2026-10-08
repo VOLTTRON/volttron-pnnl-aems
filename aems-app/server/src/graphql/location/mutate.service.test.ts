@@ -42,13 +42,16 @@ function makeUnitQuery(): UnitQuery {
   return { UnitWhereUnique: "UnitWhereUnique" } as unknown as UnitQuery;
 }
 
-function makePrisma(returned: object = { id: "l1" }) {
+function makePrisma(returned: object = { id: "l1" }, unitCount = 0) {
   return {
     prisma: {
       location: {
         create: jest.fn().mockResolvedValue(returned),
         update: jest.fn().mockResolvedValue(returned),
         delete: jest.fn().mockResolvedValue(returned),
+      },
+      unit: {
+        count: jest.fn().mockResolvedValue(unitCount),
       },
     },
   } as unknown as PrismaService;
@@ -98,7 +101,7 @@ describe("LocationMutation", () => {
   });
 
   it("deleteLocation deletes, publishes twice, records change", async () => {
-    const prisma = makePrisma({ id: "l1" });
+    const prisma = makePrisma({ id: "l1" }, 0);
     const sub = makeSubscription();
     const change = makeChangeService();
     new LocationMutation(makeBuilder(), prisma, sub, makeLocationQuery(), makeLocationObject(), makeUnitQuery(), change);
@@ -106,5 +109,31 @@ describe("LocationMutation", () => {
     expect(prisma.prisma.location.delete).toHaveBeenCalled();
     expect(sub.publish).toHaveBeenCalledTimes(2);
     expect(change.handleChange).toHaveBeenCalledWith("Unknown", expect.any(Object), "Location", "Delete", userCtx.user);
+  });
+
+  // scenario: shared-location-kept
+  describe("deleteLocation", () => {
+    it("refuses to delete when a unit still references the location", async () => {
+      const prisma = makePrisma({ id: "l1" }, 2);
+      const sub = makeSubscription();
+      const change = makeChangeService();
+      new LocationMutation(makeBuilder(), prisma, sub, makeLocationQuery(), makeLocationObject(), makeUnitQuery(), change);
+      await expect(
+        resolvers["deleteLocation"]({}, null, { where: { id: "l1" } }, userCtx),
+      ).rejects.toThrow(/still reference/);
+      expect(prisma.prisma.location.delete).not.toHaveBeenCalled();
+      expect(sub.publish).not.toHaveBeenCalled();
+      expect(change.handleChange).not.toHaveBeenCalled();
+    });
+
+    it("proceeds when no unit references the location", async () => {
+      const prisma = makePrisma({ id: "l1" }, 0);
+      const sub = makeSubscription();
+      const change = makeChangeService();
+      new LocationMutation(makeBuilder(), prisma, sub, makeLocationQuery(), makeLocationObject(), makeUnitQuery(), change);
+      await resolvers["deleteLocation"]({}, null, { where: { id: "l1" } }, userCtx);
+      expect(prisma.prisma.unit.count).toHaveBeenCalledWith({ where: { locationId: "l1" } });
+      expect(prisma.prisma.location.delete).toHaveBeenCalled();
+    });
   });
 });

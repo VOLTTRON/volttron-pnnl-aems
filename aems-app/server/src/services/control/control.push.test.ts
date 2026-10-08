@@ -11,6 +11,7 @@ import { VolttronService } from "../volttron.service";
 
 interface Control {
   id: string;
+  name: string;
   label: string;
   campus: string;
   building: string;
@@ -21,6 +22,7 @@ interface Control {
 
 const control = (overrides: Partial<Control> = {}): Control => ({
   id: "c1",
+  name: "PNNL/ROB",
   label: "PNNL ROB",
   campus: "PNNL",
   building: "ROB",
@@ -55,10 +57,24 @@ describe("pushing a control to the ILC agent", () => {
   });
 
   type Stage = { stage: string; message?: string | null };
-  type Where = { id?: string; stage?: string | { in: string[] } };
-  const matches = (c: Control, where: Where) =>
-    (where.id === undefined || c.id === where.id) &&
-    (where.stage === undefined || (typeof where.stage === "string" ? c.stage === where.stage : where.stage.in.includes(c.stage)));
+  type Where = {
+    id?: string;
+    stage?: string | { in: string[] };
+    NOT?: { OR?: { campus?: { startsWith: string }; name?: { startsWith: string } }[] };
+  };
+  const matches = (c: Control, where: Where) => {
+    if (where.id !== undefined && c.id !== where.id) return false;
+    if (where.stage !== undefined) {
+      if (typeof where.stage === "string" ? c.stage !== where.stage : !where.stage.in.includes(c.stage)) return false;
+    }
+    if (where.NOT?.OR) {
+      for (const clause of where.NOT.OR) {
+        if (clause.campus && c.campus.startsWith(clause.campus.startsWith)) return false;
+        if (clause.name && c.name.startsWith(clause.name.startsWith)) return false;
+      }
+    }
+    return true;
+  };
   /** Applies DATA to the controls WHERE matches, recording it if any did; the number written. */
   function write(where: Where, data: Stage) {
     const rows = controls.filter((c) => matches(c, where));
@@ -69,7 +85,7 @@ describe("pushing a control to the ILC agent", () => {
     return rows.length;
   }
 
-  async function push(templatePaths = [templates]) {
+  async function push(templatePaths = [templates], campusPrefix = "") {
     module = await Test.createTestingModule({
       providers: [
         ControlService,
@@ -91,7 +107,7 @@ describe("pushing a control to the ILC agent", () => {
           },
         },
         { provide: SubscriptionService, useValue: { publish: jest.fn().mockResolvedValue(undefined) } },
-        { provide: AppConfigService.Key, useValue: { instanceType: "control", service: { control: { templatePaths } } } },
+        { provide: AppConfigService.Key, useValue: { instanceType: "control", service: { control: { templatePaths }, synthetic: { campusPrefix } } } },
         { provide: VolttronService, useValue: { makeAuthCall: jest.fn().mockResolvedValue("token"), makeApiCall } },
       ],
     }).compile();
@@ -204,6 +220,25 @@ describe("pushing a control to the ILC agent", () => {
     await push();
     expect(sent()).toHaveLength(1);
     expect(stages()).toEqual([StageType.Process.enum, StageType.Complete.enum]);
+  });
+
+  // scenario: demo-never-pushed
+  describe("a control whose campus or name carries the synthetic prefix", () => {
+    it("is skipped when SYNTHETIC_CAMPUS_PREFIX is set, in Update or Create", async () => {
+      controls = [
+        control({ id: "c-update", campus: "DEMO_PNNL", stage: StageType.Update.enum }),
+        control({ id: "c-create", name: "DEMO_X/ROB", stage: StageType.Create.enum }),
+      ];
+      await push([templates], "DEMO_");
+      expect(sent()).toEqual([]);
+      expect(updates).toEqual([]);
+    });
+
+    it("is pushed when the prefix is empty — nothing is marked as demo", async () => {
+      controls = [control({ campus: "DEMO_PNNL" })];
+      await push([templates], "");
+      expect(sent()).toHaveLength(1);
+    });
   });
 
   // scenario: edit-during-push-repushed
