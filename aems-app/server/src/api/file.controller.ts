@@ -226,8 +226,10 @@ export function isPathInside(child: string, parent: string): boolean {
 }
 
 // Keep only characters safe inside a quoted Content-Disposition filename:
-// drop CR/LF/quote/backslash and path separators; collapse the rest.
+// drop CR/LF/quote/backslash, path separators and NUL (control chars sneak
+// headers in); collapse the rest.
 export function sanitizeFilename(name: string): string {
+  // eslint-disable-next-line no-control-regex
   const stripped = (name ?? "").replace(/[\r\n"\\/\x00]/g, "").trim();
   return stripped.length > 0 ? stripped : "download";
 }
