@@ -44,6 +44,9 @@ export class SyntheticTopologyService {
 
   async apply(): Promise<TopologyResult> {
     const prefix = this.configService.service.synthetic.campusPrefix;
+    if (!prefix) {
+      throw new Error("SYNTHETIC_CAMPUS_PREFIX is empty; refusing to seed demo topology without a prefix.");
+    }
     const prisma = this.prismaService.prisma;
 
     const setpointId = `${prefix}setpoint-standard`;

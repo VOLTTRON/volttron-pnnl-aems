@@ -141,8 +141,10 @@ export class SyntheticService extends BaseService {
       return this.writer.copyTopic(topicId, iter);
     };
 
+    const baseSeed = this.configService.service.synthetic.seed;
+
     for (const b of buildings) {
-      const buildingSeed = seedFor("weather", b.campus, b.building);
+      const buildingSeed = seedFor("weather", baseSeed, b.campus, b.building);
       const buildingUnits = units.filter((u) => u.campus === b.campus && u.building === b.building);
       const buildingTotalBefore = total;
       const buildingSkippedBefore = skipped;
@@ -162,7 +164,7 @@ export class SyntheticService extends BaseService {
       }
 
       for (const u of buildingUnits) {
-        const unitSeed = seedFor("unit", u.campus, u.building, u.system);
+        const unitSeed = seedFor("unit", baseSeed, u.campus, u.building, u.system);
         for (const metric of UNIT_METRICS) {
           const topicId = topicIds.get(`${u.campus}/${u.building}/${u.system}/${metric}`);
           if (topicId === undefined) continue;
@@ -227,8 +229,9 @@ export class SyntheticService extends BaseService {
   collectTickValues(registry: TopicRegistry, ts: Date): [number, number][] {
     const values: [number, number][] = [];
     const { units, buildings, topicIds } = registry;
+    const baseSeed = this.configService.service.synthetic.seed;
     for (const b of buildings) {
-      const buildingSeed = seedFor("weather", b.campus, b.building);
+      const buildingSeed = seedFor("weather", baseSeed, b.campus, b.building);
       const w = weatherAt(ts, buildingSeed);
       for (const m of WEATHER_METRICS) {
         const topicId = topicIds.get(`${b.campus}/${b.building}/weather/${m.topic}`);
@@ -241,7 +244,7 @@ export class SyntheticService extends BaseService {
         if (topicId !== undefined) values.push([topicId, meter[metric]]);
       }
       for (const u of buildingUnits) {
-        const unitSeed = seedFor("unit", u.campus, u.building, u.system);
+        const unitSeed = seedFor("unit", baseSeed, u.campus, u.building, u.system);
         const sample = unitAt(ts, unitSeed, w, UNIT_CONFIG);
         for (const metric of UNIT_METRICS) {
           const topicId = topicIds.get(`${u.campus}/${u.building}/${u.system}/${metric}`);
@@ -254,6 +257,10 @@ export class SyntheticService extends BaseService {
 
   async loadRegistry(): Promise<TopicRegistry | null> {
     const prefix = this.configService.service.synthetic.campusPrefix;
+    if (!prefix) {
+      this.logger.warn("SYNTHETIC_CAMPUS_PREFIX is empty; refusing to load the registry without a prefix.");
+      return null;
+    }
     const rawUnits = await this.prismaService.prisma.unit.findMany({
       where: { campus: { startsWith: prefix } },
       select: { id: true, campus: true, building: true, system: true },
