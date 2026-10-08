@@ -360,6 +360,7 @@ describe("KeycloakAdminService", () => {
     });
   });
 
+  // scenario: keycloak-role-mirrors-realm-admin
   describe("syncAdminRole()", () => {
     it("returns early without any fetch when lookupKeycloakUserId returns null", async () => {
       const svc = new KeycloakAdminService(makeConfig(), makePrisma(null));
