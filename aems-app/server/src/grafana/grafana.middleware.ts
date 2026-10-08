@@ -9,8 +9,7 @@ import * as http from "node:http";
 import * as https from "node:https";
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-
-const ConfigFilenameRegex = /(?<campus>.+)_(?<building>.+)_dashboard_urls\.json/i;
+import { parseDashboardFilename } from "./filename";
 
 const ConfigUnitRegex = /RTU Overview - (?<unit>.+)|Site Overview/i;
 
@@ -66,14 +65,13 @@ export class GrafanaRewriteMiddleware implements NestMiddleware {
     for (const file of files) {
       try {
         this.logger.log(`Parsing Grafana config file: ${file}`);
-        const filename = basename(file);
-        let { campus, building } = ConfigFilenameRegex.exec(filename)?.groups ?? {};
-        if (!campus || !building) {
+        const parsed = parseDashboardFilename(basename(file));
+        if (!parsed) {
           this.logger.warn(`Skipping invalid Grafana config file name: ${file}`);
           continue;
         }
-        campus = campus.toLocaleLowerCase();
-        building = building.toLocaleLowerCase();
+        const campus = parsed.campus.toLocaleLowerCase();
+        const building = parsed.building.toLocaleLowerCase();
         urls[campus] = urls[campus] || {};
         urls[campus][building] = urls[campus][building] || {};
         const text = await readFile(resolve(file), "utf-8");
