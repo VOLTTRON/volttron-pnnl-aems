@@ -2238,11 +2238,11 @@ docker exec -it aems-historian cat /app/config/historian-topic-map.json
 
 ### Configuration
 
-Default configuration for docker compose can be found at [.env](./.env). Sensitive values should be stored in [.env.secrets](./.env.secrets) file. There are default users with temporary passwords defined for local authentication in the [docker/seed/20211103151730-system-user.json](./docker/seed/20211103151730-system-user.json) file.
+Default configuration for docker compose can be found at [.env](./.env). Sensitive values should be stored in `.env.secrets` (gitignored, operator-only). There are default users with temporary passwords defined for local authentication in the [docker/seed/20211103151730-system-user.json](./docker/seed/20211103151730-system-user.json) file.
 
 #### Secrets Management
 
-`.env` is the single input docker compose reads. It contains real values in a running deployment. [.env.secrets](./.env.secrets) (gitignored, optional) is an operator's editable secret store — `secrets.sh` / `secrets.ps1` overlays values from `.env.secrets` onto `.env` before compose runs. Compose then auto-loads `.env` normally — no `--env-file`, no `COMPOSE_ENV_FILES`, no `/run/secrets/*` mounts, no `_FILE` env vars. Deployments that maintain real values directly in `.env` may skip `.env.secrets` entirely. **Do not commit changes to `.env` after `secrets.sh` runs** — the tracked baseline has the sentinel `SeT_tHiS_iN_0x3A-.env.secrets-` for every declared secret; a locally-synced `.env` contains real values.
+`.env` is the single input docker compose reads. It contains real values in a running deployment. `.env.secrets` (gitignored, optional) is an operator's editable secret store — `secrets.sh` / `secrets.ps1` overlays values from `.env.secrets` onto `.env` before compose runs. Compose then auto-loads `.env` normally — no `--env-file`, no `COMPOSE_ENV_FILES`, no `/run/secrets/*` mounts, no `_FILE` env vars. Deployments that maintain real values directly in `.env` may skip `.env.secrets` entirely. **Do not commit changes to `.env` after `secrets.sh` runs** — the tracked baseline has the sentinel `SeT_tHiS_iN_0x3A-.env.secrets-` for every declared secret; a locally-synced `.env` contains real values.
 
 **Bootstrap:**
 
@@ -2740,7 +2740,7 @@ Restore (break-glass CLI):
 
 1. **Locate the encrypted archive.** Pick the `<project>-<timestamp>.tar.gz.age` (or `.gpg`) to restore from any configured destination — the local `./backups/` directory, a mounted network share, or an `s3://bucket/prefix/...` URL. The Runs tab in the admin UI lists every archive's path, size, and SHA-256 if the UI is still reachable.
 
-2. **Locate the matching private key.** An archive can only be decrypted with the key that was active when it was written. The current key lives at [docker/secrets/backup/age.key](./docker/secrets/backup/) on the host (bind-mounted into the sidecar at `/host-secrets/age.key`) and is also downloadable from the admin UI's Keys tab. If the archive predates a key rotation, use the offline copy of the older key instead.
+2. **Locate the matching private key.** An archive can only be decrypted with the key that was active when it was written. The current key lives at `docker/secrets/backup/age.key` on the host (bind-mounted into the sidecar at `/host-secrets/age.key`) and is also downloadable from the admin UI's Keys tab. If the archive predates a key rotation, use the offline copy of the older key instead.
 
 3. **Put the app in maintenance mode.** Restore overwrites live data. Stop user traffic at the proxy, or scale the client/server down — do not leave users writing to the database while the dump is replaying.
 
@@ -3125,7 +3125,7 @@ The primary production configuration file is [.env](./.env). These values get pa
 
 > Note: Any ports listed in the environment file will be exposed in the host machine. These ports should only be specified in a production deployment if needed. The application itself will be available at [https://localhost](https://localhost) or the specified domain name.
 
-> Note: For production deployments secrets and passwords should not be stored in the `.env` file. One option is to use the [.env.secrets](./.env.secrets) file. The secrets file will need to be set as system environment variables by either using the provided scripts ([secrets.ps1](./secrets.ps1) or [secrets.sh](./secrets.sh)).
+> Note: For production deployments secrets and passwords should not be stored in the `.env` file. One option is to use the `.env.secrets` file (gitignored). The secrets file will need to be set as system environment variables by either using the provided scripts ([secrets.ps1](./secrets.ps1) or [secrets.sh](./secrets.sh)).
 
 - The primary default configuration file for the server and services container is located at [./server/.env](./server/.env).
 - The primary default configuration file for the client container is located at [./client/.env](./client/.env).

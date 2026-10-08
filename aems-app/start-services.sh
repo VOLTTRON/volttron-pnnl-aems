@@ -93,6 +93,16 @@ if ! ./check-env.sh; then
     exit 1
 fi
 
+# volttron-setup's completion lock inside its own volume gates whether the container re-renders.
+# Its narrow fingerprint (HISTORIAN_DB_PASSWORD only) misses a changed VOLTTRON_* value,
+# generate_configs.py or the registry file; this host-side pre-check invalidates the lock before
+# compose starts the container so it re-renders when any declared input has moved.
+if [ -x ./scripts/reconcile-volttron-setup.sh ]; then
+    print_cyan "Reconciling volttron-setup render fingerprint..."
+    ./scripts/reconcile-volttron-setup.sh || \
+        print_yellow "reconcile-volttron-setup.sh reported issues."
+fi
+
 print_blue "Building and starting Docker Compose services..."
 
 # Build Docker images

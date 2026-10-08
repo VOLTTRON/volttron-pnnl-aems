@@ -1,6 +1,6 @@
 # upgrade
 
-**State:** unbuilt
+**State:** built
 
 ## Contract
 
@@ -8,8 +8,6 @@ Bringing an existing deployment to the current release with `git pull` and `star
 hand edits, whatever state its historian logins and VOLTTRON configuration were left in. It guarantees
 the operator that a release repairs what earlier releases left broken. What each credential is belongs
 to secrets, and what the app sends VOLTTRON belongs to volttron-sync and controls-ilc.
-
-Implemented today in `start-services.sh`/`.ps1`, `scripts/sync-volttron-historian-config.sh`, `aems-edge/setup-volttron.sh` and `server/src/services/{config,control}/`.
 
 ## Claims
 
