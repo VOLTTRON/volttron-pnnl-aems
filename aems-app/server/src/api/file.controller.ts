@@ -215,10 +215,33 @@ export class FileController {
       return res.status(HttpStatus.NotFound.status).json({ ...HttpStatus.NotFound, error: "File not found" });
     }
 
-    const filePath = resolve(process.cwd(), this.configType.file.uploadPath, file.objectKey);
+    const uploadDir = resolve(process.cwd(), this.configType.file.uploadPath);
+    const filePath = resolve(uploadDir, file.objectKey);
+    if (!isPathInside(filePath, uploadDir)) {
+      this.logger.warn(`Refused download: resolved path ${filePath} escapes ${uploadDir}`);
+      return res
+        .status(HttpStatus.NotFound.status)
+        .json({ ...HttpStatus.NotFound, error: "File not found" });
+    }
 
-    res.setHeader("Content-Disposition", `attachment; filename=${name}`);
+    res.setHeader("Content-Disposition", `attachment; filename="${sanitizeFilename(name)}"`);
     res.setHeader("Content-Type", file.mimeType);
     return res.sendFile(filePath);
   }
+}
+
+// A resolved child path lies inside parent iff it equals parent, or starts with
+// parent + path separator. Compared as the OS resolved them (case preserved).
+export function isPathInside(child: string, parent: string): boolean {
+  const sep = parent.includes("\\") ? "\\" : "/";
+  const normChild = child.replace(/[\\/]+/g, sep);
+  const normParent = parent.replace(/[\\/]+/g, sep).replace(new RegExp(`\\${sep}$`), "");
+  return normChild === normParent || normChild.startsWith(normParent + sep);
+}
+
+// Keep only characters safe inside a quoted Content-Disposition filename:
+// drop CR/LF/quote/backslash and path separators; collapse the rest.
+export function sanitizeFilename(name: string): string {
+  const stripped = (name ?? "").replace(/[\r\n"\\/\x00]/g, "").trim();
+  return stripped.length > 0 ? stripped : "download";
 }

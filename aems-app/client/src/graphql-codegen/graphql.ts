@@ -1264,7 +1264,6 @@ export type FileAggregate = {
 export type FileCreateInput = {
   contentLength: Scalars['Int']['input'];
   mimeType: Scalars['String']['input'];
-  objectKey: Scalars['String']['input'];
   user?: InputMaybe<FileCreateUserRelationInput>;
 };
 
@@ -1308,7 +1307,6 @@ export type FileUniqueFilter = {
 export type FileUpdateInput = {
   contentLength?: InputMaybe<Scalars['Int']['input']>;
   mimeType?: InputMaybe<Scalars['String']['input']>;
-  objectKey?: InputMaybe<Scalars['String']['input']>;
   user?: InputMaybe<FileCreateUserRelationInput>;
 };
 

@@ -1213,7 +1213,6 @@ input FileAggregate {
 input FileCreateInput {
   contentLength: Int!
   mimeType: String!
-  objectKey: String!
   user: FileCreateUserRelationInput
 }
 
@@ -1259,7 +1258,6 @@ input FileUniqueFilter {
 input FileUpdateInput {
   contentLength: Int
   mimeType: String
-  objectKey: String
   user: FileCreateUserRelationInput
 }
 

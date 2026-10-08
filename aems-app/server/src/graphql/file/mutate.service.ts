@@ -56,9 +56,9 @@ export class FileMutation {
       },
     });
 
+    // objectKey is never settable by clients; the server names the file at upload.
     this.FileCreate = builder.prismaCreate("File", {
       fields: {
-        objectKey: "String",
         mimeType: "String",
         contentLength: "Int",
         user: this.FileUpdateUser,
@@ -67,7 +67,6 @@ export class FileMutation {
 
     this.FileUpdate = builder.prismaUpdate("File", {
       fields: {
-        objectKey: "String",
         mimeType: "String",
         contentLength: "Int",
         user: this.FileUpdateUser,
@@ -85,17 +84,17 @@ export class FileMutation {
           create: t.arg({ type: FileCreate, required: true }),
         },
         resolve: async (query, _root, args, ctx, _info) => {
-          const { objectKey, mimeType, contentLength } = args.create;
-          const file: Prisma.FileCreateInput = { objectKey, mimeType, contentLength } as Prisma.FileCreateInput;
-          const create = args.create;
+          const create = { ...args.create };
           if (!ctx.user?.authRoles.admin || !create.user) {
             delete create.user;
             create.user = { connect: { id: ctx.user?.id } };
           }
+          // objectKey is not a settable input (server names files at upload);
+          // Prisma will refuse a create without one if the GraphQL path is ever used.
           return prismaService.prisma.file
             .create({
               ...query,
-              data: file,
+              data: create as Prisma.FileCreateInput,
             })
             .then(async (file) => {
               await subscriptionService.publish("File", {
