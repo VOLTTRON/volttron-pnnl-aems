@@ -22,4 +22,4 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 | `volttron-sync` | built | site-model, background |
 | `historian-dashboards` | built | site-model, stack |
 | `grafana-access` | built | site-model, keycloak-admin |
-| `synthetic-setup` | unbuilt | site-model, background |
+| `synthetic-setup` | built | site-model, background |
