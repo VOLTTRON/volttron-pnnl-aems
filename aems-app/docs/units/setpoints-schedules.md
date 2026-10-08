@@ -15,12 +15,12 @@ Implemented today in `server/src/graphql/{setpoint,schedule,occupancy,holiday,co
 - Temperatures are °F. setpoint, overrideSetpoint, heating and cooling lie in 55–85. deadband lies in
   2–6 and overrideDeadband in 2–10. standbyTime lies in 5–60 minutes and standbyOffset in 0–5. Also
   heating + 2 + deadband/2 ≤ setpoint ≤ cooling − 2 − deadband/2.
-- These rules are written once in `common`. The server refuses a setpoint that breaks one, through
-  every mutation, and the client shows the same rules. Both deadbands are sent at half their value.
-  **Open:** `server/src/graphql/setpoint/mutate.service.ts:63-134` passes `args` straight to Prisma with no range or spacing check; `common/src/constants/validate.ts` min/max is read nowhere.
-- A schedule time is `HH:mm` from 00:00 to 24:00, and the server refuses any other. An end time of
-  00:00 means midnight at the day's end, and no other end time moves.
-  **Open:** `server/src/graphql/schedule/mutate.service.ts:42-68` passes `startTime`/`endTime` as `String` to Prisma unparsed; no pipe or resolver refuses a malformed time.
+- These rules are one function in `common`, which `client/src/utils/setpoint.ts` calls rather than
+  restates. The server runs it on the row as every setpoint write would leave it, nested writes in a
+  schedule or configuration included, and refuses one it fails. Both deadbands are sent halved.
+- A schedule time is `HH:mm` from 00:00 to 24:00, read by one parser in `common` the client also uses.
+  The server refuses any schedule write, nested ones included, giving another start, end or window
+  time. An end time of 00:00 means midnight at the day's end, and no other end time moves.
 - A schedule that is not occupied is sent as `always_off`. An occupied schedule whose start and end
   are each 00:00 or 24:00 is sent as `always_on`. An end time of 24:00 is sent as 23:59.
 - The pre- and post-occupancy service windows are sent only while `SERVICE_CONFIG_SERVICE_OVERRIDE`
@@ -48,8 +48,8 @@ site-model
 
 | Name | Proves |
 |---|---|
-| `setpoint-rules-refused` | the server refuses each limit and spacing break; both deadbands sent halved |
-| `schedule-time-refused` | a malformed or out-of-range time is refused; 00:00 alone becomes the day's end |
+| `setpoint-rules-refused` | each limit and spacing break refused, by a partial update and a nested write too; deadbands sent halved |
+| `schedule-time-refused` | a malformed or out-of-range start, end or window time refused, nested too; 00:00 alone becomes the day's end |
 | `schedule-range-forms` | always_off, always_on and 24:00 → 23:59 |
 | `service-windows-gated` | windows sent only under the flag; empty and full-day forms; `override` never sent |
 | `occupancies-from-today` | past dates dropped by the unit's timezone; one date's occupancies together |
