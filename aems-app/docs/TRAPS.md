@@ -49,14 +49,10 @@ working on the area it names.
   `start-services` from `aems-app/`: the volttron-setup image layer is invalidated and its setup
   re-copies them. Never bind-mount templates from the host (ownership, SELinux). If BuildKit keeps the
   old layer, `docker compose build --no-cache volttron-setup`.
-- **Compose reads only `.env`.** `.env.secrets` reaches it because `secrets.sh` overlays it into `.env`;
-  editing `.env.secrets` alone changes nothing until `secrets.sh` (or `start-services`) runs.
 - **A synced `.env` is `skip-worktree`**, so git neither shows nor restores it, and a pull that changes
-  the tracked `.env` refuses: `secrets.sh --scrub`, pull, `secrets.sh`. Never clear the mark by hand.
+  the tracked `.env` refuses: run `update`, never a bare `git pull`. Never clear the mark by hand.
 - **A Postgres volume keeps the password it was initialised with**, whatever `.env` says later.
   `secrets.sh` detects a sentinel-initialised role and rotates it; a hand-typed `up` does not.
-- **VOLTTRON SQLHistorian reads an install-time config**, not the config store, so a rotated historian
-  password needs `scripts/sync-volttron-historian-config.sh` — which `secrets.sh` and `start-services` run.
 
 ## Dev sessions
 
@@ -73,8 +69,7 @@ working on the area it names.
 
 - **The shim is `scripts/reach.ps1`, lowercase.** The plugin documents `Scripts/`; this repository
   already had `scripts/`, which is the same directory on Windows and a different one on Linux.
-- **Run it with `powershell` (5.1)**; PowerShell 7 is not installed here.
-- **`reach.ps1 prove` aborts under 5.1 when git warns about CRLF** — 5.1 turns native stderr into a
-  terminating error. Run it with `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.autocrlf GIT_CONFIG_VALUE_0=false`.
+- **`pwsh` (7) and `powershell` (5.1) both run it; under 5.1 `prove` aborts when git warns about CRLF**,
+  5.1 turning native stderr into a terminating error. Run it with `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.autocrlf GIT_CONFIG_VALUE_0=false`.
 - **Every tier `run` and `requires` is wrapped `( … ) 2>&1`** for the same reason: the first `npm notice`
   or Node warning on stderr otherwise aborts the tier before it has run. Keep the wrapper on new tiers.

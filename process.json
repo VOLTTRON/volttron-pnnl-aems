@@ -3,7 +3,7 @@
   "project": "aems-app",
 
   "spine": { "path": "aems-app/docs/ARCHITECTURE.md", "cap": 95 },
-  "roster": { "path": "aems-app/docs/roster.md", "cap": 26 },
+  "roster": { "path": "aems-app/docs/roster.md", "cap": 29 },
   "unit": { "noun": "unit", "dir": "aems-app/docs/units", "cap": 60 },
   "evidence": {
     "noun": "scenario",

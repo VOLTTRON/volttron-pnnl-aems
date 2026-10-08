@@ -4,10 +4,11 @@
 
 ## Contract
 
-Bringing an existing deployment to the current release with `git pull` and `start-services`, with no
-hand edits, whatever state its historian logins and VOLTTRON configuration were left in. It guarantees
-the operator that a release repairs what earlier releases left broken. What each credential is belongs
-to secrets, and what the app sends VOLTTRON belongs to volttron-sync and controls-ilc.
+Bringing an existing deployment to the current release with `update` (`update.sh` / `update.ps1`,
+beside `start-services`), with no hand edits, whatever state its historian logins and VOLTTRON
+configuration were left in. It guarantees the operator that a release repairs what earlier releases
+left broken. What each credential is belongs to secrets, and what the app sends VOLTTRON belongs to
+volttron-sync and controls-ilc.
 
 ## Claims
 
@@ -24,6 +25,11 @@ to secrets, and what the app sends VOLTTRON belongs to volttron-sync and control
 - A deployment in both broken states at once comes up working after one `start-services`. The broken
   states are a historian role on a stale password, and a VOLTTRON store holding configs older than
   the rendered ones.
+- `update` takes a deployment to the release whatever the release changed in the tracked `.env`: it
+  carries every `.env` value differing from the tracked version into `.env.secrets`, scrubs, pulls
+  with `--ff-only`, and runs `start-services`. The pull is never refused over `.env`, and no value is lost.
+- When the pull is refused for any other reason, `update` puts `.env` back in sync, starts nothing,
+  and names the reason. `update.sh` and `update.ps1` behave alike.
 
 ## Dependencies
 
@@ -39,3 +45,7 @@ secrets, stack
 | `startup-repushes-controls` | the startup re-push marks every unit and control |
 | `deploy-report` | the report names each historian login and agent, healthy or not |
 | `upgrade-from-broken-fixture` | both broken states repaired by one `start-services` |
+| `update-pulls-changed-env` | *(owed)* a release changing the tracked `.env` pulls under a synced `.env`, and the stack comes up on it |
+| `update-keeps-env-only-values` | *(owed)* a value held only in `.env` is in `.env.secrets` and `.env` afterwards |
+| `update-refused-pull-safe` | *(owed)* a diverged checkout: `.env` re-synced, nothing started, the reason named |
+| `update-sh-ps1-parity` | *(owed)* `update.sh` and `update.ps1` alike on the three fixtures above |
