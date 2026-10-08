@@ -22,6 +22,7 @@ test.describe("Smoke", () => {
     expect(headers["x-content-type-options"], "Missing X-Content-Type-Options header").toBeTruthy();
   });
 
+  // scenario: first-load-no-console-errors
   test("no JS console errors on initial page load", async ({ page }) => {
     const errors: string[] = [];
     page.on("console", (msg) => {
