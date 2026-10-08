@@ -61,17 +61,12 @@ export type Scalars = {
 
 export type Account = {
   __typename?: 'Account';
-  access_token?: Maybe<Scalars['String']['output']>;
   createdAt?: Maybe<Scalars['DateTime']['output']>;
   expires_at?: Maybe<Scalars['Int']['output']>;
   id?: Maybe<Scalars['String']['output']>;
-  id_token?: Maybe<Scalars['String']['output']>;
   provider?: Maybe<Scalars['String']['output']>;
   providerAccountId?: Maybe<Scalars['String']['output']>;
-  refresh_token?: Maybe<Scalars['String']['output']>;
   scope?: Maybe<Scalars['String']['output']>;
-  session_state?: Maybe<Scalars['String']['output']>;
-  token_type?: Maybe<Scalars['String']['output']>;
   type?: Maybe<Scalars['String']['output']>;
   updatedAt?: Maybe<Scalars['DateTime']['output']>;
   user?: Maybe<User>;
@@ -87,15 +82,10 @@ export type AccountAggregate = {
 };
 
 export type AccountCreateInput = {
-  access_token?: InputMaybe<Scalars['String']['input']>;
   expires_at?: InputMaybe<Scalars['Int']['input']>;
-  id_token?: InputMaybe<Scalars['String']['input']>;
   provider: Scalars['String']['input'];
   providerAccountId: Scalars['String']['input'];
-  refresh_token?: InputMaybe<Scalars['String']['input']>;
   scope?: InputMaybe<Scalars['String']['input']>;
-  session_state?: InputMaybe<Scalars['String']['input']>;
-  token_type?: InputMaybe<Scalars['String']['input']>;
   type: Scalars['String']['input'];
   user: AccountCreateUserRelationInput;
 };
@@ -149,15 +139,10 @@ export type AccountUniqueFilter = {
 };
 
 export type AccountUpdateInput = {
-  access_token?: InputMaybe<Scalars['String']['input']>;
   expires_at?: InputMaybe<Scalars['Int']['input']>;
-  id_token?: InputMaybe<Scalars['String']['input']>;
   provider?: InputMaybe<Scalars['String']['input']>;
   providerAccountId?: InputMaybe<Scalars['String']['input']>;
-  refresh_token?: InputMaybe<Scalars['String']['input']>;
   scope?: InputMaybe<Scalars['String']['input']>;
-  session_state?: InputMaybe<Scalars['String']['input']>;
-  token_type?: InputMaybe<Scalars['String']['input']>;
   type?: InputMaybe<Scalars['String']['input']>;
   user?: InputMaybe<AccountUpdateUserRelationInput>;
 };
@@ -1264,7 +1249,6 @@ export type FileAggregate = {
 export type FileCreateInput = {
   contentLength: Scalars['Int']['input'];
   mimeType: Scalars['String']['input'];
-  objectKey: Scalars['String']['input'];
   user?: InputMaybe<FileCreateUserRelationInput>;
 };
 
@@ -1308,7 +1292,6 @@ export type FileUniqueFilter = {
 export type FileUpdateInput = {
   contentLength?: InputMaybe<Scalars['Int']['input']>;
   mimeType?: InputMaybe<Scalars['String']['input']>;
-  objectKey?: InputMaybe<Scalars['String']['input']>;
   user?: InputMaybe<FileCreateUserRelationInput>;
 };
 

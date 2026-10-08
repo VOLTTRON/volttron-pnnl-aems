@@ -1,7 +1,7 @@
 import { ReadSetpointQuery } from "@/graphql-codegen/graphql";
-import { Validate } from "@local/common";
+import { Validate, checkSetpoint } from "@local/common";
 
-// Constants for setpoint validation and defaults
+// UI slider bounds and defaults, re-exported from Validate so the UI stays off magic numbers.
 const SETPOINT_PADDING = 2;
 const DEADBAND_MIN = Validate.Deadband.options?.min as number;
 const DEADBAND_MAX = Validate.Deadband.options?.max as number;
@@ -63,45 +63,25 @@ const createSetpointLabel = (type: "all" | Required, setpoint: SetpointType): st
 };
 
 const getSetpointMessage = (setpoint: SetpointType): string | undefined => {
-  if ((setpoint?.deadband ?? 0) < DEADBAND_MIN || (setpoint?.deadband ?? 0) > DEADBAND_MAX) {
-    return `Deadband must be in the range [${DEADBAND_MIN},${DEADBAND_MAX}].`;
-  } else if (
-    (setpoint?.setpoint ?? 0) < (setpoint?.heating ?? 0) + SETPOINT_PADDING + (setpoint?.deadband ?? 0) / 2 ||
-    (setpoint?.setpoint ?? 0) > (setpoint?.cooling ?? 0) - SETPOINT_PADDING - (setpoint?.deadband ?? 0) / 2
-  ) {
-    return `Occupied setpoint must be in the range [${
-      (setpoint?.heating ?? 0) + SETPOINT_PADDING + (setpoint?.deadband ?? 0) / 2
-    },${(setpoint?.cooling ?? 0) - SETPOINT_PADDING - (setpoint?.deadband ?? 0) / 2}]`;
-  } else if ((setpoint?.heating ?? 0) < HEATING_MIN || (setpoint?.cooling ?? 0) > COOLING_MAX) {
-    return `Unoccupied heating and cooling must be in the range [${HEATING_MIN},${COOLING_MAX}]`;
-  } else if ((setpoint?.setpoint ?? 0) % 0.5 !== 0) {
-    return "Occupied setpoint must be a whole or half degree.";
-  } else if ((setpoint?.deadband ?? 0) % 1 !== 0) {
-    return "Deadband must be a whole degree.";
-  } else if ((setpoint?.heating ?? 0) % 0.5 !== 0 || (setpoint?.cooling ?? 0) % 0.5 !== 0) {
+  const reason = checkSetpoint({
+    setpoint: setpoint?.setpoint ?? 0,
+    deadband: setpoint?.deadband ?? 0,
+    overrideSetpoint: setpoint?.overrideSetpoint ?? 0,
+    overrideDeadband: setpoint?.overrideDeadband ?? 0,
+    heating: setpoint?.heating ?? 0,
+    cooling: setpoint?.cooling ?? 0,
+    standbyTime: setpoint?.standbyTime ?? 0,
+    standbyOffset: setpoint?.standbyOffset ?? 0,
+  });
+  if (reason) return reason;
+  // UI-only granularity: whole or half degrees on temperatures, whole degrees on deadbands.
+  if ((setpoint?.setpoint ?? 0) % 0.5 !== 0) return "Occupied setpoint must be a whole or half degree.";
+  if ((setpoint?.deadband ?? 0) % 1 !== 0) return "Deadband must be a whole degree.";
+  if ((setpoint?.heating ?? 0) % 0.5 !== 0 || (setpoint?.cooling ?? 0) % 0.5 !== 0) {
     return "Unoccupied heating or cooling must be a whole or half degree.";
-  } else if ((setpoint?.standbyTime ?? 0) < STANDBY_TIME_MIN || (setpoint?.standbyTime ?? 0) > STANDBY_TIME_MAX) {
-    return `Standby time must be in the range [${STANDBY_TIME_MIN},${STANDBY_TIME_MAX}] minutes.`;
-  } else if (
-    (setpoint?.standbyOffset ?? 0) < STANDBY_OFFSET_MIN ||
-    (setpoint?.standbyOffset ?? 0) > STANDBY_OFFSET_MAX
-  ) {
-    return `Standby temperature offset must be in the range [${STANDBY_OFFSET_MIN},${STANDBY_OFFSET_MAX}]º F.`;
-  } else if (
-    (setpoint?.overrideSetpoint ?? 0) < OVERRIDE_SETPOINT_MIN ||
-    (setpoint?.overrideSetpoint ?? 0) > OVERRIDE_SETPOINT_MAX
-  ) {
-    return `Override setpoint must be in the range [${OVERRIDE_SETPOINT_MIN},${OVERRIDE_SETPOINT_MAX}]º F.`;
-  } else if (
-    (setpoint?.overrideDeadband ?? 0) < OVERRIDE_DEADBAND_MIN ||
-    (setpoint?.overrideDeadband ?? 0) > OVERRIDE_DEADBAND_MAX
-  ) {
-    return `Override deadband must be in the range [${OVERRIDE_DEADBAND_MIN},${OVERRIDE_DEADBAND_MAX}].`;
-  } else if ((setpoint?.overrideDeadband ?? 0) % 1 !== 0) {
-    return "Override deadband must be a whole degree.";
-  } else if ((setpoint?.overrideSetpoint ?? 0) % 0.5 !== 0) {
-    return "Override setpoint must be a whole or half degree.";
   }
+  if ((setpoint?.overrideDeadband ?? 0) % 1 !== 0) return "Override deadband must be a whole degree.";
+  if ((setpoint?.overrideSetpoint ?? 0) % 0.5 !== 0) return "Override setpoint must be a whole or half degree.";
 };
 
 const isSetpointValid = (setpoint: SetpointType | undefined): boolean => {

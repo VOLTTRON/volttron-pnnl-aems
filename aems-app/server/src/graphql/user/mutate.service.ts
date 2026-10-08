@@ -1,4 +1,5 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import { resolve } from "node:path";
 import { Mutation, RoleType } from "@local/common";
 import { SchemaBuilderService } from "../builder.service";
 import { UserQuery } from "./query.service";
@@ -14,6 +15,8 @@ import { SubscriptionService } from "@/subscription/subscription.service";
 import { UserObject } from "./object.service";
 import { UnitQuery } from "../unit/query.service";
 import { KeycloakAdminService } from "../keycloak/keycloak-admin.service";
+import { AppConfigService } from "@/app.config";
+import { unlinkFileBytes } from "../file/mutate.service";
 
 function validateRoleGrant(requestedRole: string | null | undefined, caller: Express.User): void {
   if (!requestedRole) return;
@@ -51,6 +54,7 @@ export class UserMutation {
     commentMutation: CommentMutation,
     bannerMutation: BannerMutation,
     keycloakAdminService: KeycloakAdminService,
+    @Inject(AppConfigService.Key) configService: AppConfigService,
   ) {
     const { UserPreferences } = userObject;
     const { UserWhereUnique } = userQuery;
@@ -174,15 +178,15 @@ export class UserMutation {
             throw new Error("Unauthorized: You can only update your own user data");
           }
 
-          // If not admin, restrict what fields can be updated (only password and preferences)
+          // Non-admin may change their own name, image, preferences and password —
+          // and none of the four is dropped. Email and role stay admin-only.
           let updateData = args.update;
           if (!ctx.user?.authRoles.admin) {
             updateData = {};
-            if (args.update.password !== undefined) {
-              updateData.password = args.update.password;
-            }
-            if (args.update.preferences !== undefined) {
-              updateData.preferences = args.update.preferences;
+            for (const field of ["name", "image", "preferences", "password"] as const) {
+              if (args.update[field] !== undefined) {
+                (updateData as Record<string, unknown>)[field] = args.update[field];
+              }
             }
           } else {
             // Admin can update all fields, but trim role field if present
@@ -239,21 +243,31 @@ export class UserMutation {
         args: {
           where: t.arg({ type: UserWhereUnique, required: true }),
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
-          return prismaService.prisma.user
-            .delete({
-              ...query,
-              where: args.where,
-            })
-            .then(async (user) => {
-              await subscriptionService.publish("User", { topic: "User", id: user.id, mutation: Mutation.Deleted });
-              await subscriptionService.publish(`User/${user.id}`, {
-                topic: "User",
-                id: user.id,
-                mutation: Mutation.Deleted,
-              });
-              return user;
-            });
+        resolve: async (query, _root, args, ctx, _info) => {
+          // No one may delete a user who holds a role they could not grant.
+          const existing = await prismaService.prisma.user.findUnique({
+            where: args.where,
+            select: { role: true, files: { select: { objectKey: true } } },
+          });
+          if (!existing) {
+            throw new Error("User not found.");
+          }
+          validateRoleGrant(existing.role, ctx.user!);
+          const user = await prismaService.prisma.user.delete({ ...query, where: args.where });
+          // Remove the user's uploaded bytes from disk. A missing file does not
+          // stop the delete — unlinkFileBytes swallows ENOENT.
+          const uploadDir = resolve(process.cwd(), configService.file.uploadPath);
+          const logger = this.logger;
+          for (const file of existing.files) {
+            await unlinkFileBytes(uploadDir, file.objectKey, logger);
+          }
+          await subscriptionService.publish("User", { topic: "User", id: user.id, mutation: Mutation.Deleted });
+          await subscriptionService.publish(`User/${user.id}`, {
+            topic: "User",
+            id: user.id,
+            mutation: Mutation.Deleted,
+          });
+          return user;
         },
       }),
     );

@@ -6,6 +6,15 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { GraphQLScalarType } from "graphql";
 import { Scalars } from "..";
 
+// Non-admin reads see only unexpired banners (expiration IS NULL OR expiration > now).
+// Composed with the caller's where via AND so the caller's filter only narrows it.
+export function narrowToUnexpired<W>(where: W | null | undefined, isAdmin: boolean, now: Date = new Date()): W | undefined {
+  if (isAdmin) return (where ?? undefined) as W | undefined;
+  const unexpired = { OR: [{ expiration: null }, { expiration: { gt: now } }] } as unknown as W;
+  if (where === null || where === undefined) return unexpired;
+  return { AND: [where, unexpired] } as unknown as W;
+}
+
 @Injectable()
 @PothosQuery()
 export class BannerQuery {
@@ -75,10 +84,10 @@ export class BannerQuery {
         args: {
           where: t.arg({ type: BannerWhere }),
         },
-        resolve: async (query, _parent, args, _ctx, _info) => {
+        resolve: async (query, _parent, args, ctx, _info) => {
           return prismaService.prisma.banner.findMany({
             ...query,
-            where: args.where ?? {},
+            where: narrowToUnexpired(args.where, Boolean(ctx.user?.authRoles.admin)) ?? {},
           });
         },
       }),
@@ -96,10 +105,17 @@ export class BannerQuery {
         subscribe: (subscriptions, _banner, args, _context, _info) => {
           subscriptions.register(`Banner/${args.where.id}`);
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
-          return prismaService.prisma.banner.findUniqueOrThrow({
+        resolve: async (query, _root, args, ctx, _info) => {
+          const isAdmin = Boolean(ctx.user?.authRoles.admin);
+          if (isAdmin) {
+            return prismaService.prisma.banner.findUniqueOrThrow({
+              ...query,
+              where: args.where,
+            });
+          }
+          return prismaService.prisma.banner.findFirstOrThrow({
             ...query,
-            where: args.where,
+            where: narrowToUnexpired(args.where, false),
           });
         },
       }),
@@ -120,10 +136,10 @@ export class BannerQuery {
         subscribe: (subscriptions, _banner, _args, _context, _info) => {
           subscriptions.register("Banner");
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.banner.findMany({
             ...query,
-            where: args.where ?? undefined,
+            where: narrowToUnexpired(args.where, Boolean(ctx.user?.authRoles.admin)),
             distinct: args.distinct ?? undefined,
             orderBy: SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "desc" }),
             ...(args.paging ?? {}),
@@ -144,9 +160,9 @@ export class BannerQuery {
         subscribe: (subscriptions, _banner, _args, _context, _info) => {
           subscriptions.register("Banner");
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
           return prismaService.prisma.banner.count({
-            where: args.where ?? undefined,
+            where: narrowToUnexpired(args.where, Boolean(ctx.user?.authRoles.admin)),
           });
         },
       }),
@@ -166,12 +182,12 @@ export class BannerQuery {
         subscribe: (subscriptions, _banner, _args, _context, _info) => {
           subscriptions.register("Banner");
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
           return prismaService.prisma.banner
             .groupBy({
               by: args.by ?? [],
               ...SchemaBuilderService.aggregateToGroupBy(args.aggregate),
-              where: args.where ?? {},
+              where: narrowToUnexpired(args.where, Boolean(ctx.user?.authRoles.admin)) ?? {},
             })
             .then((result) => result as PrismaJson.BannerGroupBy[]);
         },

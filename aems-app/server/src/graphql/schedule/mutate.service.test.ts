@@ -38,13 +38,14 @@ function makeSetpointMutation(): SetpointMutation {
   return { SetpointCreate: "SetpointCreate", SetpointUpdate: "SetpointUpdate" } as unknown as SetpointMutation;
 }
 
-function makePrisma(returned: any = { id: "s1" }) {
+function makePrisma(returned: any = { id: "s1" }, before: any = { id: "s1", setpoint: null }) {
   return {
     prisma: {
       schedule: {
         create: jest.fn().mockResolvedValue(returned),
         update: jest.fn().mockResolvedValue(returned),
         delete: jest.fn().mockResolvedValue(returned),
+        findUnique: jest.fn().mockResolvedValue(before),
       },
     },
   } as unknown as PrismaService;
@@ -111,5 +112,91 @@ describe("ScheduleMutation", () => {
     await resolvers["deleteSchedule"]({}, null, { where: { id: "s1" } }, userCtx);
     expect(sub.publish).toHaveBeenCalledTimes(2);
     expect(change.handleChange).toHaveBeenCalledWith("Unknown", expect.any(Object), "Schedule", "Delete", userCtx.user);
+  });
+
+  // scenario: schedule-time-refused
+  describe("the server refuses a schedule write giving a bad start, end or window time", () => {
+    const cases: Array<[string, string]> = [
+      ["startTime", "8:00"],
+      ["endTime", "25:00"],
+      ["overridePreStartTime", "24:30"],
+      ["overridePreEndTime", "ab:cd"],
+      ["overridePostStartTime", "08:60"],
+      ["overridePostEndTime", "08-00"],
+    ];
+
+    it.each(cases)("createSchedule refuses %s = %s and never writes", async (field, value) => {
+      const prisma = makePrisma({ id: "s1" });
+      new ScheduleMutation(makeBuilder(), prisma, makeSubscription(), makeScheduleQuery(), makeSetpointMutation(), makeChangeService());
+      await expect(
+        resolvers["createSchedule"]({}, null, { create: { [field]: value } }, userCtx),
+      ).rejects.toThrow();
+      expect(prisma.prisma.schedule.create).not.toHaveBeenCalled();
+    });
+
+    it.each(cases)("updateSchedule refuses %s = %s and never writes", async (field, value) => {
+      const prisma = makePrisma({ id: "s1" });
+      new ScheduleMutation(makeBuilder(), prisma, makeSubscription(), makeScheduleQuery(), makeSetpointMutation(), makeChangeService());
+      await expect(
+        resolvers["updateSchedule"]({}, null, { where: { id: "s1" }, update: { [field]: value } }, userCtx),
+      ).rejects.toThrow();
+      expect(prisma.prisma.schedule.update).not.toHaveBeenCalled();
+    });
+
+    it("createSchedule accepts 00:00 at a start and 24:00 at the end", async () => {
+      const prisma = makePrisma({ id: "s1" });
+      new ScheduleMutation(makeBuilder(), prisma, makeSubscription(), makeScheduleQuery(), makeSetpointMutation(), makeChangeService());
+      await resolvers["createSchedule"](
+        {},
+        null,
+        { create: { startTime: "00:00", endTime: "24:00" } },
+        userCtx,
+      );
+      expect(prisma.prisma.schedule.create).toHaveBeenCalled();
+    });
+
+    it("createSchedule accepts 00:00 at an end -- the parser leaves the day's-end meaning to its reader", async () => {
+      const prisma = makePrisma({ id: "s1" });
+      new ScheduleMutation(makeBuilder(), prisma, makeSubscription(), makeScheduleQuery(), makeSetpointMutation(), makeChangeService());
+      await resolvers["createSchedule"](
+        {},
+        null,
+        { create: { startTime: "08:00", endTime: "00:00" } },
+        userCtx,
+      );
+      expect(prisma.prisma.schedule.create).toHaveBeenCalled();
+    });
+  });
+
+  // scenario: setpoint-rules-refused
+  describe("the server refuses a schedule write giving a bad setpoint inside it", () => {
+    it("createSchedule refuses a nested setpoint.create = { setpoint: 100 }", async () => {
+      const prisma = makePrisma({ id: "s1" });
+      new ScheduleMutation(makeBuilder(), prisma, makeSubscription(), makeScheduleQuery(), makeSetpointMutation(), makeChangeService());
+      await expect(
+        resolvers["createSchedule"](
+          {},
+          null,
+          { create: { setpoint: { create: { setpoint: 100 } } } },
+          userCtx,
+        ),
+      ).rejects.toThrow();
+      expect(prisma.prisma.schedule.create).not.toHaveBeenCalled();
+    });
+
+    it("updateSchedule refuses a nested setpoint.update that breaks spacing against the parent's current setpoint", async () => {
+      const current = { setpoint: 70, deadband: 4, overrideSetpoint: 70, overrideDeadband: 4, heating: 60, cooling: 80, standbyTime: 15, standbyOffset: 2 };
+      const prisma = makePrisma({ id: "s1" }, { id: "s1", setpoint: current });
+      new ScheduleMutation(makeBuilder(), prisma, makeSubscription(), makeScheduleQuery(), makeSetpointMutation(), makeChangeService());
+      await expect(
+        resolvers["updateSchedule"](
+          {},
+          null,
+          { where: { id: "s1" }, update: { setpoint: { update: { heating: 70 } } } },
+          userCtx,
+        ),
+      ).rejects.toThrow();
+      expect(prisma.prisma.schedule.update).not.toHaveBeenCalled();
+    });
   });
 });

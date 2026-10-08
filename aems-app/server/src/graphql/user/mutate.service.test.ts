@@ -13,6 +13,15 @@ import { UnitQuery } from "../unit/query.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { KeycloakAdminService } from "../keycloak/keycloak-admin.service";
+import { AppConfigService } from "@/app.config";
+
+jest.mock("node:fs/promises", () => ({
+  unlink: jest.fn().mockResolvedValue(undefined),
+}));
+
+function makeConfig(uploadPath = "uploads"): AppConfigService {
+  return { file: { uploadPath } } as unknown as AppConfigService;
+}
 
 const resolvers: Record<string, (query: unknown, root: unknown, args: unknown) => unknown> = {};
 
@@ -114,6 +123,7 @@ function makeAllDeps(prisma: PrismaService, sub: SubscriptionService) {
     makeCommentMutation(),
     makeBannerMutation(),
     makeKeycloakAdmin(),
+    makeConfig(),
   );
 }
 
@@ -182,6 +192,7 @@ describe("UserMutation", () => {
         makeCommentMutation(),
         makeBannerMutation(),
         keycloakAdmin,
+        makeConfig(),
       );
       const resolve = resolvers["createUser"] as (q: unknown, r: unknown, args: unknown, ctx: unknown) => Promise<unknown>;
       await resolve({}, null, { create: { email: "kc@b.com", role: "keycloak" } }, { user: { roles: [{ name: "keycloak" }], authRoles: { admin: true } } });
@@ -261,6 +272,7 @@ describe("UserMutation", () => {
         makeCommentMutation(),
         makeBannerMutation(),
         keycloakAdmin,
+        makeConfig(),
       );
       const resolve = resolvers["updateUser"] as (q: unknown, r: unknown, args: unknown, ctx: unknown) => Promise<unknown>;
       await resolve({}, null, { where: { id: "u2" }, update: { role: "keycloak" } }, { user: { roles: [{ name: "keycloak" }], authRoles: { admin: true } } });
@@ -288,6 +300,7 @@ describe("UserMutation", () => {
         makeCommentMutation(),
         makeBannerMutation(),
         keycloakAdmin,
+        makeConfig(),
       );
       const resolve = resolvers["updateUser"] as (q: unknown, r: unknown, args: unknown, ctx: unknown) => Promise<unknown>;
       await resolve({}, null, { where: { id: "u3" }, update: { role: "" } }, { user: { roles: [{ name: "keycloak" }], authRoles: { admin: true } } });
@@ -297,13 +310,16 @@ describe("UserMutation", () => {
   });
 
   describe("deleteUser resolver", () => {
+    const adminCtx = { user: { id: "a1", roles: [{ name: "admin" }], authRoles: { admin: true, user: true } } };
+
     it("calls prisma.user.delete with where arg", async () => {
       const prisma = makePrisma({ id: "u1", email: "a@b.com" });
+      (prisma.prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: null, files: [] });
       const sub = makeSubscription();
       makeAllDeps(prisma, sub);
 
-      const resolve = resolvers["deleteUser"] as (q: unknown, r: unknown, args: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { id: "u1" } });
+      const resolve = resolvers["deleteUser"] as (q: unknown, r: unknown, args: unknown, c: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { id: "u1" } }, adminCtx);
 
       expect(prisma.prisma.user.delete).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: "u1" } }),
@@ -313,11 +329,12 @@ describe("UserMutation", () => {
     it("publishes two subscription events after delete", async () => {
       const user = { id: "u1", email: "a@b.com" };
       const prisma = makePrisma(user);
+      (prisma.prisma.user.findUnique as jest.Mock).mockResolvedValue({ role: null, files: [] });
       const sub = makeSubscription();
       makeAllDeps(prisma, sub);
 
-      const resolve = resolvers["deleteUser"] as (q: unknown, r: unknown, args: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { id: "u1" } });
+      const resolve = resolvers["deleteUser"] as (q: unknown, r: unknown, args: unknown, c: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { id: "u1" } }, adminCtx);
 
       expect(sub.publish).toHaveBeenCalledTimes(2);
       expect(sub.publish).toHaveBeenCalledWith("User", expect.objectContaining({ id: "u1" }));

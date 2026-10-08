@@ -6,6 +6,7 @@ import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { GraphQLScalarType } from "graphql";
 import { Scalars } from "..";
+import { narrowToOwner } from "../own-records";
 
 @Injectable()
 @PothosQuery()
@@ -82,15 +83,9 @@ export class FileQuery {
           where: t.arg({ type: FileWhere }),
         },
         resolve: async (query, _parent, args, ctx, _info) => {
-          // If not admin, limit to their own files
-          const where = args.where ?? {};
-          if (!ctx.user?.authRoles.admin) {
-            delete where.user;
-            where.userId = ctx.user?.id;
-          }
           return prismaService.prisma.file.findMany({
             ...query,
-            where: args.where ?? {},
+            where: narrowToOwner(args.where, ctx) ?? {},
           });
         },
       }),
@@ -108,15 +103,16 @@ export class FileQuery {
         subscribe: (subscriptions, _feedback, args, _context, _info) => {
           subscriptions.register(`File/${args.where.id}`);
         },
-        resolve: async (_query, _root, args, ctx, _info) => {
-          // If not admin, limit to their own files
-          const where = args.where ?? {};
-          if (!ctx.user?.authRoles.admin) {
-            delete where.user;
-            where.userId = ctx.user?.id;
+        resolve: async (query, _root, args, ctx, _info) => {
+          if (ctx.user?.authRoles.admin) {
+            return prismaService.prisma.file.findUniqueOrThrow({
+              ...query,
+              where: args.where,
+            });
           }
-          return prismaService.prisma.file.findUniqueOrThrow({
-            where: args.where,
+          return prismaService.prisma.file.findFirstOrThrow({
+            ...query,
+            where: narrowToOwner(args.where, ctx),
           });
         },
       }),
@@ -138,15 +134,9 @@ export class FileQuery {
           subscriptions.register(`File`);
         },
         resolve: async (query, _root, args, ctx, _info) => {
-          // If not admin, limit to their own files
-          const where = { ...(args.where ?? {}) };
-          if (!ctx.user?.authRoles.admin) {
-            delete where.user;
-            where.userId = ctx.user?.id;
-          }
           return prismaService.prisma.file.findMany({
             ...query,
-            where,
+            where: narrowToOwner(args.where, ctx),
             distinct: args.distinct ?? undefined,
             orderBy: SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "desc" }),
             ...(args.paging ?? {}),
@@ -167,9 +157,9 @@ export class FileQuery {
         subscribe: (subscriptions, _file, _args, _context, _info) => {
           subscriptions.register("File");
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
           return prismaService.prisma.file.count({
-            where: args.where ?? undefined,
+            where: narrowToOwner(args.where, ctx),
           });
         },
       }),
@@ -189,11 +179,11 @@ export class FileQuery {
         subscribe: (subscriptions, _file, _args, _context, _info) => {
           subscriptions.register("File");
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
           return prismaService.prisma.file.groupBy({
             by: args.by ?? [],
             ...SchemaBuilderService.aggregateToGroupBy(args.aggregate),
-            where: args.where ?? undefined,
+            where: narrowToOwner(args.where, ctx),
           });
         },
       }),

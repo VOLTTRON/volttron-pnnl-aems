@@ -6,6 +6,7 @@ import { PothosQuery } from "../pothos.decorator";
 import { PrismaService } from "@/prisma/prisma.service";
 import { GraphQLScalarType } from "graphql";
 import { Scalars } from "..";
+import { narrowToOwner } from "../own-records";
 
 @Injectable()
 @PothosQuery()
@@ -84,10 +85,10 @@ export class CommentQuery {
         args: {
           where: t.arg({ type: CommentWhere }),
         },
-        resolve: async (query, _parent, args, _ctx, _info) => {
+        resolve: async (query, _parent, args, ctx, _info) => {
           return prismaService.prisma.comment.findMany({
             ...query,
-            where: args.where ?? {},
+            where: narrowToOwner(args.where, ctx) ?? {},
           });
         },
       }),
@@ -105,10 +106,16 @@ export class CommentQuery {
         subscribe: (subscriptions, _comment, args, _context, _info) => {
           subscriptions.register(`Comment/${args.where.id}`);
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
-          return prismaService.prisma.comment.findUniqueOrThrow({
+        resolve: async (query, _root, args, ctx, _info) => {
+          if (ctx.user?.authRoles.admin) {
+            return prismaService.prisma.comment.findUniqueOrThrow({
+              ...query,
+              where: args.where,
+            });
+          }
+          return prismaService.prisma.comment.findFirstOrThrow({
             ...query,
-            where: args.where,
+            where: narrowToOwner(args.where, ctx),
           });
         },
       }),
@@ -129,10 +136,10 @@ export class CommentQuery {
         subscribe: (subscriptions, _comment, _args, _context, _info) => {
           subscriptions.register("Comment");
         },
-        resolve: async (query, _root, args, _ctx, _info) => {
+        resolve: async (query, _root, args, ctx, _info) => {
           return prismaService.prisma.comment.findMany({
             ...query,
-            where: args.where ?? undefined,
+            where: narrowToOwner(args.where, ctx),
             distinct: args.distinct ?? undefined,
             orderBy: SchemaBuilderService.withOrderBy(args.orderBy, { createdAt: "desc" }),
             ...(args.paging ?? {}),
@@ -153,9 +160,9 @@ export class CommentQuery {
         subscribe: (subscriptions, _comment, _args, _context, _info) => {
           subscriptions.register("Comment");
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
           return prismaService.prisma.comment.count({
-            where: args.where ?? undefined,
+            where: narrowToOwner(args.where, ctx),
           });
         },
       }),
@@ -175,11 +182,11 @@ export class CommentQuery {
         subscribe: (subscriptions, _comment, _args, _context, _info) => {
           subscriptions.register("Comment");
         },
-        resolve: async (_root, args, _ctx, _info) => {
+        resolve: async (_root, args, ctx, _info) => {
           return prismaService.prisma.comment.groupBy({
             by: args.by ?? [],
             ...SchemaBuilderService.aggregateToGroupBy(args.aggregate),
-            where: args.where ?? undefined,
+            where: narrowToOwner(args.where, ctx),
           });
         },
       }),
