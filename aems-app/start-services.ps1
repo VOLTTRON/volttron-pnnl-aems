@@ -60,6 +60,18 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
+# volttron-setup's completion lock inside its own volume gates whether the container re-renders.
+# Its narrow fingerprint (HISTORIAN_DB_PASSWORD only) misses a changed VOLTTRON_* value,
+# generate_configs.py or the registry file; this host-side pre-check invalidates the lock before
+# compose starts the container so it re-renders when any declared input has moved.
+if (Test-Path .\scripts\reconcile-volttron-setup.ps1) {
+    Write-Host "Reconciling volttron-setup render fingerprint..." -ForegroundColor Cyan
+    & .\scripts\reconcile-volttron-setup.ps1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "reconcile-volttron-setup.ps1 reported issues (see above)." -ForegroundColor Yellow
+    }
+}
+
 Write-Host "Building and starting Docker Compose services..." -ForegroundColor Blue
 
 try {
