@@ -38,13 +38,14 @@ function makeSetpointMutation(): SetpointMutation {
   return { SetpointCreate: "SetpointCreate", SetpointUpdate: "SetpointUpdate" } as unknown as SetpointMutation;
 }
 
-function makePrisma(returned: any = { id: "s1" }) {
+function makePrisma(returned: any = { id: "s1" }, before: any = { id: "s1", setpoint: null }) {
   return {
     prisma: {
       schedule: {
         create: jest.fn().mockResolvedValue(returned),
         update: jest.fn().mockResolvedValue(returned),
         delete: jest.fn().mockResolvedValue(returned),
+        findUnique: jest.fn().mockResolvedValue(before),
       },
     },
   } as unknown as PrismaService;
@@ -164,6 +165,38 @@ describe("ScheduleMutation", () => {
         userCtx,
       );
       expect(prisma.prisma.schedule.create).toHaveBeenCalled();
+    });
+  });
+
+  // scenario: setpoint-rules-refused
+  describe("the server refuses a schedule write giving a bad setpoint inside it", () => {
+    it("createSchedule refuses a nested setpoint.create = { setpoint: 100 }", async () => {
+      const prisma = makePrisma({ id: "s1" });
+      new ScheduleMutation(makeBuilder(), prisma, makeSubscription(), makeScheduleQuery(), makeSetpointMutation(), makeChangeService());
+      await expect(
+        resolvers["createSchedule"](
+          {},
+          null,
+          { create: { setpoint: { create: { setpoint: 100 } } } },
+          userCtx,
+        ),
+      ).rejects.toThrow();
+      expect(prisma.prisma.schedule.create).not.toHaveBeenCalled();
+    });
+
+    it("updateSchedule refuses a nested setpoint.update that breaks spacing against the parent's current setpoint", async () => {
+      const current = { setpoint: 70, deadband: 4, overrideSetpoint: 70, overrideDeadband: 4, heating: 60, cooling: 80, standbyTime: 15, standbyOffset: 2 };
+      const prisma = makePrisma({ id: "s1" }, { id: "s1", setpoint: current });
+      new ScheduleMutation(makeBuilder(), prisma, makeSubscription(), makeScheduleQuery(), makeSetpointMutation(), makeChangeService());
+      await expect(
+        resolvers["updateSchedule"](
+          {},
+          null,
+          { where: { id: "s1" }, update: { setpoint: { update: { heating: 70 } } } },
+          userCtx,
+        ),
+      ).rejects.toThrow();
+      expect(prisma.prisma.schedule.update).not.toHaveBeenCalled();
     });
   });
 });

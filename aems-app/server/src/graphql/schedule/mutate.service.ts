@@ -10,6 +10,7 @@ import { ChangeService } from "@/change/change.service";
 import { ChangeMutation } from "@prisma/client";
 import { omit } from "@local/common/dist/utils/lodash";
 import { refuseBadScheduleTimes } from "./validate";
+import { refuseBadNestedSetpoints } from "../setpoint/validate";
 
 @Injectable()
 @PothosMutation()
@@ -90,6 +91,7 @@ export class ScheduleMutation {
         },
         resolve: async (query, _root, args, ctx, _info) => {
           refuseBadScheduleTimes(args.create);
+          refuseBadNestedSetpoints(args.create);
           return prismaService.prisma.schedule
             .create({
               ...query,
@@ -135,6 +137,11 @@ export class ScheduleMutation {
         },
         resolve: async (query, _root, args, ctx, _info) => {
           refuseBadScheduleTimes(args.update);
+          const before = await prismaService.prisma.schedule.findUnique({
+            where: args.where,
+            include: { setpoint: true },
+          });
+          refuseBadNestedSetpoints(args.update, () => before?.setpoint ?? null);
           return prismaService.prisma.schedule
             .update({
               ...query,

@@ -168,4 +168,57 @@ describe("ConfigurationMutation", () => {
       expect(prisma.prisma.configuration.update).not.toHaveBeenCalled();
     });
   });
+
+  // scenario: setpoint-rules-refused
+  describe("the server refuses a configuration write giving a bad setpoint", () => {
+    it("createConfiguration refuses a nested setpoint.create with out-of-range values", async () => {
+      const { prisma } = instantiate();
+      await expect(
+        resolvers["createConfiguration"](
+          {},
+          null,
+          { create: { label: "L", setpoint: { create: { setpoint: 100 } } } },
+          userCtx,
+        ),
+      ).rejects.toThrow();
+      expect(prisma.prisma.configuration.create).not.toHaveBeenCalled();
+    });
+
+    it("createConfiguration refuses a bad setpoint buried under a day schedule's create", async () => {
+      const { prisma } = instantiate();
+      await expect(
+        resolvers["createConfiguration"](
+          {},
+          null,
+          {
+            create: {
+              label: "L",
+              mondaySchedule: { create: { setpoint: { create: { deadband: 10 } } } },
+            },
+          },
+          userCtx,
+        ),
+      ).rejects.toThrow();
+      expect(prisma.prisma.configuration.create).not.toHaveBeenCalled();
+    });
+
+    it("updateConfiguration refuses a nested setpoint.update that breaks spacing against the current setpoint", async () => {
+      // Current configuration has a valid setpoint; raising heating alone makes spacing fail.
+      const prisma = makePrisma({
+        id: "cfg1",
+        label: "L",
+        setpoint: { setpoint: 70, deadband: 4, overrideSetpoint: 70, overrideDeadband: 4, heating: 60, cooling: 80, standbyTime: 15, standbyOffset: 2 },
+      });
+      instantiate(prisma);
+      await expect(
+        resolvers["updateConfiguration"](
+          {},
+          null,
+          { where: { id: "cfg1" }, update: { setpoint: { update: { heating: 70 } } } },
+          userCtx,
+        ),
+      ).rejects.toThrow();
+      expect(prisma.prisma.configuration.update).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -119,6 +119,13 @@ describe("the unit configuration sent to VOLTTRON", () => {
     makeApiCall = undefined as unknown as jest.Mock;
   });
 
+  // scenario: setpoint-rules-refused
+  it("sends both deadbands halved -- the stored row is in whole degrees and VOLTTRON reads halves", async () => {
+    units = [unit({ setpoint: { setpoint: 70, deadband: 4, overrideSetpoint: 72, overrideDeadband: 6, heating: 60, cooling: 80, standbyTime: 30, standbyOffset: 2 } })];
+    await push({ serviceOverride: true });
+    expect(sent("set_temperature_setpoints")).toMatchObject({ DeadBand: 2, ServiceDeadBand: 3 });
+  });
+
   // scenario: service-windows-gated
   describe("service windows", () => {
     beforeEach(() => {
