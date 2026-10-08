@@ -17,8 +17,10 @@ Implemented today in `server/src/graphql/{setpoint,schedule,occupancy,holiday,co
   heating + 2 + deadband/2 ≤ setpoint ≤ cooling − 2 − deadband/2.
 - These rules are written once in `common`. The server refuses a setpoint that breaks one, through
   every mutation, and the client shows the same rules. Both deadbands are sent at half their value.
+  **Open:** `server/src/graphql/setpoint/mutate.service.ts:63-134` passes `args` straight to Prisma with no range or spacing check; `common/src/constants/validate.ts` min/max is read nowhere.
 - A schedule time is `HH:mm` from 00:00 to 24:00, and the server refuses any other. An end time of
   00:00 means midnight at the day's end, and no other end time moves.
+  **Open:** `server/src/graphql/schedule/mutate.service.ts:42-68` passes `startTime`/`endTime` as `String` to Prisma unparsed; no pipe or resolver refuses a malformed time.
 - A schedule that is not occupied is sent as `always_off`. An occupied schedule whose start and end
   are each 00:00 or 24:00 is sent as `always_on`. An end time of 24:00 is sent as 23:59.
 - The pre- and post-occupancy service windows are sent only while `SERVICE_CONFIG_SERVICE_OVERRIDE`
