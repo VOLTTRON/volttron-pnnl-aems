@@ -54,6 +54,21 @@ describe("pushing a control to the ILC agent", () => {
     rmSync(templates, { recursive: true, force: true });
   });
 
+  type Stage = { stage: string; message?: string | null };
+  type Where = { id?: string; stage?: string | { in: string[] } };
+  const matches = (c: Control, where: Where) =>
+    (where.id === undefined || c.id === where.id) &&
+    (where.stage === undefined || (typeof where.stage === "string" ? c.stage === where.stage : where.stage.in.includes(c.stage)));
+  /** Applies DATA to the controls WHERE matches, recording it if any did; the number written. */
+  function write(where: Where, data: Stage) {
+    const rows = controls.filter((c) => matches(c, where));
+    rows.forEach((c) => {
+      Object.assign(c, data);
+      updates.push({ id: c.id, ...data });
+    });
+    return rows.length;
+  }
+
   async function push(templatePaths = [templates]) {
     module = await Test.createTestingModule({
       providers: [
@@ -62,14 +77,15 @@ describe("pushing a control to the ILC agent", () => {
           provide: PrismaService,
           useValue: {
             prisma: {
+              // A table of CONTROLS: a write applies to the rows its WHERE (id, and stage or stages) matches.
               control: {
-                findMany: jest.fn(({ where }: { where: { stage: { in: string[] } } }) =>
-                  Promise.resolve(controls.filter((c) => where.stage.in.includes(c.stage)).map((c) => structuredClone(c))),
-                ),
-                update: jest.fn(({ where, data }: { where: { id: string }; data: { stage: string; message?: string } }) => {
-                  updates.push({ id: where.id, ...data });
-                  return Promise.resolve(null);
+                findMany: jest.fn(({ where }: { where: Where }) => Promise.resolve(controls.filter((c) => matches(c, where)).map((c) => structuredClone(c)))),
+                findUnique: jest.fn(({ where }: { where: Where }) => {
+                  const found = controls.find((c) => matches(c, where));
+                  return Promise.resolve(found ? structuredClone(found) : null);
                 }),
+                update: jest.fn(({ where, data }: { where: Where; data: Stage }) => Promise.resolve(write(where, data))),
+                updateMany: jest.fn(({ where, data }: { where: Where; data: Stage }) => Promise.resolve({ count: write(where, data) })),
               },
             },
           },
@@ -91,6 +107,20 @@ describe("pushing a control to the ILC agent", () => {
     controls = [control()];
     await push();
     expect(sent()).toEqual([{ control: { PNNL: { units: ["rtu1", "rtu2"] } }, building: { name: "ROB" } }]);
+  });
+
+  // scenario: ilc-templates-reread
+  it("re-reads the templates each push, so an edit on disk reaches the next render", async () => {
+    controls = [control()];
+    await push();
+    expect(sent()).toEqual([{ control: { PNNL: { units: ["rtu1", "rtu2"] } }, building: { name: "ROB" } }]);
+
+    writeFileSync(join(templates, "building.json"), JSON.stringify({ renamed: "{building}" }));
+    await module.close();
+
+    controls = [control({ stage: StageType.Update.enum })];
+    await push();
+    expect(sent().pop()).toEqual({ control: { PNNL: { units: ["rtu1", "rtu2"] } }, building: { renamed: "ROB" } });
   });
 
   // scenario: ilc-push-stages
@@ -174,5 +204,25 @@ describe("pushing a control to the ILC agent", () => {
     await push();
     expect(sent()).toHaveLength(1);
     expect(stages()).toEqual([StageType.Process.enum, StageType.Complete.enum]);
+  });
+
+  // scenario: edit-during-push-repushed
+  it("does not mark Complete a control edited while it was being pushed, and the next push sends the edit", async () => {
+    controls = [control()];
+    makeApiCall = jest.fn(() => {
+      if (controls[0].stage === StageType.Process.enum && controls[0].units.length === 2) {
+        controls[0].units = [{ system: "rtu1", peakLoadExclude: false }];
+        controls[0].stage = StageType.Update.enum;
+      }
+      return Promise.resolve({});
+    });
+    await push();
+    expect(controls[0].stage).toBe(StageType.Update.enum);
+    expect(stages()).not.toContain(StageType.Complete.enum);
+
+    await module.close();
+    await push();
+    expect(sent().pop()).toMatchObject({ control: { PNNL: { units: ["rtu1"] } } });
+    expect(controls[0].stage).toBe(StageType.Complete.enum);
   });
 });

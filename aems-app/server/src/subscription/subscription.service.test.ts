@@ -28,7 +28,7 @@ jest.mock("@/prisma", () => ({
 }));
 
 function makePrisma(): PrismaService {
-  return { prisma: {} } as unknown as PrismaService;
+  return { prisma: {}, onPushMarked: jest.fn() } as unknown as PrismaService;
 }
 
 function makeConfig(pubsub: string, overrides: Partial<AppConfigService> = {}): AppConfigService {

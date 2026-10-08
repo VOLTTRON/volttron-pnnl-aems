@@ -13,7 +13,7 @@ import { Context } from ".";
 jest.mock("@/prisma", () => ({ PrismaPubSub: jest.fn() }));
 
 const config = { nodeEnv: "test", instanceName: "test", graphql: { pubsub: "" } } as unknown as AppConfigService;
-const prisma = { prisma: {} } as unknown as PrismaService;
+const prisma = { prisma: {}, onPushMarked: () => undefined } as unknown as PrismaService;
 
 function platform() {
   const subscriptions = new SubscriptionService(prisma, config);
