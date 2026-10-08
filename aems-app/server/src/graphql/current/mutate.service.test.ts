@@ -139,6 +139,24 @@ describe("CurrentMutation", () => {
       expect(sub.publish).toHaveBeenCalledWith("User", expect.objectContaining({ id: "u1" }));
       expect(sub.publish).toHaveBeenCalledWith("User/u1", expect.objectContaining({ id: "u1" }));
     });
+
+    // scenario: preferences-persist-sync (server sync half)
+    it("writes a user's preferences through updateCurrent", async () => {
+      const user = { id: "u1", preferences: { theme: "dark", mode: "compact" } };
+      const prisma = makePrisma(user);
+      const sub = makeSubscription();
+      new CurrentMutation(makeBuilder(), prisma, sub, makeUserObject());
+
+      const resolve = resolvers["updateCurrent"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
+      await resolve({}, null, { update: { preferences: { theme: "dark", mode: "compact" } } }, userCtx);
+
+      expect(prisma.prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "u1" },
+          data: { preferences: { theme: "dark", mode: "compact" } },
+        }),
+      );
+    });
   });
 
   describe("deleteCurrent resolver", () => {
