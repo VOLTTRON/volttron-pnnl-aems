@@ -54,6 +54,21 @@ const matchPath = (route: DefaultNode<Route>, part: string) => {
   }
 };
 
+const matchChild = (node: DefaultNode<Route>, part: string): DefaultNode<Route> | undefined => {
+  for (const child of node.children ?? []) {
+    if (matchPath(child, part)) {
+      return child;
+    }
+    if (child.data?.path === "") {
+      const nested = matchChild(child, part);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+  return undefined;
+};
+
 /**
  * Find a route object for the specified path.
  *
@@ -69,30 +84,29 @@ export function findRoute(
   items: true,
 ): { route: Node<DefaultType & Route>; items: Route[] };
 export function findRoute(routes: DefaultTree<Route>, path: string, items?: boolean) {
+  const parts = path.split("/").filter((p) => p !== "");
   let route = routes.root;
-  const parts = path.split("/");
-  if (parts.join("") !== "") {
-    for (const p of parts) {
-      route = Object.values(route?.children ?? {}).find((v) => matchPath(v, p)) ?? route;
-    }
-    if (route.data?.index) {
-      route = routes.root;
-      for (const p of parts.slice(1)) {
-        route = Object.values(route?.children ?? {}).find((v) => matchPath(v, p)) ?? route;
-      }
-    }
+  for (const p of parts) {
+    route = matchChild(route, p) ?? route;
   }
   if (items) {
-    const items: Route[] = route
-      .getAncestors()
-      .reverse()
-      .map((v) => v.data)
-      .filter(typeofNonNullable)
-      .map((v, i) => ({
-        ...v,
-        path: (v.dynamic ? parts[i] : v.path) as string | typeof Dynamic,
-      }));
-    return { route, items };
+    const ancestors = route.getAncestors().reverse();
+    const result: Route[] = [];
+    let partIdx = 0;
+    for (const ancestor of ancestors) {
+      const data = ancestor.data;
+      if (!data) continue;
+      if (data.dynamic) {
+        result.push({ ...data, path: parts[partIdx] as string | typeof Dynamic });
+        partIdx++;
+      } else {
+        result.push({ ...data, path: data.path as string | typeof Dynamic });
+        if (!ancestor.isRoot() && data.path !== "") {
+          partIdx++;
+        }
+      }
+    }
+    return { route, items: result };
   } else {
     return route;
   }
