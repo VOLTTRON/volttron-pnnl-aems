@@ -237,6 +237,79 @@ describe("A route's scope names a role; a route without one is public", () => {
   });
 });
 
+// scenario: route-resolves-through-groups
+describe("Routes nested in pathless groups resolve to themselves", () => {
+  const manageIds = [
+    "units",
+    "controls",
+    "configurations",
+    "holidays",
+    "locations",
+    "occupancies",
+    "schedules",
+    "setpoints",
+  ];
+  const adminIds = ["historian", "templates", "changes", "feedback", "users", "banners", "logs", "backups"];
+
+  it("the manage group has empty path and is a child of home", () => {
+    const manage = staticRoutes.findNode("manage");
+    expect(manage?.data?.path).toBe("");
+    expect(manage?.parent?.data?.id).toBe("home");
+  });
+
+  it("the admin group has empty path and is a child of home", () => {
+    const admin = staticRoutes.findNode("admin");
+    expect(admin?.data?.path).toBe("");
+    expect(admin?.parent?.data?.id).toBe("home");
+  });
+
+  it.each(manageIds)("findRoute('/%s') resolves to the %s route itself, not to manage or to home", (id) => {
+    const route = findRoute(staticRoutes, `/${id}`);
+    expect(route.data?.id).toBe(id);
+  });
+
+  it.each(adminIds)("findRoute('/%s') resolves to the %s route itself, not to admin or to home", (id) => {
+    const route = findRoute(staticRoutes, `/${id}`);
+    expect(route.data?.id).toBe(id);
+  });
+
+  it.each([...manageIds, ...adminIds])("%s keeps its own admin scope wherever it is declared", (id) => {
+    const route = findRoute(staticRoutes, `/${id}`);
+    expect(route.data?.scope).toBe("admin");
+    expect(isGranted(route, {})).toBe(false);
+    expect(isGranted(route, { role: "user" })).toBe(false);
+    expect(isGranted(route, { role: "admin" })).toBe(true);
+  });
+
+  it("an anonymous caller is refused every route nested in a pathless group", () => {
+    for (const id of [...manageIds, ...adminIds]) {
+      const route = findRoute(staticRoutes, `/${id}`);
+      expect(isGranted(route, {})).toBe(false);
+    }
+  });
+});
+
+// scenario: keycloak-in-admin-group
+describe("/keycloak sits in the Admin group", () => {
+  it("the keycloak route's parent is the admin group", () => {
+    const keycloak = staticRoutes.findNode("keycloak");
+    expect(keycloak?.parent?.data?.id).toBe("admin");
+  });
+
+  it("the admin group is pathless, so /keycloak keeps its one-segment URL", () => {
+    const admin = staticRoutes.findNode("admin");
+    expect(admin?.data?.path).toBe("");
+    const route = findRoute(staticRoutes, "/keycloak");
+    expect(route.data?.id).toBe("keycloak");
+  });
+
+  it("findPath on the keycloak node yields /keycloak with no admin segment", () => {
+    const { findPath } = require("./components/providers/routing");
+    const keycloak = staticRoutes.findNode("keycloak")!;
+    expect(findPath(keycloak)).toBe("/keycloak");
+  });
+});
+
 // scenario: keycloak-page-gated
 describe("/keycloak is shown only to users with the keycloak role", () => {
   it("the /keycloak route carries scope and display 'keycloak'", () => {
