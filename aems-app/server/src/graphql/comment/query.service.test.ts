@@ -48,6 +48,7 @@ function makePrisma(commentData: unknown = []) {
       comment: {
         findMany: jest.fn().mockResolvedValue(commentData),
         findUniqueOrThrow: jest.fn().mockResolvedValue(commentData),
+        findFirstOrThrow: jest.fn().mockResolvedValue(commentData),
         count: jest.fn().mockResolvedValue(0),
         groupBy: jest.fn().mockResolvedValue([]),
       },
@@ -68,7 +69,7 @@ describe("CommentQuery", () => {
       new CommentQuery(makeBuilder(), prisma, makeCommentObject(), makeUserQuery());
 
       const resolve = resolvers["readComments"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
-      const result = await resolve({}, null, { where: null, orderBy: null, paging: null, distinct: null }, {});
+      const result = await resolve({}, null, { where: null, orderBy: null, paging: null, distinct: null }, { user: { authRoles: { admin: true } } });
 
       expect(prisma.prisma.comment.findMany).toHaveBeenCalled();
       expect(result).toEqual(comments);
@@ -79,7 +80,7 @@ describe("CommentQuery", () => {
       new CommentQuery(makeBuilder(), prisma, makeCommentObject(), makeUserQuery());
 
       const resolve = resolvers["readComments"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { message: { contains: "hi" } }, orderBy: null, paging: null, distinct: null }, {});
+      await resolve({}, null, { where: { message: { contains: "hi" } }, orderBy: null, paging: null, distinct: null }, { user: { authRoles: { admin: true } } });
 
       expect(prisma.prisma.comment.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { message: { contains: "hi" } } }),
@@ -94,7 +95,7 @@ describe("CommentQuery", () => {
       new CommentQuery(makeBuilder(), prisma, makeCommentObject(), makeUserQuery());
 
       const resolve = resolvers["countComments"] as (r: unknown, a: unknown, c: unknown) => Promise<number>;
-      const result = await resolve(null, { where: null }, {});
+      const result = await resolve(null, { where: null }, { user: { authRoles: { admin: true } } });
 
       expect(prisma.prisma.comment.count).toHaveBeenCalled();
       expect(result).toBe(4);
@@ -106,7 +107,7 @@ describe("CommentQuery", () => {
       new CommentQuery(makeBuilder(), prisma, makeCommentObject(), makeUserQuery());
 
       const resolve = resolvers["countComments"] as (r: unknown, a: unknown, c: unknown) => Promise<number>;
-      const result = await resolve(null, { where: { message: { equals: "nothing" } } }, {});
+      const result = await resolve(null, { where: { message: { equals: "nothing" } } }, { user: { authRoles: { admin: true } } });
 
       expect(result).toBe(0);
     });
@@ -120,7 +121,7 @@ describe("CommentQuery", () => {
       new CommentQuery(makeBuilder(), prisma, makeCommentObject(), makeUserQuery());
 
       const resolve = resolvers["readComment"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
-      const result = await resolve({}, null, { where: { id: "c1" } }, {});
+      const result = await resolve({}, null, { where: { id: "c1" } }, { user: { authRoles: { admin: true } } });
 
       expect(prisma.prisma.comment.findUniqueOrThrow).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: "c1" } }),

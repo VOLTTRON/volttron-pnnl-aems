@@ -65,6 +65,7 @@ function renderTemplate(
   );
 }
 
+// scenario: template-guard-states
 describe("Template", () => {
   beforeEach(() => {
     jest.clearAllMocks();
