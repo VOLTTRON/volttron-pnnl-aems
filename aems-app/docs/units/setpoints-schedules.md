@@ -18,7 +18,6 @@ Implemented today in `server/src/graphql/{setpoint,schedule,occupancy,holiday,co
 - These rules are one function in `common`, which `client/src/utils/setpoint.ts` calls rather than
   restates. The server runs it on the row as every setpoint write would leave it, nested writes in a
   schedule or configuration included, and refuses one it fails. Both deadbands are sent halved.
-  **Open:** the validator (`getSetpointMessage`, `isSetpointValid`) and the `HH:mm` parser (`parseTimeToMinutes`) live in `client/src/utils/{setpoint,schedule}.ts`, not `common/src` (`common` has no such function; the client restates ranges from `Validate.*.options`). `server/src/graphql/{setpoint,schedule}/mutate.service.ts` write unchecked — no range or format guard on `createSetpoint`/`updateSetpoint`/`createSchedule`/`updateSchedule` or nested writes. Does the function move to `common` and the server start refusing, or does the server-refuses half of these two claims drop? (Blocks `schedule-time-refused` under the same answer.)
 - A schedule time is `HH:mm` from 00:00 to 24:00, read by one parser in `common` the client also uses.
   The server refuses any schedule write, nested ones included, giving another start, end or window
   time. An end time of 00:00 means midnight at the day's end, and no other end time moves.
