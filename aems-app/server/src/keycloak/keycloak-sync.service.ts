@@ -362,9 +362,14 @@ export class KeycloakSyncService extends BaseService {
   }
 
   /**
-   * Main sync method - synchronize user's Keycloak roles based on database state
+   * Main sync method - synchronize user's Keycloak roles based on database state.
+   * Re-reads the dashboard configs first so a file written after start is picked
+   * up without a restart (claim: "configs re-read before each role sync").
    */
   async syncUserRoles(email: string): Promise<SyncResult> {
+    // 0. Refresh dashboard roles from disk.
+    await this.loadDashboardRoles();
+
     // 1. Get user from database with role and units
     const user = await this.prismaService.prisma.user.findUnique({
       where: { email },

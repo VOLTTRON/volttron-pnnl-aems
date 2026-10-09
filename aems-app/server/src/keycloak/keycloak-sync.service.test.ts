@@ -60,6 +60,32 @@ afterEach(() => {
 });
 
 describe("KeycloakSyncService", () => {
+  // scenario: dashboard-configs-reread
+  describe("configs re-read on each sync", () => {
+    it("re-reads dashboard configs at the start of every syncUserRoles call", async () => {
+      const user = { email: "user@example.com", role: "user", units: [] };
+      const prisma = makePrisma(user);
+      const svc = new KeycloakSyncService(makeConfig(), prisma, makeSubs());
+
+      const loadSpy = jest
+        .spyOn(svc as unknown as { loadDashboardRoles: () => Promise<void> }, "loadDashboardRoles")
+        .mockResolvedValue(undefined);
+
+      mockFetch.mockImplementation((input: URL | string | Request) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/token")) return Promise.resolve(mockOk({ access_token: "tok", expires_in: 300 }));
+        if (url.includes("?email=")) return Promise.resolve(mockOk([KEYCLOAK_USER]));
+        if (url.includes("?clientId=")) return Promise.resolve(mockOk(GRAFANA_CLIENT));
+        if (url.includes("/role-mappings/clients/")) return Promise.resolve(mockOk([]));
+        return Promise.resolve(mockOk({}));
+      });
+
+      await svc.syncUserRoles("user@example.com");
+      await svc.syncUserRoles("user@example.com");
+      expect(loadSpy).toHaveBeenCalledTimes(2);
+    });
+  });
+
   // scenario: grafana-sync-removes-safely
   describe("sync removal safety", () => {
     it("removes nothing when no config file was ever read -- empty dashboardRoles must not look like 'strip everything'", async () => {
@@ -86,9 +112,9 @@ describe("KeycloakSyncService", () => {
         return Promise.resolve(mockOk({}));
       });
 
-      // Service was constructed but task() (which calls loadDashboardRoles) never ran:
-      // dashboardConfigsRead stays at its initial false. Force the invariant for clarity.
-      (svc as unknown as { dashboardConfigsRead: boolean }).dashboardConfigsRead = false;
+      // syncUserRoles re-reads configs. With configPath=null, the real
+      // loadDashboardRoles exits early leaving dashboardConfigsRead=false, which
+      // is the invariant this scenario asserts.
 
       const result = await svc.syncUserRoles("user@example.com");
       expect(result.removed).toEqual([]);
@@ -103,8 +129,13 @@ describe("KeycloakSyncService", () => {
       const user = { email: "user@example.com", role: "user", units: [] };
       const prisma = makePrisma(user);
       const svc = new KeycloakSyncService(makeConfig(), prisma, makeSubs());
-      // Mark configs as read (as if loadDashboardRoles ran successfully with files).
-      (svc as unknown as { dashboardConfigsRead: boolean }).dashboardConfigsRead = true;
+      // syncUserRoles re-reads configs (see dashboard-configs-reread). Stub it to
+      // report success without touching the filesystem.
+      jest
+        .spyOn(svc as unknown as { loadDashboardRoles: () => Promise<void> }, "loadDashboardRoles")
+        .mockImplementation(async () => {
+          (svc as unknown as { dashboardConfigsRead: boolean }).dashboardConfigsRead = true;
+        });
 
       mockFetch.mockImplementation((input: URL | string | Request, init?: RequestInit) => {
         const url = typeof input === "string" ? input : input.toString();

@@ -37,13 +37,14 @@ export class GrafanaController {
   private logger = new Logger(GrafanaController.name);
   private configs: GrafanaConfig[] = [];
 
-  constructor(@Inject(AppConfigService.Key) private configService: AppConfigService) {
-    this.execute().catch((error) => {
-      this.logger.error(`Failed to initialize GrafanaRewriteMiddleware:`, error);
-    });
-  }
+  constructor(@Inject(AppConfigService.Key) private configService: AppConfigService) {}
 
+  // Re-read the dashboard configs from disk. Called before every dashboard lookup
+  // so a config file written after start is picked up without a restart; the
+  // claim is "configs under GRAFANA_CONFIG_PATH are re-read before each role sync
+  // and each dashboard lookup".
   async execute(): Promise<void> {
+    this.configs = [];
     // Skip if no config path set (e.g., in services/seeders containers)
     if (!this.configService.grafana.configPath) {
       this.logger.debug("Grafana config path not set, skipping dashboard configuration");
@@ -142,7 +143,7 @@ export class GrafanaController {
   @ApiTags("grafana", "dashboard")
   @Roles(RoleType.User)
   @Get("dashboard/:campus/:building/:unit")
-  dashboard(
+  async dashboard(
     @Req() req: Request,
     @Res() res: Response,
     @User() user: Express.User,
@@ -161,6 +162,12 @@ export class GrafanaController {
       path: req.path,
       userAgent: req.get("user-agent"),
     });
+
+    try {
+      await this.execute();
+    } catch (error) {
+      this.logger.error(`Failed to reload Grafana dashboard configs:`, error);
+    }
 
     const config = this.configs.find(
       (config) =>
