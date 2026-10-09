@@ -16,7 +16,7 @@ not authenticate anyone.
 - Granting or revoking the `keycloak` role on a user grants or revokes the `realm-admin` client role in
   Keycloak.
 - Every operation of the keycloak aggregate requires the `keycloak` scope.
-- The `/keycloak` page is shown only to users with the `keycloak` role.
+- The `/keycloak` page sits in the Admin group and is shown only to users with the `keycloak` role.
 - Whether Keycloak is enabled is fetched from `/api/auth` once per session.
 
 ## Dependencies
@@ -32,4 +32,5 @@ auth, graphql
 | `keycloak-role-mirrors-realm-admin` | grant and revoke mirroring |
 | `aggregate-requires-keycloak-scope` | scope on every operation |
 | `keycloak-page-gated` | page visibility |
+| `keycloak-in-admin-group` | *(owed)* the route's parent is `admin`; follows shell's `route-resolves-through-groups` |
 | `keycloak-enabled-cached` | one fetch per session |

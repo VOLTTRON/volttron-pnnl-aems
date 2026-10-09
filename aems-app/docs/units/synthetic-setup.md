@@ -34,7 +34,7 @@ Implemented today in `server/src/services/synthetic/` and `client/src/app/{setup
   Otherwise they name what failed and keep the edits.
 - Changing a unit's location on the Units or ILC page connects the new one and deletes none, and
   `deleteLocation` refuses a location any unit still uses.
-- `/dev` and `/demo` admit only admins.
+- `/dev` admits only admins, and `/demo` any signed-in user.
 
 ## Dependencies
 
@@ -53,4 +53,5 @@ site-model, background
 | `unit-save-order` | holidays, occupancies and location land before the push mark |
 | `save-failure-reported` | a failed write is named, the edits kept, no success shown |
 | `shared-location-kept` | a location change on either page deletes none; deleting one a unit uses is refused |
-| `dev-demo-admin-only` | a user is refused `/dev` and `/demo`; an admin is admitted |
+| `dev-admin-only` | a user is refused `/dev`; an admin is admitted |
+| `demo-user-scoped` | *(owed)* a user is admitted to `/demo` and its books; an anonymous visitor is refused |
