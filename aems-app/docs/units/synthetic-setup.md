@@ -54,4 +54,4 @@ site-model, background
 | `save-failure-reported` | a failed write is named, the edits kept, no success shown |
 | `shared-location-kept` | a location change on either page deletes none; deleting one a unit uses is refused |
 | `dev-admin-only` | a user is refused `/dev`; an admin is admitted |
-| `demo-user-scoped` | *(owed)* a user is admitted to `/demo` and its books; an anonymous visitor is refused |
+| `demo-user-scoped` | a user is admitted to `/demo` and its books; an anonymous visitor is refused |

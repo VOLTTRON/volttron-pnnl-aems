@@ -77,9 +77,9 @@ describe("staticRoutes", () => {
     expect(welcome?.data?.display).toBe(true);
   });
 
-  it("contains a 'demo' route scoped to admin", () => {
+  it("contains a 'demo' route scoped to user", () => {
     const demo = staticRoutes.findNode("demo");
-    expect(demo?.data?.scope).toBe("admin");
+    expect(demo?.data?.scope).toBe("user");
     expect(demo?.data?.display).toBe(false);
   });
 
@@ -153,6 +153,33 @@ describe("/dev admits only admins", () => {
     for (const path of ["/dev", "/dev/templates"]) {
       const route = findRoute(staticRoutes, path);
       expect(isGranted(route, { role: "admin" })).toBe(true);
+    }
+  });
+});
+
+// scenario: demo-user-scoped
+describe("/demo admits any signed-in user and its books", () => {
+  it("the /demo subtree is scoped to user", () => {
+    for (const id of ["demo", "book", "chapter"]) {
+      expect(staticRoutes.findNode(id)?.data?.scope).toBe("user");
+    }
+  });
+
+  it("a user is admitted to /demo and its dynamic book pages", () => {
+    const demo = findRoute(staticRoutes, "/demo");
+    expect(isGranted(demo, { role: "user" })).toBe(true);
+    const book = findRoute(staticRoutes, "/demo/978");
+    expect(book.data?.id).toBe("book");
+    expect(isGranted(book, { role: "user" })).toBe(true);
+    const chapter = findRoute(staticRoutes, "/demo/978/1");
+    expect(chapter.data?.id).toBe("chapter");
+    expect(isGranted(chapter, { role: "user" })).toBe(true);
+  });
+
+  it("an anonymous visitor is refused /demo and its books", () => {
+    for (const path of ["/demo", "/demo/978", "/demo/978/1"]) {
+      const route = findRoute(staticRoutes, path);
+      expect(isGranted(route, {})).toBe(false);
     }
   });
 });
