@@ -152,6 +152,65 @@ describe("a control", () => {
   });
 });
 
+// scenario: unit-save-order
+describe("a Units-editor save", () => {
+  it("writes holidays, occupancies and location before marking the unit for a push", async () => {
+    const events: string[] = [];
+    const client = {
+      configuration: { findMany: () => Promise.resolve([]) },
+      schedule: { findMany: () => Promise.resolve([]) },
+      occupancy: { findMany: () => Promise.resolve([]) },
+      unit: {
+        findMany: () => Promise.resolve([{ id: "u1", configurationId: "c1", controlId: null }]),
+        updateMany: ({ data }: { where: Row; data: Row }) => {
+          expect(data).toEqual({ stage: StageType.Update.enum, message: null });
+          events.push("mark-unit");
+          return Promise.resolve({ count: 1 });
+        },
+      },
+      control: { updateMany: () => Promise.resolve({ count: 0 }) },
+    } as unknown as MarkingClient;
+
+    // One prisma.unit.update call carrying nested writes for holidays, occupancies and location,
+    // the way the Units-editor save is sent.
+    const query = () => {
+      events.push("write-holiday");
+      events.push("write-occupancy");
+      events.push("write-location");
+      return Promise.resolve({ id: "u1" });
+    };
+
+    await writeAndMark(
+      client,
+      "Unit",
+      "update",
+      {
+        where: { id: "u1" },
+        data: {
+          configuration: { update: { holidays: { update: {} }, occupancies: { update: {} } } },
+          location: { update: {} },
+        },
+      },
+      query,
+    );
+
+    expect(events).toEqual(["write-holiday", "write-occupancy", "write-location", "mark-unit"]);
+  });
+
+  it("skips the mark when nothing writable changed, so metadata-only saves do not push", async () => {
+    const events: string[] = [];
+    const client = {
+      unit: { findMany: () => Promise.resolve([]), updateMany: () => { events.push("mark-unit"); return Promise.resolve({ count: 0 }); } },
+      control: { updateMany: () => Promise.resolve({ count: 0 }) },
+    } as unknown as MarkingClient;
+    await writeAndMark(client, "Unit", "update", { where: { id: "u1" }, data: { stage: "Complete" } }, () => {
+      events.push("write-metadata");
+      return Promise.resolve({ id: "u1" });
+    });
+    expect(events).toEqual(["write-metadata"]);
+  });
+});
+
 describe("a write through PrismaService", () => {
   const config = { log: { prisma: { level: "" } }, database: {}, password: { validate: false, strength: 0 } } as unknown as AppConfigService;
 
