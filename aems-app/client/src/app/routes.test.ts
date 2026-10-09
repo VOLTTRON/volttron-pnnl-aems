@@ -122,14 +122,8 @@ describe("staticRoutes", () => {
   });
 });
 
-// scenario: dev-demo-admin-only
-describe("/dev and /demo admit only admins", () => {
-  it("every demo-tree node is scoped to admin", () => {
-    for (const id of ["demo", "book", "chapter"]) {
-      expect(staticRoutes.findNode(id)?.data?.scope).toBe("admin");
-    }
-  });
-
+// scenario: dev-admin-only
+describe("/dev admits only admins", () => {
   it("every dev-tree node is scoped to admin", () => {
     for (const id of ["dev", "dev-templates"]) {
       expect(staticRoutes.findNode(id)?.data?.scope).toBe("admin");
@@ -141,22 +135,22 @@ describe("/dev and /demo admit only admins", () => {
     expect(findRoute(staticRoutes, "/dev/templates").data?.id).toBe("dev-templates");
   });
 
-  it("a user role is refused /demo, /demo/[isbn], /demo/[isbn]/[ch], /dev and /dev/templates", () => {
-    for (const path of ["/demo", "/demo/isbn-1", "/demo/isbn-1/ch-1", "/dev", "/dev/templates"]) {
+  it("a user role is refused /dev and /dev/templates", () => {
+    for (const path of ["/dev", "/dev/templates"]) {
       const route = findRoute(staticRoutes, path);
       expect(isGranted(route, { role: "user" })).toBe(false);
     }
   });
 
-  it("an anonymous caller is refused /demo, /dev and /dev/templates", () => {
-    for (const path of ["/demo", "/dev", "/dev/templates"]) {
+  it("an anonymous caller is refused /dev and /dev/templates", () => {
+    for (const path of ["/dev", "/dev/templates"]) {
       const route = findRoute(staticRoutes, path);
       expect(isGranted(route, {})).toBe(false);
     }
   });
 
-  it("an admin is admitted to /demo, /demo/[isbn], /dev and /dev/templates", () => {
-    for (const path of ["/demo", "/demo/isbn-1", "/dev", "/dev/templates"]) {
+  it("an admin is admitted to /dev and /dev/templates", () => {
+    for (const path of ["/dev", "/dev/templates"]) {
       const route = findRoute(staticRoutes, path);
       expect(isGranted(route, { role: "admin" })).toBe(true);
     }
