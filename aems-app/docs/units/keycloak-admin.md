@@ -1,6 +1,6 @@
 # keycloak-admin
 
-**State:** unbuilt
+**State:** built
 
 ## Contract
 
@@ -31,5 +31,5 @@ auth, graphql
 | `admin-internal-url` | the internal URL bypass |
 | `keycloak-role-mirrors-realm-admin` | grant and revoke mirroring |
 | `aggregate-requires-keycloak-scope` | scope on every operation |
-| `keycloak-page-gated` | page visibility |
-| `keycloak-enabled-cached` | one fetch per session |
+| `keycloak-page-gated` | *(owed)* page visibility |
+| `keycloak-enabled-cached` | *(owed)* one fetch per session |

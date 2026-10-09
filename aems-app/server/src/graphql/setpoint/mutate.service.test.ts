@@ -31,13 +31,25 @@ function makeSetpointQuery(): SetpointQuery {
   return { SetpointWhereUnique: "SetpointWhereUnique" } as unknown as SetpointQuery;
 }
 
-function makePrisma(returned: object = { id: "sp1", label: "L" }) {
+const VALID_CURRENT = {
+  setpoint: 70,
+  deadband: 4,
+  overrideSetpoint: 70,
+  overrideDeadband: 4,
+  heating: 60,
+  cooling: 80,
+  standbyTime: 15,
+  standbyOffset: 2,
+};
+
+function makePrisma(returned: object = { id: "sp1", label: "L" }, current: object | null = VALID_CURRENT) {
   return {
     prisma: {
       setpoint: {
         create: jest.fn().mockResolvedValue(returned),
         update: jest.fn().mockResolvedValue(returned),
         delete: jest.fn().mockResolvedValue(returned),
+        findUnique: jest.fn().mockResolvedValue(current),
       },
     },
   } as unknown as PrismaService;
@@ -114,5 +126,56 @@ describe("SetpointMutation", () => {
       "Delete",
       userCtx.user,
     );
+  });
+
+  // scenario: setpoint-rules-refused
+  describe("the server refuses a setpoint write that breaks a limit or the spacing", () => {
+    const limitCases: Array<[string, number]> = [
+      ["setpoint", 100],
+      ["setpoint", 50],
+      ["overrideSetpoint", 54],
+      ["heating", 86],
+      ["cooling", 54],
+      ["deadband", 7],
+      ["overrideDeadband", 11],
+      ["standbyTime", 61],
+      ["standbyOffset", 6],
+    ];
+
+    it.each(limitCases)("createSetpoint refuses %s = %s and never writes", async (field, value) => {
+      const prisma = makePrisma({ id: "sp1" });
+      new SetpointMutation(makeBuilder(), prisma, makeSubscription(), makeSetpointQuery(), makeChangeService());
+      await expect(
+        resolvers["createSetpoint"]({}, null, { create: { [field]: value } }, userCtx),
+      ).rejects.toThrow();
+      expect(prisma.prisma.setpoint.create).not.toHaveBeenCalled();
+    });
+
+    it.each(limitCases)("updateSetpoint refuses the partial update %s = %s and never writes", async (field, value) => {
+      const prisma = makePrisma({ id: "sp1" });
+      new SetpointMutation(makeBuilder(), prisma, makeSubscription(), makeSetpointQuery(), makeChangeService());
+      await expect(
+        resolvers["updateSetpoint"]({}, null, { where: { id: "sp1" }, update: { [field]: value } }, userCtx),
+      ).rejects.toThrow();
+      expect(prisma.prisma.setpoint.update).not.toHaveBeenCalled();
+    });
+
+    it("updateSetpoint refuses a partial update that breaks spacing against the CURRENT row", async () => {
+      // Current is 60/80 heating/cooling, deadband 4, setpoint 70 -- valid.
+      // Raising heating to 70 makes setpoint 70 fail: 70 + 2 + 2 = 74 > 70.
+      const prisma = makePrisma({ id: "sp1" });
+      new SetpointMutation(makeBuilder(), prisma, makeSubscription(), makeSetpointQuery(), makeChangeService());
+      await expect(
+        resolvers["updateSetpoint"]({}, null, { where: { id: "sp1" }, update: { heating: 70 } }, userCtx),
+      ).rejects.toThrow();
+      expect(prisma.prisma.setpoint.update).not.toHaveBeenCalled();
+    });
+
+    it("accepts a valid partial update", async () => {
+      const prisma = makePrisma({ id: "sp1" });
+      new SetpointMutation(makeBuilder(), prisma, makeSubscription(), makeSetpointQuery(), makeChangeService());
+      await resolvers["updateSetpoint"]({}, null, { where: { id: "sp1" }, update: { setpoint: 72 } }, userCtx);
+      expect(prisma.prisma.setpoint.update).toHaveBeenCalled();
+    });
   });
 });

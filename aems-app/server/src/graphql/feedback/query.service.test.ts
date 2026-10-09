@@ -49,6 +49,7 @@ function makePrisma(feedbackData: unknown = []) {
       feedback: {
         findMany: jest.fn().mockResolvedValue(feedbackData),
         findUniqueOrThrow: jest.fn().mockResolvedValue(feedbackData),
+        findFirstOrThrow: jest.fn().mockResolvedValue(feedbackData),
         count: jest.fn().mockResolvedValue(0),
         groupBy: jest.fn().mockResolvedValue([]),
       },
@@ -78,18 +79,20 @@ describe("FeedbackQuery", () => {
       expect(result).toEqual(feedbacks);
     });
 
-    it("non-admin: strips where.user and injects where.userId", async () => {
+    it("non-admin: narrows args.where with userId via AND composition", async () => {
       const prisma = makePrisma([]);
       new FeedbackQuery(makeBuilder(), prisma, makeFeedbackObject(), makeUserQuery());
 
       const resolve = resolvers["readFeedbacks"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
       await resolve({}, null, { where: { user: { id: "u1" } }, orderBy: null, paging: null, distinct: null }, userCtx);
 
-      expect(prisma.prisma.feedback.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.not.objectContaining({ user: expect.anything() }) }),
-      );
-      expect(prisma.prisma.feedback.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ userId: "u1" }) }),
+      const call = (prisma.prisma.feedback.findMany as jest.Mock).mock.calls[0][0];
+      // Narrowed under AND — caller where survives, plus userId filter is added.
+      expect(call.where.AND).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ user: { id: "u1" } }),
+          expect.objectContaining({ userId: "u1" }),
+        ]),
       );
     });
 
@@ -147,15 +150,19 @@ describe("FeedbackQuery", () => {
       expect(result).toEqual(feedback);
     });
 
-    it("non-admin: strips where.user from context check", async () => {
+    it("non-admin: uses findFirstOrThrow with ownership narrowed by AND", async () => {
       const prisma = makePrisma();
-      (prisma.prisma.feedback.findUniqueOrThrow as jest.Mock).mockResolvedValue({ id: "f1" });
+      (prisma.prisma.feedback.findFirstOrThrow as jest.Mock).mockResolvedValue({ id: "f1" });
       new FeedbackQuery(makeBuilder(), prisma, makeFeedbackObject(), makeUserQuery());
 
       const resolve = resolvers["readFeedback"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { id: "f1", user: { id: "u1" } } }, userCtx);
+      await resolve({}, null, { where: { id: "f1" } }, userCtx);
 
-      expect(prisma.prisma.feedback.findUniqueOrThrow).toHaveBeenCalled();
+      expect(prisma.prisma.feedback.findFirstOrThrow).toHaveBeenCalled();
+      const call = (prisma.prisma.feedback.findFirstOrThrow as jest.Mock).mock.calls[0][0];
+      expect(call.where.AND).toEqual(
+        expect.arrayContaining([expect.objectContaining({ userId: "u1" })]),
+      );
     });
   });
 

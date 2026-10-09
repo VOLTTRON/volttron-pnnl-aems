@@ -4,6 +4,8 @@ import * as TreeModule from "./tree";
 import * as TypesModule from "./types";
 import * as UtilModule from "./util";
 import * as ColorModule from "./color";
+import * as ScheduleModule from "./schedule";
+import * as SetpointModule from "./setpoint";
 
 describe("Utils Index Exports", () => {
   describe("Re-export Verification", () => {
@@ -167,9 +169,17 @@ describe("Utils Index Exports", () => {
       const typesExportsCount = Object.keys(TypesModule).length;
       const utilExportsCount = Object.keys(UtilModule).length;
       const colorExportsCount = Object.keys(ColorModule).length;
+      const scheduleExportsCount = Object.keys(ScheduleModule).length;
+      const setpointExportsCount = Object.keys(SetpointModule).length;
 
       const totalIndividualExports =
-        mathExportsCount + treeExportsCount + typesExportsCount + utilExportsCount + colorExportsCount;
+        mathExportsCount +
+        treeExportsCount +
+        typesExportsCount +
+        utilExportsCount +
+        colorExportsCount +
+        scheduleExportsCount +
+        setpointExportsCount;
       const utilsExportsCount = Object.keys(UtilsModule).length;
 
       expect(utilsExportsCount).toBe(totalIndividualExports);

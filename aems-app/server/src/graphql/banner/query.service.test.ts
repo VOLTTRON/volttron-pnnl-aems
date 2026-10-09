@@ -43,12 +43,15 @@ function makePrisma(bannerData: unknown = []) {
       banner: {
         findMany: jest.fn().mockResolvedValue(bannerData),
         findUniqueOrThrow: jest.fn().mockResolvedValue(bannerData),
+        findFirstOrThrow: jest.fn().mockResolvedValue(bannerData),
         count: jest.fn().mockResolvedValue(0),
         groupBy: jest.fn().mockResolvedValue([]),
       },
     },
   } as unknown as PrismaService;
 }
+
+const adminCtx = { user: { id: "u1", authRoles: { admin: true, user: true } } };
 
 describe("BannerQuery", () => {
   beforeEach(() => {
@@ -62,19 +65,19 @@ describe("BannerQuery", () => {
       const prisma = makePrisma(banners);
       new BannerQuery(makeBuilder(), prisma, makeBannerObject());
 
-      const resolve = resolvers["readBanners"] as (q: unknown, r: unknown, args: unknown) => Promise<unknown>;
-      const result = await resolve({}, null, { where: null, orderBy: null, paging: null, distinct: null });
+      const resolve = resolvers["readBanners"] as (q: unknown, r: unknown, args: unknown, c: unknown) => Promise<unknown>;
+      const result = await resolve({}, null, { where: null, orderBy: null, paging: null, distinct: null }, adminCtx);
 
       expect(prisma.prisma.banner.findMany).toHaveBeenCalled();
       expect(result).toEqual(banners);
     });
 
-    it("passes where filter to findMany", async () => {
+    it("passes where filter to findMany (admin: no expiration constraint)", async () => {
       const prisma = makePrisma([]);
       new BannerQuery(makeBuilder(), prisma, makeBannerObject());
 
-      const resolve = resolvers["readBanners"] as (q: unknown, r: unknown, args: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { message: { contains: "hi" } }, orderBy: null, paging: null, distinct: null });
+      const resolve = resolvers["readBanners"] as (q: unknown, r: unknown, args: unknown, c: unknown) => Promise<unknown>;
+      await resolve({}, null, { where: { message: { contains: "hi" } }, orderBy: null, paging: null, distinct: null }, adminCtx);
 
       expect(prisma.prisma.banner.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { message: { contains: "hi" } } }),
@@ -88,8 +91,8 @@ describe("BannerQuery", () => {
       (prisma.prisma.banner.count as jest.Mock).mockResolvedValue(7);
       new BannerQuery(makeBuilder(), prisma, makeBannerObject());
 
-      const resolve = resolvers["countBanners"] as (r: unknown, args: unknown) => Promise<number>;
-      const result = await resolve(null, { where: null });
+      const resolve = resolvers["countBanners"] as (r: unknown, args: unknown, c: unknown) => Promise<number>;
+      const result = await resolve(null, { where: null }, adminCtx);
 
       expect(prisma.prisma.banner.count).toHaveBeenCalled();
       expect(result).toBe(7);
@@ -100,22 +103,22 @@ describe("BannerQuery", () => {
       (prisma.prisma.banner.count as jest.Mock).mockResolvedValue(0);
       new BannerQuery(makeBuilder(), prisma, makeBannerObject());
 
-      const resolve = resolvers["countBanners"] as (r: unknown, args: unknown) => Promise<number>;
-      const result = await resolve(null, { where: { message: { equals: "nonexistent" } } });
+      const resolve = resolvers["countBanners"] as (r: unknown, args: unknown, c: unknown) => Promise<number>;
+      const result = await resolve(null, { where: { message: { equals: "nonexistent" } } }, adminCtx);
 
       expect(result).toBe(0);
     });
   });
 
   describe("readBanner resolver", () => {
-    it("calls prisma.banner.findUniqueOrThrow with where arg", async () => {
+    it("calls prisma.banner.findUniqueOrThrow with where arg (admin path)", async () => {
       const banner = { id: "b1", message: "Hello" };
       const prisma = makePrisma();
       (prisma.prisma.banner.findUniqueOrThrow as jest.Mock).mockResolvedValue(banner);
       new BannerQuery(makeBuilder(), prisma, makeBannerObject());
 
-      const resolve = resolvers["readBanner"] as (q: unknown, r: unknown, args: unknown) => Promise<unknown>;
-      const result = await resolve({}, null, { where: { id: "b1" } });
+      const resolve = resolvers["readBanner"] as (q: unknown, r: unknown, args: unknown, c: unknown) => Promise<unknown>;
+      const result = await resolve({}, null, { where: { id: "b1" } }, adminCtx);
 
       expect(prisma.prisma.banner.findUniqueOrThrow).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: "b1" } }),

@@ -47,6 +47,7 @@ function makePrisma(fileData: unknown = []) {
       file: {
         findMany: jest.fn().mockResolvedValue(fileData),
         findUniqueOrThrow: jest.fn().mockResolvedValue(fileData),
+        findFirstOrThrow: jest.fn().mockResolvedValue(fileData),
         count: jest.fn().mockResolvedValue(0),
         groupBy: jest.fn().mockResolvedValue([]),
       },
@@ -76,18 +77,16 @@ describe("FileQuery", () => {
       expect(result).toEqual(files);
     });
 
-    it("non-admin: strips where.user and injects where.userId", async () => {
+    it("non-admin: narrows args.where with userId via AND", async () => {
       const prisma = makePrisma([]);
       new FileQuery(makeBuilder(), prisma, makeFileObject(), makeUserQuery());
 
       const resolve = resolvers["readFiles"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
       await resolve({}, null, { where: { user: { id: "u1" } }, orderBy: null, paging: null, distinct: null }, userCtx);
 
-      expect(prisma.prisma.file.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.not.objectContaining({ user: expect.anything() }) }),
-      );
-      expect(prisma.prisma.file.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ userId: "u1" }) }),
+      const call = (prisma.prisma.file.findMany as jest.Mock).mock.calls[0][0];
+      expect(call.where.AND).toEqual(
+        expect.arrayContaining([expect.objectContaining({ userId: "u1" })]),
       );
     });
 
@@ -118,17 +117,19 @@ describe("FileQuery", () => {
       expect(result).toEqual(file);
     });
 
-    it("non-admin: strips where.user and injects where.userId", async () => {
+    it("non-admin: uses findFirstOrThrow with ownership under AND", async () => {
       const prisma = makePrisma();
-      (prisma.prisma.file.findUniqueOrThrow as jest.Mock).mockResolvedValue({ id: "f1" });
+      (prisma.prisma.file.findFirstOrThrow as jest.Mock).mockResolvedValue({ id: "f1" });
       new FileQuery(makeBuilder(), prisma, makeFileObject(), makeUserQuery());
 
       const resolve = resolvers["readFile"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: { id: "f1", user: { id: "u1" } } }, userCtx);
+      await resolve({}, null, { where: { id: "f1" } }, userCtx);
 
-      // Non-admin where.user is stripped and userId injected on the args.where object
-      // (mutation happens on args.where in place before the Prisma call)
-      expect(prisma.prisma.file.findUniqueOrThrow).toHaveBeenCalled();
+      expect(prisma.prisma.file.findFirstOrThrow).toHaveBeenCalled();
+      const call = (prisma.prisma.file.findFirstOrThrow as jest.Mock).mock.calls[0][0];
+      expect(call.where.AND).toEqual(
+        expect.arrayContaining([expect.objectContaining({ userId: "u1" })]),
+      );
     });
   });
 
@@ -145,16 +146,15 @@ describe("FileQuery", () => {
       expect(result).toEqual(files);
     });
 
-    it("non-admin: injects userId into where", async () => {
+    it("non-admin: narrows where with userId", async () => {
       const prisma = makePrisma([]);
       new FileQuery(makeBuilder(), prisma, makeFileObject(), makeUserQuery());
 
       const resolve = resolvers["pageFile"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
-      await resolve({}, null, { where: {} }, userCtx);
+      await resolve({}, null, { where: null }, userCtx);
 
-      expect(prisma.prisma.file.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ userId: "u1" }) }),
-      );
+      const call = (prisma.prisma.file.findMany as jest.Mock).mock.calls[0][0];
+      expect(call.where).toEqual(expect.objectContaining({ userId: "u1" }));
     });
   });
 

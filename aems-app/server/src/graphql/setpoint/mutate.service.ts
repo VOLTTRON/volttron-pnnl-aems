@@ -8,6 +8,7 @@ import { SubscriptionService } from "@/subscription/subscription.service";
 import { ChangeService } from "@/change/change.service";
 import { ChangeMutation } from "@prisma/client";
 import { omit } from "@local/common/dist/utils/lodash";
+import { refuseBadSetpoint } from "./validate";
 
 @Injectable()
 @PothosMutation()
@@ -69,6 +70,7 @@ export class SetpointMutation {
           create: t.arg({ type: SetpointCreate, required: true }),
         },
         resolve: async (query, _root, args, ctx, _info) => {
+          refuseBadSetpoint(args.create as Record<string, unknown>, null);
           return prismaService.prisma.setpoint
             .create({
               ...query,
@@ -103,6 +105,8 @@ export class SetpointMutation {
           update: t.arg({ type: SetpointUpdate, required: true }),
         },
         resolve: async (query, _root, args, ctx, _info) => {
+          const current = await prismaService.prisma.setpoint.findUnique({ where: args.where });
+          refuseBadSetpoint(args.update as Record<string, unknown>, current ?? null);
           return prismaService.prisma.setpoint
             .update({
               ...query,

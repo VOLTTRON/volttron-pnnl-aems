@@ -13,7 +13,9 @@ const TEST_USERS = [
     email: "test-user@skeleton.local",
     password: "TestUser1!",
     stateFile: path.join(authDir, "user.json"),
-    role: null,
+    // Role.granted("user", "") === false — a user with no role holds no scopes
+    // and so cannot even read their own record.
+    role: "user",
   },
   {
     email: "test-admin@skeleton.local",

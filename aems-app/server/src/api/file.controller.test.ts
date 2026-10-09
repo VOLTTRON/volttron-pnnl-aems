@@ -134,15 +134,15 @@ describe("FileController.upload", () => {
     expect(res.status).toHaveBeenCalledWith(500);
   });
 
-  it("includes failed filenames in the response and triggers cleanup", async () => {
+  it("includes failed filenames with reasons in the response", async () => {
     mockWriteFile.mockRejectedValueOnce(new Error("disk full"));
     const res = makeRes();
 
     await controller.upload(makeUser(), res, [makeFile("fail.txt")]);
 
-    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { failed: string[] };
+    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { failed: { name: string; reason: string }[] };
     expect(jsonArg.failed).toBeDefined();
-    expect(jsonArg.failed).toContain("fail.txt");
+    expect(jsonArg.failed[0]).toEqual(expect.objectContaining({ name: "fail.txt" }));
   });
 
   it("reports partial success when some files succeed and some fail", async () => {
@@ -153,7 +153,7 @@ describe("FileController.upload", () => {
     const res = makeRes();
     await controller.upload(makeUser(), res, [makeFile("ok.txt"), makeFile("fail.txt")]);
 
-    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { ids: string[]; failed: string[] };
+    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { ids: string[]; failed: { name: string }[] };
     expect(jsonArg.ids).toHaveLength(1);
     expect(jsonArg.failed).toHaveLength(1);
   });
@@ -236,8 +236,8 @@ describe("FileController.upload — Prisma error branches", () => {
     controller = module.get<FileController>(FileController);
     const res = makeRes();
     await controller.upload(makeUser(), res, [makeFile("dup.txt")]);
-    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { failed: string[] };
-    expect(jsonArg.failed).toContain("dup.txt");
+    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { failed: { name: string }[] };
+    expect(jsonArg.failed.map((f) => f.name)).toContain("dup.txt");
   });
 
   it("handles P2003 foreign key error (user does not exist)", async () => {
@@ -260,8 +260,8 @@ describe("FileController.upload — Prisma error branches", () => {
     controller = module.get<FileController>(FileController);
     const res = makeRes();
     await controller.upload(makeUser(), res, [makeFile("nouser.txt")]);
-    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { failed: string[] };
-    expect(jsonArg.failed).toContain("nouser.txt");
+    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { failed: { name: string }[] };
+    expect(jsonArg.failed.map((f) => f.name)).toContain("nouser.txt");
   });
 
   it("handles generic non-Prisma write error with Error instance message", async () => {
@@ -277,16 +277,16 @@ describe("FileController.upload — Prisma error branches", () => {
     controller = module.get<FileController>(FileController);
     const res = makeRes();
     await controller.upload(makeUser(), res, [makeFile("nospace.txt")]);
-    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { failed: string[] };
-    expect(jsonArg.failed).toContain("nospace.txt");
+    const jsonArg = (res.json as jest.Mock).mock.calls[0][0] as { failed: { name: string }[] };
+    expect(jsonArg.failed.map((f) => f.name)).toContain("nospace.txt");
   });
 });
 
-describe("cleanupPartialUploads (via failed upload path)", () => {
-  it("calls prisma.file.delete when cleanup runs after partial failure", async () => {
+describe("partial failure semantics", () => {
+  it("does not delete successful uploads when another file fails", async () => {
     const prisma = makePrisma({ id: "f1", objectKey: "hashed-file.txt", mimeType: "text/plain" });
 
-    // First write succeeds (creates DB record), second write fails (triggers cleanup)
+    // First write succeeds (creates DB record), second write fails.
     mockWriteFile
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error("fail"));
@@ -304,9 +304,8 @@ describe("cleanupPartialUploads (via failed upload path)", () => {
 
     await controller.upload(makeUser(), res, [makeFile("a.txt"), makeFile("b.txt")]);
 
-    // Give cleanup a tick to run (it's fire-and-forget)
     await new Promise((r) => setTimeout(r, 0));
-    expect(prisma.prisma.file.delete).toHaveBeenCalled();
+    expect(prisma.prisma.file.delete).not.toHaveBeenCalled();
 
     await module.close();
   });

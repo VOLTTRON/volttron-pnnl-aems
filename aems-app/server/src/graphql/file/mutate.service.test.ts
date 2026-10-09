@@ -5,6 +5,15 @@ import { FileQuery } from "./query.service";
 import { UserQuery } from "../user/query.service";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
+import { AppConfigService } from "@/app.config";
+
+jest.mock("node:fs/promises", () => ({
+  unlink: jest.fn().mockResolvedValue(undefined),
+}));
+
+function makeConfig(uploadPath = "uploads"): AppConfigService {
+  return { file: { uploadPath } } as unknown as AppConfigService;
+}
 
 const resolvers: Record<string, (query: unknown, root: unknown, args: unknown, ctx: unknown) => unknown> = {};
 
@@ -68,7 +77,7 @@ describe("FileMutation", () => {
       const file = { id: "f1", objectKey: "uploads/test.png" };
       const prisma = makePrisma(file);
       const sub = makeSubscription();
-      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery());
+      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery(), makeConfig());
 
       const resolve = resolvers["createFile"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
       await resolve(
@@ -90,7 +99,7 @@ describe("FileMutation", () => {
       const file = { id: "f1", objectKey: "uploads/test.png" };
       const prisma = makePrisma(file);
       const sub = makeSubscription();
-      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery());
+      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery(), makeConfig());
 
       const resolve = resolvers["createFile"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
       await resolve({}, null, { create: { objectKey: "uploads/test.png", mimeType: "image/png", contentLength: 100 } }, userCtx);
@@ -105,7 +114,7 @@ describe("FileMutation", () => {
       const file = { id: "f1", objectKey: "updated.png" };
       const prisma = makePrisma(file);
       const sub = makeSubscription();
-      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery());
+      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery(), makeConfig());
 
       const resolve = resolvers["updateFile"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
       await resolve({}, null, { where: { id: "f1" }, update: { objectKey: "updated.png" } }, adminCtx);
@@ -119,7 +128,7 @@ describe("FileMutation", () => {
       const file = { id: "f1" };
       const prisma = makePrisma(file);
       const sub = makeSubscription();
-      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery());
+      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery(), makeConfig());
 
       const resolve = resolvers["updateFile"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
       await resolve({}, null, { where: { id: "f1", user: { id: "u2" } }, update: {} }, userCtx);
@@ -140,7 +149,7 @@ describe("FileMutation", () => {
       const file = { id: "f1" };
       const prisma = makePrisma(file);
       const sub = makeSubscription();
-      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery());
+      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery(), makeConfig());
 
       const resolve = resolvers["updateFile"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
       await resolve({}, null, { where: { id: "f1" }, update: {} }, adminCtx);
@@ -156,7 +165,7 @@ describe("FileMutation", () => {
       const file = { id: "f1" };
       const prisma = makePrisma(file);
       const sub = makeSubscription();
-      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery());
+      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery(), makeConfig());
 
       const resolve = resolvers["deleteFile"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
       await resolve({}, null, { where: { id: "f1" } }, adminCtx);
@@ -170,7 +179,7 @@ describe("FileMutation", () => {
       const file = { id: "f1" };
       const prisma = makePrisma(file);
       const sub = makeSubscription();
-      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery());
+      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery(), makeConfig());
 
       const resolve = resolvers["deleteFile"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
       await resolve({}, null, { where: { id: "f1" } }, userCtx);
@@ -184,7 +193,7 @@ describe("FileMutation", () => {
       const file = { id: "f1" };
       const prisma = makePrisma(file);
       const sub = makeSubscription();
-      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery());
+      new FileMutation(makeBuilder(), prisma, sub, makeFileQuery(), makeUserQuery(), makeConfig());
 
       const resolve = resolvers["deleteFile"] as (q: unknown, r: unknown, a: unknown, c: unknown) => Promise<unknown>;
       await resolve({}, null, { where: { id: "f1" } }, adminCtx);

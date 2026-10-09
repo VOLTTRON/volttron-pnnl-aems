@@ -4,7 +4,7 @@ import { Controller, Get, Inject, Logger, Param, Post, Res, UploadedFiles, UseIn
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { Response } from "express";
 import { existsSync } from "node:fs";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { Roles } from "@/auth/roles.decorator";
@@ -14,6 +14,26 @@ import { AppConfigService } from "@/app.config";
 import type { PrismaClient } from "@prisma/client";
 import { getObjectKey } from "@/utils/file";
 import "multer";
+
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "application/json",
+  "application/zip",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+]);
+
+export const MAX_UPLOAD_FILES = 10;
+export const MAX_UPLOAD_SIZE = 50 * 1024 * 1024;
+
+export type UploadFailure = { name: string; reason: string };
 
 /**
  * Saves the file data to the local filesystem and its metadata to the database.
@@ -64,31 +84,14 @@ async function uploadFile(
   }
 }
 
-/**
- * Removes file metadata from the database and deletes the corresponding files from the filesystem.
- * This function is designed to clean up partially uploaded files in case of an error. All or nothing.
- *
- * @param fileMetadataIds - An array of file metadata IDs to be removed from the database.
- * @param filePaths - An array of file paths to be deleted from the filesystem.
- * @returns A promise that resolves when all delete operations are completed.
- */
-async function cleanupPartialUploads(
-  fileMetadataIds: string[],
-  filePaths: string[],
-  prisma: PrismaClient,
-  logger: Logger,
-) {
-  const dbPromises = fileMetadataIds.map((id) =>
-    prisma.file
-      .delete({ where: { id } })
-      .catch((error) => logger.error(`Error removing file metadata for ID ${id}:`, error)),
-  );
-
-  const fsPromises = filePaths.map((path) =>
-    unlink(path).catch((error) => logger.error(`Error removing local file at ${path}:`, error)),
-  );
-
-  await Promise.all([...dbPromises, ...fsPromises]);
+export function describeUploadError(error: unknown): string {
+  if (error instanceof PrismaClientKnownRequestError) {
+    if (error.code === "P2002") return "A file with this objectKey already exists.";
+    if (error.code === "P2003") return "The specified user does not exist.";
+    return `Database error (${error.code}).`;
+  }
+  if (error instanceof Error) return error.message;
+  return String(error);
 }
 
 class FilesUploadDto {
@@ -113,25 +116,12 @@ export class FileController {
   })
   @Roles(RoleType.User)
   @UseInterceptors(
-    FilesInterceptor("files", 10, {
-      limits: { fileSize: 50 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
-        const allowed = new Set([
-          "image/jpeg",
-          "image/png",
-          "image/gif",
-          "image/webp",
-          "image/svg+xml",
-          "application/pdf",
-          "text/plain",
-          "text/csv",
-          "application/json",
-          "application/zip",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        ]);
-        cb(null, allowed.has(file.mimetype));
-      },
+    FilesInterceptor("files", MAX_UPLOAD_FILES, {
+      limits: { fileSize: MAX_UPLOAD_SIZE },
+      // Accept every file at the multer boundary. A disallowed type is caught in
+      // the handler so it can be reported by name with its reason, rather than
+      // silently dropped as cb(null, false) does.
+      fileFilter: (_req, _file, cb) => cb(null, true),
     }),
   )
   @Post("upload")
@@ -155,19 +145,23 @@ export class FileController {
         .json({ ...HttpStatus.InternalServerError, error: "File upload failed" });
     }
 
-    // Track successfully uploaded files and their corresponding database entries.
-    // If an operation fails, we'll use these arrays to clean up any files and database records created before the failure.
-    const fsFiles: string[] = [];
-    const dbFiles: string[] = [];
-
     const ids: string[] = [];
-    const failed: string[] = [];
+    const failed: UploadFailure[] = [];
 
     for (const file of files) {
+      // Type check first — a disallowed mimetype is reported, never stored.
+      if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+        failed.push({ name: file.originalname, reason: `Disallowed type: ${file.mimetype}` });
+        continue;
+      }
       try {
         const bytes = file.buffer;
         const buffer = Buffer.from(bytes);
         const contentLength = buffer.length;
+        if (contentLength > MAX_UPLOAD_SIZE) {
+          failed.push({ name: file.originalname, reason: `File exceeds ${MAX_UPLOAD_SIZE} bytes` });
+          continue;
+        }
         const fileName = getObjectKey({ name: file.originalname });
         const filePath = join(uploadDir, fileName);
 
@@ -181,24 +175,16 @@ export class FileController {
           this.prismaService.prisma,
         );
 
-        fsFiles.push(fileName);
-        dbFiles.push(recordedFile.id);
         ids.push(recordedFile.id);
       } catch (error) {
         this.logger.error("Failed to upload file", error);
-        failed.push(file.originalname);
+        failed.push({ name: file.originalname, reason: describeUploadError(error) });
       }
     }
 
-    if (failed.length > 0) {
-      cleanupPartialUploads(
-        dbFiles,
-        fsFiles.map((f) => join(uploadDir, f)),
-        this.prismaService.prisma,
-        this.logger,
-      ).catch((error) => this.logger.error("Failed to clean up partial uploads", error));
-    }
-
+    // The files that succeeded stay stored — exactly those are returned in `ids`.
+    // Failed files have been rolled back by the per-file try/catch and were never
+    // added to `ids`, so no cross-file cleanup is needed.
     return res.json({ success: ids.length > 0, ids, ...(failed.length > 0 && { failed }) });
   }
 
@@ -215,10 +201,35 @@ export class FileController {
       return res.status(HttpStatus.NotFound.status).json({ ...HttpStatus.NotFound, error: "File not found" });
     }
 
-    const filePath = resolve(process.cwd(), this.configType.file.uploadPath, file.objectKey);
+    const uploadDir = resolve(process.cwd(), this.configType.file.uploadPath);
+    const filePath = resolve(uploadDir, file.objectKey);
+    if (!isPathInside(filePath, uploadDir)) {
+      this.logger.warn(`Refused download: resolved path ${filePath} escapes ${uploadDir}`);
+      return res
+        .status(HttpStatus.NotFound.status)
+        .json({ ...HttpStatus.NotFound, error: "File not found" });
+    }
 
-    res.setHeader("Content-Disposition", `attachment; filename=${name}`);
+    res.setHeader("Content-Disposition", `attachment; filename="${sanitizeFilename(name)}"`);
     res.setHeader("Content-Type", file.mimeType);
     return res.sendFile(filePath);
   }
+}
+
+// A resolved child path lies inside parent iff it equals parent, or starts with
+// parent + path separator. Compared as the OS resolved them (case preserved).
+export function isPathInside(child: string, parent: string): boolean {
+  const sep = parent.includes("\\") ? "\\" : "/";
+  const normChild = child.replace(/[\\/]+/g, sep);
+  const normParent = parent.replace(/[\\/]+/g, sep).replace(new RegExp(`\\${sep}$`), "");
+  return normChild === normParent || normChild.startsWith(normParent + sep);
+}
+
+// Keep only characters safe inside a quoted Content-Disposition filename:
+// drop CR/LF/quote/backslash, path separators and NUL (control chars sneak
+// headers in); collapse the rest.
+export function sanitizeFilename(name: string): string {
+  // eslint-disable-next-line no-control-regex
+  const stripped = (name ?? "").replace(/[\r\n"\\/\x00]/g, "").trim();
+  return stripped.length > 0 ? stripped : "download";
 }

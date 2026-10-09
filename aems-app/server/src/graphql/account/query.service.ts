@@ -80,7 +80,7 @@ export class AccountQuery {
     builder.queryField("pageAccount", (t) =>
       t.prismaConnection({
         description: "Paginate through multiple accounts.",
-        authScopes: { user: true },
+        authScopes: { admin: true },
         type: "Account",
         cursor: "id",
         args: {
@@ -103,7 +103,7 @@ export class AccountQuery {
     builder.queryField("readAccount", (t) =>
       t.prismaField({
         description: "Read a unique account.",
-        authScopes: { user: true },
+        authScopes: { admin: true },
         type: "Account",
         args: {
           where: t.arg({ type: AccountWhereUnique, required: true }),
@@ -129,7 +129,7 @@ export class AccountQuery {
     builder.queryField("readAccounts", (t) =>
       t.prismaField({
         description: "Read a list of accounts.",
-        authScopes: { user: true },
+        authScopes: { admin: true },
         type: ["Account"],
         args: {
           where: t.arg({ type: AccountWhere }),
@@ -164,7 +164,7 @@ export class AccountQuery {
     builder.queryField("countAccounts", (t) =>
       t.field({
         description: "Count the number of accounts.",
-        authScopes: { user: true },
+        authScopes: { admin: true },
         type: "Int",
         args: {
           where: t.arg({ type: AccountWhere }),
@@ -189,7 +189,7 @@ export class AccountQuery {
     builder.queryField("groupAccounts", (t) =>
       t.field({
         description: "Group a list of accounts.",
-        authScopes: { user: true },
+        authScopes: { admin: true },
         type: ["AccountGroupBy"],
         args: {
           by: t.arg({ type: [AccountFields], required: true }),
