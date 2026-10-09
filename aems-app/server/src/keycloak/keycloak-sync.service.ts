@@ -3,6 +3,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { BaseService } from "@/services";
 import { getConfigFiles } from "@/utils/file";
+import { parseDashboardFilename } from "@/grafana/parse-filename";
 import { Mutation, SubscriptionEvent, Normalization } from "@local/common";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Cron, Timeout } from "@nestjs/schedule";
@@ -288,12 +289,6 @@ export class KeycloakSyncService extends BaseService {
    */
   private async parseDashboardConfigs(configPath: string): Promise<Map<string, Set<string>>> {
     const roleMap = new Map<string, Set<string>>();
-    
-    // Primary regex: Handle new format with double-dash separator (e.g., campus--building_dashboard_urls.json)
-    const ConfigFilenameRegexNew = /(?<campus>[^-]+(?:_[^-]+)*)--(?<building>.+)_dashboard_urls\.json/i;
-    
-    // Fallback regex: Handle old format with single underscores (backward compatibility)
-    const ConfigFilenameRegexOld = /(?<campus>.+?)_(?<building>.+)_dashboard_urls\.json/i;
 
     try {
       const files = await getConfigFiles([configPath], ".json", this.logger);
@@ -306,22 +301,13 @@ export class KeycloakSyncService extends BaseService {
       for (const file of files) {
         try {
           const filename = basename(file);
-          
-          // Try new format first (with double-dash separator)
-          let match = ConfigFilenameRegexNew.exec(filename);
-          let { campus, building } = match?.groups ?? {};
-          
-          // Fall back to old format if new format doesn't match
-          if (!campus || !building) {
-            match = ConfigFilenameRegexOld.exec(filename);
-            ({ campus, building } = match?.groups ?? {});
-          }
-
-          if (!campus || !building) {
+          const parts = parseDashboardFilename(filename);
+          if (!parts) {
             this.logger.warn(`Skipping invalid dashboard config filename: ${filename}`);
             continue;
           }
-          const key = `${campus}_${building}`.toLowerCase();
+          const { campus, building } = parts;
+          const key = `${campus}_${building}`;
 
           const text = await readFile(resolve(file), "utf-8");
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

@@ -9,13 +9,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { Request, Response } from "express";
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-
-// Primary regex: Handle new format with double-dash separator (e.g., campus--building_dashboard_urls.json)
-const ConfigFilenameRegexNew = /(?<campus>[^-]+(?:_[^-]+)*)--(?<building>.+)_dashboard_urls\.json/i;
-
-// Fallback regex: Handle old format with single underscores (backward compatibility)
-// Note: This is ambiguous for complex names, but maintains compatibility with existing deployments
-const ConfigFilenameRegexOld = /(?<campus>.+?)_(?<building>.+)_dashboard_urls\.json/i;
+import { parseDashboardFilename } from "@/grafana/parse-filename";
 
 const ConfigUnitRegex = /RTU Overview - (?<unit>.+)|Site Overview/i;
 
@@ -69,24 +63,12 @@ export class GrafanaController {
     for (const file of files) {
       try {
         this.logger.log(`Parsing Grafana config file: ${file}`);
-        const filename = basename(file);
-
-        // Try new format first (with double-dash separator)
-        let match = ConfigFilenameRegexNew.exec(filename);
-        let { campus, building } = match?.groups ?? {};
-
-        // Fall back to old format if new format doesn't match
-        if (!campus || !building) {
-          match = ConfigFilenameRegexOld.exec(filename);
-          ({ campus, building } = match?.groups ?? {});
-        }
-
-        if (!campus || !building) {
+        const parts = parseDashboardFilename(basename(file));
+        if (!parts) {
           this.logger.warn(`Skipping invalid Grafana config file name: ${file}`);
           continue;
         }
-        campus = campus.toLocaleLowerCase();
-        building = building.toLocaleLowerCase();
+        const { campus, building } = parts;
         urls[campus] = urls[campus] || {};
         urls[campus][building] = urls[campus][building] || {};
         const text = await readFile(resolve(file), "utf-8");
