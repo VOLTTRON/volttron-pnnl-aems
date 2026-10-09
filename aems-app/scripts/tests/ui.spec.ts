@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("UI — as-user", () => {
+  // scenario: first-load-no-console-errors
   test("main page loads without server errors or JS console errors", async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on("console", (msg) => {
