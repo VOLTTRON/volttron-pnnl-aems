@@ -16,7 +16,7 @@ import {
   ButtonVariant,
   AnchorButton,
 } from "@blueprintjs/core";
-import { useContext, useMemo, useState, useCallback } from "react";
+import { Fragment, useContext, useMemo, useState, useCallback, useRef } from "react";
 import { useSubscription, useQuery } from "@apollo/client";
 import { useOperationManager } from "../components/hooks/useOperationManager";
 import { useMutationWithTracking } from "../components/hooks/useMutationWithTracking";
@@ -111,6 +111,16 @@ export default function Page() {
   const { hasAnyOperations } = useOperationManager();
   const router = useRouter();
 
+  // Counts mutation (and dispatch) failures observed during the current save; reset at save start.
+  const saveErrorsRef = useRef(0);
+  const reportSaveError = useCallback(
+    (message: string) => {
+      saveErrorsRef.current += 1;
+      createNotification?.(message, NotificationType.Error);
+    },
+    [createNotification],
+  );
+
   const { data: queried, startPolling } = useQuery(ReadUnitsDocument, {
     variables: {
       orderBy: { createdAt: OrderBy.Desc },
@@ -154,7 +164,7 @@ export default function Page() {
     operationType: "unit",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Update unit ${variables?.where?.id}`,
-    onError: (error) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error) => reportSaveError(error.message),
   });
 
   const [createHoliday] = useMutationWithTracking(CreateHolidayDocument, {
@@ -162,7 +172,7 @@ export default function Page() {
     getDescription: (variables) => `Create holiday ${variables?.create?.label}`,
     onError: (error) => {
       console.error(error);
-      createNotification?.(error.message, NotificationType.Error);
+      reportSaveError(error.message);
     },
   });
 
@@ -170,54 +180,54 @@ export default function Page() {
     operationType: "holiday",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Update holiday ${variables?.where?.id}`,
-    onError: (error) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error) => reportSaveError(error.message),
   });
 
   const [deleteHoliday] = useMutationWithTracking(DeleteHolidayDocument, {
     operationType: "holiday",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Delete holiday ${variables?.where?.id}`,
-    onError: (error) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error) => reportSaveError(error.message),
   });
 
   const [createOccupancy] = useMutationWithTracking(CreateOccupancyDocument, {
     operationType: "occupancy",
     getDescription: (variables) => `Create occupancy ${variables?.create?.label}`,
-    onError: (error) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error) => reportSaveError(error.message),
   });
 
   const [updateOccupancy] = useMutationWithTracking(UpdateOccupancyDocument, {
     operationType: "occupancy",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Update occupancy ${variables?.where?.id}`,
-    onError: (error) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error) => reportSaveError(error.message),
   });
 
   const [deleteOccupancy] = useMutationWithTracking(DeleteOccupancyDocument, {
     operationType: "occupancy",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Delete occupancy ${variables?.where?.id}`,
-    onError: (error) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error) => reportSaveError(error.message),
   });
 
   const [createLocation] = useMutationWithTracking(CreateLocationDocument, {
     operationType: "location",
     getDescription: (variables) => `Create location ${variables?.create?.name}`,
-    onError: (error) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error) => reportSaveError(error.message),
   });
 
   const [updateLocation] = useMutationWithTracking(UpdateLocationDocument, {
     operationType: "location",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Update location ${variables?.where?.id}`,
-    onError: (error) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error) => reportSaveError(error.message),
   });
 
   const [deleteLocation] = useMutationWithTracking(DeleteLocationDocument, {
     operationType: "location",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Delete location ${variables?.where?.id}`,
-    onError: (error) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error) => reportSaveError(error.message),
   });
 
   const { units, groups } = useMemo(() => {
@@ -243,7 +253,7 @@ export default function Page() {
     async (updated: DeepPartial<UnitModel>) => {
       const unit = data?.readUnits?.find((u) => u.id === updated.id) ?? null;
       if (!unit) {
-        createNotification?.("Unit not found", NotificationType.Error);
+        reportSaveError("Unit not found");
         return;
       }
 
@@ -313,7 +323,7 @@ export default function Page() {
             );
             break;
           default:
-            createNotification?.(`Unknown holiday action: ${action}`, NotificationType.Error);
+            reportSaveError(`Unknown holiday action: ${action}`);
         }
       });
 
@@ -360,7 +370,7 @@ export default function Page() {
             );
             break;
           default:
-            createNotification?.(`Unknown occupancy action: ${action}`, NotificationType.Error);
+            reportSaveError(`Unknown occupancy action: ${action}`);
         }
       });
 
@@ -432,7 +442,7 @@ export default function Page() {
     [
       data,
       updateUnit,
-      createNotification,
+      reportSaveError,
       createHoliday,
       updateHoliday,
       deleteHoliday,
@@ -446,9 +456,12 @@ export default function Page() {
 
   const handleSave = async () => {
     if (editing?.id) {
+      saveErrorsRef.current = 0;
       await handleUpdateUnit(editing);
-      createNotification?.("All changes saved successfully", NotificationType.Notification);
-      setEditing(null);
+      if (saveErrorsRef.current === 0) {
+        createNotification?.("All changes saved successfully", NotificationType.Notification);
+        setEditing(null);
+      }
     }
   };
 
@@ -492,20 +505,14 @@ export default function Page() {
 
   const handleSaveAll = async () => {
     if (!isEqual(editingAll, {}) && editingAll) {
-      try {
-        // Process all units in parallel
-        const updatePromises = units.map((unit) =>
-          handleUpdateUnit({ id: unit.id, ...updateIds(unit, editingAll) }),
-        );
-
-        // Wait for all updates to complete
-        await Promise.allSettled(updatePromises);
+      saveErrorsRef.current = 0;
+      const updatePromises = units.map((unit) =>
+        handleUpdateUnit({ id: unit.id, ...updateIds(unit, editingAll) }),
+      );
+      await Promise.allSettled(updatePromises);
+      if (saveErrorsRef.current === 0) {
         createNotification?.("All changes saved successfully", NotificationType.Notification);
-
-        // Clear editing state after all operations complete
         setEditingAll({});
-      } catch (error) {
-        createNotification?.("Some operations failed during bulk save", NotificationType.Error);
       }
     }
   };
@@ -695,8 +702,8 @@ export default function Page() {
 
       <div className={styles.list}>
         {groups.map((group, g) => (
-          <>
-            <Card key={`group-${group.campus || g}-${group.building || ""}`} interactive className={styles.unitCard}>
+          <Fragment key={`group-${group.campus || g}-${group.building || ""}`}>
+            <Card interactive className={styles.unitCard}>
               <div className={styles.row}>
                 <div>
                   <Label>
@@ -1017,7 +1024,7 @@ export default function Page() {
                   </Card>
                 );
               })}
-          </>
+          </Fragment>
         ))}
       </div>
 

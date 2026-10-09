@@ -15,7 +15,7 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import { IconName, IconNames } from "@blueprintjs/icons";
-import { useContext, useMemo, useState, useCallback } from "react";
+import { useContext, useMemo, useState, useCallback, useRef } from "react";
 import { useSubscription, useQuery } from "@apollo/client";
 import {
   ReadControlsQuery,
@@ -46,6 +46,16 @@ export default function ILCPage() {
   const { current } = useContext(CurrentContext);
   const { hasAnyOperations, waitForAllOperations } = useOperationManager();
 
+  // Counts mutation failures observed during the current save; reset at save start.
+  const saveErrorsRef = useRef(0);
+  const reportSaveError = useCallback(
+    (message: string) => {
+      saveErrorsRef.current += 1;
+      createNotification?.(message, NotificationType.Error);
+    },
+    [createNotification],
+  );
+
   const {
     data: queried,
     loading,
@@ -75,27 +85,27 @@ export default function ILCPage() {
     operationType: "control",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Update control ${variables?.where?.id}`,
-    onError: (error: any) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error: any) => reportSaveError(error.message),
   });
 
   const [updateUnit] = useMutationWithTracking(UpdateUnitDocument, {
     operationType: "unit",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Update unit ${variables?.where?.id}`,
-    onError: (error: any) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error: any) => reportSaveError(error.message),
   });
 
   const [createLocation] = useMutationWithTracking(CreateLocationDocument, {
     operationType: "location",
     getDescription: (variables) => `Create location ${variables?.create?.name}`,
-    onError: (error: any) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error: any) => reportSaveError(error.message),
   });
 
   const [deleteLocation] = useMutationWithTracking(DeleteLocationDocument, {
     operationType: "location",
     getEntityId: (variables) => variables?.where?.id,
     getDescription: (variables) => `Delete location ${variables?.where?.id}`,
-    onError: (error: any) => createNotification?.(error.message, NotificationType.Error),
+    onError: (error: any) => reportSaveError(error.message),
   });
 
   const controls = useMemo(() => {
@@ -156,6 +166,7 @@ export default function ILCPage() {
 
   const handleSave = async () => {
     if (editing?.id) {
+      saveErrorsRef.current = 0;
       const operations: Promise<any>[] = [];
       const controlUpdateData: any = {};
 
@@ -219,14 +230,15 @@ export default function ILCPage() {
         );
       }
 
-      // Wait for all operations to complete
       await Promise.allSettled(operations);
-      createNotification?.("All changes saved successfully", NotificationType.Notification);
-      setMixedOverrides((prev) => {
-        const { [editing.id as string]: _, ...rest } = prev;
-        return rest;
-      });
-      setEditing(null);
+      if (saveErrorsRef.current === 0) {
+        createNotification?.("All changes saved successfully", NotificationType.Notification);
+        setMixedOverrides((prev) => {
+          const { [editing.id as string]: _, ...rest } = prev;
+          return rest;
+        });
+        setEditing(null);
+      }
     }
   };
 

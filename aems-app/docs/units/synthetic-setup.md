@@ -51,7 +51,7 @@ site-model, background
 | `synth-confined-to-prefix` | empty prefix refused; a real unit's topics are never written |
 | `demo-never-pushed` | demo units and controls, new or edited, make no VOLTTRON call; an empty prefix spares none |
 | `unit-save-order` | holidays, occupancies and location land before the push mark |
-| `save-failure-reported` | *(owed)* a failed write is named, the edits kept, no success shown |
+| `save-failure-reported` | a failed write is named, the edits kept, no success shown |
 | `shared-location-kept` | a location change on either page deletes none; deleting one a unit uses is refused |
 | `dev-admin-only` | a user is refused `/dev`; an admin is admitted |
 | `demo-user-scoped` | *(owed)* a user is admitted to `/demo` and its books; an anonymous visitor is refused |

@@ -157,6 +157,59 @@ describe("/dev admits only admins", () => {
   });
 });
 
+// scenario: route-scope-public-default
+describe("A route's scope names a role; a route without one is public", () => {
+  it("every route whose scope is set names one of user, admin, keycloak", () => {
+    const allowed = new Set(["user", "admin", "keycloak"]);
+    const seen = new Set<string>();
+    for (const node of staticRoutes) {
+      const scope = node.data?.scope;
+      if (scope !== undefined) {
+        seen.add(scope);
+        expect(allowed.has(scope)).toBe(true);
+      }
+    }
+    expect(seen.size).toBeGreaterThan(0);
+  });
+
+  it("a route with no scope admits an anonymous caller", () => {
+    const info = findRoute(staticRoutes, "/info");
+    expect(info.data?.scope).toBeUndefined();
+    expect(isGranted(info, {})).toBe(true);
+    expect(isGranted(info, { role: "user" })).toBe(true);
+    expect(isGranted(info, { role: "admin" })).toBe(true);
+  });
+
+  it("a route with no scope admits even a user holding no role string", () => {
+    const welcome = findRoute(staticRoutes, "/welcome");
+    expect(welcome.data?.scope).toBeUndefined();
+    expect(isGranted(welcome, { role: null })).toBe(true);
+    expect(isGranted(welcome, {})).toBe(true);
+  });
+
+  it("a route scoped 'user' refuses an anonymous caller", () => {
+    const setup = findRoute(staticRoutes, "/setup");
+    expect(setup.data?.scope).toBe("user");
+    expect(isGranted(setup, {})).toBe(false);
+  });
+
+  it("a route scoped 'admin' refuses a user-role caller", () => {
+    const route = findRoute(staticRoutes, "/ilc");
+    expect(route.data?.scope).toBe("admin");
+    expect(isGranted(route, { role: "user" })).toBe(false);
+    expect(isGranted(route, {})).toBe(false);
+  });
+
+  it("a route scoped 'keycloak' admits no one but a Keycloak user", () => {
+    const route = findRoute(staticRoutes, "/keycloak");
+    expect(route.data?.scope).toBe("keycloak");
+    expect(isGranted(route, { role: "keycloak" })).toBe(true);
+    expect(isGranted(route, { role: "admin" })).toBe(false);
+    expect(isGranted(route, { role: "user" })).toBe(false);
+    expect(isGranted(route, {})).toBe(false);
+  });
+});
+
 // scenario: keycloak-page-gated
 describe("/keycloak is shown only to users with the keycloak role", () => {
   it("the /keycloak route carries scope and display 'keycloak'", () => {
