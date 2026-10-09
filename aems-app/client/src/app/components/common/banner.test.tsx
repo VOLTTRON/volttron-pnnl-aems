@@ -52,6 +52,7 @@ function renderBanner(mocks: any[]) {
   );
 }
 
+// scenario: banner-shown-until-expiry
 describe("Banner", () => {
   it("renders without crashing with empty data", async () => {
     renderBanner([emptyQueryMock, subscribeEmptyMock]);
