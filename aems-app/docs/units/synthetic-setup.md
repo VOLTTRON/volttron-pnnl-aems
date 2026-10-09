@@ -50,7 +50,7 @@ site-model, background
 | `seeder-waits-for-historian` | a historian refusing connections at first is still seeded; the ticker waits for it |
 | `synth-confined-to-prefix` | empty prefix refused; a real unit's topics are never written |
 | `demo-never-pushed` | demo units and controls, new or edited, make no VOLTTRON call; an empty prefix spares none |
-| `unit-save-order` | *(owed)* holidays, occupancies and location land before the push mark |
+| `unit-save-order` | holidays, occupancies and location land before the push mark |
 | `save-failure-reported` | *(owed)* a failed write is named, the edits kept, no success shown |
 | `shared-location-kept` | a location change on either page deletes none; deleting one a unit uses is refused |
-| `dev-demo-admin-only` | *(owed)* a user is refused `/dev` and `/demo`; an admin is admitted |
+| `dev-demo-admin-only` | a user is refused `/dev` and `/demo`; an admin is admitted |
