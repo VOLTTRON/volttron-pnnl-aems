@@ -49,7 +49,7 @@ graphql
 | `password-hashed-hidden` | stored as bcrypt; no field returns it |
 | `user-delete-cascade-safe` | assigned feedback kept unassigned; the user's files gone from disk; a missing file does not block it |
 | `banner-visibility` | no read or subscription gives a non-admin an expired banner; an admin gets every one |
-| `banner-shown-until-expiry` | *(owed)* the frame shows a banner until it expires, and one with no expiration always |
+| `banner-shown-until-expiry` | the frame shows a banner until it expires, and one with no expiration always |
 | `feedback-workflow` | statuses, admin-only changes, null assignee readable |
 | `upload-limits-and-names` | limits and types; server-chosen names; a refused or failed file reported with its reason, the rest stored and returned |
 | `download-confined` | no input sets `objectKey`; a path resolving outside the upload path is never served; quoted attachment name |
