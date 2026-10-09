@@ -58,6 +58,11 @@ interface DashboardConfig {
 export class KeycloakSyncService extends BaseService {
   private logger = new Logger(KeycloakSyncService.name);
   private dashboardRoles: Map<string, Set<string>> = new Map();
+  // Whether loadDashboardRoles found at least one dashboard config file to parse.
+  // The removal step of a sync is gated on this: a sync that read no config
+  // removes nothing, because an empty role set would otherwise look like "the user
+  // should hold none" and strip every Grafana role.
+  private dashboardConfigsRead = false;
   private subscriptionId?: number;
   private adminTokenCache?: { token: string; expiresAt: number };
   private clientUuidCache?: string;
@@ -265,10 +270,13 @@ export class KeycloakSyncService extends BaseService {
       if (!configPath) {
         this.logger.warn("Grafana config path not set, dashboard roles will be empty");
         this.dashboardRoles = new Map();
+        this.dashboardConfigsRead = false;
         return;
       }
 
-      this.dashboardRoles = await this.parseDashboardConfigs(configPath);
+      const { roles, filesRead } = await this.parseDashboardConfigs(configPath);
+      this.dashboardRoles = roles;
+      this.dashboardConfigsRead = filesRead > 0;
 
       const totalRoles = Array.from(this.dashboardRoles.values()).reduce(
         (sum, roles) => sum + roles.size,
@@ -276,26 +284,31 @@ export class KeycloakSyncService extends BaseService {
       );
 
       this.logger.log(
-        `Loaded ${totalRoles} Grafana roles from ${this.dashboardRoles.size} campus/building configs`,
+        `Loaded ${totalRoles} Grafana roles from ${this.dashboardRoles.size} campus/building configs (${filesRead} files)`,
       );
     } catch (error) {
       this.logger.error("Failed to load dashboard roles:", error);
       this.dashboardRoles = new Map();
+      this.dashboardConfigsRead = false;
     }
   }
 
   /**
-   * Parse dashboard URL config files to extract role names
+   * Parse dashboard URL config files to extract role names.
+   * Returns filesRead so the caller can tell "nothing read" from "read, found no roles".
    */
-  private async parseDashboardConfigs(configPath: string): Promise<Map<string, Set<string>>> {
+  private async parseDashboardConfigs(
+    configPath: string,
+  ): Promise<{ roles: Map<string, Set<string>>; filesRead: number }> {
     const roleMap = new Map<string, Set<string>>();
+    let filesRead = 0;
 
     try {
       const files = await getConfigFiles([configPath], ".json", this.logger);
 
       if (files.length === 0) {
         this.logger.debug(`No dashboard config files found in ${configPath}`);
-        return roleMap;
+        return { roles: roleMap, filesRead: 0 };
       }
 
       for (const file of files) {
@@ -325,6 +338,7 @@ export class KeycloakSyncService extends BaseService {
             roleMap.set(key, roles);
             this.logger.debug(`Loaded ${roles.size} roles for ${key}`);
           }
+          filesRead++;
         } catch (error) {
           this.logger.error(`Error parsing dashboard config file ${file}:`, error);
         }
@@ -333,7 +347,7 @@ export class KeycloakSyncService extends BaseService {
       this.logger.error(`Error reading dashboard config files from ${configPath}:`, error);
     }
 
-    return roleMap;
+    return { roles: roleMap, filesRead };
   }
 
   /**
@@ -386,12 +400,17 @@ export class KeycloakSyncService extends BaseService {
 
     this.logger.debug(`Current roles for ${email}: ${currentRoles.join(", ")}`);
 
-    // 5. Calculate diff
+    // 5. Calculate diff. A sync that read no config removes nothing -- otherwise
+    //    a transient read failure (no configPath, FS error, zero files found) would
+    //    strip every Grafana role a user holds.
     const rolesToAdd = requiredRoles.filter((r) => !currentRoles.includes(r));
-    const rolesToRemove = currentRoles.filter((r) => !requiredRoles.includes(r));
+    const rolesToRemove = this.dashboardConfigsRead
+      ? currentRoles.filter((r) => !requiredRoles.includes(r))
+      : [];
 
     this.logger.log(
-      `Syncing roles for ${email}: +${rolesToAdd.length} -${rolesToRemove.length}`,
+      `Syncing roles for ${email}: +${rolesToAdd.length} -${rolesToRemove.length}` +
+        (this.dashboardConfigsRead ? "" : " (no configs read -- removal skipped)"),
     );
 
     // 6. Apply changes
