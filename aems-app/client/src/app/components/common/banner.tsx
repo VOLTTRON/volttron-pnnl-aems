@@ -37,9 +37,10 @@ export function Banner() {
 
   useEffect(() => {
     const now = new Date().getTime();
-    const banner = data?.readBanners?.find(
-      (v) => (new Date(v.expiration ?? "")?.getTime() ?? 0) > now && !shown.includes(v.id ?? ""),
-    );
+    const banner = data?.readBanners?.find((v) => {
+      const notExpired = !v.expiration || new Date(v.expiration).getTime() > now;
+      return notExpired && !shown.includes(v.id ?? "");
+    });
     if (banner) {
       setBanner(banner);
       setShown([...shown, banner.id ?? ""]);

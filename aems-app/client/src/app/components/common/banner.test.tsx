@@ -34,6 +34,11 @@ const expiredBannerQueryMock = {
   result: { data: { readBanners: [{ ...mockBanner, expiration: pastDate }] } },
 };
 
+const noExpirationBannerQueryMock = {
+  request: { query: ReadBannersDocument, variables: queryVars },
+  result: { data: { readBanners: [{ ...mockBanner, expiration: null }] } },
+};
+
 const subscribeEmptyMock = {
   request: { query: SubscribeBannersDocument, variables: queryVars },
   result: { data: { readBanners: [] } },
@@ -68,6 +73,13 @@ describe("Banner", () => {
     // Expiration is in the past — no toast shown
     await waitFor(() => {
       expect(screen.queryByText("Hello world banner")).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows a banner with no expiration (always)", async () => {
+    renderBanner([noExpirationBannerQueryMock, subscribeEmptyMock]);
+    await waitFor(() => {
+      expect(screen.getByText("Hello world banner")).toBeInTheDocument();
     });
   });
 });

@@ -44,6 +44,7 @@ describe("useIsKeycloakEnabled", () => {
     expect((global as any).fetch).not.toHaveBeenCalled();
   });
 
+  // scenario: keycloak-enabled-cached
   it("uses the cached provider list on a second mount (fetch not called again)", async () => {
     // Cache is ["keycloak", "github"] — mount again and confirm no new fetch
     const { result } = renderHook(() => useIsKeycloakEnabled());

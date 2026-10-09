@@ -1,5 +1,5 @@
 import { staticRoutes } from "./routes";
-import { findRoute, isGranted } from "./components/providers/routing";
+import { findRoute, isDisplay, isGranted } from "./components/providers/routing";
 
 // scenario: hidden-routes-reachable
 describe("NEXT_PUBLIC_HIDDEN_ROUTES", () => {
@@ -160,5 +160,42 @@ describe("/dev and /demo admit only admins", () => {
       const route = findRoute(staticRoutes, path);
       expect(isGranted(route, { role: "admin" })).toBe(true);
     }
+  });
+});
+
+// scenario: keycloak-page-gated
+describe("/keycloak is shown only to users with the keycloak role", () => {
+  it("the /keycloak route carries scope and display 'keycloak'", () => {
+    const route = findRoute(staticRoutes, "/keycloak");
+    expect(route.data?.id).toBe("keycloak");
+    expect(route.data?.scope).toBe("keycloak");
+    expect(route.data?.display).toBe("keycloak");
+  });
+
+  it("isGranted refuses user, admin, super and anonymous", () => {
+    const route = findRoute(staticRoutes, "/keycloak");
+    expect(isGranted(route, { role: "user" })).toBe(false);
+    expect(isGranted(route, { role: "admin" })).toBe(false);
+    expect(isGranted(route, { role: "super" })).toBe(false);
+    expect(isGranted(route, {})).toBe(false);
+  });
+
+  it("isGranted admits a user holding the keycloak role", () => {
+    const route = findRoute(staticRoutes, "/keycloak");
+    expect(isGranted(route, { role: "keycloak" })).toBe(true);
+    expect(isGranted(route, { role: "keycloak admin" })).toBe(true);
+  });
+
+  it("isDisplay hides the nav entry from user, admin, super and anonymous", () => {
+    const route = findRoute(staticRoutes, "/keycloak");
+    expect(isDisplay(route, { role: "user" })).toBe(false);
+    expect(isDisplay(route, { role: "admin" })).toBe(false);
+    expect(isDisplay(route, { role: "super" })).toBe(false);
+    expect(isDisplay(route, {})).toBe(false);
+  });
+
+  it("isDisplay reveals the nav entry to a user holding the keycloak role", () => {
+    const route = findRoute(staticRoutes, "/keycloak");
+    expect(isDisplay(route, { role: "keycloak" })).toBe(true);
   });
 });
