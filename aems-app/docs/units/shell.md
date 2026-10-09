@@ -10,9 +10,7 @@ admits. Pages do not re-check access.
 
 ## Claims
 
-- The providers nest Logging outermost through Current to Theme innermost, and a component using a
-  context above its provider fails loudly.
-  **Open:** no context in `client/src/app/components/providers/*.tsx` throws when read above its provider — each `createContext` call takes a default value (e.g. `LoggingContext` → `{ logs: [] }`, `CurrentContext` → `{ loading: true }`, `NotificationContext` → `{}`), so a consumer above its provider silently gets the default rather than failing. Is "fails loudly" the contract (each `createContext` must throw out of place) or did we mean a visible wrong state (e.g. `loading: true` wedging the UI)?
+- The providers nest Logging outermost through Current to Theme innermost.
 - On every navigation `template.tsx` shows the loading state while the user loads, NotFound for an
   unknown route, `/auth/denied` for a route the user is not granted, and `/auth/login?redirect=` for an
   anonymous user on a scoped route.
