@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { Preferences } from "./preferences";
 import { CurrentContext } from "../providers/current";
 import { PreferencesContext } from "../providers/preferences";
@@ -66,5 +66,21 @@ describe("Preferences component", () => {
     // Verify at least one button exists alongside the input.
     const buttons = screen.getAllByRole("button");
     expect(buttons.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // scenario: preferences-persist-sync
+  it("syncs preferences to the server when Update is clicked", async () => {
+    render(<Preferences handleClose={handleClose} />, { wrapper });
+    const input = screen.getByLabelText("Displayed Username");
+    fireEvent.change(input, { target: { value: "Bob" } });
+
+    const updateButton = screen.getByRole("button", { name: /^Update$/ });
+    await act(async () => {
+      fireEvent.click(updateButton);
+    });
+
+    expect(mockUpdateCurrent).toHaveBeenCalledTimes(1);
+    const payload = mockUpdateCurrent.mock.calls[0][0];
+    expect(payload.preferences.name).toBe("Bob");
   });
 });
