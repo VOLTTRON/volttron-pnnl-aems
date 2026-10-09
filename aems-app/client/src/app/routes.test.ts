@@ -262,6 +262,27 @@ describe("Routes nested in pathless groups resolve to themselves", () => {
   });
 });
 
+// scenario: keycloak-in-admin-group
+describe("/keycloak sits in the Admin group", () => {
+  it("the keycloak route's parent is the admin group", () => {
+    const keycloak = staticRoutes.findNode("keycloak");
+    expect(keycloak?.parent?.data?.id).toBe("admin");
+  });
+
+  it("the admin group is pathless, so /keycloak keeps its one-segment URL", () => {
+    const admin = staticRoutes.findNode("admin");
+    expect(admin?.data?.path).toBe("");
+    const route = findRoute(staticRoutes, "/keycloak");
+    expect(route.data?.id).toBe("keycloak");
+  });
+
+  it("findPath on the keycloak node yields /keycloak with no admin segment", () => {
+    const { findPath } = require("./components/providers/routing");
+    const keycloak = staticRoutes.findNode("keycloak")!;
+    expect(findPath(keycloak)).toBe("/keycloak");
+  });
+});
+
 // scenario: keycloak-page-gated
 describe("/keycloak is shown only to users with the keycloak role", () => {
   it("the /keycloak route carries scope and display 'keycloak'", () => {
