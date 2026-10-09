@@ -1,4 +1,5 @@
 import { staticRoutes } from "./routes";
+import { findRoute, isGranted } from "./components/providers/routing";
 
 // scenario: hidden-routes-reachable
 describe("NEXT_PUBLIC_HIDDEN_ROUTES", () => {
@@ -76,9 +77,9 @@ describe("staticRoutes", () => {
     expect(welcome?.data?.display).toBe(true);
   });
 
-  it("contains a 'demo' route scoped to user", () => {
+  it("contains a 'demo' route scoped to admin", () => {
     const demo = staticRoutes.findNode("demo");
-    expect(demo?.data?.scope).toBe("user");
+    expect(demo?.data?.scope).toBe("admin");
     expect(demo?.data?.display).toBe(false);
   });
 
@@ -118,5 +119,46 @@ describe("staticRoutes", () => {
     expect(ids).toContain("home");
     expect(ids).toContain("welcome");
     expect(ids).toContain("users");
+  });
+});
+
+// scenario: dev-demo-admin-only
+describe("/dev and /demo admit only admins", () => {
+  it("every demo-tree node is scoped to admin", () => {
+    for (const id of ["demo", "book", "chapter"]) {
+      expect(staticRoutes.findNode(id)?.data?.scope).toBe("admin");
+    }
+  });
+
+  it("every dev-tree node is scoped to admin", () => {
+    for (const id of ["dev", "dev-templates"]) {
+      expect(staticRoutes.findNode(id)?.data?.scope).toBe("admin");
+    }
+  });
+
+  it("findRoute resolves /dev and /dev/templates to admin-scoped nodes", () => {
+    expect(findRoute(staticRoutes, "/dev").data?.id).toBe("dev");
+    expect(findRoute(staticRoutes, "/dev/templates").data?.id).toBe("dev-templates");
+  });
+
+  it("a user role is refused /demo, /demo/[isbn], /demo/[isbn]/[ch], /dev and /dev/templates", () => {
+    for (const path of ["/demo", "/demo/isbn-1", "/demo/isbn-1/ch-1", "/dev", "/dev/templates"]) {
+      const route = findRoute(staticRoutes, path);
+      expect(isGranted(route, { role: "user" })).toBe(false);
+    }
+  });
+
+  it("an anonymous caller is refused /demo, /dev and /dev/templates", () => {
+    for (const path of ["/demo", "/dev", "/dev/templates"]) {
+      const route = findRoute(staticRoutes, path);
+      expect(isGranted(route, {})).toBe(false);
+    }
+  });
+
+  it("an admin is admitted to /demo, /demo/[isbn], /dev and /dev/templates", () => {
+    for (const path of ["/demo", "/demo/isbn-1", "/dev", "/dev/templates"]) {
+      const route = findRoute(staticRoutes, path);
+      expect(isGranted(route, { role: "admin" })).toBe(true);
+    }
   });
 });
