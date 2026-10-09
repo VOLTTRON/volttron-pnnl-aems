@@ -14,8 +14,8 @@ admits. Pages do not re-check access.
 - On every navigation `template.tsx` shows the loading state while the user loads, NotFound for an
   unknown route, `/auth/denied` for a route the user is not granted, and `/auth/login?redirect=` for an
   anonymous user on a scoped route.
-- A route's `scope` is `user`, `admin` or `super`, and a route without one is public.
-  **Open:** `client/src/app/routes.ts` uses `scope: "user"`, `scope: "admin"`, and `scope: "keycloak"` (the `keycloak` route, line 339) — never `super`. `common/src/constants/role.ts` defines four roles (`super`, `admin`, `user`, `keycloak`), of which `super` and `keycloak` both grant `admin` and `user`. Is the valid scope set `{user, admin, keycloak}` (dropping `super`, which no route uses), or should the `keycloak` route use a different mechanism than scope?
+- A route's `scope` names a role (`user`, `admin` or `keycloak`) and admits only a user whose roles
+  grant it, so `keycloak` admits no one but a Keycloak user. A route without one is public.
 - A route's `display` decides whether it appears in navigation: always, admins only, Keycloak users
   only, or never.
 - `NEXT_PUBLIC_HIDDEN_ROUTES` removes routes from navigation at build time without making them
