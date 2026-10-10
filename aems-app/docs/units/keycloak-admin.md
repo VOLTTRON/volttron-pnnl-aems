@@ -32,5 +32,5 @@ auth, graphql
 | `keycloak-role-mirrors-realm-admin` | grant and revoke mirroring |
 | `aggregate-requires-keycloak-scope` | scope on every operation |
 | `keycloak-page-gated` | page visibility |
-| `keycloak-in-admin-group` | *(owed)* the route's parent is `admin`; follows shell's `route-resolves-through-groups` |
+| `keycloak-in-admin-group` | the route's parent is `admin`; follows shell's `route-resolves-through-groups` |
 | `keycloak-enabled-cached` | one fetch per session |
