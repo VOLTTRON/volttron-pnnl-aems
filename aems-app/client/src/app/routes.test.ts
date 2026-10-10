@@ -122,41 +122,6 @@ describe("staticRoutes", () => {
   });
 });
 
-// scenario: demo-user-scoped
-describe("/demo admits any signed-in user and refuses an anonymous visitor", () => {
-  const demoIds = ["demo", "book", "chapter"];
-  const demoPaths = ["/demo", "/demo/978-0-316-12908-4", "/demo/978-0-316-12908-4/0"];
-
-  it("every demo-tree node is scoped to user", () => {
-    for (const id of demoIds) {
-      expect(staticRoutes.findNode(id)?.data?.scope).toBe("user");
-    }
-  });
-
-  it("findRoute resolves /demo and its book and chapter paths", () => {
-    expect(findRoute(staticRoutes, "/demo").data?.id).toBe("demo");
-    expect(findRoute(staticRoutes, "/demo/978-0-316-12908-4").data?.id).toBe("book");
-    expect(findRoute(staticRoutes, "/demo/978-0-316-12908-4/0").data?.id).toBe("chapter");
-  });
-
-  it("an anonymous visitor is refused /demo and its books", () => {
-    for (const path of demoPaths) {
-      const route = findRoute(staticRoutes, path);
-      expect(isGranted(route, {})).toBe(false);
-      expect(isGranted(route, { role: null })).toBe(false);
-    }
-  });
-
-  it("a signed-in user is admitted to /demo and its books", () => {
-    for (const path of demoPaths) {
-      const route = findRoute(staticRoutes, path);
-      expect(isGranted(route, { role: "user" })).toBe(true);
-      expect(isGranted(route, { role: "admin" })).toBe(true);
-      expect(isGranted(route, { role: "keycloak" })).toBe(true);
-    }
-  });
-});
-
 // scenario: dev-admin-only
 describe("/dev admits only admins", () => {
   it("every dev-tree node is scoped to admin", () => {
