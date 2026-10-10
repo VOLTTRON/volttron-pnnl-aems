@@ -1,6 +1,6 @@
 # shell
 
-**State:** unbuilt
+**State:** built
 
 ## Contract
 
