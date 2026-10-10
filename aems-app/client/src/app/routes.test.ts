@@ -192,6 +192,33 @@ describe("/dev admits only admins", () => {
   });
 });
 
+// scenario: demo-user-scoped
+describe("/demo admits any signed-in user and its books", () => {
+  it("the /demo subtree is scoped to user", () => {
+    for (const id of ["demo", "book", "chapter"]) {
+      expect(staticRoutes.findNode(id)?.data?.scope).toBe("user");
+    }
+  });
+
+  it("a user is admitted to /demo and its dynamic book pages", () => {
+    const demo = findRoute(staticRoutes, "/demo");
+    expect(isGranted(demo, { role: "user" })).toBe(true);
+    const book = findRoute(staticRoutes, "/demo/978");
+    expect(book.data?.id).toBe("book");
+    expect(isGranted(book, { role: "user" })).toBe(true);
+    const chapter = findRoute(staticRoutes, "/demo/978/1");
+    expect(chapter.data?.id).toBe("chapter");
+    expect(isGranted(chapter, { role: "user" })).toBe(true);
+  });
+
+  it("an anonymous visitor is refused /demo and its books", () => {
+    for (const path of ["/demo", "/demo/978", "/demo/978/1"]) {
+      const route = findRoute(staticRoutes, path);
+      expect(isGranted(route, {})).toBe(false);
+    }
+  });
+});
+
 // scenario: route-scope-public-default
 describe("A route's scope names a role; a route without one is public", () => {
   it("every route whose scope is set names one of user, admin, keycloak", () => {
