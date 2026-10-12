@@ -148,6 +148,25 @@ describe("findRoute", () => {
     expect(route.data?.id).toBe("welcome");
     expect(Array.isArray(items)).toBe(true);
   });
+
+  it("gives each dynamic item the URL segment at its own depth", () => {
+    // The breadcrumb resolves each crumb's name from its item's path; one segment late, the
+    // dashboard trail read "rob > site > undefined" for /dashboards/pnnl/rob/site.
+    const { route, items } = findRoute(staticRoutes, "/dashboards/pnnl/rob/site", true);
+    expect(route.data?.id).toBe("dashboard-unit");
+    expect(items.map((v) => [v.id, v.path])).toEqual([
+      ["home", "/"],
+      ["dashboards", "dashboards"],
+      ["dashboard-campus", "pnnl"],
+      ["dashboard-building", "rob"],
+      ["dashboard-unit", "site"],
+    ]);
+  });
+
+  it("gives a dynamic item under a static one its segment", () => {
+    const { items } = findRoute(staticRoutes, "/demo/some-book-id", true);
+    expect(items.at(-1)?.path).toBe("some-book-id");
+  });
 });
 
 describe("findPath", () => {
