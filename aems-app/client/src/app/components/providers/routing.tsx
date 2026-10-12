@@ -101,7 +101,9 @@ export function findRoute(routes: DefaultTree<Route>, path: string, items?: bool
         partIdx++;
       } else {
         result.push({ ...data, path: data.path as string | typeof Dynamic });
-        if (!ancestor.isRoot() && data.path !== "") {
+        // Only a static path that is the next URL part consumes it; Home's "/" and a pathless
+        // group's "" do not, and counting them reads every dynamic part after them one late.
+        if (data.path === parts[partIdx]) {
           partIdx++;
         }
       }
