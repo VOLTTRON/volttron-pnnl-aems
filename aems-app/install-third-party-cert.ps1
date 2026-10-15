@@ -305,6 +305,43 @@ if ($yamlState -eq 'pristine' -or ($yamlState -eq 'other' -and $Force)) {
   Write-Ok "Rewrote $YAML_FILE"
 }
 
+# -- drop the mkcert certificate for APP_HOSTNAME ------------------------------
+# The installed certificate is then the one source for APP_HOSTNAME: with a second, the one Traefik
+# serves flips on every reload. Done in every mode, rotation included -- the shipped file and
+# installs from before this step both carry it.
+$current = Get-Content $YAML_FILE -Raw
+if ($current -match 'mkcert-hostname') {
+  if (-not $bakPath) {
+    $bakPath = "$YAML_FILE.bak.$((Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ'))"
+    Write-Info "Backing up $YAML_FILE to $bakPath"
+    Invoke-OrDry -Description "Copy-Item $YAML_FILE $bakPath" -Action {
+      Copy-Item $YAML_FILE $bakPath -Force
+    }
+  }
+  Write-Info "Removing the mkcert certificate for APP_HOSTNAME from $YAML_FILE"
+  Invoke-OrDry -Description "Drop the mkcert-hostname entry from $YAML_FILE" -Action {
+    # The entry is a list item from its certFile line to the next line indented no deeper; the
+    # template condition around it, if there is one, goes with it.
+    $kept = New-Object System.Collections.Generic.List[string]
+    $inTemplate = $false
+    $indent = -1
+    foreach ($line in ($current -split "?
+")) {
+      if ($line -match '\{\{-? *if not \(env "CERT_RESOLVER"\)') { $inTemplate = $true; continue }
+      if ($inTemplate) { if ($line -match '\{\{-? *end') { $inTemplate = $false }; continue }
+      $lead = $line.Length - $line.TrimStart(' ').Length
+      if ($indent -ge 0) {
+        if ($line.Trim() -eq '' -or $lead -gt $indent) { continue }
+        $indent = -1
+      }
+      if ($line -match '^ *- *certFile: *\S*mkcert-hostname\.crt') { $indent = $lead; continue }
+      $kept.Add($line)
+    }
+    Write-Utf8NoBom -Path $YAML_FILE -Content ($kept -join "`n")
+  }
+  Write-Ok "$YAML_FILE holds no mkcert certificate for APP_HOSTNAME"
+}
+
 # -- restart proxy ------------------------------------------------------------
 $restarted = $false
 $existing  = docker ps -a --format '{{.Names}}' 2>$null
