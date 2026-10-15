@@ -27,7 +27,9 @@ volttron-sync and controls-ilc.
   the rendered ones.
 - `update` takes a deployment to the release whatever the release changed in the tracked `.env`: it
   carries every `.env` value differing from the tracked version into `.env.secrets`, scrubs, pulls
-  with `--ff-only`, and runs `start-services`. The pull is never refused over `.env`, and no value is lost.
+  with `--ff-only`, and runs `start-services`. The pull is never refused over `.env`, or over the
+  executable bit on tracked scripts, and no value is lost.
+- Every tracked `.sh` is executable in git, so a fresh clone runs `./update.sh` with no `chmod`.
 - When the pull is refused for any other reason, `update` puts `.env` back in sync, starts nothing,
   and names the reason. `update.sh` and `update.ps1` behave alike.
 
@@ -46,6 +48,8 @@ secrets, stack
 | `deploy-report` | the report names each historian login and agent, healthy or not |
 | `upgrade-from-broken-fixture` | both broken states repaired by one `start-services` |
 | `update-pulls-changed-env` | a release changing the tracked `.env` pulls under a synced `.env`, and the stack comes up on it |
+| `update-ignores-exec-bit` | *(owed)* a checkout whose scripts were `chmod +x`'d pulls a release changing them, and the stack comes up |
+| `scripts-tracked-executable` | *(owed)* every tracked `.sh` has mode 100755 |
 | `update-keeps-env-only-values` | a value held only in `.env` is in `.env.secrets` and `.env` afterwards |
 | `update-refused-pull-safe` | a diverged checkout: `.env` re-synced, nothing started, the reason named |
 | `update-sh-ps1-parity` | `update.sh` and `update.ps1` alike on the three fixtures above |
