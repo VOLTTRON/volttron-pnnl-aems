@@ -11,8 +11,9 @@ credentials — that is `secrets` — or any application behaviour behind the pr
 ## Claims
 
 - Traefik answers on :443 and redirects :80 to HTTPS.
-- The certificate Traefik serves for `APP_HOSTNAME` names `APP_HOSTNAME`, issued by the mkcert CA the
-  certs service created.
+- The certificate Traefik serves for `APP_HOSTNAME` names `APP_HOSTNAME` and has exactly one source: an
+  installed third-party certificate if there is one, else `CERT_RESOLVER`'s if it is set, else the
+  mkcert CA the certs service created.
 - Every file Traefik is given under `docker/proxy/` is loaded; none is shadowed by another provider
   flag.
 - Traefik routes `/authjs`, `/graphql`, `/api` and `/ext` to server, `/auth/sso/` to Keycloak,
@@ -39,6 +40,7 @@ None.
 |---|---|
 | `http-redirects-to-https` | :80 redirects to HTTPS |
 | `tls-cert-names-hostname` | the served certificate names `APP_HOSTNAME` |
+| `tls-cert-single-source` | *(owed)* with `CERT_RESOLVER` set, or a third-party certificate installed, Traefik holds no mkcert certificate for `APP_HOSTNAME` |
 | `proxy-config-all-loaded` | no Traefik config file under `docker/proxy/` is shadowed |
 | `proxy-routes-by-path` | the path routing table |
 | `security-headers-present` | X-Frame-Options and X-Content-Type-Options on every router |

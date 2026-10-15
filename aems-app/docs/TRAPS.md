@@ -45,6 +45,8 @@ working on the area it names.
 - **`down -v` deletes the database volume.**
 - **Images build with the repository root as context**, because the portal chain needs every workspace.
 - **Traefik is v3** (the tag is pinned in `docker/docker-compose.yml`); v2 label syntax does not work.
+- **Two certificates for one hostname make the served one flip on every Traefik reload**, so a cert
+  added to the default store for a test is a production change: half the connections fail, wss first.
 - **Edge ILC template changes** (`aems-edge/configurations/templates/`) reach the app by re-running
   `start-services` from `aems-app/`: the volttron-setup image layer is invalidated and its setup
   re-copies them. Never bind-mount templates from the host (ownership, SELinux). If BuildKit keeps the
