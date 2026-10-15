@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Fixture } from "./support/fixture";
+import { appDir } from "./support/stack";
 
 type Shell = "sh" | "ps";
 
@@ -59,6 +60,21 @@ function stubStart(shell: Shell) {
   }
 }
 
+/**
+ * Leave a tracked file's executable bit in the worktree differing from git's, as `chmod +x` over a
+ * 100644 checkout does. Where the filesystem reports no executable bit (Windows), the difference is
+ * made from the index's side instead: tracked 100755, read back as 100644.
+ */
+function chmodOutOfStep(fixture: Fixture, file: string) {
+  fixture.git("config", "core.fileMode", "true");
+  fs.chmodSync(path.join(fixture.dir, file), 0o755);
+  if (!fixture.git("status", "--porcelain", "--", file).out.trim()) {
+    fixture.git("update-index", "--chmod=+x", file);
+    fixture.git("commit", "-qm", "tracked executable");
+  }
+  expect(fixture.git("status", "--porcelain", "--", file).out, "only the mode differs").toMatch(/^ M /);
+}
+
 /** The fixture scripts update.sh/ps1 needs in a fresh fixture, scripted-in. */
 function freshFixture(shell: Shell): Fixture {
   const ext = shell === "sh" ? "sh" : "ps1";
@@ -96,6 +112,27 @@ for (const shell of ["sh", "ps"] as const) {
       // After scrub+pull but before start-services' secrets.sh, .env is the pulled tracked version:
       // the new key is there, and the sentinel is back under the secret key.
       expect(fx.values(".env").NEW_KEY, "pulled the new key").toBe("new-default");
+    });
+
+    // scenario: update-ignores-exec-bit
+    test("a checkout whose scripts were chmod +x'd pulls a release changing them, and the stack comes up", () => {
+      fx = freshFixture(shell);
+      stubStart(shell);
+      fx.git("add", `start-services.${ext}`);
+      fx.git("commit", "-qm", "track start-services");
+      chmodOutOfStep(fx, `start-services.${ext}`);
+      remote = wireRemote(fx);
+
+      advanceRemote(remote, (dir) => {
+        fs.appendFileSync(path.join(dir, `start-services.${ext}`), "# release change\n");
+      });
+
+      fx.docker({});
+      const r = run(shell, "update");
+      expect(r.status, r.out).toBe(0);
+      expect(fx.git("log", "--format=%s", "-1").out, "the release commit landed").toContain("release change");
+      expect(fx.text(`start-services.${ext}`), "the changed script was pulled").toContain("# release change");
+      expect(fx.calls(), fx.calls().join("\n")).toContain("#start-services");
     });
 
     // scenario: update-keeps-env-only-values
@@ -179,4 +216,13 @@ test.describe("update sh/ps1 parity", () => {
     expect(results.sh.secretsSession).toBe("parity");
     expect(results.sh.calledStart).toBe(true);
   });
+});
+
+// scenario: scripts-tracked-executable
+test("every tracked .sh has mode 100755", () => {
+  const top = git(appDir, "rev-parse", "--show-toplevel").trim();
+  const entries = git(top, "ls-files", "-s", "--", "*.sh").trim().split("\n").filter(Boolean);
+  expect(entries.length, "some .sh is tracked").toBeGreaterThan(0);
+  const notExecutable = entries.filter((e) => !e.startsWith("100755 ")).map((e) => e.split("\t")[1]);
+  expect(notExecutable, notExecutable.join("\n")).toEqual([]);
 });
