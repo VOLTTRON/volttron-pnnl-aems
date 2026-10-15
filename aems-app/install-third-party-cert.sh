@@ -368,6 +368,34 @@ if [ "$YAML_STATE" = "pristine" ] || { [ "$YAML_STATE" = "other" ] && [ "$FORCE"
   ok "Rewrote $YAML_FILE"
 fi
 
+# -- drop the mkcert certificate for APP_HOSTNAME ------------------------------
+# The installed certificate is then the one source for APP_HOSTNAME: with a second, the one Traefik
+# serves flips on every reload. Done in every mode, rotation included -- the shipped file and
+# installs from before this step both carry it.
+if grep -q "mkcert-hostname" "$YAML_FILE"; then
+  if [ -z "$BAK_PATH" ]; then
+    BAK_PATH="${YAML_FILE}.bak.$(date -u +"%Y%m%dT%H%M%SZ")"
+    info "Backing up $YAML_FILE to $BAK_PATH"
+    run_or_dry "cp '$YAML_FILE' '$BAK_PATH'"
+  fi
+  info "Removing the mkcert certificate for APP_HOSTNAME from $YAML_FILE"
+  if [ "$DRY_RUN" = 1 ]; then
+    dry "drop the mkcert-hostname entry from '$YAML_FILE'"
+  else
+    # The entry is a list item from its certFile line to the next line indented no deeper; the
+    # template condition around it, if there is one, goes with it.
+    awk '
+      /\{\{-? *if not \(env "CERT_RESOLVER"\)/ { tpl = 1; next }
+      tpl { if ($0 ~ /\{\{-? *end/) tpl = 0; next }
+      skip { match($0, /^ */); if ($0 ~ /^ *$/ || RLENGTH > indent) next; skip = 0 }
+      /^ *- *certFile: *[^ ]*mkcert-hostname\.crt/ { match($0, /^ */); indent = RLENGTH; skip = 1; next }
+      { print }
+    ' "$YAML_FILE" > "${YAML_FILE}.tmp"
+    mv "${YAML_FILE}.tmp" "$YAML_FILE"
+  fi
+  ok "$YAML_FILE holds no mkcert certificate for APP_HOSTNAME"
+fi
+
 # -- restart proxy ------------------------------------------------------------
 RESTARTED=0
 if [ "$SKIP_RESTART" = 1 ]; then

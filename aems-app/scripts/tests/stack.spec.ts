@@ -1,7 +1,9 @@
 import { test, expect, APIResponse } from "@playwright/test";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import tls from "node:tls";
+import { Fixture } from "./support/fixture";
 import {
   appDir,
   compose,
@@ -18,12 +20,17 @@ import {
 import { headersOn, routers } from "./support/routers";
 
 type Config = {
-  services: Record<string, { profiles?: string[]; depends_on?: Record<string, { condition: string; required?: boolean }> }>;
+  services: Record<string, {
+    image?: string;
+    environment?: Record<string, string | null>;
+    profiles?: string[];
+    depends_on?: Record<string, { condition: string; required?: boolean }>;
+  }>;
 };
 
-function config(profiles: string): Config {
+function config(profiles: string, env: Record<string, string> = {}): Config {
   return JSON.parse(run("docker", ["compose", "config", "--format", "json"], {
-    env: { ...process.env, COMPOSE_PROFILES: profiles, MSYS_NO_PATHCONV: "1" },
+    env: { ...process.env, COMPOSE_PROFILES: profiles, MSYS_NO_PATHCONV: "1", ...env },
   }));
 }
 
@@ -32,6 +39,52 @@ function connect(options: tls.ConnectionOptions): Promise<tls.TLSSocket> {
     const socket = tls.connect({ host: hostname, port: 443, servername: hostname, ...options }, () => resolve(socket));
     socket.on("error", reject);
   });
+}
+
+type Served = { authorized: boolean; san: string };
+
+/**
+ * What a Traefik on the proxy's image and environment, given only the dynamic files in `dynamic` and
+ * the certificates in `certs` (a volume or a directory), serves for SNI APP_HOSTNAME, checked against
+ * each CA in `cas`. Only the file provider runs: the certificates Traefik holds come from it alone.
+ */
+async function servedFor(
+  image: string,
+  dynamic: string,
+  certs: string,
+  environment: Record<string, string | null>,
+  cas: Record<string, string>,
+): Promise<Record<string, Served>> {
+  const name = `${project}-tls-probe`;
+  run("docker", ["rm", "-f", name], { stdio: "pipe" });
+  const env = Object.entries(environment).flatMap(([k, v]) => ["-e", `${k}=${v ?? ""}`]);
+  docker("run", "-d", "--name", name, "-p", "127.0.0.1::443", ...env,
+    "-v", `${certs}:/etc/certs:ro`, "-v", `${dynamic}:/etc/traefik/dynamic:ro`, image,
+    "--entrypoints.websecure.address=:443", "--entrypoints.websecure.http.tls=true",
+    "--providers.file.directory=/etc/traefik/dynamic");
+  try {
+    const port = Number(docker("port", name, "443/tcp").trim().split(":").pop());
+    const open = (ca?: string) => new Promise<tls.TLSSocket>((resolve, reject) => {
+      const socket = tls.connect({ host: "127.0.0.1", port, servername: hostname, ca, rejectUnauthorized: false }, () => resolve(socket));
+      socket.on("error", reject);
+    });
+    // Until the file provider has loaded, Traefik serves a certificate of its own.
+    await expect.poll(async () => {
+      const socket = await open().catch(() => undefined);
+      const cn = socket?.getPeerCertificate().subject?.CN;
+      socket?.end();
+      return cn === undefined ? "not answering" : cn;
+    }, { timeout: 30_000 }).not.toMatch(/^(not answering|TRAEFIK DEFAULT CERT)$/);
+    const served: Record<string, Served> = {};
+    for (const [label, ca] of Object.entries(cas)) {
+      const socket = await open(ca);
+      served[label] = { authorized: socket.authorized, san: socket.getPeerCertificate().subjectaltname ?? "" };
+      socket.end();
+    }
+    return served;
+  } finally {
+    run("docker", ["rm", "-f", name], { stdio: "pipe" });
+  }
 }
 
 const poweredBy = (response: APIResponse) => response.headers()["x-powered-by"];
@@ -53,6 +106,64 @@ test.describe("stack", () => {
       expect(socket.getPeerCertificate().subjectaltname).toContain(`DNS:${hostname}`);
     } finally {
       socket.end();
+    }
+  });
+
+  // scenario: tls-cert-single-source
+  test.describe("the certificate for APP_HOSTNAME has one source", () => {
+    const mkcertCa = () => docker("exec", container("proxy"), "cat", "/etc/certs/mkcert-ca.crt");
+
+    test("with CERT_RESOLVER set, Traefik holds no mkcert certificate for APP_HOSTNAME", async () => {
+      const proxy = config("proxy", { CERT_RESOLVER: "letsencrypt" }).services.proxy;
+      expect(proxy.environment?.CERT_RESOLVER, "the proxy is given CERT_RESOLVER").toBe("letsencrypt");
+      const dynamic = path.join(appDir, "docker/proxy");
+      const volume = `${project}_certs-data`;
+      const ca = { mkcert: mkcertCa() };
+
+      // The control: on the fallback, the same probe does see the mkcert certificate for APP_HOSTNAME.
+      const fallback = await servedFor(proxy.image!, dynamic, volume, { ...proxy.environment, CERT_RESOLVER: "" }, ca);
+      expect(fallback.mkcert, JSON.stringify(fallback)).toEqual({ authorized: true, san: expect.stringContaining(`DNS:${hostname}`) });
+
+      const resolver = await servedFor(proxy.image!, dynamic, volume, proxy.environment!, ca);
+      expect(resolver.mkcert.authorized, JSON.stringify(resolver)).toBe(false);
+    });
+
+    for (const shell of ["sh", "ps"] as const) {
+      test(`with a third-party certificate installed by install-third-party-cert.${shell === "sh" ? "sh" : "ps1"}, Traefik holds no mkcert certificate for APP_HOSTNAME`, async () => {
+        const services = config("proxy").services;
+        const certs = fs.mkdtempSync(path.join(os.tmpdir(), "aems-tls-certs-"));
+        const fx = new Fixture([`install-third-party-cert.${shell === "sh" ? "sh" : "ps1"}`, "docker/proxy/certs-traefik.yml"]);
+        const dynamic = fs.mkdtempSync(path.join(os.tmpdir(), "aems-tls-dynamic-"));
+        try {
+          // The certs service's files, and a certificate for APP_HOSTNAME from a CA that is not its.
+          docker("run", "--rm", "-v", `${project}_certs-data:/src:ro`, "-v", `${certs}:/out`, services.certs.image!, "sh", "-c",
+            "cp /src/mkcert-* /out/ && " +
+            "mkcert create-ca --key /out/third-ca.key --cert /out/third-ca.crt && " +
+            `mkcert create-cert --ca-key /out/third-ca.key --ca-cert /out/third-ca.crt --key /out/custom.key --cert /out/custom.crt --domain ${hostname}`);
+
+          const crt = path.join(certs, "custom.crt");
+          const key = path.join(certs, "custom.key");
+          const r = shell === "sh"
+            ? fx.sh("install-third-party-cert.sh", "--cert", crt.replace(/\\/g, "/"), "--key", key.replace(/\\/g, "/"), "--skip-restart")
+            : fx.ps("install-third-party-cert.ps1", "-Cert", crt, "-Key", key, "-SkipRestart");
+          expect(r.status, r.out).toBe(0);
+          const installed = fs.readFileSync(path.join(fx.dir, "docker/proxy/certs-traefik.yml"), "utf8");
+          // With two certificates for one name, which one is served varies; the file is what decides.
+          expect(installed, "the file gives Traefik no mkcert certificate for APP_HOSTNAME").not.toContain("mkcert-hostname");
+          fs.writeFileSync(path.join(dynamic, "certs-traefik.yml"), installed);
+
+          const served = await servedFor(services.proxy.image!, dynamic, certs, services.proxy.environment ?? {}, {
+            mkcert: mkcertCa(),
+            installed: fs.readFileSync(path.join(certs, "third-ca.crt"), "utf8"),
+          });
+          expect(served.installed, JSON.stringify(served)).toEqual({ authorized: true, san: expect.stringContaining(`DNS:${hostname}`) });
+          expect(served.mkcert.authorized, JSON.stringify(served)).toBe(false);
+        } finally {
+          fx.dispose();
+          fs.rmSync(dynamic, { recursive: true, force: true });
+          fs.rmSync(certs, { recursive: true, force: true });
+        }
+      });
     }
   });
 

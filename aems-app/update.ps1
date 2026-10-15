@@ -130,7 +130,9 @@ Write-Info "Scrubbing $ENV_FILE to the tracked baseline"
 Reset-EnvToTracked
 
 Write-Info "git pull --ff-only"
-$pullOut = & git pull --ff-only 2>&1 | Out-String
+# A script someone chmod +x'd reads as changed wherever git tracks the executable bit, and the
+# pull would refuse to overwrite it. Its mode is not a change the operator made to keep.
+$pullOut = & git -c core.fileMode=false pull --ff-only 2>&1 | Out-String
 $pullExit = $LASTEXITCODE
 Write-Host $pullOut
 

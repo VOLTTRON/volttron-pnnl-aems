@@ -1,10 +1,13 @@
 tls:
   certificates:
-    # Names APP_HOSTNAME; Traefik picks it by SNI.
+{{- if not (env "CERT_RESOLVER") }}
+    # Names APP_HOSTNAME; Traefik picks it by SNI. Only the fallback: a second certificate for one
+    # hostname makes the one served flip on every reload. install-third-party-cert removes it.
     - certFile: /etc/certs/mkcert-hostname.crt
       keyFile: /etc/certs/mkcert-hostname.key
       stores:
         - default
+{{- end }}
     - certFile: /etc/certs/mkcert-local.crt
       keyFile: /etc/certs/mkcert-local.key
       stores:

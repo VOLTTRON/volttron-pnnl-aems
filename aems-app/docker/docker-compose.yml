@@ -32,6 +32,9 @@ services:
     depends_on:
       certs:
         condition: service_completed_successfully
+    # Read by the template in proxy/certs-traefik.yml.
+    environment:
+      - CERT_RESOLVER=${CERT_RESOLVER}
     hostname: proxy
     image: traefik:v3.6.2
     labels:

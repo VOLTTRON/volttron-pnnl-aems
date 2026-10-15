@@ -40,7 +40,7 @@ None.
 |---|---|
 | `http-redirects-to-https` | :80 redirects to HTTPS |
 | `tls-cert-names-hostname` | the served certificate names `APP_HOSTNAME` |
-| `tls-cert-single-source` | *(owed)* with `CERT_RESOLVER` set, or a third-party certificate installed, Traefik holds no mkcert certificate for `APP_HOSTNAME` |
+| `tls-cert-single-source` | with `CERT_RESOLVER` set, or a third-party certificate installed, Traefik holds no mkcert certificate for `APP_HOSTNAME` |
 | `proxy-config-all-loaded` | no Traefik config file under `docker/proxy/` is shadowed |
 | `proxy-routes-by-path` | the path routing table |
 | `security-headers-present` | X-Frame-Options and X-Content-Type-Options on every router |
