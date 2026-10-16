@@ -1,4 +1,5 @@
 import { test, expect, APIResponse } from "@playwright/test";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -165,6 +166,82 @@ test.describe("stack", () => {
         }
       });
     }
+  });
+
+  // scenario: trust-ca-installs-issuer
+  test.describe("on the mkcert fallback, each trust-ca installs the CA that issued the certificate served for APP_HOSTNAME", () => {
+    /** A deployment directory holding SCRIPT and a .env naming the project under test, where trust-ca finds the proxy. */
+    function deployment(script: string) {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "aems-trust-ca-"));
+      fs.copyFileSync(path.join(appDir, script), path.join(dir, script));
+      fs.writeFileSync(path.join(dir, ".env"), `COMPOSE_PROJECT_NAME=${project}\nAPP_HOSTNAME=${hostname}\n`);
+      return dir;
+    }
+
+    /** What a client trusting only CA makes of the certificate Traefik serves for APP_HOSTNAME. */
+    async function verifies(ca: string): Promise<Served> {
+      const socket = await connect({ ca, rejectUnauthorized: false });
+      try {
+        return { authorized: socket.authorized, san: socket.getPeerCertificate().subjectaltname ?? "" };
+      } finally {
+        socket.end();
+      }
+    }
+
+    test("trust-ca.sh, on a Debian host, adds it to the system trust store", async () => {
+      const dir = deployment("trust-ca.sh");
+      // The host is a Debian container. It has no docker CLI of its own, so this one lists what the
+      // real one lists, and copies out of the proxy's volumes, mounted at the paths the proxy has them.
+      fs.mkdirSync(path.join(dir, "bin"));
+      fs.writeFileSync(path.join(dir, "running"), docker("ps", "--format", "{{.Names}}"));
+      fs.writeFileSync(path.join(dir, "bin/docker"), [
+        "#!/bin/sh",
+        'case "$1" in',
+        "  ps) cat /work/running ;;",
+        `  cp) [ "\${2%%:*}" = "${container("proxy")}" ] && cp "\${2#*:}" "$3" ;;`,
+        "  *) exit 1 ;;",
+        "esac",
+        "",
+      ].join("\n"));
+      fs.writeFileSync(path.join(dir, "bin/sudo"), '#!/bin/sh\nexec "$@"\n');
+      try {
+        const host = config("proxy").services.database.image!;
+        const out = run("docker", ["run", "--rm", "--entrypoint", "sh", "--volumes-from", `${container("proxy")}:ro`,
+          "-v", `${dir}:/work`, "-w", "/work", host, "-c",
+          "chmod +x bin/* && export PATH=/work/bin:$PATH && " +
+          "cp /etc/ssl/certs/ca-certificates.crt before.pem && sh ./trust-ca.sh && cp /etc/ssl/certs/ca-certificates.crt after.pem"]);
+        expect(stripAnsi(out)).toContain("Debian/Ubuntu");
+
+        // The control: until trust-ca runs, the host's store does not trust what Traefik serves.
+        const before = await verifies(fs.readFileSync(path.join(dir, "before.pem"), "utf8"));
+        expect(before.authorized, JSON.stringify(before)).toBe(false);
+        const after = await verifies(fs.readFileSync(path.join(dir, "after.pem"), "utf8"));
+        expect(after, out).toEqual({ authorized: true, san: expect.stringContaining(`DNS:${hostname}`) });
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    test("trust-ca.ps1 imports it into the local machine's trusted roots", async () => {
+      const dir = deployment("trust-ca.ps1");
+      const record = path.join(dir, "imported.json");
+      // A test may not write the machine's trust store: this Import-Certificate records what it is given.
+      const importCertificate =
+        "function Import-Certificate { param([string]$FilePath, [string]$CertStoreLocation) " +
+        `@{ store = $CertStoreLocation; pem = [IO.File]::ReadAllText($FilePath) } | ConvertTo-Json | Set-Content -LiteralPath '${record}'; ` +
+        "[pscustomobject]@{ Subject = 'CN=recorded'; Thumbprint = '0000000000000000000000000000000000000000' } }";
+      try {
+        const r = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+          `${importCertificate}; & .\\trust-ca.ps1; exit $LASTEXITCODE`], { cwd: dir, encoding: "utf8" });
+        const out = (r.stdout ?? "") + (r.stderr ?? "");
+        expect(r.status, out).toBe(0);
+        const imported = JSON.parse(fs.readFileSync(record, "utf8")) as { store: string; pem: string };
+        expect(imported.store).toBe("Cert:\\LocalMachine\\Root");
+        expect(await verifies(imported.pem), out).toEqual({ authorized: true, san: expect.stringContaining(`DNS:${hostname}`) });
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 
   // scenario: proxy-config-all-loaded

@@ -59,18 +59,10 @@ $appHostname    = Get-EnvValue -File $ENV_FILE -Key "APP_HOSTNAME"
 $dryLabel = if ($DryRun) { " (dry-run)" } else { "" }
 Write-Host "`nInstall mkcert CA${dryLabel}`n" -ForegroundColor White
 
-# ── elevation check ────────────────────────────────────────────────────────────
+# ── elevation ──────────────────────────────────────────────────────────────────
+# Read here, and checked only when the import is refused: it is the store that decides.
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
     ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-
-if (-not $isAdmin -and -not $DryRun) {
-    Write-Err "This script must be run from an elevated (Administrator) PowerShell."
-    Write-Host ""
-    Write-Host "  Right-click PowerShell and choose 'Run as administrator', then re-run:"
-    Write-Host "    .\trust-ca.ps1"
-    Write-Host ""
-    exit 1
-}
 
 # ── check proxy container is running ──────────────────────────────────────────
 Write-Info "Looking for container: $proxyContainer"
@@ -95,7 +87,17 @@ Write-Ok "CA cert extracted to $TMP_CA"
 # ── install into Windows trust store ──────────────────────────────────────────
 Write-Info "Installing into Windows Trusted Root Certification Authorities"
 Invoke-OrDry -Description "Import-Certificate -FilePath $TMP_CA -CertStoreLocation Cert:\LocalMachine\Root" -Action {
-    $cert = Import-Certificate -FilePath $TMP_CA -CertStoreLocation Cert:\LocalMachine\Root
+    try {
+        $cert = Import-Certificate -FilePath $TMP_CA -CertStoreLocation Cert:\LocalMachine\Root
+    } catch {
+        if ($isAdmin) { throw }
+        Write-Err "This script must be run from an elevated (Administrator) PowerShell."
+        Write-Host ""
+        Write-Host "  Right-click PowerShell and choose 'Run as administrator', then re-run:"
+        Write-Host "    .\trust-ca.ps1"
+        Write-Host ""
+        exit 1
+    }
     Write-Ok "Installed: $($cert.Subject) [thumbprint: $($cert.Thumbprint.Substring(0,16))...]"
 }
 
