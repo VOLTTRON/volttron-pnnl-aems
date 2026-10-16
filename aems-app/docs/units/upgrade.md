@@ -35,7 +35,7 @@ volttron-sync and controls-ilc.
 
 ## Dependencies
 
-secrets, stack
+secrets, rotation, stack
 
 ## Scenarios
 
