@@ -24,7 +24,7 @@
   "checks": "aems-app/scripts/gate-checks",
   "caps": {
     "aems-app/docs/TRAPS.md": 80,
-    "aems-app/docs/process/WALKTHROUGHS.md": 16,
+    "aems-app/docs/process/WALKTHROUGHS.md": 18,
     "aems-app/CLAUDE.md": 18
   },
 
