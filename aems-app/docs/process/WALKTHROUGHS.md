@@ -1,8 +1,5 @@
 # Walkthroughs
 
-Ordered; the top one is active, and a verified one is **deleted**. Each is one sentence about a start
-from a stated host, done when it happens on a real build with no shortcuts, and named by its sentence.
-
 ## 1. On an existing deployment whose historian logins fail, whose VOLTTRON configuration is stale and whose `.env` holds real values, `update` brings it to a release that changes the tracked `.env` with no hand edits: every historian login succeeds, every VOLTTRON agent runs on the current configuration, and the dashboards show new data.
 
 **Needs:** `historian-logins-verified` `volttron-setup-rerenders` `volttron-store-reconciled`
