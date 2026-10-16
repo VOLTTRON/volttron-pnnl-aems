@@ -6,7 +6,7 @@
 
 The Docker Compose deployment: which containers run, in what order, and how they are reached. It
 guarantees every other unit a running database and a TLS front door on one hostname. It does not own
-credentials — that is `secrets` — or any application behaviour behind the proxy.
+credentials — those are `secrets` and `rotation` — or any application behaviour behind the proxy.
 
 ## Claims
 
