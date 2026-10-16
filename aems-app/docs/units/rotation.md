@@ -1,0 +1,35 @@
+# rotation
+
+**State:** built
+
+## Contract
+
+How a changed credential reaches the services already holding the old one. The value a service is
+deployed with is read from its running container, and where `.env.secrets` differs it is applied there
+and the service recreated. It guarantees every other unit that a credential in its environment is the
+one its peers accept; how the value reaches `.env` is `secrets`.
+
+## Claims
+
+- The deployed value of a credential is read from the running container, never from `.env`, so a
+  `.env` reset to its sentinels under a running stack is re-synced with no rotation and no recreate.
+- A value differing between `.env.secrets` and the running container is applied to the service with
+  the old value (`ALTER ROLE`, `kcadm`, `grafana-cli`) and that service recreated with `up -d
+  --no-deps`; when its container is down the script refuses unless `--force`; `--dry-run` changes nothing.
+- A Postgres role whose stored password matches the sentinel rather than `.env.secrets` is rotated to
+  the `.env.secrets` value without operator action.
+- After any `HISTORIAN_*_PASSWORD` rotation, and after every `start-services`, the VOLTTRON
+  SQLHistorian agent's install-time config matches `historian.config`.
+
+## Dependencies
+
+secrets, stack
+
+## Scenarios
+
+| Name | Proves |
+|---|---|
+| `env-reset-resynced` | a reset `.env` under a running stack re-syncs without rotating |
+| `secrets-rotate-live` | live rotation, refusal when down, `--dry-run` |
+| `pg-shadow-drift-healed` | sentinel-initialised role rotated |
+| `historian-config-reconciled` | SQLHistorian config matches after rotation and deploy |

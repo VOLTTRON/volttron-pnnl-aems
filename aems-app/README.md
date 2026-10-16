@@ -3096,10 +3096,10 @@ docker compose up -d
 3. To prevent recurrence, install the mkcert CA into your OS trust store so the browser never sees an untrusted-cert warning in the first place:
    ```bash
    # Windows (run as Administrator)
-   .\docker\proxy\trust-ca.ps1
+   .\trust-ca.ps1
 
    # Linux/Mac
-   ./docker/proxy/trust-ca.sh
+   ./trust-ca.sh
    ```
 
 **Port Already in Use (port 3000)**
