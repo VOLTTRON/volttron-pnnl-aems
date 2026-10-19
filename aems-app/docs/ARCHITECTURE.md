@@ -75,7 +75,8 @@ a real VOLTTRON platform.
 - **Compose runs from `aems-app/`.** The shim there is what loads the right `.env`.
 - **Yarn 4, never npm**, in prisma, common, server and client — lockfiles and portal links are
   Yarn's. `scripts/` is the one npm package.
-- **Never log credentials, tokens or cookies.** The logger writes to a database table.
+- **Never log credentials, tokens or cookies** — not to the app's logger, which writes to a database
+  table, and not to any container's output, which anyone with `docker logs` reads.
 - **Profile gating is load-bearing.** It is what makes a minimal deployment possible.
 - **Strict TypeScript everywhere**; no module relaxes it.
 - **Ask before anything destructive** — `migrate:reset`, `down -v`, a force-push, a deletion — and do

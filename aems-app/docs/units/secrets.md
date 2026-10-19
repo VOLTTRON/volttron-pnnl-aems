@@ -7,8 +7,9 @@
 How credentials reach the stack's input. `.env` is the single input compose reads, tracked with a
 sentinel for every secret; `.env.secrets` is an optional, gitignored store the operator edits;
 `secrets.sh` / `secrets.ps1` carry one into the other. It guarantees every other unit that `.env`
-holds the operator's values whatever git has done to the checkout; applying a changed value to the
-services holding the old one is `rotation`, and which services use which is no unit's.
+holds the operator's values whatever git has done to the checkout, and that no container prints one
+once it is there; applying a changed value to the services holding the old one is `rotation`, and
+which services use which is no unit's.
 
 ## Claims
 
@@ -27,6 +28,8 @@ services holding the old one is `rotation`, and which services use which is no u
 - `check-env.sh` and `check-env.ps1` report the same findings — an incomplete `.env.secrets`, a
   sentinel `.env` beside a real `.env.secrets` — without blocking startup.
 - `readSecret` reads a plain environment variable with a default.
+- No container prints a credential: after `start-services`, no service's `docker logs` and no file
+  under `docker/volttron/logs/` holds any value `.env.secrets` sets, whichever image the service runs.
 
 ## Dependencies
 
@@ -45,3 +48,4 @@ stack
 | `no-env-export` | no `env.sh`, and no script exports `.env` into the shell |
 | `check-env-warns` | reports without blocking, `.sh` and `.ps1` alike |
 | `read-secret-env` | `readSecret` reads the variable |
+| `no-secret-in-logs` | *(owed)* each `.env.secrets` value, searched for in every service's `docker logs` and in `docker/volttron/logs/` after `start-services`, is found nowhere |
