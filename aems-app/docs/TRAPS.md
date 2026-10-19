@@ -43,6 +43,8 @@ working on the area it names.
   Scripts must read it, not hard-code it.
 - **Two containers with `INSTANCE_TYPE=*` race for the same locks.** One worker per role.
 - **`down -v` deletes the database volume.**
+- **Tier E takes the whole Docker host**, from any checkout: a second run waits for the first, and
+  `test-integration.ps1 -Restore` starts what a killed or `-NoStop` run left stopped.
 - **Images build with the repository root as context**, because the portal chain needs every workspace.
 - **Traefik is v3** (the tag is pinned in `docker/docker-compose.yml`); v2 label syntax does not work.
 - **Two certificates for one hostname make the served one flip on every Traefik reload**, so a cert
