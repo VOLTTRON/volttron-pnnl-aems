@@ -32,6 +32,9 @@ volttron-sync and controls-ilc.
 - Every tracked `.sh` is executable in git, so a fresh clone runs `./update.sh` with no `chmod`.
 - When the pull is refused for any other reason, `update` puts `.env` back in sync, starts nothing,
   and names the reason. `update.sh` and `update.ps1` behave alike.
+- A deployment of a release predating `update` reaches the current release by one command the README
+  names, using only what that release ships, whatever executable bits its scripts were given and
+  whatever it changed in the tracked `.env`. No value is lost, and from then on it updates with `update`.
 
 ## Dependencies
 
@@ -53,3 +56,4 @@ secrets, rotation, stack
 | `update-keeps-env-only-values` | a value held only in `.env` is in `.env.secrets` and `.env` afterwards |
 | `update-refused-pull-safe` | a diverged checkout: `.env` re-synced, nothing started, the reason named |
 | `update-sh-ps1-parity` | `update.sh` and `update.ps1` alike on the three fixtures above |
+| `main-reaches-release` | *(owed)* a checkout at `main`'s tree, scripts `chmod +x`'d, `.env` hand-edited and values in `.env.secrets`, reaches a release changing both by the README's command; every value kept, the stack comes up |
