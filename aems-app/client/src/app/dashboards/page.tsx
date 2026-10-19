@@ -57,7 +57,9 @@ export default function DashboardsPage() {
               <h3>
                 {campus} {building} Site
               </h3>
+              {/* A prefetched dashboard route, opened once its chunks are cached, renders nothing. */}
               <Link
+                prefetch={false}
                 href={`/dashboards/${encodeURIComponent(campus).toLocaleLowerCase()}/${encodeURIComponent(building).toLocaleLowerCase()}/site`}
               >
                 <Card interactive className={styles.card}>
@@ -71,6 +73,7 @@ export default function DashboardsPage() {
               {(units || []).map((unit) => (
                 <Link
                   key={unit.id}
+                  prefetch={false}
                   href={`/dashboards/${encodeURIComponent(campus).toLocaleLowerCase()}/${encodeURIComponent(building).toLocaleLowerCase()}/${encodeURIComponent(unit.system || unit.name || unit.id || "").toLocaleLowerCase()}`}
                 >
                   <Card interactive className={styles.card}>
