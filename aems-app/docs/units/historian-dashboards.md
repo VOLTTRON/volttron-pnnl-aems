@@ -23,6 +23,7 @@ secrets and stack.
 - When the historian is down, a query answers a GraphQL error. An empty or missing topic yields no
   data, not an error.
 - `historianReplicationInfo` is admin-only.
+- A dashboard opened from the `/dashboards` list renders, whatever dashboard was visited before it.
 
 ## Dependencies
 
@@ -38,3 +39,4 @@ site-model, stack
 | `historian-reads-utc` | identical results under two server timezones |
 | `historian-down-or-empty` | down gives an error; empty or missing topic gives no data |
 | `replication-info-admin-only` | a user is refused, an admin is answered |
+| `dashboard-from-list-renders` | *(owed)* every site and unit card on `/dashboards` links to its dashboard without prefetching it |
