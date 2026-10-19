@@ -218,6 +218,68 @@ test.describe("update sh/ps1 parity", () => {
   });
 });
 
+/** main as it stood when update was added: it ships no update.sh and tracks every script 100644. */
+const MAIN = "7c65251ea9b730e0a6ea1fec594c8989c1767f22";
+const MAIN_SCRIPTS = ["start-services.sh", "secrets.sh", "check-env.sh"];
+
+/** The command the README names for a deployment of a release that predates update. */
+function readmeUpgradeCommand(): string {
+  const top = git(appDir, "rev-parse", "--show-toplevel").trim();
+  const readme = fs.readFileSync(path.join(top, "README.md"), "utf8");
+  const m = /<!-- upgrade-from-before-update -->\s*```(?:bash|sh)\r?\n([^\r\n]+)\r?\n```/.exec(readme);
+  expect(m, "the README names one command under <!-- upgrade-from-before-update -->").not.toBeNull();
+  return m![1].trim();
+}
+
+// scenario: main-reaches-release
+test("a deployment of main reaches a release changing .env and its scripts by the README's command", () => {
+  const command = readmeUpgradeCommand();
+  const fromMain = (file: string) => git(appDir, "show", `${MAIN}:aems-app/${file}`);
+
+  fx = new Fixture([]);
+  for (const f of MAIN_SCRIPTS) fx.write(f, fromMain(f));
+  fx.write(".env", fromMain(".env"));
+  fx.git("add", ".env", ...MAIN_SCRIPTS);
+  fx.git("commit", "-qm", "main");
+  for (const f of MAIN_SCRIPTS) chmodOutOfStep(fx, f);
+  // main's operator: a hand edit in .env, and secrets in main's plain .env.secrets.
+  fx.write(".env", fx.text(".env").replace(/^APP_HOSTNAME=.*$/m, "APP_HOSTNAME=aems.example.org"));
+  fx.write(".env.secrets", "SESSION_SECRET=main-session\nJWT_SECRET=main-jwt\n");
+  remote = wireRemote(fx);
+
+  // The release changes the tracked .env and every script, and ships update.sh.
+  advanceRemote(remote, (dir) => {
+    const release = (file: string, content: string | Buffer) => {
+      fs.writeFileSync(path.join(dir, file), content);
+      fs.chmodSync(path.join(dir, file), 0o755);
+      git(dir, "add", file);
+      git(dir, "update-index", "--chmod=+x", file);
+    };
+    for (const f of ["update.sh", "secrets.sh", "check-env.sh"]) release(f, fs.readFileSync(path.join(appDir, f)));
+    // Stands in for start-services: syncs .env as the real one does first, then logs that it ran.
+    const line = JSON.stringify({ argv: ["#start-services"], env: {} });
+    release("start-services.sh", `#!/bin/sh\n./secrets.sh || exit 1\nprintf '%s\\n' '${line}' >> "$FAKE_DOCKER_LOG"\n`);
+    fs.writeFileSync(path.join(dir, ".env"), git(appDir, "show", "HEAD:aems-app/.env") + "\nNEW_KEY=new-default\n");
+  });
+
+  const plain = fx.git("pull", "--ff-only");
+  expect(plain.status, `a plain pull is refused, as on a main host:\n${plain.out}`).not.toBe(0);
+
+  fx.docker({});
+  const r = fx.bash(command);
+  expect(r.status, r.out).toBe(0);
+  expect(fx.git("log", "--format=%s", "-1").out, "the release commit landed").toContain("release change");
+  expect(fx.calls(), fx.calls().join("\n")).toContain("#start-services");
+  const secrets = fx.values(".env.secrets");
+  const env = fx.values(".env");
+  for (const [key, value] of Object.entries({ SESSION_SECRET: "main-session", JWT_SECRET: "main-jwt", APP_HOSTNAME: "aems.example.org" })) {
+    expect(secrets[key], `${key} kept in .env.secrets`).toBe(value);
+    expect(env[key], `${key} reached .env`).toBe(value);
+  }
+  expect(env.NEW_KEY, "the release's .env was pulled").toBe("new-default");
+  expect(fx.git("ls-files", "--error-unmatch", "update.sh").status, "from then on it updates with update").toBe(0);
+});
+
 // scenario: scripts-tracked-executable
 test("every tracked .sh has mode 100755", () => {
   const top = git(appDir, "rev-parse", "--show-toplevel").trim();

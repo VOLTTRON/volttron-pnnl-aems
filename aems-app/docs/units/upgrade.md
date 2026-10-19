@@ -56,4 +56,4 @@ secrets, rotation, stack
 | `update-keeps-env-only-values` | a value held only in `.env` is in `.env.secrets` and `.env` afterwards |
 | `update-refused-pull-safe` | a diverged checkout: `.env` re-synced, nothing started, the reason named |
 | `update-sh-ps1-parity` | `update.sh` and `update.ps1` alike on the three fixtures above |
-| `main-reaches-release` | *(owed)* a checkout at `main`'s tree, scripts `chmod +x`'d, `.env` hand-edited and values in `.env.secrets`, reaches a release changing both by the README's command; every value kept, the stack comes up |
+| `main-reaches-release` | a checkout at `main`'s tree, scripts `chmod +x`'d, `.env` hand-edited and values in `.env.secrets`, reaches a release changing both by the README's command; every value kept, the stack comes up |
