@@ -185,11 +185,17 @@ Day-to-day operations are driven by a set of helper scripts at the root of `aems
 
 ```bash
 cd aems-app
-git stash
-git pull
-git stash pop
 docker compose pull          # if you deploy from prebuilt images
-./start-services.sh          # rebuilds, brings stack up, runs DB migrations via the init container
+./update.sh                  # keeps .env edits in .env.secrets, pulls, then runs ./start-services.sh
+```
+
+Never update with a bare `git pull`: a synced `.env` and `chmod +x`'d scripts make it refuse. `update.ps1` does the same on Windows.
+
+A deployment of a release that predates `update.sh` runs this once instead, from `aems-app/`. It fetches the release and runs the release's own `update.sh`, keeping every value in `.env` and `.env.secrets`; from then on, update with `./update.sh`.
+
+<!-- upgrade-from-before-update -->
+```bash
+git fetch && sh -c "$(git show @{u}:./update.sh)"
 ```
 
 **Always verify a successful backup exists** in the `/backups` Runs tab immediately before applying an update. Migrations are forward-only.

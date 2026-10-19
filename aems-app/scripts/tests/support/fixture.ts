@@ -92,6 +92,12 @@ export class Fixture {
     return { status: r.status ?? -1, out: (r.stdout ?? "") + (r.stderr ?? "") };
   }
 
+  /** COMMAND as an operator types it at a bash prompt in the fixture. */
+  bash(command: string): Result {
+    const r = spawnSync("bash", ["-c", command], { cwd: this.dir, env: this.env(this.shBin), encoding: "utf8" });
+    return { status: r.status ?? -1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  }
+
   ps(script: string, ...args: string[]): Result {
     const r = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", `.\\${script}`, ...args], {
       cwd: this.dir,
