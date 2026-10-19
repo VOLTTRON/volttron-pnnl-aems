@@ -10,6 +10,8 @@ param(
     [switch]$NoBuild,
     [switch]$NoStart,
     [switch]$NoStop,
+    [switch]$Restore,
+    [int]$WaitMinutes = 90,
     [switch]$Help
 )
 
@@ -20,8 +22,12 @@ if ($Help) {
     Write-Host "write an HTML report, then stop the stack."
     Write-Host ""
     Write-Host "The stack runs as its own compose project on its own volumes, started cold:"
-    Write-Host "its volumes are removed first. Containers of any other project holding the"
-    Write-Host "stack's host ports are stopped for the run and started again afterwards."
+    Write-Host "its volumes are removed first. Every running container of any other compose"
+    Write-Host "project is stopped for the run and started again afterwards."
+    Write-Host ""
+    Write-Host "One run holds the Docker host at a time, whichever checkout it runs from: a"
+    Write-Host "second run waits for the first. The containers a run stops are recorded on"
+    Write-Host "disk, so a run that is killed, or kept up with -NoStop, leaves them to -Restore."
     Write-Host ""
     Write-Host "Options:"
     Write-Host "  -Project NAME   Compose project to test as (default: aems-test). Never the"
@@ -31,6 +37,9 @@ if ($Help) {
     Write-Host "  -NoBuild        Skip 'docker compose build' (use existing images)"
     Write-Host "  -NoStart        Don't start the stack (assume it's already running)"
     Write-Host "  -NoStop         Don't stop the stack after tests (useful for debugging)"
+    Write-Host "  -Restore        Stop the stack under test and start the containers a run"
+    Write-Host "                  stopped and did not start again; then exit"
+    Write-Host "  -WaitMinutes N  How long to wait for another run to finish (default: 90)"
     Write-Host "  -Help           Show this help message"
     Write-Host ""
     Write-Host "Reads from:"
@@ -45,6 +54,15 @@ $StartingPath = Get-Location
 $StackStarted = $false
 $TestExit = 0
 $Parked = @()
+
+# Every checkout tests as the same project on the same host ports, so overlapping runs would wipe
+# each other's stack. A named mutex serializes them, and is released by Windows if its holder dies.
+$LockName = "Global\aems-integration-test"
+$StateDir = Join-Path $env:LOCALAPPDATA "aems-integration-test"
+$ParkedFile = Join-Path $StateDir "parked.txt"
+$HolderFile = Join-Path $StateDir "holder.txt"
+$Lock = $null
+$LockHeld = $false
 
 function Write-Blue($msg)   { Write-Host $msg -ForegroundColor Blue }
 function Write-Cyan($msg)   { Write-Host $msg -ForegroundColor Cyan }
@@ -85,6 +103,37 @@ function Wait-ForUrl($url, $label, $timeoutSeconds = 600) {
     throw "Timed out waiting for $label after ${timeoutSeconds}s"
 }
 
+function Enter-HostLock {
+    $script:Lock = New-Object System.Threading.Mutex($false, $LockName)
+    $waited = 0
+    while ($true) {
+        try {
+            $got = $script:Lock.WaitOne(60000)
+        } catch {
+            # A holder that died without releasing hands the mutex over as abandoned: it is ours.
+            $e = $_.Exception
+            while ($e -and -not ($e -is [System.Threading.AbandonedMutexException])) { $e = $e.InnerException }
+            if (-not $e) { throw }
+            $got = $true
+        }
+        if ($got) { break }
+        $waited++
+        $holder = if (Test-Path $HolderFile) { (Get-Content $HolderFile -Raw).Trim() } else { "unknown" }
+        if ($waited -ge $WaitMinutes) {
+            throw "another integration run still holds the Docker host after ${waited}m ($holder)"
+        }
+        Write-Yellow "Another integration run holds the Docker host ($holder); waited ${waited}m of ${WaitMinutes}m..."
+    }
+    $script:LockHeld = $true
+    New-Item -ItemType Directory -Path $StateDir -Force | Out-Null
+    "pid $PID from $StartingPath since $(Get-Date -Format s)" | Set-Content $HolderFile
+}
+
+function Read-Parked {
+    if (-not (Test-Path $ParkedFile)) { return @() }
+    return @(Get-Content $ParkedFile | Where-Object { $_ })
+}
+
 try {
     # ── Load environment ───────────────────────────────────────────────────────
 
@@ -110,6 +159,15 @@ try {
     Write-Cyan "  Project:       $Project$(if ($Warm) { ' (warm)' } else { ' (cold)' })"
     Write-Cyan "  Report:        scripts\playwright-report\index.html"
 
+    if ($Restore) {
+        Enter-HostLock
+        $Parked = @(Read-Parked)
+        # The finally block stops the stack, which frees the ports, then starts what was parked.
+        $StackStarted = $true
+        $NoStop = $false
+        return
+    }
+
     # ── Install test dependencies ──────────────────────────────────────────────
 
     Set-Location scripts
@@ -122,19 +180,24 @@ try {
     }
     Set-Location $StartingPath
 
+    Enter-HostLock
+
     # ── Start the stack ────────────────────────────────────────────────────────
 
     if (-not $NoStart) {
         # Another project's running containers hold the host ports this stack publishes.
         # PowerShell 5.1 strips quotes inside native arguments, so the label is parsed here rather
         # than selected with {{.Label "..."}}.
-        $Parked = @(docker ps --format '{{.ID}}|{{.Labels}}' |
+        $Running = @(docker ps --format '{{.ID}}|{{.Labels}}' |
             Where-Object { $_ -match '^(\w+)\|.*\bcom\.docker\.compose\.project=([^,]+)' -and $Matches[2] -ne $Project } |
             ForEach-Object { ($_ -split '\|')[0] })
         if ($LASTEXITCODE -ne 0) { throw "docker ps failed" }
-        if ($Parked.Count -gt 0) {
-            Write-Blue "Stopping $($Parked.Count) container(s) of other compose projects for the run..."
-            docker stop $Parked | Out-Null
+        # A run that was killed, or kept up with -NoStop, left its parked containers still stopped.
+        $Parked = @(@(Read-Parked) + $Running | Select-Object -Unique)
+        $Parked | Set-Content $ParkedFile
+        if ($Running.Count -gt 0) {
+            Write-Blue "Stopping $($Running.Count) container(s) of other compose projects for the run..."
+            docker stop $Running | Out-Null
         }
 
         if (-not $Warm) {
@@ -222,10 +285,22 @@ try {
     }
     # -NoStop keeps the stack under test up, which still holds the ports; if it never came up,
     # nothing holds them and the parked containers go back regardless.
+    $Restored = $false
     if ($Parked.Count -gt 0 -and (-not $NoStop -or -not $StackStarted)) {
         Write-Blue "Starting the $($Parked.Count) container(s) stopped for the run..."
-        docker start $Parked | Out-Null
+        docker start $Parked 2>&1 | Out-Null
+        $Restored = $LASTEXITCODE -eq 0
     }
+    if ($LockHeld) {
+        if ($Restored -or ($Parked.Count -eq 0 -and -not $NoStart)) {
+            Remove-Item $ParkedFile -ErrorAction SilentlyContinue
+        } elseif ($Parked.Count -gt 0) {
+            Write-Yellow "$($Parked.Count) container(s) stopped for the run are still stopped; start them with: .\test-integration.ps1 -Restore"
+        }
+        Remove-Item $HolderFile -ErrorAction SilentlyContinue
+        $Lock.ReleaseMutex()
+    }
+    if ($Lock) { $Lock.Dispose() }
     Remove-Item Env:\COMPOSE_PROJECT_NAME -ErrorAction SilentlyContinue
 }
 
