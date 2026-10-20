@@ -18,6 +18,9 @@ VOLTTRON, to volttron-client; recording who changed what, to change-log.
   `set_occupancy_override`, `set_holidays`, `set_schedule`, `set_service_schedule`,
   `set_optimal_start`, `set_configurations` and `set_location`, in that order. The unit then moves to
   Complete.
+- Against the platform the `volttron` profile deploys, through whichever API it serves, a pushed unit
+  reaches Complete and its `manager.<system>` agent's configuration store then holds what was sent;
+  a pushed control reaches Complete through `agent.ilc`.
 - Any failed call moves the unit to Fail instead, with the error as its message, cut to 1024
   characters. A failed `set_service_schedule` is the exception: it is logged and the push carries on.
 - A unit or control in Fail stays there until someone edits it or pushes it again. Nothing retries it.
@@ -35,6 +38,7 @@ site-model, background, volttron-client
 |---|---|
 | `ilc-templates-reread` | templates re-read on the cron and on preview |
 | `unit-push-sequence` | Process, the eight calls in order, then Complete |
+| `push-reaches-platform` | *(owed)* on the deployed `volttron` container, unmocked: a unit pushed to Complete, its agent's store holding the values sent; a control pushed to Complete |
 | `unit-push-fail-message` | a failed call gives Fail with the cut message; service schedule alone does not |
 | `fail-not-retried` | a Fail unit or control is not pushed again without an edit or push |
 | `edit-during-push-repushed` | an edit saved mid-push is pushed after; the push does not mark it Complete |
