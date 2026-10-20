@@ -285,7 +285,7 @@ export const printEnvironment = (options?: {
       (a, [k, v]) => ({
         ...a,
         [k]: `${
-          /password|secret/i.test(k)
+          /password|secret|token$/i.test(k)
             ? ["SeT_tHiS_iN_0x3A-.env.secrets-"].includes(v ?? "")
               ? `\x1b[31mWARNING\x1b[0m: Value should be changed for production!`
               : "********"

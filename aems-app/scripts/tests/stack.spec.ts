@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import tls from "node:tls";
-import { Fixture } from "./support/fixture";
+import { Fixture, PLACEHOLDER } from "./support/fixture";
 import {
   appDir,
   compose,
@@ -458,5 +458,77 @@ test.describe("stack", () => {
     const agents = lines.filter((l) => l.includes("agent: "));
     expect(agents.find((l) => l.includes("platform.historian")), out).toMatch(/\bGOOD\b/);
     for (const agent of agents) expect(agent, out).toMatch(/^\s+(GOOD|NOT HEALTHY)\s+agent: \S/);
+  });
+
+  // Runs late, after deploy-report, so VOLTTRON setup has finished writing to docker/volttron/logs/.
+  // scenario: no-secret-in-logs
+  test("no container's docker logs and no volttron log file holds the value any sentinel key is deployed with", () => {
+    // The sentinel keys of the tracked .env, read from HEAD: a working-tree .env with real values
+    // overlaid by start-services still tracks the same keys as sentinels.
+    const envHead = run("git", ["show", "HEAD:aems-app/.env"]);
+    const sentinelKeys = new Set(
+      envHead.split(/\r?\n/).filter((l) => l.endsWith(`=${PLACEHOLDER}`)).map((l) => l.split("=")[0]),
+    );
+    expect(sentinelKeys.size, "the tracked .env holds sentinel keys").toBeGreaterThan(0);
+
+    const names = docker("ps", "-a", "--filter", `label=com.docker.compose.project=${project}`, "--format", "{{.Names}}")
+      .split(/\s+/).filter(Boolean);
+    expect(names.length, "the stack under test is running").toBeGreaterThan(0);
+
+    // For each sentinel key, the value a running container holds it with: on a sentinel stack
+    // that is PLACEHOLDER for every key; on a real-value stack it is each real secret.
+    const deployed = new Set<string>();
+    for (const name of names) {
+      const env = JSON.parse(inspect(name, "{{json .Config.Env}}")) as string[];
+      for (const line of env) {
+        const idx = line.indexOf("=");
+        if (idx < 0) continue;
+        const key = line.slice(0, idx);
+        const value = line.slice(idx + 1);
+        if (sentinelKeys.has(key) && value !== "") deployed.add(value);
+      }
+    }
+    expect(deployed.size, "a sentinel key is deployed to some container by its own name").toBeGreaterThan(0);
+
+    let hits: string[] = [];
+    const scan = (source: string, text: string) => {
+      for (const value of deployed) {
+        if (!text.includes(value)) continue;
+        const line = text.split(/\r?\n/).find((l) => l.includes(value)) ?? "";
+        hits.push(`${source}: ${line.slice(0, 240)}`);
+      }
+    };
+
+    // The control: a known leak embedded in a synthetic log must be found before the real check
+    // is trusted. Guards whose failure path is never observed are decoration.
+    scan("control", `benign line\nleak ${[...deployed][0]} embedded\nmore benign\n`);
+    expect(hits.length, "the scan catches a known leak").toBeGreaterThan(0);
+    hits = [];
+
+    for (const name of names) {
+      let logs = "";
+      try {
+        logs = run("docker", ["logs", name]);
+      } catch (error) {
+        const e = error as { stdout?: string; stderr?: string };
+        logs = (e.stdout ?? "") + (e.stderr ?? "");
+      }
+      scan(`docker logs ${name}`, logs);
+    }
+
+    // docker/volttron/logs/ is a bind mount shared across compose projects, so files predating
+    // the volttron container's start belong to earlier runs and are out of scope.
+    const logsDir = path.join(appDir, "docker", "volttron", "logs");
+    if (fs.existsSync(logsDir)) {
+      const cutoff = Date.parse(inspect(container("volttron"), "{{.State.StartedAt}}")) - 2000;
+      for (const entry of fs.readdirSync(logsDir, { withFileTypes: true })) {
+        if (!entry.isFile()) continue;
+        const file = path.join(logsDir, entry.name);
+        if (fs.statSync(file).mtimeMs < cutoff) continue;
+        scan(`volttron/logs/${entry.name}`, fs.readFileSync(file, "utf8"));
+      }
+    }
+
+    expect(hits, hits.join("\n")).toEqual([]);
   });
 });
