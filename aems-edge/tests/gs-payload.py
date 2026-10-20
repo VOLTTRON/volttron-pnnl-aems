@@ -21,9 +21,22 @@
 #
 # ===----------------------------------------------------------------------===
 # }}}
+"""
+Exercise the Manager agent's RPC methods through the VOLTTRON web service.
+
+Calls go through the VOLTTRON User Interface (VUI) API,
+
+    POST <server>/vui/platforms/<platform>/agents/<agent>/rpc/<method>
+
+with the method's keyword arguments as the JSON body and an access token from
+POST <server>/authenticate as a bearer header. The web user must belong to the
+``admin`` and ``vui`` groups. The former ``/gs`` JSON-RPC gateway no longer
+forwards agent RPC.
+"""
 import argparse
 import json
 import subprocess
+from urllib.parse import quote
 
 import requests
 import urllib3
@@ -61,29 +74,24 @@ def execute(cmd: str | list[str], write_to=None):
 __auth__ = None
 
 
-def make_request(*, method: str, payload: dict,
-                 agent: str = 'manager.schneider'):
+def make_request(*, method: str, payload: dict, agent: str):
     global __auth__
     if not __auth__:
-        resp = requests.post('https://130.20.24.164:8443/authenticate',
-                             data={'username': 'admin', 'password': 'admin'},
+        resp = requests.post(f'{args.server}/authenticate',
+                             json={'username': args.username,
+                                   'password': args.password},
                              verify=False)
+        resp.raise_for_status()
         __auth__ = resp.json()['access_token']
 
-    rpc_payload = {
-        'jsonrpc': '2.0',
-        'id': agent,
-        'method': method,
-        'params': {
-            'authentication': __auth__,
-            'data': payload
-        }
-    }
+    url = (f'{args.server}/vui/platforms/{quote(args.platform, safe="")}'
+           f'/agents/{quote(agent, safe="")}/rpc/{quote(method, safe="")}')
     print('x' * 80)
-    print(method)
+    print(f'{method} -> {url}')
 
-    resp = requests.post('https://130.20.24.164:8443/gs',
-                         json=rpc_payload, verify=False)
+    resp = requests.post(url, json={'data': payload},
+                         headers={'Authorization': f'Bearer {__auth__}'},
+                         verify=False)
     return resp.status_code, resp.text
 
 
@@ -105,16 +113,13 @@ def check_results(*, payload, response_text, agent: str, get_method: str):
     print(f'Config Store:\n{json.dumps(config_obj, indent=4)}\n')
 
 
-agent = 'manager.schneider'
-
-
 def set_temperature_setpoints():
     config_store_entry = 'set_points'
 
     payload = {'UnoccupiedHeatingSetPoint': 50, 'UnoccupiedCoolingSetPoint': 78,
             'DeadBand': 3, 'OccupiedSetPoint': 71}
     code, text = make_request(method='set_temperature_setpoints',
-                              payload=payload)
+                              payload=payload, agent=agent)
     check_results(payload=payload, response_text=text,
                   agent=agent, get_method=config_store_entry)
 
@@ -140,7 +145,7 @@ def set_schedule():
     }
     config_store_entry = 'schedule'
     code, text = make_request(method='set_schedule',
-                              payload=payload)
+                              payload=payload, agent=agent)
     check_results(payload=payload, response_text=text,
                   agent=agent, get_method=config_store_entry)
 
@@ -152,7 +157,7 @@ def set_occupancy_override():
     payload = {}
     config_store_entry = 'occupancy_overrides'
     code, text = make_request(method='set_occupancy_override',
-                              payload=payload)
+                              payload=payload, agent=agent)
     check_results(payload=payload, response_text=text,
                   agent=agent, get_method=config_store_entry)
 
@@ -180,7 +185,7 @@ def set_holidays():
     }
     config_store_entry = 'holidays'
     code, text = make_request(method='set_holidays',
-                              payload=payload)
+                              payload=payload, agent=agent)
     check_results(payload=payload, response_text=text,
                   agent=agent, get_method=config_store_entry)
 
@@ -195,7 +200,7 @@ def set_optimal_start():
     }
     config_store_entry = 'optimal_start'
     code, text = make_request(method='set_optimal_start',
-                              payload=payload)
+                              payload=payload, agent=agent)
     check_results(payload=payload, response_text=text,
                   agent=agent, get_method=config_store_entry)
 
@@ -210,13 +215,22 @@ def set_configuration():
     }
     config_store_entry = 'control'
     code, text = make_request(method='set_configurations',
-                              payload=payload)
+                              payload=payload, agent=agent)
     check_results(payload=payload, response_text=text,
                   agent=agent, get_method=config_store_entry)
 
 
 # Create an argument parser
 parser = argparse.ArgumentParser(description='Run specific functions')
+parser.add_argument('--server', required=False, type=str,
+                    default='https://localhost:8443',
+                    help='Base URL of the VOLTTRON web service')
+parser.add_argument('--platform', required=False, type=str,
+                    default='volttron1',
+                    help='VOLTTRON platform instance name')
+parser.add_argument('--username', required=False, type=str, default='admin',
+                    help='Web user in the admin and vui groups')
+parser.add_argument('--password', required=False, type=str, default='admin')
 parser.add_argument('--agent', required=False, type=str,
                     default='manager.schneider',
                     help='Specify which agent to run against')

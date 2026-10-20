@@ -6,6 +6,37 @@ import { Inject, Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { inspect } from "node:util";
 import { Agent, fetch } from "undici";
 
+/**
+ * An HTTP-level failure from the VOLTTRON web service. Carries the status so the
+ * retry loop can tell a transient server error from a request VOLTTRON refused.
+ */
+export class VolttronHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "VolttronHttpError";
+  }
+}
+
+/** The agent accepted the call but returned `false`, its signal that the payload was rejected. */
+export class AgentFailureError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AgentFailureError";
+  }
+}
+
+/**
+ * Client for the VOLTTRON web service.
+ *
+ * Authentication uses `POST /authenticate`. Agent RPC uses the VOLTTRON User Interface (VUI) API:
+ * `POST /vui/platforms/:platform/agents/:vip_identity/rpc/:method` with the RPC keyword arguments
+ * as the JSON body and the access token as a bearer header. The response body is the raw RPC
+ * return value. The former `/gs` JSON-RPC gateway is restricted to VOLTTRON Central's own
+ * read-only calls (monolithic) or removed (modular) and can no longer reach application agents.
+ */
 @Injectable()
 export class VolttronService implements OnModuleDestroy {
   private logger = new Logger(VolttronService.name);
@@ -27,6 +58,28 @@ export class VolttronService implements OnModuleDestroy {
     });
   }
 
+  /**
+   * Base URL of the VOLTTRON web service, without a trailing slash. A legacy value that still
+   * names the retired `/gs` gateway is accepted, with a warning, so an un-migrated deployment
+   * keeps working.
+   */
+  private baseUrl(): string {
+    let url = (this.configService.service.config.apiUrl ?? "").trim().replace(/\/+$/, "");
+    if (/\/gs$/i.test(url)) {
+      url = url.replace(/\/gs$/i, "");
+      this.logger.warn(
+        `SERVICE_CONFIG_API_URL still ends in "/gs". That gateway no longer forwards agent RPC; using "${url}" as the VOLTTRON web service base URL instead.`,
+      );
+    }
+    return url;
+  }
+
+  /** URL of the VUI RPC endpoint for one method on one agent of the configured platform. */
+  rpcUrl(id: string, method: string): string {
+    const platform = encodeURIComponent(this.configService.service.config.platform);
+    return `${this.baseUrl()}/vui/platforms/${platform}/agents/${encodeURIComponent(id)}/rpc/${encodeURIComponent(method)}`;
+  }
+
   private async parseJsonResponseOrThrow(
     response: Awaited<ReturnType<typeof fetch>>,
     context: string,
@@ -36,7 +89,10 @@ export class VolttronService implements OnModuleDestroy {
       return text.length > 256 ? `${text.slice(0, 253)}…` : text;
     };
     if (!response.ok) {
-      throw new Error(`${context}: HTTP ${response.status} ${response.statusText} — ${await previewBody()}`);
+      throw new VolttronHttpError(
+        `${context}: HTTP ${response.status} ${response.statusText} — ${await previewBody()}`,
+        response.status,
+      );
     }
     const ct = response.headers.get("content-type") ?? "";
     if (!ct.toLowerCase().includes("application/json")) {
@@ -67,57 +123,60 @@ export class VolttronService implements OnModuleDestroy {
     return json.access_token;
   }
 
-  async makeApiCall(id: string, method: string, token: string, data: any) {
+  /**
+   * Call `method` on the agent with VIP identity `id`, passing `data` as the method's single
+   * keyword argument. Resolves to the RPC return value. Rejects if VOLTTRON refuses or fails
+   * the call, or if the agent reports failure by returning `false`.
+   */
+  async makeApiCall(id: string, method: string, token: string, data: any): Promise<any> {
     if (this.configService.volttron.mocked) {
       this.logger.log(`Mocked Volttron API call: ${method}\nData: ${inspect(data)}`);
-      return { jsonrpc: "2.0", id: id, result: {} };
+      return true;
     }
 
     // Use retry logic for API calls
     return this.makeApiCallWithRetry(id, method, token, data);
   }
 
+  /** Only transient failures are retried: network errors and 5xx responses. */
+  private isRetryable(error: unknown): boolean {
+    if (error instanceof VolttronHttpError) {
+      return error.status >= 500;
+    }
+    return !(error instanceof AgentFailureError);
+  }
+
   private async makeApiCallWithRetry(id: string, method: string, token: string, data: any, attempt = 0): Promise<any> {
-    const body = {
-      jsonrpc: "2.0",
-      id: id,
-      method: method,
-      params: {
-        authentication: token,
-        data: data,
-      },
-    };
+    const url = this.rpcUrl(id, method);
+    const body = { data: data };
 
     try {
       if (this.configService.service.config.verbose) {
-        this.logger.log(inspect({ url: this.configService.service.config.apiUrl, body: body }, undefined, 10));
+        this.logger.log(inspect({ url: url, body: body }, undefined, 10));
       }
 
-      const response = await fetch(`${this.configService.service.config.apiUrl}`, {
+      const response = await fetch(url, {
         method: "POST",
         body: JSON.stringify(body),
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         dispatcher: this.agent,
       });
 
-      const json: any = await this.parseJsonResponseOrThrow(response, `Volttron API ${method}`);
+      const result: any = await this.parseJsonResponseOrThrow(response, `Volttron API ${method}`);
 
       if (this.configService.service.config.verbose) {
-        this.logger.log(inspect({ url: this.configService.service.config.apiUrl, response: json }, undefined, 10));
+        this.logger.log(inspect({ url: url, response: result }, undefined, 10));
       }
 
-      if (typeof json?.result === "string") {
-        throw new Error(`Failed Volttron API ${method} call: ${inspect(json)}`);
-      } else if (!json?.result) {
-        throw new Error(`Failed Volttron API ${method} call.`);
+      if (result === false) {
+        throw new AgentFailureError(`Failed Volttron API ${method} call: agent ${id} reported failure.`);
       }
 
-      return json;
+      return result;
     } catch (error: unknown) {
       const isLastAttempt = attempt >= this.maxRetries - 1;
 
-      // Don't retry authentication errors or if we've exhausted retries
-      if (isLastAttempt || (error instanceof Error && error.message.includes("Auth"))) {
+      if (isLastAttempt || !this.isRetryable(error)) {
         throw error;
       }
 
