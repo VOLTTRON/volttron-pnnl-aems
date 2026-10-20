@@ -29,8 +29,8 @@ which services use which is no unit's.
   sentinel `.env` beside a real `.env.secrets` — without blocking startup.
 - `readSecret` reads a plain environment variable with a default.
 - No container prints a credential: after `start-services`, no service's `docker logs` and no file
-  under `docker/volttron/logs/` holds any value `.env.secrets` sets, whichever image the service runs.
-  **Open:** what does tier E search for, and where does the stack under test get it? It runs on the checkout's own `.env.secrets`: in the build lane 18 of its 19 entries are blank, so every service carries the one shared sentinel and nothing is searched for, and the 19th is `VOLTTRON_PASSWORD=admin`, the tracked default, which Keycloak's log prints as its admin user. `secrets.sh:69` hard-codes `SECRETS_FILE=".env.secrets"`, so the test project has no values of its own.
+  under `docker/volttron/logs/` holds the value any key `.env` tracks as the sentinel is deployed
+  with, whichever image the service runs.
 
 ## Dependencies
 
@@ -49,4 +49,4 @@ stack
 | `no-env-export` | no `env.sh`, and no script exports `.env` into the shell |
 | `check-env-warns` | reports without blocking, `.sh` and `.ps1` alike |
 | `read-secret-env` | `readSecret` reads the variable |
-| `no-secret-in-logs` | *(owed)* each `.env.secrets` value, searched for in every service's `docker logs` and in `docker/volttron/logs/` after `start-services`, is found nowhere |
+| `no-secret-in-logs` | *(owed)* the value each sentinel key is deployed with, read from the running containers, is found in no service's `docker logs` and no file under `docker/volttron/logs/` after `start-services` |
