@@ -26,9 +26,9 @@ volttron-sync and controls-ilc.
   states are a historian role on a stale password, and a VOLTTRON store holding configs older than
   the rendered ones.
 - `update` takes a deployment to the release whatever the release changed in the tracked `.env`: it
-  carries every `.env` value differing from the tracked version into `.env.secrets`, scrubs, pulls
-  with `--ff-only`, and runs `start-services`. The pull is never refused over `.env`, or over the
-  executable bit on tracked scripts, and no value is lost.
+  carries into `.env.secrets` every `.env` value differing from the tracked version and every one the
+  release turns into the sentinel, scrubs, pulls with `--ff-only`, and runs `start-services`. The pull
+  is never refused over `.env`, or over the executable bit on tracked scripts, and no value is lost.
 - Every tracked `.sh` is executable in git, so a fresh clone runs `./update.sh` with no `chmod`.
 - When the pull is refused for any other reason, `update` puts `.env` back in sync, starts nothing,
   and names the reason. `update.sh` and `update.ps1` behave alike.
@@ -54,6 +54,7 @@ secrets, rotation, stack
 | `update-ignores-exec-bit` | a checkout whose scripts were `chmod +x`'d pulls a release changing them, and the stack comes up |
 | `scripts-tracked-executable` | every tracked `.sh` has mode 100755 |
 | `update-keeps-env-only-values` | a value held only in `.env` is in `.env.secrets` and `.env` afterwards |
+| `update-keeps-sentinelled-default` | *(owed)* `.env` on a tracked real default and `.env.secrets` without the key; a release sentinels it: `.env.secrets` and `.env` hold the old default afterwards |
 | `update-refused-pull-safe` | a diverged checkout: `.env` re-synced, nothing started, the reason named |
 | `update-sh-ps1-parity` | `update.sh` and `update.ps1` alike on the three fixtures above |
 | `main-reaches-release` | a checkout at `main`'s tree, scripts `chmod +x`'d, `.env` hand-edited and values in `.env.secrets`, reaches a release changing both by the README's command; every value kept, the stack comes up |
