@@ -722,6 +722,11 @@ services:
         condition: service_completed_successfully
     environment:
       - TZ=${VOLTTRON_TIMEZONE:-UTC}
+      # The volttron image runs `printenv` on startup. The historian password is baked
+      # into /home/volttron/configurations/historian.config by volttron-setup, so the
+      # runtime container does not read it from the environment: unset it here so it
+      # cannot be leaked to docker logs.
+      - HISTORIAN_DATABASE_PASSWORD=
     env_file:
       - .env.volttron
     hostname: volttron

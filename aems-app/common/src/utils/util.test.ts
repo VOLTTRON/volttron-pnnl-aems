@@ -744,6 +744,22 @@ describe("printEnvironment", () => {
     expect(parsed.DB_PASSWORD).toContain("WARNING");
   });
 
+  it("masks keys ending in TOKEN", () => {
+    process.env.WORKER_TOKEN = "mytoken";
+    const messages: string[] = [];
+    printEnvironment({ printable: (m) => messages.push(m) });
+    const parsed = JSON.parse(messages[0]) as Record<string, string>;
+    expect(parsed.WORKER_TOKEN).toBe("********");
+  });
+
+  it("leaves a TOKEN_URL key unchanged", () => {
+    process.env.KEYCLOAK_TOKEN_URL = "https://keycloak.example.com/realms/x/protocol/openid-connect/token";
+    const messages: string[] = [];
+    printEnvironment({ printable: (m) => messages.push(m) });
+    const parsed = JSON.parse(messages[0]) as Record<string, string>;
+    expect(parsed.KEYCLOAK_TOKEN_URL).toBe("https://keycloak.example.com/realms/x/protocol/openid-connect/token");
+  });
+
   it("masks embedded password in a URL key", () => {
     process.env.DATABASE_URL = "postgres://user:secretpass@localhost/db";
     const messages: string[] = [];
