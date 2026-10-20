@@ -18,10 +18,16 @@ through belong here.
   `set_occupancy_override`, `set_holidays`, `set_schedule`, `set_service_schedule`,
   `set_optimal_start`, `set_configurations` and `set_location`, in that order. The unit then moves to
   Complete.
+- Each agent call is a POST to VOLTTRON's VUI API,
+  `<SERVICE_CONFIG_API_URL>/vui/platforms/<SERVICE_CONFIG_PLATFORM>/agents/<identity>/rpc/<method>`,
+  with the payload as the method's `data` argument and the access token from `/authenticate` as a
+  bearer header. The response body is the agent's return value. The retired `/gs` JSON-RPC gateway
+  is never used; a base URL that still ends in `/gs` is accepted, with a warning, as the base URL.
 - Any failed call moves the unit to Fail instead, with the error as its message, cut to 1024
   characters. A failed `set_service_schedule` is the exception: it is logged and the push carries on.
-- Each call to VOLTTRON is tried up to three times, 1 s then 2 s apart. A non-2xx or non-JSON
-  response is a failure, and so is a result that is missing or a string.
+- A call VOLTTRON could not complete, a network error, a 5xx or a non-JSON response, is tried up to
+  three times, 1 s then 2 s apart. A call VOLTTRON refused with a 4xx, or that the agent answered
+  with `false`, fails at once and is not retried.
 - A unit or control in Fail stays there until someone edits it or pushes it again. Nothing retries it.
 - An edit saved while its unit or control is being pushed is pushed afterward. A push marks Complete
   only the state it sent, and leaves anything edited during it marked for another push.
@@ -42,7 +48,9 @@ site-model, background
 | `ilc-templates-reread` | templates re-read on the cron and on preview |
 | `unit-push-sequence` | Process, the eight calls in order, then Complete |
 | `unit-push-fail-message` | a failed call gives Fail with the cut message; service schedule alone does not |
-| `volttron-call-retried` | three tries with backoff; bad status, content type or result fails |
+| `volttron-rpc-via-vui` | the VUI rpc URL, the `data` body, the bearer header, the raw return; a `/gs` base URL is tolerated |
+| `volttron-call-retried` | three tries with backoff on 5xx or non-JSON |
+| `volttron-refusal-not-retried` | a 4xx or a `false` return fails on the first try |
 | `fail-not-retried` | a Fail unit or control is not pushed again without an edit or push |
 | `edit-during-push-repushed` | an edit saved mid-push is pushed after; the push does not mark it Complete |
 | `startup-repush` | the startup flag marks every unit |
