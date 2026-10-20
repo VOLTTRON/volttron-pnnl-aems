@@ -223,6 +223,7 @@ export class AppConfigService {
       timeout: number;
       authUrl: string;
       apiUrl: string;
+      platform: string;
       username: string;
       password: string;
       verbose: boolean;
@@ -503,6 +504,7 @@ export class AppConfigService {
         timeout: parseInt(process.env.SERVICE_CONFIG_TIMEOUT ?? "5000"),
         authUrl: process.env.SERVICE_CONFIG_AUTH_URL ?? "",
         apiUrl: process.env.SERVICE_CONFIG_API_URL ?? "",
+        platform: process.env.SERVICE_CONFIG_PLATFORM ?? "volttron1",
         username: process.env.SERVICE_CONFIG_USERNAME ?? "",
         password: process.env.SERVICE_CONFIG_PASSWORD ?? "",
         verbose: parseBoolean(process.env.SERVICE_CONFIG_VERBOSE),
