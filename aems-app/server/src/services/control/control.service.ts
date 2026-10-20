@@ -55,7 +55,7 @@ export class ControlService extends BaseService {
           if (listed.length === 0) {
             return;
           }
-          const token = await this.volttronService.makeAuthCall();
+          const session = await this.volttronService.makeAuthCall();
           for (const { id } of listed) {
             // Claimed only from a pending stage, then read as it stands: an edit saved from here on
             // moves it back to Update, and the conditional writes below leave it there.
@@ -115,7 +115,7 @@ export class ControlService extends BaseService {
                     renderErrors.map((e) => `[${e.phase}] ${e._error}`).join("; "),
                 );
               }
-              await this.volttronService.makeApiCall(`agent.ilc`, "update_configurations", token, data);
+              await this.volttronService.makeApiCall(`agent.ilc`, "update_configurations", session, data);
               await this.prismaService.prisma.control.updateMany({
                 where: { id: control.id, stage: StageType.Process.enum },
                 data: { stage: StageType.CompleteType.enum },

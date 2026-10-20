@@ -108,7 +108,7 @@ describe("pushing a control to the ILC agent", () => {
         },
         { provide: SubscriptionService, useValue: { publish: jest.fn().mockResolvedValue(undefined) } },
         { provide: AppConfigService.Key, useValue: { instanceType: "control", service: { control: { templatePaths }, synthetic: { campusPrefix } } } },
-        { provide: VolttronService, useValue: { makeAuthCall: jest.fn().mockResolvedValue("token"), makeApiCall } },
+        { provide: VolttronService, useValue: { makeAuthCall: jest.fn().mockResolvedValue({ token: "token", api: "vui" }), makeApiCall } },
       ],
     }).compile();
     await module.get(ControlService).task();
