@@ -4,8 +4,8 @@
 
 ## Contract
 
-Carrying each unit's configuration to the VOLTTRON edge platform, and recording who changed what.
-What a unit's configuration says, and the form it takes, belong to setpoints-schedules. The ILC
+Carrying each unit's configuration to the VOLTTRON edge platform. Recording who changed it is
+change-log. What a unit's configuration says, and the form it takes, belong to setpoints-schedules. The ILC
 configuration a control sends belongs to controls-ilc. The stages a push moves a unit or control
 through belong here.
 
@@ -33,9 +33,6 @@ through belong here.
   only the state it sent, and leaves anything edited during it marked for another push.
 - With `SERVICE_CONFIG_STARTUP` on, every unit is marked for a push when the services process starts.
 - With `VOLTTRON_MOCKED` on, no request leaves the server, and every call succeeds.
-- Every edit to a unit, configuration, setpoint, schedule, occupancy, holiday, location or control
-  writes one change record. It names the user, table, key and mutation, and holds the data.
-- Only the server creates change records. No API edits one, and an admin may delete one.
 
 ## Dependencies
 
@@ -55,5 +52,3 @@ site-model, background
 | `edit-during-push-repushed` | an edit saved mid-push is pushed after; the push does not mark it Complete |
 | `startup-repush` | the startup flag marks every unit |
 | `mocked-sends-nothing` | the mocked flag sends no request and succeeds |
-| `edit-writes-change` | each tracked edit writes one change record with user, table, key, mutation, data |
-| `change-log-guarded` | createChange and updateChange do not exist; an admin may delete |
