@@ -21,6 +21,7 @@ Foundations first. The build command takes the earliest unbuilt unit whose depen
 | `setpoints-schedules` | built | site-model |
 | `controls-ilc` | built | site-model |
 | `volttron-sync` | built | site-model, background |
+| `change-log` | built | site-model, graphql |
 | `historian-dashboards` | built | site-model, stack |
 | `grafana-access` | built | site-model, keycloak-admin |
 | `synthetic-setup` | built | site-model, background |
