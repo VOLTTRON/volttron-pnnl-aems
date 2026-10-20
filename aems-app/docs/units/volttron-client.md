@@ -40,8 +40,8 @@ stack
 | Name | Proves |
 |---|---|
 | `volttron-rpc-via-vui` | the VUI rpc URL, the `data` body, the bearer header, the raw return; a `/gs` base URL is tolerated |
-| `volttron-api-detected` | *(owed)* one `GET <base>/vui` per push: a 2xx sends its calls through VUI, a 404 through `/gs`, any other answer fails the push |
-| `volttron-rpc-via-gs` | *(owed)* the `/gs` JSON-RPC body with the token and payload in `params`; a missing or string result fails on the first try |
+| `volttron-api-detected` | one `GET <base>/vui` per push: a 2xx sends its calls through VUI, a 404 through `/gs`, any other answer fails the push |
+| `volttron-rpc-via-gs` | the `/gs` JSON-RPC body with the token and payload in `params`; a missing or string result fails on the first try |
 | `volttron-call-retried` | three tries with backoff on 5xx or non-JSON |
 | `volttron-refusal-not-retried` | a 4xx or a `false` return fails on the first try |
 | `mocked-sends-nothing` | the mocked flag sends no request and succeeds |

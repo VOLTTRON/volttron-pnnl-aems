@@ -122,7 +122,7 @@ describe("the unit configuration sent to VOLTTRON", () => {
             volttron: { timezone: flags.timezone ?? "" },
           },
         },
-        { provide: VolttronService, useValue: { makeAuthCall: jest.fn().mockResolvedValue("token"), makeApiCall } },
+        { provide: VolttronService, useValue: { makeAuthCall: jest.fn().mockResolvedValue({ token: "token", api: "vui" }), makeApiCall } },
       ],
     }).compile();
     service = module.get(ConfigService);
