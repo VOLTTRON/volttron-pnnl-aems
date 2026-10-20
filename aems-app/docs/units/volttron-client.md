@@ -25,6 +25,10 @@ control through are volttron-sync.
   three times, 1 s then 2 s apart. A call VOLTTRON refused with a 4xx, or that the agent refused,
   fails at once and is not retried.
 - With `VOLTTRON_MOCKED` on, no request leaves the server, and every call succeeds.
+- The server calls the platform by the name and web user it is deployed with: volttron-setup renders
+  `platform_config.yml`'s `instance-name` from `VOLTTRON_PLATFORM` and its web user from
+  `VOLTTRON_USERNAME` and `VOLTTRON_PASSWORD`, the values `SERVICE_CONFIG_PLATFORM`,
+  `SERVICE_CONFIG_USERNAME` and `SERVICE_CONFIG_PASSWORD` carry to the server.
 
 ## Dependencies
 
@@ -40,3 +44,4 @@ stack
 | `volttron-call-retried` | three tries with backoff on 5xx or non-JSON |
 | `volttron-refusal-not-retried` | a 4xx or a `false` return fails on the first try |
 | `mocked-sends-nothing` | the mocked flag sends no request and succeeds |
+| `platform-identity-one-source` | *(owed)* rendered with non-default `VOLTTRON_PLATFORM`, `_USERNAME`, `_PASSWORD`: `platform_config.yml`'s instance name and web user are those values, and so are the server's `SERVICE_CONFIG_*` |
