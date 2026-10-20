@@ -97,6 +97,33 @@ capture_env_overrides() {
   fi
 }
 
+# A release that turns a real tracked default into the sentinel is declaring the key operator-held
+# from now on. A deployment that was running on that default has no entry for it in .env.secrets,
+# so without a carry it would come up on the sentinel. Carry the pre-pull tracked value forward.
+carry_sentinelled_defaults() {
+  pre_pull="$1"
+  [ -n "$pre_pull" ] || return 0
+  new_tracked=$(git show "HEAD:./$ENV_FILE" 2>/dev/null || true)
+  [ -n "$new_tracked" ] || return 0
+  carried=0
+  keys=$(printf '%s\n' "$new_tracked" | sed '1s/^\xEF\xBB\xBF//; s/\r$//' | grep -v '^\s*#' \
+    | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' | sed 's/=.*//')
+  for k in $keys; do
+    new_val=$(get_value_from_text "$new_tracked" "$k")
+    [ "$new_val" = "$PLACEHOLDER" ] || continue
+    old_val=$(get_value_from_text "$pre_pull" "$k")
+    [ -z "$old_val" ] && continue
+    [ "$old_val" = "$PLACEHOLDER" ] && continue
+    existing=$(get_value "$SECRETS_FILE" "$k")
+    [ -n "$existing" ] && continue
+    upsert_secret "$SECRETS_FILE" "$k" "$old_val"
+    carried=$((carried + 1))
+  done
+  if [ "$carried" -gt 0 ]; then
+    info "Carried $carried sentinelled default(s) into $SECRETS_FILE"
+  fi
+}
+
 scrub_env() {
   git ls-files --error-unmatch "$ENV_FILE" >/dev/null 2>&1 || return 0
   git update-index --no-skip-worktree "$ENV_FILE" 2>/dev/null || true
@@ -117,6 +144,11 @@ capture_env_overrides
 info "Scrubbing $ENV_FILE to the tracked baseline"
 scrub_env
 
+PRE_PULL_TRACKED=""
+if git ls-files --error-unmatch "$ENV_FILE" >/dev/null 2>&1; then
+  PRE_PULL_TRACKED=$(git show "HEAD:./$ENV_FILE" 2>/dev/null || true)
+fi
+
 info "git pull --ff-only"
 # A script someone chmod +x'd reads as changed wherever git tracks the executable bit, and the
 # pull would refuse to overwrite it. Its mode is not a change the operator made to keep.
@@ -135,5 +167,6 @@ if [ "$PULL_EXIT" -ne 0 ]; then
 fi
 
 ok "pull succeeded"
+carry_sentinelled_defaults "$PRE_PULL_TRACKED"
 info "Running ./start-services.sh"
 ./start-services.sh "$@"

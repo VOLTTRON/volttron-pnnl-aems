@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { Fixture } from "./support/fixture";
+import { Fixture, PLACEHOLDER } from "./support/fixture";
 import { appDir } from "./support/stack";
 
 type Shell = "sh" | "ps";
@@ -154,6 +154,42 @@ for (const shell of ["sh", "ps"] as const) {
       expect(r.status, r.out).toBe(0);
       expect(fx.values(".env.secrets").SESSION_SECRET, ".env.secrets carries the captured value").toBe("env-only");
       // start-services → secrets.sh would then sync it back into .env; prove update left it ready.
+      expect(fx.calls(), fx.calls().join("\n")).toContain("#start-services");
+    });
+
+    // scenario: update-keeps-sentinelled-default
+    test("a release that sentinels a tracked default carries the old default into .env.secrets", () => {
+      const K = "UPDATE_CARRY_TEST_DEFAULT";
+      const defaultValue = "the-old-default";
+      fx = freshFixture(shell);
+      // The tracked .env held K as a real default — the operator was running on it.
+      fs.appendFileSync(path.join(fx.dir, ".env"), `\n${K}=${defaultValue}\n`);
+      fx.git("add", ".env");
+      fx.git("-c", "user.email=f@x", "-c", "user.name=f", "commit", "-qm", "track default");
+
+      // .env.secrets holds nothing for K (the operator never set it directly).
+      remote = wireRemote(fx);
+
+      // start-services calls secrets so the sync into .env is observable afterwards.
+      const line = JSON.stringify({ argv: ["#start-services"], env: {} });
+      if (shell === "sh") {
+        fx.write(`start-services.sh`, `#!/bin/sh\n./secrets.sh || exit 1\nprintf '%s\\n' '${line}' >> "$FAKE_DOCKER_LOG"\nexit 0\n`);
+      } else {
+        fx.write(`start-services.ps1`, `& .\\secrets.ps1\nif ($LASTEXITCODE -ne 0) { exit 1 }\nAdd-Content -LiteralPath $env:FAKE_DOCKER_LOG -Value '${line}'\nexit 0\n`);
+      }
+
+      // The release turns K's tracked value into the sentinel.
+      advanceRemote(remote, (dir) => {
+        const envPath = path.join(dir, ".env");
+        const text = fs.readFileSync(envPath, "utf8").replace(new RegExp(`^${K}=.*$`, "m"), `${K}=${PLACEHOLDER}`);
+        fs.writeFileSync(envPath, text);
+      });
+
+      fx.docker({});
+      const r = run(shell, "update");
+      expect(r.status, r.out).toBe(0);
+      expect(fx.values(".env.secrets")[K], ".env.secrets holds the old default").toBe(defaultValue);
+      expect(fx.values(".env")[K], ".env holds the old default after secrets sync").toBe(defaultValue);
       expect(fx.calls(), fx.calls().join("\n")).toContain("#start-services");
     });
 
