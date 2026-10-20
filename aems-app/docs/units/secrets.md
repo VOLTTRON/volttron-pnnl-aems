@@ -49,4 +49,4 @@ stack
 | `no-env-export` | no `env.sh`, and no script exports `.env` into the shell |
 | `check-env-warns` | reports without blocking, `.sh` and `.ps1` alike |
 | `read-secret-env` | `readSecret` reads the variable |
-| `no-secret-in-logs` | *(owed)* the value each sentinel key is deployed with, read from the running containers, is found in no service's `docker logs` and no file under `docker/volttron/logs/` after `start-services` |
+| `no-secret-in-logs` | the value each sentinel key is deployed with, read from the running containers, is found in no service's `docker logs` and no file under `docker/volttron/logs/` after `start-services` |

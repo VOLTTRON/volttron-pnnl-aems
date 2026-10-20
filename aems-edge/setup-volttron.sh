@@ -377,7 +377,6 @@ log_info "Command: ${LOG_CMD}"
 
 # Execute the Python script, allowing all output to go to stdout/stderr
 log_info "Starting Python configuration generation..."
-log_info "Generate command: ${GENERATE_CMD}"
 eval "${GENERATE_CMD}"
 EXIT_CODE=$?
 
