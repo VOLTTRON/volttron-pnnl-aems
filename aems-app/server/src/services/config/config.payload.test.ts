@@ -56,8 +56,9 @@ describe("the unit configuration sent to VOLTTRON", () => {
   let module: TestingModule;
   let service: ConfigService;
   let makeApiCall: jest.Mock;
+  let makeAuthCall: jest.Mock;
   let units: ReturnType<typeof unit>[];
-  let updates: { stage: string; message?: string | null }[];
+  let updates: { stage?: string; message?: string | null }[];
 
   type Stage = { stage: string; message?: string | null };
   type Where = {
@@ -88,6 +89,7 @@ describe("the unit configuration sent to VOLTTRON", () => {
 
   async function push(flags: Flags = {}) {
     makeApiCall ??= jest.fn().mockResolvedValue({});
+    makeAuthCall ??= jest.fn().mockResolvedValue({ token: "token", api: "vui" });
     updates = [];
     module = await Test.createTestingModule({
       providers: [
@@ -122,7 +124,7 @@ describe("the unit configuration sent to VOLTTRON", () => {
             volttron: { timezone: flags.timezone ?? "" },
           },
         },
-        { provide: VolttronService, useValue: { makeAuthCall: jest.fn().mockResolvedValue({ token: "token", api: "vui" }), makeApiCall } },
+        { provide: VolttronService, useValue: { makeAuthCall, makeApiCall } },
       ],
     }).compile();
     service = module.get(ConfigService);
@@ -135,6 +137,7 @@ describe("the unit configuration sent to VOLTTRON", () => {
     jest.useRealTimers();
     await module?.close();
     makeApiCall = undefined as unknown as jest.Mock;
+    makeAuthCall = undefined as unknown as jest.Mock;
   });
 
   // scenario: setpoint-rules-refused
@@ -275,6 +278,34 @@ describe("the unit configuration sent to VOLTTRON", () => {
       await push({ serviceOverride: true });
       expect(methods()).toContain("set_location");
       expect(updates.map((u) => u.stage)).toEqual([StageType.Process.enum, StageType.Complete.enum]);
+    });
+  });
+
+  // scenario: unreachable-platform-waits
+  describe("a platform refusing the connection or the login", () => {
+    it("moves no unit to Fail, records the error as the message on each pending one, and the next successful push reaches Complete", async () => {
+      units = [unit(), { ...unit(), id: "u2" }];
+      makeAuthCall = jest.fn().mockRejectedValue(new Error("ECONNREFUSED edge:8443"));
+      await push();
+      expect(makeApiCall).not.toHaveBeenCalled();
+      expect(updates.map((u) => u.stage)).not.toContain(StageType.Fail.enum);
+      for (const u of units) expect(u.stage).toBe(StageType.Update.enum);
+      expect(updates).toEqual([{ message: "ECONNREFUSED edge:8443" }]);
+
+      await module.close();
+      makeAuthCall = jest.fn().mockResolvedValue({ token: "token", api: "vui" });
+      makeApiCall = jest.fn().mockResolvedValue({});
+      await push();
+      for (const u of units) expect(u.stage).toBe(StageType.Complete.enum);
+    });
+
+    it("cuts the error message to 1024 characters", async () => {
+      units = [unit()];
+      makeAuthCall = jest.fn().mockRejectedValue(new Error("z".repeat(2000)));
+      await push();
+      expect(units[0].stage).toBe(StageType.Update.enum);
+      expect(updates[0].message?.length).toBe(1024);
+      expect(updates[0].message?.startsWith("zzz")).toBe(true);
     });
   });
 
