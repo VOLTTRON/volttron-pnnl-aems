@@ -39,8 +39,9 @@ describe("pushing a control to the ILC agent", () => {
   let module: TestingModule;
   let templates: string;
   let controls: Control[];
-  let updates: { id: string; stage: string; message?: string | null }[];
+  let updates: { id: string; stage?: string; message?: string | null }[];
   let makeApiCall: jest.Mock;
+  let makeAuthCall: jest.Mock;
 
   beforeEach(() => {
     templates = mkdtempSync(join(tmpdir(), "ilc-templates-"));
@@ -49,6 +50,7 @@ describe("pushing a control to the ILC agent", () => {
     writeFileSync(join(templates, "notes.txt"), "not a template");
     updates = [];
     makeApiCall = jest.fn().mockResolvedValue({});
+    makeAuthCall = jest.fn().mockResolvedValue({ token: "token", api: "vui" });
   });
 
   afterEach(async () => {
@@ -108,7 +110,7 @@ describe("pushing a control to the ILC agent", () => {
         },
         { provide: SubscriptionService, useValue: { publish: jest.fn().mockResolvedValue(undefined) } },
         { provide: AppConfigService.Key, useValue: { instanceType: "control", service: { control: { templatePaths }, synthetic: { campusPrefix } } } },
-        { provide: VolttronService, useValue: { makeAuthCall: jest.fn().mockResolvedValue({ token: "token", api: "vui" }), makeApiCall } },
+        { provide: VolttronService, useValue: { makeAuthCall, makeApiCall } },
       ],
     }).compile();
     await module.get(ControlService).task();
@@ -203,6 +205,35 @@ describe("pushing a control to the ILC agent", () => {
       controls = [control({ peakLoadExclude: true })];
       await push();
       expect(sent()[0]).toMatchObject({ control: { PNNL: { units: [] } } });
+    });
+  });
+
+  // scenario: unreachable-platform-waits
+  describe("a platform refusing the connection or the login", () => {
+    it("moves no control to Fail, records the error as the message on each pending one, and the next successful push reaches Complete", async () => {
+      controls = [control(), control({ id: "c2" })];
+      makeAuthCall = jest.fn().mockRejectedValue(new Error("ECONNREFUSED edge:8443"));
+      await push();
+      expect(makeApiCall).not.toHaveBeenCalled();
+      expect(stages()).not.toContain(StageType.Fail.enum);
+      for (const c of controls) expect(c.stage).toBe(StageType.Update.enum);
+      for (const u of updates) expect(u.message).toBe("ECONNREFUSED edge:8443");
+      expect(updates.map((u) => u.id).sort()).toEqual(["c1", "c2"]);
+
+      await module.close();
+      makeAuthCall = jest.fn().mockResolvedValue({ token: "token", api: "vui" });
+      makeApiCall = jest.fn().mockResolvedValue({});
+      await push();
+      for (const c of controls) expect(c.stage).toBe(StageType.Complete.enum);
+    });
+
+    it("cuts the error message to 1024 characters", async () => {
+      controls = [control()];
+      makeAuthCall = jest.fn().mockRejectedValue(new Error("z".repeat(2000)));
+      await push();
+      expect(controls[0].stage).toBe(StageType.Update.enum);
+      expect(updates[0].message?.length).toBe(1024);
+      expect(updates[0].message?.startsWith("zzz")).toBe(true);
     });
   });
 
