@@ -199,6 +199,7 @@ function Get-KeyDeployedSource {
         'GRAFANA_DATABASE_PASSWORD'        { return @{ Svc = 'grafana-db';  Var = 'POSTGRES_PASSWORD' } }
         'HISTORIAN_DATABASE_PASSWORD'      { return @{ Svc = 'historian';   Var = 'POSTGRES_PASSWORD' } }
         'HISTORIAN_REPLICATOR_PASSWORD'    { return @{ Svc = 'historian';   Var = 'HISTORIAN_REPLICATOR_PASSWORD' } }
+        'VOLTTRON_PASSWORD'                { return @{ Svc = 'volttron';    Var = 'VOLTTRON_PASSWORD' } }
     }
     return $null
 }
@@ -512,6 +513,7 @@ if (-not $Force) {
 # ==============================================================================
 
 $RESTART = @()
+$NEED_VOLTTRON_RERENDER = $false
 function Queue-Restart { param([string]$Svc) $script:RESTART += $Svc }
 
 function Invoke-RotatePg {
@@ -671,6 +673,18 @@ if ($Force -and $ROTATIONS.Count -gt 0) {
                 if ($key -eq 'WORKER_TOKEN') { Queue-Restart "backup" }
                 if ($key -eq 'BOOKSTACK_SESSION_SECRET') { Queue-Restart "wiki" }
             }
+            'VOLTTRON_PASSWORD' {
+                # VOLTTRON has no live rotation API: the platform reads its web-user credentials
+                # from platform_config.yml at startup, which volttron-setup renders from
+                # VOLTTRON_PASSWORD. Queue volttron-setup to re-render, volttron to force-recreate
+                # against the new config, and every server-side consumer that holds
+                # VOLTTRON_PASSWORD in its env. The volttron-setup completion lock is invalidated
+                # after .env is synced, below.
+                Write-Info "$key`: queueing volttron-setup re-render and consumer recreate"
+                $script:NEED_VOLTTRON_RERENDER = $true
+                Queue-Restart "volttron-setup"; Queue-Restart "volttron"
+                Queue-Restart "server"; Queue-Restart "services"; Queue-Restart "synth-worker"
+            }
             'HISTORIAN_DATABASE_PASSWORD' {
                 if (-not (Invoke-RotatePg "$PROJECT-historian" "historian" $newVal $key $oldVal)) { $ROT_ERR++ }
                 Queue-Restart "historian"; Queue-Restart "volttron-setup"; Queue-Restart "volttron"
@@ -818,6 +832,24 @@ if (Test-Path $SECRETS_FILE) {
     }
 }
 Hide-EnvFromGit
+
+# -- volttron-setup re-render --------------------------------------------------
+# A VOLTTRON_PASSWORD rotation needs platform_config.yml re-rendered with the
+# new value before volttron force-recreates. reconcile-volttron-setup
+# fingerprints .env (now holding the new value) and invalidates the completion
+# lock so the next volttron-setup run re-renders.
+if ($NEED_VOLTTRON_RERENDER -and -not $DryRun) {
+    if (Test-Path .\scripts\reconcile-volttron-setup.ps1) {
+        Write-Hdr "Invalidating volttron-setup render fingerprint"
+        & .\scripts\reconcile-volttron-setup.ps1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warn "reconcile-volttron-setup.ps1 reported issues (see above). platform_config.yml may not re-render."
+        }
+    } else {
+        Write-Warn "scripts\reconcile-volttron-setup.ps1 not found - platform_config.yml may not re-render with the new VOLTTRON_PASSWORD."
+        noteWarn
+    }
+}
 
 # ==============================================================================
 # RESTART PASS
