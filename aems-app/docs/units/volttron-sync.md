@@ -21,14 +21,6 @@ VOLTTRON, to volttron-client; recording who changed what, to change-log.
 - Against the platform the `volttron` profile deploys, through whichever API it serves, a pushed unit
   reaches Complete and its `manager.<system>` agent's configuration store then holds what was sent;
   a pushed control reaches Complete through `agent.ilc`.
-
-**Open:** `push-reaches-platform` cannot be observed in tier E on this host: the services container
-(bridge network) cannot reach volttron (`network_mode: host`) on port 5410.
-`docker exec aems-test-services nc -zv host.docker.internal 5410` is refused while port 80 is
-reachable; every push loop iteration logs `AggregateError [ECONNREFUSED]: 192.168.65.254:5410`, and
-no unit or control in the aems-test seed has ever left `Process` stage. The unused
-`docker/bridge/volttron-socat.sh` would bridge this gap but isn't wired into compose. Shares the
-same wall with `rotation.md`'s owed `volttron-password-rotated` push half.
 - Any failed call moves the unit to Fail instead, with the error as its message, cut to 1024
   characters. A failed `set_service_schedule` is the exception: it is logged and the push carries on.
 - A unit or control in Fail stays there until someone edits it or pushes it again. Nothing retries it.

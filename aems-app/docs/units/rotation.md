@@ -23,16 +23,6 @@ one its peers accept; how the value reaches `.env` is `secrets`.
 - A changed `VOLTTRON_PASSWORD` reaches both ends: after `secrets.sh`, the platform's `/authenticate`
   accepts the new value and refuses the old, and the server and services processes call with the new.
 
-**Open:** `volttron-password-rotated`'s "a push then reaches Complete" cannot be observed in tier E
-on this host: the services container (bridge network) cannot reach volttron (`network_mode: host`)
-on port 5410. `docker exec aems-test-services nc -zv host.docker.internal 5410` is refused; port
-80 is reachable, and no unit or control on the aems-test stack has ever left `Process` (every
-services push loop fails with `ECONNREFUSED 192.168.65.254:5410`). The unused
-`docker/bridge/volttron-socat.sh` would bridge this, but isn't wired into compose. Reboot's
-`a VOLTTRON_PASSWORD rotation flips /authenticate on the platform and refreshes the services env`
-proves the auth flip and that services' env now holds the new value; this one still owes the push.
-`volttron-sync`'s `push-reaches-platform` is blocked by the same wall.
-
 ## Dependencies
 
 secrets, stack
