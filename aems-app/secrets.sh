@@ -210,6 +210,7 @@ key_deployed_source() {
     GRAFANA_DATABASE_PASSWORD)        echo "grafana-db:POSTGRES_PASSWORD" ;;
     HISTORIAN_DATABASE_PASSWORD)      echo "historian:POSTGRES_PASSWORD" ;;
     HISTORIAN_REPLICATOR_PASSWORD)    echo "historian:HISTORIAN_REPLICATOR_PASSWORD" ;;
+    VOLTTRON_PASSWORD)                echo "volttron:VOLTTRON_PASSWORD" ;;
     *)                                echo "" ;;
   esac
 }
@@ -538,6 +539,7 @@ fi
 # ══════════════════════════════════════════════════════════════════════════════
 
 RESTART_SERVICES=""
+NEED_VOLTTRON_RERENDER=0
 queue_restart() { RESTART_SERVICES="$RESTART_SERVICES $1"; }
 
 # Postgres ALTER ROLE. When old_pw is provided, authenticates via
@@ -740,6 +742,21 @@ elif [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
         [ "$key" = "BOOKSTACK_SESSION_SECRET" ] && queue_restart "wiki"
         ;;
 
+      VOLTTRON_PASSWORD)
+        # VOLTTRON has no live rotation API: the platform reads its web-user credentials from
+        # platform_config.yml at startup, which volttron-setup renders from VOLTTRON_PASSWORD.
+        # Queue volttron-setup to re-render, volttron to force-recreate against the new config,
+        # and every server-side consumer that holds VOLTTRON_PASSWORD in its env. The
+        # volttron-setup completion lock is invalidated after .env is synced, below.
+        info "$key: queueing volttron-setup re-render and consumer recreate"
+        NEED_VOLTTRON_RERENDER=1
+        queue_restart "volttron-setup"
+        queue_restart "volttron"
+        queue_restart "server"
+        queue_restart "services"
+        queue_restart "synth-worker"
+        ;;
+
       HISTORIAN_DATABASE_PASSWORD)
         rotate_pg "${PROJECT}-historian" "historian" "$new_val" "$key" "$old_val" \
           || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
@@ -917,6 +934,23 @@ if [ -f "$SECRETS_FILE" ]; then
   fi
 fi
 hide_env_from_git
+
+# ── volttron-setup re-render ──────────────────────────────────────────────────
+# A VOLTTRON_PASSWORD rotation needs platform_config.yml re-rendered with the new
+# value before volttron force-recreates. reconcile-volttron-setup fingerprints
+# .env (now holding the new value) and invalidates the completion lock so the
+# next volttron-setup run re-renders. Runs here, after .env is synced, and
+# before the RESTART pass which brings volttron-setup back up.
+if [ "$NEED_VOLTTRON_RERENDER" = 1 ] && [ "$DRY_RUN" = 0 ]; then
+  if [ -x ./scripts/reconcile-volttron-setup.sh ]; then
+    header "Invalidating volttron-setup render fingerprint"
+    ./scripts/reconcile-volttron-setup.sh \
+      || warn "reconcile-volttron-setup.sh reported issues (see above). platform_config.yml may not re-render."
+  else
+    warn "scripts/reconcile-volttron-setup.sh not found — platform_config.yml may not re-render with the new VOLTTRON_PASSWORD."
+    mark_warn
+  fi
+fi
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RESTART PASS

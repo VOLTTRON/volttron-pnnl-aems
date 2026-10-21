@@ -2,7 +2,10 @@ import { test, expect } from "@playwright/test";
 import { spawnSync } from "node:child_process";
 import { Fixture, findings, PLACEHOLDER } from "./support/fixture";
 
-const SCRIPTS = ["secrets.sh", "secrets.ps1", "check-env.sh", "check-env.ps1"];
+const SCRIPTS = [
+  "secrets.sh", "secrets.ps1", "check-env.sh", "check-env.ps1",
+  "scripts/reconcile-volttron-setup.sh", "scripts/reconcile-volttron-setup.ps1",
+];
 const FLAGS: Record<string, string> = { "dry-run": "-DryRun", force: "-Force", scrub: "-Scrub" };
 
 // Values compose would otherwise interpolate, comment out or split.
@@ -213,6 +216,27 @@ for (const shell of ["sh", "ps"] as const) {
         calls.join("\n"),
       ).toBe(true);
       expect(calls.some((c) => /^compose up -d .*volttron$/.test(c)), calls.join("\n")).toBe(true);
+    });
+
+    test("a changed VOLTTRON_PASSWORD invalidates the volttron-setup lock and recreates every consumer", () => {
+      fx.write(".env.secrets", secretsFile({ VOLTTRON_PASSWORD: "new-vp" }));
+      fx.docker({
+        running: ["fixture-volttron"],
+        env: { "fixture-volttron": ["VOLTTRON_PASSWORD=old-vp"] },
+      });
+      const r = run(shell, "secrets");
+      expect(r.status, r.out).toBe(0);
+      expect(fx.values(".env").VOLTTRON_PASSWORD).toBe("new-vp");
+      const calls = fx.calls();
+      expect(
+        calls.some((c) => /^run --rm -v fixture_volttron-setup:\/data busybox/.test(c)),
+        calls.join("\n"),
+      ).toBe(true);
+      expect(calls, calls.join("\n")).toContain("compose up -d --force-recreate volttron");
+      expect(calls, calls.join("\n")).toContain("compose up -d volttron-setup");
+      for (const svc of ["server", "services", "synth-worker"]) {
+        expect(calls, calls.join("\n")).toContain(`compose up -d --no-deps ${svc}`);
+      }
     });
 
     // scenario: env-write-format
