@@ -199,7 +199,7 @@ function Get-KeyDeployedSource {
         'GRAFANA_DATABASE_PASSWORD'        { return @{ Svc = 'grafana-db';  Var = 'POSTGRES_PASSWORD' } }
         'HISTORIAN_DATABASE_PASSWORD'      { return @{ Svc = 'historian';   Var = 'POSTGRES_PASSWORD' } }
         'HISTORIAN_REPLICATOR_PASSWORD'    { return @{ Svc = 'historian';   Var = 'HISTORIAN_REPLICATOR_PASSWORD' } }
-        'VOLTTRON_PASSWORD'                { return @{ Svc = 'volttron';    Var = 'VOLTTRON_PASSWORD' } }
+        'VOLTTRON_PASSWORD'                { return @{ Svc = 'services';    Var = 'VOLTTRON_PASSWORD' } }
     }
     return $null
 }
