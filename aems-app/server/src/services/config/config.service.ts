@@ -69,7 +69,7 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
           if (listed.length === 0) {
             return;
           }
-          const token = await this.volttronService.makeAuthCall();
+          const session = await this.volttronService.makeAuthCall();
           for (const { id } of listed) {
             // Claimed only from Update or Process, then read as it stands: an edit saved from here on
             // moves it back to Update, and the conditional writes below leave it there.
@@ -129,7 +129,7 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
                 "set_temperature_setpoints",
-                token,
+                session,
                 set_temperature_setpoints,
               );
               this.logger.debug(`[${unit.label}] Temperature setpoints updated successfully`);
@@ -154,7 +154,7 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
                 "set_occupancy_override",
-                token,
+                session,
                 set_occupancy_override,
               );
               this.logger.debug(`[${unit.label}] Occupancy overrides updated successfully`);
@@ -179,7 +179,7 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
                 "set_holidays",
-                token,
+                session,
                 set_holidays,
               );
               this.logger.debug(`[${unit.label}] Holidays updated successfully`);
@@ -200,7 +200,7 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
                 "set_schedule",
-                token,
+                session,
                 set_schedule,
               );
               this.logger.debug(`[${unit.label}] Weekly schedule updated successfully`);
@@ -223,7 +223,7 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
                   .makeApiCall(
                     `manager.${unit.system.toLowerCase()}`,
                     "set_service_schedule",
-                    token,
+                    session,
                     set_service_schedule,
                   )
                   .catch((err) => {
@@ -242,7 +242,7 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
                 "set_optimal_start",
-                token,
+                session,
                 set_optimal_start,
               );
               this.logger.debug(`[${unit.label}] Optimal start parameters updated successfully`);
@@ -262,7 +262,7 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
                 "set_configurations",
-                token,
+                session,
                 {
                   ...set_configurations,
                   ...set_optimal_start,
@@ -275,7 +275,7 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
               await this.volttronService.makeApiCall(
                 `manager.${unit.system.toLowerCase()}`,
                 "set_location",
-                token,
+                session,
                 location
                   ? {
                       lat: location.latitude,

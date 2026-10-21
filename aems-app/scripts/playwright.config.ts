@@ -42,7 +42,7 @@ export default defineConfig({
     {
       name: "unauthenticated",
       use: { ...devices["Desktop Chrome"] },
-      testMatch: specs("smoke", "auth", "stack", "ext"),
+      testMatch: specs("smoke", "auth", "stack", "ext", "volttron-identity"),
     },
     {
       name: "as-user",

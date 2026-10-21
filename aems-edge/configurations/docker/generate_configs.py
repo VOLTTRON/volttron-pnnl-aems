@@ -291,17 +291,17 @@ weather_publisher_dict_template = lambda campus, building, timezone: {
   "building": building
 }
 
-platform_config_dict_template = lambda devices_block, manager_agents_block, ilc_block: {
+platform_config_dict_template = lambda devices_block, manager_agents_block, ilc_block, platform, web_user_name, web_user_password: {
     "config": {
         "vip-address": "tcp://0.0.0.0:22916",
         "bind-web-address": "http://0.0.0.0:5410",
         "volttron-central-address": "http://0.0.0.0:5410",
-        "instance-name": "volttron1",
+        "instance-name": platform,
         "message-bus": "zmq"
     },
     "web_users": {
-        "username": "admin",
-        "password": "admin",
+        "username": web_user_name,
+        "password": web_user_password,
         "groups": ["admin", "vui"]
     },
     "agents": {
@@ -501,7 +501,8 @@ def generate_platform_config_bacnet_proxy(platform_config):
 def generate_platform_config(num_configs: int, output_dir: str | bytes,
                              prefix: str, campus: str,
                              building, gateway_address: str,
-                             bacnet_deployment: str,  meter_prefix, generate_ilc: bool):
+                             bacnet_deployment: str,  meter_prefix, generate_ilc: bool,
+                             platform: str, web_user_name: str, web_user_password: str):
     """
     Generates a platform configuration file based on the provided parameters.
 
@@ -527,7 +528,8 @@ def generate_platform_config(num_configs: int, output_dir: str | bytes,
     manager_agents_block = generate_platform_config_manager_agent_block(num_configs, prefix, campus, building)
     devices_block = generate_platform_config_driver_device_block(num_configs, prefix, campus, building, meter_prefix)
     ilc_block = {"agent.ilc": {"source": "$ILC", "tag": "ilc"}} if generate_ilc else {}
-    platform_config = platform_config_dict_template(devices_block, manager_agents_block, ilc_block)
+    platform_config = platform_config_dict_template(devices_block, manager_agents_block, ilc_block,
+                                                    platform, web_user_name, web_user_password)
     if bacnet_deployment == 'proxy':
         platform_config = generate_platform_config_bacnet_proxy(platform_config)
     with open(os.path.join(output_dir, 'platform_config.yml'), 'w') as f:
@@ -1064,6 +1066,9 @@ def main():
     parser.add('--allow-frequency-minutes', type=int, default=60)
     parser.add('--meter-ip', type=bool, default=True)
     parser.add('--bacnet', type=str, default='driver')
+    parser.add('--platform', type=str, default='volttron1', help='VOLTTRON instance name (platform_config.yml instance-name)')
+    parser.add('--web-user-name', type=str, default='admin', help='VOLTTRON web user username')
+    parser.add('--web-user-password', type=str, default='admin', help='VOLTTRON web user password')
 
     args = parser.parse_args()
 
@@ -1127,7 +1132,10 @@ def main():
     # Generate platform config (with optional ILC agent)
     generate_platform_config(args.num_configs, output_path, args.prefix,
                              args.campus, args.building, args.gateway_address,
-                             bacnet_deployment, args.meter_prefix, generate_ilc=args.generate_ilc)
+                             bacnet_deployment, args.meter_prefix, generate_ilc=args.generate_ilc,
+                             platform=args.platform,
+                             web_user_name=args.web_user_name,
+                             web_user_password=args.web_user_password)
 
     # TODO: Commented because this has not worked yet in docker-compose, and is currently built into image.
     # generate_logging_config(output_dir=output_path)  # TODO: Add parser options for logging.

@@ -39,7 +39,7 @@ describe("ConfigService", () => {
     };
     mockSub = { publish: jest.fn().mockResolvedValue(undefined) };
     mockVolttron = {
-      makeAuthCall: jest.fn().mockResolvedValue("token"),
+      makeAuthCall: jest.fn().mockResolvedValue({ token: "token", api: "vui" }),
       makeApiCall: jest.fn().mockResolvedValue(undefined),
     };
 

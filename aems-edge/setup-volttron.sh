@@ -288,7 +288,10 @@ GENERATE_CMD="python generate_configs.py \
     --building \"${VOLTTRON_BUILDING}\" \
     --prefix \"${VOLTTRON_PREFIX}\" \
     --gateway-address \"${VOLTTRON_GATEWAY_ADDRESS}\" \
-    --timezone \"${VOLTTRON_TIMEZONE}\""
+    --timezone \"${VOLTTRON_TIMEZONE}\" \
+    --platform \"${VOLTTRON_PLATFORM}\" \
+    --web-user-name \"${VOLTTRON_USERNAME}\" \
+    --web-user-password \"${VOLTTRON_PASSWORD}\""
 
 # Add optional arguments if they are provided
 if [[ -n "${VOLTTRON_WEATHER_STATION}" ]]; then
@@ -368,11 +371,11 @@ if [[ -n "${HISTORIAN_DB_PORT}" ]]; then
     GENERATE_CMD="${GENERATE_CMD} --db-port \"${HISTORIAN_DB_PORT}\""
 fi
 
-# Log the command, obfuscating the password
+# Log the command, obfuscating every password
 LOG_CMD=${GENERATE_CMD}
-if [[ -n "${HISTORIAN_DB_PASSWORD}" ]]; then
-    LOG_CMD=$(echo "${GENERATE_CMD}" | sed -e "s/--db-password \"[^\"]*\"/--db-password \"\*\*\*\"/")
-fi
+LOG_CMD=$(echo "${LOG_CMD}" | sed -e "s/--db-password \"[^\"]*\"/--db-password \"\*\*\*\"/")
+LOG_CMD=$(echo "${LOG_CMD}" | sed -e "s/--web-user-password \"[^\"]*\"/--web-user-password \"\*\*\*\"/")
+LOG_CMD=$(echo "${LOG_CMD}" | sed -e "s/--smtp-password \"[^\"]*\"/--smtp-password \"\*\*\*\"/")
 log_info "Command: ${LOG_CMD}"
 
 # Execute the Python script, allowing all output to go to stdout/stderr
