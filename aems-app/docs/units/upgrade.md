@@ -54,7 +54,7 @@ secrets, rotation, stack
 | `update-ignores-exec-bit` | a checkout whose scripts were `chmod +x`'d pulls a release changing them, and the stack comes up |
 | `scripts-tracked-executable` | every tracked `.sh` has mode 100755 |
 | `update-keeps-env-only-values` | a value held only in `.env` is in `.env.secrets` and `.env` afterwards |
-| `update-keeps-sentinelled-default` | *(owed)* `.env` on a tracked real default and `.env.secrets` without the key; a release sentinels it: `.env.secrets` and `.env` hold the old default afterwards |
+| `update-keeps-sentinelled-default` | `.env` on a tracked real default and `.env.secrets` without the key; a release sentinels it: `.env.secrets` and `.env` hold the old default afterwards |
 | `update-refused-pull-safe` | a diverged checkout: `.env` re-synced, nothing started, the reason named |
 | `update-sh-ps1-parity` | `update.sh` and `update.ps1` alike on the three fixtures above |
 | `main-reaches-release` | a checkout at `main`'s tree, scripts `chmod +x`'d, `.env` hand-edited and values in `.env.secrets`, reaches a release changing both by the README's command; every value kept, the stack comes up |

@@ -107,6 +107,35 @@ function Save-EnvOverrides {
     }
 }
 
+# A release that turns a real tracked default into the sentinel is declaring the key operator-held
+# from now on. A deployment that was running on that default has no entry for it in .env.secrets,
+# so without a carry it would come up on the sentinel. Carry the pre-pull tracked value forward.
+function Add-SentinelledDefaults {
+    param([string]$PrePullTracked)
+    if (-not $PrePullTracked) { return }
+    $newTracked = (git show "HEAD:./$ENV_FILE" 2>$null) -join "`n"
+    if (-not $newTracked) { return }
+    $carried = 0
+    foreach ($line in ($newTracked -split "`r?`n")) {
+        $l = "$line".TrimEnd("`r")
+        if ($l -match '^\s*#') { continue }
+        if ($l -notmatch '^([A-Za-z_][A-Za-z0-9_]*)=') { continue }
+        $k = $matches[1]
+        $newVal = Get-ValueFromText $newTracked $k
+        if ($newVal -cne $PLACEHOLDER) { continue }
+        $oldVal = Get-ValueFromText $PrePullTracked $k
+        if ([string]::IsNullOrEmpty($oldVal)) { continue }
+        if ($oldVal -eq $PLACEHOLDER) { continue }
+        $existing = Get-EnvValue $SECRETS_FILE $k
+        if (-not [string]::IsNullOrEmpty($existing)) { continue }
+        Set-SecretsEntry $SECRETS_FILE $k $oldVal
+        $carried++
+    }
+    if ($carried -gt 0) {
+        Write-Info "Carried $carried sentinelled default(s) into $SECRETS_FILE"
+    }
+}
+
 function Reset-EnvToTracked {
     git ls-files --error-unmatch $ENV_FILE *> $null
     if ($LASTEXITCODE -ne 0) { return }
@@ -129,6 +158,12 @@ Save-EnvOverrides
 Write-Info "Scrubbing $ENV_FILE to the tracked baseline"
 Reset-EnvToTracked
 
+$PrePullTracked = ''
+git ls-files --error-unmatch $ENV_FILE *> $null
+if ($LASTEXITCODE -eq 0) {
+    $PrePullTracked = (git show "HEAD:./$ENV_FILE" 2>$null) -join "`n"
+}
+
 Write-Info "git pull --ff-only"
 # A script someone chmod +x'd reads as changed wherever git tracks the executable bit, and the
 # pull would refuse to overwrite it. Its mode is not a change the operator made to keep.
@@ -145,6 +180,7 @@ if ($pullExit -ne 0) {
 }
 
 Write-Ok "pull succeeded"
+Add-SentinelledDefaults -PrePullTracked $PrePullTracked
 Write-Info "Running .\start-services.ps1"
 if ($Rest) {
     & .\start-services.ps1 @Rest
