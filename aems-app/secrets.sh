@@ -210,7 +210,7 @@ key_deployed_source() {
     GRAFANA_DATABASE_PASSWORD)        echo "grafana-db:POSTGRES_PASSWORD" ;;
     HISTORIAN_DATABASE_PASSWORD)      echo "historian:POSTGRES_PASSWORD" ;;
     HISTORIAN_REPLICATOR_PASSWORD)    echo "historian:HISTORIAN_REPLICATOR_PASSWORD" ;;
-    VOLTTRON_PASSWORD)                echo "volttron:VOLTTRON_PASSWORD" ;;
+    VOLTTRON_PASSWORD)                echo "services:VOLTTRON_PASSWORD" ;;
     *)                                echo "" ;;
   esac
 }

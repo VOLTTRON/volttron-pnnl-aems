@@ -226,6 +226,85 @@ test("a deployment whose historian role is on a stale password and whose VOLTTRO
   expect(report.split(/\r?\n/).find((l) => l.includes("historian login: role")), out).toMatch(/\bOK\b/);
 });
 
+// Runs here because it rotates VOLTTRON_PASSWORD and recreates volttron, server, services and
+// synth-worker. Not marked with the `volttron-password-rotated` scenario: that scenario also wants a
+// push to Complete, which this host cannot run (see rotation.md's Open line).
+test("a VOLTTRON_PASSWORD rotation flips /authenticate on the platform and refreshes the services env", async () => {
+  // Each force-recreate of volttron runs setup-platform.py from a fresh config — about four
+  // minutes of agent installs to write a new web-users.json. The test rotates there and back, so
+  // the budget covers both passes.
+  test.setTimeout(30 * 60_000);
+  const username = readEnv("VOLTTRON_USERNAME");
+  const oldPassword = readEnv("VOLTTRON_PASSWORD");
+  expect(username, "VOLTTRON_USERNAME must be set in .env").toBeTruthy();
+  expect(oldPassword, "VOLTTRON_PASSWORD must be set in .env").toBeTruthy();
+  expect(oldPassword, "VOLTTRON_PASSWORD must not be the sentinel").not.toBe(PLACEHOLDER);
+  const newPassword = `rotated-${Date.now()}-abcDEF`;
+
+  const secretsPath = path.join(appDir, ".env.secrets");
+  expect(fs.existsSync(secretsPath), ".env.secrets must exist").toBe(true);
+  const originalSecrets = fs.readFileSync(secretsPath, "utf8");
+
+  const auth = (password: string) => {
+    // VOLTTRON runs with network_mode: host, so its bind-web-address is reachable from inside its
+    // own namespace on localhost. docker exec enters that namespace. Any thrown failure (container
+    // not running yet, connection refused during restart) is returned so expect.poll can retry.
+    try {
+      const body = JSON.stringify({ username, password });
+      return docker(
+        "exec",
+        container("volttron"),
+        "sh",
+        "-c",
+        `curl -s -o - -w ' HTTP %{http_code}' http://localhost:5410/authenticate ` +
+          `-X POST -H 'Content-Type: application/json' -d ${JSON.stringify(body)}`,
+      );
+    } catch (e) {
+      const err = e as { stderr?: Buffer | string; stdout?: Buffer | string; message?: string };
+      return `curl-failed: ${String(err.stderr ?? err.stdout ?? err.message ?? "")}`.trim();
+    }
+  };
+
+  const writeSecret = (value: string) => {
+    const lines = fs.readFileSync(secretsPath, "utf8").split(/\r?\n/);
+    const idx = lines.findIndex((l) => l.startsWith("VOLTTRON_PASSWORD="));
+    const line = `VOLTTRON_PASSWORD=${value}`;
+    if (idx === -1) lines.push(line);
+    else lines[idx] = line;
+    fs.writeFileSync(secretsPath, lines.join("\n"));
+  };
+
+  const servicesPassword = () =>
+    (JSON.parse(inspect(container("services"), "{{json .Config.Env}}")) as string[])
+      .find((e) => e.startsWith("VOLTTRON_PASSWORD="))
+      ?.slice("VOLTTRON_PASSWORD=".length);
+
+  try {
+    writeSecret(newPassword);
+    run("bash", ["./secrets.sh"]);
+
+    // The platform must stop accepting the old password and start accepting the new one. The
+    // first-boot setup inside the recreated volttron container installs every agent before
+    // writing web-users.json, so the window to wait on is minutes, not seconds.
+    await expect
+      .poll(() => auth(newPassword), { timeout: 10 * 60_000, intervals: [5_000] })
+      .toMatch(/ HTTP 200\s*$/);
+    expect(auth(oldPassword!), "the platform must refuse the old password").not.toMatch(/ HTTP 200\s*$/);
+
+    // The services container is the server-side consumer; a recreate against the synced .env is
+    // what carries the new value there.
+    await healthy("services");
+    expect(servicesPassword(), "services env must hold the new VOLTTRON_PASSWORD").toBe(newPassword);
+  } finally {
+    fs.writeFileSync(secretsPath, originalSecrets);
+    try {
+      run("bash", ["./secrets.sh"]);
+    } catch {
+      // best-effort: the next test-integration run starts cold
+    }
+  }
+});
+
 // scenario: fresh-checkout-boots
 test("a checkout with only sentinels and blank secrets boots, and boots again", async ({ request }) => {
   test.setTimeout(20 * 60_000);

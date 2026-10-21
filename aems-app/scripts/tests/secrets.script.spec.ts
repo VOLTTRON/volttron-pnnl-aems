@@ -219,10 +219,13 @@ for (const shell of ["sh", "ps"] as const) {
     });
 
     test("a changed VOLTTRON_PASSWORD invalidates the volttron-setup lock and recreates every consumer", () => {
+      // The services container is where the password lands in a container env: volttron reads it
+      // from platform_config.yml rendered by volttron-setup and keeps its own env blank, so the
+      // deployed source of truth is services, not volttron.
       fx.write(".env.secrets", secretsFile({ VOLTTRON_PASSWORD: "new-vp" }));
       fx.docker({
-        running: ["fixture-volttron"],
-        env: { "fixture-volttron": ["VOLTTRON_PASSWORD=old-vp"] },
+        running: ["fixture-services"],
+        env: { "fixture-services": ["VOLTTRON_PASSWORD=old-vp"] },
       });
       const r = run(shell, "secrets");
       expect(r.status, r.out).toBe(0);
