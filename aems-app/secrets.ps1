@@ -859,6 +859,28 @@ if ($NEED_VOLTTRON_RERENDER -and -not $DryRun) {
 
 $RESTART = @($RESTART | Where-Object { $_ } | Sort-Object -Unique)
 
+# Compose starts a service named explicitly even when its profile isn't
+# active. `docker compose config --services` lists only profile-less services
+# and those whose profile is in COMPOSE_PROFILES; filter RESTART through it
+# so a profile that is off stays off. Dry-run reaches no docker and so
+# does not filter.
+if ($RESTART.Count -gt 0 -and -not $DryRun) {
+    $ActiveServices = @()
+    try {
+        $cfgOut = & docker compose @ComposeArgs config --services 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $ActiveServices = @($cfgOut -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        }
+    } catch { }
+    if ($ActiveServices.Count -gt 0) {
+        $Skipped = @($RESTART | Where-Object { $ActiveServices -notcontains $_ })
+        $RESTART = @($RESTART | Where-Object { $ActiveServices -contains $_ })
+        foreach ($svc in $Skipped) {
+            Write-Info "Skipping $svc (its profile is not in COMPOSE_PROFILES)"
+        }
+    }
+}
+
 if ($RESTART.Count -gt 0) {
     Write-Hdr "Recreating affected services: $($RESTART -join ' ')"
     foreach ($svc in $RESTART) {
@@ -876,10 +898,6 @@ if ($RESTART.Count -gt 0) {
                 Write-Ok "$svc re-run"
             }
             default {
-                # Always try to recreate — compose will skip services
-                # whose profile isn't active. Services in Exited/Created
-                # state (e.g., a failed init) still need to come up with
-                # fresh env, so we can't gate on running-status.
                 Write-Info "Recreating $svc"
                 if ($DryRun) { Write-Dry "docker compose $($ComposeArgs -join ' ') up -d --no-deps $svc" }
                 else { & docker compose @ComposeArgs up -d --no-deps $svc }

@@ -69,7 +69,20 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
           if (listed.length === 0) {
             return;
           }
-          const session = await this.volttronService.makeAuthCall();
+          let session;
+          try {
+            session = await this.volttronService.makeAuthCall();
+          } catch (error: any) {
+            let message = typeofObject<Error>(error, (e) => "message" in e)
+              ? error.message
+              : "Unknown error occurred while authenticating with Volttron.";
+            message = message.length > 1024 ? message.substring(0, 1024 - 3) + "..." : message;
+            await this.prismaService.prisma.unit.updateMany({
+              where: { stage: { in: [StageType.Update.enum, StageType.Process.enum] }, ...notDemo },
+              data: { message },
+            });
+            throw error;
+          }
           for (const { id } of listed) {
             // Claimed only from Update or Process, then read as it stands: an edit saved from here on
             // moves it back to Update, and the conditional writes below leave it there.

@@ -963,6 +963,26 @@ fi
 
 RESTART_SERVICES=$(printf '%s' "$RESTART_SERVICES" | tr ' ' '\n' | grep -v '^$' | sort -u | tr '\n' ' ')
 
+# Compose starts a service named explicitly even when its profile isn't
+# active. `docker compose config --services` lists only profile-less services
+# and those whose profile is in COMPOSE_PROFILES; filter RESTART_SERVICES
+# through it so a profile that is off stays off. Dry-run reaches no docker
+# and so does not filter.
+if [ "$DRY_RUN" = 0 ] && [ -n "$(printf '%s' "$RESTART_SERVICES" | tr -d ' ')" ]; then
+  ACTIVE_SERVICES=$(docker compose config --services 2>/dev/null || true)
+  if [ -n "$ACTIVE_SERVICES" ]; then
+    FILTERED=""
+    for svc in $RESTART_SERVICES; do
+      if printf '%s\n' "$ACTIVE_SERVICES" | grep -Fxq "$svc"; then
+        FILTERED="$FILTERED $svc"
+      else
+        info "Skipping $svc (its profile is not in COMPOSE_PROFILES)"
+      fi
+    done
+    RESTART_SERVICES=$(printf '%s' "$FILTERED" | sed 's/^ //')
+  fi
+fi
+
 if [ -n "$(printf '%s' "$RESTART_SERVICES" | tr -d ' ')" ]; then
   header "Recreating affected services: $RESTART_SERVICES"
   for svc in $RESTART_SERVICES; do
@@ -978,9 +998,6 @@ if [ -n "$(printf '%s' "$RESTART_SERVICES" | tr -d ' ')" ]; then
         ok "$svc re-run"
         ;;
       *)
-        # Always try to recreate — compose will skip services whose
-        # profile isn't active. Services in Exited/Created state (e.g.,
-        # a failed init) still need to come up with fresh env.
         info "Recreating $svc"
         run_or_dry "docker compose up -d --no-deps $svc"
         ok "$svc recreated"
