@@ -37,5 +37,5 @@ secrets, stack
 | `secrets-rotate-live` | live rotation, refusal when down, `--dry-run` |
 | `pg-shadow-drift-healed` | sentinel-initialised role rotated |
 | `historian-config-reconciled` | SQLHistorian config matches after rotation and deploy |
-| `historian-sync-waits-600` | *(owed)* the SQLHistorian check, `.sh` and `.ps1`, waits 600 seconds before giving up |
+| `historian-sync-waits-600` | the SQLHistorian check, `.sh` and `.ps1`, waits 600 seconds before giving up |
 | `volttron-password-rotated` | *(owed)* a changed `VOLTTRON_PASSWORD`: `/authenticate` takes the new, refuses the old; a push then reaches Complete |
