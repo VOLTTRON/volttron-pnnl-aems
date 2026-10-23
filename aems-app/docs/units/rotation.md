@@ -20,6 +20,8 @@ one its peers accept; how the value reaches `.env` is `secrets`.
   the `.env.secrets` value without operator action.
 - After any `HISTORIAN_*_PASSWORD` rotation, and after every `start-services`, the VOLTTRON
   SQLHistorian agent's install-time config matches `historian.config`.
+- That check waits up to 600 seconds for the platform to answer and the SQLHistorian agent to run
+  before giving up, from `start-services` and `secrets.sh`, in `.sh` and `.ps1` alike.
 - A changed `VOLTTRON_PASSWORD` reaches both ends: after `secrets.sh`, the platform's `/authenticate`
   accepts the new value and refuses the old, and the server and services processes call with the new.
 
@@ -35,4 +37,5 @@ secrets, stack
 | `secrets-rotate-live` | live rotation, refusal when down, `--dry-run` |
 | `pg-shadow-drift-healed` | sentinel-initialised role rotated |
 | `historian-config-reconciled` | SQLHistorian config matches after rotation and deploy |
+| `historian-sync-waits-600` | *(owed)* the SQLHistorian check, `.sh` and `.ps1`, waits 600 seconds before giving up |
 | `volttron-password-rotated` | *(owed)* a changed `VOLTTRON_PASSWORD`: `/authenticate` takes the new, refuses the old; a push then reaches Complete |
