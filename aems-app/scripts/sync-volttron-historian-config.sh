@@ -38,9 +38,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ENV_FILE="${REPO_ROOT}/.env"
 HISTORIAN_CONFIG_HOST="${REPO_ROOT}/docker/volttron/setup/configs/historian.config"
-# Up to 300s: bootstart.sh -> setup-platform.py sequentially installs
+# Up to 600s: bootstart.sh -> setup-platform.py sequentially installs
 # every declared agent (typically 3-4 min) before SQLHistorian appears.
-VCTL_TIMEOUT_SECONDS=300
+VCTL_TIMEOUT_SECONDS=600
 
 # ── color helpers ──────────────────────────────────────────────────────────────
 if [ -t 1 ]; then

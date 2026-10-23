@@ -3,6 +3,7 @@ jest.mock("undici", () => ({
   fetch: jest.fn(),
 }));
 
+import { Logger } from "@nestjs/common";
 import { fetch } from "undici";
 import { AppConfigService } from "@/app.config";
 import { VolttronService, type VolttronSession } from "./volttron.service";
@@ -24,13 +25,24 @@ const VUI_PROBE = "https://edge/vui";
 const vui: VolttronSession = { token: "token", api: "vui" };
 const gs: VolttronSession = { token: "token", api: "gs" };
 
-function service(mocked = false, apiUrl = "https://edge", platform = "volttron1") {
+function service(mocked = false, apiUrl = "https://edge", platform = "volttron1", verbose = false) {
   return new VolttronService({
     volttron: { ca: "", mocked },
     service: {
-      config: { timeout: 1000, authUrl: "https://edge/authenticate", apiUrl, platform, username: "u", password: "p", verbose: false },
+      config: { timeout: 1000, authUrl: "https://edge/authenticate", apiUrl, platform, username: "u", password: "p", verbose },
     },
   } as unknown as AppConfigService);
+}
+
+/** Every argument passed to any Logger method, as text, until the returned spies are restored. */
+function captureLogs() {
+  const lines: string[] = [];
+  const spies = (["log", "warn", "error", "debug", "verbose", "fatal"] as const).map((level) =>
+    jest.spyOn(Logger.prototype, level).mockImplementation((...args: unknown[]) => {
+      lines.push(args.map((a) => (typeof a === "string" ? a : JSON.stringify(a) ?? String(a))).join(" "));
+    }),
+  );
+  return { lines, restore: () => spies.forEach((s) => s.mockRestore()) };
 }
 
 describe("VolttronService", () => {
@@ -219,6 +231,85 @@ describe("VolttronService", () => {
       await failed;
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+  });
+
+  // scenario: volttron-api-logged
+  describe("the API a push goes through", () => {
+    let logs: ReturnType<typeof captureLogs>;
+    beforeEach(() => (logs = captureLogs()));
+    afterEach(() => logs.restore());
+
+    it.each([
+      ["VUI", response(200, {})],
+      ["/gs", response(404, "not found", "text/plain")],
+    ])("is logged with the base it was found at, verbose off: %s", async (api, probe) => {
+      fetchMock.mockResolvedValueOnce(response(200, { access_token: "abc" })).mockResolvedValueOnce(probe);
+      await service(false, "https://edge/gs").makeAuthCall();
+      const named = logs.lines.filter((l) => l.includes(api) && l.includes("https://edge"));
+      expect(named).toHaveLength(1);
+      expect(named[0]).not.toContain("https://edge/gs");
+    });
+
+    it.each([
+      ["VUI", "a server error", vui, response(500, "boom", "text/plain")],
+      ["VUI", "a refused call", vui, response(401, { error: "Not Authorized" })],
+      ["VUI", "an agent refusal", vui, response(200, false)],
+      ["/gs", "a server error", gs, response(500, "boom", "text/plain")],
+      ["/gs", "a refused call", gs, response(401, { error: "Not Authorized" })],
+      ["/gs", "an agent refusal", gs, response(200, { jsonrpc: "2.0", id: "manager.rtu1", result: "agent not found" })],
+    ])("is named in the error of a failed call through %s on %s", async (api, _, session, reply) => {
+      fetchMock.mockResolvedValue(reply);
+      const call = service().makeApiCall("manager.rtu1", "set_holidays", session, {});
+      const failed = call.catch((e: Error) => e);
+      await jest.advanceTimersByTimeAsync(10_000);
+      expect(((await failed) as Error).message).toContain(api);
+    });
+  });
+
+  // scenario: volttron-neither-api
+  it("says neither API is served, naming both URLs, when /vui answered 404 and a /gs call answers 404", async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(200, { access_token: "abc" }))
+      .mockResolvedValueOnce(response(404, "not found", "text/plain"))
+      .mockResolvedValue(response(404, "not found", "text/plain"));
+    const volttron = service(false, "https://edge/gs");
+    const session = await volttron.makeAuthCall();
+    const failed = volttron.makeApiCall("manager.rtu1", "set_holidays", session, {}).catch((e: Error) => e);
+    await jest.advanceTimersByTimeAsync(10_000);
+    const message = ((await failed) as Error).message;
+    expect(message).toMatch(/neither/i);
+    expect(message).toContain(VUI_PROBE);
+    expect(message).toContain(GS_URL);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  // scenario: volttron-token-not-logged
+  it("logs no line holding the access token, verbose on, through VUI and /gs", async () => {
+    const TOKEN = "tok-3f9a1c77e0";
+    const logs = captureLogs();
+    try {
+      for (const probe of [response(200, {}), response(404, "not found", "text/plain")]) {
+        fetchMock
+          .mockResolvedValueOnce(response(200, { access_token: TOKEN }))
+          .mockResolvedValueOnce(probe)
+          .mockResolvedValueOnce(response(502, "bad gateway", "text/plain"))
+          .mockResolvedValueOnce(response(200, { jsonrpc: "2.0", id: "manager.rtu1", result: true }))
+          .mockResolvedValueOnce(response(200, false));
+        const volttron = service(false, "https://edge", "volttron1", true);
+        const session = await volttron.makeAuthCall();
+        expect(session.token).toBe(TOKEN);
+        const ok = volttron.makeApiCall("manager.rtu1", "set_holidays", session, { Labor: {} }).catch(() => undefined);
+        await jest.advanceTimersByTimeAsync(10_000);
+        await ok;
+        const refused = volttron.makeApiCall("manager.rtu1", "set_holidays", session, {}).catch(() => undefined);
+        await jest.advanceTimersByTimeAsync(10_000);
+        await refused;
+      }
+      expect(logs.lines.length).toBeGreaterThan(4);
+      expect(logs.lines.filter((l) => l.includes(TOKEN))).toEqual([]);
+    } finally {
+      logs.restore();
+    }
   });
 
   // scenario: mocked-sends-nothing

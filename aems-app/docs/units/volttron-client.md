@@ -50,9 +50,9 @@ stack
 | `volttron-rpc-via-gs` | the `/gs` JSON-RPC body with the token and payload in `params`; a missing or string result fails on the first try |
 | `volttron-call-retried` | three tries with backoff on 5xx or non-JSON |
 | `volttron-refusal-not-retried` | a 4xx or a `false` return fails on the first try |
-| `volttron-api-logged` | *(owed)* with verbose off, a push logs its API and base; a failed call's error names its API |
-| `volttron-neither-api` | *(owed)* `/vui` and then a `/gs` call answered 404: the error says neither API is served, naming both URLs |
-| `volttron-token-not-logged` | *(owed)* verbose on, through VUI and `/gs`: no log line holds the access token |
+| `volttron-api-logged` | with verbose off, a push logs its API and base; a failed call's error names its API |
+| `volttron-neither-api` | `/vui` and then a `/gs` call answered 404: the error says neither API is served, naming both URLs |
+| `volttron-token-not-logged` | verbose on, through VUI and `/gs`: no log line holds the access token |
 | `mocked-sends-nothing` | the mocked flag sends no request and succeeds |
 | `platform-identity-one-source` | rendered with non-default `VOLTTRON_PLATFORM`, `_USERNAME`, `_PASSWORD`: `platform_config.yml`'s instance name and web user are those values, and so are the server's `SERVICE_CONFIG_*` |
 | `volttron-password-sentinel` | the tracked `.env` holds the sentinel for `VOLTTRON_PASSWORD`; tier E's platform, deployed with it, accepts it at `/authenticate` |

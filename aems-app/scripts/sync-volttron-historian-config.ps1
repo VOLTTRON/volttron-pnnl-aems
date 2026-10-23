@@ -24,9 +24,9 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot  = Split-Path -Parent $ScriptDir
 $EnvFile   = Join-Path $RepoRoot ".env"
 $HistorianConfigHost = Join-Path $RepoRoot "docker/volttron/setup/configs/historian.config"
-# Up to 300s: after a fresh volttron start, setup-platform.py takes a few
+# Up to 600s: after a fresh volttron start, setup-platform.py takes a few
 # minutes to install all agents before SQLHistorian shows up.
-$VctlTimeoutSeconds  = 300
+$VctlTimeoutSeconds  = 600
 
 function Write-Info { param($msg) Write-Host "  ->  $msg" -ForegroundColor Cyan }
 function Write-Ok   { param($msg) Write-Host "  v   $msg" -ForegroundColor Green }

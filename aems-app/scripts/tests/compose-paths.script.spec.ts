@@ -124,5 +124,29 @@ for (const shell of ["sh", "ps"] as const) {
       expect(started.status, started.out).toBe(0);
       expect(installed(), started.out).toEqual(JSON.parse(desired(PLACEHOLDER)));
     });
+
+    // scenario: historian-sync-waits-600
+    test("waits 600 seconds for VOLTTRON and SQLHistorian before giving up", () => {
+      const SCRIPT = `scripts/sync-volttron-historian-config.${ext}`;
+      fx = new Fixture([SCRIPT]);
+      fx.write(CONFIG, desired("h"));
+      // The platform never answers vctl, so SQLHistorian never appears.
+      fx.docker({ running: ["fixture-volttron"], fail: ["exec -u volttron fixture-volttron bash -lc"] });
+      // Every sleep is recorded rather than slept, so the wait is measured, not waited out.
+      const slept = `${fx.dir}/slept.log`.replace(/\\/g, "/");
+      let out: string;
+      if (shell === "sh") {
+        fx.write("bin/sleep", `#!/bin/sh\nprintf '%s\\n' "$1" >> '${slept}'\n`);
+        out = fx.bash(`PATH="$PWD/bin:$PATH" ./${SCRIPT}`).out;
+      } else {
+        out = fx.session(
+          `function global:Start-Sleep { param($Seconds) Add-Content -LiteralPath '${slept}' -Value $Seconds }; & .\\${SCRIPT.replace(/\//g, "\\")}`,
+        ).out;
+      }
+      const waited = fx.text("slept.log").split(/\r?\n/).filter(Boolean).reduce((sum, s) => sum + Number(s), 0);
+      expect(waited, out).toBe(600);
+      expect(out).toMatch(/did not become ready within 600 ?s/);
+      expect(fx.calls().filter((c) => /environ|cat /.test(c)), out).toEqual([]);
+    });
   });
 }

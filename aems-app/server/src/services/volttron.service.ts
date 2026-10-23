@@ -34,6 +34,9 @@ export type VolttronApi = "vui" | "gs";
 /** One push's auth: the access token and the API dispatched to under it. */
 export type VolttronSession = { token: string; api: VolttronApi };
 
+/** How logs and errors name an API. */
+const apiName = (api: VolttronApi) => (api === "vui" ? "VUI" : "/gs");
+
 @Injectable()
 export class VolttronService implements OnModuleDestroy {
   private logger = new Logger(VolttronService.name);
@@ -118,8 +121,11 @@ export class VolttronService implements OnModuleDestroy {
       headers: { Authorization: `Bearer ${token}` },
       dispatcher: this.agent,
     });
-    if (response.ok) return "vui";
-    if (response.status === 404) return "gs";
+    if (response.ok || response.status === 404) {
+      const api: VolttronApi = response.ok ? "vui" : "gs";
+      this.logger.log(`Volttron push through ${apiName(api)} at ${this.baseUrl()}`);
+      return api;
+    }
     throw new VolttronHttpError(
       `Volttron API detection ${url}: HTTP ${response.status} ${response.statusText}`,
       response.status,
@@ -168,10 +174,13 @@ export class VolttronService implements OnModuleDestroy {
           };
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (session.api === "vui") headers.Authorization = `Bearer ${session.token}`;
+    const name = apiName(session.api);
 
     try {
       if (this.configService.service.config.verbose) {
-        this.logger.log(inspect({ url: url, body: body }, undefined, 10));
+        // The /gs body carries the access token; no log line may.
+        const logged = "params" in body ? { ...body, params: { ...body.params, authentication: "<redacted>" } } : body;
+        this.logger.log(inspect({ url: url, body: logged }, undefined, 10));
       }
 
       const response = await fetch(url, {
@@ -181,7 +190,14 @@ export class VolttronService implements OnModuleDestroy {
         dispatcher: this.agent,
       });
 
-      const parsed: any = await this.parseJsonResponseOrThrow(response, `Volttron API ${method}`);
+      if (session.api === "gs" && response.status === 404) {
+        throw new VolttronHttpError(
+          `Volttron platform at ${this.baseUrl()} serves neither API: ${this.baseUrl()}/vui and ${url} both answered 404`,
+          404,
+        );
+      }
+
+      const parsed: any = await this.parseJsonResponseOrThrow(response, `Volttron ${name} API ${method}`);
 
       if (this.configService.service.config.verbose) {
         this.logger.log(inspect({ url: url, response: parsed }, undefined, 10));
@@ -189,13 +205,13 @@ export class VolttronService implements OnModuleDestroy {
 
       if (session.api === "vui") {
         if (parsed === false) {
-          throw new AgentFailureError(`Failed Volttron API ${method} call: agent ${id} reported failure.`);
+          throw new AgentFailureError(`Failed Volttron ${name} API ${method} call: agent ${id} reported failure.`);
         }
         return parsed;
       }
 
       if (!parsed || !("result" in parsed) || typeof parsed.result === "string") {
-        throw new AgentFailureError(`Failed Volttron API ${method} call: agent ${id} reported failure.`);
+        throw new AgentFailureError(`Failed Volttron ${name} API ${method} call: agent ${id} reported failure.`);
       }
       return parsed.result;
     } catch (error: unknown) {
