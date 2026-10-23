@@ -36,6 +36,7 @@ control through are volttron-sync.
 - The services process reaches the platform the `volttron` profile deploys on every host the README
   supports, Docker Desktop included. `host-gateway` is not that address on Docker Desktop: it names
   the Windows host, not the namespace a `network_mode: host` container listens in.
+**Open:** on Docker Desktop, what address do `SERVICE_CONFIG_AUTH_URL`/`_API_URL` carry, as the tracked `.env` writes them, for `platform-reachable` to hold? Measured 2026-10-23, `curl -X POST <addr>:5410/authenticate` from `aems-services` (user `node`, read-only rootfs, root-owned `/etc/hosts`): `host.docker.internal` (192.168.65.254, fdc4:f303:9324::254) refused, `gateway.docker.internal` timed out; the default gateway 172.18.0.1 and docker0 172.17.0.1 answered 401 — one assigned per compose network at `up`, the other following the daemon's `bip`, neither known when `.env` is written. No archive record decides it; 6aa06fd4 ruled it a defect.
 
 ## Dependencies
 
