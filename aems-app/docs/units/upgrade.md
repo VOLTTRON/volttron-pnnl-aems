@@ -20,7 +20,6 @@ volttron-sync and controls-ilc.
   what it renders, never inputs. The ILC templates are copied afresh on every run.
 - After `start-services`, VOLTTRON's config store and each agent's install-time config match the
   rendered configs for every agent. The app then re-pushes what it owns, so its values win there.
-- The startup re-push marks every control as well as every unit.
 - `start-services` ends by reporting each historian login and each VOLTTRON agent's health.
 - A deployment in both broken states at once comes up working after one `start-services`. The broken
   states are a historian role on a stale password, and a VOLTTRON store holding configs older than
@@ -47,7 +46,6 @@ secrets, rotation, stack
 | `historian-logins-verified` | a role on a stale non-sentinel password is reset and logs in |
 | `volttron-setup-rerenders` | a changed `VOLTTRON_*` value, `generate_configs.py` or registry file re-renders; unchanged inputs do not |
 | `volttron-store-reconciled` | a stale store entry is replaced; app-owned entries end with the app's values |
-| `startup-repushes-controls` | the startup re-push marks every unit and control |
 | `deploy-report` | the report names each historian login and agent, healthy or not |
 | `upgrade-from-broken-fixture` | both broken states repaired by one `start-services` |
 | `update-pulls-changed-env` | a release changing the tracked `.env` pulls under a synced `.env`, and the stack comes up on it |

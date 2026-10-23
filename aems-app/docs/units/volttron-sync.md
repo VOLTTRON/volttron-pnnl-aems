@@ -29,7 +29,8 @@ VOLTTRON, to volttron-client; recording who changed what, to change-log.
 - A unit or control in Fail stays there until someone edits it or pushes it again. Nothing retries it.
 - An edit saved while its unit or control is being pushed is pushed afterward. A push marks Complete
   only the state it sent, and leaves anything edited during it marked for another push.
-- With `SERVICE_CONFIG_STARTUP` on, every unit is marked for a push when the services process starts.
+- With `SERVICE_CONFIG_STARTUP` on, every unit and every control is marked for a push when the
+  services process starts.
 
 ## Dependencies
 
@@ -47,3 +48,4 @@ site-model, background, volttron-client
 | `fail-not-retried` | a Fail unit or control is not pushed again without an edit or push |
 | `edit-during-push-repushed` | an edit saved mid-push is pushed after; the push does not mark it Complete |
 | `startup-repush` | the startup flag marks every unit |
+| `startup-repushes-controls` | the startup re-push marks every unit and control |
