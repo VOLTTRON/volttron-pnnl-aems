@@ -24,6 +24,9 @@ control through are volttron-sync.
 - A call VOLTTRON could not complete, a network error, a 5xx or a non-JSON response, is tried up to
   three times, 1 s then 2 s apart. A call VOLTTRON refused with a 4xx, or that the agent refused,
   fails at once and is not retried.
+- Each push logs which API it goes through and the base it was found at, verbose or not, and a failed
+  call's error names that API. When `/vui` answered 404 and a `/gs` call answers 404 too, the error
+  says the platform serves neither API, naming both URLs. No log line holds the access token.
 - With `VOLTTRON_MOCKED` on, no request leaves the server, and every call succeeds.
 - The server calls the platform by the name and web user it is deployed with: volttron-setup renders
   `platform_config.yml`'s `instance-name` from `VOLTTRON_PLATFORM` and its web user from
@@ -47,6 +50,9 @@ stack
 | `volttron-rpc-via-gs` | the `/gs` JSON-RPC body with the token and payload in `params`; a missing or string result fails on the first try |
 | `volttron-call-retried` | three tries with backoff on 5xx or non-JSON |
 | `volttron-refusal-not-retried` | a 4xx or a `false` return fails on the first try |
+| `volttron-api-logged` | *(owed)* with verbose off, a push logs its API and base; a failed call's error names its API |
+| `volttron-neither-api` | *(owed)* `/vui` and then a `/gs` call answered 404: the error says neither API is served, naming both URLs |
+| `volttron-token-not-logged` | *(owed)* verbose on, through VUI and `/gs`: no log line holds the access token |
 | `mocked-sends-nothing` | the mocked flag sends no request and succeeds |
 | `platform-identity-one-source` | rendered with non-default `VOLTTRON_PLATFORM`, `_USERNAME`, `_PASSWORD`: `platform_config.yml`'s instance name and web user are those values, and so are the server's `SERVICE_CONFIG_*` |
 | `volttron-password-sentinel` | the tracked `.env` holds the sentinel for `VOLTTRON_PASSWORD`; tier E's platform, deployed with it, accepts it at `/authenticate` |
