@@ -79,6 +79,37 @@ for (const shell of ["sh", "ps"] as const) {
     });
   });
 
+  test.describe(`Docker Desktop host networking (.${ext})`, () => {
+    // Docker Desktop with the volttron profile up; PROBE is what the services container's curl prints.
+    const desktop = (probe: string) => ({
+      outputs: [
+        ["info --format", "Docker Desktop"],
+        ["compose ps --services", "volttron\nservices"],
+        ["host.docker.internal:5410", probe],
+      ] as [string, string][],
+    });
+
+    // scenario: desktop-host-networking-named
+    test("a refused platform probe names Enable host networking, an answered one prints nothing; neither changes the exit code", () => {
+      fx = new Fixture([`start-services.${ext}`]);
+      stub(shell, "secrets");
+      stub(shell, "check-env");
+      fx.write(".env.secrets", "");
+
+      fx.docker(desktop("000"));
+      const refused = run(shell, "start-services", noBuild(shell));
+      expect(refused.status, refused.out).toBe(0);
+      expect(fx.calls().some((c) => c.includes("host.docker.internal:5410")), fx.calls().join("\n")).toBe(true);
+      expect(refused.out).toMatch(/Enable host networking/);
+
+      fx.docker(desktop("401"));
+      const answered = run(shell, "start-services", noBuild(shell));
+      expect(answered.status, answered.out).toBe(0);
+      expect(fx.calls().some((c) => c.includes("host.docker.internal:5410")), fx.calls().join("\n")).toBe(true);
+      expect(answered.out).not.toMatch(/host networking/i);
+    });
+  });
+
   test.describe(`SQLHistorian config (.${ext})`, () => {
     const CONFIG = "docker/volttron/setup/configs/historian.config";
     const AGENT = "/home/volttron/.volttron/agents/u1/sqlhistorianagent-4.0.0/sqlhistorianagent-4.0.0.dist-info/config";

@@ -212,6 +212,19 @@ print_green "All Docker Compose services are now running in detached mode."
 print_cyan "Use 'docker compose ps' to view running services."
 print_cyan "Use 'docker compose logs -f' to view logs."
 
+# On Docker Desktop the platform's network_mode: host puts it in Desktop's VM, which the services
+# container reaches at host.docker.internal only with Enable host networking on. Any HTTP answer,
+# a 401 included, is the platform answering; curl's 000 is nothing there.
+if docker info --format '{{.OperatingSystem}}' 2>/dev/null | grep -qi 'docker desktop' && \
+    docker compose ps --services 2>/dev/null | tr -d '\r' | grep -qx 'volttron'; then
+    PROBE=$(docker compose exec -T services curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+        -X POST http://host.docker.internal:5410/authenticate 2>/dev/null | tr -d '\r')
+    if [ "$PROBE" = "000" ]; then
+        print_yellow "Nothing answers the services container at host.docker.internal:5410, so no push reaches VOLTTRON."
+        print_yellow "On Docker Desktop, turn on Settings > Resources > Network > Enable host networking, then run start-services again."
+    fi
+fi
+
 # Last: what came up working. A report, so an unhealthy line does not fail the start.
 if [ -x ./scripts/deploy-report.sh ]; then
     ./scripts/deploy-report.sh || \
