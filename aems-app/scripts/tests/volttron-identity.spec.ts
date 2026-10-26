@@ -35,6 +35,38 @@ test("tracked .env holds the sentinel for VOLTTRON_PASSWORD, and the platform ac
   expect(typeof payload.access_token, out).toBe("string");
 });
 
+// scenario: platform-reachable
+test("from inside the services container, SERVICE_CONFIG_AUTH_URL and SERVICE_CONFIG_API_URL reach the deployed platform", async () => {
+  test.setTimeout(12 * 60_000);
+
+  // Run by the services container's own node, on its own SERVICE_CONFIG_*: neither the password nor
+  // the token is in an argv, and only status codes come back out.
+  const probe = `(async () => {
+    const env = process.env;
+    try {
+      const auth = await fetch(env.SERVICE_CONFIG_AUTH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: env.SERVICE_CONFIG_USERNAME, password: env.SERVICE_CONFIG_PASSWORD }),
+      });
+      const token = (await auth.json().catch(() => ({}))).access_token;
+      const base = env.SERVICE_CONFIG_API_URL.replace(/\\/gs\\/?$/, "");
+      const api = typeof token === "string" ? (await fetch(base + "/vui", { headers: { Authorization: "Bearer " + token } })).status : 0;
+      console.log(JSON.stringify({ auth: auth.status, token: typeof token === "string", api }));
+    } catch (error) {
+      console.log(JSON.stringify({ error: String(error.cause?.code ?? error.message) }));
+    }
+  })()`;
+  const reach = () => JSON.parse(docker("exec", container("services"), "node", "-e", probe)) as { auth?: number; token?: boolean; api?: number; error?: string };
+
+  // The platform installs its agents before its web service answers, so a cold stack is waited on.
+  await expect.poll(() => reach().auth, { timeout: 10 * 60_000, intervals: [5_000] }).toBe(200);
+  const reached = reach();
+  expect(reached.token, JSON.stringify(reached)).toBe(true);
+  // 2xx is the VUI API, 404 the /gs gateway: either is the platform answering at SERVICE_CONFIG_API_URL.
+  expect(reached.api === 404 || (reached.api! >= 200 && reached.api! < 300), JSON.stringify(reached)).toBe(true);
+});
+
 // scenario: platform-identity-one-source
 test("platform_config.yml and the services container both carry the live .env's VOLTTRON_PLATFORM, _USERNAME, _PASSWORD", () => {
   test.setTimeout(60_000);

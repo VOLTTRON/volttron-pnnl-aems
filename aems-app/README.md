@@ -1189,6 +1189,7 @@ These applications should be installed on the host machine. The `development` ta
 - [Postgres](https://www.postgresql.org/) - `development` (versions 16.x - https://www.postgresql.org/download/)
   - [Postgis](https://postgis.net/) - `development` (versions 3.x - https://postgis.net/install/)
 - [Docker-Desktop](https://www.docker.com/products/docker-desktop) - `deployment` or Docker and Docker-Compose
+  - With the `volttron` profile, Docker Desktop requires **Settings > Resources > Network > Enable host networking**. The platform runs with `network_mode: host`, and without the setting it listens inside Desktop's VM, where the services container cannot reach it at `host.docker.internal`. `start-services` says so when nothing answers there.
   - [Docker](https://www.docker.com/products/container-runtime) - (optional)
   - [Docker-Compose](https://docs.docker.com/compose/install/) - (optional)
 

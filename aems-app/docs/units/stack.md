@@ -56,4 +56,4 @@ None.
 | `profiles-gate-services` | the profile list and its gating |
 | `reset-warns-subscribers` | the warning precedes removing `historian-data` |
 | `restart-recreates` | `restart-service` recreates rather than restarts, after syncing `.env` |
-| `desktop-host-networking-named` | *(owed)* `start-services` `.sh` and `.ps1`: a platform probe refused names *Enable host networking*, one answered prints nothing; neither changes the exit code |
+| `desktop-host-networking-named` | `start-services` `.sh` and `.ps1`: a platform probe refused names *Enable host networking*, one answered prints nothing; neither changes the exit code |

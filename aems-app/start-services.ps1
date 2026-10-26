@@ -180,6 +180,22 @@ try {
     Write-Host "Use 'docker compose ps' to view running services." -ForegroundColor Cyan
     Write-Host "Use 'docker compose logs -f' to view logs." -ForegroundColor Cyan
 
+    # On Docker Desktop the platform's network_mode: host puts it in Desktop's VM, which the services
+    # container reaches at host.docker.internal only with Enable host networking on. Any HTTP answer,
+    # a 401 included, is the platform answering; curl's 000 is nothing there.
+    $engine = (docker info --format '{{.OperatingSystem}}' 2>$null) -join ''
+    $deployed = @(docker compose ps --services 2>$null | ForEach-Object { $_.Trim() })
+    if ($engine -match 'docker desktop' -and $deployed -ccontains 'volttron') {
+        $probe = ((docker compose exec -T services curl -s -o /dev/null -w '%{http_code}' --max-time 5 `
+            -X POST http://host.docker.internal:5410/authenticate 2>$null) -join '').Trim()
+        if ($probe -eq '000') {
+            Write-Host "Nothing answers the services container at host.docker.internal:5410, so no push reaches VOLTTRON." -ForegroundColor Yellow
+            Write-Host "On Docker Desktop, turn on Settings > Resources > Network > Enable host networking, then run start-services again." -ForegroundColor Yellow
+        }
+    }
+    # The probe's verdict is a warning, never the start's.
+    $global:LASTEXITCODE = 0
+
     # Last: what came up working. A report, so an unhealthy line does not fail the start.
     if (Test-Path .\scripts\deploy-report.ps1) {
         & .\scripts\deploy-report.ps1

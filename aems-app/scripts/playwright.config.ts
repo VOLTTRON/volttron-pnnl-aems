@@ -60,7 +60,7 @@ export default defineConfig({
         storageState: ".auth/admin.json",
       },
       dependencies: ["setup"],
-      testMatch: specs("graphql-admin", "keycloak-admin", "geography"),
+      testMatch: specs("graphql-admin", "keycloak-admin", "geography", "volttron-push"),
     },
     {
       // Restarts the stack, so it waits for everything that uses it.

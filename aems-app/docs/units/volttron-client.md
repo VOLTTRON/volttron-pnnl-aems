@@ -57,4 +57,4 @@ stack
 | `mocked-sends-nothing` | the mocked flag sends no request and succeeds |
 | `platform-identity-one-source` | rendered with non-default `VOLTTRON_PLATFORM`, `_USERNAME`, `_PASSWORD`: `platform_config.yml`'s instance name and web user are those values, and so are the server's `SERVICE_CONFIG_*` |
 | `volttron-password-sentinel` | the tracked `.env` holds the sentinel for `VOLTTRON_PASSWORD`; tier E's platform, deployed with it, accepts it at `/authenticate` |
-| `platform-reachable` | *(owed)* on tier E's host, from inside the services container, `SERVICE_CONFIG_AUTH_URL` and `SERVICE_CONFIG_API_URL` reach the deployed platform |
+| `platform-reachable` | on tier E's host, from inside the services container, `SERVICE_CONFIG_AUTH_URL` and `SERVICE_CONFIG_API_URL` reach the deployed platform |
