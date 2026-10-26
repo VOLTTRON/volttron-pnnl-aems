@@ -31,6 +31,8 @@ credentials — those are `secrets` and `rotation` — or any application behavi
   service runs with the `.env` it has just synced.
 - The profiles are exactly proxy, sso, map, nom, wiki, redis, grafana, historian, volttron, fastapi,
   fastapi-agents and synth; a service in a profile does not start unless that profile is selected.
+- On Docker Desktop with `volttron` selected, `start-services` says to turn on *Enable host networking*
+  when nothing answers the services container at `host.docker.internal:5410`, and carries on.
 
 ## Dependencies
 
@@ -54,3 +56,4 @@ None.
 | `profiles-gate-services` | the profile list and its gating |
 | `reset-warns-subscribers` | the warning precedes removing `historian-data` |
 | `restart-recreates` | `restart-service` recreates rather than restarts, after syncing `.env` |
+| `desktop-host-networking-named` | *(owed)* `start-services` `.sh` and `.ps1`: a platform probe refused names *Enable host networking*, one answered prints nothing; neither changes the exit code |

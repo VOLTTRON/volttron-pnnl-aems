@@ -33,10 +33,10 @@ control through are volttron-sync.
   `VOLTTRON_USERNAME` and `VOLTTRON_PASSWORD`, the values `SERVICE_CONFIG_PLATFORM`,
   `SERVICE_CONFIG_USERNAME` and `SERVICE_CONFIG_PASSWORD` carry to the server.
 - `VOLTTRON_PASSWORD` is a secret: the tracked `.env` holds the sentinel for it.
-- The services process reaches the platform the `volttron` profile deploys on every host the README
-  supports, Docker Desktop included. `host-gateway` is not that address on Docker Desktop: it names
-  the Windows host, not the namespace a `network_mode: host` container listens in.
-**Open:** on Docker Desktop, what address do `SERVICE_CONFIG_AUTH_URL`/`_API_URL` carry, as the tracked `.env` writes them, for `platform-reachable` to hold? Measured 2026-10-23, `curl -X POST <addr>:5410/authenticate` from `aems-services` (user `node`, read-only rootfs, root-owned `/etc/hosts`): `host.docker.internal` (192.168.65.254, fdc4:f303:9324::254) refused, `gateway.docker.internal` timed out; the default gateway 172.18.0.1 and docker0 172.17.0.1 answered 401 — one assigned per compose network at `up`, the other following the daemon's `bip`, neither known when `.env` is written. No archive record decides it; 6aa06fd4 ruled it a defect.
+- The services process reaches the platform the `volttron` profile deploys at `host.docker.internal`,
+  which compose maps to `host-gateway`, on every host the README supports. On Docker Desktop that
+  holds only with *Enable host networking* on, which the README requires: without it a
+  `network_mode: host` platform listens in the VM, not on the host `host-gateway` names.
 
 ## Dependencies
 
