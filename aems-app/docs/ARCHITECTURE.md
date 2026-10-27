@@ -63,8 +63,8 @@ The tier commands are in `process.json`; this says what each is for.
 | F owner | how it looks and feels, TLS trust in a real browser | — |
 
 Nothing runs in CI for aems-app; the only workflows are aems-edge's. **The class that survives every
-tier is the edge loop** — a setpoint written here and never applied at a site — because no tier drives
-a real VOLTTRON platform.
+tier is the edge loop** — a setpoint written here and never applied at a site — because no tier has an
+RTU: tier E's platform stores what a push sends, and nothing answers the writes its agents make.
 
 ## 5. Hard constraints
 
