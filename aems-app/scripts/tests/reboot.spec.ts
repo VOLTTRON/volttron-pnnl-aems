@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import { appDir, container, docker, hostname, inspect, psql, readEnv, run, stripAnsi } from "./support/stack";
+import { pushed } from "./support/push";
 import { headersOn, routers } from "./support/routers";
 
 const PLACEHOLDER = "SeT_tHiS_iN_0x3A-.env.secrets-";
@@ -227,9 +228,10 @@ test("a deployment whose historian role is on a stale password and whose VOLTTRO
 });
 
 // Runs here because it rotates VOLTTRON_PASSWORD and recreates volttron, server, services and
-// synth-worker. Not marked with the `volttron-password-rotated` scenario: that scenario also wants a
-// push to Complete, which this host cannot run (see rotation.md's Open line).
-test("a VOLTTRON_PASSWORD rotation flips /authenticate on the platform and refreshes the services env", async () => {
+// synth-worker. Not marked with the `volttron-password-rotated` scenario: its push waits out
+// setup-platform's restart, and whether a push inside that restart may Fail is rotation.md's Open
+// line under the claim.
+test("a VOLTTRON_PASSWORD rotation flips /authenticate on the platform, and a control's push then reaches Complete", async () => {
   // Each force-recreate of volttron runs setup-platform.py from a fresh config — about four
   // minutes of agent installs to write a new web-users.json. The test rotates there and back, so
   // the budget covers both passes.
@@ -295,6 +297,26 @@ test("a VOLTTRON_PASSWORD rotation flips /authenticate on the platform and refre
     // what carries the new value there.
     await healthy("services");
     expect(servicesPassword(), "services env must hold the new VOLTTRON_PASSWORD").toBe(newPassword);
+
+    // A control's push logs in to the platform from the services process, so it reaching Complete is
+    // that process calling with the new password; the old one is refused above. Marked the way the
+    // services cron reads a mark, since this project has no signed-in session. setup-platform
+    // answers /authenticate a moment before it shuts the platform down to start it for real, so the
+    // mark waits for that start.
+    await expect
+      .poll(() => /Setup of Volttron platform is complete\./i.test(docker("logs", container("volttron"))), {
+        message: "setup-platform never finished",
+        timeout: 10 * 60_000,
+        intervals: [5_000],
+      })
+      .toBe(true);
+    await expect
+      .poll(() => auth(newPassword), { timeout: 5 * 60_000, intervals: [5_000] })
+      .toMatch(/ HTTP 200\s*$/);
+    const control = psql("database", "aems", `SELECT id FROM "Control" WHERE name NOT LIKE 'DEMO\\_%' ORDER BY name LIMIT 1`);
+    expect(control, "the stack has a control").toBeTruthy();
+    psql("database", "aems", `UPDATE "Control" SET stage = 'Update' WHERE id = '${control}'`);
+    await pushed("Control", control, { timeout: 10 * 60_000 });
   } finally {
     fs.writeFileSync(secretsPath, originalSecrets);
     try {
