@@ -43,7 +43,7 @@ site-model, background, volttron-client
 |---|---|
 | `ilc-templates-reread` | templates re-read on the cron and on preview |
 | `unit-push-sequence` | Process, the eight calls in order, then Complete |
-| `push-reaches-platform` | *(owed)* on the deployed `volttron` container, unmocked, no RTU: a control pushed to Complete; a unit pushed to Fail with the platform's error, its agent's store holding the setpoints sent |
+| `push-reaches-platform` | on the deployed `volttron` container, unmocked, no RTU: a control pushed to Complete; a unit pushed to Fail with the platform's error, its agent's store holding the setpoints sent |
 | `unit-push-fail-message` | a failed call gives Fail with the cut message; service schedule alone does not |
 | `unreachable-platform-waits` | connection or login refused: no unit or control moves to Fail, each marked one stays marked with the error as its message, then reaches Complete once the login succeeds |
 | `fail-not-retried` | a Fail unit or control is not pushed again without an edit or push |
