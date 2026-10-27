@@ -12,15 +12,20 @@ export function stage(table: Pushed, id: string): { stage: string; message: stri
 }
 
 /**
- * Waits for a marked row's push to finish, and holds it to Complete. A push that reached Fail is
- * reported with its message at once rather than waited out.
+ * Waits for a marked row's push to finish, and holds it to EXPECTED, Complete unless named. A push
+ * that reached the other end is reported with its message at once rather than waited out.
  */
-export async function pushed(table: Pushed, id: string, timeout = 5 * 60_000) {
+export async function pushed(
+  table: Pushed,
+  id: string,
+  { expected = "Complete", timeout = 5 * 60_000 }: { expected?: "Complete" | "Fail"; timeout?: number } = {},
+): Promise<{ stage: string; message: string }> {
   await expect
     .poll(() => stage(table, id).stage, { message: `${table} ${id} never left its push`, timeout, intervals: [2_000] })
     .toMatch(/^(Complete|Fail)$/);
-  const { stage: reached, message } = stage(table, id);
-  expect(reached, `${table} ${id} pushed to ${reached}: ${message}`).toBe("Complete");
+  const reached = stage(table, id);
+  expect(reached.stage, `${table} ${id} pushed to ${reached.stage}: ${reached.message}`).toBe(expected);
+  return reached;
 }
 
 /** What a manager.<system> agent's configuration store holds under NAME; undefined while absent. */

@@ -13,10 +13,8 @@ async function mutate(request: APIRequestContext, mutation: string) {
   expect(body.errors).toBeUndefined();
 }
 
-// Parked on volttron-sync.md's Open line under its platform claim: on this stack every unit's
-// set_temperature_setpoints times out in VUI while the agent retries writes to an RTU that is not
-// there. It carries push-reaches-platform's mark once a unit's push can reach Complete.
-test.fixme("against the deployed platform, unmocked, a unit pushes to Complete with its setpoints in its agent's store, and a control pushes to Complete", async ({ request }) => {
+// scenario: push-reaches-platform
+test("against the deployed platform, unmocked, with no RTU: a unit pushes to Fail with the platform's error and its setpoints in its agent's store, and a control pushes to Complete", async ({ request }) => {
   test.setTimeout(15 * 60_000);
 
   // A unit setup created from the platform's own configuration store, so its manager agent is deployed.
@@ -34,11 +32,23 @@ test.fixme("against the deployed platform, unmocked, a unit pushes to Complete w
   // Distinctive, and inside the unit's heating and cooling bounds, so the agent accepts it.
   const occupied = 70 + (Date.now() % 9) / 4 + 0.25;
   await mutate(request, `updateSetpoint(where: { id: "${setpoint}" }, update: { setpoint: ${occupied} }) { id }`);
-  await pushed("Unit", unit);
+  // No RTU answers the agent's BACnet writes, so set_temperature_setpoints fails in VUI after the
+  // agent has stored what it was sent.
+  const failed = await pushed("Unit", unit, { expected: "Fail" });
+  expect(failed.message, "the unit's Fail carries the platform's error").not.toMatch(/^(|Synchronizing with Volttron\.\.\.)$/);
   await expect
     .poll(() => (managerStore(system, "set_points") as { OccupiedSetPoint?: number } | undefined)?.OccupiedSetPoint, { timeout: 60_000 })
     .toBe(occupied);
 
+  // Units push beside controls, and each unit call holds the platform up to VUI's 5 s wait, so a
+  // control pushed while units marked by earlier specs are still pushing can time out at 500.
+  await expect
+    .poll(() => sql(`SELECT count(*) FROM "Unit" WHERE stage IN ('Update', 'Process') AND name NOT LIKE 'DEMO\\_%'`), {
+      message: "units still pushing",
+      timeout: 5 * 60_000,
+      intervals: [2_000],
+    })
+    .toBe("0");
   await mutate(request, `updateControl(where: { id: "${control}" }, update: { label: "pushed ${Date.now()}" }) { id }`);
   await pushed("Control", control);
 });
