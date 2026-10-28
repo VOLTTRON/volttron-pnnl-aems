@@ -6,7 +6,7 @@ jest.mock("undici", () => ({
 import { Logger } from "@nestjs/common";
 import { fetch } from "undici";
 import { AppConfigService } from "@/app.config";
-import { VolttronService, type VolttronSession } from "./volttron.service";
+import { AgentFailureError, PlatformUnansweredError, VolttronHttpError, VolttronService, type VolttronSession } from "./volttron.service";
 
 const fetchMock = fetch as unknown as jest.Mock;
 
@@ -230,6 +230,37 @@ describe("VolttronService", () => {
       await jest.advanceTimersByTimeAsync(10_000);
       await failed;
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // scenario: mid-push-no-answer-waits
+  describe("a call the platform gives no answer to", () => {
+    /** What undici's fetch rejects with when no HTTP answer arrives. */
+    const noAnswer = (code: string) => Object.assign(new TypeError("fetch failed"), { cause: Object.assign(new Error(`connect ${code} 192.168.65.254:5410`), { code }) });
+
+    it.each([["refused", "ECONNREFUSED"], ["reset", "ECONNRESET"], ["timed out", "UND_ERR_CONNECT_TIMEOUT"]])(
+      "is tried three times, then fails as unanswered when the connection is %s, naming why",
+      async (_, code) => {
+        fetchMock.mockRejectedValue(noAnswer(code));
+        const failed = service().makeApiCall("agent.ilc", "update_configurations", vui, {}).catch((e: Error) => e);
+        await jest.advanceTimersByTimeAsync(10_000);
+        const error = await failed;
+        expect(error).toBeInstanceOf(PlatformUnansweredError);
+        expect((error as Error).message).toContain(code);
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+      },
+    );
+
+    it.each([
+      ["a server error", response(502, "bad gateway", "text/plain"), VolttronHttpError],
+      ["the agent's false", response(200, false), AgentFailureError],
+    ])("is not what %s is: an answered call fails as before", async (_, reply, type) => {
+      fetchMock.mockResolvedValue(reply);
+      const failed = service().makeApiCall("agent.ilc", "update_configurations", vui, {}).catch((e: Error) => e);
+      await jest.advanceTimersByTimeAsync(10_000);
+      const error = await failed;
+      expect(error).toBeInstanceOf(type);
+      expect(error).not.toBeInstanceOf(PlatformUnansweredError);
     });
   });
 

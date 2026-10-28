@@ -28,6 +28,17 @@ export class AgentFailureError extends Error {
   }
 }
 
+/**
+ * The platform gave no HTTP answer at all — the connection was refused, reset or timed out — once
+ * the call's tries were spent. A push meeting it waits for the platform rather than failing.
+ */
+export class PlatformUnansweredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PlatformUnansweredError";
+  }
+}
+
 /** Which web API the deployed platform serves. Picked once per push by `GET <base>/vui`. */
 export type VolttronApi = "vui" | "gs";
 
@@ -183,11 +194,16 @@ export class VolttronService implements OnModuleDestroy {
         this.logger.log(inspect({ url: url, body: logged }, undefined, 10));
       }
 
+      // fetch rejects only when no HTTP answer arrived; undici names why in the cause.
       const response = await fetch(url, {
         method: "POST",
         body: JSON.stringify(body),
         headers: headers,
         dispatcher: this.agent,
+      }).catch((error: unknown) => {
+        const cause = (error as { cause?: unknown } | null)?.cause;
+        const why = cause instanceof Error ? cause.message : error instanceof Error ? error.message : String(error);
+        throw new PlatformUnansweredError(`Volttron ${name} API ${method}: no answer from ${url} — ${why}`);
       });
 
       if (session.api === "gs" && response.status === 404) {

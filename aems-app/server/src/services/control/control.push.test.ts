@@ -7,7 +7,7 @@ import { ControlService } from "./control.service";
 import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
-import { VolttronService } from "../volttron.service";
+import { AgentFailureError, PlatformUnansweredError, VolttronHttpError, VolttronService } from "../volttron.service";
 
 interface Control {
   id: string;
@@ -234,6 +234,38 @@ describe("pushing a control to the ILC agent", () => {
       expect(controls[0].stage).toBe(StageType.Update.enum);
       expect(updates[0].message?.length).toBe(1024);
       expect(updates[0].message?.startsWith("zzz")).toBe(true);
+    });
+  });
+
+  // scenario: mid-push-no-answer-waits
+  describe("a platform that stops answering after the login", () => {
+    const marked = [StageType.Create.enum, StageType.Update.enum, StageType.Process.enum] as string[];
+
+    it("at update_configurations moves no control to Fail, goes no further, leaves every marked one marked with the error, and the next push reaches Complete", async () => {
+      controls = [control(), control({ id: "c2", stage: StageType.Create.enum })];
+      makeApiCall = jest.fn().mockRejectedValue(new PlatformUnansweredError("no answer: connect ECONNREFUSED 192.168.65.254:5410"));
+      await push();
+      expect(makeApiCall).toHaveBeenCalledTimes(1);
+      expect(stages()).not.toContain(StageType.Fail.enum);
+      for (const c of controls) {
+        expect(marked).toContain(c.stage);
+        expect((c as { message?: string }).message).toBe("no answer: connect ECONNREFUSED 192.168.65.254:5410");
+      }
+
+      await module.close();
+      makeApiCall = jest.fn().mockResolvedValue({});
+      await push();
+      for (const c of controls) expect(c.stage).toBe(StageType.Complete.enum);
+    });
+
+    it.each([
+      ["a 5xx", new VolttronHttpError("Volttron VUI API update_configurations: HTTP 502 Bad Gateway", 502)],
+      ["the agent's false", new AgentFailureError("agent agent.ilc reported failure.")],
+    ])("still moves the control to Fail on %s at the same call", async (_, error) => {
+      controls = [control()];
+      makeApiCall = jest.fn().mockRejectedValue(error);
+      await push();
+      expect(controls[0].stage).toBe(StageType.Fail.enum);
     });
   });
 

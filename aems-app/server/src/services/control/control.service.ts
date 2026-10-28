@@ -4,7 +4,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { AppConfigService } from "@/app.config";
 import { Cron } from "@nestjs/schedule";
 import { Mutation, StageType, typeofObject } from "@local/common";
-import { VolttronService } from "../volttron.service";
+import { PlatformUnansweredError, VolttronService } from "../volttron.service";
 import { renderControlTemplates } from "@/utils/render-control-templates";
 import { collectRenderErrors } from "@/utils/template";
 import { SubscriptionService } from "@/subscription/subscription.service";
@@ -150,9 +150,13 @@ export class ControlService extends BaseService {
                 ? error.message
                 : "Unknown error occurred while pushing control config.";
               message = message.length > 1024 ? message.substring(0, 1024 - 3) + "..." : message;
+              // No answer from the platform fails nothing: every marked control waits, this one included.
+              const unanswered = error instanceof PlatformUnansweredError;
               await this.prismaService.prisma.control.updateMany({
-                where: { id: control.id, stage: StageType.Process.enum },
-                data: { stage: StageType.FailType.enum, message: message },
+                where: unanswered
+                  ? { stage: { in: pending }, ...notDemo }
+                  : { id: control.id, stage: StageType.Process.enum },
+                data: unanswered ? { message } : { stage: StageType.FailType.enum, message: message },
               });
               await this.subscriptionService.publish("Control", {
                 topic: "Control",
@@ -164,6 +168,7 @@ export class ControlService extends BaseService {
                 id: control.id,
                 mutation: Mutation.Updated,
               });
+              if (unanswered) throw error;
             }
           }
         })
