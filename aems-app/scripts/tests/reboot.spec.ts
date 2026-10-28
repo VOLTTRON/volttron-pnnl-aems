@@ -228,9 +228,8 @@ test("a deployment whose historian role is on a stale password and whose VOLTTRO
 });
 
 // Runs here because it rotates VOLTTRON_PASSWORD and recreates volttron, server, services and
-// synth-worker. Not marked with the `volttron-password-rotated` scenario: its push waits out
-// setup-platform's restart, and whether a push inside that restart may Fail is rotation.md's Open
-// line under the claim.
+// synth-worker.
+// scenario: volttron-password-rotated
 test("a VOLTTRON_PASSWORD rotation flips /authenticate on the platform, and a control's push then reaches Complete", async () => {
   // Each force-recreate of volttron runs setup-platform.py from a fresh config — about four
   // minutes of agent installs to write a new web-users.json. The test rotates there and back, so
@@ -300,19 +299,9 @@ test("a VOLTTRON_PASSWORD rotation flips /authenticate on the platform, and a co
 
     // A control's push logs in to the platform from the services process, so it reaching Complete is
     // that process calling with the new password; the old one is refused above. Marked the way the
-    // services cron reads a mark, since this project has no signed-in session. setup-platform
-    // answers /authenticate a moment before it shuts the platform down to start it for real, so the
-    // mark waits for that start.
-    await expect
-      .poll(() => /Setup of Volttron platform is complete\./i.test(docker("logs", container("volttron"))), {
-        message: "setup-platform never finished",
-        timeout: 10 * 60_000,
-        intervals: [5_000],
-      })
-      .toBe(true);
-    await expect
-      .poll(() => auth(newPassword), { timeout: 5 * 60_000, intervals: [5_000] })
-      .toMatch(/ HTTP 200\s*$/);
+    // services cron reads a mark, since this project has no signed-in session. Marked as soon as
+    // /authenticate takes the new value: setup-platform answers it a moment before it restarts the
+    // platform, and a push meeting that restart waits rather than failing.
     const control = psql("database", "aems", `SELECT id FROM "Control" WHERE name NOT LIKE 'DEMO\\_%' ORDER BY name LIMIT 1`);
     expect(control, "the stack has a control").toBeTruthy();
     psql("database", "aems", `UPDATE "Control" SET stage = 'Update' WHERE id = '${control}'`);

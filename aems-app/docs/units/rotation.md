@@ -39,4 +39,4 @@ secrets, stack
 | `pg-shadow-drift-healed` | sentinel-initialised role rotated |
 | `historian-config-reconciled` | SQLHistorian config matches after rotation and deploy |
 | `historian-sync-waits-600` | the SQLHistorian check, `.sh` and `.ps1`, waits 600 seconds before giving up |
-| `volttron-password-rotated` | *(owed)* a changed `VOLTTRON_PASSWORD`: `/authenticate` takes the new, refuses the old; a control's push then reaches Complete |
+| `volttron-password-rotated` | a changed `VOLTTRON_PASSWORD`: `/authenticate` takes the new, refuses the old; a control's push then reaches Complete |
