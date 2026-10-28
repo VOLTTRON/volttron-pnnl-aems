@@ -13,8 +13,9 @@ owns what the app sends that agent, and when.
 
 - A push renders every `.json` template under `SERVICE_SETUP_TEMPLATE_PATHS` with the control and its
   units, keyed by file name. It sends the result to `agent.ilc` through `update_configurations`.
-- A push moves the control to Process, then to Complete. On failure it moves to Fail instead, with the
-  error as its message, cut to 1024 characters.
+- A push moves the control to Process, then to Complete. On a failure the platform answers, or one of
+  its own, it moves to Fail instead, with the error as its message, cut to 1024 characters; a platform
+  that does not answer leaves it marked, as volttron-sync says.
 - A push fails, and sends nothing, when any template fails to parse or render, listing every error.
   It fails the same way when none of the template paths exist.
 - A unit marked as not participating in grid services (`peakLoadExclude`) is left out of its control's

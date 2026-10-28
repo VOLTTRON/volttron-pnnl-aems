@@ -25,7 +25,6 @@ one its peers accept; how the value reaches `.env` is `secrets`.
 - A changed `VOLTTRON_PASSWORD` reaches both ends: after `secrets.sh`, the platform's `/authenticate`
   accepts the new value and refuses the old, and the services process calls with the new: a control's
   push reaches Complete.
-**Open:** after `secrets.sh`, setup-platform answers `/authenticate` with the new value about a second before it shuts the platform down to start it for real (container log 10:15:25 local, `SHUTTING DOWN FROM SETUP-PLATFORM.PY`). On tier E on 2026-10-27, twice, a control marked in that second logged in, met `ECONNREFUSED 192.168.65.254:5410` on `update_configurations` after three tries (1 s, 2 s), and went to Fail with `fetch failed` (`control.service.ts:147-155`). Does a push that logs in and then meets a refused connection leave the row marked, as volttron-sync's refused-connection claim reads, or move it to Fail, as its failed-call claim reads for a unit? 04f74bec ruled only on a refusal at the login. A mark made after the container logs `Setup of Volttron platform is complete.` reached Complete (`reboot.spec.ts`, unmarked, 8.9 min).
 
 ## Dependencies
 
