@@ -3,7 +3,7 @@ import { ConfigService } from "./config.service";
 import { AppConfigService } from "@/app.config";
 import { PrismaService } from "@/prisma/prisma.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
-import { VolttronService } from "../volttron.service";
+import { AgentFailureError, PlatformUnansweredError, VolttronHttpError, VolttronService } from "../volttron.service";
 import { StageType } from "@local/common";
 
 interface Flags {
@@ -306,6 +306,45 @@ describe("the unit configuration sent to VOLTTRON", () => {
       expect(units[0].stage).toBe(StageType.Update.enum);
       expect(updates[0].message?.length).toBe(1024);
       expect(updates[0].message?.startsWith("zzz")).toBe(true);
+    });
+  });
+
+  // scenario: mid-push-no-answer-waits
+  describe("a platform that stops answering after the login", () => {
+    const marked = [StageType.Update.enum, StageType.Process.enum] as string[];
+    const answerless = (method: string) =>
+      jest.fn((_id: string, m: string) => (m === method ? Promise.reject(new PlatformUnansweredError("no answer: connect ECONNRESET edge:5410")) : Promise.resolve({})));
+
+    it.each(["set_holidays", "set_service_schedule"])(
+      "at %s moves no unit to Fail, goes no further, leaves every marked one marked with the error, and the next push reaches Complete",
+      async (method) => {
+        units = [unit(), { ...unit(), id: "u2" }];
+        makeApiCall = answerless(method);
+        await push({ serviceOverride: true });
+        // The push stopped at METHOD, and the second unit was never started: no call was made twice.
+        expect(methods().pop()).toBe(method);
+        expect(methods()).toEqual([...new Set(methods())]);
+        expect(updates.map((u) => u.stage)).not.toContain(StageType.Fail.enum);
+        for (const u of units) {
+          expect(marked).toContain(u.stage);
+          expect((u as { message?: string }).message).toBe("no answer: connect ECONNRESET edge:5410");
+        }
+
+        await module.close();
+        makeApiCall = jest.fn().mockResolvedValue({});
+        await push({ serviceOverride: true });
+        for (const u of units) expect(u.stage).toBe(StageType.Complete.enum);
+      },
+    );
+
+    it.each([
+      ["a 5xx", new VolttronHttpError("Volttron VUI API set_holidays: HTTP 502 Bad Gateway", 502)],
+      ["the agent's false", new AgentFailureError("agent manager.rtu1 reported failure.")],
+    ])("still moves the unit to Fail on %s at the same call", async (_, error) => {
+      units = [unit()];
+      makeApiCall = jest.fn((_id: string, m: string) => (m === "set_holidays" ? Promise.reject(error) : Promise.resolve({})));
+      await push();
+      expect(units[0].stage).toBe(StageType.Fail.enum);
     });
   });
 

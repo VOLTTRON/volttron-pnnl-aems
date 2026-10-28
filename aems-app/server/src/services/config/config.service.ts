@@ -5,7 +5,7 @@ import { PrismaService } from "@/prisma/prisma.service";
 import { Cron } from "@nestjs/schedule";
 import { Mutation, ObservanceType, StageType, typeofObject } from "@local/common";
 import { merge } from "@local/common/dist/utils/lodash";
-import { VolttronService } from "../volttron.service";
+import { PlatformUnansweredError, VolttronService } from "../volttron.service";
 import { SubscriptionService } from "@/subscription/subscription.service";
 import { Schedule } from "@prisma/client";
 import { dateKey, todayIn, toOccupiedRange, toServiceWindow } from "./config.occupancy";
@@ -240,6 +240,8 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
                     set_service_schedule,
                   )
                   .catch((err) => {
+                    // Only a call the platform answered is a failed call; no answer stops the push.
+                    if (err instanceof PlatformUnansweredError) throw err;
                     this.logger.warn(err, `Failed to set weekly service schedule for: ${unit.label}`);
                   });
                 this.logger.debug(`[${unit.label}] Weekly service schedule updated successfully`);
@@ -320,9 +322,13 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
                 ? error.message
                 : "Unknown error occurred while pushing unit config.";
               message = message.length > 1024 ? message.substring(0, 1024 - 3) + "..." : message;
+              // No answer from the platform fails nothing: every marked unit waits, this one included.
+              const unanswered = error instanceof PlatformUnansweredError;
               await this.prismaService.prisma.unit.updateMany({
-                where: { id: unit.id, stage: StageType.Process.enum },
-                data: { stage: StageType.FailType.enum, message: message },
+                where: unanswered
+                  ? { stage: { in: [StageType.Update.enum, StageType.Process.enum] }, ...notDemo }
+                  : { id: unit.id, stage: StageType.Process.enum },
+                data: unanswered ? { message } : { stage: StageType.FailType.enum, message: message },
               });
               await this.subscriptionService.publish("Unit", {
                 topic: "Unit",
@@ -334,6 +340,7 @@ export class ConfigService extends BaseService implements OnApplicationBootstrap
                 id: unit.id,
                 mutation: Mutation.Updated,
               });
+              if (unanswered) throw error;
             }
           }
         })
