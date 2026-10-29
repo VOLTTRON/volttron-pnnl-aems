@@ -359,11 +359,18 @@ export function ECharts({
         chart?.off("datazoom", handler);
       };
     }
+    // The chart is sized when it mounts, which can be before its card takes its final width — a
+    // card spanning the grid measured while it still sat in one column. Following the element's
+    // own size keeps it filling the card; the window event alone left it at the first width.
+    const observer =
+      typeof ResizeObserver !== "undefined" && chartRef.current !== null ? new ResizeObserver(resizeChart) : undefined;
+    if (observer && chartRef.current !== null) observer.observe(chartRef.current);
     if (typeof window !== "undefined") {
       window.addEventListener("resize", resizeChart);
       return () => {
         detachLegendListener?.();
         detachDataZoomListener?.();
+        observer?.disconnect();
         chart?.dispose();
         window.removeEventListener("resize", resizeChart);
       };
