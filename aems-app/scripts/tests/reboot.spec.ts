@@ -227,6 +227,125 @@ test("a deployment whose historian role is on a stale password and whose VOLTTRO
   expect(report.split(/\r?\n/).find((l) => l.includes("historian login: role")), out).toMatch(/\bOK\b/);
 });
 
+/**
+ * The running stack with HISTORIAN_REPLICATOR_PASSWORD and GRAFANA_DATABASE_PASSWORD in .env.secrets,
+ * then put back: both roles, both files, and the two containers holding them.
+ */
+async function withPostgresSecrets(values: { replicator: string; grafana: string }, body: (stack: ReturnType<typeof postgresRoles>) => Promise<void>) {
+  const secretsPath = path.join(appDir, ".env.secrets");
+  const envPath = path.join(appDir, ".env");
+  const originalSecrets = fs.readFileSync(secretsPath, "utf8");
+  const originalEnv = fs.readFileSync(envPath, "utf8");
+  const stack = postgresRoles();
+  const original = { replicator: stack.deployed("historian", "HISTORIAN_REPLICATOR_PASSWORD"), grafana: stack.deployed("grafana-db", "POSTGRES_PASSWORD") };
+  const write = (text: string, key: string, value: string) => {
+    const line = `${key}='${value}'`;
+    const pattern = new RegExp(`^${key}=.*$`, "m");
+    return pattern.test(text) ? text.replace(pattern, line) : `${text}\n${line}\n`;
+  };
+  fs.writeFileSync(
+    secretsPath,
+    write(write(originalSecrets, "HISTORIAN_REPLICATOR_PASSWORD", values.replicator), "GRAFANA_DATABASE_PASSWORD", values.grafana),
+  );
+  try {
+    await body(stack);
+  } finally {
+    fs.writeFileSync(secretsPath, originalSecrets);
+    fs.writeFileSync(envPath, originalEnv);
+    stack.superuser("historian", `ALTER ROLE replicator WITH PASSWORD '${original.replicator}';`);
+    stack.superuser("grafana-db", `ALTER ROLE "${stack.grafanaRole()}" WITH PASSWORD '${original.grafana}';`);
+    run("docker", ["compose", "up", "-d", "--no-deps", "historian", "grafana-db"], { stdio: "pipe" });
+    await expect.poll(() => stack.replicatorLogsIn(original.replicator), { timeout: 2 * 60_000 }).toBe(true);
+  }
+}
+
+function postgresRoles() {
+  const deployed = (service: string, key: string) =>
+    (JSON.parse(inspect(container(service), "{{json .Config.Env}}")) as string[]).find((e) => e.startsWith(`${key}=`))!.slice(key.length + 1);
+  const grafanaRole = () => deployed("grafana-db", "POSTGRES_USER");
+  const accepts = (login: () => string) => {
+    try {
+      return login().trim() === "1";
+    } catch {
+      return false;
+    }
+  };
+  return {
+    deployed,
+    grafanaRole,
+    /** Over the socket, as the role the container was deployed with: `trust` on grafana-db, scram on the historian. */
+    superuser: (service: string, statement: string) =>
+      docker("exec", "-e", `PGPASSWORD=${deployed(service, "POSTGRES_PASSWORD")}`, container(service), "psql", "-U", deployed(service, "POSTGRES_USER"), "-d", deployed(service, "POSTGRES_DB"), "-tAc", statement),
+    /** IPv4, TLS required: the login a subscriber's connection string makes. */
+    replicatorLogsIn: (password: string) =>
+      accepts(() =>
+        docker("exec", "-e", `PGPASSWORD=${password}`, "-e", "PGSSLMODE=require", container("historian"), "psql", "-U", "replicator", "-h", "127.0.0.1", "-d", deployed("historian", "POSTGRES_DB"), "-tAc", "SELECT 1;"),
+      ),
+    /** By hostname: the stock image trusts the socket and loopback, so neither would test the password. */
+    grafanaLogsIn: (password: string) =>
+      accepts(() =>
+        docker("exec", "-e", `PGPASSWORD=${password}`, container("grafana-db"), "psql", "-U", grafanaRole(), "-h", "grafana-db", "-d", deployed("grafana-db", "POSTGRES_DB"), "-tAc", "SELECT 1;"),
+      ),
+  };
+}
+
+const secretsRun = (shell: "sh" | "ps") =>
+  stripAnsi(
+    shell === "sh"
+      ? run("bash", ["./secrets.sh"], { stdio: "pipe" })
+      : run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ".\\secrets.ps1"], { stdio: "pipe" }),
+  );
+
+// Runs here because it rotates a role in grafana-db and recreates grafana-db.
+// scenario: grafana-db-rotated
+test("a changed GRAFANA_DATABASE_PASSWORD alters the role grafana-db was deployed with, from .sh and .ps1", async () => {
+  test.setTimeout(10 * 60_000);
+  const replicator = `replicator-${Date.now()}-abcDEF`;
+  const first = `grafana-first-${Date.now()}-abcDEF`;
+  const second = `grafana-second-${Date.now()}-abcDEF`;
+  await withPostgresSecrets({ replicator, grafana: first }, async ({ grafanaLogsIn, deployed }) => {
+    const old = deployed("grafana-db", "POSTGRES_PASSWORD");
+    const out = secretsRun("sh");
+    await expect.poll(() => grafanaLogsIn(first), { timeout: 2 * 60_000, message: out }).toBe(true);
+    expect(grafanaLogsIn(old)).toBe(false);
+    expect(deployed("grafana-db", "POSTGRES_PASSWORD")).toBe(first);
+
+    const secretsPath = path.join(appDir, ".env.secrets");
+    fs.writeFileSync(secretsPath, fs.readFileSync(secretsPath, "utf8").replace(first, second));
+    const again = secretsRun("ps");
+    await expect.poll(() => grafanaLogsIn(second), { timeout: 2 * 60_000, message: again }).toBe(true);
+    expect(grafanaLogsIn(first)).toBe(false);
+  });
+});
+
+// Runs here because it rotates the replicator and recreates the historian.
+// scenario: pg-probe-admitted-login
+test("secrets judges replicator and grafana-db by a login their pg_hba admits, from .sh and .ps1", async () => {
+  // Five runs of secrets, at about two minutes each even with nothing to do.
+  test.setTimeout(25 * 60_000);
+  const replicator = `replicator-${Date.now()}-abcDEF`;
+  const grafana = `grafana-${Date.now()}-abcDEF`;
+  await withPostgresSecrets({ replicator, grafana }, async ({ replicatorLogsIn, grafanaLogsIn, superuser }) => {
+    const rotated = secretsRun("sh");
+    await expect.poll(() => replicatorLogsIn(replicator), { timeout: 2 * 60_000, message: rotated }).toBe(true);
+    await expect.poll(() => grafanaLogsIn(grafana), { timeout: 2 * 60_000, message: rotated }).toBe(true);
+
+    for (const shell of ["sh", "ps"] as const) {
+      const healthy = secretsRun(shell);
+      expect(healthy, `.${shell}: healthy roles draw no warning`).not.toMatch(/pg_shadow/i);
+    }
+
+    for (const shell of ["sh", "ps"] as const) {
+      superuser("historian", `ALTER ROLE replicator WITH PASSWORD '${PLACEHOLDER}';`);
+      expect(replicatorLogsIn(replicator)).toBe(false);
+      const repaired = secretsRun(shell);
+      expect(repaired, `.${shell}`).toMatch(/pg_shadow accepts the sentinel/);
+      expect(replicatorLogsIn(replicator), `.${shell}\n${repaired}`).toBe(true);
+      expect(replicatorLogsIn(PLACEHOLDER), `.${shell}`).toBe(false);
+    }
+  });
+});
+
 // Runs here because it rotates VOLTTRON_PASSWORD and recreates volttron, server, services and
 // synth-worker.
 // scenario: volttron-password-rotated

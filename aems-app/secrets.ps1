@@ -228,12 +228,36 @@ function Get-DeployedSecret {
     param([string]$Key)
     $src = Get-KeyDeployedSource $Key
     if (-not $src) { return '' }
-    $dump = @(docker inspect "$(Get-ProjectName)-$($src.Svc)" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>$null)
+    return Get-ContainerEnvValue "$(Get-ProjectName)-$($src.Svc)" $src.Var
+}
+
+# A variable a container, running or stopped, was created with. '' when it has none.
+function Get-ContainerEnvValue {
+    param([string]$Container, [string]$Var)
+    $dump = @(docker inspect $Container --format '{{range .Config.Env}}{{println .}}{{end}}' 2>$null)
     foreach ($entry in $dump) {
         $e = "$entry".TrimEnd("`r")
-        if ($e.StartsWith("$($src.Var)=")) { return $e.Substring($src.Var.Length + 1) }
+        if ($e.StartsWith("$Var=")) { return $e.Substring($Var.Length + 1) }
     }
     return ''
+}
+
+# The role grafana-db was deployed with. Its image makes `postgres` when it was given none.
+function Get-GrafanaDbRole {
+    param([string]$Container)
+    $role = Get-ContainerEnvValue $Container 'POSTGRES_USER'
+    if ($role) { return $role }
+    return 'postgres'
+}
+
+# The login the historian's pg_hba admits replicator on, beside the replication protocol: hostssl,
+# on the database the container was deployed with. Over IPv4, because its ::/0 rule rejects, and
+# TLS needs no flag, since psql's default sslmode negotiates it.
+function Get-ReplicatorLogin {
+    param([string]$Container)
+    $db = Get-ContainerEnvValue $Container 'POSTGRES_DB'
+    if (-not $db) { $db = 'historian' }
+    return @('-h', '127.0.0.1', '-d', $db)
 }
 
 # While .env holds a real value for a key the tracked .env carries as the sentinel, git must
@@ -517,7 +541,7 @@ $NEED_VOLTTRON_RERENDER = $false
 function Queue-Restart { param([string]$Svc) $script:RESTART += $Svc }
 
 function Invoke-RotatePg {
-    param([string]$Container, [string]$DbUser, [string]$NewPw, [string]$CallerKey, [string]$OldPw = '')
+    param([string]$Container, [string]$DbUser, [string]$NewPw, [string]$CallerKey, [string]$OldPw = '', [string[]]$Login = @())
     if (-not (Test-ContainerRunning $Container)) {
         Write-Err "$CallerKey`: container $Container is not running"
         return $false
@@ -536,9 +560,9 @@ function Invoke-RotatePg {
     try {
         $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
         if ($OldPw) {
-            & docker exec -e "PGPASSWORD=$OldPw" $Container psql -U $DbUser -c $sql *> $null
+            & docker exec -e "PGPASSWORD=$OldPw" $Container psql -U $DbUser @Login -c $sql *> $null
         } else {
-            & docker exec $Container psql -U $DbUser -c $sql *> $null
+            & docker exec $Container psql -U $DbUser @Login -c $sql *> $null
         }
         return ($LASTEXITCODE -eq 0)
     } catch {
@@ -691,11 +715,11 @@ if ($Force -and $ROTATIONS.Count -gt 0) {
                 Queue-Restart "server"; Queue-Restart "services"; Queue-Restart "synth-worker"
             }
             'HISTORIAN_REPLICATOR_PASSWORD' {
-                if (-not (Invoke-RotatePg "$PROJECT-historian" "replicator" $newVal $key $oldVal)) { $ROT_ERR++ }
+                if (-not (Invoke-RotatePg "$PROJECT-historian" "replicator" $newVal $key $oldVal (Get-ReplicatorLogin "$PROJECT-historian"))) { $ROT_ERR++ }
                 Queue-Restart "historian"
             }
             'GRAFANA_DATABASE_PASSWORD' {
-                if (-not (Invoke-RotatePg "$PROJECT-grafana-db" "grafana" $newVal $key)) { $ROT_ERR++ }
+                if (-not (Invoke-RotatePg "$PROJECT-grafana-db" (Get-GrafanaDbRole "$PROJECT-grafana-db") $newVal $key)) { $ROT_ERR++ }
                 Queue-Restart "grafana-db"; Queue-Restart "grafana"
             }
             'GRAFANA_ADMIN_PASSWORD' {
@@ -753,7 +777,10 @@ if ($Force -and $ROTATIONS.Count -gt 0) {
 # .env.secrets value. If it doesn't but ACCEPTS the sentinel, the volume
 # was seeded with the sentinel (fresh-clone-with-bad-boot) — rotate to
 # realign. Covers the case where compose up -d fixed container envs but
-# pg_shadow was already poisoned in the volume from a prior bad boot.
+# pg_shadow was already poisoned in the volume from a prior bad boot. A role is judged by a login
+# its pg_hba admits, on the database its container was deployed with: the historian's own pg_hba
+# admits its roles on IPv4 loopback, and every other container is reached by hostname, since the
+# stock image trusts loopback and the probe would pass any password.
 function Test-PgAuth {
     param([string]$Container, [string]$User, [string]$DbHost, [string]$Db, [string]$Password)
     try {
@@ -774,7 +801,7 @@ if (-not $ExplicitKeys -and -not $DryRun) {
         @{ Key = 'NOMINATIM_DATABASE_PASSWORD';  Svc = 'nominatim';   User = 'nominatim' },
         @{ Key = 'HISTORIAN_DATABASE_PASSWORD';  Svc = 'historian';   User = 'historian' },
         @{ Key = 'HISTORIAN_REPLICATOR_PASSWORD';Svc = 'historian';   User = 'replicator' },
-        @{ Key = 'GRAFANA_DATABASE_PASSWORD';    Svc = 'grafana-db';  User = 'grafana' }
+        @{ Key = 'GRAFANA_DATABASE_PASSWORD';    Svc = 'grafana-db';  User = '' }
     )
     $probedAny = $false
     foreach ($spec in $pgSpecs) {
@@ -783,16 +810,22 @@ if (-not $ExplicitKeys -and -not $DryRun) {
         $newVal = Get-EnvValue $SECRETS_FILE $spec.Key
         if (-not $newVal -or $newVal -eq $PLACEHOLDER) { continue }
         $probedAny = $true
+        $dbUser = if ($spec.Svc -eq 'grafana-db') { Get-GrafanaDbRole $container } else { $spec.User }
+        $db = Get-ContainerEnvValue $container 'POSTGRES_DB'
+        if (-not $db) { $db = $dbUser }
+        $dbHost = if ($spec.Svc -eq 'historian') { '127.0.0.1' } else { $spec.Svc }
+        $login = if ($dbUser -eq 'replicator') { Get-ReplicatorLogin $container } else { @() }
         # If pg_shadow already accepts the correct value, nothing to do.
-        if (Test-PgAuth $container $spec.User $spec.Svc $spec.User $newVal) { continue }
+        if (Test-PgAuth $container $dbUser $dbHost $db $newVal) { continue }
         # It doesn't. Try the sentinel — if that works, pg_shadow is
         # stuck on the sentinel and needs rotation to align with .env.secrets.
-        if (Test-PgAuth $container $spec.User $spec.Svc $spec.User $PLACEHOLDER) {
-            Write-Warn "$container`: pg_shadow accepts the sentinel - aligning role $($spec.User) to $SECRETS_FILE value"
+        if (Test-PgAuth $container $dbUser $dbHost $db $PLACEHOLDER) {
+            Write-Warn "$container`: pg_shadow accepts the sentinel - aligning role $dbUser to $SECRETS_FILE value"
             try {
-                $null = Invoke-RotatePg $container $spec.User $newVal "$($spec.Key) (pg_shadow repair)" $PLACEHOLDER
+                $null = Invoke-RotatePg $container $dbUser $newVal "$($spec.Key) (pg_shadow repair)" $PLACEHOLDER $login
                 # Force the recreate of dependent containers so their env
-                # matches the newly-rotated pg_shadow.
+                # matches the newly-rotated pg_shadow. replicator is no service's login.
+                if ($dbUser -eq 'replicator') { continue }
                 switch ($spec.Svc) {
                     'database'    { Queue-Restart 'init'; Queue-Restart 'server'; Queue-Restart 'services'; Queue-Restart 'seeders'; Queue-Restart 'synth-worker'; Queue-Restart 'client'; Queue-Restart 'backup' }
                     'keycloak-db' { Queue-Restart 'keycloak' }
@@ -804,7 +837,7 @@ if (-not $ExplicitKeys -and -not $DryRun) {
                 Write-Warn "  rotate_pg failed - pg_shadow may still be drift; check manually"
             }
         } else {
-            Write-Warn "$container`: pg_shadow does not accept either the sentinel or the .env.secrets value for $($spec.User) - manual reconciliation required"
+            Write-Warn "$container`: pg_shadow does not accept either the sentinel or the .env.secrets value for $dbUser - manual reconciliation required"
         }
     }
 }

@@ -240,8 +240,27 @@ key_rotation_service() {
 deployed_secret() {
   src=$(key_deployed_source "$1")
   [ -n "$src" ] || return 0
-  docker inspect "$(project_name)-${src%%:*}" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
-    | tr -d '\r' | grep "^${src#*:}=" | head -1 | sed 's/^[^=]*=//' || true
+  container_env_value "$(project_name)-${src%%:*}" "${src#*:}"
+}
+
+# A variable a container, running or stopped, was created with. Empty when it has none.
+container_env_value() {
+  docker inspect "$1" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+    | tr -d '\r' | grep "^$2=" | head -1 | sed 's/^[^=]*=//' || true
+}
+
+# The role grafana-db was deployed with. Its image makes `postgres` when it was given none.
+grafana_db_role() {
+  role=$(container_env_value "$1" POSTGRES_USER)
+  echo "${role:-postgres}"
+}
+
+# The login the historian's pg_hba admits replicator on, beside the replication protocol: hostssl,
+# on the database the container was deployed with. Over IPv4, because its ::/0 rule rejects, and
+# TLS needs no flag, since psql's default sslmode negotiates it.
+replicator_login() {
+  db=$(container_env_value "$1" POSTGRES_DB)
+  echo "-h 127.0.0.1 -d '${db:-historian}'"
 }
 
 # While .env holds a real value for a key the tracked .env carries as the sentinel, git must
@@ -544,8 +563,9 @@ queue_restart() { RESTART_SERVICES="$RESTART_SERVICES $1"; }
 
 # Postgres ALTER ROLE. When old_pw is provided, authenticates via
 # PGPASSWORD; otherwise assumes socket auth works without a password.
+# login is psql's connection flags, for a role pg_hba refuses on the socket.
 rotate_pg() {
-  container="$1"; db_user="$2"; new_pw="$3"; caller_key="$4"; old_pw="${5:-}"
+  container="$1"; db_user="$2"; new_pw="$3"; caller_key="$4"; old_pw="${5:-}"; login="${6:-}"
   if ! container_running "$container"; then
     error "$caller_key: container $container is not running"
     return 1
@@ -554,9 +574,9 @@ rotate_pg() {
   info "ALTER ROLE $db_user in $container"
   if [ -n "$old_pw" ]; then
     escaped_old=$(printf '%s' "$old_pw" | sed "s/'/'\\\\''/g")
-    run_or_dry "docker exec -e PGPASSWORD='${escaped_old}' '$container' psql -U '$db_user' -c \"ALTER ROLE \\\"${db_user}\\\" WITH PASSWORD '${escaped_new}';\""
+    run_or_dry "docker exec -e PGPASSWORD='${escaped_old}' '$container' psql -U '$db_user' $login -c \"ALTER ROLE \\\"${db_user}\\\" WITH PASSWORD '${escaped_new}';\""
   else
-    run_or_dry "docker exec '$container' psql -U '$db_user' -c \"ALTER ROLE \\\"${db_user}\\\" WITH PASSWORD '${escaped_new}';\""
+    run_or_dry "docker exec '$container' psql -U '$db_user' $login -c \"ALTER ROLE \\\"${db_user}\\\" WITH PASSWORD '${escaped_new}';\""
   fi
 }
 
@@ -769,13 +789,13 @@ elif [ -n "$(printf '%s' "$ROTATIONS" | tr -d ' ')" ]; then
         ;;
 
       HISTORIAN_REPLICATOR_PASSWORD)
-        rotate_pg "${PROJECT}-historian" "replicator" "$new_val" "$key" "$old_val" \
+        rotate_pg "${PROJECT}-historian" "replicator" "$new_val" "$key" "$old_val" "$(replicator_login "${PROJECT}-historian")" \
           || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
         queue_restart "historian"
         ;;
 
       GRAFANA_DATABASE_PASSWORD)
-        rotate_pg "${PROJECT}-grafana-db" "grafana" "$new_val" "$key" \
+        rotate_pg "${PROJECT}-grafana-db" "$(grafana_db_role "${PROJECT}-grafana-db")" "$new_val" "$key" \
           || ROTATION_ERRORS=$((ROTATION_ERRORS + 1))
         queue_restart "grafana-db"
         queue_restart "grafana"
@@ -859,7 +879,10 @@ done
 # ACCEPTS the sentinel, the volume was seeded with the sentinel and we
 # rotate to realign. Covers the case where compose up -d has already
 # fixed container envs to real values but `pg_shadow` was poisoned in
-# the volume by a prior bad boot.
+# the volume by a prior bad boot. A role is judged by a login its pg_hba admits, on the database its
+# container was deployed with: the historian's own pg_hba admits its roles on IPv4 loopback, and
+# every other container is reached by hostname, since the stock image trusts loopback and the
+# probe would pass any password.
 _pg_auth_ok() {
   docker exec -e PGPASSWORD="$1" "$2" psql -U "$3" -h "$4" -d "$5" -tAc 'SELECT 1;' >/dev/null 2>&1
 }
@@ -870,7 +893,7 @@ if [ -z "$EXPLICIT_KEYS" ] && [ "$DRY_RUN" = 0 ]; then
       "NOMINATIM_DATABASE_PASSWORD:nominatim:nominatim" \
       "HISTORIAN_DATABASE_PASSWORD:historian:historian" \
       "HISTORIAN_REPLICATOR_PASSWORD:historian:replicator" \
-      "GRAFANA_DATABASE_PASSWORD:grafana-db:grafana"; do
+      "GRAFANA_DATABASE_PASSWORD:grafana-db:"; do
     key=${spec%%:*}
     rest=${spec#*:}
     svc=${rest%%:*}
@@ -879,18 +902,26 @@ if [ -z "$EXPLICIT_KEYS" ] && [ "$DRY_RUN" = 0 ]; then
     container_running "$container" || continue
     new_val=$(get_value "$SECRETS_FILE" "$key")
     [ -z "$new_val" ] || [ "$new_val" = "$PLACEHOLDER" ] && continue
+    [ "$svc" = grafana-db ] && db_user=$(grafana_db_role "$container")
+    db=$(container_env_value "$container" POSTGRES_DB)
+    db=${db:-$db_user}
+    host=$svc
+    [ "$svc" = historian ] && host=127.0.0.1
+    login=""
+    [ "$db_user" = replicator ] && login=$(replicator_login "$container")
     # If pg_shadow already accepts the desired value, nothing to do.
-    if _pg_auth_ok "$new_val" "$container" "$db_user" "$svc" "$db_user"; then
+    if _pg_auth_ok "$new_val" "$container" "$db_user" "$host" "$db"; then
       continue
     fi
     # It doesn't. Try the sentinel — if that works, pg_shadow is stuck
     # on the sentinel and needs rotation to align with .env.secrets.
-    if _pg_auth_ok "$PLACEHOLDER" "$container" "$db_user" "$svc" "$db_user"; then
+    if _pg_auth_ok "$PLACEHOLDER" "$container" "$db_user" "$host" "$db"; then
       warn "$container: pg_shadow accepts the sentinel — aligning role $db_user to $SECRETS_FILE value"
-      rotate_pg "$container" "$db_user" "$new_val" "$key (pg_shadow repair)" "$PLACEHOLDER" \
+      rotate_pg "$container" "$db_user" "$new_val" "$key (pg_shadow repair)" "$PLACEHOLDER" "$login" \
         || warn "  rotate_pg failed — pg_shadow may still be drifted; check manually"
       # Force downstream recreates so app envs pick up the freshly
-      # rotated password.
+      # rotated password. replicator is no service's login.
+      [ "$db_user" = replicator ] && continue
       case "$svc" in
         database)    for s in init server services seeders synth-worker client backup; do queue_restart "$s"; done ;;
         keycloak-db) queue_restart "keycloak" ;;
