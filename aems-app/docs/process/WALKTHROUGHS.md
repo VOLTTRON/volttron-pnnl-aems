@@ -2,8 +2,7 @@
 
 ## 1. On an existing deployment of `main` whose historian logins fail and whose VOLTTRON configuration is stale, the README's one-time command brings it to the current release with no hand edits: every historian login succeeds, every VOLTTRON agent runs on the current configuration, and the dashboards show new data. `update` then takes it to a release that changes the tracked `.env`, again with no hand edits.
 
-**Needs:** `historian-logins-verified` `volttron-setup-rerenders` `volttron-store-reconciled` `startup-repushes-controls` `deploy-report` `upgrade-from-broken-fixture` `historian-config-reconciled` `update-pulls-changed-env` `update-keeps-env-only-values` `main-reaches-release` `volttron-config-through-directory`
-**Open:** After the README's command on a `main` deployment, the historian's `replicator` role accepts neither `HISTORIAN_REPLICATOR_PASSWORD` from `.env.secrets` nor the sentinel, and a `replicator` login from the network gateway fails every 5 s from the historian's first start; `secrets.sh:902` prints "manual reconciliation required" for it and for `grafana` on `grafana-db`, whose only role is `historian`; the deployment report names only `role historian`.
+**Needs:** `historian-logins-verified` `volttron-setup-rerenders` `volttron-store-reconciled` `startup-repushes-controls` `deploy-report` `upgrade-from-broken-fixture` `historian-config-reconciled` `update-pulls-changed-env` `update-keeps-env-only-values` `main-reaches-release` `volttron-config-through-directory` `pg-probe-admitted-login`
 
 **On deck.**
 

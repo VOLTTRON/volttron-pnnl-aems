@@ -18,6 +18,9 @@ one its peers accept; how the value reaches `.env` is `secrets`.
   --no-deps`; when its container is down the script refuses unless `--force`; `--dry-run` changes nothing.
 - A Postgres role whose stored password matches the sentinel rather than `.env.secrets` is rotated to
   the `.env.secrets` value without operator action.
+- `secrets.sh` and `secrets.ps1` judge a Postgres role by a login its `pg_hba` rule admits, on the database
+  its container was deployed with: a role accepting its `.env.secrets` value draws no warning.
+  `GRAFANA_DATABASE_PASSWORD` belongs to the role `grafana-db` was deployed with, in that check and in a rotation.
 - After any `HISTORIAN_*_PASSWORD` rotation, and after every `start-services`, the VOLTTRON
   SQLHistorian agent's install-time config matches `historian.config`.
 - That check waits up to 600 seconds for the platform to answer and the SQLHistorian agent to run
@@ -37,6 +40,8 @@ secrets, stack
 | `env-reset-resynced` | a reset `.env` under a running stack re-syncs without rotating |
 | `secrets-rotate-live` | live rotation, refusal when down, `--dry-run` |
 | `pg-shadow-drift-healed` | sentinel-initialised role rotated |
+| `pg-probe-admitted-login` | *(owed)* over real Postgres, `.sh` and `.ps1`: healthy `replicator` and `grafana-db` roles draw no warning; a `replicator` on the sentinel is rotated and logs in over IPv4 TLS |
+| `grafana-db-rotated` | *(owed)* a changed `GRAFANA_DATABASE_PASSWORD` alters the role `grafana-db` was deployed with, and that role logs in with the new value |
 | `historian-config-reconciled` | SQLHistorian config matches after rotation and deploy |
 | `historian-sync-waits-600` | the SQLHistorian check, `.sh` and `.ps1`, waits 600 seconds before giving up |
 | `volttron-password-rotated` | a changed `VOLTTRON_PASSWORD`: `/authenticate` takes the new, refuses the old; a control's push then reaches Complete |
