@@ -4,11 +4,10 @@
 
 ## Contract
 
-Bringing an existing deployment to the current release with `update` (`update.sh` / `update.ps1`,
-beside `start-services`), with no hand edits, whatever state its historian logins and VOLTTRON
-configuration were left in. It guarantees the operator that a release repairs what earlier releases
-left broken. What each credential is belongs to secrets, and what the app sends VOLTTRON belongs to
-volttron-sync and controls-ilc.
+Bringing an existing deployment to the current release with `update` (`update.sh` / `update.ps1`, beside
+`start-services`), with no hand edits, whatever state its historian logins and VOLTTRON configuration were
+left in. It guarantees the operator that a release repairs what earlier releases left broken. What each
+credential is belongs to secrets, and what the app sends VOLTTRON belongs to volttron-sync and controls-ilc.
 
 ## Claims
 
@@ -18,12 +17,13 @@ volttron-sync and controls-ilc.
   `HISTORIAN_DB_*` value, `generate_configs.py`, which holds the config templates, and the contents
   of the registry file `VOLTTRON_REGISTRY_FILE_PATH` names. The thermostat configs and `site.json` are
   what it renders, never inputs. The ILC templates are copied afresh on every run.
+- `volttron` reads `platform_config.yml` through its mount of the rendered `configs/` directory, never a
+  file mount, and a re-render empties that directory rather than replacing it.
 - After `start-services`, VOLTTRON's config store and each agent's install-time config match the
   rendered configs for every agent. The app then re-pushes what it owns, so its values win there.
 - `start-services` ends by reporting each historian login and each VOLTTRON agent's health.
-- A deployment in both broken states at once comes up working after one `start-services`. The broken
-  states are a historian role on a stale password, and a VOLTTRON store holding configs older than
-  the rendered ones.
+- A deployment in both broken states at once comes up working after one `start-services`. The broken states
+  are a historian role on a stale password, and a VOLTTRON store holding configs older than the rendered ones.
 - `update` takes a deployment to the release whatever the release changed in the tracked `.env`: it
   carries into `.env.secrets` every `.env` value differing from the tracked version and every one the
   release turns into the sentinel, scrubs, pulls with `--ff-only`, and runs `start-services`. The pull
@@ -45,6 +45,7 @@ secrets, rotation, stack
 |---|---|
 | `historian-logins-verified` | a role on a stale non-sentinel password is reset and logs in |
 | `volttron-setup-rerenders` | a changed `VOLTTRON_*` value, `generate_configs.py` or registry file re-renders; unchanged inputs do not |
+| `volttron-config-through-directory` | *(owed)* compose gives `volttron` `PLATFORM_CONFIG` under its directory mount and no file mount from `volttron/setup`; a re-render keeps that directory's inode; `setup-platform` logs that path |
 | `volttron-store-reconciled` | a stale store entry is replaced; app-owned entries end with the app's values |
 | `deploy-report` | the report names each historian login and agent, healthy or not |
 | `upgrade-from-broken-fixture` | both broken states repaired by one `start-services` |
