@@ -1075,10 +1075,14 @@ def main():
     output_path = os.path.join(args.output_dir, args.config_subdir)
     config_store_path = os.path.join(output_path, "configuration_store")
 
-    # Remove existing configs directory
-    if os.path.exists(output_path):
-        shutil.rmtree(output_path)
+    # Empty the existing configs directory rather than replacing it: a running container mounts it,
+    # and a mount follows the inode.
     os.makedirs(output_path, exist_ok=True)
+    for entry in os.scandir(output_path):
+        if entry.is_dir(follow_symlinks=False):
+            shutil.rmtree(entry.path)
+        else:
+            os.unlink(entry.path)
     os.makedirs(config_store_path, exist_ok=True)
 
 

@@ -218,6 +218,59 @@ for (const shell of ["sh", "ps"] as const) {
       expect(calls.some((c) => /^compose up -d .*volttron$/.test(c)), calls.join("\n")).toBe(true);
     });
 
+    // scenario: pg-probe-admitted-login
+    test("judges the replicator on the login its pg_hba admits, and repairs it there without recreating any consumer", () => {
+      fx.write(".env.secrets", secretsFile({ HISTORIAN_REPLICATOR_PASSWORD: "real-r" }));
+      fx.docker({
+        running: ["fixture-historian"],
+        env: { "fixture-historian": ["POSTGRES_USER=historian", "POSTGRES_DB=hist-db", "HISTORIAN_REPLICATOR_PASSWORD=real-r"] },
+        psql: { "fixture-historian": [PLACEHOLDER] },
+      });
+      const r = run(shell, "secrets");
+      expect(r.status, r.out).toBe(0);
+      const calls = fx.calls();
+      const login = "psql -U replicator -h 127.0.0.1 -d hist-db";
+      expect(calls, calls.join("\n")).toContain(`exec -e PGPASSWORD=real-r fixture-historian ${login} -tAc SELECT 1;`);
+      expect(calls, calls.join("\n")).toContain(`exec -e PGPASSWORD=${PLACEHOLDER} fixture-historian ${login} -tAc SELECT 1;`);
+      expect(
+        calls.some((c) => c.startsWith(`exec -e PGPASSWORD=${PLACEHOLDER} fixture-historian ${login} -c `) && /ALTER ROLE .*replicator.*'real-r'/.test(c)),
+        calls.join("\n"),
+      ).toBe(true);
+      expect(calls.filter((c) => /^compose up -d .*\b(volttron|server|services)\b/.test(c)), calls.join("\n")).toEqual([]);
+    });
+
+    test("a replicator accepting its .env.secrets value draws no warning and no rotation", () => {
+      fx.write(".env.secrets", secretsFile({ HISTORIAN_REPLICATOR_PASSWORD: "real-r", GRAFANA_DATABASE_PASSWORD: "real-g" }));
+      fx.docker({
+        running: ["fixture-historian", "fixture-grafana-db"],
+        env: {
+          "fixture-historian": ["POSTGRES_USER=historian", "POSTGRES_DB=historian", "HISTORIAN_REPLICATOR_PASSWORD=real-r"],
+          "fixture-grafana-db": ["POSTGRES_USER=gf-role", "POSTGRES_DB=gf-db", "POSTGRES_PASSWORD=real-g"],
+        },
+        psql: { "fixture-historian": ["real-r"], "fixture-grafana-db": ["real-g"] },
+      });
+      const r = run(shell, "secrets");
+      expect(r.status, r.out).toBe(0);
+      expect(r.out).not.toMatch(/pg_shadow/);
+      const calls = fx.calls();
+      expect(calls, calls.join("\n")).toContain("exec -e PGPASSWORD=real-g fixture-grafana-db psql -U gf-role -h grafana-db -d gf-db -tAc SELECT 1;");
+      expect(calls.filter((c) => /ALTER ROLE/.test(c)), calls.join("\n")).toEqual([]);
+    });
+
+    // scenario: grafana-db-rotated
+    test("a changed GRAFANA_DATABASE_PASSWORD alters the role grafana-db was deployed with", () => {
+      fx.write(".env.secrets", secretsFile({ GRAFANA_DATABASE_PASSWORD: "new-g" }));
+      fx.docker({
+        running: ["fixture-grafana-db"],
+        env: { "fixture-grafana-db": ["POSTGRES_USER=gf-role", "POSTGRES_DB=gf-db", "POSTGRES_PASSWORD=old-g"] },
+      });
+      const r = run(shell, "secrets");
+      expect(r.status, r.out).toBe(0);
+      const calls = fx.calls();
+      expect(calls.some((c) => /^exec fixture-grafana-db psql -U gf-role .*ALTER ROLE .*gf-role.*'new-g'/.test(c)), calls.join("\n")).toBe(true);
+      expect(calls).toContain("compose up -d --no-deps grafana-db");
+    });
+
     test("a changed VOLTTRON_PASSWORD invalidates the volttron-setup lock and recreates every consumer", () => {
       // The services container is where the password lands in a container env: volttron reads it
       // from platform_config.yml rendered by volttron-setup and keeps its own env blank, so the

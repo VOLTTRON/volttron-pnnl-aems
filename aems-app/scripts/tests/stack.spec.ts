@@ -417,6 +417,47 @@ test.describe("stack", () => {
     }
   });
 
+  // scenario: volttron-config-through-directory
+  test("volttron reads platform_config.yml through its configs/ mount, and a re-render empties that directory in place", async () => {
+    test.setTimeout(10 * 60_000);
+    const volttron = container("volttron");
+    const configurations = "/home/volttron/configurations";
+    const env = JSON.parse(inspect(volttron, "{{json .Config.Env}}")) as string[];
+    expect(env).toContain(`PLATFORM_CONFIG=${configurations}/platform_config.yml`);
+
+    const mounts = JSON.parse(inspect(volttron, "{{json .Mounts}}")) as { Type: string; Source: string; Destination: string }[];
+    const rendered = mounts.filter((m) => m.Type === "bind" && /volttron[\\/]setup/.test(m.Source));
+    expect(rendered.map((m) => m.Destination.replace(/\/$/, ""))).toEqual([configurations]);
+
+    const logs = stripAnsi(run("docker", ["logs", volttron], { stdio: "pipe" }));
+    expect(logs).toContain(`Platform_config: ${configurations}/platform_config.yml`);
+
+    const inode = () => docker("exec", volttron, "stat", "-c", "%i", configurations).trim();
+    const before = inode();
+    const leftover = path.join(appDir, "docker/volttron/setup/configs/left-by-an-earlier-render");
+    fs.writeFileSync(leftover, "");
+    const seen = () => docker("exec", volttron, "ls", configurations).split(/\s+/);
+    expect(seen()).toContain("left-by-an-earlier-render");
+
+    docker("run", "--rm", "-v", `${project}_volttron-setup:/data`, "busybox", "rm", "-f", "/data/.setup_complete", "/data/.setup_complete.fingerprint");
+    const setup = container("volttron-setup");
+    const started = inspect(setup, "{{.State.StartedAt}}");
+    compose("up", "-d", "--no-deps", "volttron-setup");
+    await expect
+      .poll(() => (inspect(setup, "{{.State.StartedAt}}") !== started ? inspect(setup, "{{.State.Status}} {{.State.ExitCode}}") : "not restarted"), {
+        timeout: 8 * 60_000,
+        intervals: [2_000],
+      })
+      .toBe("exited 0");
+
+    expect(inode(), "a re-render keeps the directory the running container mounts").toBe(before);
+    expect(seen(), "a re-render empties the directory").not.toContain("left-by-an-earlier-render");
+    expect(seen()).toContain("platform_config.yml");
+    expect(docker("exec", volttron, "cat", `${configurations}/platform_config.yml`).replace(/\r\n/g, "\n")).toBe(
+      fs.readFileSync(path.join(appDir, "docker/volttron/setup/configs/platform_config.yml"), "utf8").replace(/\r\n/g, "\n"),
+    );
+  });
+
   // scenario: historian-config-reconciled
   test("after start-services the SQLHistorian agent runs on the install-time config historian.config holds", async () => {
     test.setTimeout(10 * 60_000);

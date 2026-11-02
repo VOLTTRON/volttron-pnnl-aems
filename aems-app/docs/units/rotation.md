@@ -40,8 +40,8 @@ secrets, stack
 | `env-reset-resynced` | a reset `.env` under a running stack re-syncs without rotating |
 | `secrets-rotate-live` | live rotation, refusal when down, `--dry-run` |
 | `pg-shadow-drift-healed` | sentinel-initialised role rotated |
-| `pg-probe-admitted-login` | *(owed)* over real Postgres, `.sh` and `.ps1`: healthy `replicator` and `grafana-db` roles draw no warning; a `replicator` on the sentinel is rotated and logs in over IPv4 TLS |
-| `grafana-db-rotated` | *(owed)* a changed `GRAFANA_DATABASE_PASSWORD` alters the role `grafana-db` was deployed with, and that role logs in with the new value |
+| `pg-probe-admitted-login` | over real Postgres, `.sh` and `.ps1`: healthy `replicator` and `grafana-db` roles draw no warning; a `replicator` on the sentinel is rotated and logs in over IPv4 TLS |
+| `grafana-db-rotated` | a changed `GRAFANA_DATABASE_PASSWORD` alters the role `grafana-db` was deployed with, and that role logs in with the new value |
 | `historian-config-reconciled` | SQLHistorian config matches after rotation and deploy |
 | `historian-sync-waits-600` | the SQLHistorian check, `.sh` and `.ps1`, waits 600 seconds before giving up |
 | `volttron-password-rotated` | a changed `VOLTTRON_PASSWORD`: `/authenticate` takes the new, refuses the old; a control's push then reaches Complete |

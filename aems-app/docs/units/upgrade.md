@@ -45,7 +45,7 @@ secrets, rotation, stack
 |---|---|
 | `historian-logins-verified` | a role on a stale non-sentinel password is reset and logs in |
 | `volttron-setup-rerenders` | a changed `VOLTTRON_*` value, `generate_configs.py` or registry file re-renders; unchanged inputs do not |
-| `volttron-config-through-directory` | *(owed)* compose gives `volttron` `PLATFORM_CONFIG` under its directory mount and no file mount from `volttron/setup`; a re-render keeps that directory's inode; `setup-platform` logs that path |
+| `volttron-config-through-directory` | compose gives `volttron` `PLATFORM_CONFIG` under its directory mount and no file mount from `volttron/setup`; a re-render keeps that directory's inode; `setup-platform` logs that path |
 | `volttron-store-reconciled` | a stale store entry is replaced; app-owned entries end with the app's values |
 | `deploy-report` | the report names each historian login and agent, healthy or not |
 | `upgrade-from-broken-fixture` | both broken states repaired by one `start-services` |

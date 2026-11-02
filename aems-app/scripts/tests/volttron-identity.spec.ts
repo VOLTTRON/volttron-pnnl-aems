@@ -97,8 +97,8 @@ test("platform_config.yml and the services container both carry the live .env's 
   expect(envMap.SERVICE_CONFIG_PASSWORD, "services container password").toBe(password);
 
   // The platform side is platform_config.yml, rendered by volttron-setup under
-  // docker/volttron/setup/configs/ and bind-mounted into the volttron container as
-  // /platform_config.yml. generate_configs.py renders instance-name from --platform and
+  // docker/volttron/setup/configs/, which the volttron container mounts and reads it from through
+  // PLATFORM_CONFIG. generate_configs.py renders instance-name from --platform and
   // web_users.{username,password} from --web-user-name/--web-user-password, which setup-volttron.sh
   // threads from VOLTTRON_PLATFORM/_USERNAME/_PASSWORD.
   const rendered = fs.readFileSync(path.join(appDir, "docker/volttron/setup/configs/platform_config.yml"), "utf8");
