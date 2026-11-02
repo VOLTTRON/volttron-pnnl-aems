@@ -269,9 +269,12 @@ fi
 # re-copies it, so subsequent stack starts show "None of the configured
 # ILC template paths exist" until the volttron-setup lock file causes
 # setup to short-circuit before reaching this line.
+# Preserve `configs/` too: the volttron container mounts that directory, and a
+# mount follows the inode, so one replaced here leaves it reading the deleted
+# one. generate_configs.py empties it.
 if [ -d "${OUTPUT_DIR}" ]; then
-    log_info "Cleaning output directory (preserving templates/): ${OUTPUT_DIR}"
-    find "${OUTPUT_DIR}" -mindepth 1 -maxdepth 1 ! -name 'templates' -exec rm -rf {} +
+    log_info "Cleaning output directory (preserving templates/ and configs/): ${OUTPUT_DIR}"
+    find "${OUTPUT_DIR}" -mindepth 1 -maxdepth 1 ! -name 'templates' ! -name 'configs' -exec rm -rf {} +
 else
     log_info "Creating output directory: ${OUTPUT_DIR}"
     mkdir -p "${OUTPUT_DIR}"

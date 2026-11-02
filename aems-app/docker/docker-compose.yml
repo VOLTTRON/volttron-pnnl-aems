@@ -730,6 +730,9 @@ services:
       - HISTORIAN_DATABASE_PASSWORD=
       - VOLTTRON_PASSWORD=
       - VOLTTRON_USERNAME=
+      # Through the directory mount below, never a file mount: a file mount pins the inode of a file
+      # volttron-setup deletes on every re-render.
+      - PLATFORM_CONFIG=/home/volttron/configurations/platform_config.yml
     env_file:
       - .env.volttron
     hostname: volttron
@@ -744,7 +747,6 @@ services:
       - volttron-home:/home/volttron/.volttron/configuration_store/
       - volttron-manager:/home/volttron/.manager/
       - ./volttron/setup/configs/:/home/volttron/configurations/
-      - ./volttron/setup/configs/platform_config.yml:/platform_config.yml
       - ./volttron/logs/:/home/volttron/logs/
 
   # FastAPI AEMS server
