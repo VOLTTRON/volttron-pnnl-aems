@@ -5,13 +5,13 @@ import { Card, Colors } from "@blueprintjs/core";
 import { useQuery } from "@apollo/client";
 import { HistorianMeterTimeSeriesDocument } from "@/graphql-codegen/graphql";
 import { MeterMetric } from "@local/common";
-import { ECharts } from "@/app/components/common/echarts";
+import { ECharts, makeTimeAxisFormatter } from "@/app/components/common/echarts";
 import { paddedRange } from "../utils/chartAxis";
 import { makeValueFormatter } from "@/utils/historianFormat";
 import { rollingAverage } from "@/utils/rollingAverage";
 import { bucketize } from "@/utils/bucketize";
 import { Palettes } from "@/utils/palette";
-import { compilePreferences, PreferencesContext, CurrentContext } from "@/app/components/providers";
+import { compilePreferences, PreferencesContext, CurrentContext, useResolvedTimezone } from "@/app/components/providers";
 import { pickBinningInfo } from "./BinningCallout";
 
 interface BuildingPowerChartProps {
@@ -79,6 +79,8 @@ export function BuildingPowerChart({
   const { palette2, palette3 } = compilePreferences(preferences, current?.preferences);
   const secondaryPalette = Palettes.getPalette(palette2 || "Desert Oasis");
   const tertiaryPalette = Palettes.getPalette(palette3 || "Pastel Dreams");
+  const resolvedTz = useResolvedTimezone();
+  const timeAxisFormatter = React.useMemo(() => makeTimeAxisFormatter(resolvedTz), [resolvedTz]);
 
   // Outer range = the dashboard's TimeRangeSelector picked window. Stable
   // identity per-prop-change; used as the reset target for zoom.
@@ -395,7 +397,7 @@ export function BuildingPowerChart({
             // data. Data outside the current queriedRange simply doesn't
             // exist yet in the response — the plot area shows only the
             // slider's selected slice, so the chart still reads full.
-            xAxis: { type: "time", min: startTime, max: endTime },
+            xAxis: { type: "time", min: startTime, max: endTime, axisLabel: { formatter: timeAxisFormatter, hideOverlap: true } },
             yAxis: {
               type: "value",
               name: "Power (kW)",
