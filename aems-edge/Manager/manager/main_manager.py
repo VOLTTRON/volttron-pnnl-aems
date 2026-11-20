@@ -29,7 +29,7 @@ import os
 import sys
 import re
 import random
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import asdict, dataclass, fields, is_dataclass
 from datetime import datetime as dt
 from pathlib import Path
 from typing import Any, Union
@@ -169,8 +169,15 @@ class ManagerAgent(Agent):
 
     @RPC.export
     def set_optimal_start(self, data: dict) -> bool:
+        """
+        Set the optimal-start configuration.
+
+        Settings left out of ``data`` keep their current value: the web app sends
+        only the start times, setpoint deviation and lockout temperature, and
+        must not reset ``models`` or ``training_period_window`` to their defaults.
+        """
         try:
-            obj = OptimalStartConfig(**data)
+            obj = OptimalStartConfig(**self._proxy.merge_optimal_start(data))
             result = self._proxy.set_optimal_start(obj, update_store=True)
             _log.debug(f'set_optimal_start_rpc: {result}')
             return result
@@ -592,10 +599,32 @@ class ManagerProxy:
             self.config_set('after_hours_schedule', data)
         return True
 
+    def merge_optimal_start(self, data: dict) -> dict:
+        """
+        ``data`` on top of the current optimal-start configuration.
+
+        The current configuration is the stored ``optimal_start`` entry, or the
+        running configuration if none is stored yet.
+
+        :param data: Optimal-start settings to change.
+        :type data: dict
+        :return: A complete set of :class:`OptimalStartConfig` settings.
+        :rtype: dict
+        """
+        try:
+            current = dict(self.config_get('optimal_start'))
+        except KeyError:
+            current = asdict(self.cfg.optimal_start)
+        # Only known settings from the store; unknown keys in data still fail
+        # OptimalStartConfig(**...) as before.
+        names = {f.name for f in fields(OptimalStartConfig)}
+        return {**{k: v for k, v in current.items() if k in names}, **(data or {})}
+
     def set_optimal_start(self, config: OptimalStartConfig | dict, update_store: bool = True) -> bool:
         """
         Sets the optimal start for the system.  This is called from the ManagerAgent when the optimal start is updated.
-        There are no partial updates, the entire optimal start is replaced.  This function does the following:
+        The entire optimal start is replaced; the RPC first fills settings the caller left out from the
+        current configuration (:meth:`merge_optimal_start`).
 
 
         :param config: Optimal start configuration :
