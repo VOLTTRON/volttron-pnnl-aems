@@ -41,6 +41,77 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 _log = logging.getLogger(__name__)
 
+# Devices and the outdoor-air topic publish once a minute. A reading may stand in
+# for at most this many following minutes (missed publishes); longer gaps stay
+# missing.
+MINUTE_FILL_LIMIT = 2
+
+
+def _utc_index(index: pd.Index, timezone=None) -> pd.DatetimeIndex:
+    """
+    ``index`` as a UTC DatetimeIndex.
+
+    Aware timestamps (including mixed UTC offsets, as in a CSV spanning a DST
+    change) are converted; naive timestamps are taken as ``timezone`` (UTC if
+    None). Ambiguous or nonexistent local times become NaT.
+    """
+    if isinstance(index, pd.DatetimeIndex) and index.tz is None:
+        return index.tz_localize(timezone or 'UTC', ambiguous='NaT', nonexistent='NaT').tz_convert('UTC')
+    return pd.DatetimeIndex(pd.to_datetime(index, utc=True))
+
+
+def to_minute_rows(df: Optional[pd.DataFrame], *, timezone=None,
+                   fill_limit: int = MINUTE_FILL_LIMIT) -> Optional[pd.DataFrame]:
+    """
+    One row per minute, combining every publish received in that minute.
+
+    The buffer holds one row per publish, so a device publish and an outdoor-air
+    publish in the same minute are separate, half-empty rows. This merges each
+    minute into one row (the last value received for each column in that minute),
+    lets a value cover at most ``fill_limit`` following minutes with no reading,
+    and drops minutes that still have no zone temperature, so a longer outage
+    shows up as a gap in time rather than as copied values.
+
+    :param df: Time-indexed publishes (oldest first).
+    :param timezone: Timezone of the result; also used for naive timestamps.
+        None keeps UTC.
+    :param fill_limit: Most minutes a value may be carried forward.
+    :return: Per-minute data (minute-start labels), or ``df`` if it is None/empty.
+    """
+    if df is None or df.empty:
+        return df
+    out = df.drop(columns=['ts'], errors='ignore').copy()
+    out.index = _utc_index(out.index, timezone)
+    out = out[out.index.notna()].sort_index()
+    out = out.resample('1min').last().ffill(limit=fill_limit)
+    if dfpts.zonetemperature.value in out.columns:
+        out = out.dropna(subset=[dfpts.zonetemperature.value])
+    else:
+        out = out.dropna(how='all')
+    if timezone is not None:
+        out.index = out.index.tz_convert(timezone)
+    out.index.name = 'ts'
+    return out
+
+
+def last_reading_time(df: Optional[pd.DataFrame], column: str, timezone=None) -> Optional[pd.Timestamp]:
+    """
+    Time of the last real (not filled) value of ``column``.
+
+    :param df: Time-indexed publishes, before any filling.
+    :param column: Column name.
+    :param timezone: Timezone for naive timestamps (UTC if None).
+    :return: UTC timestamp, or None if the column has no value.
+    """
+    if df is None or df.empty or column not in df.columns:
+        return None
+    present = df[column].notna().to_numpy()
+    if not present.any():
+        return None
+    times = _utc_index(df.index[present], timezone)
+    times = times[times.notna()]
+    return times.max() if len(times) else None
+
 
 class DataFileAccess:
     """
@@ -180,14 +251,15 @@ class Data:
 
     def process_data(self):
         """
-        Rotate the live CSV to a dated file (forward filled) and clear the buffer.
-        If the rotation fails the live file is removed anyway so the next day's
-        data never mixes with stale rows.
+        Rotate the live CSV to a dated file (one row per minute, see
+        :func:`to_minute_rows`) and clear the buffer. If the rotation fails the
+        live file is removed anyway so the next day's data never mixes with stale
+        rows.
         """
         try:
             df = self.df
             if df is not None:
-                self._file_accessor.write_date_file(df.ffill())
+                self._file_accessor.write_date_file(to_minute_rows(df, timezone=self.timezone))
         except Exception as ex:
             _log.warning(f'Error rotating data file: {ex}')
             self._file_accessor.reset_date_file()

@@ -222,34 +222,3 @@ def get_operating_mode(data: pd.DataFrame) -> Literal['heating', 'cooling', None
     elif heating_count > 0:
         mode = 'heating'
     return mode
-
-
-def mask_stale(df: pd.DataFrame, limits: dict) -> pd.DataFrame:
-    """
-    Blank (NaN) sensor values that have not changed for longer than allowed.
-
-    A stalled device or driver can keep publishing its last values every minute;
-    such frozen readings look live but are not. For each ``column -> minutes``
-    in ``limits``, a value is masked once it has been unchanged for more than
-    that many minutes (causal: the first ``minutes`` of a frozen run still pass,
-    as a live agent cannot know earlier that the value is stuck).
-
-    :param df: Time-indexed data
-    :param limits: Maximum unchanged duration per column, in minutes
-    :return: A copy of ``df`` with stale values set to NaN
-    """
-    if df is None or df.empty:
-        return df
-    out = df.copy()
-    times = pd.Series(out.index, index=out.index)
-    for column, minutes in limits.items():
-        if column not in out.columns:
-            continue
-        values = out[column]
-        run_id = (values != values.shift()).cumsum()
-        run_start = times.groupby(run_id.to_numpy()).transform("first")
-        stale = ((times - run_start) > pd.Timedelta(minutes=minutes)).to_numpy() & values.notna().to_numpy()
-        if stale.any():
-            _log.debug(f'{column}: {int(stale.sum())} stale values (unchanged > {minutes} min) masked')
-            out.loc[stale, column] = np.nan
-    return out

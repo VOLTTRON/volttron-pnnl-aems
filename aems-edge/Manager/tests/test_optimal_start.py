@@ -37,12 +37,12 @@ import pandas as pd
 import pytest
 
 from manager import DefaultConfig, OptimalStartConfig, Schedule
-from manager.data_utils import Data, DataFileAccess
+from manager.data_utils import Data, DataFileAccess, last_reading_time, to_minute_rows
 from manager.optimal_start_manager import OptimalStartManager, PlatformCallbacks, resolve_model_names
 from manager.optimal_start_models import (Carrier, Johnson, OperatingMode, RecoveryRegression, Sbs, Siemens,
                                          ZoneConditions)
 from manager.points import DaysOfWeek, OccupancyTypes
-from manager.utils import calculate_prestart_time, ema, mask_stale, offset_time, trim
+from manager.utils import calculate_prestart_time, ema, offset_time, trim
 
 TUESDAY = datetime(2026, 11, 3, 4, 0)
 
@@ -553,21 +553,6 @@ def test_ema_uses_standard_smoothing():
     assert weights[-1] == pytest.approx(2 / 9)   # newest of 8 gets 2/(n+1)
 
 
-def test_mask_stale_blanks_frozen_readings_only():
-    idx = pd.date_range("2026-06-02 12:00", periods=600, freq="1min")
-    oat = pd.Series(np.linspace(90, 96, 600), index=idx)
-    oat.iloc[100:] = 95.6                                   # frozen from minute 100 on
-    zone = pd.Series(72.0, index=idx)
-    zone.iloc[300:] = 72.1                                  # flat for 5 h, then 5 h: within the 8 h zone limit
-    df = pd.DataFrame({"outdoortemperature": oat, "zonetemperature": zone, "coolingsetpoint": 72.0})
-    out = mask_stale(df, {"outdoortemperature": 120, "zonetemperature": 480})
-    assert out["outdoortemperature"].iloc[:221].notna().all()      # first 120 min of the frozen run still pass
-    assert out["outdoortemperature"].iloc[221:].isna().all()       # then treated as missing
-    assert out["zonetemperature"].notna().all()
-    assert out["coolingsetpoint"].notna().all()                    # setpoints are never masked
-    assert df["outdoortemperature"].notna().all()                  # input not modified
-
-
 def test_trim_normalizes_legacy_entries_and_caps_length():
     history = [0.5, ["2026-01-01", 0.6]]
     history = trim(history, 0.7, 2)
@@ -913,16 +898,42 @@ def test_train_models_persists_state_only(tmp_path, platform, monkeypatch):
     assert any("OptimalStartModel/c" in topic for topic, _ in platform.published)
 
 
-def test_stale_outdoor_air_is_not_used_for_prediction(tmp_path, platform):
+def _overnight(end="2026-11-03 04:59", oat=95.6):
+    idx = pd.date_range("2026-11-02 12:00", end, freq="1min", tz="UTC")
+    return pd.DataFrame({"zonetemperature": 76.0, "coolingsetpoint": 72.0, "heatingsetpoint": 68.0,
+                         "outdoortemperature": oat, "supplyfanstatus": 0, "cooling": 0, "heating": 0}, index=idx)
+
+
+def test_flat_outdoor_air_is_still_used_for_prediction(tmp_path, platform):
     platform.store["optimal_start.models.c"] = {"c1": [["", 0.1]], "oat_clg": [["", 80.0]]}
-    idx = pd.date_range("2026-11-02 12:00", "2026-11-03 04:59", freq="1min")
-    df = pd.DataFrame({"zonetemperature": 76.0 + np.sin(np.arange(len(idx)) / 30) * 0.2, "coolingsetpoint": 72.0,
-                       "heatingsetpoint": 68.0, "outdoortemperature": 95.6, "supplyfanstatus": 0,
-                       "cooling": 0, "heating": 0}, index=idx)            # outdoor air frozen for 17 h
+    manager = make_manager(tmp_path, platform, now=datetime(2026, 11, 3, 5, 0), df=_overnight())
+    manager.run_method()                                                  # OAT unchanged for 17 h: still a reading
+    assert np.isfinite(manager.result["c"]) and "c" in manager.result["decided_by"]
+
+
+def test_outdoor_air_topic_stopped_drops_outdoor_air_models(tmp_path, platform):
+    platform.store["optimal_start.models.c"] = {"c1": [["", 0.1]], "oat_clg": [["", 80.0]]}
+    df = _overnight()
+    df.loc[df.index >= pd.Timestamp("2026-11-03 04:50", tz="UTC"), "outdoortemperature"] = np.nan
     manager = make_manager(tmp_path, platform, now=datetime(2026, 11, 3, 5, 0), df=df)
     manager.run_method()
-    assert "c" in manager.result and np.isnan(manager.result["c"])        # Carrier had no usable OAT
-    assert np.isfinite(manager._aggregate_start_time())
+    assert np.isnan(manager.result["c"]) and "c" not in manager.result["decided_by"]
+
+
+def test_device_stopped_publishing_uses_earliest_start(tmp_path, platform):
+    platform.store["optimal_start.models.c"] = {"c1": [["", 0.1]], "oat_clg": [["", 80.0]]}
+    df = _overnight(end="2026-11-03 04:30")                               # last publish 30 min ago
+    manager = make_manager(tmp_path, platform, now=datetime(2026, 11, 3, 5, 0), df=df)
+    manager.run_method()
+    assert manager.result["decided_by"] == []
+    assert manager.training_time == manager.earliest_start_time
+
+
+@pytest.mark.parametrize("last_publish, fresh", [("04:57", True), ("04:56", False)])
+def test_prediction_needs_a_recent_zone_reading(tmp_path, platform, last_publish, fresh):
+    df = _overnight(end=f"2026-11-03 {last_publish}")
+    manager = make_manager(tmp_path, platform, now=datetime(2026, 11, 3, 5, 0), df=df)
+    assert manager._get_prediction_data().empty is not fresh
 
 
 def test_recovery_regression_history_survives_restarts(tmp_path, platform):
@@ -1006,3 +1017,67 @@ def test_process_data_rotates_file(tmp_path, data_handler):
     assert not (tmp_path / "rtu1.csv").exists()
     rotated = [p for p in tmp_path.iterdir() if p.name.startswith("rtu1_")]
     assert len(rotated) == 1
+
+
+def _publishes():
+    """Device publishes on the minute, outdoor air on its own topic 20 s later."""
+    rows = []
+    for minute, zone in [(0, 64.0), (1, 64.5), (2, 65.0), (3, None), (4, 66.0)]:
+        device = {"heatingsetpoint": 70.0}
+        if zone is not None:
+            device["zonetemperature"] = zone
+        rows.append((pd.Timestamp(f"2026-11-03 05:0{minute}:00", tz="UTC"), device))
+        rows.append((pd.Timestamp(f"2026-11-03 05:0{minute}:20", tz="UTC"),
+                     {"outdoortemperature": [31.0, 31.2, 31.2, 31.5, 31.5][minute]}))
+    return pd.DataFrame([r for _, r in rows], index=pd.DatetimeIndex([t for t, _ in rows], name="ts"))
+
+
+def test_minute_rows_merge_device_and_outdoor_air_publishes():
+    out = to_minute_rows(_publishes())
+    assert len(out) == 5                                              # one row per minute, not 10
+    assert list(out.index.minute) == [0, 1, 2, 3, 4]
+    assert list(out["outdoortemperature"]) == [31.0, 31.2, 31.2, 31.5, 31.5]
+    assert list(out["zonetemperature"]) == [64.0, 64.5, 65.0, 65.0, 66.0]   # 05:03 missed: 05:02 covers it
+    assert out.notna().all().all()
+
+
+def test_minute_rows_fill_at_most_two_missed_minutes():
+    idx = pd.date_range("2026-11-03 05:00", periods=20, freq="1min", tz="UTC")
+    df = pd.DataFrame({"zonetemperature": np.arange(20, dtype=float), "outdoortemperature": 30.0}, index=idx)
+    df.loc[idx[3:5], "zonetemperature"] = np.nan                     # 2 missed minutes: filled
+    df.loc[idx[8:13], "zonetemperature"] = np.nan                    # 5 missed minutes: a real gap
+    df.loc[idx[15:], "outdoortemperature"] = np.nan                  # outdoor-air topic stops
+    out = to_minute_rows(df)
+    assert list(out.loc[idx[3:5], "zonetemperature"]) == [2.0, 2.0]
+    assert idx[10] not in out.index and idx[12] not in out.index     # gap shows as missing minutes
+    assert list(out.loc[idx[8:10], "zonetemperature"]) == [7.0, 7.0]
+    assert out.loc[idx[15:17], "outdoortemperature"].eq(30.0).all()
+    assert out.loc[idx[17:], "outdoortemperature"].isna().all()
+
+
+def test_minute_rows_handle_a_dst_change_read_from_csv(tmp_path):
+    from dateutil import tz
+    pacific = tz.gettz("America/Los_Angeles")
+    csv = tmp_path / "rtu1.csv"
+    csv.write_text("ts,zonetemperature\n2026-11-01 01:59:00-07:00,70\n2026-11-01 01:00:00-08:00,71\n")
+    out = to_minute_rows(DataFileAccess(csv).read(), timezone=pacific)
+    assert list(out["zonetemperature"]) == [70.0, 71.0]
+    assert out.index[1] - out.index[0] == pd.Timedelta(minutes=1)        # fall back: 01:59 PDT -> 01:00 PST
+
+
+def test_last_reading_time_ignores_filled_values():
+    df = _publishes()
+    assert last_reading_time(df, "zonetemperature") == pd.Timestamp("2026-11-03 05:04", tz="UTC")
+    assert last_reading_time(df, "outdoortemperature") == pd.Timestamp("2026-11-03 05:04:20", tz="UTC")
+    assert last_reading_time(df, "supplyfanstatus") is None
+
+
+def test_process_data_archives_one_row_per_minute(tmp_path, data_handler):
+    data_handler.update_data({"ZoneTemperature": 70}, _header("2026-11-03T06:00:00+00:00"))
+    data_handler.update_data({"OutdoorAirTemperature": 40.0}, _header("2026-11-03T06:00:20+00:00"))
+    data_handler.update_data({"ZoneTemperature": 71}, _header("2026-11-03T06:01:00+00:00"))
+    data_handler.process_data()
+    rotated = next(p for p in tmp_path.iterdir() if p.name.startswith("rtu1_"))
+    archived = pd.read_csv(rotated, index_col="ts")
+    assert len(archived) == 2
+    assert list(archived["outdoortemperature"]) == [40.0, 40.0]

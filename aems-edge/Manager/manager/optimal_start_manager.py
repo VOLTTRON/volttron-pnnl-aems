@@ -52,8 +52,10 @@ except for models with ``SEPARATE_WEEKEND_MODEL = False`` (RecoveryRegression),
 which use one history for every day. A weekend copy not yet trained for the
 needed mode falls back to the weekday copy.
 
-Data guard: model input is forward filled and sensor readings frozen for
-longer than ``_STALE_LIMITS_MINUTES`` are treated as missing.
+Data: model input has one row per minute (device and outdoor-air publishes
+merged; a reading covers at most ``MINUTE_FILL_LIMIT`` missed minutes). A
+prediction needs a zone reading from the last ``_MAX_DATA_AGE_MINUTES``;
+without one the models get no data and the earliest start is used.
 """
 
 from __future__ import annotations
@@ -71,12 +73,12 @@ from volttron.platform.agent.utils import format_timestamp, get_aware_utc_now
 from volttron.platform.scheduling import cron
 
 from . import DefaultConfig, OptimalStartConfig
-from .data_utils import Data
+from .data_utils import MINUTE_FILL_LIMIT, Data, last_reading_time, to_minute_rows
 from .holiday_manager import HolidayManager
 from .optimal_start_models import (_TRAINING_END_OFFSET_MINUTES, Carrier, Johnson, OptimalStartZoneModel,
                                     RecoveryRegression, Sbs, Siemens)
+from .points import DFPoints as dfpts
 from .points import OccupancyTypes
-from .utils import mask_stale
 
 _log = logging.getLogger(__name__)
 
@@ -132,11 +134,10 @@ _TRAINING_TIME_BUFFER_MINUTES = 5
 _TRAINING_DELAY_BUFFER_MINUTES = 5
 _WEEKEND_TRAINING_WINDOW = 4
 
-# Stale-data guard: a reading unchanged for longer than this (minutes) is treated
-# as missing (frozen sensor / stalled device). Outdoor air never legitimately
-# holds for more than ~1 h; zone temperatures can sit on one value for ~6 h
-# overnight on some controllers, so the zone limit is longer.
-_STALE_LIMITS_MINUTES = {"outdoortemperature": 120, "zonetemperature": 480}
+# A prediction needs a zone reading at most this old (minutes). Publishes are
+# once a minute; this allows MINUTE_FILL_LIMIT missed publishes plus the minute
+# in progress. Older data means the device has stopped publishing.
+_MAX_DATA_AGE_MINUTES = MINUTE_FILL_LIMIT + 1
 
 
 @dataclass(frozen=True)
@@ -608,7 +609,7 @@ class OptimalStartManager:
         :param occupancy_time: Today's occupancy start (recorded in the result).
         :type occupancy_time: datetime
         """
-        data = self._get_current_data()
+        data = self._get_prediction_data()
         use_weekend = self.is_weekend_holiday() and self.weekend_holiday_trained
         self._candidates = {}
         for tag, weekday_model in self.models.items():
@@ -650,7 +651,8 @@ class OptimalStartManager:
             self.result["decided_by"] = sorted(chosen)
             _log.debug("Start-time predictions: %s — decided by %s: %.1f", self.result, sorted(chosen), value)
         else:
-            _log.warning("%s: no trained model — using earliest start.", self.identity)
+            _log.warning("%s: no usable prediction (no trained model or no current data) — using earliest start.",
+                         self.identity)
             self.result["decided_by"] = []
             value = self.earliest_start_time
         return max(self.latest_start_time, min(value, self.earliest_start_time))
@@ -671,16 +673,39 @@ class OptimalStartManager:
 
     def _get_current_data(self) -> pd.DataFrame:
         """
-        Today's data for the models: forward filled, with stale (frozen) outdoor-air
-        and zone readings blanked (see :func:`~manager.utils.mask_stale`).
+        Today's data for the models, one row per minute (see
+        :func:`~manager.data_utils.to_minute_rows`).
 
         :return: The data, or an empty DataFrame if none has been received.
         :rtype: pd.DataFrame
         """
         df = self.data_handler.df
-        if df is None:
+        if df is None or df.empty:
             return pd.DataFrame()
-        return mask_stale(df.ffill(), _STALE_LIMITS_MINUTES)
+        return to_minute_rows(df, timezone=self.config.timezone)
+
+    def _get_prediction_data(self) -> pd.DataFrame:
+        """
+        Data for a prediction: :meth:`_get_current_data`, or an empty DataFrame
+        (the models then return the earliest start) if no zone reading has
+        arrived in the last ``_MAX_DATA_AGE_MINUTES`` - the device has stopped
+        publishing, so the last row would not describe the zone now.
+
+        :return: The data, or an empty DataFrame.
+        :rtype: pd.DataFrame
+        """
+        df = self.data_handler.df
+        if df is None or df.empty:
+            return pd.DataFrame()
+        tzinfo = self.config.timezone
+        last = last_reading_time(df, dfpts.zonetemperature.value, tzinfo)
+        now = pd.Timestamp(self.config.get_current_datetime())
+        now = now.tz_localize(tzinfo) if now.tzinfo is None else now
+        if last is None or now - last > pd.Timedelta(minutes=_MAX_DATA_AGE_MINUTES):
+            _log.warning("%s: no zone temperature since %s - no current conditions for the prediction.",
+                         self.identity, "never" if last is None else format_timestamp(last.to_pydatetime()))
+            return pd.DataFrame()
+        return to_minute_rows(df, timezone=tzinfo)
 
     # -- Persistence --------------------------------------------------------
 
