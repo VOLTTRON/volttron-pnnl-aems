@@ -26,7 +26,7 @@ as `find_packages('.')[0]`, and a `tests` package could be picked instead of
 | File | What it tests |
 |------|--------------|
 | `test_optimal_start.py` | Optimal-start models (incl. RecoveryRegression), model selection, the start decision and training schedule |
-| `test_config_store_handlers.py` | Config-store entries the Manager reacts to (`set_points`, legacy `temperature_setpoints`) |
+| `test_config_store_handlers.py` | Config-store entries the Manager reacts to (`set_points`) |
 | `test_lockout_manager.py` | Heating/cooling lockouts and the forecast-based optimal-start lockout |
 | `test_manager_holiday.py` | Holiday detection and custom holiday support |
 | `test_without_agent_runtime.py` | ManagerProxy built from the shipped example config without VOLTTRON running |

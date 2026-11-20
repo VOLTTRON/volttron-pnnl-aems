@@ -1,8 +1,6 @@
 """Config-store entries the Manager reacts to (main_manager.config_store_handlers)."""
-import gevent
-import pytest
 
-from manager.main_manager import LEGACY_SET_POINTS_ENTRY, SET_POINTS_ENTRY, config_store_handlers
+from manager.main_manager import SET_POINTS_ENTRY, config_store_handlers
 
 
 class FakeProxy:
@@ -33,19 +31,15 @@ def test_the_stored_set_points_entry_is_applied_when_it_changes():
     assert proxy.calls == [("set_temperature_setpoints", SETPOINTS, False)]
 
 
-def test_legacy_entry_is_applied_and_persisted_as_set_points():
-    # Storing the legacy name must also update SET_POINTS_ENTRY (update_store=True),
-    # otherwise the periodic validator re-applies the old setpoints.
-    proxy = FakeProxy()
-    handlers = config_store_handlers(proxy)
-    handlers[LEGACY_SET_POINTS_ENTRY](SETPOINTS, update_store=False)
-    assert proxy.calls == []                     # deferred: the store cannot be written from a config callback
-    gevent.sleep(0)
-    assert proxy.calls == [("set_temperature_setpoints", SETPOINTS, True)]
+def test_only_set_points_holds_the_setpoints():
+    # One entry per setting: with a second setpoints entry, startup callbacks
+    # (delivered in no guaranteed order) could apply - and store - either one.
+    handlers = config_store_handlers(FakeProxy())
+    assert [name for name in handlers if "point" in name] == [SET_POINTS_ENTRY]
+    assert "temperature_setpoints" not in handlers
 
 
-def test_every_entry_has_a_handler_in_apply_order():
-    names = list(config_store_handlers(FakeProxy()))
-    assert names[0] == "schedule"
-    assert set(names) == {"schedule", "set_points", "temperature_setpoints", "holidays", "optimal_start",
-                          "occupancy_overrides", "location", "control"}
+def test_every_entry_has_a_handler():
+    names = set(config_store_handlers(FakeProxy()))
+    assert names == {"schedule", "set_points", "holidays", "optimal_start", "occupancy_overrides",
+                     "location", "control"}

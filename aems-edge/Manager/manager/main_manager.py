@@ -82,31 +82,23 @@ StrPath = Union[str, Path]
 # from it, so a change to this entry must be applied - and kept - as soon as it is
 # stored.
 SET_POINTS_ENTRY = 'set_points'
-# Older name for the same entry (used in some configuration files). Storing it
-# applies the setpoints and copies them into SET_POINTS_ENTRY; otherwise the
-# validator would re-apply the old SET_POINTS_ENTRY within setpoint_validate_frequency.
-LEGACY_SET_POINTS_ENTRY = 'temperature_setpoints'
 
 
 def config_store_handlers(proxy) -> dict:
     """
     Config-store entry name -> handler ``handler(contents, update_store=False)``.
 
-    The order is the order the entries should be applied in.
+    At startup VOLTTRON delivers a NEW callback for each stored entry; the order
+    is not guaranteed, so each entry must be applied independently of the others.
+    Each setting therefore has exactly one entry (setpoints: ``SET_POINTS_ENTRY``).
 
     :param proxy: The :class:`ManagerProxy` the handlers act on.
-    :return: Ordered mapping of entry name to handler.
+    :return: Mapping of entry name to handler.
     :rtype: dict
     """
-    def legacy_set_points(contents, update_store: bool = False) -> None:
-        # Apply and persist under SET_POINTS_ENTRY. The store cannot be written
-        # from inside a configuration callback, so run it in its own greenlet.
-        gevent.spawn(proxy.set_temperature_setpoints, contents, update_store=True)
-
     return {
         'schedule': proxy.set_schedule,
         SET_POINTS_ENTRY: proxy.set_temperature_setpoints,
-        LEGACY_SET_POINTS_ENTRY: legacy_set_points,
         'holidays': proxy.set_holidays,
         'optimal_start': proxy.set_optimal_start,
         'occupancy_overrides': proxy.set_occupancy_override,
@@ -123,11 +115,7 @@ class ManagerAgent(Agent):
         _log.debug(f'Default Configuration for the system: {default_config}')
         default_config.validate()
 
-        # Create a mapping of pattern to function for calling the proxy.
-        # The order here is the order that we want the configurations to be
-        # updated from the configuration store.
-        #
-        # TODO: Verify that the order is respected when the agent starts up.
+        # Config-store entry name -> proxy function (see config_store_handlers).
         self._config_references = config_store_handlers(self._proxy)
 
         # Registers the configstore for the pattern 'config' ('config is default config entry')
@@ -140,7 +128,7 @@ class ManagerAgent(Agent):
     def update_from_config_store(self, config_name: str, action: str, contents: dict):
         """
         Updates the configuration for each of the manager functions:
-            schedule, set_points (or the legacy temperature_setpoints), holidays,
+            schedule, set_points, holidays,
             optimal_start, occupancy_overrides, location, control
 
         :param config_name: The name of the configuration being updated.
