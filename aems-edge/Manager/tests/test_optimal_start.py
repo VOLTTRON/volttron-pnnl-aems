@@ -261,6 +261,65 @@ def test_untrained_model_returns_earliest_start():
     assert model.calculate_prestart(make_morning().iloc[:61]) == OS_CFG.earliest_start_time
 
 
+def _trained(cls, mode="heating"):
+    model = cls(OS_CFG, todays_schedule)
+    if cls is RecoveryRegression:
+        for morning in _rr_mornings([61, 62, 63, 64, 65, 66], mode=mode, oat=MORNINGS[mode]["oat"]):
+            model.train(morning, 140)
+    else:
+        model.train(make_morning(**MORNINGS[mode]), 140)
+    assert model.trained_for(OperatingMode(mode))
+    return model
+
+
+@pytest.mark.parametrize("column", ["zonetemperature", "heatingsetpoint"])
+@pytest.mark.parametrize("cls", [Carrier, Siemens, Johnson, Sbs, RecoveryRegression])
+def test_missing_zone_reading_gives_earliest_start_and_is_not_ready(cls, column):
+    model = _trained(cls)
+    now = make_morning(start_temp=58).iloc[:61]
+    assert model.ready_for(now)
+    now.loc[now.index[-1], column] = np.nan
+    assert model.calculate_prestart(now) == OS_CFG.earliest_start_time   # not "no recovery needed"
+    assert not model.ready_for(now)
+
+
+@pytest.mark.parametrize("cls", [Carrier, Siemens])
+def test_outdoor_air_models_drop_out_without_outdoor_air(cls):
+    model = _trained(cls)
+    now = make_morning(start_temp=65).iloc[:61]
+    assert np.isfinite(model.calculate_prestart(now))
+    assert np.isnan(model.calculate_prestart(now.assign(outdoortemperature=np.nan)))
+
+
+def test_carrier_skips_training_morning_without_outdoor_air():
+    model = _trained(Carrier)
+    model.train(make_morning(oat=np.nan), 140)
+    assert len(model.h1) == 1 and len(model.oat_htg) == 1             # rate and OAT stay paired
+
+
+def test_carrier_outdoor_air_scaling_guards():
+    model = _trained(Carrier)                                         # learned at 30 F
+    mild = model.calculate_prestart(make_morning(start_temp=65, oat=40).iloc[:61])
+    cold = model.calculate_prestart(make_morning(start_temp=65, oat=10).iloc[:61])
+    assert 0 < mild < cold
+    # At or below the 0 F heating reference: slowest recovery, not a negative/infinite one.
+    for oat in (0.0, -5.0):
+        assert model.calculate_prestart(make_morning(start_temp=65, oat=oat).iloc[:61]) == OS_CFG.earliest_start_time
+    # Learned right at the reference: the ratio cannot be formed.
+    model.oat_htg = [["", 0.5]]
+    assert np.isnan(model.calculate_prestart(make_morning(start_temp=65, oat=30).iloc[:61]))
+
+
+def test_siemens_learns_k1_without_outdoor_air():
+    model = Siemens(OS_CFG, todays_schedule)
+    model.train(make_morning(oat=np.nan), 140)
+    assert len(model.h1) == 1 and model.h2 == []
+    assert not model.trained_for(OperatingMode.HEATING)               # k2 still needed to predict
+    model.train(make_morning(), 140)
+    assert len(model.h1) == 2 and len(model.h2) == 1
+    assert model.trained_for(OperatingMode.HEATING)
+
+
 def test_no_schedule_skips_training():
     model = Johnson(OS_CFG, lambda: None)
     model.train(make_morning(), 140)

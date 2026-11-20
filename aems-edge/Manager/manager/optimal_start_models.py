@@ -350,16 +350,40 @@ class OptimalStartZoneModel(ABC):
 
         Used by the manager to exclude untrained models from the start decision.
 
-        :param data: Current device data (stale readings already masked).
+        :param data: Current device data; the last row is "now".
         :type data: pd.DataFrame
         :return: True when no recovery is needed or the model is trained for the
-            mode the zone needs now; False on empty data.
+            mode the zone needs now; False on empty data or a missing zone
+            temperature or setpoint.
         :rtype: bool
         """
-        if data is None or data.empty:
+        cond = self._current_conditions(data)
+        if cond is None:
             return False
-        mode = self._determine_mode(ZoneConditions.latest(data))
+        mode = self._determine_mode(cond)
         return True if mode is None else self.trained_for(mode)
+
+    @staticmethod
+    def _current_conditions(data: Optional[pd.DataFrame]) -> Optional[ZoneConditions]:
+        """
+        Conditions now (the last row), if they can be used for a prediction.
+
+        :param data: Current device data; the last row is "now".
+        :type data: pd.DataFrame | None
+        :return: The conditions, or None if there is no data or the zone
+            temperature or a setpoint is missing. Without them the zone's need
+            is unknown, so callers use the earliest start rather than treating
+            it as "no recovery needed".
+        :rtype: ZoneConditions | None
+        """
+        if data is None or data.empty:
+            return None
+        cond = ZoneConditions.latest(data)
+        values = (cond.zone_temperature, cond.cooling_setpoint, cond.heating_setpoint)
+        if not all(pd.notna(v) and np.isfinite(float(v)) for v in values):
+            _log.debug("Zone temperature or setpoint missing in the latest data: %s", cond)
+            return None
+        return cond
 
     # -- Training -----------------------------------------------------------
 
@@ -451,7 +475,9 @@ class OptimalStartZoneModel(ABC):
         :param data: Current device data; the last row is "now".
         :type data: pd.DataFrame
         :return: Prestart in minutes (``latest_start_time`` if no recovery is needed,
-            ``earliest_start_time`` if empty data or not trained for the mode).
+            ``earliest_start_time`` if there is no data, the zone temperature or a
+            setpoint is missing, or the model is not trained for the mode; NaN if
+            the model cannot predict today, e.g. without outdoor air).
         :rtype: float
         """
         ...
@@ -548,7 +574,9 @@ class Carrier(OptimalStartZoneModel):
 
     with reference 100 °F for cooling and 0 °F for heating: hotter (colder)
     weather than during training lowers the effective rate and lengthens the
-    prediction.
+    prediction. Without outdoor air there is no prediction (NaN, so the model
+    drops out of the decision) and the morning is not used for training. Outdoor
+    air at or beyond the reference gives the earliest start.
 
     :ivar c1: Cooling rate history (``[timestamp, °F/min]``).
     :vartype c1: list
@@ -565,6 +593,9 @@ class Carrier(OptimalStartZoneModel):
     STATE_FIELDS = ("c1", "h1", "oat_clg", "oat_htg", "adjust_time")
     _OAT_REFERENCE = {OperatingMode.HEATING: 0.0, OperatingMode.COOLING: 100.0}
     _OAT_FIELD = {OperatingMode.HEATING: "oat_htg", OperatingMode.COOLING: "oat_clg"}
+    # Smallest training distance (F) from the reference that the OAT scaling
+    # accepts; closer, the ratio would divide by (almost) zero.
+    _MIN_OAT_SPAN = 1.0
 
     def __init__(self, config: OptimalStartConfig, schedule_fn: Callable):
         """
@@ -620,13 +651,20 @@ class Carrier(OptimalStartZoneModel):
         if not _coefficients_are_valid({"rate": rate}, model_label=f"Carrier {mode.value}"):
             return
 
+        # The rate only means something relative to the outdoor air it was learned
+        # at (prediction rescales it by OAT), so a morning without outdoor air is
+        # not used: keeping the rate alone would leave the rate and OAT histories
+        # covering different mornings.
+        oat_mean = htr["outdoortemperature"].mean()
+        if not np.isfinite(oat_mean):
+            _log.debug("Carrier %s: no outdoor air during the recovery - morning not used.", mode.value)
+            return
+
         coeff_field = f"{mode.prefix}1"
         oat_field = self._OAT_FIELD[mode]
         history = trim(getattr(self, coeff_field), rate, self.training_period_window)
         setattr(self, coeff_field, history)
-        setattr(self, oat_field, trim(getattr(self, oat_field),
-                                      htr["outdoortemperature"].mean(),
-                                      self.training_period_window))
+        setattr(self, oat_field, trim(getattr(self, oat_field), oat_mean, self.training_period_window))
         self.record = _record(**{coeff_field: rate, f"{coeff_field}_array": history})
 
     def calculate_prestart(self, data: pd.DataFrame) -> float:
@@ -638,10 +676,9 @@ class Carrier(OptimalStartZoneModel):
         :return: Prestart in minutes (not clamped; the manager clamps).
         :rtype: float
         """
-        if data.empty:
+        cond = self._current_conditions(data)
+        if cond is None:
             return self.earliest_start_time
-
-        cond = ZoneConditions.latest(data)
         mode = self._determine_mode(cond)
         if mode is None:
             return self.latest_start_time
@@ -650,12 +687,27 @@ class Carrier(OptimalStartZoneModel):
         if not history:
             return self.earliest_start_time
 
+        oat_now = cond.outdoor_air_temperature
+        if not (pd.notna(oat_now) and np.isfinite(float(oat_now))):
+            _log.debug("Carrier %s: no outdoor air - no prediction.", mode.value)
+            return float("nan")
         oat_history = getattr(self, self._OAT_FIELD[mode])
-        oat_ref = ema(oat_history) if oat_history else cond.outdoor_air_temperature
+        oat_ref = ema(oat_history) if oat_history else oat_now
         reference = self._OAT_REFERENCE[mode]
         # Scale the learned rate by how far today's OAT is from the reference
-        # compared with the OAT seen during training.
-        oat_ratio = (reference - cond.outdoor_air_temperature) / (reference - oat_ref)
+        # compared with the OAT seen during training. Distances are signed so a
+        # larger value is milder: OAT above the 0 F heating reference, below the
+        # 100 F cooling reference.
+        sign = -1.0 if mode is OperatingMode.HEATING else 1.0
+        train_span = sign * (reference - oat_ref)
+        today_span = sign * (reference - oat_now)
+        if train_span < self._MIN_OAT_SPAN:
+            _log.debug("Carrier %s: training OAT %.1f too close to the %.0f F reference - no prediction.",
+                       mode.value, oat_ref, reference)
+            return float("nan")
+        if today_span <= 0:
+            return self.earliest_start_time          # at or beyond the reference: slowest recovery
+        oat_ratio = today_span / train_span
         return cond.zone_error(mode) / (oat_ratio * ema(history))
 
 
@@ -668,6 +720,8 @@ class Siemens(OptimalStartZoneModel):
     ``gap`` is the zone gap and ``oat_gap`` the outdoor-air difference (both
     floored at 0). ``k1`` (hours per °F) and ``k2`` are fitted per morning from
     the recovery and averaged with an EMA.
+    Without outdoor air there is no prediction (NaN, so the model drops out of
+    the decision); a training morning without it still updates ``k1``.
 
     :ivar c1: Cooling ``k1`` history.
     :vartype c1: list
@@ -739,6 +793,8 @@ class Siemens(OptimalStartZoneModel):
         p = mode.prefix
         self.record = _record()
         for idx, value in enumerate(coeffs, start=1):
+            if value is None:
+                continue
             field = f"{p}{idx}"
             history = trim(getattr(self, field), value, self.training_period_window)
             setattr(self, field, history)
@@ -753,7 +809,9 @@ class Siemens(OptimalStartZoneModel):
         Coefficients for one morning's recovery.
 
         ``k1`` = recovery hours per °F; ``k2`` is the remaining time explained by the
-        outdoor-air term (clamped at 0 rather than rejected).
+        outdoor-air term (clamped at 0 rather than rejected). Without outdoor air
+        (or a zero outdoor-air difference) ``k2`` cannot be computed and is None;
+        ``k1`` is still learned.
 
         :param data: Parsed recovery data.
         :type data: pd.DataFrame
@@ -765,8 +823,8 @@ class Siemens(OptimalStartZoneModel):
         :type outdoor_sp_diff: float
         :param label: Mode label for logging.
         :type label: str
-        :return: ``(k1, k2)``, or None if the morning is unusable.
-        :rtype: tuple[float, float] | None
+        :return: ``(k1, k2 or None)``, or None if the morning is unusable.
+        :rtype: tuple[float, float | None] | None
         """
         time_diff, temp_diff = get_time_temp_diff(htr, self.setpoint_deviation)
         if not time_diff:
@@ -778,19 +836,21 @@ class Siemens(OptimalStartZoneModel):
             return None
 
         coeff1 = (time_diff / temp_diff) / 60.0
-        coeff2 = (
-            (time_diff / 60.0 - coeff1 * zone_sp_diff)
-            * self._OSP_SCALE_FACTOR
-            / (outdoor_sp_diff * zone_sp_diff)
-        )
-
         model_label = f"Siemens {label}"
         if not _coefficients_are_valid({"coeff1": coeff1}, model_label=model_label):
             return None
-        # coeff2 is clamped rather than rejected.
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            coeff2 = (
+                (time_diff / 60.0 - coeff1 * zone_sp_diff)
+                * self._OSP_SCALE_FACTOR
+                / np.float64(outdoor_sp_diff * zone_sp_diff)
+            )
+        # coeff2 is clamped rather than rejected; without outdoor air only k1 is learned.
         if not np.isfinite(coeff2):
-            _log.debug("%s: non-finite coeff2.", model_label)
-            return None
+            _log.debug("%s: coeff2 not computable (outdoor-air difference %s) - learning k1 only.",
+                       model_label, outdoor_sp_diff)
+            return coeff1, None
         return coeff1, max(float(coeff2), 0.0)
 
     def calculate_prestart(self, data: pd.DataFrame) -> float:
@@ -802,10 +862,9 @@ class Siemens(OptimalStartZoneModel):
         :return: Prestart in minutes (not clamped; the manager clamps).
         :rtype: float
         """
-        if data.empty:
+        cond = self._current_conditions(data)
+        if cond is None:
             return self.earliest_start_time
-
-        cond = ZoneConditions.latest(data)
         mode = self._determine_mode(cond)
         if mode is None:
             return self.latest_start_time
@@ -815,8 +874,13 @@ class Siemens(OptimalStartZoneModel):
         if not k1_hist or not k2_hist:
             return self.earliest_start_time
 
+        oat_diff = cond.outdoor_error(mode)
+        if not (pd.notna(oat_diff) and np.isfinite(float(oat_diff))):
+            # max(0.0, nan) is 0.0, which would silently drop the outdoor term.
+            _log.debug("Siemens %s: no outdoor air - no prediction.", mode.value)
+            return float("nan")
         zsp = max(0.0, cond.zone_error(mode))
-        osp = max(0.0, cond.outdoor_error(mode))
+        osp = max(0.0, float(oat_diff))
         k1, k2 = ema(k1_hist), ema(k2_hist)
         return (k1 * zsp + k2 * zsp * osp / self._OSP_SCALE_FACTOR) * 60.0 + self.adjust_time
 
@@ -946,10 +1010,9 @@ class Johnson(OptimalStartZoneModel):
         :return: Prestart in minutes (not clamped; the manager clamps).
         :rtype: float
         """
-        if data.empty:
+        cond = self._current_conditions(data)
+        if cond is None:
             return self.earliest_start_time
-
-        cond = ZoneConditions.latest(data)
         mode = self._determine_mode(cond)
         if mode is None:
             return self.latest_start_time
@@ -1159,10 +1222,9 @@ class Sbs(OptimalStartZoneModel):
         :return: Prestart in minutes, clamped to [latest, earliest].
         :rtype: float
         """
-        if data.empty:
+        cond = self._current_conditions(data)
+        if cond is None:
             return self.earliest_start_time
-
-        cond = ZoneConditions.latest(data)
         mode = self._determine_mode(cond)
         if mode is None:
             return self.latest_start_time
@@ -1460,9 +1522,9 @@ class RecoveryRegression(OptimalStartZoneModel):
             if not trained for the mode).
         :rtype: float
         """
-        if data.empty:
+        cond = self._current_conditions(data)
+        if cond is None:
             return self.earliest_start_time
-        cond = ZoneConditions.latest(data)
         mode = self._determine_mode(cond)
         if mode is None:
             return self.latest_start_time
