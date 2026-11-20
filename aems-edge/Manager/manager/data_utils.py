@@ -41,6 +41,77 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 _log = logging.getLogger(__name__)
 
+# Devices and the outdoor-air topic publish once a minute. A reading may stand in
+# for at most this many following minutes (missed publishes); longer gaps stay
+# missing.
+MINUTE_FILL_LIMIT = 2
+
+
+def _utc_index(index: pd.Index, timezone=None) -> pd.DatetimeIndex:
+    """
+    ``index`` as a UTC DatetimeIndex.
+
+    Aware timestamps (including mixed UTC offsets, as in a CSV spanning a DST
+    change) are converted; naive timestamps are taken as ``timezone`` (UTC if
+    None). Ambiguous or nonexistent local times become NaT.
+    """
+    if isinstance(index, pd.DatetimeIndex) and index.tz is None:
+        return index.tz_localize(timezone or 'UTC', ambiguous='NaT', nonexistent='NaT').tz_convert('UTC')
+    return pd.DatetimeIndex(pd.to_datetime(index, utc=True))
+
+
+def to_minute_rows(df: Optional[pd.DataFrame], *, timezone=None,
+                   fill_limit: int = MINUTE_FILL_LIMIT) -> Optional[pd.DataFrame]:
+    """
+    One row per minute, combining every publish received in that minute.
+
+    The buffer holds one row per publish, so a device publish and an outdoor-air
+    publish in the same minute are separate, half-empty rows. This merges each
+    minute into one row (the last value received for each column in that minute),
+    lets a value cover at most ``fill_limit`` following minutes with no reading,
+    and drops minutes that still have no zone temperature, so a longer outage
+    shows up as a gap in time rather than as copied values.
+
+    :param df: Time-indexed publishes (oldest first).
+    :param timezone: Timezone of the result; also used for naive timestamps.
+        None keeps UTC.
+    :param fill_limit: Most minutes a value may be carried forward.
+    :return: Per-minute data (minute-start labels), or ``df`` if it is None/empty.
+    """
+    if df is None or df.empty:
+        return df
+    out = df.drop(columns=['ts'], errors='ignore').copy()
+    out.index = _utc_index(out.index, timezone)
+    out = out[out.index.notna()].sort_index()
+    out = out.resample('1min').last().ffill(limit=fill_limit)
+    if dfpts.zonetemperature.value in out.columns:
+        out = out.dropna(subset=[dfpts.zonetemperature.value])
+    else:
+        out = out.dropna(how='all')
+    if timezone is not None:
+        out.index = out.index.tz_convert(timezone)
+    out.index.name = 'ts'
+    return out
+
+
+def last_reading_time(df: Optional[pd.DataFrame], column: str, timezone=None) -> Optional[pd.Timestamp]:
+    """
+    Time of the last real (not filled) value of ``column``.
+
+    :param df: Time-indexed publishes, before any filling.
+    :param column: Column name.
+    :param timezone: Timezone for naive timestamps (UTC if None).
+    :return: UTC timestamp, or None if the column has no value.
+    """
+    if df is None or df.empty or column not in df.columns:
+        return None
+    present = df[column].notna().to_numpy()
+    if not present.any():
+        return None
+    times = _utc_index(df.index[present], timezone)
+    times = times[times.notna()]
+    return times.max() if len(times) else None
+
 
 class DataFileAccess:
     """
@@ -99,6 +170,13 @@ class DataFileAccess:
         """
         df.to_csv(self.datafile.as_posix())
 
+    def append(self, df: pd.DataFrame) -> None:
+        """
+        Append rows to the file without a header. The caller must ensure the
+        columns match the existing file header.
+        """
+        df.to_csv(self.datafile.as_posix(), mode='a', header=False)
+
     def write_date_file(self, data: pd.DataFrame) -> None:
         """
         Write data to a new file with a timestamp in the filename.
@@ -120,140 +198,149 @@ class DataFileAccess:
 
 class Data:
     """
-    This class represents a data object with timezone, data accessor, and setpoint offset.
+    Buffer of today's device measurements, mirrored to a CSV file so it
+    survives restarts.
 
-    :param timezone: The timezone for the data.
-    :type timezone: tz.tz.tzfile
-    :param data_accessor: The data file accessor object.
-    :type data_accessor: DataFileAccess
-    :param setpoint_offset: The offset for the setpoint, defaults to None.
-    :type setpoint_offset: float | None, optional
+    Rows are buffered in memory and appended to the CSV one line at a time;
+    the DataFrame is only built (and cached) when :attr:`df` is read. The file
+    is fully rewritten only when a previously unseen column appears.
 
-    :ivar current_dt: The current datetime.
-    :vartype current_dt: datetime
-    :ivar df: The pandas DataFrame containing the data, or None if the data file does not exist.
-    :vartype df: pd.DataFrame | None
-    :ivar timezone: The timezone for the data.
-    :vartype timezone: tz.tz.tzfile
-    :ivar _file_accessor: The data file accessor object.
-    :vartype _file_accessor: DataFileAccess
-    :ivar setpoint_offset: The offset for the setpoint.
-    :vartype setpoint_offset: float | None
+    :param timezone: Local timezone used for timestamps.
+    :param data_accessor: File accessor for the live CSV.
+    :param setpoint_offset: Optional offset widening the occupied setpoints.
     """
     def __init__(self, *, timezone: tz.tz.tzfile, data_accessor: DataFileAccess, setpoint_offset: float | None = None):
         self.current_dt = dt.now()
-        self.df = None
         self.timezone = timezone
-
-        self._file_accessor = data_accessor
-        if self._file_accessor.datafile.is_file():
-            self.df = data_accessor.read()
-
         self.setpoint_offset = setpoint_offset
+        self._file_accessor = data_accessor
+
+        self._base_df: Optional[pd.DataFrame] = None  # rows loaded from disk at startup
+        self._rows: list[dict] = []                    # rows received since then
+        self._df_cache: Optional[pd.DataFrame] = None
+        self._file_columns: Optional[list[str]] = None
+
+        if self._file_accessor.datafile.is_file():
+            self._base_df = data_accessor.read()
+            if self._base_df is not None:
+                self._base_df = self._base_df.drop(columns=['ts'], errors='ignore')
+                self._file_columns = list(self._base_df.columns)
+
+    @property
+    def df(self) -> Optional[pd.DataFrame]:
+        """Today's data indexed by timestamp, or None if nothing has been received."""
+        if self._df_cache is None and (self._rows or self._base_df is not None):
+            frames = [] if self._base_df is None else [self._base_df]
+            if self._rows:
+                frames.append(pd.DataFrame(self._rows).set_index('ts'))
+            self._df_cache = pd.concat(frames, axis=0) if len(frames) > 1 else frames[0]
+        return self._df_cache
+
+    @df.setter
+    def df(self, value: Optional[pd.DataFrame]) -> None:
+        self._base_df = value
+        self._rows = []
+        self._df_cache = None
+        self._file_columns = None if value is None else list(value.columns)
 
     def assign_local_tz(self, _dt: dt) -> dt:
-        """
-        Convert UTC time from driver to local time.
-
-        :param _dt: datetime object
-        :type _dt: datetime.datetime
-        :return: localized datetime object
-        :rtype: datetime.datetime
-        """
+        """Convert an aware (UTC) timestamp to the local timezone; naive values pass through."""
         if _dt.tzinfo is None or _dt.tzinfo.utcoffset(_dt) is None:
-            _log.debug(f'TZ: {_dt}')
             return _dt
-        else:
-            _dt = _dt.astimezone(self.timezone)
-            _log.debug(f'TZ: {_dt}')
-            return _dt
+        return _dt.astimezone(self.timezone)
 
     def process_data(self):
         """
-        Save data to disk using forward filled data.
+        Rotate the live CSV to a dated file (one row per minute, see
+        :func:`to_minute_rows`) and clear the buffer. If the rotation fails the
+        live file is removed anyway so the next day's data never mixes with stale
+        rows.
         """
         try:
-            self._file_accessor.write_date_file(self.df.fillna(method='ffill'))
+            df = self.df
+            if df is not None:
+                self._file_accessor.write_date_file(to_minute_rows(df, timezone=self.timezone))
         except Exception as ex:
-            _log.debug(f'Error saving df csv!: {ex}')
+            _log.warning(f'Error rotating data file: {ex}')
+            self._file_accessor.reset_date_file()
         finally:
             self.df = None
 
     def update_data(self, data: dict, header: dict):
         """
-        Store current data measurements in daily data df.
+        Store a device publish in today's buffer.
 
-        :param payload: data payload from device driver
-        :type payload: dict
+        :param data: data payload from device driver
         :param header: header payload from device driver, contains timestamp
-        :type header: dict
-        :return: None
-        :rtype:
         """
-        _now = parser.parse(header[headers_mod.TIMESTAMP])
-        stored_data = {}
-        current_dt = self.assign_local_tz(_now)
+        current_dt = self.assign_local_tz(parser.parse(header[headers_mod.TIMESTAMP]))
         self.current_dt = current_dt
-        for point in Points.values():
-            if point.value in data:
-                value = data[point.value]
-                stored_data[point.name] = [value]
+        stored_data = {
+            point.name: data[point.value] for point in Points.values() if point.value in data
+        }
 
+        csp, hsp = dfpts.coolingsetpoint.value, dfpts.heatingsetpoint.value
         if self.setpoint_offset is not None:
-            stored_data[dfpts.coolingsetpoint.value][0] += self.setpoint_offset
-            stored_data[dfpts.heatingsetpoint.value][0] -= self.setpoint_offset
+            if csp in stored_data:
+                stored_data[csp] += self.setpoint_offset
+            if hsp in stored_data:
+                stored_data[hsp] -= self.setpoint_offset
 
-        if dfpts.warmcooladjust.value in stored_data:
-            stored_data[dfpts.coolingsetpoint.value][0] += stored_data[dfpts.warmcooladjust.value][0]
-            stored_data[dfpts.heatingsetpoint.value][0] += stored_data[dfpts.warmcooladjust.value][0]
+        adjust = stored_data.get(dfpts.warmcooladjust.value)
+        if adjust is not None:
+            if csp in stored_data:
+                stored_data[csp] += adjust
+            if hsp in stored_data:
+                stored_data[hsp] += adjust
 
-        if dfpts.reversingvalve.value in stored_data and dfpts.compressorcommand.value in stored_data:
-            vlv = stored_data[dfpts.reversingvalve.value][0]
-            comp = stored_data[dfpts.compressorcommand.value][0]
-            if not comp:
-                stored_data[dfpts.heating.value] = [0]
-                stored_data[dfpts.cooling.value] = [0]
-            else:
-                if not vlv:
-                    stored_data[dfpts.heating.value] = [1]
-                    stored_data[dfpts.cooling.value] = [0]
-                else:
-                    stored_data[dfpts.heating.value] = [0]
-                    stored_data[dfpts.cooling.value] = [1]
+        vlv = stored_data.get(dfpts.reversingvalve.value)
+        comp = stored_data.get(dfpts.compressorcommand.value)
+        if vlv is not None and comp is not None:
+            heating = 1 if comp and not vlv else 0
+            cooling = 1 if comp and vlv else 0
+            stored_data[dfpts.heating.value] = heating
+            stored_data[dfpts.cooling.value] = cooling
 
         if stored_data:
             self.append_df(stored_data, current_dt)
 
     def append_df(self, data: dict, current_dt: dt):
         """
-        Appends a dictionary of data to a pandas DataFrame and
-        reindexes the DataFrame based upon ts.
+        Append one row (``{column: value}``) at ``current_dt`` to the buffer and CSV.
 
-        :param data: dict, The dictionary of data to append to the DataFrame.
-        :param current_dt: dt, The current datetime.
-        :return: None
-        :rtype: None
+        :param data: Column values; scalars or single-element lists.
+        :param current_dt: Row timestamp.
         """
-        data['ts'] = [current_dt]
-        df = pd.DataFrame.from_dict(data)
-        df.set_index(df['ts'], inplace=True)
-        if self.df is not None:
-            self.df = pd.concat([self.df, df], axis=0, ignore_index=False)
-            self.df = self.df.drop(columns=['ts'])
-        else:
-            self.df = df
+        row = {k: (v[0] if isinstance(v, list) else v) for k, v in data.items() if k != 'ts'}
+        self._rows.append({'ts': current_dt, **row})
+        self._df_cache = None
 
-        self._file_accessor.write(self.df)
+        try:
+            if self._file_columns is not None and set(row) <= set(self._file_columns) \
+                    and self._file_accessor.datafile.is_file():
+                line = pd.DataFrame([row], index=pd.Index([current_dt], name='ts'),
+                                    columns=self._file_columns)
+                self._file_accessor.append(line)
+            else:
+                df = self.df
+                self._file_accessor.write(df)
+                self._file_columns = list(df.columns)
+        except Exception as ex:
+            _log.warning(f'Error writing data file: {ex}')
 
     def get_current_oat(self) -> tuple[dt | None, float | None]:
         """
         Get the last valid measurement of outdoor air temperature.
 
         :return: The timestamp and value of the last valid measurement of outdoor air temperature.
-        :rtype: tuple[dt | None, float | None]
         """
-        if not self.df.empty:
-            if Points.outdoortemperature.name in self.df.columns:
-                df = self.df[self.df[Points.outdoortemperature.name].notna()]
-                return df.index[-1], df[Points.outdoortemperature.name].iloc[-1]
+        oat = Points.outdoortemperature.name
+        for row in reversed(self._rows):
+            value = row.get(oat)
+            if value is not None and not pd.isna(value):
+                return row['ts'], value
+        if self._base_df is not None and oat in self._base_df.columns:
+            series = self._base_df[oat].dropna()
+            if not series.empty:
+                return series.index[-1], series.iloc[-1]
         return None, None

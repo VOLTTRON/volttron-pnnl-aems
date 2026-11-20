@@ -229,7 +229,8 @@ manager_config_store_dict_template = lambda campus, building, device_name, timez
         "earliest_start_time": 120,
         "latest_start_time": 10,
         "optimal_start_lockout_temperature": 30,
-        "allowable_setpoint_deviation": 1
+        "allowable_setpoint_deviation": 1,
+        "models": ["recovery_regression"]
     },
     "schedule": {
         "Monday": {"start": "6:00", "end": "18:00"},

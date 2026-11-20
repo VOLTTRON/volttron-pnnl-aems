@@ -1,41 +1,18 @@
-# AEMS-Edge Tests
+# AEMS-Edge Test Tools
 
-## Running pytest tests
+The Manager's unit tests are in [`Manager/tests`](../Manager/tests/README.md).
+This directory holds tools for testing against a live platform.
 
-From the `aems-edge` directory:
-
-```bash
-poetry run pytest                          # all tests
-poetry run pytest tests/                   # just this directory
-poetry run pytest tests/test_override_in_progress.py  # single file
-poetry run pytest -k "in_progress"         # by keyword
-```
-
-## Test files
-
-### Unit tests (run with pytest, no platform needed)
-
-| File | What it tests |
-|------|--------------|
-| `test_lockout_manager.py` | Temperature-based heating/cooling lockout logic |
-| `test_manager_holiday.py` | Holiday detection and custom holiday support |
-| `test_without_agent_runtime.py` | Basic ManagerProxy instantiation without VOLTTRON |
-| `test_data_utils.py` | Data conversion utilities |
-| `test_config_loading.py` | Config store structure and validation |
-| `test_override_in_progress.py` | Overrides already in progress (past start, before end) |
-| `test_full_override_flow.py` | End-to-end occupancy override flows |
-| `test_runtime_override.py` | Adding overrides to an already-running agent |
-| `test_occupancy_config_update.py` | Config store update behavior for occupancy overrides |
-| `test_scheduler_behavior.py` | Scheduler behavior with past datetime objects |
-
-### Integration test tools (require a running platform)
+## Integration test tools (require a running platform)
 
 | File | What it does |
 |------|-------------|
 | `test_platform_driver.py` | CLI tool for platform.driver RPC (get/set point, subscribe, publish) |
 | `test_rpc_agent.py` | Simple agent demonstrating RPC calls to platform.driver |
+| `gs-payload.py` | Sends example payloads (schedule, setpoints, ...) to a Manager |
 
-Run the CLI tools directly:
+They need the AEMS client library and are run directly, not by pytest
+(`conftest.py` keeps pytest from collecting them):
 
 ```bash
 python tests/test_platform_driver.py --action get_devices

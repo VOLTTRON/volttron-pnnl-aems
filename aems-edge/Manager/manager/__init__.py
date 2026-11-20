@@ -127,6 +127,9 @@ class Schedule:
                 raise ValueError('Schedule start time must be before end time.')
 
 
+DEFAULT_OPTIMAL_START_MODELS = ['recovery_regression']
+
+
 @dataclass
 class OptimalStartConfig:
     latest_start_time: int
@@ -134,6 +137,17 @@ class OptimalStartConfig:
     allowable_setpoint_deviation: float
     optimal_start_lockout_temperature: float = 30
     training_period_window: int = 8
+    # Model(s) that decide the start time: one name, or a list (median of the listed models).
+    # Names: recovery_regression, carrier, johnson, siemens, sbs. All models are still trained
+    # and published; this only selects which predictions decide.
+    models: list[str] = field(default_factory=lambda: list(DEFAULT_OPTIMAL_START_MODELS))
+
+    def __post_init__(self):
+        if isinstance(self.models, str):
+            self.models = [self.models]
+        self.models = [str(m).strip().lower() for m in (self.models or []) if str(m).strip()]
+        if not self.models:
+            self.models = list(DEFAULT_OPTIMAL_START_MODELS)
 
 
 @dataclass
@@ -180,6 +194,9 @@ class DefaultConfig:
         self.validate()
 
     def _initialize_directories(self):
+        # Directories from a JSON config arrive as strings; ~ is allowed.
+        self.data_dir = Path(self.data_dir).expanduser()
+        self.model_dir = Path(self.model_dir).expanduser()
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.model_dir.mkdir(parents=True, exist_ok=True)
 

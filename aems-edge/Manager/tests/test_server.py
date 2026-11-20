@@ -1,4 +1,6 @@
 import pytest
+
+pytest.importorskip("fastapi", reason="the server tests need fastapi (pip install fastapi httpx)")
 from fastapi.testclient import TestClient
 from server.start_server import app  # Import the FastAPI app from the correct module
 

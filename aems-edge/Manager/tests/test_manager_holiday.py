@@ -24,10 +24,18 @@
 import pytest
 
 
-def test_manager_holiday_none_rules():
+def test_manager_holiday_none_rules_uses_the_default_holidays():
+    from datetime import datetime
+    from manager.holiday_manager import RULES, HolidayManager
+
+    manager = HolidayManager(rules=None)            # documented default: the standard RULES
+    assert manager.rules == RULES
+    assert manager.is_holiday(datetime(2026, 12, 25))
+
+
+def test_manager_holiday_empty_rules_means_no_holidays():
+    from datetime import datetime
     from manager.holiday_manager import HolidayManager
 
-    with pytest.raises(Exception) as excinfo:
-        HolidayManager(rules=None)
-
-    assert 'Holiday Calendar holidays does not have any rules specified' == str(excinfo.value)
+    manager = HolidayManager(rules=[])
+    assert not manager.is_holiday(datetime(2026, 12, 25))

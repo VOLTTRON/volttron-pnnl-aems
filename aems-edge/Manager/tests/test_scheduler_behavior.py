@@ -34,6 +34,7 @@ These tests ensure that:
 
 import logging
 from datetime import datetime, time, timedelta
+from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -42,6 +43,19 @@ from manager.occupancy_override_manager import OccupancyOverride, Override
 from manager.points import OccupancyTypes
 
 _log = logging.getLogger(__name__)
+
+
+# One clock for the code under test and the test itself: midday today, so the
+# override windows (a few hours either side of now) stay within the day
+# whenever the suite runs.
+NOW = datetime.combine(datetime.now().date(), time(12, 0))
+
+
+@pytest.fixture(autouse=True)
+def frozen_clock():
+    with mock.patch('manager.occupancy_override_manager.dt') as clock:
+        clock.now.return_value = NOW
+        yield clock
 
 
 def _make_smart_scheduler():
@@ -53,11 +67,11 @@ def _make_smart_scheduler():
             'when': when,
             'callback': callback,
             'args': args,
-            'time': datetime.now(),
+            'time': NOW,
         }
         scheduled_jobs.append(job)
 
-        now = datetime.now()
+        now = NOW
         if isinstance(when, datetime) and when <= now:
             callback(*args)
             return MagicMock(name=f"job_{len(scheduled_jobs)}")
@@ -77,7 +91,7 @@ class TestMockSchedulerDatetime:
 
         def mock_scheduler(when, callback, *args):
             scheduled_jobs.append({'when': when})
-            now = datetime.now()
+            now = NOW
             if isinstance(when, datetime) and when <= now:
                 callback(*args)
             return MagicMock()
@@ -85,7 +99,7 @@ class TestMockSchedulerDatetime:
         def test_callback(gid, state):
             callback_results.append({'gid': gid, 'state': state})
 
-        past_dt = datetime.now() - timedelta(hours=2)
+        past_dt = NOW - timedelta(hours=2)
         mock_scheduler(past_dt, test_callback, "test1", "OCCUPIED")
 
         assert len(callback_results) == 1
@@ -96,7 +110,7 @@ class TestMockSchedulerDatetime:
         callback_results = []
 
         def mock_scheduler(when, callback, *args):
-            now = datetime.now()
+            now = NOW
             if isinstance(when, datetime) and when <= now:
                 callback(*args)
             return MagicMock()
@@ -104,7 +118,7 @@ class TestMockSchedulerDatetime:
         def test_callback(gid, state):
             callback_results.append({'gid': gid, 'state': state})
 
-        future_dt = datetime.now() + timedelta(hours=2)
+        future_dt = NOW + timedelta(hours=2)
         mock_scheduler(future_dt, test_callback, "test3", "OCCUPIED")
 
         assert len(callback_results) == 0
@@ -114,7 +128,7 @@ class TestMockSchedulerDatetime:
         callback_results = []
 
         def mock_scheduler(when, callback, *args):
-            now = datetime.now()
+            now = NOW
             if isinstance(when, time):
                 when_dt = datetime.combine(datetime.today(), when)
                 if when_dt <= now:
@@ -126,7 +140,7 @@ class TestMockSchedulerDatetime:
         def test_callback(gid, state):
             callback_results.append({'gid': gid, 'state': state})
 
-        past_time = (datetime.now() - timedelta(hours=1)).time()
+        past_time = (NOW - timedelta(hours=1)).time()
         mock_scheduler(past_time, test_callback, "test2", "OCCUPIED")
 
         assert len(callback_results) == 1
@@ -141,7 +155,7 @@ class TestOverrideWithSmartScheduler:
         mock_scheduler, scheduled_jobs = _make_smart_scheduler()
 
         def mock_change_occupancy(state):
-            change_occupancy_calls.append({'state': state, 'time': datetime.now()})
+            change_occupancy_calls.append({'state': state, 'time': NOW})
 
         manager = OccupancyOverride(
             change_occupancy_fn=mock_change_occupancy,
@@ -149,7 +163,7 @@ class TestOverrideWithSmartScheduler:
             sync_occupancy_state_fn=MagicMock(),
         )
 
-        now = datetime.now()
+        now = NOW
         start_time = now - timedelta(hours=2)
         end_time = now + timedelta(hours=2)
 
