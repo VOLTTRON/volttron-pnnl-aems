@@ -21,89 +21,146 @@
 #
 # ===----------------------------------------------------------------------===
 
+
+"""
+Optimal-start orchestration.
+
+:class:`OptimalStartManager` schedules each day's optimal-start run, decides
+when to switch the unit to occupied, and trains the optimal-start models
+(:mod:`manager.optimal_start_models`) on each morning's recovery.
+
+Daily lifecycle (all times local):
+
+* 00:01 ``set_up_run`` - schedule today's ``run_method`` at the earliest start
+  time and today's training run, then rotate the data buffer.
+* earliest start -> occupancy: ``run_method`` evaluates the models every
+  15 minutes and, once the predicted start is near, schedules the
+  OCCUPIED / UNOCCUPIED transitions.
+* occupancy + 95 min: ``train_models`` trains on this morning's data (after
+  every model's training window has fully elapsed).
+
+Model selection: every model is trained and its prediction published; the
+start time is decided by the model(s) selected in ``optimal_start.models``
+(one model: its prediction; several: their median). Only models trained for
+the morning's mode take part; if none of the selected models is trained yet,
+the median of all trained models is used, and the earliest start if no model
+is trained.
+
+Model sets: a weekday copy and a weekend/holiday copy of each model are kept.
+The weekend copy is trained and used on the day after a weekend or holiday,
+except for models with ``SEPARATE_WEEKEND_MODEL = False`` (RecoveryRegression),
+which use one history for every day. A weekend copy not yet trained for the
+needed mode falls back to the weekday copy.
+
+Data: model input has one row per minute (device and outdoor-air publishes
+merged; a reading covers at most ``MINUTE_FILL_LIMIT`` missed minutes). A
+prediction needs a zone reading from the last ``_MAX_DATA_AGE_MINUTES``;
+without one the models get no data and the earliest start is used.
+"""
+
 from __future__ import annotations
 
-import copy
+import dataclasses
 import json
 import logging
 from dataclasses import dataclass
-from datetime import timedelta as td
+from datetime import datetime, timedelta as td
 from typing import Any, Callable, Optional
 
 import numpy as np
+import pandas as pd
 from volttron.platform.agent.utils import format_timestamp, get_aware_utc_now
 from volttron.platform.scheduling import cron
 
 from . import DefaultConfig, OptimalStartConfig
-from .data_utils import Data
+from .data_utils import MINUTE_FILL_LIMIT, Data, last_reading_time, to_minute_rows
 from .holiday_manager import HolidayManager
-from .optimal_start_models import Carrier, Johnson, Sbs, Siemens
+from .optimal_start_models import (_TRAINING_END_OFFSET_MINUTES, Carrier, Johnson, OptimalStartZoneModel,
+                                    RecoveryRegression, Sbs, Siemens)
+from .points import DFPoints as dfpts
 from .points import OccupancyTypes
-from .utils import get_cls_attrs
 
 _log = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-# Available model implementations keyed by short tag
-_MODEL_REGISTRY: dict[str, type] = {
+_MODEL_REGISTRY: dict[str, type[OptimalStartZoneModel]] = {
     "j": Johnson,
     "s": Siemens,
     "c": Carrier,
     "sbs": Sbs,
+    "rr": RecoveryRegression,
 }
 
-# Config store key prefix for persisted model coefficients
-_CONFIG_STORE_PREFIX = "optimal_start.models"
+# Configuration names (optimal_start.models) -> registry tag; tags are accepted too.
+_MODEL_NAMES = {"johnson": "j", "siemens": "s", "carrier": "c", "sbs": "sbs", "recovery_regression": "rr",
+                **{tag: tag for tag in _MODEL_REGISTRY}}
 
-# Topic path segments for publishing
+
+def resolve_model_names(names) -> list[str]:
+    """
+    Registry tags for configured model names.
+
+    Accepts configuration names (``recovery_regression``, ``carrier``,
+    ``johnson``, ``siemens``, ``sbs``) or registry tags (``rr``, ``c``, ``j``,
+    ``s``, ``sbs``), case-insensitive. Unknown names are logged and skipped;
+    duplicates are removed; order is kept.
+
+    :param names: A single name or a list of names.
+    :type names: str | list[str] | None
+    :return: Registry tags, e.g. ``["rr"]``.
+    :rtype: list[str]
+    """
+    tags = []
+    for name in ([names] if isinstance(names, str) else names or []):
+        tag = _MODEL_NAMES.get(str(name).strip().lower())
+        if tag is None:
+            _log.error("Unknown optimal-start model %r (valid: %s) - ignored.", name,
+                       ", ".join(k for k in _MODEL_NAMES if k not in _MODEL_REGISTRY))
+        elif tag not in tags:
+            tags.append(tag)
+    return tags
+
+_CONFIG_STORE_PREFIX = "optimal_start.models"
 _TOPIC_MODEL = "OptimalStartModel"
 _TOPIC_START_TIMES = "OptimalStartTimes"
 
-# Cron expressions for daily scheduling
-_CRON_DAILY_SETUP = "1 0 * * *"     # 00:01 — determine today's schedule
-_CRON_DAILY_TRAINING = "0 9 * * *"  # 09:00 — train models with morning data
+_CRON_DAILY_SETUP = "1 0 * * *"  # 00:01 — determine today's schedule
 
-# Run-method rescheduling interval when it is too early to commit
 _RESCHEDULE_INTERVAL_MINUTES = 15
-
-# Buffer added to observed pre-start time before passing it to training
 _TRAINING_TIME_BUFFER_MINUTES = 5
-
-# Weekend / holiday models use a shorter rolling window
+# Train once every model's window has closed: the coefficient models use up to
+# occupancy + 60 min, RecoveryRegression observes up to occupancy + its horizon
+# (>= 90 min, see RecoveryRegression.observation_horizon); train this many
+# minutes after the later of the two.
+_TRAINING_DELAY_BUFFER_MINUTES = 5
 _WEEKEND_TRAINING_WINDOW = 4
 
-# Types accepted as valid numeric start-time predictions
-_NUMERIC_TYPES = (int, float)
+# A prediction needs a zone reading at most this old (minutes). Publishes are
+# once a minute; this allows MINUTE_FILL_LIMIT missed publishes plus the minute
+# in progress. Older data means the device has stopped publishing.
+_MAX_DATA_AGE_MINUTES = MINUTE_FILL_LIMIT + 1
 
 
 @dataclass(frozen=True)
 class PlatformCallbacks:
     """
-    Represents a collection of platform callback functions.
+    Platform functions the manager needs, supplied by the agent.
 
-    This class is a frozen dataclass that encapsulates various callback functions
-    essential for platform operations. It provides a structured way to manage and
-    use these callbacks, ensuring they are easily accessible and immutable once
-    set. Each callback corresponds to a specific operation the platform may need
-    to perform, such as scheduling tasks, changing occupancy states, publishing
-    data, or managing configurations.
+    Kept separate so the manager can be unit tested without a VOLTTRON platform.
 
-    :ivar schedule_fn: Callback function for scheduling tasks or operations.
-    :type schedule_fn: Callable
-    :ivar change_occupancy_fn: Callback function for changing occupancy states.
-    :type change_occupancy_fn: Callable
-    :ivar publish_fn: Callback function responsible for publishing data or events.
-    :type publish_fn: Callable
-    :ivar config_get_fn: Callback function to retrieve configuration settings.
-    :type config_get_fn: Callable
-    :ivar config_set_fn: Callback function to set or update configuration settings.
-    :type config_set_fn: Callable
+    :ivar schedule_fn: ``schedule_fn(when, fn, *args)`` - schedule a call (a
+        datetime or cron iterator); returns an event with ``cancel()``.
+    :vartype schedule_fn: Callable
+    :ivar change_occupancy_fn: ``change_occupancy_fn(OccupancyTypes)`` - command
+        the unit occupied / unoccupied.
+    :vartype change_occupancy_fn: Callable
+    :ivar publish_fn: ``publish_fn(topic, headers, message)`` - publish a record.
+    :vartype publish_fn: Callable
+    :ivar config_get_fn: ``config_get_fn(key)`` - read from the config store
+        (raises KeyError if absent).
+    :vartype config_get_fn: Callable
+    :ivar config_set_fn: ``config_set_fn(key, value)`` - write to the config store.
+    :vartype config_set_fn: Callable
     """
-
     schedule_fn: Callable
     change_occupancy_fn: Callable
     publish_fn: Callable
@@ -111,55 +168,56 @@ class PlatformCallbacks:
     config_set_fn: Callable
 
 
+def _weekend_config(config: OptimalStartConfig) -> OptimalStartConfig:
+    """
+    Configuration for the weekend/holiday model copies.
+
+    :param config: Optimal-start configuration.
+    :type config: OptimalStartConfig
+    :return: A copy with ``training_period_window`` set to the weekend window.
+    :rtype: OptimalStartConfig
+    """
+    return dataclasses.replace(config, training_period_window=_WEEKEND_TRAINING_WINDOW)
+
+
 class OptimalStartManager:
     """
-    Manages the optimal start scheduling and model training process for a facility.
+    Schedules optimal-start runs, decides the start time and trains the models.
 
-    The class is responsible for dynamically determining the optimal start times
-    based on the facility's schedule, configuring models, and training them with
-    new data. It interacts with external dependencies, manages daily scheduling
-    tasks, and ensures proper transitions between occupied and unoccupied states.
-
-    :ivar identity: Unique identity string for the manager.
-    :type identity: str
-    :ivar config: Configuration setup for the optimal start manager.
-    :type config: DefaultConfig
-    :ivar schedule: Scheduling data indicating planned activities.
-    :type schedule: dict[str, dict[str, str]]
-    :ivar model_dir: Directory path for storing/loading persisted models.
-    :type model_dir: str
-    :ivar device: The device or system configuration where the program operates.
-    :type device: str
-    :ivar base_record_topic: Base topic for recording data.
-    :type base_record_topic: str
-    :ivar earliest_start_time: Earliest time to start based on the optimal-start configuration.
-    :type earliest_start_time: float
-    :ivar latest_start_time: Latest time to start based on the optimal-start configuration.
-    :type latest_start_time: float
-    :ivar holiday_manager: Manager for handling holidays and special scheduling logic.
-    :type holiday_manager: HolidayManager
-    :ivar data_handler: Handles data processing and retrieval operations.
-    :type data_handler: Data
-    :ivar _cb: Callbacks and handlers for platform-related operations.
-    :type _cb: PlatformCallbacks
-    :ivar models: Collection of models for regular scheduling logic.
-    :type models: dict[str, Any]
-    :ivar weekend_holiday_models: Models specific to weekends and holidays.
-    :type weekend_holiday_models: dict[str, Any]
-    :ivar weekend_holiday_trained: Indicates whether weekend/holiday models have been trained.
-    :type weekend_holiday_trained: bool
-    :ivar result: Stores results of model evaluations.
-    :type result: dict[str, Any]
-    :ivar training_time: Duration, in minutes, used for training the models.
-    :type training_time: Optional[float]
-    :ivar _scheduler_greenlets: Internal list to manage daily scheduling greenlets.
-    :type _scheduler_greenlets: list
-    :ivar run_schedule_greenlet: Greenlet for managing daily runs.
-    :type run_schedule_greenlet: Optional[Any]
-    :ivar _start_greenlet: Greenlet for start transitions.
-    :type _start_greenlet: Optional[Any]
-    :ivar _end_greenlet: Greenlet for end transitions.
-    :type _end_greenlet: Optional[Any]
+    :ivar identity: Agent identity (used in logs).
+    :vartype identity: str
+    :ivar config: Manager configuration (schedule, optimal-start settings, clock).
+    :vartype config: DefaultConfig
+    :ivar schedule: Occupancy schedule (as configured).
+    :vartype schedule: dict[str, dict[str, str]]
+    :ivar model_dir: Directory for the per-model JSON copies of the learned state.
+    :vartype model_dir: pathlib.Path
+    :ivar device: Device (system) name, used in the JSON file names.
+    :vartype device: str
+    :ivar base_record_topic: Base topic for published records.
+    :vartype base_record_topic: str
+    :ivar earliest_start_time: Maximum prestart in minutes.
+    :vartype earliest_start_time: float
+    :ivar latest_start_time: Minimum prestart in minutes.
+    :vartype latest_start_time: float
+    :ivar holiday_manager: Holiday lookup.
+    :vartype holiday_manager: HolidayManager
+    :ivar data_handler: Today's device data buffer.
+    :vartype data_handler: Data
+    :ivar models: Weekday model set, tag -> model (``c``, ``j``, ``s``, ``sbs``, ``rr``).
+    :vartype models: dict[str, OptimalStartZoneModel]
+    :ivar weekend_holiday_models: Weekend/holiday model set, tag -> model
+        (``c_we``, ...).
+    :vartype weekend_holiday_models: dict[str, OptimalStartZoneModel]
+    :ivar selected_models: Registry tags of the models that decide the start time.
+    :vartype selected_models: list[str]
+    :ivar result: Latest predictions by model tag, plus ``occupancy`` and
+        ``decided_by``; published when a start is committed.
+    :vartype result: dict[str, Any]
+    :ivar training_time: Committed prestart (minutes) of the current day, used as
+        the start of the training window.
+    :vartype training_time: float | None
+    :ivar run_schedule_greenlet: Pending ``run_method`` event, if any.
     """
 
     def __init__(
@@ -172,7 +230,20 @@ class OptimalStartManager:
         data_handler: Data,
         callbacks: PlatformCallbacks,
     ):
-        # --- Identity & configuration ---
+        """
+        :param schedule: Occupancy schedule.
+        :type schedule: dict[str, dict[str, str]]
+        :param config: Manager configuration.
+        :type config: DefaultConfig
+        :param identity: Agent identity (for logging).
+        :type identity: str
+        :param holiday_manager: Holiday lookup.
+        :type holiday_manager: HolidayManager
+        :param data_handler: Today's device data buffer.
+        :type data_handler: Data
+        :param callbacks: Platform functions.
+        :type callbacks: PlatformCallbacks
+        """
         self.identity = identity
         self.config = config
         self.schedule = schedule
@@ -182,124 +253,137 @@ class OptimalStartManager:
         self.earliest_start_time: float = config.optimal_start.earliest_start_time
         self.latest_start_time: float = config.optimal_start.latest_start_time
 
-        # --- External dependencies ---
         self.holiday_manager = holiday_manager
         self.data_handler = data_handler
         self._cb = callbacks
 
-        # --- Model state ---
-        self.models: dict[str, Any] = {}
-        self.weekend_holiday_models: dict[str, Any] = {}
-        self.weekend_holiday_trained: bool = False
+        self.models: dict[str, OptimalStartZoneModel] = {}
+        self.weekend_holiday_models: dict[str, OptimalStartZoneModel] = {}
 
-        # --- Runtime state ---
+        self.selected_models: list[str] = self._resolve_selection(config.optimal_start)
         self.result: dict[str, Any] = {}
+        self._candidates: dict[str, float] = {}      # tag -> prediction from a model trained for today's mode
         self.training_time: Optional[float] = None
+        self._committed_date = None                  # date today's start was committed (decision frozen)
+        self._actual_start: Optional[datetime] = None   # when the optimal-start OCCUPIED command fired
         self._scheduler_greenlets: list = []
         self.run_schedule_greenlet = None
+        self._training_greenlet = None
         self._start_greenlet = None
         self._end_greenlet = None
 
+    # -- Public API ---------------------------------------------------------
+
     def setup_optimal_start(self) -> None:
         """
-        Sets up the optimal start configuration by initializing and loading
-        required models, and configuring daily cron jobs. The function performs the
-        following tasks:
-        - Loads a set of models for non-weekend days based on the configuration
-          provided in `self.config.optimal_start`.
-        - Loads a set of models for weekend or holiday dates with the same configuration.
-        - Sets up recurring cron jobs for daily processing tasks.
+        Start optimal start: build both model sets (restoring persisted state),
+        install the daily 00:01 job and schedule today's training if still ahead.
 
-        This method is designed to ensure that the correct models are deployed
-        and scheduled for both weekday and weekend use cases.
-
-        :return: None
+        Call once when the agent connects.
         """
         opt_cfg = self.config.optimal_start
         self.models = self._load_model_set(opt_cfg, weekend=False)
-        self.weekend_holiday_models = self._load_model_set(opt_cfg, weekend=True)
+        self.weekend_holiday_models = self._load_model_set(_weekend_config(opt_cfg), weekend=True)
         self._install_daily_cron_jobs()
+        self._schedule_todays_training()
+
+    @property
+    def weekend_holiday_trained(self) -> bool:
+        """
+        Whether any model that keeps a separate weekend copy has trained that copy.
+
+        :return: True if the weekend/holiday set should be used after a weekend.
+        :rtype: bool
+        """
+        return any(model.is_trained for model in self.weekend_holiday_models.values() if model.SEPARATE_WEEKEND_MODEL)
 
     def update_model_configurations(self, config: OptimalStartConfig) -> None:
         """
-        Updates the configurations of all models with the provided optimal start configuration.
+        Apply a new optimal-start configuration.
 
-        This method applies the new configuration to all models, including both normal
-        models and weekend/holiday-specific models. After updating each model with the
-        new configuration, it updates the earliest and latest start times for the system.
-        This ensures all models adhere to the specified configuration settings. A debug
-        log is generated to confirm the update, documenting the updated earliest and
-        latest start times.
+        Updates every model (the weekend copies with the weekend training window),
+        the start-time limits and the model selection. Learned state is kept.
 
-        :param config: The new configuration instance to be applied to all models.
+        :param config: New optimal-start configuration.
         :type config: OptimalStartConfig
-        :return: None
         """
-        all_models = list(self.models.values()) + list(self.weekend_holiday_models.values())
-        for model in all_models:
+        for model in self.models.values():
             model.update_config(config)
+        weekend_cfg = _weekend_config(config)
+        for model in self.weekend_holiday_models.values():
+            model.update_config(weekend_cfg)
 
         self.earliest_start_time = config.earliest_start_time
         self.latest_start_time = config.latest_start_time
-        _log.debug(
-            "Optimal-start config updated — earliest: %s  latest: %s",
-            self.earliest_start_time,
-            self.latest_start_time,
-        )
+        self.selected_models = self._resolve_selection(config)
+        _log.debug("Optimal-start config updated — earliest: %s  latest: %s  models: %s",
+                   self.earliest_start_time, self.latest_start_time, self.selected_models)
+
+    def _resolve_selection(self, config: OptimalStartConfig) -> list[str]:
+        """
+        Registry tags for ``config.models``, falling back to the default selection.
+
+        :param config: Optimal-start configuration.
+        :type config: OptimalStartConfig
+        :return: Tags of the deciding models (never empty).
+        :rtype: list[str]
+        """
+        tags = resolve_model_names(getattr(config, "models", None))
+        if not tags:
+            tags = resolve_model_names(OptimalStartConfig.__dataclass_fields__["models"].default_factory())
+            _log.warning("%s: no valid optimal-start models configured - using %s.", self.identity, tags)
+        return tags
 
     def set_up_run(self) -> None:
         """
-        Schedules and prepares the daily run for optimal-start operations. This includes executing
-        run setup tasks such as scheduling today's run and refreshing the data buffer. Ensures that
-        cleanup and data handling processes are executed regardless of any errors occurring during
-        scheduling.
-
-        :return: None
+        Daily setup (00:01): schedule today's run and training, then rotate the data
+        buffer (always, even if scheduling fails).
         """
         try:
             self._schedule_todays_run()
+            self._schedule_todays_training()
         except Exception:
             _log.exception("Error during daily optimal-start setup.")
         finally:
-            # Always refresh the data buffer regardless of scheduling outcome.
             self.data_handler.process_data()
+
+    def reset_run(self) -> None:
+        """
+        Restart today's optimal start: cancel any pending ``run_method`` and clear
+        today's committed decision so the next ``run_method`` evaluates again.
+        """
+        self._cancel_greenlet("run_schedule_greenlet")
+        self._committed_date = None
 
     def run_method(self) -> None:
         """
-        Executes the main method to calculate and commit an optimal operational schedule
-        for a process based on the current day’s schedule, environmental conditions, and
-        model evaluations. This method evaluates predictive models, calculates optimal
-        start times, and schedules future activities accordingly.
+        Evaluate the models and commit or reschedule today's start.
 
-        This method first determines the current schedule for the day and ensures that the
-        process is only executed if a schedule exists. Subsequently, it calculates the
-        start and end times of occupied and unoccupied states, evaluates predictive models
-        for active runtime predictions, aggregates the start time information, and reschedules
-        the execution if necessary for more accurate computations. If optimal decisions can
-        be made, the method commits the estimated optimal start times, updates system state,
-        and schedules the process for execution.
+        Once today's start is committed the decision is frozen: later calls the
+        same day (e.g. from the occupancy sync) return immediately, until
+        :meth:`reset_run` or the next day.
 
-        :raises: This method does not raise exceptions itself but depends on various helper
-            methods and external objects which may raise specific exceptions.
+        Predicts with every model, decides the start time
+        (:meth:`_aggregate_start_time`), and if the start is more than 15 minutes away
+        reschedules itself to re-evaluate with fresher data; otherwise publishes the
+        predictions and schedules the OCCUPIED transition at the start time and the
+        UNOCCUPIED transition at the end of occupancy. Does nothing on days without a
+        timed schedule or on holidays.
         """
+        now = self.config.get_current_datetime()
+        if self._committed_date == now.date():
+            # Already decided today; the occupancy sync calls run_method whenever no
+            # run is pending, which must not re-decide (or overwrite training_time).
+            _log.debug("%s: optimal start already committed for today - skipping.", self.identity)
+            return
         self.result = {}
 
-        current_schedule = self.config.get_current_day_schedule()
-        if not current_schedule:
-            _log.debug("%s: no schedule for today — skipping.", self.identity)
+        current_schedule = self._timed_schedule_for_today()
+        if current_schedule is None:
             return
 
-        now = self.config.get_current_datetime()
-        occupancy_time = now.replace(
-            hour=current_schedule.start.hour,
-            minute=current_schedule.start.minute,
-            microsecond=0,
-        )
-        unoccupied_time = now.replace(
-            hour=current_schedule.end.hour,
-            minute=current_schedule.end.minute,
-            microsecond=0,
-        )
+        occupancy_time = self._at(now, current_schedule.start)
+        unoccupied_time = self._at(now, current_schedule.end)
 
         self._evaluate_all_models(occupancy_time)
 
@@ -309,102 +393,108 @@ class OptimalStartManager:
 
         self._cancel_greenlet("run_schedule_greenlet")
 
-        # Too early to commit — reschedule with fresher data.
         if reschedule_at < optimal_start:
             _log.debug("Too early — rescheduling run_method at %s.", reschedule_at)
-            self.run_schedule_greenlet = self._cb.schedule_fn(
-                reschedule_at, self.run_method
-            )
+            self.run_schedule_greenlet = self._cb.schedule_fn(reschedule_at, self.run_method)
             return
 
-        # Commit.
         self.training_time = active_minutes
-        _log.debug(
-            "%s: committing optimal start = %.1f min — %s",
-            self.identity,
-            active_minutes,
-            self.result,
-        )
+        self._committed_date = now.date()
+        _log.debug("%s: committing optimal start = %.1f min — %s",
+                   self.identity, active_minutes, self.result)
         self._publish_start_times()
         self._schedule_occupancy_transitions(optimal_start, unoccupied_time)
 
     def train_models(self) -> None:
         """
-        Trains machine learning models based on the provided configuration.
+        Train today's models on this morning's data and persist what they learned.
 
-        This method retrieves the current data and selects appropriate models for training.
-        Each model is trained individually with the specified training time, which includes
-        a buffer time added to the user-specified training duration. If no training time is
-        provided, the models are trained without a specified limit.
-
-        :return: None
+        The training window starts when the unit actually started this morning
+        (the recorded optimal-start OCCUPIED command; else the committed prestart)
+        plus a 5 min buffer. After a
+        weekend/holiday the weekend copies are trained, except for models that keep
+        one history (:attr:`~manager.optimal_start_models.OptimalStartZoneModel.SEPARATE_WEEKEND_MODEL`).
         """
-        training_time = (
-            int(self.training_time) + _TRAINING_TIME_BUFFER_MINUTES
-            if self.training_time is not None
-            else None
-        )
+        lead = self._start_lead_today()
+        training_time = int(lead) + _TRAINING_TIME_BUFFER_MINUTES if lead is not None else None
         data = self._get_current_data()
-        models = self._select_models_for_training()
+        if data.empty:
+            _log.debug("%s: no data available — skipping training.", self.identity)
+            return
 
-        for tag, model in models.items():
+        for tag, model in self._models_for_today().items():
             self._train_single_model(tag, model, data, training_time)
 
     def is_weekend_holiday(self) -> bool:
         """
-        Determines if the previous day (yesterday) was either a holiday or a weekend.
+        Whether today follows a weekend or holiday (i.e. yesterday was one).
 
-        This function uses the `holiday_manager` object to check if yesterday was
-        a holiday and also calculates if yesterday falls on a weekend (i.e.,
-        Saturday or Sunday). The configuration provided through `config` is used
-        to determine the current date and time, which is adjusted to get
-        yesterday's date.
-
-        :return: True if yesterday was either a holiday or a weekend, False otherwise
+        :return: True if yesterday was Saturday, Sunday or a holiday.
         :rtype: bool
         """
         yesterday = self.config.get_current_datetime() - td(days=1)
-        return (
-            self.holiday_manager.is_holiday(yesterday)
-            or yesterday.weekday() >= 5
-        )
+        return self.holiday_manager.is_holiday(yesterday) or yesterday.weekday() >= 5
+
+    # -- Scheduling ---------------------------------------------------------
+
+    def _timed_schedule_for_today(self):
+        """
+        Today's schedule if it has start/end times and today is not a holiday.
+
+        :return: Today's :class:`~manager.Schedule`, or None for no schedule,
+            always-on/off days and holidays.
+        """
+        current_schedule = self.config.get_current_day_schedule()
+        if not current_schedule:
+            _log.debug("%s: no schedule for today.", self.identity)
+            return None
+        if current_schedule.is_always_on() or current_schedule.is_always_off():
+            return None
+        if self.holiday_manager.is_holiday(self.config.get_current_datetime()):
+            return None
+        return current_schedule
+
+    @staticmethod
+    def _at(now: datetime, t) -> datetime:
+        """
+        ``now`` with the time of day replaced by ``t`` (seconds zeroed).
+
+        :param now: Reference datetime (date and timezone).
+        :type now: datetime
+        :param t: Time of day.
+        :type t: datetime.time
+        :return: The combined datetime.
+        :rtype: datetime
+        """
+        return now.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
 
     def _install_daily_cron_jobs(self) -> None:
         """
-        Installs daily cron jobs by scheduling tasks for setup and training. Previously scheduled
-        greenlets are killed before scheduling new ones. This ensures that only the latest scheduled
-        tasks are active and reduces potential issues with overlapping or outdated processes.
-
-        :returns: None
+        (Re)install the 00:01 daily job that calls :meth:`set_up_run`, cancelling any
+        previous one.
         """
         for greenlet in self._scheduler_greenlets:
-            greenlet.kill()
+            greenlet.cancel()
         self._scheduler_greenlets = [
             self._cb.schedule_fn(cron(_CRON_DAILY_SETUP), self.set_up_run),
-            self._cb.schedule_fn(cron(_CRON_DAILY_TRAINING), self.train_models),
         ]
 
     def _schedule_todays_run(self) -> None:
         """
-        Schedules the run for today's current schedule based on configuration, current
-        datetime, and holiday status. It determines occupancy or schedules a run method
-        depending on the type of the day's schedule and time.
+        Schedule today's optimal-start run.
 
-        :raises AttributeError: If schedule_fn or change_occupancy_fn is not callable.
-        :return: None
+        Always-off days and holidays are set unoccupied and always-on days occupied
+        immediately; timed days get ``run_method`` scheduled at the earliest start.
         """
         current_schedule = self.config.get_current_day_schedule()
-        now = self.config.get_current_datetime()
-        is_holiday = self.holiday_manager.is_holiday(now)
-
         if not current_schedule:
             return
 
-        if current_schedule == "always_off" or is_holiday:
+        now = self.config.get_current_datetime()
+        if current_schedule.is_always_off() or self.holiday_manager.is_holiday(now):
             self._cb.change_occupancy_fn(OccupancyTypes.UNOCCUPIED)
             return
-
-        if current_schedule == "always_on":
+        if current_schedule.is_always_on():
             self._cb.change_occupancy_fn(OccupancyTypes.OCCUPIED)
             return
 
@@ -412,26 +502,81 @@ class OptimalStartManager:
         if earliest is None:
             return
 
-        run_time = now.replace(hour=earliest.hour, minute=earliest.minute)
+        run_time = self._at(now, earliest)
         _log.debug("Scheduling run_method at %s.", format_timestamp(run_time))
+        self._cancel_greenlet("run_schedule_greenlet")
         self.run_schedule_greenlet = self._cb.schedule_fn(run_time, self.run_method)
+
+    def _schedule_todays_training(self) -> None:
+        """
+        Schedule :meth:`train_models` at occupancy + :meth:`_training_delay_minutes`,
+        if that time is still ahead today (replaces any pending training).
+        """
+        self._cancel_greenlet("_training_greenlet")
+        current_schedule = self._timed_schedule_for_today()
+        if current_schedule is None:
+            return
+
+        now = self.config.get_current_datetime()
+        train_at = self._at(now, current_schedule.start) + td(minutes=self._training_delay_minutes())
+        if train_at <= now:
+            return
+        _log.debug("Scheduling train_models at %s.", format_timestamp(train_at))
+        self._training_greenlet = self._cb.schedule_fn(train_at, self.train_models)
+
+    def _training_delay_minutes(self) -> float:
+        """
+        Minutes after occupancy at which every model's training window has closed.
+
+        :return: The later of the coefficient models' window end and the
+            RecoveryRegression observation horizon, plus
+            ``_TRAINING_DELAY_BUFFER_MINUTES``.
+        :rtype: float
+        """
+        horizon = RecoveryRegression.observation_horizon(self.earliest_start_time, self.latest_start_time)
+        return max(_TRAINING_END_OFFSET_MINUTES, horizon) + _TRAINING_DELAY_BUFFER_MINUTES
+
+    def _start_lead_today(self) -> Optional[float]:
+        """
+        Minutes before today's occupancy the unit actually started.
+
+        :return: From the recorded optimal-start OCCUPIED command if it fired today,
+            else the committed prestart if today's start was committed, else None.
+        :rtype: float | None
+        """
+        now = self.config.get_current_datetime()
+        schedule = self._timed_schedule_for_today()
+        if self._actual_start is not None and self._actual_start.date() == now.date() and schedule is not None:
+            occupancy = self._at(now, schedule.start)
+            return max(0.0, (occupancy - self._actual_start).total_seconds() / 60.0)
+        if self._committed_date == now.date():
+            return self.training_time
+        return None
+
+    def _start_occupancy(self, state) -> None:
+        """
+        Scheduled optimal-start transition: record when it fired, then command the unit.
+
+        :param state: Occupancy state to command (OCCUPIED).
+        :type state: OccupancyTypes
+        """
+        self._actual_start = self.config.get_current_datetime()
+        _log.debug("%s: optimal start fired at %s.", self.identity, format_timestamp(self._actual_start))
+        self._cb.change_occupancy_fn(state)
 
     def _schedule_occupancy_transitions(self, start_time, end_time) -> None:
         """
-        Schedules transitions for occupancy states between specified start and end times.
-        This method cancels any previously scheduled transitions for both start and end,
-        and schedules new ones using the provided callback functions.
+        Schedule the OCCUPIED and UNOCCUPIED commands (replacing pending ones).
 
-        :param start_time: The time at which the occupancy state should transition to OCCUPIED.
+        :param start_time: When to switch to occupied (the optimal start).
         :type start_time: datetime
-        :param end_time: The time at which the occupancy state should transition to UNOCCUPIED.
+        :param end_time: When to switch to unoccupied (end of occupancy).
         :type end_time: datetime
-        :return: None
         """
         self._cancel_greenlet("_start_greenlet")
         self._cancel_greenlet("_end_greenlet")
         self._start_greenlet = self._cb.schedule_fn(
-            start_time, self._cb.change_occupancy_fn, OccupancyTypes.OCCUPIED
+            start_time, self._start_occupancy, OccupancyTypes.OCCUPIED
         )
         self._end_greenlet = self._cb.schedule_fn(
             end_time, self._cb.change_occupancy_fn, OccupancyTypes.UNOCCUPIED
@@ -439,256 +584,247 @@ class OptimalStartManager:
 
     def _cancel_greenlet(self, attr_name: str) -> None:
         """
-        Cancels a greenlet associated with the specified attribute name and resets the attribute to None.
+        Cancel the scheduled event stored in attribute ``attr_name`` and clear it.
 
-        This function checks if a greenlet is assigned to the given attribute name. If a greenlet is found,
-        it cancels the greenlet operation, ensuring that it is properly terminated, and then
-        it sets the attribute to None to clean up.
-
-        :param attr_name: The name of the attribute whose associated greenlet should be canceled.
+        :param attr_name: Attribute holding the event (e.g. ``"run_schedule_greenlet"``).
         :type attr_name: str
-        :returns: None
-        :rtype: None
         """
         greenlet = getattr(self, attr_name, None)
         if greenlet is not None:
             greenlet.cancel()
             setattr(self, attr_name, None)
 
+    # -- Prediction ---------------------------------------------------------
+
     def _evaluate_all_models(self, occupancy_time) -> None:
         """
-        Evaluates all models selected for prediction. This method fetches the current data
-        and calculates predictions for each model, storing the results in the `self.result`
-        dictionary. The method also handles any exceptions raised during model execution
-        and logs them. Finally, it updates the result dictionary with the formatted
-        occupancy time.
+        Predict with every model and collect the start-time candidates.
 
-        :param occupancy_time: The timestamp corresponding to the occupancy event.
-        :type occupancy_time: float
-        :return: None
+        All predictions are stored in :attr:`result` (and later published). On a day
+        after a weekend/holiday the weekend copy is used, falling back per model to
+        the weekday copy when the weekend copy is not trained for today's mode.
+        Only finite predictions from models trained for that mode become candidates
+        for :meth:`_aggregate_start_time`.
+
+        :param occupancy_time: Today's occupancy start (recorded in the result).
+        :type occupancy_time: datetime
         """
-        models = self._select_models_for_prediction()
-        data = self._get_current_data()
-
-        for tag, model in models.items():
-            try:
-                self.result[tag] = model.calculate_prestart(data)
-            except Exception:
-                _log.exception(
-                    "%s: error in model '%s' during prediction.", self.identity, tag
-                )
+        data = self._get_prediction_data()
+        use_weekend = self.is_weekend_holiday() and self.weekend_holiday_trained
+        self._candidates = {}
+        for tag, weekday_model in self.models.items():
+            weekend_copy = use_weekend and weekday_model.SEPARATE_WEEKEND_MODEL
+            versions = ([(f"{tag}_we", self.weekend_holiday_models[f"{tag}_we"])] if weekend_copy else []) + [(tag, weekday_model)]
+            for result_tag, model in versions:
+                try:
+                    value = float(model.calculate_prestart(data))
+                    ready = model.ready_for(data)
+                except Exception:
+                    _log.exception("%s: error in model '%s' during prediction.", self.identity, result_tag)
+                    continue
+                self.result[result_tag] = value
+                if ready and np.isfinite(value):
+                    self._candidates[tag] = value
+                    break
 
         self.result["occupancy"] = format_timestamp(occupancy_time)
 
     def _aggregate_start_time(self) -> float:
         """
-        Aggregates the start time based on numeric predictions while calculating
-        a median value that falls between defined limits. If the median calculation
-        fails, it falls back to the earliest start time.
+        Decide the prestart from the candidates.
 
-        :return: The aggregated start time.
+        One selected model -> its prediction; several -> their median. If none of the
+        selected models is trained for today's mode, the median of all trained
+        models is used; if no model is trained, the earliest start. The models that
+        decided are recorded in ``result["decided_by"]``.
+
+        :return: Prestart in minutes, clamped to [latest, earliest].
         :rtype: float
         """
-        numeric = [v for v in self.result.values() if isinstance(v, _NUMERIC_TYPES)]
-        try:
-            median = float(np.median(numeric))
-            _log.debug("Start-time predictions: %s — median: %.1f", self.result, median)
-        except Exception:
-            _log.exception("Median calculation failed — falling back to earliest.")
-            median = self.earliest_start_time
+        chosen = {t: self._candidates[t] for t in self.selected_models if t in self._candidates}
+        if not chosen and self._candidates:
+            _log.info("%s: selected model(s) %s not trained for today - using all trained models %s.",
+                      self.identity, self.selected_models, sorted(self._candidates))
+            chosen = dict(self._candidates)
+        if chosen:
+            value = float(np.median(list(chosen.values())))
+            self.result["decided_by"] = sorted(chosen)
+            _log.debug("Start-time predictions: %s — decided by %s: %.1f", self.result, sorted(chosen), value)
+        else:
+            _log.warning("%s: no usable prediction (no trained model or no current data) — using earliest start.",
+                         self.identity)
+            self.result["decided_by"] = []
+            value = self.earliest_start_time
+        return max(self.latest_start_time, min(value, self.earliest_start_time))
 
-        return max(self.latest_start_time, min(median, self.earliest_start_time))
-
-    def _select_models_for_prediction(self) -> dict[str, Any]:
+    def _models_for_today(self) -> dict[str, OptimalStartZoneModel]:
         """
-        Selects the appropriate models for making predictions based on current conditions.
+        Models to train today.
 
-        This method evaluates whether the current date is a weekend or holiday and decides
-        which models to use for predictions accordingly. The returned dictionary will
-        contain the selected models based on the evaluation of the weekend or holiday
-        condition and whether the related models are trained.
-
-        :return: A dictionary containing the selected models for prediction.
-        :rtype: dict[str, Any]
+        :return: The weekday set, or after a weekend/holiday the weekend copies
+            (``<tag>_we``) - except models that keep one history, which keep their
+            weekday copy and tag.
+        :rtype: dict[str, OptimalStartZoneModel]
         """
-        if self.is_weekend_holiday() and self.weekend_holiday_trained:
-            return self.weekend_holiday_models
-        return self.models
+        if not self.is_weekend_holiday():
+            return self.models
+        return {(f"{tag}_we" if m.SEPARATE_WEEKEND_MODEL else tag): (self.weekend_holiday_models[f"{tag}_we"] if m.SEPARATE_WEEKEND_MODEL else m)
+                for tag, m in self.models.items()}
 
-    def _select_models_for_training(self) -> dict[str, Any]:
+    def _get_current_data(self) -> pd.DataFrame:
         """
-        Selects the appropriate models for training based on the current day type.
+        Today's data for the models, one row per minute (see
+        :func:`~manager.data_utils.to_minute_rows`).
 
-        This method determines whether it is a weekend or holiday and selects different sets
-        of models accordingly. If it is a weekend or holiday, it returns the pre-trained
-        `weekend_holiday_models`. Otherwise, it selects and returns the standard models
-        specified in `models`. The corresponding state of `weekend_holiday_trained` is updated
-        to reflect this decision.
-
-        :return: Dictionary containing models selected for training.
-        :rtype: dict[str, Any]
+        :return: The data, or an empty DataFrame if none has been received.
+        :rtype: pd.DataFrame
         """
-        if self.is_weekend_holiday():
-            self.weekend_holiday_trained = True
-            return self.weekend_holiday_models
-        return self.models
+        df = self.data_handler.df
+        if df is None or df.empty:
+            return pd.DataFrame()
+        return to_minute_rows(df, timezone=self.config.timezone)
 
-    def _load_model_set(
-        self, config: OptimalStartConfig, *, weekend: bool
-    ) -> dict[str, Any]:
+    def _get_prediction_data(self) -> pd.DataFrame:
         """
-        Loads a set of models based on the provided configuration and determines their
-        behavior depending on whether the current day is a weekend or not. The function
-        creates and restores the states of models from a registry, utilizing the
-        configuration provided and applying specific adjustments if the weekend flag
-        is true.
+        Data for a prediction: :meth:`_get_current_data`, or an empty DataFrame
+        (the models then return the earliest start) if no zone reading has
+        arrived in the last ``_MAX_DATA_AGE_MINUTES`` - the device has stopped
+        publishing, so the last row would not describe the zone now.
 
-        :param config: The base configuration used to initialize the models.
-                       This configuration affects global settings such as
-                       model parameters and training window settings.
+        :return: The data, or an empty DataFrame.
+        :rtype: pd.DataFrame
+        """
+        df = self.data_handler.df
+        if df is None or df.empty:
+            return pd.DataFrame()
+        tzinfo = self.config.timezone
+        last = last_reading_time(df, dfpts.zonetemperature.value, tzinfo)
+        now = pd.Timestamp(self.config.get_current_datetime())
+        now = now.tz_localize(tzinfo) if now.tzinfo is None else now
+        if last is None or now - last > pd.Timedelta(minutes=_MAX_DATA_AGE_MINUTES):
+            _log.warning("%s: no zone temperature since %s - no current conditions for the prediction.",
+                         self.identity, "never" if last is None else format_timestamp(last.to_pydatetime()))
+            return pd.DataFrame()
+        return to_minute_rows(df, timezone=tzinfo)
+
+    # -- Persistence --------------------------------------------------------
+
+    def _load_model_set(self, config: OptimalStartConfig, *, weekend: bool) -> dict[str, Any]:
+        """
+        Create one instance of every registered model and restore its saved state.
+
+        :param config: Configuration for the set.
         :type config: OptimalStartConfig
-        :param weekend: A flag indicating whether the current day is a weekend.
-                        If True, the training window for models is adjusted
-                        specifically for weekend conditions.
-        :return: A dictionary mapping model names to model instances. These models
-                 are initialized with the specified configuration and have their
-                 states restored.
-        :rtype: dict[str, Any]
+        :param weekend: Build the weekend/holiday set (tags ``<tag>_we``).
+        :type weekend: bool
+        :return: Tag -> model.
+        :rtype: dict[str, OptimalStartZoneModel]
         """
-        effective_config = config
-        if weekend:
-            # Avoid mutating the shared config — make a shallow copy first.
-            effective_config = copy.copy(config)
-            effective_config.training_period_window = _WEEKEND_TRAINING_WINDOW
-
-        models: dict[str, Any] = {}
+        models: dict[str, OptimalStartZoneModel] = {}
         for name, cls in _MODEL_REGISTRY.items():
             tag = f"{name}_we" if weekend else name
-            model = cls(effective_config, self.config.get_current_day_schedule)
+            model = cls(config, self.config.get_current_day_schedule)
             self._restore_model_state(tag, model)
             models[tag] = model
         return models
 
-    def _restore_model_state(self, tag: str, model) -> None:
+    def _restore_model_state(self, tag: str, model: OptimalStartZoneModel) -> None:
         """
-        Restores the state of a given model using a stored configuration identified by a specific tag.
-        Attempts to retrieve the stored attributes associated with the tag from a configuration storage
-        and then loads this state into the provided model.
+        Load a model's persisted state from ``optimal_start.models.<tag>``.
 
-        If no persisted state is found for the specified tag, the operation is skipped and it logs a debug
-        message.
+        A missing entry is normal for a new model; other errors are logged and the
+        model starts untrained.
 
-        :param tag: A unique identifier used to lookup the persisted configuration in the storage.
+        :param tag: Model tag (e.g. ``"rr"``, ``"c_we"``).
         :type tag: str
-        :param model: An object that supports the `load_model` method, used to restore its state from
-            persisted attributes.
-        :return: None
+        :param model: Model to restore into.
+        :type model: OptimalStartZoneModel
         """
         store_key = f"{_CONFIG_STORE_PREFIX}.{tag}"
         try:
-            stored_attrs = self._cb.config_get_fn(store_key)
-            model.load_model(stored_attrs)
+            model.load_model(self._cb.config_get_fn(store_key))
         except KeyError:
             _log.debug("%s: no persisted state for '%s'.", self.identity, tag)
+        except Exception:
+            _log.exception("%s: could not restore persisted state for '%s'.", self.identity, tag)
 
-    def _train_single_model(self, tag: str, model, data, training_time) -> None:
+    def _train_single_model(self, tag: str, model: OptimalStartZoneModel, data, training_time) -> None:
         """
-        Trains a single model with the given data, tag, and training time, while handling
-        potential errors during training. If the model training succeeds, the model is
-        persisted and a training record is published. In case of an exception during
-        training, the failure is logged and no further steps are executed.
+        Train one model and, if it learned something, persist and publish it.
 
-        :param tag: A unique string identifier for the model being trained.
+        Training errors are logged and do not affect other models.
+
+        :param tag: Model tag.
         :type tag: str
-        :param model: The model object to be trained. This should support a
-            `train` method that accepts `data` and `training_time`.
-        :param data: The input data to be used for training the model.
-        :param training_time: The time duration for which the model should be trained.
-        :return: None
+        :param model: Model to train.
+        :type model: OptimalStartZoneModel
+        :param data: Today's data.
+        :type data: pd.DataFrame
+        :param training_time: Training window start in minutes before occupancy.
+        :type training_time: float | None
         """
         try:
             model.train(data, training_time)
         except Exception:
             _log.exception("%s: training failed for '%s'.", self.identity, tag)
             return
-
+        if not model.record:
+            return
         self._persist_model(tag, model)
         self._publish_training_record(tag, model)
 
-    def _persist_model(self, tag: str, model) -> None:
+    def _persist_model(self, tag: str, model: OptimalStartZoneModel) -> None:
         """
-        Persist the provided model's attributes associated with a given tag in both the internal
-        config system and as a JSON file. This method ensures that certain attributes, such
-        as "cfg", are excluded before persistence. If an error occurs during the process,
-        it logs the failure with the associated tag.
+        Save a model's learned state to the config store
+        (``optimal_start.models.<tag>``) and to ``<model_dir>/<device>_<tag>.json``.
 
-        :param tag: A string representing the unique identifier or label for the model.
-        :param model: The model object whose attributes are to be persisted.
-        :return: None
+        :param tag: Model tag.
+        :type tag: str
+        :param model: Model to save.
+        :type model: OptimalStartZoneModel
         """
         try:
-            attrs = get_cls_attrs(model)
-            attrs.pop("cfg", None)
-
-            store_key = f"{_CONFIG_STORE_PREFIX}.{tag}"
-            self._cb.config_set_fn(store_key, attrs)
-
+            # Round-trip through JSON so numpy scalars become plain floats.
+            state = json.loads(json.dumps(model.get_state(), default=float))
+            self._cb.config_set_fn(f"{_CONFIG_STORE_PREFIX}.{tag}", state)
             json_path = self.model_dir / f"{self.device}_{tag}.json"
             with open(json_path, "w") as fp:
-                json.dump(attrs, fp, indent=4)
+                json.dump(state, fp, indent=4)
         except Exception:
             _log.exception("%s: could not persist model '%s'.", self.identity, tag)
 
-    def _publish_training_record(self, tag: str, model) -> None:
-        """
-        Publishes a training record to a specific topic. This method is responsible
-        for formatting the record's topic, adding necessary headers, and calling
-        the publish function. If no record exists, the method exits early.
-        Failure during the publishing process will be logged.
+    # -- Publishing ---------------------------------------------------------
 
-        :param tag: A string representing the tag or identifier for the model topic.
+    def _publish(self, topic_parts: list[str], message: Any) -> None:
+        """
+        Publish ``message`` under ``<base_record_topic>/<topic_parts...>`` with a Date
+        header.
+
+        :param topic_parts: Topic segments after the base record topic.
+        :type topic_parts: list[str]
+        :param message: Message payload.
+        """
+        headers = {"Date": format_timestamp(get_aware_utc_now())}
+        self._cb.publish_fn("/".join([self.base_record_topic, *topic_parts]), headers, message)
+
+    def _publish_training_record(self, tag: str, model: OptimalStartZoneModel) -> None:
+        """
+        Publish a model's latest training record to ``.../OptimalStartModel/<tag>``.
+
+        :param tag: Model tag.
         :type tag: str
-        :param model: The model object containing the record to be published.
-        :type model: object
-        :return: This method does not return any value.
-        :rtype: None
+        :param model: Trained model (uses ``model.record``).
+        :type model: OptimalStartZoneModel
         """
-        record = model.record
-        if not record:
-            return
         try:
-            _log.debug("%s: model '%s' record: %s", self.identity, tag, record)
-            headers = {"Date": format_timestamp(get_aware_utc_now())}
-            topic = "/".join([self.base_record_topic, _TOPIC_MODEL, tag])
-            self._cb.publish_fn(topic, headers, record)
+            _log.debug("%s: model '%s' record: %s", self.identity, tag, model.record)
+            self._publish([_TOPIC_MODEL, tag], json.loads(json.dumps(model.record, default=float)))
         except Exception:
-            _log.exception(
-                "%s: failed to publish record for '%s'.", self.identity, tag
-            )
-
-    def _get_current_data(self):
-        """
-        Returns the current data by forward filling missing values in the relevant
-        dataframe.
-
-        The method utilizes the `ffill` function to propagate the last valid value
-        to fill missing values, providing a complete and cleaned dataset based
-        on the current state of the data handler's dataframe.
-
-        :return: The updated dataframe with missing values forward filled.
-        :rtype: pandas.DataFrame
-        """
-        return self.data_handler.df.ffill()
+            _log.exception("%s: failed to publish record for '%s'.", self.identity, tag)
 
     def _publish_start_times(self) -> None:
         """
-        Publishes the start times message to a specific topic by
-        formatting the current timestamp and constructing headers.
-        This message is sent using the provided callback's publish
-        functionality with the relevant topic, headers, and data result.
-
-        :return: None
+        Publish all model predictions, the occupancy time and the deciding models to
+        ``.../OptimalStartTimes``.
         """
-        headers = {"Date": format_timestamp(get_aware_utc_now())}
-        topic = "/".join([self.base_record_topic, _TOPIC_START_TIMES])
-        self._cb.publish_fn(topic, headers, self.result)
+        self._publish([_TOPIC_START_TIMES], json.loads(json.dumps(self.result, default=float)))

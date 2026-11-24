@@ -62,7 +62,7 @@ TEST_CONFIGS = {
         "longitude": -119.28,
         "timezone": "US/Pacific",
     },
-    'temperature_setpoints': {
+    'set_points': {
         "UnoccupiedHeatingSetPoint": 60.0,
         "UnoccupiedCoolingSetPoint": 85.0,
         "DeadBand": 2.5,
@@ -125,7 +125,7 @@ class TestConfigStructure:
 
     def test_temperature_setpoints_has_required_fields(self):
         """Temperature setpoints config should have all required fields."""
-        sp = TEST_CONFIGS['temperature_setpoints']
+        sp = TEST_CONFIGS['set_points']
         required = [
             "UnoccupiedHeatingSetPoint",
             "UnoccupiedCoolingSetPoint",

@@ -21,9 +21,12 @@
 #
 # ===----------------------------------------------------------------------===
 # }}}
+import os
 import tempfile
+from pathlib import Path
 
 import pytest
+from manager import DefaultConfig
 from manager.data_utils import DataFileAccess
 
 data = """ts,zonetemperature,coolingsetpoint,heatingsetpoint,supplyfanstatus,outdoorairtemperature,heating,cooling
@@ -47,12 +50,26 @@ def datafile():
 
     yield file.name
 
-    file.unlink()
+    os.unlink(file.name)
 
 
-def test_datafile_endswithcsv():
-    df = DataFileAccess(datafile='garbage')
-    assert df.datafile.name.endswith('.csv')
+def test_datafile_path_is_used_as_given():
+    # DataFileAccess does not rename the file; the .csv name comes from the config.
+    assert DataFileAccess(datafile='garbage').datafile == Path('garbage')
+    assert DataFileAccess(datafile=Path('/tmp/x.csv')).datafile == Path('/tmp/x.csv')
+
+
+def test_config_accepts_directories_as_strings(tmp_path):
+    # Directories from a JSON agent config arrive as strings.
+    cfg = DefaultConfig(system='rtu01', data_dir=str(tmp_path / 'd'), model_dir=str(tmp_path / 'm'))
+    assert cfg.data_dir == tmp_path / 'd' and cfg.data_dir.is_dir()
+    assert cfg.model_dir == tmp_path / 'm' and cfg.model_dir.is_dir()
+    assert cfg.data_file == tmp_path / 'd' / 'rtu01.csv'
+
+
+def test_config_names_the_data_file_after_the_system(tmp_path):
+    cfg = DefaultConfig(system='rtu01', data_dir=tmp_path, model_dir=tmp_path)
+    assert cfg.data_file == tmp_path / 'rtu01.csv'
 
 
 def test_datafile_relative_path():

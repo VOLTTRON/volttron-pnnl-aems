@@ -43,6 +43,19 @@ from manager.points import OccupancyTypes
 _log = logging.getLogger(__name__)
 
 
+# One clock for the code under test and the test itself: midday today, so the
+# override windows (a few hours either side of now) stay within the day
+# whenever the suite runs.
+NOW = datetime.combine(datetime.now().date(), time(12, 0))
+
+
+@pytest.fixture(autouse=True)
+def frozen_clock():
+    with mock.patch('manager.occupancy_override_manager.dt') as clock:
+        clock.now.return_value = NOW
+        yield clock
+
+
 def _make_smart_scheduler():
     """Create a mock scheduler that executes past events immediately."""
     scheduled_jobs = []
@@ -51,7 +64,7 @@ def _make_smart_scheduler():
         scheduled_jobs.append({
             'when': when, 'callback': callback, 'args': args,
         })
-        now = datetime.now()
+        now = NOW
         if isinstance(when, datetime) and when <= now:
             callback(*args)
         return MagicMock()
@@ -76,7 +89,7 @@ class TestFullOverrideFlow:
             sync_occupancy_state_fn=MagicMock(),
         )
 
-        now = datetime.now()
+        now = NOW
         today = now.date()
 
         # Override that started 2 hours ago and ends 2 hours from now
@@ -111,7 +124,7 @@ class TestFullOverrideFlow:
             sync_occupancy_state_fn=MagicMock(),
         )
 
-        today = datetime.now().date()
+        today = NOW.date()
         mock_now = datetime.combine(today, time(14, 31))
 
         override_data = {
@@ -142,7 +155,7 @@ class TestFullOverrideFlow:
             sync_occupancy_state_fn=MagicMock(),
         )
 
-        tomorrow = (datetime.now() + timedelta(days=1)).date()
+        tomorrow = (NOW + timedelta(days=1)).date()
 
         override_data = {
             tomorrow.strftime('%Y-%m-%d'): [

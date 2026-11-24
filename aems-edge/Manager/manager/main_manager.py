@@ -29,7 +29,7 @@ import os
 import sys
 import re
 import random
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import asdict, dataclass, fields, is_dataclass
 from datetime import datetime as dt
 from pathlib import Path
 from typing import Any, Union
@@ -77,6 +77,35 @@ if 'PYDEVD_USE_FRAME_EVAL' in os.environ:
 
 StrPath = Union[str, Path]
 
+# Config-store entry holding the zone setpoints. The manager stores it (RPC), the
+# periodic setpoint validator re-applies it and the after-hours manager restores
+# from it, so a change to this entry must be applied - and kept - as soon as it is
+# stored.
+SET_POINTS_ENTRY = 'set_points'
+
+
+def config_store_handlers(proxy) -> dict:
+    """
+    Config-store entry name -> handler ``handler(contents, update_store=False)``.
+
+    At startup VOLTTRON delivers a NEW callback for each stored entry; the order
+    is not guaranteed, so each entry must be applied independently of the others.
+    Each setting therefore has exactly one entry (setpoints: ``SET_POINTS_ENTRY``).
+
+    :param proxy: The :class:`ManagerProxy` the handlers act on.
+    :return: Mapping of entry name to handler.
+    :rtype: dict
+    """
+    return {
+        'schedule': proxy.set_schedule,
+        SET_POINTS_ENTRY: proxy.set_temperature_setpoints,
+        'holidays': proxy.set_holidays,
+        'optimal_start': proxy.set_optimal_start,
+        'occupancy_overrides': proxy.set_occupancy_override,
+        'location': proxy.set_location,
+        'control': proxy.set_configurations,
+    }
+
 
 class ManagerAgent(Agent):
 
@@ -86,20 +115,8 @@ class ManagerAgent(Agent):
         _log.debug(f'Default Configuration for the system: {default_config}')
         default_config.validate()
 
-        # Create a mapping of pattern to function for calling the proxy.
-        # The order here is the order that we want the configurations to be
-        # updated from the configuration store.
-        #
-        # TODO: Verify that the order is respected when the agent starts up.
-        self._config_references = {
-            'schedule': self._proxy.set_schedule,
-            'temperature_setpoints': self._proxy.set_temperature_setpoints,
-            'holidays': self._proxy.set_holidays,
-            'optimal_start': self._proxy.set_optimal_start,
-            'occupancy_overrides': self._proxy.set_occupancy_override,
-            'location': self._proxy.set_location,
-            'control': self._proxy.set_configurations
-        }
+        # Config-store entry name -> proxy function (see config_store_handlers).
+        self._config_references = config_store_handlers(self._proxy)
 
         # Registers the configstore for the pattern 'config' ('config is default config entry')
         self.vip.config.subscribe(self.update_default, actions=['NEW', 'UPDATE'], pattern='config')
@@ -111,8 +128,8 @@ class ManagerAgent(Agent):
     def update_from_config_store(self, config_name: str, action: str, contents: dict):
         """
         Updates the configuration for each of the manager functions:
-            schedule, temperature_setpoints, holidays, optimal_start,
-            occupancy_overrides, location
+            schedule, set_points, holidays,
+            optimal_start, occupancy_overrides, location, control
 
         :param config_name: The name of the configuration being updated.
         :type config_name: str
@@ -152,8 +169,15 @@ class ManagerAgent(Agent):
 
     @RPC.export
     def set_optimal_start(self, data: dict) -> bool:
+        """
+        Set the optimal-start configuration.
+
+        Settings left out of ``data`` keep their current value: the web app sends
+        only the start times, setpoint deviation and lockout temperature, and
+        must not reset ``models`` or ``training_period_window`` to their defaults.
+        """
         try:
-            obj = OptimalStartConfig(**data)
+            obj = OptimalStartConfig(**self._proxy.merge_optimal_start(data))
             result = self._proxy.set_optimal_start(obj, update_store=True)
             _log.debug(f'set_optimal_start_rpc: {result}')
             return result
@@ -315,7 +339,7 @@ class ManagerProxy:
         except KeyError:
             after_hours_schedule = {}
         try:
-            default_setpoints = self.config_get('set_points')
+            default_setpoints = self.config_get(SET_POINTS_ENTRY)
         except KeyError:
             default_setpoints = self.cfg.default_setpoints
 
@@ -435,13 +459,13 @@ class ManagerProxy:
 
     def _set_default_setpoint(self, config: DefaultConfig):
         try:
-            temp_set_points = self.config_get('set_points')
+            temp_set_points = self.config_get(SET_POINTS_ENTRY)
         except KeyError:
             _log.info("No set_points in config store using defaults.")
-            self.config_set('set_points', self.cfg.default_setpoints)
+            self.config_set(SET_POINTS_ENTRY, self.cfg.default_setpoints)
         self._validate_setpoints_greenlet = self.core.periodic(
             config.setpoint_validate_frequency,
-            lambda: self.set_temperature_setpoints(self.config_get('set_points'), update_store=False))
+            lambda: self.set_temperature_setpoints(self.config_get(SET_POINTS_ENTRY), update_store=False))
 
     def update_default_config(self, config: DefaultConfig):
         """
@@ -575,10 +599,32 @@ class ManagerProxy:
             self.config_set('after_hours_schedule', data)
         return True
 
+    def merge_optimal_start(self, data: dict) -> dict:
+        """
+        ``data`` on top of the current optimal-start configuration.
+
+        The current configuration is the stored ``optimal_start`` entry, or the
+        running configuration if none is stored yet.
+
+        :param data: Optimal-start settings to change.
+        :type data: dict
+        :return: A complete set of :class:`OptimalStartConfig` settings.
+        :rtype: dict
+        """
+        try:
+            current = dict(self.config_get('optimal_start'))
+        except KeyError:
+            current = asdict(self.cfg.optimal_start)
+        # Only known settings from the store; unknown keys in data still fail
+        # OptimalStartConfig(**...) as before.
+        names = {f.name for f in fields(OptimalStartConfig)}
+        return {**{k: v for k, v in current.items() if k in names}, **(data or {})}
+
     def set_optimal_start(self, config: OptimalStartConfig | dict, update_store: bool = True) -> bool:
         """
         Sets the optimal start for the system.  This is called from the ManagerAgent when the optimal start is updated.
-        There are no partial updates, the entire optimal start is replaced.  This function does the following:
+        The entire optimal start is replaced; the RPC first fills settings the caller left out from the
+        current configuration (:meth:`merge_optimal_start`).
 
 
         :param config: Optimal start configuration :
@@ -587,7 +633,9 @@ class ManagerProxy:
             earliest_start_time: int
             allowable_setpoint_deviation: float
             optimal_start_lockout_temperature: float = 30
-            training_period_window: int = 10
+            training_period_window: int = 8
+            models: list[str] = ['recovery_regression']   # one model, or several (median); names:
+                                                          # recovery_regression, carrier, johnson, siemens, sbs
         :type config: OptimalStartConfig | dict
         :param update_store: True when method is triggered via RPC (store data in config store).
         :type update_store: bool
@@ -604,6 +652,7 @@ class ManagerProxy:
             if config.earliest_start_time else self.cfg.optimal_start.earliest_start_time
         self.cfg.optimal_start.latest_start_time = config.latest_start_time \
             if config.latest_start_time else self.cfg.optimal_start.latest_start_time
+        self.cfg.optimal_start.models = list(config.models)
         if update_store:
             self.config_set('optimal_start', config)
 
@@ -623,9 +672,10 @@ class ManagerProxy:
 
         _log.debug(f"Update temperature_setpoints - {data} -- update_store: {update_store}")
 
+        after_hours = self.after_hours_manager      # None until setup_runtime has run
         result = (
-            self.after_hours_manager.service_setpoints
-            if self.after_hours_manager.is_active
+            after_hours.service_setpoints
+            if after_hours is not None and after_hours.is_active
             else self.create_setpoints(data)
         )
 
@@ -634,7 +684,7 @@ class ManagerProxy:
             return False
 
         if update_store:
-            self.config_set("set_points", data)
+            self.config_set(SET_POINTS_ENTRY, data)
 
         control_passes = (
             ({"on_property": "relinquishDefault"}, {})
@@ -859,7 +909,7 @@ class ManagerProxy:
             _log.debug(f'Unit is between earliest start time and occupancy start!')
             _log.debug(f'Set unit to unoccupied mode and restart optimal start')
             self.change_occupancy(OccupancyTypes.UNOCCUPIED)
-            self.optimal_start.run_schedule_greenlet = None
+            self.optimal_start.reset_run()
 
         # # if we are in a time when we can do optimal start, schedule pre-start calculations
         if self.optimal_start.run_schedule_greenlet is None:

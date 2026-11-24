@@ -46,26 +46,6 @@ CONDITIONING = dfpts.conditioning.value
 TIME_DIFF = 'timediff'
 
 
-def clean_array(array: list) -> list:
-    """
-    Returns list of coefficients with nan, -inf, inf, negative
-    numbers, and outliers removed.
-        :param array: (list) coefficients from models
-        :return: array (list)
-    """
-    try:
-        array = [item if isinstance(item, list) else ['', item] for item in array]
-        array_values = [item[1] for item in array if np.isfinite(item[1]) and item[1] >= 0]
-        if len(array) > 3:
-            u = np.mean(array_values)
-            s = np.std(array_values)
-            # if np.isfinite(u) and np.isfinite(s):
-            #     array = [e for e in array if (u - 2.0 * s <= e[1] <= u + 2.0 * s)]
-    except Exception as ex:
-        _log.debug(f'Array parser error: {array} -- ex: {ex}')
-    return array
-
-
 def parse_df(df: pd.DataFrame, condition: Literal["heating", "cooling"]) -> pd.DataFrame:
     """
     Filters and processes the dataframe based on the specified condition ('cooling' or 'heating').
@@ -99,12 +79,10 @@ def parse_df(df: pd.DataFrame, condition: Literal["heating", "cooling"]) -> pd.D
     df[TIME_DIFF] = df.index.to_series().diff()
     time_in_excess = df[df[TIME_DIFF] >= pd.Timedelta(minutes=10)]
 
-    # Update dataframe with the smallest valid index
-    for filter_df in [filtered_temp, filtered_conditioning, time_in_excess]:
-        if not filter_df.empty:
-            stop_label = filter_df.index[0]
-            stop_position = df.index.get_loc(stop_label)
-            df = df.iloc[:stop_position]
+    # Truncate at the earliest stop condition.
+    stop_labels = [f.index[0] for f in (filtered_temp, filtered_conditioning, time_in_excess) if not f.empty]
+    if stop_labels:
+        df = df[df.index < min(stop_labels)]
 
     # Filter final dataframe based on the condition being active
     df = df[df[condition] > 0]
@@ -112,48 +90,42 @@ def parse_df(df: pd.DataFrame, condition: Literal["heating", "cooling"]) -> pd.D
     return df
 
 
+def _shift_time(_time: dt.time, minutes: float) -> dt.time:
+    """
+    Shift a time-of-day by ``minutes``, clamped to the same day (00:00 - 23:59)
+    rather than wrapping past midnight.
+    """
+    base = dt.datetime.combine(dt.date(2000, 1, 2), _time)
+    shifted = base + dt.timedelta(minutes=minutes)
+    if shifted.date() < base.date():
+        return dt.time.min
+    if shifted.date() > base.date():
+        return dt.time(23, 59)
+    return shifted.time()
+
+
 def offset_time(_time: dt.time, offset: Minutes) -> dt.time:
     """
-    Creates a new time based upon the offset in minutes from the original time.
-
-    :param _time: datetime.time object
-    :type _time: dt.time
-    :param offset: Number of minutes to offset
-    :type offset: int
-    :return: A new time object with offset applied
-    :rtype: dt.time
+    Return ``_time`` shifted forward by ``offset`` minutes (clamped to 23:59).
     """
-    _offset_hr, offset_min = divmod(offset, 60)
-    _hour = _time.hour + _offset_hr
-    _minute = _time.minute + offset_min
-    if _minute >= 60:
-        _hour += 1
-        _minute = _minute - 60
-    ret_time = dt.time(hour=_hour, minute=_minute)
-    return ret_time
+    return _shift_time(_time, offset)
 
 
 def trim(lst: list, new_value: float, cutoff: int) -> list:
     """
-    Add a new value to the list and trim the list to the cutoff length.
+    Append ``[timestamp, new_value]`` to the history and keep the last ``cutoff`` entries.
+    Non-finite values are ignored. Legacy bare-float entries are normalized to pairs.
 
     :param lst: List of previous values
-    :type lst: list
     :param new_value: The new value to add to the list
-    :type new_value: float
     :param cutoff: The maximum length of the list
-    :type cutoff: int
     :return: A new list trimmed to the cutoff length
-    :rtype: list
     """
-
     if not np.isfinite(new_value):
         return lst
-    lst.append([format_timestamp(dt.datetime.now()), new_value])
-    lst = clean_array(lst)
-    if lst and len(lst) > cutoff:
-        lst = lst[-cutoff:]
-    return lst
+    history = [item if isinstance(item, list) else ['', item] for item in lst]
+    history.append([format_timestamp(dt.datetime.now()), float(new_value)])
+    return history[-cutoff:] if cutoff > 0 else history
 
 
 def get_time_temp_diff(htr: pd.DataFrame, target: Error) -> tuple[TimeDiff, TempDiff]:
@@ -168,7 +140,7 @@ def get_time_temp_diff(htr: pd.DataFrame, target: Error) -> tuple[TimeDiff, Temp
     :rtype: tuple[TimeDiff, TempDiff]
     """
     # htr = htr[htr[dfpt.tempdiff.value] >= target]
-    htr.loc[:, dfpts.timediff.value] = htr.index.to_series().diff().dt.total_seconds() / 60
+    htr[dfpts.timediff.value] = htr.index.to_series().diff().dt.total_seconds() / 60
     time_diff = htr[dfpts.timediff.value].sum(axis=0)
     temp_diff = htr[dfpts.tempdiff.value].iloc[0] - htr[dfpts.tempdiff.value].iloc[-1]
     return time_diff, temp_diff
@@ -186,73 +158,43 @@ def get_time_target(data: pd.DataFrame, target: Error) -> float:
     :rtype: float
     """
     try:
-        idx = data[(data[dfpts.tempdiff.value][0] - data[dfpts.tempdiff.value]) >= target].index[0]
+        temp_diff = data[TEMP_DIFF]
+        idx = data[(temp_diff.iloc[0] - temp_diff) >= target].index[0]
         target_df = data.loc[:idx]
     except IndexError:
         return 0
     _dt = (target_df.index[-1] - target_df.index[0]).total_seconds() / 60
-    temp = target_df[dfpts.tempdiff.value][0] - target_df[dfpts.tempdiff.value][-1]
-
-    return _dt / temp
+    temp = target_df[TEMP_DIFF].iloc[0] - target_df[TEMP_DIFF].iloc[-1]
+    return _dt / temp if temp else float('nan')
 
 
 def ema(lst: list) -> float:
     """
-    Calculate the exponential moving average of a list of values.
+    Exponential moving average of a coefficient history (oldest first).
 
-    :param lst: List of values
-    :type lst: list
-    :return: The exponential moving average
-    :rtype: float
+    Uses the standard smoothing constant ``2 / (n + 1)`` for ``n`` entries: the
+    newest value gets weight ``a``, the next ``a(1 - a)``, and so on, with the
+    remaining weight ``(1 - a)^n`` on the oldest value so the weights sum to 1.
+    Entries may be bare values or ``[timestamp, value]`` pairs (see :func:`trim`).
+
+    :param lst: History of values, oldest first
+    :return: The exponential moving average (0 for an empty history)
     """
-    smoothing_constant = 2.0 / (len(lst) + 1.0) * 2.0 if lst else 1.0
-    smoothing_constant = smoothing_constant if smoothing_constant <= 1.0 else 1.0
-    _sort = lst[::-1]
-    ema = 0
-    _sort = [item[1] if isinstance(item, list) else item for item in _sort]
-    for n in range(len(lst)):
-        ema += _sort[n] * smoothing_constant * (1.0 - smoothing_constant)**n
-    if _sort:
-        ema += _sort[-1] * (1.0 - smoothing_constant)**(len(lst))
-    return ema
+    values = [item[1] if isinstance(item, list) else item for item in lst]
+    if not values:
+        return 0
+    n = len(values)
+    smoothing = 2.0 / (n + 1.0)
+    newest_first = values[::-1]
+    result = sum(v * smoothing * (1.0 - smoothing) ** k for k, v in enumerate(newest_first))
+    return result + newest_first[-1] * (1.0 - smoothing) ** n
 
 
 def calculate_prestart_time(end: dt.time, prestart: Minutes) -> dt.time:
     """
-    A function that is slightly different than `func::offset_time` in that
-    this function calculates the time based on the end time and the offset.
-
-    :param _time: datetime.time object
-    :type _time: dt.time
-    :param offset: Number of minutes to offset
-    :type offset: Minutes
-    :return: A new time object with offset applied
-    :rtype: dt.time
+    Return ``end`` shifted back by ``prestart`` minutes (clamped to 00:00).
     """
-    _hours, _minutes = divmod(prestart, 60)
-    _minutes = end.minute - _minutes
-    if _minutes < 0:
-        _minutes = 60 + _minutes
-        _hours += 1
-    _hours = end.hour - _hours
-    start = dt.time(hour=_hours, minute=_minutes)
-    return start
-
-
-def get_cls_attrs(cls) -> dict:
-    """
-    Retrieve the class attributes that are not callable.
-
-    :return: The class attributes
-    :rtype: dict
-    """
-
-    # TODO: Should just use inspect.get_members(cls) instead of this function
-    d = {
-        key: value
-        for key, value in cls.__dict__.items() if not key.startswith('__') and not callable(value) and not callable(getattr(value, '__get__', None))
-    }
-    return d
+    return _shift_time(end, -prestart)
 
 
 def get_operating_mode(data: pd.DataFrame) -> Literal['heating', 'cooling', None]:
@@ -269,9 +211,10 @@ def get_operating_mode(data: pd.DataFrame) -> Literal['heating', 'cooling', None
     cooling_count = data['cooling'].sum()
     heating_count = data['heating'].sum()
     if cooling_count > 0 and heating_count > 0:
-        if data[dfpts.zonetemperature.value][0] > data[dfpts.coolingsetpoint.value][0]:
+        first = data.iloc[0]
+        if first[ZONE_TEMP] > first[COOLING_SETPOINT]:
             mode = 'cooling'
-        elif data[dfpts.zonetemperature.value][0] < data[dfpts.heatingsetpoint.value][0]:
+        elif first[ZONE_TEMP] < first[HEATING_SETPOINT]:
             mode = 'heating'
         return mode
     if cooling_count > 0:

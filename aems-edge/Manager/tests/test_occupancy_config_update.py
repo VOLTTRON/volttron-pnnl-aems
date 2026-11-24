@@ -31,7 +31,8 @@ the config and triggers the correct behavior in OccupancyOverride.
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
+from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -40,6 +41,19 @@ from manager.occupancy_override_manager import OccupancyOverride, Override
 from manager.points import OccupancyTypes
 
 _log = logging.getLogger(__name__)
+
+
+# One clock for the code under test and the test itself: midday today, so the
+# override windows (a few hours either side of now) stay within the day
+# whenever the suite runs.
+NOW = datetime.combine(datetime.now().date(), time(12, 0))
+
+
+@pytest.fixture(autouse=True)
+def frozen_clock():
+    with mock.patch('manager.occupancy_override_manager.dt') as clock:
+        clock.now.return_value = NOW
+        yield clock
 
 
 @pytest.fixture
@@ -67,7 +81,7 @@ class TestOccupancyConfigUpdate:
 
     def test_load_override_with_future_data(self, occ_manager, mock_deps):
         """Loading a future override should schedule jobs without activating."""
-        tomorrow = datetime.now() + timedelta(days=1)
+        tomorrow = NOW + timedelta(days=1)
         date_str = tomorrow.strftime('%Y-%m-%d')
         start_time = "09:00"
         end_time = "17:00"
@@ -87,7 +101,7 @@ class TestOccupancyConfigUpdate:
 
     def test_load_override_replaces_previous(self, occ_manager, mock_deps):
         """Loading a new override should replace any previous override data."""
-        tomorrow = datetime.now() + timedelta(days=1)
+        tomorrow = NOW + timedelta(days=1)
         date_str = tomorrow.strftime('%Y-%m-%d')
 
         first_data = {
@@ -114,10 +128,10 @@ class TestOccupancyConfigUpdate:
 
     def test_override_data_is_json_serializable(self):
         """Override data used in config store must be JSON serializable."""
-        tomorrow = datetime.now() + timedelta(days=1)
+        tomorrow = NOW + timedelta(days=1)
         date_str = tomorrow.strftime('%Y-%m-%d')
-        start_time = (datetime.now() + timedelta(hours=2)).strftime('%H:%M')
-        end_time = (datetime.now() + timedelta(hours=3)).strftime('%H:%M')
+        start_time = (NOW + timedelta(hours=2)).strftime('%H:%M')
+        end_time = (NOW + timedelta(hours=3)).strftime('%H:%M')
 
         test_data = {
             date_str: [{'start': start_time, 'end': end_time}]

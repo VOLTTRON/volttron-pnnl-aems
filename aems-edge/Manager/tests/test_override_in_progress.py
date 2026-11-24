@@ -78,6 +78,14 @@ def test_in_progress_override_activated_immediately(occ_manager, mock_deps):
     # Mock datetime.now() to return 14:31 (within the override window)
     mock_now = datetime.combine(today, time(14, 31))
 
+    # Like VOLTTRON's core.schedule, run a job right away when its time has
+    # already passed (judged against the same mocked clock).
+    def schedule(when, callback, *args):
+        if when <= mock_now:
+            callback(*args)
+        return MagicMock()
+    occ_manager.scheduler_fn = schedule
+
     with mock.patch('manager.occupancy_override_manager.dt') as mock_dt:
         mock_dt.now.return_value = mock_now
         mock_dt.combine = datetime.combine

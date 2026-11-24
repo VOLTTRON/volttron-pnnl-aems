@@ -21,14 +21,42 @@
 #
 # ===----------------------------------------------------------------------===
 
+
+"""
+Optimal-start zone models.
+
+Each model predicts how many minutes before occupancy a unit must start so the
+zone reaches its occupied setpoint on time, and learns from each morning's
+recovery how fast the zone responds.
+
+Models
+------
+* :class:`Carrier`  - learned recovery rate (°F/min), scaled by outdoor air.
+* :class:`Siemens`  - minutes linear in the zone gap plus an outdoor-air term.
+* :class:`Johnson`  - minutes quadratic in the zone gap plus an offset.
+* :class:`Sbs`      - first-order (exponential) decay of the setpoint error.
+* :class:`RecoveryRegression` - robust regression of observed recovery times on
+  the zone gap and outdoor air (the default deciding model).
+
+All models derive from :class:`OptimalStartZoneModel`, which provides the
+shared training pipeline (:meth:`OptimalStartZoneModel.train`), the training
+window, mode detection and persistence. The coefficient models (Carrier,
+Siemens, Johnson, Sbs) keep a short history of per-morning coefficients and
+average it with :func:`~manager.utils.ema`; :class:`RecoveryRegression` keeps a
+history of per-morning observations and refits at every prediction.
+
+Heating and cooling are learned separately for every model. Only the fields in
+each class's ``STATE_FIELDS`` are persisted and restored, so configuration
+values are never loaded back from the config store.
+"""
+
 import logging
 import os
-import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime as dt
 from enum import Enum
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -47,193 +75,220 @@ from .utils import (
     trim,
 )
 
-warnings.filterwarnings("ignore", category=DeprecationWarning)
 _log = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
 
 _DEFAULT_TIMEZONE = "US/Pacific"
 _TRAINING_END_OFFSET_MINUTES = 60
 
-# Parameters for heat-transfer-rate calculation
-_HTR_MAX_THRESHOLD = 15
-_HTR_NUM_STEPS = 61
+# Heat-transfer-rate lookup: temperature-drop thresholds 0..15 °F in 0.25 °F steps
+_HTR_THRESHOLDS = np.linspace(0, 15, 61)
 
 
 class OperatingMode(str, Enum):
     """
-    Represents the operating modes for a system.
+    Operating mode needed to recover the zone.
 
-    This class is an Enum that defines possible operating modes such as
-    cooling and heating. It inherits from both `str` and `Enum`, enabling
-    the representation of the modes as strings while also leveraging the
-    benefits of enumeration.
+    The enum values (``"cooling"`` / ``"heating"``) are the same strings used by
+    :func:`~manager.utils.get_operating_mode`, :func:`~manager.utils.parse_df` and
+    the persisted state field names.
 
-    :ivar COOLING: Represents the cooling mode.
-    :type COOLING: str
-
-    :ivar HEATING: Represents the heating mode.
-    :type HEATING: str
+    :cvar COOLING: Zone is above the cooling setpoint.
+    :cvar HEATING: Zone is below the heating setpoint.
     """
     COOLING = "cooling"
     HEATING = "heating"
+
+    @property
+    def prefix(self) -> str:
+        """
+        Coefficient attribute prefix for the mode.
+
+        :return: ``"c"`` for cooling, ``"h"`` for heating (e.g. ``c1`` / ``h1``).
+        :rtype: str
+        """
+        return "c" if self is OperatingMode.COOLING else "h"
 
 
 @dataclass(frozen=True)
 class ZoneConditions:
     """
-    Represents the environmental conditions of a specific zone.
+    Snapshot of the zone and outdoor conditions at one instant.
 
-    This class is used to store and represent various temperature-related
-    conditions, both internal and external, for a specific zone. It includes
-    the zone temperature, heating and cooling setpoint temperatures, and the
-    outdoor air temperature. The class is immutable due to the use of
-    `frozen=True` in the dataclass, ensuring that its attributes cannot be
-    modified after instantiation.
+    Immutable; built from one row of the device DataFrame with :meth:`from_row`
+    or from the most recent row with :meth:`latest`.
 
-    :ivar zone_temperature: The current temperature of the zone.
-    :type zone_temperature: float
-    :ivar cooling_setpoint: The cooling setpoint temperature of the zone.
-        This defines the upper limit for the zone temperature before
-        the cooling system activates.
-    :type cooling_setpoint: float
-    :ivar heating_setpoint: The heating setpoint temperature of the zone.
-        This defines the lower limit for the zone temperature before
-        the heating system activates.
-    :type heating_setpoint: float
-    :ivar outdoor_air_temperature: The external air temperature outside the
-        zone. This provides context for heat exchange or load calculation.
-    :type outdoor_air_temperature: float
+    :ivar zone_temperature: Zone temperature (°F).
+    :vartype zone_temperature: float
+    :ivar cooling_setpoint: Occupied cooling setpoint (°F).
+    :vartype cooling_setpoint: float
+    :ivar heating_setpoint: Occupied heating setpoint (°F).
+    :vartype heating_setpoint: float
+    :ivar outdoor_air_temperature: Outdoor-air temperature (°F); NaN when missing
+        or stale.
+    :vartype outdoor_air_temperature: float
     """
     zone_temperature: float
     cooling_setpoint: float
     heating_setpoint: float
     outdoor_air_temperature: float
 
+    @classmethod
+    def from_row(cls, row: pd.Series) -> "ZoneConditions":
+        """
+        Build conditions from one DataFrame row.
 
-def _extract_zone_conditions(data: pd.DataFrame) -> ZoneConditions:
-    """
-    Extracts zone-specific conditions from the given DataFrame based on the latest
-    available entries in the dataset. This function retrieves the most recent values
-    for zone temperature, cooling setpoint, heating setpoint, and outdoor air
-    temperature from the provided DataFrame and combines them into a ZoneConditions
-    object.
+        :param row: Row with ``zonetemperature``, ``coolingsetpoint``,
+            ``heatingsetpoint`` and ``outdoortemperature``.
+        :type row: pd.Series
+        :return: The conditions in that row.
+        :rtype: ZoneConditions
+        """
+        return cls(
+            zone_temperature=row["zonetemperature"],
+            cooling_setpoint=row["coolingsetpoint"],
+            heating_setpoint=row["heatingsetpoint"],
+            outdoor_air_temperature=row["outdoortemperature"],
+        )
 
-    The input DataFrame is expected to have specific columns, namely
-    'zonetemperature', 'coolingsetpoint', 'heatingsetpoint', and
-    'outdoortemperature'. An assumption is made that the structure of the dataset
-    ensures valid access to these columns and the most recent values will always be
-    found at the last index of the respective columns.
+    @classmethod
+    def latest(cls, data: pd.DataFrame) -> "ZoneConditions":
+        """
+        Build conditions from the last row of ``data``.
 
-    :param data: Input pandas DataFrame containing zone-related condition data. The
-        DataFrame must include the following columns:
-            - 'zonetemperature': Zone temperature values
-            - 'coolingsetpoint': Cooling setpoint values
-            - 'heatingsetpoint': Heating setpoint values
-            - 'outdoortemperature': Outdoor air temperature values
+        :param data: Time-indexed device data (oldest first).
+        :type data: pd.DataFrame
+        :return: The most recent conditions.
+        :rtype: ZoneConditions
+        """
+        return cls.from_row(data.iloc[-1])
 
-    :return: A ZoneConditions object encapsulating the most recent zone condition
-        details extracted from the input data.
-    :rtype: ZoneConditions
-    """
-    return ZoneConditions(
-        zone_temperature=data["zonetemperature"].iloc[-1],
-        cooling_setpoint=data["coolingsetpoint"].iloc[-1],
-        heating_setpoint=data["heatingsetpoint"].iloc[-1],
-        outdoor_air_temperature=data["outdoortemperature"].iloc[-1],
-    )
+    def zone_error(self, mode: OperatingMode) -> float:
+        """
+        Degrees the zone must move to reach the setpoint for ``mode``.
+
+        Positive when recovery is needed: ``zone - cooling SP`` for cooling and
+        ``heating SP - zone`` for heating.
+
+        :param mode: Operating mode.
+        :type mode: OperatingMode
+        :return: Zone gap in °F.
+        :rtype: float
+        """
+        if mode is OperatingMode.HEATING:
+            return self.heating_setpoint - self.zone_temperature
+        return self.zone_temperature - self.cooling_setpoint
+
+    def outdoor_error(self, mode: OperatingMode) -> float:
+        """
+        Outdoor-air load relative to the setpoint for ``mode``.
+
+        ``OAT - cooling SP`` for cooling and ``heating SP - OAT`` for heating, so a
+        larger value always means a harder recovery.
+
+        :param mode: Operating mode.
+        :type mode: OperatingMode
+        :return: Outdoor-air difference in °F (NaN if outdoor air is missing).
+        :rtype: float
+        """
+        if mode is OperatingMode.HEATING:
+            return self.heating_setpoint - self.outdoor_air_temperature
+        return self.outdoor_air_temperature - self.cooling_setpoint
 
 
 def _coefficients_are_valid(
-    values: dict[str, float],
-    *,
-    model_label: str,
-    allow_zero: bool = False,
+    values: dict[str, float], *, model_label: str, allow_zero: bool = False
 ) -> bool:
     """
-    Determines if the provided coefficients are valid by checking that all values are
-    finite, non-negative, and optionally non-zero. Logs debug information if any
-    coefficient is invalid.
+    Check that learned coefficients are usable.
 
-    :param values: Dictionary mapping coefficient names to their respective values.
-    :param model_label: Identifier for the model, used for logging purposes.
-    :param allow_zero: If True, allows zero values in the coefficients; otherwise,
-        zero values are considered invalid.
-    :return: True if all coefficients are valid, otherwise False.
+    :param values: Coefficient name -> value.
+    :type values: dict[str, float]
+    :param model_label: Label used in debug logging (e.g. ``"Carrier cooling"``).
+    :type model_label: str
+    :param allow_zero: Accept zero values (default: strictly positive required).
+    :type allow_zero: bool
+    :return: True if every value is finite and positive (or zero when allowed).
+    :rtype: bool
     """
     for name, value in values.items():
         if not np.isfinite(value):
-            _log.debug(
-                "%s: non-finite coefficient %s = %s", model_label, name, value
-            )
+            _log.debug("%s: non-finite coefficient %s = %s", model_label, name, value)
             return False
-        if (value < 0) or (not allow_zero and value == 0):
-            _log.debug(
-                "%s: non-positive coefficient %s = %s", model_label, name, value
-            )
+        if value < 0 or (not allow_zero and value == 0):
+            _log.debug("%s: non-positive coefficient %s = %s", model_label, name, value)
             return False
     return True
 
 
+def _record(**fields: Any) -> dict:
+    """
+    Training record published after a training run.
+
+    :param fields: Model-specific values to include.
+    :return: ``{"date": <now>, **fields}``.
+    :rtype: dict
+    """
+    return {"date": format_timestamp(dt.now()), **fields}
+
+
 class OptimalStartZoneModel(ABC):
     """
-    Provides an abstract base class for implementing an optimal start zone model,
-    focusing on calculating optimal start times, training schedules, and handling
-    specific heating or cooling operations.
+    Base class for optimal-start models.
 
-    The OptimalStartZoneModel allows derived classes to manage parameters for
-    efficient operations in a controlled environment. It incorporates functionalities
-    to configure system parameters, persist and load model configurations, train
-    based on operational data, and abstract methods for specific operations like
-    training in heating or cooling modes.
+    Subclasses implement :meth:`_train_mode` (learn from one morning's recovery),
+    :meth:`calculate_prestart` (minutes before occupancy to start),
+    :attr:`is_trained` and :meth:`trained_for`. The shared :meth:`train` method
+    slices the training window, detects the operating mode and hands the model
+    its input (:meth:`_model_input`).
 
-    :ivar record: A dictionary used to store intermediate or temporary results during
-        processes such as training.
-    :type record: dict
-    :ivar cfg: Configuration parameters for the optimal start system.
-    :type cfg: OptimalStartConfig
-    :ivar _get_current_schedule: Callable function to obtain the current operational
-        schedule required for training and calculations.
-    :type _get_current_schedule: Callable
-    :ivar latest_start_time: The latest allowable start time for training or processes.
-    :type latest_start_time: float
-    :ivar earliest_start_time: The earliest allowable start time for training or processes.
-    :type earliest_start_time: float
-    :ivar setpoint_deviation: Acceptable deviation in setpoint for operations.
-    :type setpoint_deviation: float
-    :ivar training_period_window: Time window for training data processing.
-    :type training_period_window: int
-    :ivar tz: Local timezone used for managing time-series data.
-    :type tz: str
+    Prediction conventions shared by all models: when no recovery is needed the
+    model returns ``latest_start_time``; when it is not trained for the needed
+    mode it returns ``earliest_start_time``.
+
+    :cvar STATE_FIELDS: Attributes persisted to / restored from the config store.
+    :cvar SEPARATE_WEEKEND_MODEL: Whether the manager keeps a separate copy of the
+        model for the day after a weekend/holiday.
+    :ivar record: Summary of the most recent training run (published by the
+        manager); empty when the last run learned nothing.
+    :vartype record: dict
+    :ivar cfg: Optimal-start configuration in effect.
+    :vartype cfg: OptimalStartConfig
+    :ivar latest_start_time: Minimum prestart in minutes (configured).
+    :vartype latest_start_time: float
+    :ivar earliest_start_time: Maximum prestart in minutes (configured).
+    :vartype earliest_start_time: float
+    :ivar setpoint_deviation: Allowable deviation from setpoint (°F) used for mode
+        detection and as SBS's target.
+    :vartype setpoint_deviation: float
+    :ivar training_period_window: Number of coefficient history entries kept.
+    :vartype training_period_window: int
+    :ivar tz: Local timezone name (``LOCAL_TZ`` environment variable).
+    :vartype tz: str
     """
 
-    def __init__(
-        self,
-        config: OptimalStartConfig,
-        get_current_schedule_fn: Callable,
-    ):
+    #: Attributes persisted to / restored from the config store.
+    STATE_FIELDS: tuple[str, ...] = ()
+    #: Whether the manager keeps a separate copy of this model for the day after a weekend/holiday.
+    SEPARATE_WEEKEND_MODEL: bool = True
+
+    def __init__(self, config: OptimalStartConfig, get_current_schedule_fn: Callable):
+        """
+        :param config: Optimal-start configuration.
+        :type config: OptimalStartConfig
+        :param get_current_schedule_fn: Callable returning today's
+            :class:`~manager.Schedule` (or None).
+        :type get_current_schedule_fn: Callable
+        """
         self._get_current_schedule = get_current_schedule_fn
         self.record: dict = {}
-        self._apply_config(config)
+        self.update_config(config)
 
-    def _apply_config(self, config: OptimalStartConfig) -> None:
+    def update_config(self, config: OptimalStartConfig) -> None:
         """
-        Apply the configuration values from an OptimalStartConfig object to set up
-        the necessary parameters for the system.
+        Apply a new optimal-start configuration (learned state is kept).
 
-        This method assigns configuration values to corresponding instance variables
-        that control timing, deviation allowances, training period, and timezone.
-        The configuration is intended for managing parameters related to starting
-        a process or application optimally. This primarily extracts the necessary
-        values from the provided configuration object and initializes internal
-        parameters accordingly.
-
-        :param config: Configuration object that contains optimal start parameters.
+        :param config: New configuration.
         :type config: OptimalStartConfig
-        :return: None
         """
         self.cfg = config
         self.latest_start_time: float = config.latest_start_time
@@ -242,300 +297,345 @@ class OptimalStartZoneModel(ABC):
         self.training_period_window: int = config.training_period_window
         self.tz: str = os.environ.get("LOCAL_TZ", _DEFAULT_TIMEZONE)
 
-    def update_config(self, config: OptimalStartConfig) -> None:
+    # -- Persistence --------------------------------------------------------
+
+    def get_state(self) -> dict[str, Any]:
         """
-        Updates the configuration parameters used within the system.
+        Learned state to persist.
 
-        This method takes a configuration instance of type `OptimalStartConfig`
-        and applies it to update the internal configuration state of the system.
-        The configuration update is performed through the `_apply_config` method.
-
-        The purpose of this method is to ensure that the system behavior aligns
-        with the updated parameter values defined in the provided
-        `OptimalStartConfig` instance. This may involve validating and reconfiguring
-        various internal aspects of the system.
-
-        :param config: A configuration object of type `OptimalStartConfig` that
-            holds the parameters for updating the system configuration.
-        :return: None
+        :return: ``STATE_FIELDS`` attribute name -> value (learned values only,
+            never configuration).
+        :rtype: dict[str, Any]
         """
-        self._apply_config(config)
+        return {name: getattr(self, name) for name in self.STATE_FIELDS}
 
-    def load_model(self, model_dict: dict[str, any]) -> None:
+    def load_model(self, model_dict: dict[str, Any]) -> None:
         """
-        Loads model parameters from a dictionary and assigns them as attributes
-        to the current instance. Each key in the dictionary is used as an attribute
-        name, and the corresponding value is assigned to that attribute. If an
-        attribute cannot be set, the process is logged for debugging purposes
-        without interrupting the operation.
+        Restore learned state saved by :meth:`get_state`.
 
-        :param model_dict: A dictionary containing model parameters to be loaded as
-            attributes, where keys represent attribute names and their corresponding
-            values are the values to be assigned.
-        :type model_dict: dict[str, any]
-        :return: This method does not return any value.
-        :rtype: None
+        Only keys listed in ``STATE_FIELDS`` are applied; unknown or legacy keys
+        (including old configuration values) are ignored.
+
+        :param model_dict: Persisted state (may be None).
+        :type model_dict: dict[str, Any]
         """
-        for name, value in model_dict.items():
-            try:
+        for name, value in (model_dict or {}).items():
+            if name in self.STATE_FIELDS:
                 setattr(self, name, value)
-            except Exception as ex:
-                _log.debug(
-                    "Cannot restore model parameter %s = %s: %s", name, value, ex
-                )
+
+    @property
+    @abstractmethod
+    def is_trained(self) -> bool:
+        """
+        Whether the model has learned anything (for either mode).
+
+        :return: True once at least one coefficient / observation is stored.
+        :rtype: bool
+        """
+
+    @abstractmethod
+    def trained_for(self, mode: OperatingMode) -> bool:
+        """
+        Whether the model has learned what it needs to predict ``mode``.
+
+        :param mode: Operating mode.
+        :type mode: OperatingMode
+        :return: True if a prediction for ``mode`` uses learned values.
+        :rtype: bool
+        """
+
+    def ready_for(self, data: pd.DataFrame) -> bool:
+        """
+        Whether this model's prediction for ``data`` is a real prediction.
+
+        Used by the manager to exclude untrained models from the start decision.
+
+        :param data: Current device data; the last row is "now".
+        :type data: pd.DataFrame
+        :return: True when no recovery is needed or the model is trained for the
+            mode the zone needs now; False on empty data or a missing zone
+            temperature or setpoint.
+        :rtype: bool
+        """
+        cond = self._current_conditions(data)
+        if cond is None:
+            return False
+        mode = self._determine_mode(cond)
+        return True if mode is None else self.trained_for(mode)
+
+    @staticmethod
+    def _current_conditions(data: Optional[pd.DataFrame]) -> Optional[ZoneConditions]:
+        """
+        Conditions now (the last row), if they can be used for a prediction.
+
+        :param data: Current device data; the last row is "now".
+        :type data: pd.DataFrame | None
+        :return: The conditions, or None if there is no data or the zone
+            temperature or a setpoint is missing. Without them the zone's need
+            is unknown, so callers use the earliest start rather than treating
+            it as "no recovery needed".
+        :rtype: ZoneConditions | None
+        """
+        if data is None or data.empty:
+            return None
+        cond = ZoneConditions.latest(data)
+        values = (cond.zone_temperature, cond.cooling_setpoint, cond.heating_setpoint)
+        if not all(pd.notna(v) and np.isfinite(float(v)) for v in values):
+            _log.debug("Zone temperature or setpoint missing in the latest data: %s", cond)
+            return None
+        return cond
+
+    # -- Training -----------------------------------------------------------
 
     def train(self, data: pd.DataFrame, prestart: Optional[float] = None) -> None:
         """
-        Trains the model using provided data and prestart time. This function processes
-        training data within a given operational schedule and slices it based on the
-        training window. It determines the operating mode to train the system either in
-        cooling or heating mode. If there is no appropriate schedule or training data,
-        or if the operating mode is not valid, the training process is skipped.
+        Learn from this morning's recovery.
 
-        :param data:
-            A pandas DataFrame containing the data required for training the model.
-            The DataFrame should include the necessary time-series or operational
-            data used to determine training schedules and modes.
-        :param prestart:
-            An optional float indicating the earliest time for beginning the training.
-            If not provided, the default value will be set to the earliest start time
-            available internally in the system.
-        :return:
-            None
+        Slices the training window from ``prestart`` minutes before occupancy to
+        occupancy + 60 min, keeps the supply-fan-on rows (dropping the start-up
+        transition row), detects the operating mode, builds the model input with
+        :meth:`_model_input` and passes it to :meth:`_train_mode`. Days without a
+        timed schedule, fan operation, active heating/cooling or usable data are
+        skipped. :attr:`record` is reset and then filled by the model.
+
+        :param data: Today's device data, time indexed (UTC or tz-aware).
+        :type data: pd.DataFrame
+        :param prestart: Minutes before occupancy the training window starts
+            (normally the committed prestart + a buffer); defaults to
+            ``earliest_start_time``.
+        :type prestart: float | None
         """
         self.record = {}
-
         if prestart is None:
             prestart = self.earliest_start_time
-        if data.empty:
+        if data is None or data.empty:
             return
 
         schedule = self._get_current_schedule()
-        if schedule is None:
-            _log.debug("No schedule found — skipping training.")
+        if schedule is None or schedule.start is None:
+            _log.debug("No timed schedule today — skipping training.")
             return
 
-        training_data = self._slice_training_window(data, schedule, prestart)
-        if training_data is None or training_data.empty:
+        window = self._training_window(data, schedule, prestart)
+        fan_on = window[window["supplyfanstatus"] != 0].iloc[1:]  # drop the start-up transition row
+        if fan_on.empty:
+            _log.debug("Supply fan was off for the entire training window.")
             return
 
-        mode = get_operating_mode(training_data)
-        if mode == OperatingMode.COOLING:
-            training_data.to_csv('sort1.csv')
-            self.train_cooling(parse_df(training_data, mode))
-        elif mode == OperatingMode.HEATING:
-            training_data.to_csv('sort1.csv')
-            self.train_heating(parse_df(training_data, mode))
-        else:
+        mode = get_operating_mode(fan_on)
+        if mode is None:
             _log.debug("No active heating or cooling during training period.")
+            return
+        mode = OperatingMode(mode)
+        model_input = self._model_input(window, fan_on, mode)
+        if model_input.empty:
+            _log.debug("No usable %s data for training.", mode.value)
+            return
+        self._train_mode(model_input, mode)
 
-    # -- Abstract Interface -------------------------------------------------
-
-    @abstractmethod
-    def train_cooling(self, data: pd.DataFrame) -> None: ...
-
-    @abstractmethod
-    def train_heating(self, data: pd.DataFrame) -> None: ...
-
-    @abstractmethod
-    def calculate_prestart(self, data: pd.DataFrame) -> float: ...
-
-    # -- Shared Helpers -----------------------------------------------------
-
-    def _slice_training_window(
-        self,
-        data: pd.DataFrame,
-        schedule,
-        prestart: float,
-    ) -> Optional[pd.DataFrame]:
+    def _model_input(
+        self, window: pd.DataFrame, fan_on: pd.DataFrame, mode: OperatingMode
+    ) -> pd.DataFrame:
         """
-        Slices the training data to include only the period between the calculated
-        prestart time and the training window end time. Filters out rows where the
-        supply fan status is off. If the resulting data is empty, logs a debug message
-        and returns None. The method also ensures the time index is converted to the
-        correct timezone and exports the filtered data to a CSV file for sorting.
+        Data passed to :meth:`_train_mode`.
 
-        :param data: A pandas DataFrame containing the system data indexed by time.
-        :param schedule: An object providing a 'start' attribute for the schedule,
-                         representing the start time of the event of interest.
-        :param prestart: A float representing the amount of time to offset before the
-                        `schedule.start` as prestart duration, measured in minutes.
-        :return: A pandas DataFrame containing the processed subset of data or None
-                 if the resulting data after filtering is empty, with the first row
-                 dropped to avoid initial transition artifacts.
+        The default is the active recovery only (compressor/heat on, until setpoint is
+        reached) from :func:`~manager.utils.parse_df`. The coefficient models measure
+        elapsed time from timestamps, so the off-cycle gaps parse_df leaves behind do
+        not affect them.
+
+        :param window: All rows of the training window (local time).
+        :type window: pd.DataFrame
+        :param fan_on: Window rows with the supply fan on (first row dropped).
+        :type fan_on: pd.DataFrame
+        :param mode: Detected operating mode.
+        :type mode: OperatingMode
+        :return: Training input; empty if nothing usable.
+        :rtype: pd.DataFrame
         """
-        occupancy_start = schedule.start
-        window_start = calculate_prestart_time(occupancy_start, prestart)
-        window_end = offset_time(occupancy_start, _TRAINING_END_OFFSET_MINUTES)
+        return parse_df(fan_on, mode.value)
+
+    @abstractmethod
+    def _train_mode(self, data: pd.DataFrame, mode: OperatingMode) -> None:
+        """
+        Learn coefficients from one morning's recovery.
+
+        :param data: Output of :meth:`_model_input`.
+        :type data: pd.DataFrame
+        :param mode: Operating mode of the recovery.
+        :type mode: OperatingMode
+        """
+        ...
+
+    @abstractmethod
+    def calculate_prestart(self, data: pd.DataFrame) -> float:
+        """
+        Minutes before occupancy the unit should start.
+
+        :param data: Current device data; the last row is "now".
+        :type data: pd.DataFrame
+        :return: Prestart in minutes (``latest_start_time`` if no recovery is needed,
+            ``earliest_start_time`` if there is no data, the zone temperature or a
+            setpoint is missing, or the model is not trained for the mode; NaN if
+            the model cannot predict today, e.g. without outdoor air).
+        :rtype: float
+        """
+        ...
+
+    # -- Shared helpers -----------------------------------------------------
+
+    def _training_window(self, data: pd.DataFrame, schedule, prestart: float,
+                         end_offset: int = _TRAINING_END_OFFSET_MINUTES) -> pd.DataFrame:
+        """
+        Rows between (occupancy - prestart) and (occupancy + ``end_offset``), local time.
+
+        :param data: Device data (index converted to ``tz``).
+        :type data: pd.DataFrame
+        :param schedule: Today's schedule (uses ``schedule.start``).
+        :param prestart: Minutes before occupancy the window starts.
+        :type prestart: float
+        :param end_offset: Minutes after occupancy the window ends.
+        :type end_offset: int
+        :return: Window rows with a local-time index.
+        :rtype: pd.DataFrame
+        """
+        window_start = calculate_prestart_time(schedule.start, prestart)
+        window_end = offset_time(schedule.start, end_offset)
         _log.debug("Training window: %s → %s", window_start, window_end)
 
         data = data.copy()
         data.index = pd.to_datetime(data.index, utc=True).tz_convert(self.tz)
-        data = data.between_time(window_start, window_end)
-        data = data[data["supplyfanstatus"] != 0]
-        data.to_csv('sort.csv')
-        if data.empty:
-            _log.debug("Supply fan was off for the entire training window.")
-            return None
-
-        # Drop the initial transition row.
-        return data.iloc[1:]
+        return data.between_time(window_start, window_end)
 
     def _compute_heat_transfer_rate(self, data: pd.DataFrame) -> pd.DataFrame:
         """
-        Computes the heat transfer rate (HTR) based on the temperature difference
-        column in the provided dataset. The function identifies the points at which
-        the temperature difference crosses defined thresholds, and returns a data
-        frame containing these points. If only one crossing is found and the initial
-        temperature difference exceeds the tolerance level, the last available row
-        is appended to the result for accuracy.
+        Recovery milestones used by the coefficient models.
 
-        :param data: A DataFrame containing temperature difference data. The
-                     computation relies on a specific column, 'tempdiff', being
-                     available among the data fields.
+        Finds the first row at which the temperature difference (``tempdiff``) has
+        dropped by each threshold in ``_HTR_THRESHOLDS`` (0 to 15 °F in 0.25 °F
+        steps). If only the zero threshold was crossed but the zone started outside
+        the allowable deviation, the last row is added as the end point. NaN values
+        never qualify.
+
+        :param data: Parsed recovery data with a ``tempdiff`` column.
         :type data: pd.DataFrame
-        :return: A DataFrame containing a subset of rows where the temperature
-                 difference crosses predefined thresholds. If no valid crossings
-                 are identified, an empty DataFrame is returned. The returned
-                 DataFrame avoids duplicate indices by keeping only the first
-                 occurrence.
+        :return: Milestone rows, deduplicated, in time order (empty if none).
         :rtype: pd.DataFrame
         """
-        temp_diff_col = dfpts.tempdiff.value
-        initial_diff = data[temp_diff_col].iloc[0]
-        thresholds = np.linspace(0, _HTR_MAX_THRESHOLD, _HTR_NUM_STEPS)
-
-        rows: list[pd.Series] = []
-        for threshold in thresholds:
-            try:
-                crossed = data[(initial_diff - data[temp_diff_col]) >= threshold]
-                rows.append(data.loc[crossed.index[0]])
-            except (IndexError, ValueError) as ex:
-                _log.debug("HTR lookup skipped at %.2f: %s", threshold, ex)
-
-        # If only one crossing found but the initial diff exceeds tolerance,
-        # append the last available row as an endpoint.
-        if len(rows) == 1 and initial_diff > self.setpoint_deviation:
-            rows.append(data.iloc[-1])
-
-        if not rows:
+        temp_diff = data[dfpts.tempdiff.value].to_numpy(dtype=float)
+        if len(temp_diff) == 0:
             return pd.DataFrame()
+        initial_diff = temp_diff[0]
 
-        htr = pd.concat(rows, axis=1).T
+        # Running max of the drop from the initial value; NaNs never qualify.
+        drop = np.nan_to_num(initial_diff - temp_diff, nan=-np.inf)
+        running_max = np.maximum.accumulate(drop)
+        positions = np.searchsorted(running_max, _HTR_THRESHOLDS, side="left")
+        positions = positions[positions < len(data)]
+
+        if len(positions) == 0:
+            return pd.DataFrame()
+        # Only the zero threshold was crossed but the zone was outside tolerance:
+        # use the last row as the end point.
+        if len(positions) == 1 and initial_diff > self.setpoint_deviation:
+            positions = np.append(positions, len(data) - 1)
+
+        htr = data.iloc[np.unique(positions)].copy()
         return htr[~htr.index.duplicated(keep="first")]
 
-    def _determine_mode(
-        self, conditions: ZoneConditions
-    ) -> Optional[OperatingMode]:
+    def _determine_mode(self, conditions: ZoneConditions) -> Optional[OperatingMode]:
         """
-        Determines the operational mode based on the provided zone conditions. This
-        function evaluates the current zone temperature relative to the heating and
-        cooling setpoints, adjusted by a setpoint deviation margin, to ascertain if
-        the system should be in heating, cooling, or no specific operational mode.
+        Mode needed to bring the zone within the allowable deviation of its setpoints.
 
-        :param conditions: Represents the current zone conditions including
-            temperature, heating setpoint, and cooling setpoint.
+        :param conditions: Zone conditions.
         :type conditions: ZoneConditions
-        :return: The determined operating mode, which could be heating, cooling,
-            or None if no specific mode is applicable based on the given conditions.
-        :rtype: Optional[OperatingMode]
-
+        :return: HEATING if the zone is more than the deviation below the heating
+            setpoint, COOLING if more than the deviation above the cooling setpoint,
+            otherwise None (no recovery needed).
+        :rtype: OperatingMode | None
         """
-        if (
-            conditions.zone_temperature + self.setpoint_deviation
-            < conditions.heating_setpoint
-        ):
+        if conditions.zone_temperature + self.setpoint_deviation < conditions.heating_setpoint:
             return OperatingMode.HEATING
-        if (
-            conditions.zone_temperature - self.setpoint_deviation
-            > conditions.cooling_setpoint
-        ):
+        if conditions.zone_temperature - self.setpoint_deviation > conditions.cooling_setpoint:
             return OperatingMode.COOLING
         return None
 
 
 class Carrier(OptimalStartZoneModel):
     """
-    Represents a Carrier model used for optimal start zone calculations in HVAC systems.
+    Rate-based model: minutes = degrees to recover / learned recovery rate.
 
-    The Carrier class provides mechanisms for training operation modes (cooling and heating),
-    calculating prestart times based on zone conditions, and adjusting start times according
-    to outdoor air temperatures and historical data. The class handles scaling of start times
-    based on reference outdoor air temperatures for both heating and cooling modes.
+    Each morning's recovery gives a rate in °F/min (temperature drop between the
+    heat-transfer milestones divided by the elapsed time). The prediction divides
+    the zone gap by the EMA of recent rates, scaled by outdoor air::
 
-    :ivar c1: Cooling rate coefficients list.
-    :type c1: list[float]
-    :ivar h1: Heating rate coefficients list.
-    :type h1: list[float]
-    :ivar oat_clg: Outdoor air temperatures during cooling training.
-    :type oat_clg: list[float]
-    :ivar oat_htg: Outdoor air temperatures during heating training.
-    :type oat_htg: list[float]
-    :ivar adjust_time: Adjustment time for start calculation.
-    :type adjust_time: float
+        oat_ratio = (reference - OAT_now) / (reference - OAT_training)
+        minutes   = gap / (oat_ratio * rate)
+
+    with reference 100 °F for cooling and 0 °F for heating: hotter (colder)
+    weather than during training lowers the effective rate and lengthens the
+    prediction. Without outdoor air there is no prediction (NaN, so the model
+    drops out of the decision) and the morning is not used for training. Outdoor
+    air at or beyond the reference gives the earliest start.
+
+    :ivar c1: Cooling rate history (``[timestamp, °F/min]``).
+    :vartype c1: list
+    :ivar h1: Heating rate history.
+    :vartype h1: list
+    :ivar oat_clg: Mean outdoor air during cooling training mornings.
+    :vartype oat_clg: list
+    :ivar oat_htg: Mean outdoor air during heating training mornings.
+    :vartype oat_htg: list
+    :ivar adjust_time: Reserved adjustment (minutes); not used in prediction.
+    :vartype adjust_time: float
     """
 
-    # Reference temperatures used for OAT scaling
-    _OAT_REF_HEATING = 0.0
-    _OAT_REF_COOLING = 100.0
+    STATE_FIELDS = ("c1", "h1", "oat_clg", "oat_htg", "adjust_time")
+    _OAT_REFERENCE = {OperatingMode.HEATING: 0.0, OperatingMode.COOLING: 100.0}
+    _OAT_FIELD = {OperatingMode.HEATING: "oat_htg", OperatingMode.COOLING: "oat_clg"}
+    # Smallest training distance (F) from the reference that the OAT scaling
+    # accepts; closer, the ratio would divide by (almost) zero.
+    _MIN_OAT_SPAN = 1.0
 
     def __init__(self, config: OptimalStartConfig, schedule_fn: Callable):
+        """
+        :param config: Optimal-start configuration.
+        :type config: OptimalStartConfig
+        :param schedule_fn: Callable returning today's schedule.
+        :type schedule_fn: Callable
+        """
         super().__init__(config, schedule_fn)
-        self.c1: list[float] = []
-        self.h1: list[float] = []
-        self.oat_clg: list[float] = []
-        self.oat_htg: list[float] = []
+        self.c1: list = []
+        self.h1: list = []
+        self.oat_clg: list = []
+        self.oat_htg: list = []
         self.adjust_time: float = 0.0
 
-    def train_cooling(self, data: pd.DataFrame) -> None:
+    @property
+    def is_trained(self) -> bool:
         """
-        Trains the model in cooling mode using the provided data.
-
-        This function sets the system to operate in cooling mode and
-        trains the respective model by utilizing the provided dataset.
-        It serves as a specific implementation of training directly
-        focused on the cooling operational strategy. The training process
-        uses the internal mechanism of the `_train_mode` function.
-
-        :param data: A pandas DataFrame containing the training
-            dataset required for the model. Data must be structured
-            and preprocessed appropriately to align with the expected
-            input format for system training.
-        :return: This method does not return any value.
+        :return: True once a cooling or heating rate has been learned.
+        :rtype: bool
         """
-        self._train_mode(data, OperatingMode.COOLING)
+        return bool(self.c1 or self.h1)
 
-    def train_heating(self, data: pd.DataFrame) -> None:
+    def trained_for(self, mode: OperatingMode) -> bool:
         """
-        Trains the model for heating operations using the provided dataset.
-
-        This method prepares the system for heating mode by processing the provided
-        dataset within the specified operating mode. It modifies the system's state
-        to reflect training completion for heating functionality.
-
-        :param data: The dataset used for training the heating-specific model.
-        :type data: pd.DataFrame
-        :return: None
+        :param mode: Operating mode.
+        :type mode: OperatingMode
+        :return: True if a rate has been learned for ``mode``.
+        :rtype: bool
         """
-        self._train_mode(data, OperatingMode.HEATING)
+        return bool(getattr(self, f"{mode.prefix}1"))
 
     def _train_mode(self, data: pd.DataFrame, mode: OperatingMode) -> None:
         """
-        Trains the model for the given operating mode using the provided data. The function
-        calculates heat transfer rate, temperature difference, time difference, and
-        updates training parameters such as coefficients. This function updates internal
-        model parameters that represent the state of training based on outdoor temperature
-        and calculated rates for heating or cooling modes. If the heat transfer rate table
-        is empty or if the time difference is zero, the function exits without making changes
-        to the model state.
+        Learn this morning's recovery rate and the outdoor air it was learned at.
 
-        :param data: The data used for training containing temperature records and related
-            details. Should be provided as a pandas DataFrame.
+        :param data: Parsed recovery data (``parse_df`` output).
         :type data: pd.DataFrame
-        :param mode: Operating mode for which the training is being performed; should be
-            either COOLING or HEATING.
+        :param mode: Operating mode of the recovery.
         :type mode: OperatingMode
-        :return: None
         """
         htr = self._compute_heat_transfer_rate(data)
         if htr.empty:
@@ -548,477 +648,332 @@ class Carrier(OptimalStartZoneModel):
             return
 
         rate = temp_diff / time_diff
-        label = f"Carrier {mode.value}"
-        if not _coefficients_are_valid({"rate": rate}, model_label=label):
+        if not _coefficients_are_valid({"rate": rate}, model_label=f"Carrier {mode.value}"):
             return
 
+        # The rate only means something relative to the outdoor air it was learned
+        # at (prediction rescales it by OAT), so a morning without outdoor air is
+        # not used: keeping the rate alone would leave the rate and OAT histories
+        # covering different mornings.
         oat_mean = htr["outdoortemperature"].mean()
+        if not np.isfinite(oat_mean):
+            _log.debug("Carrier %s: no outdoor air during the recovery - morning not used.", mode.value)
+            return
 
-        if mode is OperatingMode.COOLING:
-            self.c1 = trim(self.c1, rate, self.training_period_window)
-            self.oat_clg = trim(self.oat_clg, oat_mean, self.training_period_window)
-            self.record = {
-                "date": format_timestamp(dt.now()),
-                "c1": rate,
-                "c1_array": self.c1,
-            }
-        else:
-            self.h1 = trim(self.h1, rate, self.training_period_window)
-            self.oat_htg = trim(self.oat_htg, oat_mean, self.training_period_window)
-            self.record = {
-                "date": format_timestamp(dt.now()),
-                "h1": rate,
-                "h1_array": self.h1,
-            }
+        coeff_field = f"{mode.prefix}1"
+        oat_field = self._OAT_FIELD[mode]
+        history = trim(getattr(self, coeff_field), rate, self.training_period_window)
+        setattr(self, coeff_field, history)
+        setattr(self, oat_field, trim(getattr(self, oat_field), oat_mean, self.training_period_window))
+        self.record = _record(**{coeff_field: rate, f"{coeff_field}_array": history})
 
     def calculate_prestart(self, data: pd.DataFrame) -> float:
         """
-        Calculate the prestart time based on the provided data. The method evaluates the
-        conditions derived from the data to determine the operational mode. Based on the
-        mode, it calculates and returns the appropriate prestart time considering heating,
-        cooling, or a fallback to the latest possible start time.
+        Minutes needed: zone gap / (outdoor-air ratio x EMA of learned rates).
 
-        :param data: DataFrame containing the input data needed to calculate prestart time.
-                     It is essential for determining operating conditions and subsequent mode.
+        :param data: Current device data; the last row is "now".
         :type data: pd.DataFrame
-
-        :return: Calculated prestart time representing the earliest possible time the system
-                 should start operating, based on current conditions and mode.
+        :return: Prestart in minutes (not clamped; the manager clamps).
         :rtype: float
         """
-        if data.empty:
-            _log.debug("Carrier: empty data — returning earliest start.")
+        cond = self._current_conditions(data)
+        if cond is None:
             return self.earliest_start_time
-
-        cond = _extract_zone_conditions(data)
         mode = self._determine_mode(cond)
+        if mode is None:
+            return self.latest_start_time
 
-        if mode is OperatingMode.HEATING:
-            return self._prestart_heating(cond)
-        if mode is OperatingMode.COOLING:
-            return self._prestart_cooling(cond)
-        return self.latest_start_time
-
-    def _prestart_heating(self, cond: ZoneConditions) -> float:
-        """
-        Calculates the pre-start heating time based on zone conditions and internal model
-        parameters.
-
-        This method evaluates the difference between the heating setpoint and the current
-        zone temperature to determine the delta that must be accounted for during heating.
-        It applies a smoothing coefficient derived from historical data and scales the
-        heating estimation based on the relationship between outdoor air temperature (OAT)
-        and a reference OAT value. In cases where there is no historical data (`self.h1`),
-        the earliest start time for heating is returned as a default fallback.
-
-        The scaling factor is influenced by the ratio of the reference OAT to the current
-        OAT, adjusted relative to the historical reference. This helps form a context-
-        specific adjustment that reflects environmental changes, ensuring the pre-start
-        heating calculation remains accurate under varying conditions.
-
-        :param cond: ZoneConditions instance containing current zone temperature, outdoor
-                     air temperature, and heating setpoint information.
-        :type cond: ZoneConditions
-        :return: Estimated pre-start heating time in float representing the computed
-                 adjustment or earliest start time.
-        :rtype: float
-        """
-        if not self.h1:
+        history = getattr(self, f"{mode.prefix}1")
+        if not history:
             return self.earliest_start_time
 
-        delta = cond.heating_setpoint - cond.zone_temperature
-        coeff = ema(self.h1)
-        oat_ref = ema(self.oat_htg) if self.oat_htg else cond.outdoor_air_temperature
-
-        # Scale rate by the ratio of current to training OAT distance from reference.
-        oat_ratio = (
-            (self._OAT_REF_HEATING - cond.outdoor_air_temperature)
-            / (self._OAT_REF_HEATING - oat_ref)
-        )
-        return delta / (oat_ratio * coeff)
-
-    def _prestart_cooling(self, cond: ZoneConditions) -> float:
-        """
-        Calculates the prestart cooling duration based on current zone conditions.
-
-        This function determines the cooling duration required to bring a zone's
-        temperature to its cooling setpoint before initiating the cooling process.
-        It accounts for the zone's deviation from its cooling setpoint, the outdoor
-        air temperature ratio, and a coefficient derived from an exponential moving
-        average calculation.
-
-        :param cond: The current zone conditions, including temperature and
-            setpoints.
-        :type cond: ZoneConditions
-        :return: The calculated prestart cooling duration.
-        :rtype: float
-        """
-        if not self.c1:
-            return self.earliest_start_time
-
-        delta = cond.zone_temperature - cond.cooling_setpoint
-        coeff = ema(self.c1)
-        oat_ref = ema(self.oat_clg) if self.oat_clg else cond.outdoor_air_temperature
-
-        oat_ratio = (
-            (self._OAT_REF_COOLING - cond.outdoor_air_temperature)
-            / (self._OAT_REF_COOLING - oat_ref)
-        )
-        return delta / (oat_ratio * coeff)
+        oat_now = cond.outdoor_air_temperature
+        if not (pd.notna(oat_now) and np.isfinite(float(oat_now))):
+            _log.debug("Carrier %s: no outdoor air - no prediction.", mode.value)
+            return float("nan")
+        oat_history = getattr(self, self._OAT_FIELD[mode])
+        oat_ref = ema(oat_history) if oat_history else oat_now
+        reference = self._OAT_REFERENCE[mode]
+        # Scale the learned rate by how far today's OAT is from the reference
+        # compared with the OAT seen during training. Distances are signed so a
+        # larger value is milder: OAT above the 0 F heating reference, below the
+        # 100 F cooling reference.
+        sign = -1.0 if mode is OperatingMode.HEATING else 1.0
+        train_span = sign * (reference - oat_ref)
+        today_span = sign * (reference - oat_now)
+        if train_span < self._MIN_OAT_SPAN:
+            _log.debug("Carrier %s: training OAT %.1f too close to the %.0f F reference - no prediction.",
+                       mode.value, oat_ref, reference)
+            return float("nan")
+        if today_span <= 0:
+            return self.earliest_start_time          # at or beyond the reference: slowest recovery
+        oat_ratio = today_span / train_span
+        return cond.zone_error(mode) / (oat_ratio * ema(history))
 
 
 class Siemens(OptimalStartZoneModel):
     """
-    Represents a Siemens Optimal Start Zone Model. This class provides training
-    and prediction mechanisms for cooling and heating coefficients to optimize
-    the start times of HVAC systems.
+    Linear model with an outdoor-air interaction::
 
-    It determines efficient prestart times based on computed coefficients for
-    cooling and heating modes, using heat transfer rate calculations and environmental
-    conditions.
+        minutes = 60 * (k1 * gap + k2 * gap * oat_gap / 10) + adjust_time
 
-    :ivar c1: Cooling coefficient array representing the first cooling coefficient.
-    :type c1: list[float]
-    :ivar c2: Cooling coefficient array representing the second cooling coefficient.
-    :type c2: list[float]
-    :ivar h1: Heating coefficient array representing the first heating coefficient.
-    :type h1: list[float]
-    :ivar h2: Heating coefficient array representing the second heating coefficient.
-    :type h2: list[float]
-    :ivar adjust_time: Adjusted time to be considered in start time calculations.
-    :type adjust_time: float
+    ``gap`` is the zone gap and ``oat_gap`` the outdoor-air difference (both
+    floored at 0). ``k1`` (hours per °F) and ``k2`` are fitted per morning from
+    the recovery and averaged with an EMA.
+    Without outdoor air there is no prediction (NaN, so the model drops out of
+    the decision); a training morning without it still updates ``k1``.
+
+    :ivar c1: Cooling ``k1`` history.
+    :vartype c1: list
+    :ivar c2: Cooling ``k2`` history.
+    :vartype c2: list
+    :ivar h1: Heating ``k1`` history.
+    :vartype h1: list
+    :ivar h2: Heating ``k2`` history.
+    :vartype h2: list
+    :ivar adjust_time: Constant added to the prediction (minutes).
+    :vartype adjust_time: float
     """
 
+    STATE_FIELDS = ("c1", "c2", "h1", "h2", "adjust_time")
     _OSP_SCALE_FACTOR = 10.0
 
     def __init__(self, config: OptimalStartConfig, schedule_fn: Callable):
+        """
+        :param config: Optimal-start configuration.
+        :type config: OptimalStartConfig
+        :param schedule_fn: Callable returning today's schedule.
+        :type schedule_fn: Callable
+        """
         super().__init__(config, schedule_fn)
-        self.c1: list[float] = []
-        self.c2: list[float] = []
-        self.h1: list[float] = []
-        self.h2: list[float] = []
+        self.c1: list = []
+        self.c2: list = []
+        self.h1: list = []
+        self.h2: list = []
         self.adjust_time: float = 0.0
 
-    def train_cooling(self, data: pd.DataFrame) -> None:
+    @property
+    def is_trained(self) -> bool:
         """
-        Trains the cooling system model using the provided data and computes new
-        coefficients for the heat transfer rate based on the relationship between
-        zone temperature, cooling setpoints, and outdoor temperature.
+        :return: True once a cooling or heating ``k1`` has been learned.
+        :rtype: bool
+        """
+        return bool(self.c1 or self.h1)
 
-        :param data: The historical data required for calculating and training the cooling model.
-                     It must include zone temperature, cooling setpoint, and outdoor temperature.
-                     The data is expected to be in the form of a pandas DataFrame.
+    def trained_for(self, mode: OperatingMode) -> bool:
+        """
+        :param mode: Operating mode.
+        :type mode: OperatingMode
+        :return: True if both ``k1`` and ``k2`` have been learned for ``mode``.
+        :rtype: bool
+        """
+        return bool(getattr(self, f"{mode.prefix}1")) and bool(getattr(self, f"{mode.prefix}2"))
+
+    def _train_mode(self, data: pd.DataFrame, mode: OperatingMode) -> None:
+        """
+        Fit ``k1`` / ``k2`` for this morning and append them to the histories.
+
+        :param data: Parsed recovery data (``parse_df`` output).
         :type data: pd.DataFrame
-
-        :return: This method does not return a value. The computed coefficients and
-                 other relevant information are stored as class attributes.
-        :rtype: None
-
-        :raises ValueError: If the provided data does not include the required columns for training.
-        :raises TypeError: If the data argument is not of type pd.DataFrame.
+        :param mode: Operating mode of the recovery.
+        :type mode: OperatingMode
         """
         htr = self._compute_heat_transfer_rate(data)
         if htr.empty:
-            _log.debug("Siemens cooling: HTR table is empty.")
+            _log.debug("Siemens %s: HTR table is empty.", mode.value)
             return
 
-        zone_sp_diff = htr["zonetemperature"].iloc[0] - htr["coolingsetpoint"].iloc[0]
-        outdoor_sp_diff = htr["outdoortemperature"].iloc[0] - htr["coolingsetpoint"].iloc[0]
-
-        c1, c2 = self._fit_coefficients(data, htr, zone_sp_diff, outdoor_sp_diff, "cooling")
-        if c1 is None:
+        first = ZoneConditions.from_row(htr.iloc[0])
+        coeffs = self._fit_coefficients(
+            data, htr, first.zone_error(mode), first.outdoor_error(mode), mode.value
+        )
+        if coeffs is None:
             return
 
-        self.c1 = trim(self.c1, c1, self.training_period_window)
-        self.c2 = trim(self.c2, c2, self.training_period_window)
-        self.record = {
-            "date": format_timestamp(dt.now()),
-            "c1": c1, "c1_array": self.c1,
-            "c2": c2, "c2_array": self.c2,
-        }
-
-    def train_heating(self, data: pd.DataFrame) -> None:
-        """
-        Trains the heating model by computing heat transfer rate, fitting coefficients,
-        and updating existing records with new training data. This process adjusts
-        heating-related coefficients based on provided input data and updates the model
-        accordingly.
-
-        :param data:
-            A pandas DataFrame that contains the input data required for training,
-            including columns for heating setpoint, zone temperature, and outdoor
-            temperature.
-        :return:
-            None
-        """
-        htr = self._compute_heat_transfer_rate(data)
-        if htr.empty:
-            _log.debug("Siemens heating: HTR table is empty.")
-            return
-
-        zone_sp_diff = htr["heatingsetpoint"].iloc[0] - htr["zonetemperature"].iloc[0]
-        outdoor_sp_diff = htr["heatingsetpoint"].iloc[0] - htr["outdoortemperature"].iloc[0]
-
-        h1, h2 = self._fit_coefficients(data, htr, zone_sp_diff, outdoor_sp_diff, "heating")
-        if h1 is None:
-            return
-
-        self.h1 = trim(self.h1, h1, self.training_period_window)
-        self.h2 = trim(self.h2, h2, self.training_period_window)
-        self.record = {
-            "date": format_timestamp(dt.now()),
-            "h1": h1, "h1_array": self.h1,
-            "h2": h2, "h2_array": self.h2,
-        }
+        p = mode.prefix
+        self.record = _record()
+        for idx, value in enumerate(coeffs, start=1):
+            if value is None:
+                continue
+            field = f"{p}{idx}"
+            history = trim(getattr(self, field), value, self.training_period_window)
+            setattr(self, field, history)
+            self.record[field] = value
+            self.record[f"{field}_array"] = history
 
     def _fit_coefficients(
-        self,
-        data: pd.DataFrame,
-        htr: pd.DataFrame,
-        zone_sp_diff: float,
-        outdoor_sp_diff: float,
-        label: str,
-    ) -> tuple[Optional[float], Optional[float]]:
+        self, data: pd.DataFrame, htr: pd.DataFrame,
+        zone_sp_diff: float, outdoor_sp_diff: float, label: str,
+    ) -> Optional[tuple[float, float]]:
         """
-        Fits coefficients based on input data and calculated differences while applying
-        clamping and validation to ensure valid outputs. This method utilizes
-        operational scaling factors and dependencies to derive the required coefficients
-        that satisfy the specified constraints.
+        Coefficients for one morning's recovery.
 
-        :param data: Input DataFrame containing required time series data for calculations.
-                     Expected to include relevant time and temperature-related information.
+        ``k1`` = recovery hours per °F; ``k2`` is the remaining time explained by the
+        outdoor-air term (clamped at 0 rather than rejected). Without outdoor air
+        (or a zero outdoor-air difference) ``k2`` cannot be computed and is None;
+        ``k1`` is still learned.
+
+        :param data: Parsed recovery data.
         :type data: pd.DataFrame
-        :param htr: Input DataFrame containing heater data used for calculating time and
-                    temperature differences.
+        :param htr: Heat-transfer milestones (:meth:`_compute_heat_transfer_rate`).
         :type htr: pd.DataFrame
-        :param zone_sp_diff: Zone setpoint difference used in coefficient adjustments.
+        :param zone_sp_diff: Zone gap at the first milestone (°F).
         :type zone_sp_diff: float
-        :param outdoor_sp_diff: Outdoor setpoint difference used for scaling calculations.
+        :param outdoor_sp_diff: Outdoor-air difference at the first milestone (°F).
         :type outdoor_sp_diff: float
-        :param label: An identifier used for logging and debugging processes.
+        :param label: Mode label for logging.
         :type label: str
-        :return: A tuple containing two coefficients:
-                 - coeff1: A scale factor derived from time and temperature differences.
-                 - coeff2: A coefficient adjusted based on the outdoor setpoint difference.
-        :return type: tuple[Optional[float], Optional[float]]
+        :return: ``(k1, k2 or None)``, or None if the morning is unusable.
+        :rtype: tuple[float, float | None] | None
         """
         time_diff, temp_diff = get_time_temp_diff(htr, self.setpoint_deviation)
         if not time_diff:
             _log.debug("Siemens %s: time_diff is zero.", label)
-            return None, None
+            return None
 
-        time_one_degree = get_time_target(data, 1.0)
-        if np.isnan(time_one_degree):
+        if np.isnan(get_time_target(data, 1.0)):
             _log.debug("Siemens %s: time_one_degree is NaN.", label)
-            return None, None
+            return None
 
         coeff1 = (time_diff / temp_diff) / 60.0
-        coeff2 = (
+        model_label = f"Siemens {label}"
+        if not _coefficients_are_valid({"coeff1": coeff1}, model_label=model_label):
+            return None
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            coeff2 = (
                 (time_diff / 60.0 - coeff1 * zone_sp_diff)
                 * self._OSP_SCALE_FACTOR
-                / (outdoor_sp_diff * zone_sp_diff)
-        )
-
-        model_label = f"Siemens {label}"
-
-        # coeff1 must be strictly positive
-        if not _coefficients_are_valid({"coeff1": coeff1}, model_label=model_label):
-            return None, None
-
-        # coeff2 is clamped rather than rejected
+                / np.float64(outdoor_sp_diff * zone_sp_diff)
+            )
+        # coeff2 is clamped rather than rejected; without outdoor air only k1 is learned.
         if not np.isfinite(coeff2):
-            _log.debug("%s: non-finite coeff2.", model_label)
-            return None, None
-        if coeff2 <= 0:
-            _log.debug("%s: coeff2 is non-positive — clamping to 0.", model_label)
-            coeff2 = 0.0
-
-        return coeff1, coeff2
+            _log.debug("%s: coeff2 not computable (outdoor-air difference %s) - learning k1 only.",
+                       model_label, outdoor_sp_diff)
+            return coeff1, None
+        return coeff1, max(float(coeff2), 0.0)
 
     def calculate_prestart(self, data: pd.DataFrame) -> float:
         """
-        Calculates the prestart time required for system operation based on the zone
-        conditions, mode (heating or cooling), and configuration parameters. This method
-        evaluates zone setpoints, temperature differences, and other factors to determine
-        the necessary start time. For heating and cooling modes, it adjusts the timing
-        using configured coefficients and an outdoor-air-scaling factor. In case of missing
-        parameters or unsupported modes, it defaults to earliest or latest start time
-        accordingly.
+        Minutes needed from the EMA of ``k1`` / ``k2`` and today's gaps.
 
-        :param data: Input DataFrame containing zone conditions and setpoints. The DataFrame is
-            expected to provide information including but not limited to zone temperature,
-            heating setpoints, cooling setpoints, and outdoor air temperature. It is
-            assumed the DataFrame is pre-processed and structured for the necessary calculations.
-        :return: Float value representing the calculated prestart time in seconds
-            based on zone conditions and mode. Defaults to the earliest or latest start
-            time when the necessary parameters are missing or mode conditions are unsupported.
+        :param data: Current device data; the last row is "now".
+        :type data: pd.DataFrame
+        :return: Prestart in minutes (not clamped; the manager clamps).
         :rtype: float
         """
-        if data.empty:
-            _log.debug("Siemens: empty data — returning earliest start.")
+        cond = self._current_conditions(data)
+        if cond is None:
             return self.earliest_start_time
-
-        cond = _extract_zone_conditions(data)
         mode = self._determine_mode(cond)
-
-        if mode is OperatingMode.HEATING:
-            if not self.h1 or not self.h2:
-                return self.earliest_start_time
-            zsp = max(0.0, cond.heating_setpoint - cond.zone_temperature)
-            osp = max(0.0, cond.heating_setpoint - cond.outdoor_air_temperature)
-            coeff1, coeff2 = ema(self.h1), ema(self.h2)
-
-        elif mode is OperatingMode.COOLING:
-            if not self.c1 or not self.c2:
-                return self.earliest_start_time
-            zsp = max(0.0, cond.zone_temperature - cond.cooling_setpoint)
-            osp = max(0.0, cond.outdoor_air_temperature - cond.cooling_setpoint)
-            coeff1, coeff2 = ema(self.c1), ema(self.c2)
-
-        else:
+        if mode is None:
             return self.latest_start_time
 
-        start_time = (
-            (coeff1 * zsp + coeff2 * zsp * osp / self._OSP_SCALE_FACTOR)
-            * 60.0
-            + self.adjust_time
-        )
-        return start_time
+        k1_hist = getattr(self, f"{mode.prefix}1")
+        k2_hist = getattr(self, f"{mode.prefix}2")
+        if not k1_hist or not k2_hist:
+            return self.earliest_start_time
+
+        oat_diff = cond.outdoor_error(mode)
+        if not (pd.notna(oat_diff) and np.isfinite(float(oat_diff))):
+            # max(0.0, nan) is 0.0, which would silently drop the outdoor term.
+            _log.debug("Siemens %s: no outdoor air - no prediction.", mode.value)
+            return float("nan")
+        zsp = max(0.0, cond.zone_error(mode))
+        osp = max(0.0, float(oat_diff))
+        k1, k2 = ema(k1_hist), ema(k2_hist)
+        return (k1 * zsp + k2 * zsp * osp / self._OSP_SCALE_FACTOR) * 60.0 + self.adjust_time
 
 
 class Johnson(OptimalStartZoneModel):
     """
-    Represents the Johnson model used for calculating optimal prestart times and
-    analyzing thermal behavior in a given zone.
+    Quadratic model::
 
-    This class inherits from OptimalStartZoneModel and implements methods for
-    training heating and cooling system parameters, fitting coefficients, and
-    predicting the prestart time required for zones to reach target setpoints.
-    The coefficients related to heat transfer and thermal response are internally
-    managed and updated using training data.
+        minutes = k1 * gap**2 + k2
 
-    :ivar c1: Represents the coefficient related to the first heat transfer
-        parameter for cooling mode.
-    :type c1: float
-    :ivar c2: Represents the coefficient related to the second heat transfer
-        parameter for cooling mode.
-    :type c2: float
-    :ivar h1: Represents the coefficient related to the first heat transfer
-        parameter for heating mode.
-    :type h1: float
-    :ivar h2: Represents the coefficient related to the second heat transfer
-        parameter for heating mode.
-    :type h2: float
-    :ivar c1_list: Historical values of coefficient c1 for cooling mode.
-    :type c1_list: list[float]
-    :ivar c2_list: Historical values of coefficient c2 for cooling mode.
-    :type c2_list: list[float]
-    :ivar h1_list: Historical values of coefficient h1 for heating mode.
-    :type h1_list: list[float]
-    :ivar h2_list: Historical values of coefficient h2 for heating mode.
-    :type h2_list: list[float]
+    ``k2`` is the time to recover the first 1 °F (a fixed start-up cost) and
+    ``k1`` scales the rest of the recovery with the square of the gap. Both are
+    fitted per morning and averaged with an EMA.
+
+    :ivar c1_list: Cooling ``k1`` history.
+    :vartype c1_list: list
+    :ivar c2_list: Cooling ``k2`` history.
+    :vartype c2_list: list
+    :ivar h1_list: Heating ``k1`` history.
+    :vartype h1_list: list
+    :ivar h2_list: Heating ``k2`` history.
+    :vartype h2_list: list
     """
 
+    STATE_FIELDS = ("c1_list", "c2_list", "h1_list", "h2_list")
+
     def __init__(self, config: OptimalStartConfig, schedule_fn: Callable):
+        """
+        :param config: Optimal-start configuration.
+        :type config: OptimalStartConfig
+        :param schedule_fn: Callable returning today's schedule.
+        :type schedule_fn: Callable
+        """
         super().__init__(config, schedule_fn)
-        self.c1: float = 0.0
-        self.c2: float = 0.0
-        self.h1: float = 0.0
-        self.h2: float = 0.0
-        self.c1_list: list[float] = []
-        self.c2_list: list[float] = []
-        self.h1_list: list[float] = []
-        self.h2_list: list[float] = []
+        self.c1_list: list = []
+        self.c2_list: list = []
+        self.h1_list: list = []
+        self.h2_list: list = []
 
-    def train_cooling(self, data: pd.DataFrame) -> None:
+    @property
+    def is_trained(self) -> bool:
         """
-        Trains the cooling model by computing and updating coefficients related to cooling
-        performance based on the input data. The method extracts temperature and setpoint
-        differences from the provided dataset, fits coefficients using internal fitting
-        logic, trims historical coefficients based on a training period window, and
-        updates exponential moving averages. It also records the latest computed
-        coefficients and their respective arrays along with a timestamp.
+        :return: True once a cooling or heating ``k1`` has been learned.
+        :rtype: bool
+        """
+        return bool(self.c1_list or self.h1_list)
 
-        :param data: A pandas DataFrame containing the training data with at least
-            "zonetemperature" and "coolingsetpoint" columns.
+    def trained_for(self, mode: OperatingMode) -> bool:
+        """
+        :param mode: Operating mode.
+        :type mode: OperatingMode
+        :return: True if both ``k1`` and ``k2`` have been learned for ``mode``.
+        :rtype: bool
+        """
+        return bool(getattr(self, f"{mode.prefix}1_list")) and bool(getattr(self, f"{mode.prefix}2_list"))
+
+    def _train_mode(self, data: pd.DataFrame, mode: OperatingMode) -> None:
+        """
+        Fit ``k1`` / ``k2`` for this morning and append them to the histories.
+
+        :param data: Parsed recovery data (``parse_df`` output).
         :type data: pd.DataFrame
-
-        :return: None
-        :rtype: None
+        :param mode: Operating mode of the recovery.
+        :type mode: OperatingMode
         """
-        if data.empty:
-            return
-        initial_diff = data["zonetemperature"].iloc[0] - data["coolingsetpoint"].iloc[0]
-        result = self._fit_coefficients(data, initial_diff, "cooling")
-        if result is None:
+        initial_diff = ZoneConditions.from_row(data.iloc[0]).zone_error(mode)
+        coeffs = self._fit_coefficients(data, initial_diff, mode.value)
+        if coeffs is None:
             return
 
-        coeff1, coeff2 = result
-        self.c1_list = trim(self.c1_list, coeff1, self.training_period_window)
-        self.c1 = ema(self.c1_list)
-        self.c2_list = trim(self.c2_list, coeff2, self.training_period_window)
-        self.c2 = ema(self.c2_list)
-        self.record = {
-            "date": format_timestamp(dt.now()),
-            "c1": coeff1, "c1_array": self.c1_list,
-            "c2": coeff2, "c2_array": self.c2_list,
-        }
-
-    def train_heating(self, data: pd.DataFrame) -> None:
-        """
-        Trains heating system parameters using the difference between heating set points and
-        zone temperatures. The function computes coefficients from the training data and
-        stores the results in exponential moving averages and a record with relevant
-        training details.
-
-        :param data: A DataFrame containing heating system data. The DataFrame must include
-            'heatingsetpoint' and 'zonetemperature' columns. An empty DataFrame results in
-            an early exit from the computation.
-        :type data: pd.DataFrame
-        :return: None
-        """
-        if data.empty:
-            return
-        initial_diff = data["heatingsetpoint"].iloc[0] - data["zonetemperature"].iloc[0]
-        result = self._fit_coefficients(data, initial_diff, "heating")
-        if result is None:
-            return
-
-        coeff1, coeff2 = result
-        self.h1_list = trim(self.h1_list, coeff1, self.training_period_window)
-        self.h1 = ema(self.h1_list)
-        self.h2_list = trim(self.h2_list, coeff2, self.training_period_window)
-        self.h2 = ema(self.h2_list)
-        self.record = {
-            "date": format_timestamp(dt.now()),
-            "h1": coeff1, "h1_array": self.h1_list,
-            "h2": coeff2, "h2_array": self.h2_list,
-        }
+        p = mode.prefix
+        self.record = _record()
+        for idx, value in enumerate(coeffs, start=1):
+            field = f"{p}{idx}"
+            history = trim(getattr(self, f"{field}_list"), value, self.training_period_window)
+            setattr(self, f"{field}_list", history)
+            self.record[field] = value
+            self.record[f"{field}_array"] = history
 
     def _fit_coefficients(
-        self,
-        data: pd.DataFrame,
-        initial_diff: float,
-        label: str,
+        self, data: pd.DataFrame, initial_diff: float, label: str
     ) -> Optional[tuple[float, float]]:
         """
-        Fits the coefficients required for modeling based on the provided data
-        and parameters. This method computes the coefficients 'coeff1' and 'coeff2'
-        related to the heat transfer rate and temperature deviations. The coefficients
-        are validated before returning. If any condition fails, the method returns None.
+        Coefficients for one morning's recovery.
 
-        :param data: A pandas DataFrame containing the time series data required
-            for computation of heat transfer rates and other parameters.
+        :param data: Parsed recovery data.
         :type data: pd.DataFrame
-        :param initial_diff: The initial temperature difference used as input for
-            calculating the coefficient 'coeff1'.
+        :param initial_diff: Zone gap at the start of the recovery (°F).
         :type initial_diff: float
-        :param label: A string label to identify the computation process or source
-            of the data.
+        :param label: Mode label for logging.
         :type label: str
-        :return: A tuple containing the computed coefficients 'coeff1' and 'coeff2'
-            if successful, else None.
-        :rtype: Optional[tuple[float, float]]
+        :return: ``(k1, k2)`` (both strictly positive), or None if unusable.
+        :rtype: tuple[float, float] | None
         """
         htr = self._compute_heat_transfer_rate(data)
         if htr.empty:
@@ -1040,264 +995,605 @@ class Johnson(OptimalStartZoneModel):
         else:
             coeff1 = time_diff / (temp_diff * 10)
 
-        model_label = f"Johnson {label}"
         if not _coefficients_are_valid(
-            {"coeff1": coeff1, "coeff2": coeff2}, model_label=model_label
+            {"coeff1": coeff1, "coeff2": coeff2}, model_label=f"Johnson {label}"
         ):
             return None
-
         return coeff1, coeff2
+
+    def calculate_prestart(self, data: pd.DataFrame) -> float:
+        """
+        Minutes needed: ``EMA(k1) * gap**2 + EMA(k2)``.
+
+        :param data: Current device data; the last row is "now".
+        :type data: pd.DataFrame
+        :return: Prestart in minutes (not clamped; the manager clamps).
+        :rtype: float
+        """
+        cond = self._current_conditions(data)
+        if cond is None:
+            return self.earliest_start_time
+        mode = self._determine_mode(cond)
+        if mode is None:
+            return self.latest_start_time
+
+        k1_hist = getattr(self, f"{mode.prefix}1_list")
+        k2_hist = getattr(self, f"{mode.prefix}2_list")
+        if not k1_hist or not k2_hist:
+            return self.earliest_start_time
+
+        zsp = cond.zone_error(mode)
+        return ema(k1_hist) * zsp * zsp + ema(k2_hist)
+
+
+class Sbs(OptimalStartZoneModel):
+    """
+    First-order (exponential) decay model of the setpoint error.
+
+    The deadband-adjusted setpoint error ``e`` is assumed to decay by a fixed
+    factor each minute, ``e[t+1] = alpha * e[t]``. Alpha is fitted per morning by
+    least squares on every minute from unit start (including compressor/fan
+    off-cycles, as in the original sbs-application) and averaged with an EMA.
+    The prediction is the minutes for today's error to decay to the allowable
+    deviation::
+
+        minutes = ln(deviation / error) / ln(alpha)
+
+    clamped to [latest, earliest]. Alpha is learned separately for cooling and
+    heating; the fit starts after the start-up transient and only real recoveries
+    are used (see :meth:`_model_input`).
+
+    :ivar alpha_list_cooling: Cooling alpha history (``[timestamp, alpha]``).
+    :vartype alpha_list_cooling: list
+    :ivar alpha_list_heating: Heating alpha history.
+    :vartype alpha_list_heating: list
+    :ivar alpha: Alpha used by the latest prediction (None before one is made).
+    :vartype alpha: float | None
+    :ivar sp_error_occ: Predicted error remaining at the earliest start horizon
+        (diagnostic).
+    :vartype sp_error_occ: float
+    """
+
+    STATE_FIELDS = ("alpha_list_cooling", "alpha_list_heating")
+    _ALPHA_LOWER = 0.001
+    _ALPHA_UPPER = 0.999
+    _SBS_COLUMNS = ["zonetemperature", "coolingsetpoint", "heatingsetpoint"]
+    _MAX_FILL_MINUTES = 5
+    #: Minutes after unit start searched for the peak error (end of the start-up transient).
+    _STARTUP_MINUTES = 20
+
+    def __init__(self, config: OptimalStartConfig, schedule_fn: Callable):
+        """
+        :param config: Optimal-start configuration.
+        :type config: OptimalStartConfig
+        :param schedule_fn: Callable returning today's schedule.
+        :type schedule_fn: Callable
+        """
+        super().__init__(config, schedule_fn)
+        self.alpha_list_cooling: list = []
+        self.alpha_list_heating: list = []
+        self.alpha: Optional[float] = None          # alpha used by the latest prediction
+        self.sp_error_occ: float = 0.0
+
+    @property
+    def is_trained(self) -> bool:
+        """
+        :return: True once an alpha has been learned for either mode.
+        :rtype: bool
+        """
+        return bool(self.alpha_list_cooling or self.alpha_list_heating)
+
+    def _history(self, mode: OperatingMode) -> list:
+        """
+        Alpha history for ``mode``.
+
+        :param mode: Operating mode.
+        :type mode: OperatingMode
+        :return: ``alpha_list_cooling`` or ``alpha_list_heating``.
+        :rtype: list
+        """
+        return getattr(self, f"alpha_list_{mode.value}")
+
+    def trained_for(self, mode: OperatingMode) -> bool:
+        """
+        :param mode: Operating mode.
+        :type mode: OperatingMode
+        :return: True if an alpha has been learned for ``mode``.
+        :rtype: bool
+        """
+        return bool(self._history(mode))
+
+    def load_model(self, model_dict: dict[str, Any]) -> None:
+        """
+        Restore learned state.
+
+        A legacy single ``alpha_list`` (saved before alpha was split by mode) seeds
+        both the cooling and heating histories, so deployed agents keep what they
+        learned.
+
+        :param model_dict: Persisted state (may be None).
+        :type model_dict: dict[str, Any]
+        """
+        super().load_model(model_dict)
+        legacy = (model_dict or {}).get("alpha_list")
+        if legacy and not self.is_trained:
+            self.alpha_list_cooling = list(legacy)
+            self.alpha_list_heating = list(legacy)
+
+    # -- Training -----------------------------------------------------------
+
+    def _errors(self, data: pd.DataFrame) -> np.ndarray:
+        """
+        Deadband-adjusted setpoint error per row.
+
+        The error is measured from the setpoint midpoint and reduced by half the
+        deadband, so it equals ``cooling SP - zone`` (negative) when the zone is above
+        the cooling setpoint and ``heating SP - zone`` (positive) when below the
+        heating setpoint, and 0 inside the deadband.
+
+        :param data: Rows with zone temperature and both setpoints.
+        :type data: pd.DataFrame
+        :return: Error per row (°F); NaN where data is missing.
+        :rtype: np.ndarray
+        """
+        midpoint = (data["coolingsetpoint"] + data["heatingsetpoint"]) / 2.0
+        deadband = data["coolingsetpoint"] - data["heatingsetpoint"]
+        return self._apply_deadband(
+            (midpoint - data["zonetemperature"]).to_numpy(dtype=float), deadband.to_numpy(dtype=float)
+        )
+
+    def _model_input(
+        self, window: pd.DataFrame, fan_on: pd.DataFrame, mode: OperatingMode
+    ) -> pd.DataFrame:
+        """
+        Minute-by-minute data for the alpha fit.
+
+        Every minute from the first fan start to the end of the window, including
+        compressor/fan off cycles; short sample gaps (up to ``_MAX_FILL_MINUTES``) are
+        forward filled, longer gaps stay NaN and are skipped by the fit.
+
+        The fit starts at the largest error within the first ``_STARTUP_MINUTES``:
+        some zone sensors keep moving away from setpoint for a few minutes after the
+        fan starts, which would otherwise read as alpha > 1. Mornings whose error at
+        that point is within the allowable deviation are not a real recovery and are
+        not used (they would fit alpha ~ 1).
+
+        :param window: All rows of the training window (local time).
+        :type window: pd.DataFrame
+        :param fan_on: Window rows with the supply fan on.
+        :type fan_on: pd.DataFrame
+        :param mode: Detected operating mode (not used: the error sign carries it).
+        :type mode: OperatingMode
+        :return: 1-minute rows from the peak error onward; empty if not usable.
+        :rtype: pd.DataFrame
+        """
+        empty = window.iloc[0:0][self._SBS_COLUMNS]
+        first_on = window.index[window["supplyfanstatus"] != 0][0]
+        started = window.loc[first_on:, self._SBS_COLUMNS]
+        started = started.resample("1min").mean().ffill(limit=self._MAX_FILL_MINUTES)
+
+        head = np.abs(self._errors(started)[: self._STARTUP_MINUTES])
+        if not np.isfinite(head).any():
+            return empty
+        peak = int(np.nanargmax(head))
+        if head[peak] <= self.setpoint_deviation:
+            _log.debug("SBS: no recovery needed (error %.2f) - not training.", head[peak])
+            return empty
+        return started.iloc[peak:]
+
+    def _train_mode(self, data: pd.DataFrame, mode: OperatingMode) -> None:
+        """
+        Fit this morning's alpha and append it to the history for ``mode``.
+
+        Least squares of ``e[t] = alpha * e[t-1]`` (one step = one minute), with
+        ``e[-1] = 0``; pairs touching a data gap are skipped. The estimate is clipped
+        to [``_ALPHA_LOWER``, ``_ALPHA_UPPER``]; no update if the fit is degenerate.
+
+        :param data: Output of :meth:`_model_input`.
+        :type data: pd.DataFrame
+        :param mode: Operating mode of the recovery.
+        :type mode: OperatingMode
+        """
+        errors = self._errors(data)
+        # Least-squares fit of e[t] = alpha * e[t-1] (one step = one minute),
+        # with e[-1] = 0; pairs touching a data gap are skipped.
+        previous = np.concatenate(([0.0], errors[:-1]))
+        valid = np.isfinite(previous) & np.isfinite(errors)
+        sum_x2 = float(np.sum(previous[valid] ** 2))
+        sum_xy = float(np.sum(previous[valid] * errors[valid]))
+
+        new_alpha = None
+        history = self._history(mode)
+        if sum_x2 > 0 and sum_xy > 0:
+            new_alpha = float(np.clip(sum_xy / sum_x2, self._ALPHA_LOWER, self._ALPHA_UPPER))
+            history = trim(history, new_alpha, self.training_period_window)
+            setattr(self, f"alpha_list_{mode.value}", history)
+        self.record = _record(mode=mode.value, new_alpha=new_alpha,
+                              alpha=ema(history) if history else None, alpha_array=history)
 
     # -- Prediction ---------------------------------------------------------
 
     def calculate_prestart(self, data: pd.DataFrame) -> float:
         """
-        Calculates the prestart time based on the conditions and mode of operation.
+        Minutes for today's error to decay to the allowable deviation.
 
-        The method evaluates the provided data for zone conditions to determine the
-        operating mode (heating or cooling). Based on this mode, it computes a zone
-        setpoint difference and applies coefficients to calculate the prestart time
-        needed. If the dataset is empty or the required parameters are not available,
-        it returns the earliest start time. Should no valid mode be found, the method
-        returns the latest start time.
-
-        :param data: Input dataframe containing zone condition data.
+        :param data: Current device data; the last row is "now".
         :type data: pd.DataFrame
-        :return: Computed prestart time as a float.
+        :return: Prestart in minutes, clamped to [latest, earliest].
         :rtype: float
         """
-        if data.empty:
-            _log.debug("Johnson: empty data — returning earliest start.")
+        cond = self._current_conditions(data)
+        if cond is None:
             return self.earliest_start_time
-
-        cond = _extract_zone_conditions(data)
         mode = self._determine_mode(cond)
-
-        if mode is OperatingMode.HEATING:
-            if not self.h1_list or not self.h2_list:
-                return self.earliest_start_time
-            zsp = cond.zone_temperature - cond.heating_setpoint
-            coeff1, coeff2 = self.h1, self.h2
-
-        elif mode is OperatingMode.COOLING:
-            if not self.c1_list or not self.c2_list:
-                return self.earliest_start_time
-            zsp = cond.cooling_setpoint - cond.zone_temperature
-            coeff1, coeff2 = self.c1, self.c2
-
-        else:
+        if mode is None:
             return self.latest_start_time
+        history = self._history(mode)
+        if not history:
+            return self.earliest_start_time            # not trained for this mode yet
 
-        return coeff1 * zsp * zsp + coeff2
-
-
-class Sbs(OptimalStartZoneModel):
-    """
-    Represents a Specific Building Simulation (SBS) model for optimal start
-    zone management.
-
-    This class extends the `OptimalStartZoneModel` to provide methods for
-    training heating and cooling models as well as calculating prestart
-    based on setpoint deviations and other environmental conditions. It
-    implements autoregressive techniques to estimate internal parameters
-    such as alpha values and supports consistent training routines for both
-    heating and cooling systems.
-
-    :ivar alpha: The exponential moving average (EMA) alpha value used in
-                 autoregressive estimation.
-    :type alpha: float
-    :ivar alpha_list: A list of alpha values obtained during training for
-                      EMA calculation.
-    :type alpha_list: list[float]
-    :ivar sp_error_occ: The calculated setpoint error occurrence after
-                        prediction processing.
-    :type sp_error_occ: float
-    :ivar _e_last: Tracks the previous error value during training for the
-                   autoregressive estimator.
-    :type _e_last: float
-    :ivar _sum_xy: Tracks the cumulative product of x and y for alpha
-                   estimation.
-    :type _sum_xy: float
-    :ivar _sum_x2: Tracks the cumulative sum of x squared for alpha
-                   estimation.
-    :type _sum_x2: float
-    :ivar _cumulative_time: Tracks the accumulated time during training
-                            to calculate averages.
-    :type _cumulative_time: float
-    """
-
-    _ALPHA_LOWER = 0.001
-    _ALPHA_UPPER = 0.999
-
-    def __init__(self, config: OptimalStartConfig, schedule_fn: Callable):
-        super().__init__(config, schedule_fn)
-        default_start = self.earliest_start_time + self.latest_start_time
-        self.alpha: float = np.exp(-1.0 / default_start)
-        self.alpha_list: list[float] = []
-        self.sp_error_occ: float = 0.0
-        self._reset_estimation()
-
-    def _reset_estimation(self) -> None:
-        """
-        Resets the internal estimation values to their initial state.
-
-        This method is used to initialize or clear the internally stored
-        values that support the estimation computations. All internal
-        attributes specific to state maintenance are re-initialized to
-        default values.
-
-        :return: None
-        """
-        self._sum_xy: float = 0.0
-        self._sum_x2: float = 0.0
-        self._cumulative_time: float = 0.0
-
-    # -- Training -----------------------------------------------------------
-
-    def train_heating(self, data: pd.DataFrame) -> None:
-        """
-        Trains the heating model using the provided data.
-
-        This method utilizes the same autoregressive estimator as
-        the cooling model. It delegates the training process to
-        the `train_cooling` method, ensuring consistency between
-        both heating and cooling models in how they are trained.
-
-        :param data: Input data for training the model.
-                     This should be a pandas DataFrame containing
-                     the relevant training data.
-
-        :return: None
-        """
-        # Heating and cooling share the same autoregressive estimator.
-        self.train_cooling(data)
-
-    def train_cooling(self, data: pd.DataFrame) -> None:
-        """
-        Trains the cooling model based on provided data.
-
-        This method processes temperature and setpoint information to calculate
-        intermediate variables such as the mid-point of setpoints, deadband range,
-        and error values. The error values are adjusted based on the deadband
-        logic and then iteratively used to update internal state variables
-        necessary for model training. The trained alpha value is estimated
-        and recorded alongside training metadata for future analysis.
-
-        :param data: A DataFrame containing temperature and setpoint data
-                     used for training. It must include the following columns:
-                     - 'coolingsetpoint': Cooling setpoint temperature.
-                     - 'heatingsetpoint': Heating setpoint temperature.
-                     - 'zonetemperature': Current zone temperature.
-        :return: None
-        """
-        self._reset_estimation()
-
-        data = data.copy()
-        data["setpoint_mid"] = (data["coolingsetpoint"] + data["heatingsetpoint"]) / 2.0
-        data["deadband"] = data["coolingsetpoint"] - data["heatingsetpoint"]
-        data["error_raw"] = data["setpoint_mid"] - data["zonetemperature"]
-        data["error"] = data.apply(
-            lambda row: self._apply_deadband(row["error_raw"], row["deadband"]),
-            axis=1,
-        )
-
-        avg_timestep = (
-            data.index.to_series().diff().dt.total_seconds().div(60).mean()
-        )
-
-        for _, row in data.iterrows():
-            self._cumulative_time += avg_timestep
-            x = self._e_last
-            y = row["error"]
-            self._sum_x2 += x ** 2
-            self._sum_xy += x * y
-            self._e_last = y
-
-        new_alpha = self._estimate_alpha()
-        self.record = {
-            "date": format_timestamp(dt.now()),
-            "new_alpha": new_alpha,
-            "alpha": self.alpha,
-            "alpha_array": self.alpha_list,
-        }
-
-    def _estimate_alpha(self) -> Optional[float]:
-        """
-        Estimates the alpha value based on the sum of squares of x and the
-        product of x and y. Adjusts the estimation by constraining it within
-        pre-defined bounds and applying exponential moving average (EMA).
-
-        :return: The estimated alpha value if the calculations and conditions
-                 are met, otherwise None.
-        :rtype: Optional[float]
-        """
-        if self._sum_x2 <= 0 or self._sum_xy <= 0:
-            return None
-
-        raw = self._sum_xy / self._sum_x2
-        new_alpha = float(np.clip(raw, self._ALPHA_LOWER, self._ALPHA_UPPER))
-
-        self.alpha_list = trim(self.alpha_list, new_alpha, self.training_period_window)
-        self.alpha = ema(self.alpha_list)
-        return new_alpha
-
-    def calculate_prestart(self, data: pd.DataFrame) -> float:
-        """
-        Calculates the prestart time for a given zone based on the conditions extracted
-        from the provided data. This function uses the setpoint deviation, current zone
-        temperature, and the zone's cooling and heating setpoints, accounting for a
-        deadband to avoid rapid state changes. It computes the logarithmic progression
-        towards target conditions to determine the required prestart time. The result is
-        clipped between the latest and earliest permissible start times.
-
-        :param data: A pandas DataFrame containing the relevant zone data, including
-            cooling and heating setpoints, and the zone temperature.
-        :type data: pd.DataFrame
-
-        :return: The prestart time, clipped within the range of earliest and latest
-            start times as specified.
-        :rtype: float
-        """
-        if data.empty:
-            _log.debug("SBS: empty data — returning earliest start.")
-            return self.earliest_start_time
-
-        cond = _extract_zone_conditions(data)
+        self.alpha = ema(history)
         midpoint = (cond.cooling_setpoint + cond.heating_setpoint) / 2.0
         deadband = cond.cooling_setpoint - cond.heating_setpoint
-
-        error = abs(self._apply_deadband(midpoint - cond.zone_temperature, deadband))
+        error = abs(float(self._apply_deadband(midpoint - cond.zone_temperature, deadband)))
 
         if error > 0:
             prestart = np.log(self.setpoint_deviation / error) / np.log(self.alpha)
         else:
             prestart = self.latest_start_time
-
         prestart = float(np.clip(prestart, self.latest_start_time, self.earliest_start_time))
         self.sp_error_occ = error * np.power(self.alpha, self.earliest_start_time)
-
-        _log.debug(
-            "SBS: error=%.2f  alpha=%.4f  prestart=%.1f", error, self.alpha, prestart
-        )
+        _log.debug("SBS %s: error=%.2f  alpha=%.4f  prestart=%.1f", mode.value, error, self.alpha, prestart)
         return prestart
 
     @staticmethod
-    def _apply_deadband(error: float, deadband: float) -> float:
+    def _apply_deadband(error, deadband):
         """
-        Applies a deadband to the provided error value. A deadband is a range within
-        which the input values are considered insignificant (zeroed). Values outside the
-        deadband range will be adjusted accordingly to account for the deadband effect.
+        Zero the error inside ±deadband/2 and shrink it by deadband/2 outside.
 
-        :param error: The input error value to which the deadband will be applied.
-        :type error: float
-        :param deadband: The range of the deadband within which values will be zeroed.
-        :type deadband: float
-        :return: The adjusted error value after applying the deadband. The value is zero
-            if the input error is within the deadband range; otherwise, returns the
-            adjusted error accounting for the deadband.
+        Works element-wise on arrays and on scalars.
+
+        :param error: Error from the setpoint midpoint (°F).
+        :param deadband: Cooling SP - heating SP (°F).
+        :return: Deadband-adjusted error (float for scalar input, else ndarray).
+        """
+        error = np.asarray(error, dtype=float)
+        half = np.asarray(deadband, dtype=float) / 2.0
+        result = np.where(np.abs(error) <= half, 0.0, error - np.sign(error) * half)
+        return result if result.ndim else float(result)
+
+
+def _weighted_quantile(values: np.ndarray, weights: np.ndarray, q: float) -> float:
+    """
+    Weighted quantile (linear interpolation between weighted midpoints).
+
+    With equal weights this matches ``np.quantile(values, q, method="hazen")``.
+
+    :param values: Values.
+    :type values: np.ndarray
+    :param weights: Non-negative weight per value.
+    :type weights: np.ndarray
+    :param q: Quantile in [0, 1].
+    :type q: float
+    :return: The weighted ``q`` quantile.
+    :rtype: float
+    """
+    order = np.argsort(values)
+    v, w = np.asarray(values, dtype=float)[order], np.asarray(weights, dtype=float)[order]
+    cumulative = (np.cumsum(w) - 0.5 * w) / w.sum()
+    return float(np.interp(q, cumulative, v))
+
+
+class RecoveryRegression(OptimalStartZoneModel):
+    """
+    Learns the start time directly from observed recoveries.
+
+    Each morning gives one observation for the mode the zone needed: the gap to
+    setpoint and the outdoor-air difference at unit start, and the minutes the
+    zone took to get within ``TARGET_DEVIATION`` of setpoint. The prediction is a
+    robust (Huber) least-squares fit over the last ``HISTORY`` observations,
+    weighted toward recent mornings (see ``HALF_LIFE``)::
+
+        minutes = a + b * gap + c * gap * oat_diff + margin
+
+    * ``a`` - fixed start-up overhead (fan/compressor start, final approach);
+    * ``b`` - minutes per °F of gap in mild weather;
+    * ``c`` - how outdoor air changes the cost of each degree;
+    * ``oat_diff`` - OAT - SP for cooling, SP - OAT for heating (larger = harder);
+    * ``margin`` - the ``MARGIN_QUANTILE`` quantile of the fit residuals
+      (recency weighted): a learned bias toward starting slightly early, since
+      a late start costs comfort.
+
+    Each observation's weight halves every ``HALF_LIFE`` observations back, so
+    the fit follows seasonal changes (it matters most for heating, whose
+    recoveries shift over a winter) while older mornings still steady it.
+
+    Without a usable outdoor-air reading (missing or stale), or with fewer than
+    ``MIN_OBSERVATIONS`` observations that have one, the fit drops the outdoor
+    term (``a + b * gap``). The model is untrained for a mode until it has
+    ``MIN_OBSERVATIONS`` observations. Coefficients are recomputed at every
+    prediction, so the observation history is the complete state.
+
+    The model keeps one history for every day (``SEPARATE_WEEKEND_MODEL`` is
+    False). Each recovery is observed until occupancy + :meth:`observation_horizon`
+    minutes, so training must run after that; a recovery not finished by then is
+    recorded at the horizon.
+
+    :cvar TARGET_DEVIATION: Target closeness to setpoint (°F) that ends a recovery.
+    :cvar HISTORY: Observations kept per mode.
+    :cvar MIN_OBSERVATIONS: Observations needed before the model is trained.
+    :cvar MARGIN_QUANTILE: Residual quantile added as the early-start margin.
+    :cvar HALF_LIFE: Observations back at which an observation's weight halves
+        (recency weighting of the fit and margin); 0 weights all equally.
+    :cvar OBSERVATION_HORIZON_MINUTES: Minimum minutes after occupancy a recovery
+        is observed (see :meth:`observation_horizon`).
+    :ivar observations_cooling: Cooling observations,
+        ``[timestamp, gap, oat_diff or None, minutes]``, oldest first.
+    :vartype observations_cooling: list
+    :ivar observations_heating: Heating observations (same layout).
+    :vartype observations_heating: list
+    """
+
+    STATE_FIELDS = ("observations_cooling", "observations_heating")
+    # One history for every day: Mondays are just more observations (the gap and
+    # outdoor-air terms describe the conditions); a weekend-only copy would see
+    # too few mornings to fit.
+    SEPARATE_WEEKEND_MODEL = False
+    TARGET_DEVIATION = 0.5
+    HISTORY = 20
+    MIN_OBSERVATIONS = 5
+    MARGIN_QUANTILE = 0.7
+    HALF_LIFE = 3
+    OBSERVATION_HORIZON_MINUTES = 90
+    _HUBER_K = 1.345
+
+    def __init__(self, config: OptimalStartConfig, schedule_fn: Callable):
+        """
+        :param config: Optimal-start configuration.
+        :type config: OptimalStartConfig
+        :param schedule_fn: Callable returning today's schedule.
+        :type schedule_fn: Callable
+        """
+        super().__init__(config, schedule_fn)
+        # Each observation: [timestamp, gap (F), oat_diff (F) or None, minutes]
+        self.observations_cooling: list = []
+        self.observations_heating: list = []
+
+    @classmethod
+    def observation_horizon(cls, earliest_start_time: float, latest_start_time: float) -> float:
+        """
+        Minutes after occupancy a recovery is observed.
+
+        At least ``OBSERVATION_HORIZON_MINUTES``, and long enough that a recovery
+        started as late as ``latest_start_time`` is still watched for the full
+        ``earliest_start_time``: the start lead is capped at
+        ``earliest_start_time``, so the model must be able to see recoveries that
+        need all of it (``lead + horizon >= earliest_start_time`` for every
+        lead >= ``latest_start_time``). Otherwise mornings the model started too
+        late would be recorded short and it could never learn to use the full
+        allowance.
+
+        :param earliest_start_time: Maximum prestart (minutes).
+        :type earliest_start_time: float
+        :param latest_start_time: Minimum prestart (minutes).
+        :type latest_start_time: float
+        :return: Horizon in minutes after occupancy.
         :rtype: float
         """
-        half = deadband / 2.0
-        if abs(error) <= half:
-            return 0.0
-        return error - half if error > 0 else error + half
+        return float(max(cls.OBSERVATION_HORIZON_MINUTES, earliest_start_time - latest_start_time))
+
+    @property
+    def horizon_minutes(self) -> float:
+        """
+        :return: This model's observation horizon for its current configuration.
+        :rtype: float
+        """
+        return self.observation_horizon(self.earliest_start_time, self.latest_start_time)
+
+    def _history(self, mode: OperatingMode) -> list:
+        """
+        Observation history for ``mode``.
+
+        :param mode: Operating mode.
+        :type mode: OperatingMode
+        :return: ``observations_cooling`` or ``observations_heating``.
+        :rtype: list
+        """
+        return getattr(self, f"observations_{mode.value}")
+
+    @property
+    def is_trained(self) -> bool:
+        """
+        :return: True once either mode has ``MIN_OBSERVATIONS`` observations.
+        :rtype: bool
+        """
+        return any(self.trained_for(m) for m in OperatingMode)
+
+    def trained_for(self, mode: OperatingMode) -> bool:
+        """
+        :param mode: Operating mode.
+        :type mode: OperatingMode
+        :return: True if ``mode`` has at least ``MIN_OBSERVATIONS`` observations.
+        :rtype: bool
+        """
+        return len(self._history(mode)) >= self.MIN_OBSERVATIONS
+
+    # -- Training -----------------------------------------------------------
+
+    def train(self, data: pd.DataFrame, prestart: Optional[float] = None) -> None:
+        """
+        Record this morning's recovery as an observation.
+
+        Uses the window from ``prestart`` minutes before occupancy to occupancy +
+        :attr:`horizon_minutes` (see :meth:`_observe`) and appends the
+        observation to the history for its mode, keeping the last ``HISTORY``.
+        :attr:`record` holds the observation, or stays empty if none was recorded.
+
+        :param data: Today's device data, time indexed.
+        :type data: pd.DataFrame
+        :param prestart: Minutes before occupancy the window starts (normally the
+            committed prestart + a buffer); defaults to ``earliest_start_time``.
+        :type prestart: float | None
+        """
+        self.record = {}
+        if prestart is None:
+            prestart = self.earliest_start_time
+        if data is None or data.empty:
+            return
+        schedule = self._get_current_schedule()
+        if schedule is None or schedule.start is None:
+            return
+
+        window = self._training_window(data, schedule, prestart, end_offset=int(np.ceil(self.horizon_minutes)))
+        observation = self._observe(window, schedule)
+        if observation is None:
+            return
+        mode, gap, oat_diff, minutes = observation
+        history = self._history(mode) + [[format_timestamp(dt.now()), gap, oat_diff, minutes]]
+        setattr(self, f"observations_{mode.value}", history[-self.HISTORY:])
+        self.record = _record(mode=mode.value, gap=gap, oat_diff=oat_diff, minutes=minutes,
+                              observations=len(self._history(mode)))
+
+    def _train_mode(self, data: pd.DataFrame, mode: OperatingMode) -> None:
+        """
+        Not used: observations are recorded by :meth:`train`.
+
+        :raises NotImplementedError: Always.
+        """
+        raise NotImplementedError("RecoveryRegression records observations in train()")
+
+    def _observe(self, window: pd.DataFrame, schedule):
+        """
+        This morning's observation, if it is a usable recovery.
+
+        The unit start is the first supply-fan-on minute in the window; conditions
+        are taken from the last reading before it. The recovery ends at the first
+        minute the zone is within ``TARGET_DEVIATION`` of setpoint, or at the
+        observation horizon if not reached.
+
+        :param window: Training window (local time), through the horizon.
+        :type window: pd.DataFrame
+        :param schedule: Today's schedule (uses ``schedule.start``).
+        :return: ``(mode, gap, oat_diff or None, minutes)``; None if the fan never
+            ran, the zone reading is missing/stale, no recovery was needed, or the
+            data ends before the horizon without reaching the target.
+        :rtype: tuple[OperatingMode, float, float | None, float] | None
+        """
+        fan_on = window.index[window["supplyfanstatus"] != 0]
+        if len(fan_on) == 0:
+            return None
+        start = fan_on[0]
+        before = window[window.index < start].ffill()
+        if before.empty:
+            return None
+        cond = ZoneConditions.from_row(before.iloc[-1])
+        if not np.isfinite(cond.zone_temperature):
+            return None                                   # stale / missing zone reading
+        mode = self._determine_mode(cond)
+        if mode is None:
+            return None                                   # no recovery needed this morning
+
+        occupancy = start.replace(hour=schedule.start.hour, minute=schedule.start.minute, second=0, microsecond=0)
+        horizon = occupancy + pd.Timedelta(minutes=self.horizon_minutes)
+        after = window[window.index >= start]
+        if mode is OperatingMode.COOLING:
+            hit = after[after["zonetemperature"] <= after["coolingsetpoint"] + self.TARGET_DEVIATION]
+        else:
+            hit = after[after["zonetemperature"] >= after["heatingsetpoint"] - self.TARGET_DEVIATION]
+        if len(hit):
+            minutes = (hit.index[0] - start).total_seconds() / 60.0
+        elif after.index[-1] >= horizon - pd.Timedelta(minutes=5):
+            minutes = (horizon - start).total_seconds() / 60.0   # not reached by the horizon
+        else:
+            return None                                   # data ends before the horizon: incomplete
+        oat_diff = cond.outdoor_error(mode)
+        return mode, float(cond.zone_error(mode)), (float(oat_diff) if np.isfinite(oat_diff) else None), float(minutes)
+
+    # -- Prediction ---------------------------------------------------------
+
+    def calculate_prestart(self, data: pd.DataFrame) -> float:
+        """
+        Minutes needed for today's gap and outdoor air.
+
+        :param data: Current device data; the last row is "now".
+        :type data: pd.DataFrame
+        :return: Prestart in minutes, clamped to [latest, earliest]
+            (``latest_start_time`` if no recovery is needed, ``earliest_start_time``
+            if not trained for the mode).
+        :rtype: float
+        """
+        cond = self._current_conditions(data)
+        if cond is None:
+            return self.earliest_start_time
+        mode = self._determine_mode(cond)
+        if mode is None:
+            return self.latest_start_time
+        if not self.trained_for(mode):
+            return self.earliest_start_time
+        oat_diff = cond.outdoor_error(mode)
+        prestart = self._fit_predict(self._history(mode), cond.zone_error(mode), oat_diff)
+        return float(np.clip(prestart, self.latest_start_time, self.earliest_start_time))
+
+    def _fit_predict(self, history: list, gap: float, oat_diff: float) -> float:
+        """
+        Fit the history and predict one morning, including the early margin.
+
+        :param history: Observations for the mode.
+        :type history: list
+        :param gap: Today's zone gap (°F).
+        :type gap: float
+        :param oat_diff: Today's outdoor-air difference (°F); NaN if unavailable.
+        :type oat_diff: float
+        :return: Predicted minutes (unclamped).
+        :rtype: float
+        """
+        obs = np.array([[o[1], np.nan if o[2] is None else o[2], o[3]] for o in history], dtype=float)
+        age = np.arange(len(obs))[::-1].astype(float)          # 0 = newest observation
+        with_oat = np.isfinite(oat_diff) and np.isfinite(obs[:, 1]).sum() >= self.MIN_OBSERVATIONS
+        if with_oat:
+            keep = np.isfinite(obs[:, 1])
+            obs, age = obs[keep], age[keep]
+            design = np.column_stack([np.ones(len(obs)), obs[:, 0], obs[:, 0] * obs[:, 1]])
+            x = np.array([1.0, gap, gap * oat_diff])
+        else:
+            design = np.column_stack([np.ones(len(obs)), obs[:, 0]])
+            x = np.array([1.0, gap])
+        if not self.HALF_LIFE:                                  # equal weights (unweighted fit)
+            coef, residuals = self._huber_fit(design, obs[:, 2])
+            return float(x @ coef + np.quantile(residuals, self.MARGIN_QUANTILE))
+        recency = 0.5 ** (age / self.HALF_LIFE)
+        coef, residuals = self._huber_fit(design, obs[:, 2], recency)
+        return float(x @ coef + _weighted_quantile(residuals, recency, self.MARGIN_QUANTILE))
+
+    @classmethod
+    def _huber_fit(cls, design: np.ndarray, y: np.ndarray, base_weights: Optional[np.ndarray] = None,
+                   iterations: int = 5):
+        """
+        Robust least squares (iteratively reweighted, Huber weights).
+
+        Each pass fits weighted least squares, estimates the typical residual from
+        the median absolute deviation, and down-weights observations whose residual
+        exceeds ``_HUBER_K`` times that scale, so one unusual morning cannot pull the
+        fit far. The Huber weights multiply ``base_weights`` (the recency weights).
+
+        :param design: Design matrix (one row per observation).
+        :type design: np.ndarray
+        :param y: Observed minutes.
+        :type y: np.ndarray
+        :param base_weights: Per-observation weights (default: all 1).
+        :type base_weights: np.ndarray | None
+        :param iterations: Reweighting passes.
+        :type iterations: int
+        :return: ``(coefficients, residuals)`` of the final pass.
+        :rtype: tuple[np.ndarray, np.ndarray]
+        """
+        base = np.ones(len(y)) if base_weights is None else np.asarray(base_weights, dtype=float)
+        weights = base.copy()
+        for _ in range(iterations):
+            sw = np.sqrt(weights)
+            coef, *_ = np.linalg.lstsq(design * sw[:, None], y * sw, rcond=None)
+            residuals = y - design @ coef
+            scale = 1.4826 * np.median(np.abs(residuals - np.median(residuals))) or 1.0
+            k = cls._HUBER_K * scale
+            weights = base * np.where(np.abs(residuals) <= k, 1.0, k / np.maximum(np.abs(residuals), 1e-9))
+        return coef, residuals
